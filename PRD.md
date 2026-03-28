@@ -171,19 +171,19 @@ Diese Punkte wurden identifiziert, sind aber nicht Teil des MVP. Priorisierung n
 
 | # | Erweiterung | Beschreibung | Nutzen |
 |---|---|---|---|
-| 1 | **Dashboard mit KPIs** | Startseite mit: Umsatz laufender Monat, offene Lieferungen, Lageralarm-Zähler, Top-5-Kunden, fällige Lieferungen | Alles auf einen Blick – kein mühsames Zusammenklicken |
-| 2 | **Saisonale Prognose** | Verbrauchsmuster nach Kalendermonat auswerten; Prognose berücksichtigt saisonale Schwankungen (Dünger März/April, Saatgut Frühjahr/Herbst, Futter gleichmäßig) | Verhindert Fehlbestellungen durch rein lineare Hochrechnung |
+| 1 | ~~**Dashboard mit KPIs**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 12) | — |
+| 2 | ~~**Saisonale Prognose**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 9) | — |
 | 3 | **Chargen- / MHD-Tracking** | Mindesthaltbarkeitsdatum pro Wareneingangsposition, FIFO-Warnung bei ablaufender Ware, Filterung nach Chargen | Pflicht für Saatgut & bestimmte Futtermittel; vermeidet Haftungsrisiken |
-| 4 | **Wiederkehrende Lieferungen automatisch anlegen** | Aus KundeBedarf (Menge + Intervall) automatisch Lieferungen als „geplant" vorbelegen | Spart manuelle Erfassung bei Stammkunden; nichts wird vergessen |
+| 4 | ~~**Wiederkehrende Lieferungen automatisch anlegen**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 7) | — |
 | 5 | **Stornobegründung & Kundenkommunikations-Log** | Pflichtfeld bei Stornierung; freie Gesprächsnotizen pro Kunde (Datum, Bearbeiter, Text) | Wissen bleibt im System, auch wenn jemand krank ist |
 
 ### Priorität 2 – Mittelfristig (strategisch wichtig)
 
 | # | Erweiterung | Beschreibung | Nutzen |
 |---|---|---|---|
-| 6 | **Rechnungserstellung** | PDF-Rechnung direkt aus Lieferung generieren (Logo, Steuern, Zahlungsziel, fortlaufende Rechnungsnummer) | Ersetzt das zweite Tool; alles in einem System |
-| 7 | **Lieferantenbestellung per PDF / E-Mail** | Bestellvorschlag als fertiges Bestelldokument direkt an Lieferant senden (PDF-Anhang oder mailto-Link) | Spart Zeit, verhindert Fehler beim manuellen Abtippen |
-| 8 | **Preislisten-Import vom Lieferanten** | Einkaufspreise via Excel-Upload aktualisieren; Vorschau + Bestätigung vor Übernahme; Preishistorie pro ArtikelLieferant | Preisänderungen in Sekunden statt stundenlanger Handpflege; alte Margen bleiben nachvollziehbar |
+| 6 | ~~**Rechnungserstellung**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 14) | — |
+| 7 | ~~**Lieferantenbestellung per PDF / E-Mail**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 15) | — |
+| 8 | ~~**Preislisten-Import vom Lieferanten**~~ | ✅ **In MVP aufgenommen** (Kapitel 8, Punkt 16) | — |
 | 9 | **Mehrere Lagerorte** | Lagerbestand pro Artikel auf mehrere Standorte aufteilen (Hauptlager, Außenlager, Scheune); Gesamtbestand + Bestand je Standort | Sobald mehr als ein physischer Lagerort existiert zwingend notwendig |
 | 10 | **E-Mail-Benachrichtigung** | Automatische E-Mail bei Lagerunterschreitung, ablaufendem MHD und fälligen Lieferungen | Proaktive Warnung ohne tägliches Einloggen |
 
@@ -270,13 +270,33 @@ Lagerbewegung
 
 ## 8. MVP-Scope (Phase 1 – wird jetzt gebaut)
 
+### Stammdaten & Verwaltung
 1. Kundenverwaltung inkl. Mehrfachkontakte (Telefon, E-Mail) und Adresspflege
 2. Kundenkarte (OSM) mit Geocoding
 3. Artikelverwaltung mit Lieferantenzuordnung & Preisen
 4. Lieferantenverwaltung
-5. Lagerverwaltung (Bestand, Mindestbestand, Wareneingänge, Korrekturen)
+
+### Lager & Logistik
+5. Lagerverwaltung (Bestand, Mindestbestand, Wareneingänge, Korrekturen, Ampelsystem)
 6. Lieferungserfassung mit automatischer Bestandsreduzierung & Margenanzeige
-7. Prognose: Reichweite & Bestellvorschlag
-8. Preismanagement (Standard + kundenspezifisch) & Margenanzeige
-9. Exporte: CSV/XLSX für alle Kernbereiche, PDF Bestellvorschlag
-10. Docker-Deployment
+7. Wiederkehrende Lieferungen automatisch anlegen (aus KundeBedarf)
+
+### Prognose & Planung
+8. Prognose: Reichweite in Tagen & Bestellvorschlag (linear)
+9. Saisonale Prognose: Verbrauch nach Kalendermonat gewichten
+
+### Preise & Margen
+10. Preismanagement (Standard + kundenspezifisch) & Margenanzeige live
+11. Preishistorie: jede Preisänderung wird versioniert gespeichert
+
+### Übersicht & Auswertung
+12. Dashboard mit KPIs: Umsatz, offene Lieferungen, Lageralarme, Top-Kunden, fällige Lieferungen
+
+### Dokumente & Export
+13. Exporte: CSV/XLSX für alle Kernbereiche
+14. Rechnungserstellung als PDF (aus Lieferung, mit Logo-Platzhalter, Steuern, Zahlungsziel)
+15. Lieferantenbestellung als PDF (Bestellvorschlag je Lieferant)
+16. Preislisten-Import vom Lieferanten (Excel-Upload, Vorschau, Bestätigung)
+
+### Infrastruktur
+17. Docker-Deployment (Dockerfile + docker-compose)
