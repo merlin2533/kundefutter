@@ -52,7 +52,7 @@ interface Artikel {
 
 interface PreishistorieEntry {
   id: number;
-  datum: string;
+  geaendertAm: string;
   alterPreis: number;
   neuerPreis: number;
 }
@@ -640,7 +640,7 @@ export default function ArtikelDetailPage() {
                   const diffCls = diff > 0 ? "text-red-600" : diff < 0 ? "text-green-700" : "text-gray-500";
                   return (
                     <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{formatDatum(p.datum)}</td>
+                      <td className="px-4 py-3">{formatDatum(p.geaendertAm)}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(p.neuerPreis)}</td>
                       <td className={`px-4 py-3 font-mono font-medium ${diffCls}`}>
