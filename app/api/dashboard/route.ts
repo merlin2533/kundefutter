@@ -60,9 +60,23 @@ export async function GET() {
     );
   }, 0);
 
-  const lagerAlarme = lagerArtikel.filter(
-    (a) => lagerStatus(a.aktuellerBestand, a.mindestbestand) !== "gruen"
-  ).length;
+  const lagerAlarmArtikel = lagerArtikel
+    .filter((a) => lagerStatus(a.aktuellerBestand, a.mindestbestand) !== "gruen")
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      aktuellerBestand: a.aktuellerBestand,
+      mindestbestand: a.mindestbestand,
+      einheit: a.einheit,
+      status: lagerStatus(a.aktuellerBestand, a.mindestbestand) as "rot" | "gelb",
+    }))
+    .sort((a, b) => {
+      if (a.status === b.status) return 0;
+      return a.status === "rot" ? -1 : 1;
+    })
+    .slice(0, 10);
+
+  const lagerAlarme = lagerAlarmArtikel.length;
 
   const heuteStart = new Date(heute);
   heuteStart.setHours(0, 0, 0, 0);
@@ -157,6 +171,7 @@ export async function GET() {
     umsatzMonat: Math.round(umsatzMonat * 100) / 100,
     deckungsbeitragMonat: Math.round(deckungsbeitragMonat * 100) / 100,
     lagerAlarme,
+    artikelAlarme: lagerAlarmArtikel,
     faelligNaechste14Tage,
     offeneRechnungen,
     ueberfaelligeRechnungen,

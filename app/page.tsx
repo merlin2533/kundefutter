@@ -22,6 +22,7 @@ interface DashboardData {
   wiederkehrendFaellig: number;
   topKunden: { kundeId: number; name: string; umsatz: number }[];
   markttrend: MarktTrend[];
+  artikelAlarme: { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string; status: string }[];
 }
 
 interface Aktivitaet {
@@ -317,6 +318,42 @@ export default function DashboardPage() {
           </Card>
         )}
       </div>
+
+      {/* Row 4: Lager-Alarme detail widget (only when alarms exist) */}
+      {data.artikelAlarme.length > 0 && (
+        <div className="mt-6">
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Lager-Alarme</h2>
+              <Link href="/lager" className="text-xs text-green-700 hover:underline">
+                → Lager
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+              {data.artikelAlarme.map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/artikel/${a.id}`}
+                  className="flex items-start gap-2 p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                  <span
+                    className={`mt-0.5 shrink-0 w-2.5 h-2.5 rounded-full ${
+                      a.status === "rot" ? "bg-red-500" : "bg-yellow-400"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{a.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {a.aktuellerBestand.toLocaleString("de-DE")} {a.einheit} / mind.{" "}
+                      {a.mindestbestand.toLocaleString("de-DE")} {a.einheit}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

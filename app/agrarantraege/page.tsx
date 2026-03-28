@@ -67,6 +67,7 @@ export default function AgrarantraegeePage() {
   const [linkKunden, setLinkKunden] = useState<{ id: number; name: string; firma: string | null }[]>([]);
   const [linkSearch, setLinkSearch] = useState("");
   const [linkSaving, setLinkSaving] = useState(false);
+  const [updateFlaeche, setUpdateFlaeche] = useState(false);
 
   // Detail expand
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -96,6 +97,7 @@ export default function AgrarantraegeePage() {
   async function openLink(item: AntragEmpfaenger) {
     setLinkItem(item);
     setLinkSearch(item.name.split(" ").slice(0, 2).join(" "));
+    setUpdateFlaeche(item.egflGesamt > 0);
     const res = await fetch("/api/kunden");
     const data = await res.json();
     setLinkKunden(Array.isArray(data) ? data : []);
@@ -109,6 +111,13 @@ export default function AgrarantraegeePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kundeId }),
     });
+    if (updateFlaeche && kundeId && linkItem.egflGesamt > 0) {
+      await fetch(`/api/kunden/${kundeId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flaeche: Math.round(linkItem.egflGesamt / 280) }),
+      });
+    }
     setLinkItem(null);
     setLinkSaving(false);
     fetchItems();
@@ -402,6 +411,25 @@ export default function AgrarantraegeePage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <h2 className="text-lg font-semibold mb-1">Mit Kunden verknüpfen</h2>
             <p className="text-sm text-gray-500 mb-4">{linkItem.name}</p>
+
+            {/* Payment + farm size info block */}
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-amber-700 font-medium">Gesamtzahlung:</span>
+                <span className="font-semibold text-amber-900">{formatEurAntrag(linkItem.gesamtBetrag)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-amber-700">EGFL:</span>
+                <span className="text-amber-900">{linkItem.egflGesamt > 0 ? formatEurAntrag(linkItem.egflGesamt) : "—"}</span>
+              </div>
+              {linkItem.egflGesamt > 0 && (
+                <div className="flex justify-between border-t border-amber-200 pt-1 mt-1">
+                  <span className="text-green-700 font-medium">Geschätzte Fläche:</span>
+                  <span className="font-semibold text-green-800">~{Math.round(linkItem.egflGesamt / 280)} ha <span className="font-normal text-xs text-green-600">(Richtwert)</span></span>
+                </div>
+              )}
+            </div>
+
             <input
               type="text"
               placeholder="Kunden suchen…"
@@ -410,6 +438,19 @@ export default function AgrarantraegeePage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-green-600"
               autoFocus
             />
+
+            {/* Update Fläche checkbox */}
+            {linkItem.egflGesamt > 0 && (
+              <label className="flex items-center gap-2 text-sm text-gray-700 mb-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={updateFlaeche}
+                  onChange={(e) => setUpdateFlaeche(e.target.checked)}
+                  className="rounded text-green-700"
+                />
+                Fläche beim Kunden aktualisieren (~{Math.round(linkItem.egflGesamt / 280)} ha)
+              </label>
+            )}
             <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg">
               {filteredLinkKunden.slice(0, 20).map((k) => (
                 <button

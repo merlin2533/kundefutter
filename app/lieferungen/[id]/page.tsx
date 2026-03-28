@@ -41,6 +41,8 @@ export default function LieferungDetailPage() {
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
   const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
+  const [firmaData, setFirmaData] = useState<Record<string, string>>({});
+  const [logo, setLogo] = useState<string>("");
 
   async function load() {
     setLoading(true);
@@ -53,6 +55,17 @@ export default function LieferungDetailPage() {
   }
 
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=firma.")
+      .then(r => r.json())
+      .then(d => setFirmaData(d))
+      .catch(() => {});
+    fetch("/api/einstellungen?prefix=system.logo")
+      .then(r => r.json())
+      .then(d => { if (d["system.logo"]) setLogo(d["system.logo"]); })
+      .catch(() => {});
+  }, []);
 
   async function markiereGeliefert() {
     setActionLoading(true);
@@ -191,21 +204,149 @@ export default function LieferungDetailPage() {
     return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Offen</span>;
   }
 
+  const nettobetrag = lieferung.positionen.reduce(
+    (s, p) => s + p.menge * p.verkaufspreis * (1 - ((p.rabattProzent ?? 0) / 100)),
+    0
+  );
+  const mwst = nettobetrag * 0.19;
+  const bruttobetrag = nettobetrag * 1.19;
+  const docNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
+  const isRechnung = !!lieferung.rechnungNr;
+  const faelligStr = formatDatum(faelligkeitsDatum.toISOString());
+
   return (
     <div>
+      {/* Print-only document layout */}
+      <div className="hidden print:block" style={{ fontFamily: "serif", fontSize: "11pt", color: "#000", padding: "0" }}>
+        {/* Firma Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+          <div>
+            {logo && <img src={logo} style={{ height: "60px", marginBottom: "8px" }} alt="Logo" />}
+            {firmaData["firma.firmenname"] && (
+              <div style={{ fontWeight: "bold", fontSize: "13pt" }}>{firmaData["firma.firmenname"]}</div>
+            )}
+            {firmaData["firma.adresse"] && <div>{firmaData["firma.adresse"]}</div>}
+            {(firmaData["firma.plz"] || firmaData["firma.ort"]) && (
+              <div>{[firmaData["firma.plz"], firmaData["firma.ort"]].filter(Boolean).join(" ")}</div>
+            )}
+            {firmaData["firma.tel"] && <div>Tel: {firmaData["firma.tel"]}</div>}
+            {firmaData["firma.email"] && <div>E-Mail: {firmaData["firma.email"]}</div>}
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: "18pt", fontWeight: "bold", marginBottom: "4px" }}>
+              {isRechnung ? "Rechnung" : "Lieferschein"}
+            </div>
+            <div style={{ fontSize: "10pt", color: "#555" }}>Nr: {docNr}</div>
+            <div style={{ fontSize: "10pt", color: "#555" }}>Datum: {formatDatum(lieferung.datum)}</div>
+            {isRechnung && (
+              <>
+                <div style={{ fontSize: "10pt", color: "#555" }}>Zahlungsziel: {zahlungszielTage} Tage</div>
+                <div style={{ fontSize: "10pt", color: "#555" }}>Fällig am: {faelligStr}</div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <hr style={{ borderTop: "1px solid #333", marginBottom: "16px" }} />
+
+        {/* Empfänger */}
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ fontSize: "9pt", color: "#777", marginBottom: "2px" }}>Empfänger</div>
+          <div style={{ fontWeight: "bold" }}>
+            {lieferung.kunde.firma
+              ? `${lieferung.kunde.firma} (${lieferung.kunde.name})`
+              : lieferung.kunde.name}
+          </div>
+        </div>
+
+        {/* Positions table */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "16px", fontSize: "10pt" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #333" }}>
+              <th style={{ textAlign: "left", padding: "4px 6px" }}>Pos</th>
+              <th style={{ textAlign: "left", padding: "4px 6px" }}>Artikel</th>
+              <th style={{ textAlign: "left", padding: "4px 6px" }}>Charge</th>
+              <th style={{ textAlign: "right", padding: "4px 6px" }}>Menge</th>
+              <th style={{ textAlign: "left", padding: "4px 6px" }}>Einheit</th>
+              <th style={{ textAlign: "right", padding: "4px 6px" }}>Einzelpreis</th>
+              <th style={{ textAlign: "right", padding: "4px 6px" }}>Gesamt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lieferung.positionen.map((p, idx) => {
+              const gesamt = p.menge * p.verkaufspreis * (1 - ((p.rabattProzent ?? 0) / 100));
+              return (
+                <tr key={p.id} style={{ borderBottom: "1px solid #ccc" }}>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top" }}>{idx + 1}</td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top" }}>
+                    <div>{p.artikel.name}</div>
+                    {(p.rabattProzent ?? 0) > 0 && (
+                      <div style={{ fontSize: "9pt", color: "#555" }}>Rabatt {p.rabattProzent}%</div>
+                    )}
+                  </td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
+                    {p.chargeNr ?? "—"}
+                  </td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>{p.menge}</td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(p.verkaufspreis)}</td>
+                  <td style={{ padding: "4px 6px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(gesamt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Totals */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "24px" }}>
+          <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "240px" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "3px 8px" }}>Nettobetrag:</td>
+                <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(nettobetrag)}</td>
+              </tr>
+              <tr>
+                <td style={{ padding: "3px 8px" }}>MwSt 19%:</td>
+                <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(mwst)}</td>
+              </tr>
+              <tr style={{ borderTop: "2px solid #333" }}>
+                <td style={{ padding: "3px 8px", fontWeight: "bold" }}>Bruttobetrag:</td>
+                <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold" }}>{formatEuro(bruttobetrag)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Notiz */}
+        {lieferung.notiz && (
+          <div style={{ marginBottom: "24px", fontSize: "10pt", color: "#555", fontStyle: "italic" }}>
+            Hinweis: {lieferung.notiz}
+          </div>
+        )}
+
+        {/* Footer */}
+        <hr style={{ borderTop: "1px solid #ccc", marginTop: "32px", marginBottom: "8px" }} />
+        <div style={{ fontSize: "9pt", color: "#555", display: "flex", flexWrap: "wrap", gap: "16px" }}>
+          {firmaData["firma.bankname"] && <span>Bank: {firmaData["firma.bankname"]}</span>}
+          {firmaData["firma.iban"] && <span>IBAN: {firmaData["firma.iban"]}</span>}
+          {firmaData["firma.bic"] && <span>BIC: {firmaData["firma.bic"]}</span>}
+          {firmaData["firma.steuernr"] && <span>Steuernr.: {firmaData["firma.steuernr"]}</span>}
+        </div>
+      </div>
+
       {/* Back link */}
-      <Link href="/lieferungen" className="text-sm text-green-700 hover:text-green-900 hover:underline mb-4 inline-block">
+      <Link href="/lieferungen" className="text-sm text-green-700 hover:text-green-900 hover:underline mb-4 inline-block print:hidden">
         ← Zurück zu Lieferungen
       </Link>
 
       {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 print:hidden">
           {error}
         </div>
       )}
 
       {/* Header card */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold mb-1">
@@ -269,6 +410,12 @@ export default function LieferungDetailPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors print:hidden"
+            >
+              🖨 Drucken
+            </button>
             {lieferung.status === "geplant" && (
               <button
                 onClick={markiereGeliefert}
@@ -322,7 +469,7 @@ export default function LieferungDetailPage() {
       </div>
 
       {/* Positions table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto mb-6 print:hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -377,7 +524,7 @@ export default function LieferungDetailPage() {
 
       {/* Storno Modal */}
       {showStornoModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 print:hidden">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Lieferung stornieren</h2>

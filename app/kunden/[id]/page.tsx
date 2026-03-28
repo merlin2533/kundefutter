@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1023,18 +1023,35 @@ function StatistikTab({ kunde }: { kunde: Kunde }) {
       ? gesamtUmsatz / gelieferteLieferungen.length
       : 0;
 
-  // Top 3 Artikel
-  const artikelMap = new Map<string, { menge: number }>();
+  // Top 5 Artikel nach Umsatz
+  const artikelMap = new Map<string, { menge: number; umsatz: number }>();
   for (const l of gelieferteLieferungen) {
     for (const p of l.positionen) {
-      const existing = artikelMap.get(p.artikel.name) ?? { menge: 0 };
-      artikelMap.set(p.artikel.name, { menge: existing.menge + p.menge });
+      const existing = artikelMap.get(p.artikel.name) ?? { menge: 0, umsatz: 0 };
+      artikelMap.set(p.artikel.name, {
+        menge: existing.menge + p.menge,
+        umsatz: existing.umsatz + p.menge * p.verkaufspreis,
+      });
     }
   }
   const topArtikel = Array.from(artikelMap.entries())
-    .map(([name, v]) => ({ name, menge: v.menge }))
-    .sort((a, b) => b.menge - a.menge)
-    .slice(0, 3);
+    .map(([name, v]) => ({ name, menge: v.menge, umsatz: v.umsatz }))
+    .sort((a, b) => b.umsatz - a.umsatz)
+    .slice(0, 5);
+
+  // Jahresvergleich
+  const jahreMap = new Map<number, { umsatz: number; anzahl: number }>();
+  for (const l of gelieferteLieferungen) {
+    const jahr = new Date(l.datum).getFullYear();
+    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    const existing = jahreMap.get(jahr) ?? { umsatz: 0, anzahl: 0 };
+    jahreMap.set(jahr, { umsatz: existing.umsatz + total, anzahl: existing.anzahl + 1 });
+  }
+  const jahresDaten = Array.from(jahreMap.entries())
+    .filter(([, v]) => v.anzahl > 0)
+    .sort(([a], [b]) => b - a)
+    .slice(0, 5)
+    .map(([jahr, v]) => ({ jahr, umsatz: v.umsatz, anzahl: v.anzahl, durchschnitt: v.umsatz / v.anzahl }));
 
   // SVG Chart
   const maxUmsatz = Math.max(...monatsDaten.map((d) => d.umsatz), 1);
@@ -1160,22 +1177,77 @@ function StatistikTab({ kunde }: { kunde: Kunde }) {
         </div>
       </div>
 
-      {/* Top 3 Artikel */}
+      {/* Jahresvergleich */}
+      {jahresDaten.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Jahresvergleich</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border border-gray-200">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Jahr</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Umsatz</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Lieferungen</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Ø Lieferung</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jahresDaten.map((row, i) => {
+                  const vorjahr = jahresDaten[i + 1];
+                  let trendEl: React.ReactNode = <span className="text-gray-400">—</span>;
+                  if (vorjahr && vorjahr.umsatz > 0) {
+                    const diff = (row.umsatz - vorjahr.umsatz) / vorjahr.umsatz;
+                    const absPct = formatPercent(Math.abs(diff) * 100);
+                    trendEl = diff >= 0
+                      ? <span className="text-green-600 font-medium">▲ +{absPct}</span>
+                      : <span className="text-red-600 font-medium">▼ -{absPct}</span>;
+                  }
+                  return (
+                    <tr key={row.jahr} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2.5 font-semibold text-gray-800">{row.jahr}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-800">{formatEuro(row.umsatz)}</td>
+                      <td className="px-3 py-2.5 text-right text-gray-700">{row.anzahl}</td>
+                      <td className="px-3 py-2.5 text-right font-mono text-gray-700">{formatEuro(row.durchschnitt)}</td>
+                      <td className="px-3 py-2.5 text-right">{trendEl}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Top 5 Artikel nach Umsatz */}
       {topArtikel.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Häufigste Artikel (Top 3)</h3>
-          <div className="space-y-2">
-            {topArtikel.map((a, i) => (
-              <div key={a.name} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5 border border-gray-100">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 font-medium w-5">#{i + 1}</span>
-                  <span className="text-sm font-medium text-gray-800">{a.name}</span>
-                </div>
-                <span className="text-sm text-gray-600 font-mono">
-                  {a.menge.toLocaleString("de-DE")} Einh.
-                </span>
-              </div>
-            ))}
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Artikel nach Umsatz (Top 5)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-50 border border-gray-200">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">#</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Artikel</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Menge</th>
+                  <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600">Umsatz</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topArtikel.map((a, i) => (
+                  <tr key={a.name} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2.5 text-xs text-gray-400 font-medium">#{i + 1}</td>
+                    <td className="px-3 py-2.5 font-medium text-gray-800">{a.name}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-600">
+                      {a.menge.toLocaleString("de-DE")} Einh.
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-gray-800 font-semibold">
+                      {formatEuro(a.umsatz)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
