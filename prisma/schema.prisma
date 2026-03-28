@@ -23,6 +23,7 @@ model Kunde {
   lat              Float?
   lng              Float?
   notizen          String?
+  tags             String   @default("[]")  // JSON array of tag strings
   aktiv            Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

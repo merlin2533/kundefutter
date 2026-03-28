@@ -63,9 +63,9 @@ function codeColor(code: string, index: number): string {
 }
 
 // Betriebsmittel main codes
-const BETRIEBSMITTEL_CODES = ["203000", "206000", "201000"];
+const BETRIEBSMITTEL_CODES = ["203000", "206000", "201000", "204000"];
 // Erzeuger main codes
-const ERZEUGER_CODES = ["C0000", "D0000"];
+const ERZEUGER_CODES = ["C0000", "D0000", "F0000", "G0000"];
 
 // ─── Produkt Baum Navigator ───────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function ProduktBaumNav({
   verfuegbareCodes: Set<string>;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(["betriebsmittel", "erzeuger", "203000", "C0000", "D0000"])
+    new Set(["betriebsmittel", "erzeuger", "203000", "C0000", "D0000", "206000", "206100", "206200", "201000", "204000"])
   );
 
   function toggleExpand(code: string) {
@@ -128,7 +128,13 @@ function ProduktBaumNav({
             />
           )}
           {hasChildren && !node.isGroup && (
-            <span className="w-4 flex-shrink-0" />
+            <input
+              type="checkbox"
+              checked={isSelected}
+              disabled={!hasData}
+              onChange={() => onToggle(node.code)}
+              className="mr-1 flex-shrink-0"
+            />
           )}
           <span
             className="flex-1 truncate"

@@ -9,10 +9,14 @@ export async function GET(req: NextRequest) {
   const von = searchParams.get("von");
   const bis = searchParams.get("bis");
   const search = searchParams.get("search");
+  const hatRechnung = searchParams.get("hatRechnung");
+  const ohneRechnung = searchParams.get("ohneRechnung");
 
   const where: Record<string, unknown> = {};
   if (kundeId) where.kundeId = Number(kundeId);
   if (status) where.status = status;
+  if (hatRechnung === "true") where.rechnungNr = { not: null };
+  if (ohneRechnung === "true") where.rechnungNr = null;
   if (search) {
     where.kunde = {
       OR: [

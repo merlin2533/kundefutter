@@ -19,6 +19,7 @@ interface Kunde {
   ort?: string;
   land: string;
   notizen?: string;
+  tags?: string;
   aktiv: boolean;
   kontakte: KundeKontakt[];
 }
@@ -27,6 +28,7 @@ export default function KundenPage() {
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [search, setSearch] = useState("");
   const [nurAktiv, setNurAktiv] = useState(true);
+  const [tagFilter, setTagFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
   const fetchKunden = useCallback(async () => {
@@ -34,11 +36,12 @@ export default function KundenPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (nurAktiv) params.set("aktiv", "true");
+    if (tagFilter.trim()) params.set("tag", tagFilter.trim());
     const res = await fetch(`/api/kunden?${params.toString()}`);
     const data = await res.json();
     setKunden(data);
     setLoading(false);
-  }, [search, nurAktiv]);
+  }, [search, nurAktiv, tagFilter]);
 
   useEffect(() => {
     const t = setTimeout(fetchKunden, 300);
@@ -71,6 +74,13 @@ export default function KundenPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        <input
+          type="text"
+          placeholder="Tag filtern..."
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
         <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm">
           <button
@@ -118,6 +128,13 @@ export default function KundenPage() {
                           <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">inaktiv</span>
                         )}
                         <div className="sm:hidden text-xs text-gray-500 mt-0.5">{kunde.firma}</div>
+                        {(() => { try { const t: string[] = JSON.parse(kunde.tags || "[]"); return t.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {t.map((tag) => (
+                              <span key={tag} className="px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">{tag}</span>
+                            ))}
+                          </div>
+                        ) : null; } catch { return null; } })()}
                       </td>
                       <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{kunde.firma ?? "—"}</td>
                       <td className="hidden md:table-cell px-4 py-3">

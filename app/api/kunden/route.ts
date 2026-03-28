@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   const aktiv = searchParams.get("aktiv");
   const search = searchParams.get("search");
   const karte = searchParams.get("karte"); // nur Kunden mit Koordinaten
+  const tag = searchParams.get("tag");
 
   const where: Record<string, unknown> = {};
   if (aktiv !== null) where.aktiv = aktiv === "true";
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
       { ort: { contains: search } },
       { plz: { contains: search } },
     ];
+  }
+  if (tag) {
+    where.tags = { contains: `"${tag}"` }; // JSON contains check
   }
 
   const kunden = await prisma.kunde.findMany({

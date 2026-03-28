@@ -20,6 +20,7 @@ const groups: NavGroup[] = [
       { href: "/crm", label: "CRM / Aktivitäten" },
       { href: "/gebietsanalyse", label: "Gebietsanalyse" },
       { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
+      { href: "/mailverteiler", label: "Mailverteiler" },
     ],
   },
   {
@@ -43,6 +44,7 @@ const groups: NavGroup[] = [
   {
     label: "Finanzen",
     children: [
+      { href: "/rechnungen", label: "Rechnungen" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },

@@ -43,6 +43,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (lng !== undefined) updateData.lng = lng != null ? Number(lng) : null;
   if (notizen !== undefined) updateData.notizen = notizen || null;
   if (aktiv !== undefined) updateData.aktiv = Boolean(aktiv);
+  if (body.tags !== undefined) {
+    updateData.tags = JSON.stringify(Array.isArray(body.tags) ? body.tags : []);
+  }
 
   if (kontakte !== undefined) {
     updateData.kontakte = {

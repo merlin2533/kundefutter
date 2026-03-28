@@ -75,6 +75,7 @@ interface Kunde {
   lat?: number;
   lng?: number;
   notizen?: string;
+  tags?: string;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -222,6 +223,21 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
   }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [tags, setTags] = useState<string[]>(() => {
+    try { return JSON.parse(kunde.tags || "[]"); } catch { return []; }
+  });
+  const [newTag, setNewTag] = useState("");
+
+  function addTag() {
+    const t = newTag.trim();
+    if (!t || tags.includes(t)) { setNewTag(""); return; }
+    setTags([...tags, t]);
+    setNewTag("");
+  }
+
+  function removeTag(tag: string) {
+    setTags(tags.filter((t) => t !== tag));
+  }
 
   function startEdit() {
     setForm({
@@ -235,6 +251,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       land: kunde.land,
       notizen: kunde.notizen ?? "",
     });
+    setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
     setError("");
     setEditing(true);
   }
@@ -258,6 +275,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           ort: form.ort || null,
           land: form.land || "Deutschland",
           notizen: form.notizen || null,
+          tags,
         }),
       });
       if (!res.ok) throw new Error();
@@ -321,6 +339,16 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
             <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 whitespace-pre-wrap">{kunde.notizen}</p>
           </div>
         )}
+        {(() => { try { const t = JSON.parse(kunde.tags || "[]"); return t.length > 0 ? (
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tags</p>
+            <div className="flex flex-wrap gap-2">
+              {t.map((tag: string) => (
+                <span key={tag} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">{tag}</span>
+              ))}
+            </div>
+          </div>
+        ) : null; } catch { return null; } })()}
         <p className="text-xs text-gray-400">
           Erstellt: {formatDatum(kunde.createdAt)} · Geändert: {formatDatum(kunde.updatedAt)}
         </p>
@@ -375,6 +403,29 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           rows={4}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
         />
+      </div>
+      {/* Tags */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {tags.map((tag: string) => (
+            <span key={tag} className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+              {tag}
+              <button type="button" onClick={() => removeTag(tag)} className="text-green-600 hover:text-green-900 font-bold">×</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTag}
+            onChange={e => setNewTag(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+            placeholder="Neuer Tag..."
+            className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-green-700"
+          />
+          <button type="button" onClick={addTag} className="px-3 py-1 bg-green-700 text-white rounded text-sm hover:bg-green-800">+</button>
+        </div>
       </div>
       <div className="flex gap-3 pt-2">
         <button
