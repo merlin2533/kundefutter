@@ -42,6 +42,7 @@ interface Artikel {
   kategorie: string;
   einheit: string;
   standardpreis: number;
+  mwstSatz: number;
   aktuellerBestand: number;
   mindestbestand: number;
   beschreibung?: string | null;
@@ -122,6 +123,7 @@ export default function ArtikelDetailPage() {
       kategorie: data.kategorie,
       einheit: data.einheit,
       standardpreis: data.standardpreis,
+      mwstSatz: data.mwstSatz,
       mindestbestand: data.mindestbestand,
       beschreibung: data.beschreibung ?? "",
       aktiv: data.aktiv,
@@ -160,6 +162,7 @@ export default function ArtikelDetailPage() {
       body: JSON.stringify({
         ...editForm,
         standardpreis: Number(editForm.standardpreis),
+        mwstSatz: Number(editForm.mwstSatz) || 19,
         mindestbestand: Number(editForm.mindestbestand),
       }),
     });
@@ -397,6 +400,18 @@ export default function ArtikelDetailPage() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">MwSt-Satz</label>
+                <select
+                  value={editForm.mwstSatz ?? 19}
+                  onChange={(e) => setEditForm({ ...editForm, mwstSatz: Number(e.target.value) })}
+                  className={inputCls}
+                >
+                  <option value={0}>0% (Steuerfrei)</option>
+                  <option value={7}>7% (erm&auml;&szlig;igt)</option>
+                  <option value={19}>19% (Regelsatz)</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
                 <textarea
                   rows={3}
@@ -452,6 +467,7 @@ export default function ArtikelDetailPage() {
                   ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
                   ["Einheit", artikel.einheit],
                   ["Standardpreis", formatEuro(artikel.standardpreis)],
+                  ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
                   ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
                   ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
                   ["Status", null],

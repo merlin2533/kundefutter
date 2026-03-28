@@ -26,10 +26,53 @@ export async function GET(req: NextRequest) {
     where.tags = { contains: `"${tag}"` }; // JSON contains check
   }
 
+  const pageParam = searchParams.get("page");
+  const limitParam = searchParams.get("limit");
+  const usePagination = pageParam !== null;
+  const limit = limitParam !== null ? Math.max(1, parseInt(limitParam, 10) || 100) : 100;
+  const page = pageParam !== null ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  const select = {
+    id: true,
+    name: true,
+    firma: true,
+    kategorie: true,
+    plz: true,
+    ort: true,
+    land: true,
+    lat: true,
+    lng: true,
+    aktiv: true,
+    tags: true,
+    kontakte: {
+      select: {
+        id: true,
+        typ: true,
+        wert: true,
+        label: true,
+      },
+    },
+  };
+
+  if (usePagination) {
+    const [kunden, total] = await Promise.all([
+      prisma.kunde.findMany({
+        where,
+        select,
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.kunde.count({ where }),
+    ]);
+    return NextResponse.json({ data: kunden, total, page, limit });
+  }
+
   const kunden = await prisma.kunde.findMany({
     where,
-    include: { kontakte: true },
+    select,
     orderBy: { name: "asc" },
+    take: limit,
   });
   return NextResponse.json(kunden);
 }

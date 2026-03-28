@@ -13,6 +13,7 @@ const defaultForm = {
   einheit: "kg",
   standardpreis: "",
   mindestbestand: "0",
+  mwstSatz: "19",
   lagerort: "",
 };
 
@@ -35,6 +36,7 @@ export default function NeuerArtikelPage() {
       artikelnummer: form.artikelnummer.trim() || undefined,
       standardpreis: Number(form.standardpreis) || 0,
       mindestbestand: Number(form.mindestbestand) || 0,
+      mwstSatz: Number(form.mwstSatz) || 19,
     };
     try {
       const res = await fetch("/api/artikel", {
@@ -163,6 +165,21 @@ export default function NeuerArtikelPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            MwSt-Satz
+          </label>
+          <select
+            value={form.mwstSatz}
+            onChange={(e) => setForm({ ...form, mwstSatz: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+          >
+            <option value="0">0% (Steuerfrei)</option>
+            <option value="7">7% (erm&auml;&szlig;igt)</option>
+            <option value="19">19% (Regelsatz)</option>
+          </select>
         </div>
 
         <div>

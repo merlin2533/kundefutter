@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
     data.artikelnummer = `ART-${String(count + 1).padStart(5, "0")}`;
   }
 
+  if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
+  else data.mwstSatz = 19;
+
   const artikel = await prisma.artikel.create({
     data: {
       ...data,

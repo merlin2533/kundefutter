@@ -2,6 +2,32 @@
 import { useEffect, useState, useCallback } from "react";
 import { formatEuro } from "@/lib/utils";
 
+function exportCsv(gruppen: BestellvorschlagGruppe[], mengenOverride: Record<number, number>) {
+  const rows: string[][] = [["Lieferant", "Artikel", "Artikelnummer", "Einheit", "Vorgeschlagene Menge", "Aktueller Bestand", "Mindestbestand"]];
+  for (const gruppe of gruppen) {
+    for (const pos of gruppe.positionen) {
+      const menge = mengenOverride[pos.artikelId] ?? pos.bestellmenge;
+      rows.push([
+        gruppe.lieferantName,
+        pos.artikelName,
+        pos.artikelnummer,
+        pos.einheit,
+        String(menge),
+        String(pos.aktuellerBestand),
+        String(pos.mindestbestand),
+      ]);
+    }
+  }
+  const csv = rows.map((r) => r.join(";")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `bestellvorschlag-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface PrognoseRow {
   artikelId: number;
   artikelName: string;
@@ -20,6 +46,8 @@ interface BestellvorschlagPosition {
   artikelnummer: string;
   einheit: string;
   bestellmenge: number;
+  aktuellerBestand: number;
+  mindestbestand: number;
   bevorzugterLieferant: {
     lieferantId: number;
     name: string;
@@ -41,15 +69,38 @@ export default function PrognosePageWrapper() {
   const [zielhorizont, setZielhorizont] = useState(14);
   const [schwellwert, setSchwellwert] = useState(21);
   const [saisonal, setSaisonal] = useState(false);
+  const [bestellGruppen, setBestellGruppen] = useState<BestellvorschlagGruppe[]>([]);
+  const [bestellMengenOverride, setBestellMengenOverride] = useState<Record<number, number>>({});
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      {/* Print header — only visible when printing */}
+      <div className="hidden print:block mb-6">
+        <h1 className="text-2xl font-bold">Bestellvorschlag — {new Date().toLocaleDateString("de-DE")}</h1>
+      </div>
+
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap print:hidden">
         <h1 className="text-2xl font-bold">Prognose & Bestellvorschlag</h1>
+        {tab === "bestellvorschlag" && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportCsv(bestellGruppen, bestellMengenOverride)}
+              className="px-4 py-2 text-sm font-medium bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              CSV exportieren
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="px-4 py-2 text-sm font-medium bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors"
+            >
+              Drucken / Exportieren
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 mb-6 border-b border-gray-200 print:hidden">
         {(["prognose", "bestellvorschlag"] as const).map((t) => (
           <button
             key={t}
@@ -66,7 +117,7 @@ export default function PrognosePageWrapper() {
       </div>
 
       {/* Settings bar */}
-      <div className="flex flex-wrap gap-4 mb-6 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+      <div className="flex flex-wrap gap-4 mb-6 bg-white border border-gray-200 rounded-xl p-4 shadow-sm print:hidden">
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Zeitraum</label>
           <select
@@ -123,6 +174,8 @@ export default function PrognosePageWrapper() {
           zielhorizont={zielhorizont}
           schwellwert={schwellwert}
           saisonal={saisonal}
+          onGruppenChange={setBestellGruppen}
+          onMengenOverrideChange={setBestellMengenOverride}
         />
       )}
     </div>
@@ -245,11 +298,15 @@ function BestellvorschlagTab({
   zielhorizont,
   schwellwert,
   saisonal,
+  onGruppenChange,
+  onMengenOverrideChange,
 }: {
   zeitraum: number;
   zielhorizont: number;
   schwellwert: number;
   saisonal: boolean;
+  onGruppenChange?: (gruppen: BestellvorschlagGruppe[]) => void;
+  onMengenOverrideChange?: (override: Record<number, number>) => void;
 }) {
   const [gruppen, setGruppen] = useState<BestellvorschlagGruppe[]>([]);
   const [loading, setLoading] = useState(false);
@@ -260,6 +317,7 @@ function BestellvorschlagTab({
     setLoading(true);
     setError("");
     setMengenOverride({});
+    onMengenOverrideChange?.({});
     try {
       const params = new URLSearchParams({
         zeitraum: String(zeitraum),
@@ -270,13 +328,15 @@ function BestellvorschlagTab({
       const res = await fetch(`/api/prognose/bestellvorschlag?${params}`);
       if (!res.ok) throw new Error("Fehler beim Laden des Bestellvorschlags");
       const data: BestellvorschlagGruppe[] = await res.json();
-      setGruppen(Array.isArray(data) ? data : []);
+      const normalized = Array.isArray(data) ? data : [];
+      setGruppen(normalized);
+      onGruppenChange?.(normalized);
     } catch {
       setError("Fehler beim Laden des Bestellvorschlags.");
     } finally {
       setLoading(false);
     }
-  }, [zeitraum, zielhorizont, schwellwert, saisonal]);
+  }, [zeitraum, zielhorizont, schwellwert, saisonal, onGruppenChange, onMengenOverrideChange]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -285,7 +345,11 @@ function BestellvorschlagTab({
   }
 
   function setMenge(artikelId: number, value: number) {
-    setMengenOverride((prev) => ({ ...prev, [artikelId]: value }));
+    setMengenOverride((prev) => {
+      const next = { ...prev, [artikelId]: value };
+      onMengenOverrideChange?.(next);
+      return next;
+    });
   }
 
   function getEinkaufspreis(p: BestellvorschlagPosition): number {
@@ -332,7 +396,7 @@ function BestellvorschlagTab({
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {["Artikel", "Einheit", "Bestellmenge", "Einkaufspreis", "Gesamtwert"].map((h) => (
+                  {["Artikel", "Art.-Nr.", "Einheit", "Bestellmenge", "Akt. Bestand", "Mindestbestand", "Einkaufspreis", "Gesamtwert"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -345,17 +409,21 @@ function BestellvorschlagTab({
                   return (
                     <tr key={pos.artikelId} className="border-b last:border-0 hover:bg-green-50 transition-colors">
                       <td className="px-4 py-3 font-medium">{pos.artikelName}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs font-mono">{pos.artikelnummer}</td>
                       <td className="px-4 py-3 text-gray-600">{pos.einheit}</td>
                       <td className="px-4 py-3">
+                        <span className="print:inline hidden font-mono">{menge}</span>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
                           value={menge}
                           onChange={(e) => setMenge(pos.artikelId, parseFloat(e.target.value) || 0)}
-                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                          className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 print:hidden"
                         />
                       </td>
+                      <td className="px-4 py-3 font-mono">{pos.aktuellerBestand} {pos.einheit}</td>
+                      <td className="px-4 py-3 font-mono">{pos.mindestbestand} {pos.einheit}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(getEinkaufspreis(pos))}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(menge * getEinkaufspreis(pos))}</td>
                     </tr>
@@ -364,7 +432,7 @@ function BestellvorschlagTab({
               </tbody>
               <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                 <tr>
-                  <td colSpan={4} className="px-4 py-3 font-semibold text-gray-700">Gesamtwert</td>
+                  <td colSpan={7} className="px-4 py-3 font-semibold text-gray-700">Gesamtwert</td>
                   <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gruppeGesamtwert(gruppe))}</td>
                 </tr>
               </tfoot>

@@ -112,6 +112,7 @@ model Artikel {
   einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
   beschreibung     String?
   standardpreis    Float    @default(0)
+  mwstSatz         Float    @default(19) // 0 | 7 | 19
   mindestbestand   Float    @default(0)
   aktuellerBestand Float    @default(0)
   aktiv            Boolean  @default(true)

@@ -24,6 +24,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { lieferanten, ...data } = body;
 
+  if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
+
   const artikel = await prisma.$transaction(async (tx) => {
     // Preishistorie eintragen wenn Preis geändert wurde
     const alt = await tx.artikel.findUnique({ where: { id: Number(id) } });

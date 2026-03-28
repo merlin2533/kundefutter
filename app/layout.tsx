@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
+import SearchPalette from "@/components/SearchPalette";
 
 export const metadata: Metadata = {
   title: "AgrarOffice Röthemeier",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegistration />
+        <SearchPalette />
         <Nav />
         <main className="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
           {children}

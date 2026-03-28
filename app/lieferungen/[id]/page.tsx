@@ -13,7 +13,7 @@ interface Position {
   einkaufspreis: number;
   chargeNr?: string | null;
   rabattProzent?: number;
-  artikel: { id: number; name: string; einheit: string };
+  artikel: { id: number; name: string; einheit: string; mwstSatz: number };
 }
 
 interface Lieferung {
@@ -208,8 +208,15 @@ export default function LieferungDetailPage() {
     (s, p) => s + p.menge * p.verkaufspreis * (1 - ((p.rabattProzent ?? 0) / 100)),
     0
   );
-  const mwst = nettobetrag * 0.19;
-  const bruttobetrag = nettobetrag * 1.19;
+  // Group MwSt by rate
+  const mwstGruppen = lieferung.positionen.reduce<Record<number, number>>((acc, p) => {
+    const satz = p.artikel.mwstSatz ?? 19;
+    const netto = p.menge * p.verkaufspreis * (1 - ((p.rabattProzent ?? 0) / 100));
+    acc[satz] = (acc[satz] ?? 0) + netto * (satz / 100);
+    return acc;
+  }, {});
+  const mwstGesamt = Object.values(mwstGruppen).reduce((s, v) => s + v, 0);
+  const bruttobetrag = nettobetrag + mwstGesamt;
   const docNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
   const isRechnung = !!lieferung.rechnungNr;
   const faelligStr = formatDatum(faelligkeitsDatum.toISOString());
@@ -305,10 +312,12 @@ export default function LieferungDetailPage() {
                 <td style={{ padding: "3px 8px" }}>Nettobetrag:</td>
                 <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(nettobetrag)}</td>
               </tr>
-              <tr>
-                <td style={{ padding: "3px 8px" }}>MwSt 19%:</td>
-                <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(mwst)}</td>
-              </tr>
+              {Object.entries(mwstGruppen).sort(([a], [b]) => Number(a) - Number(b)).map(([satz, betrag]) => (
+                <tr key={satz}>
+                  <td style={{ padding: "3px 8px" }}>MwSt {satz}%:</td>
+                  <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>{formatEuro(betrag)}</td>
+                </tr>
+              ))}
               <tr style={{ borderTop: "2px solid #333" }}>
                 <td style={{ padding: "3px 8px", fontWeight: "bold" }}>Bruttobetrag:</td>
                 <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold" }}>{formatEuro(bruttobetrag)}</td>

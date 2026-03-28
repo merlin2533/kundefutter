@@ -18,11 +18,15 @@ interface Kunde {
   plz?: string;
   ort?: string;
   land: string;
+  lat?: number | null;
+  lng?: number | null;
   notizen?: string;
   tags?: string;
   aktiv: boolean;
   kontakte: KundeKontakt[];
 }
+
+const PAGE_LIMIT = 100;
 
 export default function KundenPage() {
   const [kunden, setKunden] = useState<Kunde[]>([]);
@@ -30,23 +34,38 @@ export default function KundenPage() {
   const [nurAktiv, setNurAktiv] = useState(true);
   const [tagFilter, setTagFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState<number | null>(null);
 
-  const fetchKunden = useCallback(async () => {
+  const fetchKunden = useCallback(async (currentPage: number) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (nurAktiv) params.set("aktiv", "true");
     if (tagFilter.trim()) params.set("tag", tagFilter.trim());
+    params.set("page", String(currentPage));
+    params.set("limit", String(PAGE_LIMIT));
     const res = await fetch(`/api/kunden?${params.toString()}`);
-    const data = await res.json();
-    setKunden(data);
+    const json = await res.json();
+    if (currentPage === 1) {
+      setKunden(json.data ?? []);
+    } else {
+      setKunden((prev) => [...prev, ...(json.data ?? [])]);
+    }
+    setTotal(json.total ?? null);
     setLoading(false);
   }, [search, nurAktiv, tagFilter]);
 
+  // Reset to page 1 when filters change
   useEffect(() => {
-    const t = setTimeout(fetchKunden, 300);
+    setPage(1);
+    setTotal(null);
+  }, [search, nurAktiv, tagFilter]);
+
+  useEffect(() => {
+    const t = setTimeout(() => fetchKunden(page), 300);
     return () => clearTimeout(t);
-  }, [fetchKunden]);
+  }, [fetchKunden, page]);
 
   function getKontaktInfo(kontakte: KundeKontakt[]) {
     const phone = kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
@@ -98,6 +117,20 @@ export default function KundenPage() {
         </div>
       </div>
 
+      {/* Geocoding-Hinweis */}
+      {!loading && (() => {
+        const ohneKoord = kunden.filter((k) => k.lat == null || k.lng == null).length;
+        if (ohneKoord === 0) return null;
+        return (
+          <div className="mb-3 text-sm text-gray-500">
+            {ohneKoord} von {total ?? kunden.length} Kunden ohne Koordinaten (aktuell geladen) —{" "}
+            <Link href="/einstellungen/adressen" className="text-green-700 hover:underline font-medium">
+              Batch-Geocoding →
+            </Link>
+          </div>
+        );
+      })()}
+
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
@@ -111,6 +144,7 @@ export default function KundenPage() {
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
                   <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Firma</th>
+                  <th className="hidden md:table-cell text-center px-2 py-3 font-medium text-gray-600" title="Geocoding-Status">Geo</th>
                   <th className="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Kategorie</th>
                   <th className="hidden lg:table-cell text-left px-4 py-3 font-medium text-gray-600">Ort</th>
                   <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Kontakte</th>
@@ -137,6 +171,13 @@ export default function KundenPage() {
                         ) : null; } catch { return null; } })()}
                       </td>
                       <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{kunde.firma ?? "—"}</td>
+                      <td className="hidden md:table-cell text-center px-2 py-3">
+                        {kunde.lat != null && kunde.lng != null ? (
+                          <span title={`${kunde.lat.toFixed(4)}, ${kunde.lng.toFixed(4)}`} className="inline-block w-3 h-3 rounded-full bg-green-500" />
+                        ) : (
+                          <span title="Keine Koordinaten" className="inline-block w-3 h-3 rounded-full bg-gray-300" />
+                        )}
+                      </td>
                       <td className="hidden md:table-cell px-4 py-3">
                         <KategorieBadge kategorie={kunde.kategorie} />
                       </td>
@@ -164,6 +205,25 @@ export default function KundenPage() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {total !== null && kunden.length < total && (
+        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+          <span>{kunden.length} von {total} Kunden geladen</span>
+          <button
+            onClick={() => setPage((p) => p + 1)}
+            disabled={loading}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium text-gray-700 disabled:opacity-50"
+          >
+            {loading ? "Lade…" : "Mehr laden"}
+          </button>
+        </div>
+      )}
+      {total !== null && kunden.length >= total && total > PAGE_LIMIT && (
+        <div className="mt-4 text-sm text-gray-400 text-center">
+          Alle {total} Kunden geladen.
+        </div>
+      )}
     </div>
   );
 }

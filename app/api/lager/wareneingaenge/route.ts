@@ -50,7 +50,20 @@ export async function POST(req: NextRequest) {
           notiz: `Wareneingang von ${we.id}`,
         },
       });
-      // Einkaufspreis beim Lieferanten aktualisieren (optional)
+      // Einkaufspreis beim Lieferanten aktualisieren + Preishistorie
+      const artLief = await tx.artikelLieferant.findFirst({
+        where: { artikelId: pos.artikelId, lieferantId },
+      });
+      if (artLief && artLief.einkaufspreis !== pos.einkaufspreis) {
+        await tx.artikelPreisHistorie.create({
+          data: {
+            artikelId: pos.artikelId,
+            alterPreis: artLief.einkaufspreis,
+            neuerPreis: pos.einkaufspreis,
+            notiz: `Wareneingang #${we.id} — Einkaufspreis aktualisiert`,
+          },
+        });
+      }
       await tx.artikelLieferant.updateMany({
         where: { artikelId: pos.artikelId, lieferantId },
         data: { einkaufspreis: pos.einkaufspreis },
