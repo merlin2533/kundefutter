@@ -18,6 +18,7 @@ const groups: NavGroup[] = [
       { href: "/kunden/karte", label: "Karte" },
       { href: "/kundenimport", label: "Import" },
       { href: "/crm", label: "CRM / Aktivitäten" },
+      { href: "/gebietsanalyse", label: "Gebietsanalyse" },
     ],
   },
   {
@@ -48,6 +49,7 @@ const groups: NavGroup[] = [
     children: [
       { href: "/statistik", label: "Statistik" },
       { href: "/prognose", label: "Prognose" },
+      { href: "/marktpreise", label: "Marktpreise" },
     ],
   },
   { label: "Einstellungen", href: "/einstellungen" },

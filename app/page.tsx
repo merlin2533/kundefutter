@@ -4,6 +4,12 @@ import { KpiCard, Card } from "@/components/Card";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 
+interface MarktTrend {
+  kategorie: string;
+  aktuell: number;
+  veraenderung: number;
+}
+
 interface DashboardData {
   kundenAktiv: number;
   offeneLieferungen: number;
@@ -14,6 +20,7 @@ interface DashboardData {
   offeneRechnungen: number;
   ueberfaelligeRechnungen: number;
   topKunden: { kundeId: number; name: string; umsatz: number }[];
+  markttrend: MarktTrend[];
 }
 
 export default function DashboardPage() {
@@ -93,7 +100,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className={`grid gap-6 ${data.markttrend.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
         <Card>
           <h2 className="font-semibold mb-3">Top-Kunden (laufender Monat)</h2>
           {data.topKunden.length === 0 ? (
@@ -121,6 +128,37 @@ export default function DashboardPage() {
             </table>
           )}
         </Card>
+
+        {data.markttrend.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Markttrend (Eurostat)</h2>
+              <Link href="/marktpreise" className="text-xs text-green-700 hover:underline">
+                Details →
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {data.markttrend.map((t) => {
+                const isUp = t.veraenderung > 2;
+                const isDown = t.veraenderung < -2;
+                const color = isUp ? "text-red-600" : isDown ? "text-green-600" : "text-gray-500";
+                const arrow = isUp ? "▲" : isDown ? "▼" : "●";
+                return (
+                  <div key={t.kategorie} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{t.kategorie}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium">{t.aktuell}</span>
+                      <span className={`text-xs font-medium ${color}`}>
+                        {arrow} {t.veraenderung > 0 ? "+" : ""}{t.veraenderung}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">Index 2015 = 100</p>
+          </Card>
+        )}
 
         <Card>
           <h2 className="font-semibold mb-3">Schnellzugriff</h2>
