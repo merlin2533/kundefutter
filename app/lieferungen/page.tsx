@@ -42,13 +42,15 @@ interface Artikel {
 }
 
 interface WiederkehrendBedarf {
-  id: number;
-  kundeId: number;
-  kunde: { name: string };
-  artikelId: number;
-  artikel: { name: string; einheit: string };
-  menge: number;
-  intervallTage: number;
+  bedarf: {
+    id: number;
+    kundeId: number;
+    artikelId: number;
+    menge: number;
+    intervallTage: number;
+    kunde: { name: string };
+    artikel: { name: string; einheit: string };
+  };
   letztesDatum?: string;
   naechstesDatum?: string;
   ueberfaellig: boolean;
@@ -212,7 +214,7 @@ export default function LieferungenPage() {
     if (selected.size === wiederkehrend.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(wiederkehrend.map((w) => w.id)));
+      setSelected(new Set(wiederkehrend.map((w) => w.bedarf.id)));
     }
   }
 
