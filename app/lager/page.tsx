@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
 
@@ -29,33 +30,10 @@ interface Bewegung {
   artikel: { id: number; name: string; einheit: string };
 }
 
-interface Lieferant {
-  id: number;
-  name: string;
-}
-
-interface Artikel {
-  id: number;
-  name: string;
-  einheit: string;
-}
-
 type FilterMode = "alle" | "alarme" | "leer";
 
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
-
-const defaultWEForm = {
-  lieferantId: "",
-  datum: new Date().toISOString().slice(0, 10),
-  notiz: "",
-};
-
-type WEPosition = {
-  artikelId: string;
-  menge: number;
-  einkaufspreis: number;
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -67,22 +45,11 @@ export default function LagerPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterMode>("alle");
 
-  // Korrektur modal
+  // Korrektur inline
   const [korrekturArtikel, setKorrekturArtikel] = useState<LagerArtikel | null>(null);
   const [korrekturForm, setKorrekturForm] = useState({ neuerBestand: 0, notiz: "" });
   const [savingKorrektur, setSavingKorrektur] = useState(false);
   const [korrekturError, setKorrekturError] = useState("");
-
-  // Wareneingang modal
-  const [showWEModal, setShowWEModal] = useState(false);
-  const [lieferantenList, setLieferantenList] = useState<Lieferant[]>([]);
-  const [artikelList, setArtikelList] = useState<Artikel[]>([]);
-  const [weForm, setWeForm] = useState(defaultWEForm);
-  const [wePositionen, setWePositionen] = useState<WEPosition[]>([
-    { artikelId: "", menge: 0, einkaufspreis: 0 },
-  ]);
-  const [savingWE, setSavingWE] = useState(false);
-  const [weError, setWeError] = useState("");
 
   // Bewegungen
   const [bewegungen, setBewegungen] = useState<Bewegung[]>([]);
@@ -166,74 +133,6 @@ export default function LagerPage() {
     }
   }
 
-  // ── Wareneingang ─────────────────────────────────────────────────────────
-  async function openWEModal() {
-    setShowWEModal(true);
-    setWeError("");
-    setWeForm(defaultWEForm);
-    setWePositionen([{ artikelId: "", menge: 0, einkaufspreis: 0 }]);
-    if (lieferantenList.length === 0) {
-      const res = await fetch("/api/lieferanten");
-      const data = await res.json();
-      setLieferantenList(data);
-    }
-    if (artikelList.length === 0) {
-      const res = await fetch("/api/artikel?limit=500");
-      const data = await res.json();
-      setArtikelList(data);
-    }
-  }
-
-  function addPosition() {
-    setWePositionen([...wePositionen, { artikelId: "", menge: 0, einkaufspreis: 0 }]);
-  }
-
-  function removePosition(idx: number) {
-    setWePositionen(wePositionen.filter((_, i) => i !== idx));
-  }
-
-  function updatePosition(idx: number, field: keyof WEPosition, value: string | number) {
-    setWePositionen(
-      wePositionen.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
-    );
-  }
-
-  async function submitWE() {
-    if (!weForm.lieferantId) { setWeError("Bitte einen Lieferanten wählen."); return; }
-    if (wePositionen.length === 0 || wePositionen.every((p) => !p.artikelId)) {
-      setWeError("Bitte mindestens eine Position hinzufügen."); return;
-    }
-    const invalidPos = wePositionen.some((p) => p.artikelId && p.menge <= 0);
-    if (invalidPos) { setWeError("Alle Positionen benötigen eine Menge > 0."); return; }
-
-    setSavingWE(true);
-    setWeError("");
-    const res = await fetch("/api/lager/wareneingaenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lieferantId: Number(weForm.lieferantId),
-        datum: weForm.datum,
-        notiz: weForm.notiz || undefined,
-        positionen: wePositionen
-          .filter((p) => p.artikelId)
-          .map((p) => ({
-            artikelId: Number(p.artikelId),
-            menge: Number(p.menge),
-            einkaufspreis: Number(p.einkaufspreis),
-          })),
-      }),
-    });
-    setSavingWE(false);
-    if (res.ok) {
-      setShowWEModal(false);
-      fetchArtikel();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setWeError(d.error ?? "Fehler beim Speichern.");
-    }
-  }
-
   // ─── TypBadge helper ──────────────────────────────────────────────────────
   function TypBadge({ typ }: { typ: string }) {
     const map: Record<string, string> = {
@@ -254,12 +153,12 @@ export default function LagerPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Lager</h1>
-        <button
-          onClick={openWEModal}
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        <Link
+          href="/lager/wareneingang"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Wareneingang
-        </button>
+        </Link>
       </div>
 
       {/* Summary cards */}
@@ -447,7 +346,7 @@ export default function LagerPage() {
         </div>
       )}
 
-      {/* ── Korrektur Modal ───────────────────────────────────────────────────── */}
+      {/* ── Korrektur Modal (small inline, kept as quick action) ──────────────── */}
       {korrekturArtikel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
@@ -495,157 +394,6 @@ export default function LagerPage() {
                   className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
                 >
                   {savingKorrektur ? "Speichern…" : "Korrektur speichern"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Wareneingang Modal ────────────────────────────────────────────────── */}
-      {showWEModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Neuer Wareneingang</h2>
-              <button
-                onClick={() => setShowWEModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <div className="p-5 space-y-5">
-              {weError && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{weError}</p>
-              )}
-
-              {/* Header fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lieferant <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={weForm.lieferantId}
-                    onChange={(e) => setWeForm({ ...weForm, lieferantId: e.target.value })}
-                    className={inputCls}
-                  >
-                    <option value="">– Lieferant wählen –</option>
-                    {lieferantenList.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-                  <input
-                    type="date"
-                    value={weForm.datum}
-                    onChange={(e) => setWeForm({ ...weForm, datum: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notiz</label>
-                  <input
-                    type="text"
-                    value={weForm.notiz}
-                    onChange={(e) => setWeForm({ ...weForm, notiz: e.target.value })}
-                    placeholder="Optional"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              {/* Positionen */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700">Positionen</h3>
-                  <button
-                    onClick={addPosition}
-                    className="text-sm text-green-700 hover:text-green-900 font-medium"
-                  >
-                    + Position hinzufügen
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {wePositionen.map((pos, idx) => (
-                    <div key={idx} className="flex gap-3 items-end flex-wrap bg-gray-50 rounded-lg p-3">
-                      <div className="flex-1 min-w-[160px]">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Artikel</label>
-                        <select
-                          value={pos.artikelId}
-                          onChange={(e) => updatePosition(idx, "artikelId", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">– Artikel wählen –</option>
-                          {artikelList.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="w-28">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Menge</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={pos.menge}
-                          onChange={(e) => updatePosition(idx, "menge", parseFloat(e.target.value) || 0)}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div className="w-36">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Einkaufspreis (€)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={pos.einkaufspreis}
-                          onChange={(e) => updatePosition(idx, "einkaufspreis", parseFloat(e.target.value) || 0)}
-                          className={inputCls}
-                        />
-                      </div>
-                      {wePositionen.length > 1 && (
-                        <button
-                          onClick={() => removePosition(idx)}
-                          className="text-red-400 hover:text-red-600 text-lg leading-none pb-2"
-                          title="Position entfernen"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Summary */}
-              {wePositionen.some((p) => p.artikelId && p.menge > 0 && p.einkaufspreis > 0) && (
-                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
-                  Gesamt:{" "}
-                  <span className="font-semibold">
-                    {formatEuro(
-                      wePositionen.reduce((sum, p) => sum + (p.einkaufspreis * p.menge), 0)
-                    )}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  onClick={() => setShowWEModal(false)}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  onClick={submitWE}
-                  disabled={savingWE}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
-                >
-                  {savingWE ? "Speichern…" : "Wareneingang buchen"}
                 </button>
               </div>
             </div>

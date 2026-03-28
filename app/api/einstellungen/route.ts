@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+const ALLOWED_PREFIXES = ["firma.", "system."];
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const prefix = searchParams.get("prefix") ?? "firma.";
   const einstellungen = await prisma.einstellung.findMany({
-    where: { key: { startsWith: "firma." } },
+    where: { key: { startsWith: prefix } },
   });
   const result: Record<string, string> = {};
   for (const e of einstellungen) {
@@ -18,9 +22,8 @@ export async function PUT(req: NextRequest) {
   if (!key || value === undefined) {
     return NextResponse.json({ error: "key und value erforderlich" }, { status: 400 });
   }
-  // Nur Firma-Einstellungen duerfen ueber diese Route geaendert werden
-  if (!key.startsWith("firma.")) {
-    return NextResponse.json({ error: "Nur Einstellungen mit Prefix 'firma.' sind erlaubt" }, { status: 400 });
+  if (!ALLOWED_PREFIXES.some((p) => key.startsWith(p))) {
+    return NextResponse.json({ error: `Nur Einstellungen mit Prefix ${ALLOWED_PREFIXES.join(", ")} sind erlaubt` }, { status: 400 });
   }
   const einstellung = await prisma.einstellung.upsert({
     where: { key },

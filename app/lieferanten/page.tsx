@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Lieferant {
   id: number;
@@ -15,29 +16,11 @@ interface Lieferant {
   _count?: { artikelZuordnungen: number };
 }
 
-const defaultForm = {
-  name: "",
-  ansprechpartner: "",
-  email: "",
-  telefon: "",
-  strasse: "",
-  plz: "",
-  ort: "",
-  notizen: "",
-};
-
-const inputCls =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
-
 export default function LieferantenPage() {
   const router = useRouter();
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
@@ -54,46 +37,16 @@ export default function LieferantenPage() {
     return () => clearTimeout(t);
   }, [fetchLieferanten]);
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) { setError("Name ist erforderlich."); return; }
-    setSaving(true);
-    setError("");
-    const res = await fetch("/api/lieferanten", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name.trim(),
-        ansprechpartner: form.ansprechpartner || undefined,
-        email: form.email || undefined,
-        telefon: form.telefon || undefined,
-        strasse: form.strasse || undefined,
-        plz: form.plz || undefined,
-        ort: form.ort || undefined,
-        notizen: form.notizen || undefined,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setShowModal(false);
-      setForm(defaultForm);
-      fetchLieferanten();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Fehler beim Speichern.");
-    }
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Lieferanten</h1>
-        <button
-          onClick={() => { setShowModal(true); setError(""); setForm(defaultForm); }}
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        <Link
+          href="/lieferanten/neu"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Neuer Lieferant
-        </button>
+        </Link>
       </div>
 
       {/* Search */}
@@ -157,125 +110,6 @@ export default function LieferantenPage() {
           </table>
         )}
       </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Neuer Lieferant</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleCreate} className="p-5 space-y-4">
-              {error && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ansprechpartner</label>
-                <input
-                  type="text"
-                  value={form.ansprechpartner}
-                  onChange={(e) => setForm({ ...form, ansprechpartner: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-                  <input
-                    type="tel"
-                    value={form.telefon}
-                    onChange={(e) => setForm({ ...form, telefon: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Straße</label>
-                <input
-                  type="text"
-                  value={form.strasse}
-                  onChange={(e) => setForm({ ...form, strasse: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-                  <input
-                    type="text"
-                    value={form.plz}
-                    onChange={(e) => setForm({ ...form, plz: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-                  <input
-                    type="text"
-                    value={form.ort}
-                    onChange={(e) => setForm({ ...form, ort: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
-                <textarea
-                  rows={3}
-                  value={form.notizen}
-                  onChange={(e) => setForm({ ...form, notizen: e.target.value })}
-                  className={`${inputCls} resize-none`}
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
-                >
-                  {saving ? "Speichern…" : "Lieferant anlegen"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

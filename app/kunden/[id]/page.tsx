@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ interface Kunde {
   name: string;
   firma?: string;
   kategorie: string;
+  verantwortlicher?: string;
   strasse?: string;
   plz?: string;
   ort?: string;
@@ -85,7 +87,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -150,16 +152,34 @@ function Field({
 
 function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [validMsg, setValidMsg] = useState("");
+  const [kategorien, setKategorien] = useState<string[]>(["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"]);
+  const [mitarbeiter, setMitarbeiter] = useState<string[]>([]);
   const [form, setForm] = useState({
     name: kunde.name,
     firma: kunde.firma ?? "",
     kategorie: kunde.kategorie,
+    verantwortlicher: kunde.verantwortlicher ?? "",
     strasse: kunde.strasse ?? "",
     plz: kunde.plz ?? "",
     ort: kunde.ort ?? "",
     land: kunde.land,
     notizen: kunde.notizen ?? "",
   });
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.kundenkategorien"]) {
+          try { setKategorien(JSON.parse(d["system.kundenkategorien"])); } catch { /* ignore */ }
+        }
+        if (d["system.mitarbeiter"]) {
+          try { setMitarbeiter(JSON.parse(d["system.mitarbeiter"])); } catch { /* ignore */ }
+        }
+      });
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -168,6 +188,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       name: kunde.name,
       firma: kunde.firma ?? "",
       kategorie: kunde.kategorie,
+      verantwortlicher: kunde.verantwortlicher ?? "",
       strasse: kunde.strasse ?? "",
       plz: kunde.plz ?? "",
       ort: kunde.ort ?? "",
@@ -191,6 +212,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           name: form.name.trim(),
           firma: form.firma || null,
           kategorie: form.kategorie,
+          verantwortlicher: form.verantwortlicher || null,
           strasse: form.strasse || null,
           plz: form.plz || null,
           ort: form.ort || null,
@@ -211,7 +233,27 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
   if (!editing) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={async () => {
+              setValidating(true); setValidMsg("");
+              try {
+                const res = await fetch("/api/kunden/adress-validierung", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ kundeId: kunde.id }),
+                });
+                const data = await res.json();
+                if (res.ok) { setValidMsg(`Koordinaten aktualisiert: ${data.lat?.toFixed(4)}, ${data.lng?.toFixed(4)}`); onRefresh(); }
+                else setValidMsg(data.error ?? "Fehler");
+              } finally { setValidating(false); }
+            }}
+            disabled={validating || !kunde.strasse}
+            className="text-sm px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            title="Adresse über OpenStreetMap geocodieren"
+          >
+            {validating ? "Suche…" : "Adresse prüfen (OSM)"}
+          </button>
           <button
             onClick={startEdit}
             className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
@@ -219,10 +261,12 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
             Bearbeiten
           </button>
         </div>
+        {validMsg && <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-1.5">{validMsg}</p>}
         <div className="grid sm:grid-cols-2 gap-4">
           <InfoRow label="Name" value={kunde.name} />
           <InfoRow label="Firma" value={kunde.firma} />
           <InfoRow label="Kategorie" value={kunde.kategorie} />
+          <InfoRow label="Verantwortlicher" value={kunde.verantwortlicher} />
           <InfoRow label="Status" value={kunde.aktiv ? "Aktiv" : "Inaktiv"} />
           <InfoRow label="Straße" value={kunde.strasse} />
           <InfoRow label="PLZ / Ort" value={[kunde.plz, kunde.ort].filter(Boolean).join(" ")} />
@@ -251,15 +295,28 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       )}
       <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
       <Field label="Firma" value={form.firma} onChange={(v) => setForm({ ...form, firma: v })} />
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
-        <select
-          value={form.kategorie}
-          onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          {KATEGORIEN.map((k) => <option key={k} value={k}>{k}</option>)}
-        </select>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
+          <select
+            value={form.kategorie}
+            onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            {kategorien.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Verantwortlicher</label>
+          <select
+            value={form.verantwortlicher}
+            onChange={(e) => setForm({ ...form, verantwortlicher: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">— Kein Verantwortlicher —</option>
+            {mitarbeiter.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
       </div>
       <Field label="Straße" value={form.strasse} onChange={(v) => setForm({ ...form, strasse: v })} />
       <div className="grid grid-cols-3 gap-3">
@@ -574,17 +631,13 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
           <form onSubmit={handleAdd} className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Artikel <span className="text-red-500">*</span></label>
-              <select
+              <SearchableSelect
+                options={artikel.map((a) => ({ value: a.id, label: a.name, sub: a.artikelnummer }))}
                 value={form.artikelId}
-                onChange={(e) => setForm({ ...form, artikelId: e.target.value })}
+                onChange={(v) => setForm({ ...form, artikelId: v })}
+                placeholder="— Bitte wählen —"
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">— Bitte wählen —</option>
-                {artikel.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name} ({a.artikelnummer})</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -782,19 +835,13 @@ function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => 
           <form onSubmit={handleAdd} className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Artikel <span className="text-red-500">*</span></label>
-              <select
+              <SearchableSelect
+                options={artikel.map((a) => ({ value: a.id, label: a.name, sub: `${a.artikelnummer} · ${formatEuro(a.standardpreis)}` }))}
                 value={form.artikelId}
-                onChange={(e) => setForm({ ...form, artikelId: e.target.value })}
+                onChange={(v) => setForm({ ...form, artikelId: v })}
+                placeholder="— Bitte wählen —"
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">— Bitte wählen —</option>
-                {artikel.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.artikelnummer}) — Standard: {formatEuro(a.standardpreis)}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1455,6 +1502,14 @@ export default function KundeDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
 
+  // Support ?tab=CRM URL param for direct navigation
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t && (TABS as readonly string[]).includes(t)) setActiveTab(t as Tab);
+    }
+  }, []);
+
   const fetchKunde = useCallback(async () => {
     const res = await fetch(`/api/kunden/${id}`);
     if (res.status === 404) { setNotFound(true); setLoading(false); return; }
@@ -1496,11 +1551,19 @@ export default function KundeDetailPage() {
           <h1 className="text-2xl font-bold">{kunde.name}</h1>
           {kunde.firma && <p className="text-gray-500 mt-0.5">{kunde.firma}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <KategorieBadge kategorie={kunde.kategorie} />
           {!kunde.aktiv && (
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Inaktiv</span>
           )}
+          <a
+            href={`/api/exporte/kundenmappe?kundeId=${kunde.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors font-medium"
+          >
+            Kundenmappe PDF
+          </a>
         </div>
       </div>
 
@@ -1531,7 +1594,145 @@ export default function KundeDetailPage() {
         {activeTab === "Sonderpreise" && <SonderpreiseTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Statistik" && <StatistikTab kunde={kunde} />}
         {activeTab === "Lieferhistorie" && <LieferhistorieTab kunde={kunde} onRefresh={fetchKunde} />}
+        {activeTab === "CRM" && <CrmTab kundeId={kunde.id} />}
       </div>
+    </div>
+  );
+}
+
+// ─── CRM Tab ──────────────────────────────────────────────────────────────────
+
+interface Aktivitaet {
+  id: number;
+  typ: string;
+  betreff: string;
+  inhalt?: string | null;
+  datum: string;
+  erledigt: boolean;
+  faelligAm?: string | null;
+}
+
+const TYP_LABELS: Record<string, { label: string; color: string; icon: string }> = {
+  besuch:  { label: "Besuch",  color: "bg-green-100 text-green-800",  icon: "🏠" },
+  anruf:   { label: "Anruf",   color: "bg-blue-100 text-blue-800",    icon: "📞" },
+  email:   { label: "E-Mail",  color: "bg-yellow-100 text-yellow-800", icon: "✉️" },
+  notiz:   { label: "Notiz",   color: "bg-gray-100 text-gray-700",    icon: "📝" },
+  aufgabe: { label: "Aufgabe", color: "bg-orange-100 text-orange-800", icon: "✅" },
+};
+
+function CrmTab({ kundeId }: { kundeId: number }) {
+  const [items, setItems] = useState<Aktivitaet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"alle" | "offen">("alle");
+
+  async function fetch_() {
+    setLoading(true);
+    const res = await fetch(`/api/kunden/aktivitaeten?kundeId=${kundeId}`);
+    const data = await res.json();
+    setItems(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }
+
+  useEffect(() => { fetch_(); }, [kundeId]);
+
+  async function toggleErledigt(item: Aktivitaet) {
+    await fetch(`/api/kunden/aktivitaeten?id=${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ erledigt: !item.erledigt }),
+    });
+    fetch_();
+  }
+
+  async function handleDelete(id: number) {
+    setDeleting(id);
+    try {
+      await fetch(`/api/kunden/aktivitaeten?id=${id}`, { method: "DELETE" });
+      fetch_();
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  const displayed = filter === "offen" ? items.filter((i) => !i.erledigt) : items;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex gap-1">
+          {(["alle", "offen"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${filter === f ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+            >
+              {f === "alle" ? "Alle" : "Offen"}
+            </button>
+          ))}
+        </div>
+        <Link
+          href={`/kunden/${kundeId}/aktivitaet`}
+          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors inline-block"
+        >
+          + Aktivität erfassen
+        </Link>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade…</p>
+      ) : displayed.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine Aktivitäten vorhanden.</p>
+      ) : (
+        <div className="space-y-2">
+          {displayed.map((item) => {
+            const meta = TYP_LABELS[item.typ] ?? TYP_LABELS.notiz;
+            const isOverdue = item.faelligAm && !item.erledigt && new Date(item.faelligAm) < new Date();
+            return (
+              <div
+                key={item.id}
+                className={`flex gap-3 p-4 rounded-xl border transition-colors ${item.erledigt ? "border-gray-100 bg-gray-50 opacity-60" : "border-gray-200 bg-white"}`}
+              >
+                <div className="text-xl leading-none mt-0.5">{meta.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>{meta.label}</span>
+                    <span className="text-sm font-medium text-gray-900 truncate">{item.betreff}</span>
+                    {item.erledigt && <span className="text-xs text-green-600 font-medium">Erledigt</span>}
+                    {isOverdue && <span className="text-xs text-red-600 font-medium">Überfällig</span>}
+                  </div>
+                  {item.inhalt && <p className="mt-1 text-sm text-gray-600 whitespace-pre-line">{item.inhalt}</p>}
+                  <div className="mt-1.5 flex gap-3 text-xs text-gray-400">
+                    <span>{new Date(item.datum).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</span>
+                    {item.faelligAm && (
+                      <span className={isOverdue ? "text-red-500" : ""}>
+                        Fällig: {new Date(item.faelligAm).toLocaleDateString("de-DE")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 items-end shrink-0">
+                  {item.typ === "aufgabe" && (
+                    <button
+                      onClick={() => toggleErledigt(item)}
+                      className={`text-xs px-2 py-1 rounded border transition-colors ${item.erledigt ? "border-gray-300 text-gray-500 hover:bg-gray-50" : "border-green-500 text-green-700 hover:bg-green-50"}`}
+                    >
+                      {item.erledigt ? "Wieder öffnen" : "Erledigen"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deleting === item.id}
+                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                  >
+                    {deleting === item.id ? "…" : "Löschen"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

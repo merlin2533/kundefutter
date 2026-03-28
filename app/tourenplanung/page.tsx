@@ -1,31 +1,23 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
-interface Kontakt {
-  typ: string;
-  wert: string;
-}
-
-interface Artikel {
-  name: string;
-  einheit: string;
-}
-
-interface Position {
-  menge: number;
-  artikel: Artikel;
-}
-
+interface Kontakt { typ: string; wert: string; }
+interface Artikel { id: number; name: string; einheit: string; standardpreis: number; einkaufspreis?: number; }
+interface Position { menge: number; artikel: { name: string; einheit: string } }
 interface Kunde {
+  id: number;
   name: string;
   firma: string | null;
   plz: string | null;
   ort: string | null;
+  strasse: string | null;
+  lat: number | null;
+  lng: number | null;
   kontakte: Kontakt[];
 }
-
 interface Lieferung {
   id: number;
   datum: string;
@@ -34,8 +26,41 @@ interface Lieferung {
   positionen: Position[];
 }
 
-function heuteISO(): string {
-  return new Date().toISOString().slice(0, 10);
+interface RouteLeg {
+  distanceKm: number;
+  durationMin: number;
+}
+
+interface KundeOption {
+  id: number;
+  name: string;
+  firma?: string;
+}
+
+function heuteISO() { return new Date().toISOString().slice(0, 10); }
+
+function formatMin(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+async function fetchRouteLegs(waypoints: { lat: number; lng: number }[]): Promise<RouteLeg[]> {
+  if (waypoints.length < 2) return [];
+  const coords = waypoints.map((w) => `${w.lng},${w.lat}`).join(";");
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=false&steps=false&annotations=false`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data.code !== "Ok" || !data.routes?.[0]?.legs) return [];
+    return data.routes[0].legs.map((leg: { distance: number; duration: number }) => ({
+      distanceKm: leg.distance / 1000,
+      durationMin: leg.duration / 60,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export default function TourenplanungPage() {
@@ -43,67 +68,364 @@ export default function TourenplanungPage() {
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [loading, setLoading] = useState(false);
   const [fehler, setFehler] = useState("");
+  const [routeLegs, setRouteLegs] = useState<RouteLeg[]>([]);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [startOrt, setStartOrt] = useState("");
+  const [startLat, setStartLat] = useState<number | null>(null);
+  const [startLng, setStartLng] = useState<number | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
 
+  // Tourname
+  const [tourname, setTourname] = useState("");
+  const [gespeicherteTournamen, setGespeicherteTournamen] = useState<string[]>([]);
+
+  // Schnellerfassung
+  const [showSchnell, setShowSchnell] = useState(false);
+  const [kunden, setKunden] = useState<KundeOption[]>([]);
+  const [artikelList, setArtikelList] = useState<Artikel[]>([]);
+  const [schnellKundeId, setSchnellKundeId] = useState<number | "">("");
+  const [schnellArtikelId, setSchnellArtikelId] = useState<number | "">("");
+  const [schnellMenge, setSchnellMenge] = useState(1);
+  const [schnellNotiz, setSchnellNotiz] = useState("");
+  const [schnellSaving, setSchnellSaving] = useState(false);
+  const [schnellSuccess, setSchnellSuccess] = useState(false);
+
+  // Load firm address + tour names
   useEffect(() => {
-    laden(datum);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [datum]);
+    fetch("/api/einstellungen?prefix=firma.")
+      .then((r) => r.json())
+      .then((d) => {
+        const teile = [d["firma.strasse"], d["firma.plz"], d["firma.ort"]].filter(Boolean);
+        if (teile.length > 0) setStartOrt(teile.join(", "));
+      });
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.tournamen"]) {
+          try { setGespeicherteTournamen(JSON.parse(d["system.tournamen"])); } catch { /* ignore */ }
+        }
+      });
+  }, []);
 
-  async function laden(d: string) {
+  const laden = useCallback(async (d: string) => {
     setLoading(true);
     setFehler("");
-    const res = await fetch(`/api/tourenplanung?datum=${d}`);
-    setLoading(false);
-    if (!res.ok) {
-      setFehler("Fehler beim Laden der Lieferungen");
+    setRouteLegs([]);
+    try {
+      const res = await fetch(`/api/tourenplanung?datum=${d}`);
+      if (!res.ok) { setFehler("Fehler beim Laden der Lieferungen"); return; }
+      setLieferungen(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { laden(datum); }, [datum, laden]);
+
+  // Load kunden + artikel for Schnellerfassung (lazy)
+  useEffect(() => {
+    if (showSchnell && kunden.length === 0) {
+      Promise.all([
+        fetch("/api/kunden?aktiv=true").then((r) => r.json()),
+        fetch("/api/artikel?limit=500").then((r) => r.json()),
+      ]).then(([k, a]) => {
+        setKunden(Array.isArray(k) ? k : []);
+        setArtikelList(Array.isArray(a) ? a : []);
+      });
+    }
+  }, [showSchnell, kunden.length]);
+
+  async function geocodeStartOrt() {
+    if (!startOrt.trim()) return;
+    setGeocoding(true);
+    try {
+      const q = encodeURIComponent(startOrt + ", Deutschland");
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=de`, {
+        headers: { "User-Agent": "AgrarOffice-Roethemeier/1.0" },
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await res.json();
+      if (data?.[0]) {
+        setStartLat(parseFloat(data[0].lat));
+        setStartLng(parseFloat(data[0].lon));
+      }
+    } finally {
+      setGeocoding(false);
+    }
+  }
+
+  async function berechneRoute() {
+    const waypoints: { lat: number; lng: number }[] = [];
+    if (startLat && startLng) waypoints.push({ lat: startLat, lng: startLng });
+    for (const l of lieferungen) {
+      if (l.kunde.lat && l.kunde.lng) {
+        waypoints.push({ lat: l.kunde.lat, lng: l.kunde.lng });
+      }
+    }
+    if (waypoints.length < 2) {
+      setFehler("Nicht genügend Kunden mit Koordinaten für Routenberechnung. Bitte Adressen über OSM prüfen.");
       return;
     }
-    setLieferungen(await res.json());
+    setRouteLoading(true);
+    setRouteLegs([]);
+    const legs = await fetchRouteLegs(waypoints);
+    setRouteLegs(legs);
+    setRouteLoading(false);
   }
 
-  function artikelZusammenfassung(positionen: Position[]): string {
-    return positionen.map(p => `${p.artikel.name} (${p.menge} ${p.artikel.einheit})`).join(", ");
+  async function saveTourname() {
+    if (!tourname.trim()) return;
+    const name = tourname.trim();
+    if (!gespeicherteTournamen.includes(name)) {
+      const updated = [...gespeicherteTournamen, name];
+      setGespeicherteTournamen(updated);
+      await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "system.tournamen", value: JSON.stringify(updated) }),
+      });
+    }
   }
 
-  function gesamtMenge(positionen: Position[]): number {
-    return positionen.reduce((sum, p) => sum + p.menge, 0);
+  async function handleSchnellerfassung(e: React.FormEvent) {
+    e.preventDefault();
+    if (!schnellKundeId || !schnellArtikelId) return;
+    setSchnellSaving(true);
+    try {
+      const art = artikelList.find((a) => a.id === Number(schnellArtikelId));
+      const res = await fetch("/api/lieferungen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kundeId: schnellKundeId,
+          datum,
+          notiz: schnellNotiz || undefined,
+          positionen: [{
+            artikelId: schnellArtikelId,
+            menge: Number(schnellMenge),
+            verkaufspreis: art?.standardpreis ?? 0,
+            einkaufspreis: art?.einkaufspreis ?? 0,
+          }],
+        }),
+      });
+      if (res.ok) {
+        setSchnellKundeId("");
+        setSchnellArtikelId("");
+        setSchnellMenge(1);
+        setSchnellNotiz("");
+        setSchnellSuccess(true);
+        setTimeout(() => setSchnellSuccess(false), 2000);
+        laden(datum);
+      }
+    } finally {
+      setSchnellSaving(false);
+    }
   }
 
-  function tourPDF() {
-    window.open(`/api/exporte/tour?datum=${datum}`, "_blank");
+  function artikelZusammenfassung(positionen: Position[]) {
+    return positionen.map((p) => `${p.artikel.name} (${p.menge} ${p.artikel.einheit})`).join(", ");
   }
+
+  const gesamtKm = routeLegs.reduce((s, l) => s + l.distanceKm, 0);
+  const gesamtMin = routeLegs.reduce((s, l) => s + l.durationMin, 0);
+  const mitKoords = lieferungen.filter((l) => l.kunde.lat && l.kunde.lng).length;
+
+  const pdfUrl = `/api/exporte/tour?datum=${datum}${tourname ? `&tourname=${encodeURIComponent(tourname)}` : ""}`;
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Tourenplanung</h1>
 
-      <Card className="mb-6 max-w-sm">
-        <h2 className="font-semibold mb-3">Datum wählen</h2>
-        <input
-          type="date"
-          value={datum}
-          onChange={e => setDatum(e.target.value)}
-          className="w-full border rounded px-3 py-2 text-sm"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card>
+          <h2 className="font-semibold mb-3">Lieferdatum</h2>
+          <input
+            type="date"
+            value={datum}
+            onChange={(e) => setDatum(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+          />
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold mb-3">Tourname</h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tourname}
+              onChange={(e) => setTourname(e.target.value)}
+              list="tournamen-list"
+              placeholder="z.B. Montag Nord, Freitag Süd"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+            />
+            <button
+              onClick={saveTourname}
+              disabled={!tourname.trim()}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg disabled:opacity-50 transition-colors"
+              title="Tourname speichern"
+            >
+              Speichern
+            </button>
+          </div>
+          <datalist id="tournamen-list">
+            {gespeicherteTournamen.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          {gespeicherteTournamen.length > 0 && (
+            <div className="flex gap-1 mt-2 flex-wrap">
+              {gespeicherteTournamen.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setTourname(n)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                    tourname === n
+                      ? "bg-green-100 border-green-300 text-green-800"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold mb-3">Startpunkt (Routenberechnung)</h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={startOrt}
+              onChange={(e) => { setStartOrt(e.target.value); setStartLat(null); setStartLng(null); }}
+              placeholder="z.B. Firmenadresse, PLZ Ort"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+            />
+            <button
+              onClick={geocodeStartOrt}
+              disabled={geocoding || !startOrt.trim()}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {geocoding ? "…" : "Geocode"}
+            </button>
+          </div>
+          {startLat && <p className="text-xs text-green-700 mt-1">✓ {startLat.toFixed(4)}, {startLng?.toFixed(4)}</p>}
+        </Card>
+      </div>
+
+      {/* Schnellerfassung */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Schnellerfassung Lieferung</h2>
+          <button
+            onClick={() => setShowSchnell(!showSchnell)}
+            className="text-sm text-green-700 hover:text-green-900 font-medium"
+          >
+            {showSchnell ? "Ausblenden" : "Einblenden"}
+          </button>
+        </div>
+        {showSchnell && (
+          <form onSubmit={handleSchnellerfassung} className="flex flex-col sm:flex-row gap-3 items-end flex-wrap">
+            <div className="w-full sm:w-52">
+              <label className="block text-xs text-gray-500 mb-1">Kunde</label>
+              <SearchableSelect
+                options={kunden.map((k) => ({
+                  value: k.id,
+                  label: k.firma ? `${k.firma} (${k.name})` : k.name,
+                }))}
+                value={schnellKundeId}
+                onChange={(v) => setSchnellKundeId(v ? Number(v) : "")}
+                placeholder="Kunde wählen…"
+                required
+              />
+            </div>
+            <div className="w-full sm:w-52">
+              <label className="block text-xs text-gray-500 mb-1">Artikel</label>
+              <SearchableSelect
+                options={artikelList.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  sub: a.einheit,
+                }))}
+                value={schnellArtikelId}
+                onChange={(v) => setSchnellArtikelId(v ? Number(v) : "")}
+                placeholder="Artikel wählen…"
+                required
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-xs text-gray-500 mb-1">Menge</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={schnellMenge}
+                onChange={(e) => setSchnellMenge(parseFloat(e.target.value) || 1)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+              <input
+                type="text"
+                value={schnellNotiz}
+                onChange={(e) => setSchnellNotiz(e.target.value)}
+                placeholder="Optional…"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={schnellSaving || !schnellKundeId || !schnellArtikelId}
+              className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {schnellSaving ? "…" : schnellSuccess ? "✓ Hinzugefügt" : "+ Lieferung"}
+            </button>
+          </form>
+        )}
       </Card>
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
         <h2 className="font-semibold text-lg">
           {loading
             ? "Lade…"
-            : `${lieferungen.length} geplante Lieferung${lieferungen.length !== 1 ? "en" : ""} am ${formatDatum(datum)}`}
+            : `${lieferungen.length} Lieferung${lieferungen.length !== 1 ? "en" : ""} am ${formatDatum(datum)}`}
+          {mitKoords < lieferungen.length && lieferungen.length > 0 && (
+            <span className="ml-2 text-xs text-yellow-600 font-normal">{mitKoords}/{lieferungen.length} mit Koordinaten</span>
+          )}
         </h2>
-        {lieferungen.length > 0 && (
-          <button
-            onClick={tourPDF}
-            className="bg-green-700 text-white px-4 py-2 rounded text-sm hover:bg-green-800"
-          >
-            Touren-PDF
-          </button>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          {lieferungen.length > 0 && (
+            <>
+              <button
+                onClick={berechneRoute}
+                disabled={routeLoading || mitKoords === 0}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {routeLoading ? "Berechne…" : "Route berechnen (OSRM)"}
+              </button>
+              <button
+                onClick={() => window.open(pdfUrl, "_blank")}
+                className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
+              >
+                Touren-PDF
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {fehler && <p className="text-red-600 text-sm mb-4">{fehler}</p>}
+
+      {routeLegs.length > 0 && (
+        <Card className="mb-5 bg-blue-50 border-blue-200">
+          <h3 className="font-semibold text-blue-800 mb-2">Routenübersicht</h3>
+          <p className="text-sm text-blue-700">
+            Gesamtdistanz: <strong>{gesamtKm.toFixed(1)} km</strong> · Fahrzeit: <strong>{formatMin(gesamtMin)}</strong>
+            {startLat ? " (ab Startpunkt)" : ""}
+          </p>
+        </Card>
+      )}
 
       {!loading && lieferungen.length === 0 && !fehler && (
         <Card>
@@ -121,31 +443,51 @@ export default function TourenplanungPage() {
                   <th className="pb-2">PLZ</th>
                   <th className="pb-2">Ort</th>
                   <th className="pb-2">Kunde</th>
-                  <th className="pb-2">Artikel-Zusammenfassung</th>
-                  <th className="pb-2 text-right">Menge (gesamt)</th>
+                  <th className="pb-2">Artikel</th>
+                  <th className="pb-2 text-right">Km</th>
+                  <th className="pb-2 text-right">Fahrzeit</th>
                 </tr>
               </thead>
               <tbody>
-                {lieferungen.map((l, i) => (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-gray-50">
-                    <td className="py-2 text-gray-400">{i + 1}</td>
-                    <td className="py-2 font-mono text-xs">{l.kunde.plz ?? "–"}</td>
-                    <td className="py-2">{l.kunde.ort ?? "–"}</td>
-                    <td className="py-2">
-                      <div className="font-medium">{l.kunde.firma ?? l.kunde.name}</div>
-                      {l.kunde.firma && (
-                        <div className="text-xs text-gray-500">{l.kunde.name}</div>
-                      )}
-                    </td>
-                    <td className="py-2 text-gray-600 max-w-xs">
-                      {artikelZusammenfassung(l.positionen)}
-                    </td>
-                    <td className="py-2 text-right font-medium">
-                      {gesamtMenge(l.positionen).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {lieferungen.map((l, i) => {
+                  const leg = routeLegs[i] ?? null;
+                  const hatKoords = l.kunde.lat && l.kunde.lng;
+                  return (
+                    <tr key={l.id} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="py-2.5 text-gray-400">{i + 1}</td>
+                      <td className="py-2.5 font-mono text-xs">{l.kunde.plz ?? "–"}</td>
+                      <td className="py-2.5">{l.kunde.ort ?? "–"}</td>
+                      <td className="py-2.5">
+                        <div className="font-medium">{l.kunde.firma ?? l.kunde.name}</div>
+                        {l.kunde.firma && <div className="text-xs text-gray-500">{l.kunde.name}</div>}
+                        {l.kunde.strasse && <div className="text-xs text-gray-400">{l.kunde.strasse}</div>}
+                        {!hatKoords && (
+                          <span className="text-xs text-yellow-600">⚠ Keine Koordinaten</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-gray-600 max-w-[220px]">
+                        <div className="truncate">{artikelZusammenfassung(l.positionen)}</div>
+                        {l.notiz && <div className="text-xs text-gray-400 mt-0.5">{l.notiz}</div>}
+                      </td>
+                      <td className="py-2.5 text-right text-blue-700 font-medium whitespace-nowrap">
+                        {leg ? `${leg.distanceKm.toFixed(1)} km` : "—"}
+                      </td>
+                      <td className="py-2.5 text-right text-blue-600 whitespace-nowrap">
+                        {leg ? formatMin(leg.durationMin) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              {routeLegs.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 font-semibold">
+                    <td colSpan={5} className="pt-2 text-right text-sm text-gray-600">Gesamt:</td>
+                    <td className="pt-2 text-right text-blue-700">{gesamtKm.toFixed(1)} km</td>
+                    <td className="pt-2 text-right text-blue-600">{formatMin(gesamtMin)}</td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </Card>

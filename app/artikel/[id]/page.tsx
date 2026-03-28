@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -525,7 +526,7 @@ export default function ArtikelDetailPage() {
 
           {showLiefModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
                 <h2 className="text-lg font-bold mb-5">Lieferant hinzufügen</h2>
                 <div className="space-y-4">
                   {liefError && (
@@ -535,16 +536,13 @@ export default function ArtikelDetailPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Lieferant <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <SearchableSelect
+                      options={lieferantenList.map((l) => ({ value: l.id, label: l.name }))}
                       value={lievForm.lieferantId}
-                      onChange={(e) => setLievForm({ ...lievForm, lieferantId: e.target.value })}
-                      className={inputCls}
-                    >
-                      <option value="">– Lieferant wählen –</option>
-                      {lieferantenList.map((l) => (
-                        <option key={l.id} value={l.id}>{l.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setLievForm({ ...lievForm, lieferantId: v })}
+                      placeholder="– Lieferant wählen –"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">ArtNr beim Lieferant</label>
