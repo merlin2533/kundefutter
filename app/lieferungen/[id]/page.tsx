@@ -22,6 +22,7 @@ interface Lieferung {
   status: string;
   notiz?: string;
   rechnungNr?: string;
+  rechnungDatum?: string | null;
   bezahltAm?: string | null;
   zahlungsziel?: number | null;
   kunde: { id: number; name: string; firma?: string };
@@ -186,8 +187,8 @@ export default function LieferungDetailPage() {
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
   const zahlungszielTage = lieferung.zahlungsziel ?? 30;
-  const lieferDatum = new Date(lieferung.datum);
-  const faelligkeitsDatum = new Date(lieferDatum.getTime() + zahlungszielTage * 24 * 60 * 60 * 1000);
+  const basisDatum = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : new Date(lieferung.datum);
+  const faelligkeitsDatum = new Date(basisDatum.getTime() + zahlungszielTage * 24 * 60 * 60 * 1000);
   const istGeliefert = lieferung.status === "geliefert";
   const istBezahlt = !!lieferung.bezahltAm;
   const istUeberfaellig = istGeliefert && !istBezahlt && heute > faelligkeitsDatum;
@@ -467,7 +468,7 @@ export default function LieferungDetailPage() {
 
             {lieferung.rechnungNr && (
               <button
-                onClick={() => window.open(`/api/exporte/rechnung/${id}`, "_blank")}
+                onClick={() => window.open(`/api/exporte/rechnung?lieferungId=${id}`, "_blank")}
                 className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
               >
                 Rechnung als PDF

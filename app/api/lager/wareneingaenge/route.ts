@@ -18,8 +18,25 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { lieferantId, datum, notiz, positionen } = await req.json();
+  const body = await req.json();
+  const { lieferantId, datum, notiz } = body;
 
+  if (!body.lieferantId || !Array.isArray(body.positionen) || body.positionen.length === 0) {
+    return NextResponse.json({ error: "lieferantId und positionen erforderlich" }, { status: 400 });
+  }
+  // Sanitise positionen — only allow known fields
+  const positionen = body.positionen.map((p: { artikelId: unknown; menge: unknown; einkaufspreis: unknown; chargeNr?: unknown }) => ({
+    artikelId: Number(p.artikelId),
+    menge: Number(p.menge),
+    einkaufspreis: Number(p.einkaufspreis ?? 0),
+    chargeNr: typeof p.chargeNr === "string" ? p.chargeNr : null,
+  })).filter((p: { artikelId: number; menge: number; einkaufspreis: number; chargeNr: string | null }) => Number.isInteger(p.artikelId) && p.artikelId > 0 && Number.isFinite(p.menge) && p.menge > 0);
+
+  if (positionen.length === 0) {
+    return NextResponse.json({ error: "Keine gültigen Positionen" }, { status: 400 });
+  }
+
+  try {
   const wareneingang = await prisma.$transaction(async (tx) => {
     const we = await tx.wareneingang.create({
       data: {
@@ -74,4 +91,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(wareneingang, { status: 201 });
+  } catch {
+    return NextResponse.json({ error: "Fehler beim Speichern des Wareneingangs" }, { status: 500 });
+  }
 }

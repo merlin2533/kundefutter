@@ -99,6 +99,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (data.datum !== undefined) updateData.datum = new Date(data.datum);
     if (data.bezahltAm !== undefined) updateData.bezahltAm = data.bezahltAm ? new Date(data.bezahltAm) : null;
     if (data.zahlungsziel !== undefined) updateData.zahlungsziel = data.zahlungsziel;
+    if (data.rechnungNr !== undefined) updateData.rechnungNr = data.rechnungNr;
+    if (data.rechnungDatum !== undefined) updateData.rechnungDatum = data.rechnungDatum ? new Date(data.rechnungDatum) : null;
 
     return tx.lieferung.update({
       where: { id: Number(id) },

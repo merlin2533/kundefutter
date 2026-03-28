@@ -14,6 +14,7 @@ interface Kunde {
 interface Lieferposition {
   menge: number;
   verkaufspreis: number;
+  rabattProzent: number;
   artikel: { name: string; einheit: string | null };
 }
 
@@ -26,7 +27,7 @@ interface Lieferung {
 }
 
 function berechneBetrag(positionen: Lieferposition[]) {
-  return positionen.reduce((sum, p) => sum + p.menge * p.verkaufspreis, 0);
+  return positionen.reduce((sum, p) => sum + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
 }
 
 export default function NeueRechnungPage() {
@@ -107,27 +108,45 @@ export default function NeueRechnungPage() {
     setSaving(true);
     setError(null);
     try {
-      // Für jede Lieferung PATCH mit aktion: rechnung_erstellen senden
-      // Die erste Lieferung legt die Rechnungsnummer fest; wir verwenden PATCH
-      let fehler: string[] = [];
-      for (const id of ausgewaehlt) {
+      const ids = [...ausgewaehlt];
+
+      // 1. Rechnungsnummer durch PATCH der ersten Lieferung generieren
+      const firstRes = await fetch(`/api/lieferungen/${ids[0]}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+      });
+      if (!firstRes.ok) {
+        const d = await firstRes.json();
+        setError(d.error ?? `Fehler bei Lieferung ${ids[0]}`);
+        return;
+      }
+      const firstData = await firstRes.json();
+      const rechnungNr: string = firstData.rechnungNr;
+
+      // 2. Verbleibende Lieferungen dieselbe Rechnungsnummer direkt setzen (kein rechnung_erstellen)
+      const fehler: string[] = [];
+      for (const id of ids.slice(1)) {
         const res = await fetch(`/api/lieferungen/${id}`, {
-          method: "PATCH",
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+          body: JSON.stringify({ rechnungNr, rechnungDatum: new Date().toISOString() }),
         });
         if (!res.ok) {
           const d = await res.json();
           fehler.push(d.error ?? `Fehler bei Lieferung ${id}`);
-        } else {
-          // Zahlungsziel aktualisieren
-          await fetch(`/api/lieferungen/${id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ zahlungsziel }),
-          });
         }
       }
+
+      // 3. Vom Nutzer gewähltes Rechnungsdatum und Zahlungsziel auf alle Lieferungen anwenden
+      for (const id of ids) {
+        await fetch(`/api/lieferungen/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rechnungDatum: rechnungDatum, zahlungsziel }),
+        });
+      }
+
       if (fehler.length > 0) {
         setError(fehler.join("; "));
       } else {

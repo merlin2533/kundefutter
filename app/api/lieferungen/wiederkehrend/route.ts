@@ -21,30 +21,39 @@ export async function GET(req: NextRequest) {
 
   const faellig = [];
 
-  for (const bedarf of bedarfe) {
-    // Letzte Lieferung dieses Artikels an diesen Kunden ermitteln
-    const letztePos = await prisma.lieferposition.findFirst({
+  if (bedarfe.length > 0) {
+    // Fix 9: single bulk query instead of N+1 per-bedarf DB queries
+    const artikelIds = [...new Set(bedarfe.map((b) => b.artikelId))];
+    const kundeIds = [...new Set(bedarfe.map((b) => b.kundeId))];
+
+    const letzteLieferungen = await prisma.lieferposition.findMany({
       where: {
-        artikelId: bedarf.artikelId,
-        lieferung: {
-          kundeId: bedarf.kundeId,
-          status: { not: "storniert" },
-        },
+        artikelId: { in: artikelIds },
+        lieferung: { kundeId: { in: kundeIds }, status: { not: "storniert" } },
       },
+      select: { artikelId: true, lieferung: { select: { kundeId: true, datum: true } } },
       orderBy: { lieferung: { datum: "desc" } },
-      include: { lieferung: true },
     });
 
-    const letztesDatum = letztePos?.lieferung?.datum ?? new Date(0);
-    const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
+    // Build map: "artikelId|kundeId" → latest datum
+    const latestMap = new Map<string, Date>();
+    for (const pos of letzteLieferungen) {
+      const key = `${pos.artikelId}|${pos.lieferung.kundeId}`;
+      if (!latestMap.has(key)) latestMap.set(key, new Date(pos.lieferung.datum));
+    }
 
-    if (naechstesDatum <= bis) {
-      faellig.push({
-        bedarf,
-        letztesDatum,
-        naechstesDatum,
-        ueberfaellig: naechstesDatum < new Date(),
-      });
+    for (const bedarf of bedarfe) {
+      const letztesDatum = latestMap.get(`${bedarf.artikelId}|${bedarf.kundeId}`) ?? new Date(0);
+      const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
+
+      if (naechstesDatum <= bis) {
+        faellig.push({
+          bedarf,
+          letztesDatum,
+          naechstesDatum,
+          ueberfaellig: naechstesDatum < new Date(),
+        });
+      }
     }
   }
 
@@ -71,24 +80,32 @@ export async function POST(req: NextRequest) {
     const heute = new Date();
     const faelligeIds: number[] = [];
 
-    for (const bedarf of bedarfe) {
-      const letztePos = await prisma.lieferposition.findFirst({
+    if (bedarfe.length > 0) {
+      // Fix 10 (alleAusloesen path): bulk query instead of N+1
+      const artikelIds = [...new Set(bedarfe.map((b) => b.artikelId))];
+      const kundeIds = [...new Set(bedarfe.map((b) => b.kundeId))];
+
+      const letzteLieferungen = await prisma.lieferposition.findMany({
         where: {
-          artikelId: bedarf.artikelId,
-          lieferung: {
-            kundeId: bedarf.kundeId,
-            status: { not: "storniert" },
-          },
+          artikelId: { in: artikelIds },
+          lieferung: { kundeId: { in: kundeIds }, status: { not: "storniert" } },
         },
+        select: { artikelId: true, lieferung: { select: { kundeId: true, datum: true } } },
         orderBy: { lieferung: { datum: "desc" } },
-        include: { lieferung: true },
       });
 
-      const letztesDatum = letztePos?.lieferung?.datum ?? new Date(0);
-      const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
+      const latestMap = new Map<string, Date>();
+      for (const pos of letzteLieferungen) {
+        const key = `${pos.artikelId}|${pos.lieferung.kundeId}`;
+        if (!latestMap.has(key)) latestMap.set(key, new Date(pos.lieferung.datum));
+      }
 
-      if (naechstesDatum <= heute) {
-        faelligeIds.push(bedarf.id);
+      for (const bedarf of bedarfe) {
+        const letztesDatum = latestMap.get(`${bedarf.artikelId}|${bedarf.kundeId}`) ?? new Date(0);
+        const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
+        if (naechstesDatum <= heute) {
+          faelligeIds.push(bedarf.id);
+        }
       }
     }
 
@@ -99,21 +116,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ausgeloest: 0, lieferungen: [] });
   }
 
+  // Fix 10: bulk lookups instead of per-bedarfId queries
+  const bedarfeListe = await prisma.kundeBedarf.findMany({
+    where: { id: { in: bedarfIds } },
+    include: { artikel: true },
+  });
+
+  if (bedarfeListe.length === 0) {
+    return NextResponse.json({ ausgeloest: 0, lieferungen: [] });
+  }
+
+  const artikelIds = [...new Set(bedarfeListe.map((b) => b.artikelId))];
+  const kundeIds = [...new Set(bedarfeListe.map((b) => b.kundeId))];
+
+  const [kundeArtikelPreise, artikelLieferanten] = await Promise.all([
+    prisma.kundeArtikelPreis.findMany({
+      where: { artikelId: { in: artikelIds }, kundeId: { in: kundeIds } },
+    }),
+    prisma.artikelLieferant.findMany({
+      where: { artikelId: { in: artikelIds }, bevorzugt: true },
+    }),
+  ]);
+
+  // Build maps for O(1) lookup
+  const kundePreisMap = new Map<string, typeof kundeArtikelPreise[number]>();
+  for (const kp of kundeArtikelPreise) {
+    kundePreisMap.set(`${kp.kundeId}|${kp.artikelId}`, kp);
+  }
+  const lieferantMap = new Map<number, typeof artikelLieferanten[number]>();
+  for (const al of artikelLieferanten) {
+    if (!lieferantMap.has(al.artikelId)) lieferantMap.set(al.artikelId, al);
+  }
+
+  // Build a map from bedarfId to bedarf for ordered processing
+  const bedarfMap = new Map(bedarfeListe.map((b) => [b.id, b]));
+
   const angelegt = [];
 
   for (const bedarfId of bedarfIds) {
-    const bedarf = await prisma.kundeBedarf.findUnique({
-      where: { id: bedarfId },
-      include: { artikel: true },
-    });
+    const bedarf = bedarfMap.get(bedarfId);
     if (!bedarf) continue;
 
-    const kundePreis = await prisma.kundeArtikelPreis.findUnique({
-      where: { kundeId_artikelId: { kundeId: bedarf.kundeId, artikelId: bedarf.artikelId } },
-    });
-    const bevorzugterLieferant = await prisma.artikelLieferant.findFirst({
-      where: { artikelId: bedarf.artikelId, bevorzugt: true },
-    });
+    const kundePreis = kundePreisMap.get(`${bedarf.kundeId}|${bedarf.artikelId}`) ?? null;
+    const bevorzugterLieferant = lieferantMap.get(bedarf.artikelId) ?? null;
 
     const lieferung = await prisma.lieferung.create({
       data: {

@@ -28,8 +28,12 @@ export async function POST(req: NextRequest, { params }: Params) {
 export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const { artikelId } = await req.json();
-  await prisma.kundeBedarf.delete({
-    where: { kundeId_artikelId: { kundeId: Number(id), artikelId } },
-  });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.kundeBedarf.delete({
+      where: { kundeId_artikelId: { kundeId: Number(id), artikelId } },
+    });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Bedarf nicht gefunden" }, { status: 404 });
+  }
 }

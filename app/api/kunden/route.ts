@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
     ];
   }
   if (tag) {
-    where.tags = { contains: `"${tag}"` }; // JSON contains check
+    // Sanitise: remove quotes and backslashes that could corrupt JSON matching
+    const safeTag = tag.replace(/["\\\n\r]/g, "").slice(0, 100);
+    if (safeTag) {
+      where.tags = { contains: `"${safeTag}"` }; // JSON contains check
+    }
   }
 
   const pageParam = searchParams.get("page");

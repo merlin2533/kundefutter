@@ -7,12 +7,12 @@ import autoTable from "jspdf-autotable";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const lieferungId = searchParams.get("lieferungId");
-
-  if (!lieferungId) {
-    return NextResponse.json({ error: "lieferungId fehlt" }, { status: 400 });
+  const lieferungId = Number(searchParams.get("lieferungId"));
+  if (!Number.isInteger(lieferungId) || lieferungId <= 0) {
+    return NextResponse.json({ error: "Ungültige lieferungId" }, { status: 400 });
   }
 
+  try {
   // Rechnungsnummer ggf. automatisch vergeben (transaktionssicher)
   const lieferung = await prisma.$transaction(async (tx) => {
     const l = await tx.lieferung.findUnique({
@@ -188,4 +188,7 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+  } catch {
+    return NextResponse.json({ error: "Fehler beim Erstellen der Rechnung" }, { status: 500 });
+  }
 }

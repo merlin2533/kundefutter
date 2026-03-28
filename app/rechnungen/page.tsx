@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 
@@ -15,7 +15,7 @@ interface Lieferposition {
 interface Rechnung {
   id: number;
   rechnungNr: string;
-  rechnungDatum: string;
+  rechnungDatum: string | null;
   datum: string;
   notiz: string | null;
   kunde: { id: number; name: string; firma: string | null };
@@ -35,7 +35,8 @@ function berechneBetrag(positionen: Lieferposition[]) {
 
 function getRechnungStatus(r: Rechnung): "bezahlt" | "ueberfaellig" | "offen" {
   if (r.bezahltAm) return "bezahlt";
-  const faelligAm = new Date(r.rechnungDatum);
+  const basis = r.rechnungDatum ?? r.datum;
+  const faelligAm = new Date(basis);
   faelligAm.setDate(faelligAm.getDate() + (r.zahlungsziel ?? 30));
   if (faelligAm < new Date()) return "ueberfaellig";
   return "offen";
@@ -67,30 +68,39 @@ export default function RechnungenPage() {
   function load() {
     fetch("/api/lieferungen?hatRechnung=true")
       .then((r) => r.json())
-      .then((data) => { setRechnungen(data); setLoading(false); });
+      .then((data) => { setRechnungen(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }
 
   useEffect(() => { load(); }, []);
 
   async function buchungSpeichern(id: number) {
-    await fetch(`/api/lieferungen/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bezahltAm: buchungDatum }),
-    });
-    setBuchungId(null);
-    setLoading(true);
-    load();
+    try {
+      await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bezahltAm: buchungDatum }),
+      });
+      setBuchungId(null);
+      setLoading(true);
+      load();
+    } catch {
+      setLoading(false);
+    }
   }
 
   async function zahlungLoesen(id: number) {
-    await fetch(`/api/lieferungen/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bezahltAm: null }),
-    });
-    setLoading(true);
-    load();
+    try {
+      await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bezahltAm: null }),
+      });
+      setLoading(true);
+      load();
+    } catch {
+      setLoading(false);
+    }
   }
 
   const gefiltert = rechnungen.filter((r) => {
@@ -208,13 +218,12 @@ export default function RechnungenPage() {
               {gefiltert.map((r) => {
                 const st = getRechnungStatus(r);
                 const betrag = berechneBetrag(r.positionen);
-                const faelligAm = new Date(r.rechnungDatum);
+                const faelligAm = new Date(r.rechnungDatum ?? r.datum);
                 faelligAm.setDate(faelligAm.getDate() + (r.zahlungsziel ?? 30));
                 const isExpanded = expanded === r.id;
                 return (
-                  <>
+                  <React.Fragment key={r.id}>
                     <tr
-                      key={r.id}
                       className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
                       onClick={() => setExpanded(isExpanded ? null : r.id)}
                     >
@@ -222,7 +231,7 @@ export default function RechnungenPage() {
                         {isExpanded ? "▲" : "▼"}
                       </td>
                       <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.rechnungNr}</td>
-                      <td className="px-4 py-3 text-gray-700">{formatDatum(r.rechnungDatum)}</td>
+                      <td className="px-4 py-3 text-gray-700">{formatDatum(r.rechnungDatum ?? r.datum)}</td>
                       <td className={`px-4 py-3 ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
                         {formatDatum(faelligAm)}
                       </td>
@@ -321,7 +330,7 @@ export default function RechnungenPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>
