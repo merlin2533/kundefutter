@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
+import { PRODUKT_BAUM, type ProduktNode } from "@/lib/eurostat";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,13 +42,142 @@ function formatZeitraum(z: string): string {
   return `Q${quartal} ${jahr}`;
 }
 
-const KATEGORIE_GRUPPEN: Record<string, { label: string; farbeClass: string; farbeSvg: string; bgClass: string }> = {
-  "206000": { label: "Futtermittel", farbeClass: "text-green-600", farbeSvg: "#16a34a", bgClass: "bg-green-50" },
-  "203000": { label: "Dünger", farbeClass: "text-amber-600", farbeSvg: "#d97706", bgClass: "bg-amber-50" },
-  "201000": { label: "Saatgut", farbeClass: "text-blue-600", farbeSvg: "#2563eb", bgClass: "bg-blue-50" },
-};
+// Fixed color palette for dynamic chart lines
+const LINE_PALETTE = [
+  "#16a34a", // green-600
+  "#d97706", // amber-600
+  "#2563eb", // blue-600
+  "#dc2626", // red-600
+  "#7c3aed", // violet-600
+  "#0891b2", // cyan-600
+  "#ea580c", // orange-600
+  "#4f46e5", // indigo-600
+  "#be185d", // pink-700
+  "#15803d", // green-700
+  "#b45309", // amber-700
+  "#1d4ed8", // blue-700
+];
 
-const HAUPT_CODES = ["206000", "203000", "201000"];
+function codeColor(code: string, index: number): string {
+  return LINE_PALETTE[index % LINE_PALETTE.length];
+}
+
+// Betriebsmittel main codes
+const BETRIEBSMITTEL_CODES = ["203000", "206000", "201000"];
+// Erzeuger main codes
+const ERZEUGER_CODES = ["C0000", "D0000"];
+
+// ─── Produkt Baum Navigator ───────────────────────────────────────────────────
+
+function ProduktBaumNav({
+  selectedCodes,
+  onToggle,
+  verfuegbareCodes,
+}: {
+  selectedCodes: Set<string>;
+  onToggle: (code: string) => void;
+  verfuegbareCodes: Set<string>;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(
+    new Set(["betriebsmittel", "erzeuger", "203000", "C0000", "D0000"])
+  );
+
+  function toggleExpand(code: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+
+  function renderNode(node: ProduktNode, depth = 0): React.ReactNode {
+    const hasChildren = node.children && node.children.length > 0;
+    const isExpanded = expanded.has(node.code);
+    const isSelected = selectedCodes.has(node.code);
+    const hasData = verfuegbareCodes.has(node.code);
+
+    return (
+      <div key={node.code}>
+        <div
+          className={[
+            "flex items-center gap-1 py-1 rounded cursor-pointer hover:bg-gray-100 text-sm",
+            depth === 0 ? "font-semibold text-gray-700 mt-2" : "",
+            isSelected ? "bg-green-50 text-green-800" : "",
+            !hasData && !node.isGroup ? "opacity-40" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          style={{ paddingLeft: `${(depth + 1) * 12}px`, paddingRight: "8px" }}
+        >
+          {hasChildren && (
+            <button
+              onClick={() => toggleExpand(node.code)}
+              className="text-gray-400 w-4 flex-shrink-0 text-xs"
+            >
+              {isExpanded ? "▾" : "▸"}
+            </button>
+          )}
+          {!hasChildren && !node.isGroup && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              disabled={!hasData}
+              onChange={() => onToggle(node.code)}
+              className="mr-1 flex-shrink-0"
+            />
+          )}
+          {hasChildren && !node.isGroup && (
+            <span className="w-4 flex-shrink-0" />
+          )}
+          <span
+            className="flex-1 truncate"
+            onClick={() => !node.isGroup && hasData && onToggle(node.code)}
+          >
+            {node.name}
+          </span>
+          {!hasData && !node.isGroup && (
+            <span className="text-xs text-gray-300 ml-1 flex-shrink-0">–</span>
+          )}
+        </div>
+        {hasChildren && isExpanded &&
+          node.children!.map((child) => renderNode(child, depth + 1))}
+      </div>
+    );
+  }
+
+  function selectAllBetriebsmittel() {
+    BETRIEBSMITTEL_CODES.forEach((c) => {
+      if (verfuegbareCodes.has(c) && !selectedCodes.has(c)) onToggle(c);
+    });
+  }
+
+  function selectAllErzeuger() {
+    ERZEUGER_CODES.forEach((c) => {
+      if (verfuegbareCodes.has(c) && !selectedCodes.has(c)) onToggle(c);
+    });
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-2">
+      <div className="flex flex-col gap-1 mb-2 px-1">
+        <button
+          onClick={selectAllBetriebsmittel}
+          className="text-xs px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-left"
+        >
+          Alle Betriebsmittel
+        </button>
+        <button
+          onClick={selectAllErzeuger}
+          className="text-xs px-2 py-1 bg-green-50 hover:bg-green-100 text-green-700 rounded text-left"
+        >
+          Alle Erzeugerpreise
+        </button>
+      </div>
+      {PRODUKT_BAUM.map((node) => renderNode(node))}
+    </div>
+  );
+}
 
 // ─── Mini Sparkline ───────────────────────────────────────────────────────────
 
@@ -83,32 +213,45 @@ function Sparkline({ werte, farbe }: { werte: number[]; farbe: string }) {
 
 // ─── SVG Line Chart ───────────────────────────────────────────────────────────
 
-function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
+function LinienChart({
+  daten,
+  selectedCodes,
+}: {
+  daten: MarktpreisEintrag[];
+  selectedCodes: Set<string>;
+}) {
   const [tooltip, setTooltip] = useState<{
     x: number;
     y: number;
     text: string;
   } | null>(null);
 
-  // Group by produktCode (only main categories)
+  // Collect selected codes that actually have data
+  const activeCodes = Array.from(selectedCodes).filter((code) =>
+    daten.some((d) => d.produktCode === code)
+  );
+
+  // Group by produktCode (only selected codes)
   const grouped: Record<string, MarktpreisEintrag[]> = {};
   for (const d of daten) {
-    if (!HAUPT_CODES.includes(d.produktCode)) continue;
+    if (!activeCodes.includes(d.produktCode)) continue;
     if (!grouped[d.produktCode]) grouped[d.produktCode] = [];
     grouped[d.produktCode].push(d);
   }
 
   // Sort each group by zeitraum
   for (const code of Object.keys(grouped)) {
-    grouped[code].sort((a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum));
+    grouped[code].sort(
+      (a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum)
+    );
   }
 
   // Collect all unique zeitraeume sorted
-  const alleZeitraeume = Array.from(new Set(daten.map((d) => d.zeitraum))).sort(
-    (a, b) => zeitraumSortKey(a) - zeitraumSortKey(b)
-  );
+  const alleZeitraeume = Array.from(
+    new Set(daten.map((d) => d.zeitraum))
+  ).sort((a, b) => zeitraumSortKey(a) - zeitraumSortKey(b));
 
-  if (alleZeitraeume.length === 0) {
+  if (alleZeitraeume.length === 0 || activeCodes.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-sm text-gray-400">
         Keine Daten vorhanden
@@ -125,14 +268,18 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
   const chartW = W - paddingLeft - paddingRight;
   const chartH = H - paddingTop - paddingBottom;
 
-  // Compute y range across all data
-  const alleWerte = daten.filter((d) => HAUPT_CODES.includes(d.produktCode)).map((d) => d.indexWert);
+  // Compute y range across selected data
+  const alleWerte = daten
+    .filter((d) => activeCodes.includes(d.produktCode))
+    .map((d) => d.indexWert);
   const minY = Math.floor(Math.min(...alleWerte, 100) / 10) * 10;
   const maxY = Math.ceil(Math.max(...alleWerte, 100) / 10) * 10;
   const yRange = maxY - minY || 1;
 
   function xPos(idx: number): number {
-    return paddingLeft + (idx / Math.max(alleZeitraeume.length - 1, 1)) * chartW;
+    return (
+      paddingLeft + (idx / Math.max(alleZeitraeume.length - 1, 1)) * chartW
+    );
   }
 
   function yPos(val: number): number {
@@ -231,18 +378,27 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
           );
         })}
 
-        {/* Lines + dots for each category */}
-        {Object.entries(grouped).map(([code, eintraege]) => {
-          const meta = KATEGORIE_GRUPPEN[code];
-          if (!meta) return null;
-          const farbe = meta.farbeSvg;
+        {/* Lines + dots for each selected code */}
+        {activeCodes.map((code, colorIdx) => {
+          const eintraege = grouped[code];
+          if (!eintraege) return null;
+          const farbe = codeColor(code, colorIdx);
+          const label =
+            eintraege[0]?.produktName ?? code;
 
-          // Build path + dot positions
-          const points: { x: number; y: number; eintrag: MarktpreisEintrag }[] = [];
+          const points: {
+            x: number;
+            y: number;
+            eintrag: MarktpreisEintrag;
+          }[] = [];
           for (const e of eintraege) {
             const idx = alleZeitraeume.indexOf(e.zeitraum);
             if (idx < 0) continue;
-            points.push({ x: xPos(idx), y: yPos(e.indexWert), eintrag: e });
+            points.push({
+              x: xPos(idx),
+              y: yPos(e.indexWert),
+              eintrag: e,
+            });
           }
 
           if (points.length === 0) return null;
@@ -268,7 +424,7 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
                     setTooltip({
                       x: p.x,
                       y: p.y,
-                      text: `${meta.label}: ${p.eintrag.indexWert.toFixed(1)} (${formatZeitraum(p.eintrag.zeitraum)})`,
+                      text: `${label}: ${p.eintrag.indexWert.toFixed(1)} (${formatZeitraum(p.eintrag.zeitraum)})`,
                     })
                   }
                 />
@@ -281,7 +437,10 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
         {tooltip && (
           <g>
             <rect
-              x={Math.max(paddingLeft, Math.min(tooltip.x - 90, W - paddingRight - 190))}
+              x={Math.max(
+                paddingLeft,
+                Math.min(tooltip.x - 90, W - paddingRight - 190)
+              )}
               y={tooltip.y - 30}
               width={200}
               height={24}
@@ -290,7 +449,12 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
               opacity={0.9}
             />
             <text
-              x={Math.max(paddingLeft, Math.min(tooltip.x - 90, W - paddingRight - 190)) + 8}
+              x={
+                Math.max(
+                  paddingLeft,
+                  Math.min(tooltip.x - 90, W - paddingRight - 190)
+                ) + 8
+              }
               y={tooltip.y - 14}
               fontSize={10}
               fill="white"
@@ -302,22 +466,41 @@ function LinienChart({ daten }: { daten: MarktpreisEintrag[] }) {
       </svg>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-6 mt-3 justify-center">
-        {HAUPT_CODES.map((code) => {
-          const meta = KATEGORIE_GRUPPEN[code];
-          if (!meta) return null;
+      <div className="flex flex-wrap gap-4 mt-3 justify-center">
+        {activeCodes.map((code, colorIdx) => {
+          const farbe = codeColor(code, colorIdx);
+          const label =
+            grouped[code]?.[0]?.produktName ?? code;
           return (
-            <div key={code} className="flex items-center gap-2 text-sm text-gray-600">
+            <div
+              key={code}
+              className="flex items-center gap-2 text-sm text-gray-600"
+            >
               <svg width={20} height={4}>
-                <line x1={0} y1={2} x2={20} y2={2} stroke={meta.farbeSvg} strokeWidth={2} />
+                <line
+                  x1={0}
+                  y1={2}
+                  x2={20}
+                  y2={2}
+                  stroke={farbe}
+                  strokeWidth={2}
+                />
               </svg>
-              <span>{meta.label}</span>
+              <span>{label}</span>
             </div>
           );
         })}
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <svg width={20} height={4}>
-            <line x1={0} y1={2} x2={20} y2={2} stroke="#6b7280" strokeWidth={1} strokeDasharray="4 2" />
+            <line
+              x1={0}
+              y1={2}
+              x2={20}
+              y2={2}
+              stroke="#6b7280"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+            />
           </svg>
           <span>Basis 2015 = 100</span>
         </div>
@@ -338,26 +521,19 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
 
   // Sort each group by zeitraum
   for (const code of Object.keys(grouped)) {
-    grouped[code].sort((a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum));
+    grouped[code].sort(
+      (a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum)
+    );
   }
 
-  // Build rows grouped by parent category
-  const kategorieReihenfolge = ["206", "203", "201"];
-  const kategorieLabel: Record<string, string> = {
-    "206": "Futtermittel",
-    "203": "Dünger",
-    "201": "Saatgut",
-  };
-  const kategorieBg: Record<string, string> = {
-    "206": "bg-green-50",
-    "203": "bg-amber-50",
-    "201": "bg-blue-50",
-  };
-  const kategorieFarbe: Record<string, string> = {
-    "206": "#16a34a",
-    "203": "#d97706",
-    "201": "#2563eb",
-  };
+  // Determine section groupings from prefixes
+  const prefixGroups: { prefix: string; label: string; bg: string; farbe: string }[] = [
+    { prefix: "206", label: "Futtermittel", bg: "bg-green-50", farbe: "#16a34a" },
+    { prefix: "203", label: "Dünger", bg: "bg-amber-50", farbe: "#d97706" },
+    { prefix: "201", label: "Saatgut", bg: "bg-blue-50", farbe: "#2563eb" },
+    { prefix: "C", label: "Getreide (Erzeuger)", bg: "bg-yellow-50", farbe: "#ca8a04" },
+    { prefix: "D", label: "Ölsaaten (Erzeuger)", bg: "bg-lime-50", farbe: "#65a30d" },
+  ];
 
   const sections: {
     prefix: string;
@@ -371,18 +547,26 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
       vorquartal: number;
       veraenderung: number;
       letzte4: number[];
+      isMain: boolean;
     }[];
   }[] = [];
 
-  for (const prefix of kategorieReihenfolge) {
+  const mainCodes = new Set([
+    ...BETRIEBSMITTEL_CODES,
+    ...ERZEUGER_CODES,
+  ]);
+
+  for (const { prefix, label, bg, farbe } of prefixGroups) {
     const codes = Object.keys(grouped)
       .filter((c) => c.startsWith(prefix))
       .sort();
     const zeilen = codes.map((code) => {
       const reihe = grouped[code];
       const aktuell = reihe[reihe.length - 1]?.indexWert ?? 0;
-      const vorquartal = reihe.length >= 2 ? reihe[reihe.length - 2].indexWert : aktuell;
-      const veraenderung = vorquartal !== 0 ? ((aktuell - vorquartal) / vorquartal) * 100 : 0;
+      const vorquartal =
+        reihe.length >= 2 ? reihe[reihe.length - 2].indexWert : aktuell;
+      const veraenderung =
+        vorquartal !== 0 ? ((aktuell - vorquartal) / vorquartal) * 100 : 0;
       const letzte4 = reihe.slice(-4).map((e) => e.indexWert);
       return {
         code,
@@ -391,18 +575,21 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
         vorquartal,
         veraenderung,
         letzte4,
+        isMain: mainCodes.has(code),
       };
     });
 
     if (zeilen.length > 0) {
-      sections.push({
-        prefix,
-        label: kategorieLabel[prefix] ?? prefix,
-        bg: kategorieBg[prefix] ?? "bg-gray-50",
-        farbe: kategorieFarbe[prefix] ?? "#6b7280",
-        zeilen,
-      });
+      sections.push({ prefix, label, bg, farbe, zeilen });
     }
+  }
+
+  if (sections.length === 0) {
+    return (
+      <div className="text-sm text-gray-400 py-4 text-center">
+        Keine Produkte ausgewählt
+      </div>
+    );
   }
 
   return (
@@ -410,11 +597,21 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-2 px-3 font-medium text-gray-600">Kategorie</th>
-            <th className="text-right py-2 px-3 font-medium text-gray-600">Aktuell</th>
-            <th className="text-right py-2 px-3 font-medium text-gray-600">Vorquartal</th>
-            <th className="text-right py-2 px-3 font-medium text-gray-600">Veraenderung</th>
-            <th className="text-center py-2 px-3 font-medium text-gray-600">Trend</th>
+            <th className="text-left py-2 px-3 font-medium text-gray-600">
+              Kategorie
+            </th>
+            <th className="text-right py-2 px-3 font-medium text-gray-600">
+              Aktuell
+            </th>
+            <th className="text-right py-2 px-3 font-medium text-gray-600">
+              Vorquartal
+            </th>
+            <th className="text-right py-2 px-3 font-medium text-gray-600">
+              Veraenderung
+            </th>
+            <th className="text-center py-2 px-3 font-medium text-gray-600">
+              Trend
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -422,12 +619,14 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
             <Fragment key={section.prefix}>
               {/* Group header */}
               <tr className={section.bg}>
-                <td colSpan={5} className="py-2 px-3 font-semibold text-gray-700">
+                <td
+                  colSpan={5}
+                  className="py-2 px-3 font-semibold text-gray-700"
+                >
                   {section.label}
                 </td>
               </tr>
               {section.zeilen.map((z) => {
-                const istHauptCode = HAUPT_CODES.includes(z.code);
                 const changeColor =
                   Math.abs(z.veraenderung) <= 2
                     ? "text-gray-500"
@@ -443,15 +642,23 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
                 return (
                   <tr
                     key={z.code}
-                    className={`border-b border-gray-50 hover:bg-gray-50 ${istHauptCode ? "font-semibold" : ""}`}
+                    className={`border-b border-gray-50 hover:bg-gray-50 ${z.isMain ? "font-semibold" : ""}`}
                   >
                     <td className="py-2 px-3 text-gray-800">
-                      {!istHauptCode && <span className="text-gray-300 mr-2">--</span>}
+                      {!z.isMain && (
+                        <span className="text-gray-300 mr-2">--</span>
+                      )}
                       {z.name}
                     </td>
-                    <td className="py-2 px-3 text-right font-mono">{z.aktuell.toFixed(1)}</td>
-                    <td className="py-2 px-3 text-right font-mono text-gray-500">{z.vorquartal.toFixed(1)}</td>
-                    <td className={`py-2 px-3 text-right font-mono ${changeColor}`}>
+                    <td className="py-2 px-3 text-right font-mono">
+                      {z.aktuell.toFixed(1)}
+                    </td>
+                    <td className="py-2 px-3 text-right font-mono text-gray-500">
+                      {z.vorquartal.toFixed(1)}
+                    </td>
+                    <td
+                      className={`py-2 px-3 text-right font-mono ${changeColor}`}
+                    >
                       {arrow} {z.veraenderung >= 0 ? "+" : ""}
                       {z.veraenderung.toFixed(1)}%
                     </td>
@@ -471,28 +678,78 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
 
-function KpiKarten({ daten }: { daten: MarktpreisEintrag[] }) {
-  // Build KPIs from main category codes
-  const kpis: AktuellKpi[] = HAUPT_CODES.map((code) => {
-    const reihe = daten
-      .filter((d) => d.produktCode === code)
-      .sort((a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum));
-    const aktuell = reihe[reihe.length - 1]?.indexWert ?? 0;
-    const vorquartal = reihe.length >= 2 ? reihe[reihe.length - 2].indexWert : aktuell;
-    const veraenderung = vorquartal !== 0 ? ((aktuell - vorquartal) / vorquartal) * 100 : 0;
-    return {
-      kategorie: KATEGORIE_GRUPPEN[code]?.label ?? code,
-      produktCode: code,
-      aktuell,
-      vorquartal,
-      veraenderung,
-    };
-  });
+const KPI_META: Record<
+  string,
+  { label: string; farbeClass: string; bgClass: string }
+> = {
+  "206000": {
+    label: "Futtermittel",
+    farbeClass: "text-green-600",
+    bgClass: "bg-green-50",
+  },
+  "203000": {
+    label: "Dünger",
+    farbeClass: "text-amber-600",
+    bgClass: "bg-amber-50",
+  },
+  "201000": {
+    label: "Saatgut",
+    farbeClass: "text-blue-600",
+    bgClass: "bg-blue-50",
+  },
+  C0000: {
+    label: "Getreide",
+    farbeClass: "text-yellow-600",
+    bgClass: "bg-yellow-50",
+  },
+  D0000: {
+    label: "Ölsaaten",
+    farbeClass: "text-lime-600",
+    bgClass: "bg-lime-50",
+  },
+};
+
+const KPI_CODES = ["206000", "203000", "201000", "C0000", "D0000"];
+
+function KpiKarten({
+  daten,
+  selectedCodes,
+}: {
+  daten: MarktpreisEintrag[];
+  selectedCodes: Set<string>;
+}) {
+  const visibleKpiCodes = KPI_CODES.filter((code) => selectedCodes.has(code));
+
+  if (visibleKpiCodes.length === 0) return null;
+
+  const kpis: AktuellKpi[] = visibleKpiCodes
+    .map((code) => {
+      const reihe = daten
+        .filter((d) => d.produktCode === code)
+        .sort(
+          (a, b) =>
+            zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum)
+        );
+      if (reihe.length === 0) return null;
+      const aktuell = reihe[reihe.length - 1]?.indexWert ?? 0;
+      const vorquartal =
+        reihe.length >= 2 ? reihe[reihe.length - 2].indexWert : aktuell;
+      const veraenderung =
+        vorquartal !== 0 ? ((aktuell - vorquartal) / vorquartal) * 100 : 0;
+      return {
+        kategorie: KPI_META[code]?.label ?? code,
+        produktCode: code,
+        aktuell,
+        vorquartal,
+        veraenderung,
+      };
+    })
+    .filter((k): k is AktuellKpi => k !== null);
 
   return (
     <div className="grid sm:grid-cols-3 gap-4">
       {kpis.map((kpi) => {
-        const meta = KATEGORIE_GRUPPEN[kpi.produktCode];
+        const meta = KPI_META[kpi.produktCode];
         const isStable = Math.abs(kpi.veraenderung) <= 2;
         const isUp = kpi.veraenderung > 2;
         const borderColor = isStable
@@ -509,10 +766,14 @@ function KpiKarten({ daten }: { daten: MarktpreisEintrag[] }) {
 
         return (
           <Card key={kpi.produktCode} className={borderColor}>
-            <p className={`text-sm font-medium ${meta?.farbeClass ?? "text-gray-600"}`}>
+            <p
+              className={`text-sm font-medium ${meta?.farbeClass ?? "text-gray-600"}`}
+            >
               {kpi.kategorie}
             </p>
-            <p className="text-3xl font-bold mt-1 text-gray-900">{kpi.aktuell.toFixed(1)}</p>
+            <p className="text-3xl font-bold mt-1 text-gray-900">
+              {kpi.aktuell.toFixed(1)}
+            </p>
             <p className={`text-sm mt-1 ${changeColor}`}>
               {arrow} {kpi.veraenderung >= 0 ? "+" : ""}
               {kpi.veraenderung.toFixed(1)}% ggü. Vorquartal
@@ -526,11 +787,15 @@ function KpiKarten({ daten }: { daten: MarktpreisEintrag[] }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const DEFAULT_SELECTED = new Set(["203000", "206000", "201000"]);
+
 export default function MarktpreisePage() {
   const [daten, setDaten] = useState<MarktpreisEintrag[] | null>(null);
   const [letzteAktualisierung, setLetzteAktualisierung] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCodes, setSelectedCodes] =
+    useState<Set<string>>(DEFAULT_SELECTED);
 
   const loadData = useCallback(async (force = false) => {
     try {
@@ -570,7 +835,9 @@ export default function MarktpreisePage() {
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900">Marktpreise — Agrarpreisindex</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Marktpreise — Agrarpreisindex
+        </h1>
         <p className="text-red-500 mt-4">Fehler beim Laden: {error}</p>
         <button
           onClick={() => loadData()}
@@ -584,20 +851,35 @@ export default function MarktpreisePage() {
 
   if (!daten) return <p className="text-gray-400 mt-8">Lade Marktpreise…</p>;
 
+  // Compute set of codes that have at least one data entry
+  const verfuegbareCodes = new Set(daten.map((d) => d.produktCode));
+
+  // Filtered data for selected codes
+  const filteredDaten = daten.filter((d) => selectedCodes.has(d.produktCode));
+
+  function toggleCode(code: string) {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
+
   return (
-    <div className="space-y-6">
-      {/* A) Header */}
+    <div className="space-y-4">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Marktpreise — Agrarpreisindex</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Marktpreise — Agrarpreisindex
+        </h1>
         <p className="text-sm text-gray-500">
-          Quelle: Eurostat apri_pi15_inq · Preisindex 2015 = 100
+          Quelle: Eurostat apri_pi15_inq / apri_pi15_outq · Preisindex 2015 =
+          100
         </p>
       </div>
 
-      {/* B) KPI Cards */}
-      <KpiKarten daten={daten} />
-
-      {/* E) Sync Button */}
+      {/* Sync button */}
       <div className="flex items-center gap-3">
         <button
           onClick={handleSync}
@@ -606,26 +888,48 @@ export default function MarktpreisePage() {
         >
           {syncing ? "Aktualisiere…" : "Daten aktualisieren"}
         </button>
-        {syncing && <span className="text-sm text-gray-400">Lade neue Daten…</span>}
+        {syncing && (
+          <span className="text-sm text-gray-400">Lade neue Daten…</span>
+        )}
       </div>
 
-      {/* C) Line Chart */}
-      <Card>
-        <h2 className="text-base font-semibold text-gray-800 mb-4">
-          Preisentwicklung (Quartalsindex)
-        </h2>
-        <LinienChart daten={daten} />
-      </Card>
+      {/* 2-column layout */}
+      <div className="flex gap-6">
+        {/* Left: Tree navigator */}
+        <div className="w-60 flex-shrink-0">
+          <div className="sticky top-4">
+            <h3 className="text-sm font-semibold text-gray-600 mb-2">
+              Produktauswahl
+            </h3>
+            <ProduktBaumNav
+              selectedCodes={selectedCodes}
+              onToggle={toggleCode}
+              verfuegbareCodes={verfuegbareCodes}
+            />
+          </div>
+        </div>
 
-      {/* D) Detail Table */}
-      <Card>
-        <h2 className="text-base font-semibold text-gray-800 mb-4">
-          Detailansicht nach Unterkategorien
-        </h2>
-        <DetailTabelle daten={daten} />
-      </Card>
+        {/* Right: Charts and table */}
+        <div className="flex-1 space-y-6 min-w-0">
+          <KpiKarten daten={filteredDaten} selectedCodes={selectedCodes} />
 
-      {/* F) Footer */}
+          <Card>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">
+              Preisentwicklung (Quartalsindex)
+            </h2>
+            <LinienChart daten={filteredDaten} selectedCodes={selectedCodes} />
+          </Card>
+
+          <Card>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">
+              Detailansicht nach Unterkategorien
+            </h2>
+            <DetailTabelle daten={filteredDaten} />
+          </Card>
+        </div>
+      </div>
+
+      {/* Footer */}
       <p className="text-xs text-gray-400 mt-4">
         Letzte Aktualisierung: {letzteAktualisierung}
       </p>
