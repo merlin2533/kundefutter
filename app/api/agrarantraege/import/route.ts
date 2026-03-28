@@ -51,9 +51,13 @@ function findCol(headers: string[], key: string): number {
 }
 
 function parseNum(s: string | undefined): number {
-  if (!s) return 0;
-  // Remove currency symbols, spaces, replace , with .
-  const cleaned = s.replace(/[€$£\s]/g, "").replace(/\./g, "").replace(",", ".");
+  if (!s || !s.trim()) return 0;
+  const t = s.trim().replace(/[€$£\s]/g, "");
+  // German format: 1.234,56 → remove thousands dot, replace comma
+  // CSV/English format: 1234.8 → dot is decimal, no thousands separator
+  const cleaned = t.includes(",")
+    ? t.replace(/\./g, "").replace(",", ".")
+    : t;
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
 }
@@ -264,7 +268,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "CSV-Inhalt ist leer" }, { status: 400 });
     }
 
-    const nodeStream = Readable.from(text.split("\n"));
+    const nodeStream = Readable.from([text]);
     const rl = createInterface({ input: nodeStream, crlfDelay: Infinity });
     const { aggMap, error } = await processStream(rl);
 

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
 interface AntragEmpfaenger {
@@ -55,16 +55,6 @@ export default function AgrarantraegeePage() {
   const [jahrFilter, setJahrFilter] = useState("");
   const [nurUnverknuepft, setNurUnverknuepft] = useState(false);
 
-  // Import
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  // Auto-import state
-  const [autoYear, setAutoYear] = useState("2024");
-  const [autoUrl, setAutoUrl] = useState("");
-  const [autoImporting, setAutoImporting] = useState(false);
-  const [autoImportResult, setAutoImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string } | null>(null);
 
   // Link modal
   const [linkItem, setLinkItem] = useState<AntragEmpfaenger | null>(null);
@@ -95,57 +85,6 @@ export default function AgrarantraegeePage() {
     return () => clearTimeout(t);
   }, [fetchItems]);
 
-  async function handleImport() {
-    const file = fileRef.current?.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    setImportResult(null);
-    try {
-      const formData = new FormData();
-      formData.append("csv", file);
-      const res = await fetch("/api/agrarantraege/import", { method: "POST", body: formData });
-      const data = await res.json();
-      setImportResult(data);
-      if (data.ok) {
-        fetchItems();
-        if (fileRef.current) fileRef.current.value = "";
-      }
-    } catch {
-      setImportResult({ ok: false, error: "Netzwerkfehler beim Import" });
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  async function handleAutoImport() {
-    const resolvedUrl = autoUrl.trim() || `https://www.agrarzahlungen.de/fileadmin/afig-csv/impdata${autoYear}.csv`;
-    setAutoImporting(true);
-    setAutoImportResult(null);
-    try {
-      const res = await fetch("/api/agrarantraege/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "url", url: resolvedUrl }),
-      });
-      let data: { ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string };
-      try {
-        data = await res.json();
-      } catch {
-        const text = await res.text().catch(() => "");
-        if (res.status === 502 || res.status === 504) {
-          data = { ok: false, error: `Server konnte die URL nicht erreichen (HTTP ${res.status}). Bitte CSV manuell unter agrarzahlungen.de herunterladen und per Datei-Upload importieren.` };
-        } else {
-          data = { ok: false, error: `Serverfehler (HTTP ${res.status})${text ? ": " + text.slice(0, 200) : ""}` };
-        }
-      }
-      setAutoImportResult(data);
-      if (data.ok) fetchItems();
-    } catch {
-      setAutoImportResult({ ok: false, error: "Verbindungsfehler: Server nicht erreichbar oder Anfrage abgebrochen. Bitte CSV manuell herunterladen und per Datei-Upload importieren." });
-    } finally {
-      setAutoImporting(false);
-    }
-  }
 
 
   async function openLink(item: AntragEmpfaenger) {
@@ -221,99 +160,17 @@ export default function AgrarantraegeePage() {
         </button>
       </div>
 
-      {/* CSV Import */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
-        <h2 className="font-semibold mb-3">CSV-Import von agrarzahlungen.de</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          CSV unter{" "}
-          <a href="https://www.agrarzahlungen.de/agrarfonds/bs" target="_blank" rel="noopener noreferrer" className="text-green-700 hover:underline">
-            agrarzahlungen.de → Gesamtliste
-          </a>{" "}
-          herunterladen (z.B. impdata2023.csv) und hier hochladen.
+      {/* Import-Hinweis */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 mb-6 print:hidden flex items-center justify-between gap-4">
+        <p className="text-sm text-gray-600">
+          CSV-Import von agrarzahlungen.de
         </p>
-        <div className="flex gap-3 items-center flex-wrap">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.txt"
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none"
-          />
-          <button
-            onClick={handleImport}
-            disabled={importing}
-            className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            {importing ? "Importiere…" : "CSV importieren"}
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-2">
-          Bei 250MB-Dateien bitte Auto-Download oder Serverpfad verwenden, da Browser-Upload zu langsam ist.
-        </p>
-        {importResult && (
-          <div className={`mt-3 text-sm px-3 py-2 rounded-lg border ${importResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
-            {importResult.ok
-              ? `✓ ${importResult.importiert?.toLocaleString("de-DE")} Datensätze importiert (Jahre: ${importResult.jahre?.join(", ")})`
-              : `Fehler: ${importResult.error}`}
-          </div>
-        )}
-      </div>
-
-      {/* Auto-Import */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
-        <h2 className="font-semibold mb-1">Auto-Download von agrarzahlungen.de</h2>
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-          Bei 250MB-Dateien bitte Auto-Download oder Serverpfad verwenden, da Browser-Upload zu langsam ist.
-        </p>
-
-        {/* URL download */}
-        <div className="flex gap-3 items-center flex-wrap mb-2">
-          <select
-            value={autoYear}
-            onChange={(e) => { setAutoYear(e.target.value); setAutoUrl(""); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-          >
-            {[2024, 2023, 2022, 2021, 2020, 2019, 2018].map((y) => (
-              <option key={y} value={String(y)}>{y}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder={`URL (optional): https://www.agrarzahlungen.de/…/impdata${autoYear}.csv`}
-            value={autoUrl}
-            onChange={(e) => setAutoUrl(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-96 focus:outline-none focus:ring-2 focus:ring-green-600"
-          />
-          <button
-            onClick={handleAutoImport}
-            disabled={autoImporting}
-            className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {autoImporting ? (
-              <>
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Herunterladen…
-              </>
-            ) : (
-              "Herunterladen und importieren"
-            )}
-          </button>
-        </div>
-        {autoImporting && (
-          <p className="text-xs text-gray-500 mb-2">
-            Wird heruntergeladen und importiert… (kann bei 250MB bis zu 2 Minuten dauern)
-          </p>
-        )}
-
-        {autoImportResult && (
-          <div className={`mt-3 text-sm px-3 py-2 rounded-lg border ${autoImportResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
-            {autoImportResult.ok
-              ? `✓ ${autoImportResult.importiert?.toLocaleString("de-DE")} Datensätze importiert (Jahre: ${autoImportResult.jahre?.join(", ")}, Modus: ${autoImportResult.modus})`
-              : `Fehler: ${autoImportResult.error}`}
-          </div>
-        )}
+        <Link
+          href="/einstellungen/agrarantraege"
+          className="text-sm px-3 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+        >
+          → CSV importieren
+        </Link>
       </div>
 
       {/* Suche + Filter */}

@@ -78,6 +78,12 @@ export default function EinstellungenPage() {
           title="Lieferanten"
           description="Standard-Zahlungskonditionen und Lieferbedingungen"
         />
+        <EinstellungTile
+          href="/einstellungen/agrarantraege"
+          icon="🌾"
+          title="Agraranträge (AFIG)"
+          description="CSV von agrarzahlungen.de importieren"
+        />
       </div>
     </div>
   );
