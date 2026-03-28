@@ -103,6 +103,16 @@ export default function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
+  const [logo, setLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.logo"]) setLogo(d["system.logo"]);
+      })
+      .catch(() => {});
+  }, []);
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -118,10 +128,14 @@ export default function Nav() {
   return (
     <header className="bg-green-800 text-white shadow-md">
       <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between">
-        <span className="font-bold text-lg tracking-tight whitespace-nowrap leading-tight">
-          <span className="text-white">AgrarOffice</span>
-          <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">Röthemeier</span>
-        </span>
+        {logo ? (
+          <img src={logo} alt="Logo" className="h-10 w-auto object-contain" />
+        ) : (
+          <span className="font-bold text-lg tracking-tight whitespace-nowrap leading-tight">
+            <span className="text-white">AgrarOffice</span>
+            <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">Röthemeier</span>
+          </span>
+        )}
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
