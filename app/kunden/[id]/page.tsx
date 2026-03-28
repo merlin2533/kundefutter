@@ -1087,6 +1087,44 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
     setTimeout(() => { setActionLoading(null); onRefresh(); }, 1500);
   }
 
+  function toggleSammelrechnungSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function erstelleSammelrechnung() {
+    if (selectedIds.size < 2) return;
+    setSammelrechnungLoading(true);
+    try {
+      const res = await fetch("/api/exporte/sammelrechnung", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kundeId: kunde.id, lieferungIds: Array.from(selectedIds) }),
+      });
+      if (!res.ok) throw new Error("Fehler beim Erstellen der Sammelrechnung");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sammelrechnung-${kunde.name}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSelectedIds(new Set());
+      onRefresh();
+    } catch {
+      // ignore
+    } finally {
+      setSammelrechnungLoading(false);
+    }
+  }
+
+  // Only deliveries with status=geliefert and no invoice yet are eligible
+  const sammelrechnungFaehig = (l: Lieferung) =>
+    l.status === "geliefert" && !l.rechnungNr && !l.sammelrechnungId;
+
   const gefiltert = kunde.lieferungen.filter((l) => {
     if (statusFilter !== "alle" && l.status !== statusFilter) return false;
     if (zahlungFilter !== "alle") {
@@ -1181,6 +1219,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              <th className="px-3 py-2.5 text-xs font-medium text-gray-500" title="Für Sammelrechnung auswählen">SR</th>
               <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Datum</th>
               <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Artikel</th>
               <th className="text-right px-3 py-2.5 font-medium text-gray-600 text-xs">Betrag</th>
