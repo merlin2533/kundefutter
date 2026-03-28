@@ -11,6 +11,8 @@ interface DashboardData {
   deckungsbeitragMonat: number;
   lagerAlarme: number;
   faelligNaechste14Tage: number;
+  offeneRechnungen: number;
+  ueberfaelligeRechnungen: number;
   topKunden: { kundeId: number; name: string; umsatz: number }[];
 }
 
@@ -55,7 +57,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
         <KpiCard label="Aktive Kunden" value={data.kundenAktiv} color="blue" />
         <KpiCard label="Offene Lieferungen" value={data.offeneLieferungen} color="yellow" />
         <KpiCard label="Umsatz (Monat)" value={formatEuro(data.umsatzMonat)} color="green" />
@@ -65,6 +67,8 @@ export default function DashboardPage() {
           sub={`${marge} % Marge`}
           color="green"
         />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <KpiCard
           label="Lager-Alarme"
           value={data.lagerAlarme}
@@ -75,6 +79,17 @@ export default function DashboardPage() {
           value={data.faelligNaechste14Tage}
           sub="geplante Lieferungen"
           color="blue"
+        />
+        <KpiCard
+          label="Offene Rechnungen"
+          value={data.offeneRechnungen}
+          color={data.offeneRechnungen > 0 ? "yellow" : "green"}
+        />
+        <KpiCard
+          label="Überfällige Rechnungen"
+          value={data.ueberfaelligeRechnungen}
+          sub={data.ueberfaelligeRechnungen > 0 ? "→ Mahnwesen" : undefined}
+          color={data.ueberfaelligeRechnungen > 0 ? "red" : "green"}
         />
       </div>
 
