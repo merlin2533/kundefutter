@@ -60,6 +60,24 @@ export default function EinstellungenPage() {
           title="System"
           description="Version, Datenbank und Diagnose"
         />
+        <EinstellungTile
+          href="/inventur"
+          icon="📋"
+          title="Inventur"
+          description="Lagerbestand erfassen, Leerliste drucken, Differenzen buchen"
+        />
+        <EinstellungTile
+          href="/einstellungen/stammdaten"
+          icon="📂"
+          title="Stammdaten"
+          description="Kundenkategorien, Mitarbeiter, Lieferanten-Einstellungen"
+        />
+        <EinstellungTile
+          href="/einstellungen/lieferanten"
+          icon="🚚"
+          title="Lieferanten"
+          description="Standard-Zahlungskonditionen und Lieferbedingungen"
+        />
       </div>
     </div>
   );

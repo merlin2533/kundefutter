@@ -114,6 +114,7 @@ model Artikel {
   mindestbestand   Float    @default(0)
   aktuellerBestand Float    @default(0)
   aktiv            Boolean  @default(true)
+  lagerort         String?  // optional: storage location label
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -126,6 +127,7 @@ model Artikel {
   wareineingangPos WareineingangPosition[]
   dokumente        ArtikelDokument[]
   mengenrabatte    Mengenrabatt[]
+  inventurPositionen InventurPosition[]
 }
 
 model ArtikelDokument {
@@ -280,13 +282,15 @@ model WareineingangPosition {
 model Lagerbewegung {
   id             Int      @id @default(autoincrement())
   artikelId      Int
-  typ            String   // eingang | ausgang | korrektur
+  typ            String   // eingang | ausgang | korrektur | UMBUCHUNG
   menge          Float    // positiv = Zugang, negativ = Abgang
   bestandNach    Float
   datum          DateTime @default(now())
   notiz          String?
   lieferungId    Int?
   wareneingangId Int?
+  lagerortVon    String?  // source location (for Umbuchung)
+  lagerortNach   String?  // target location (for Umbuchung)
 
   artikel      Artikel       @relation(fields: [artikelId], references: [id])
   lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
@@ -323,6 +327,33 @@ model Sammelrechnung {
 
   kunde       Kunde       @relation(fields: [kundeId], references: [id])
   lieferungen Lieferung[]
+}
+
+// ─── INVENTUR ────────────────────────────────────────────────────────────────
+
+model Inventur {
+  id          Int                @id @default(autoincrement())
+  datum       DateTime           @default(now())
+  status      String             @default("OFFEN") // OFFEN | ABGESCHLOSSEN
+  bezeichnung String?
+  positionen  InventurPosition[]
+
+  @@index([status])
+}
+
+model InventurPosition {
+  id          Int      @id @default(autoincrement())
+  inventurId  Int
+  inventur    Inventur @relation(fields: [inventurId], references: [id], onDelete: Cascade)
+  artikelId   Int
+  artikel     Artikel  @relation(fields: [artikelId], references: [id])
+  sollBestand Float    // snapshot of bestand at time of inventur
+  istBestand  Float?   // counted value
+  differenz   Float?   // computed: istBestand - sollBestand
+  bemerkung   String?
+
+  @@index([inventurId])
+  @@index([artikelId])
 }
 
 // ─── SYSTEM: Rechnungsnummer-Zähler ──────────────────────────────────────────
