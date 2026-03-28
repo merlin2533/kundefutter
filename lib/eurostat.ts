@@ -44,21 +44,21 @@ export interface EurostatEntry {
  * Build the Eurostat API URL for a given dataset and parameters.
  */
 function buildUrl(dataset: string, sinceYear: number): string {
-  const inputIdxParams = PRODUCT_CODES.map(
-    (code) => `inputidx=${code}`
+  const productParams = PRODUCT_CODES.map(
+    (code) => `product=${code}`
   ).join("&");
 
-  return `${EUROSTAT_BASE}/${dataset}?format=JSON&geo=DE&unit=I15&p_adj=NI&${inputIdxParams}&sinceTimePeriod=${sinceYear}`;
+  return `${EUROSTAT_BASE}/${dataset}?format=JSON&geo=DE&unit=I15&p_adj=NI&${productParams}&sinceTimePeriod=${sinceYear}`;
 }
 
 /**
  * Parse JSON-stat response from Eurostat.
  *
  * The JSON-stat format for these datasets has dimensions:
- *   freq, p_adj, unit, inputidx, geo, time
+ *   freq, p_adj, unit, product, geo, time
  *
  * Since freq, p_adj, unit, and geo each have size 1, the flat value index is:
- *   index = (inputidx_position * time_count) + time_position
+ *   index = (product_position * time_count) + time_position
  *
  * The `value` object uses string keys (the flat index) mapped to numeric values.
  */
@@ -91,15 +91,15 @@ function parseJsonStat(
     return results;
   }
 
-  // Extract inputidx dimension positions
-  const inputIdxDim = dimensions.inputidx as {
+  // Extract product dimension positions
+  const productDim = dimensions.product as {
     category: { index: Record<string, number>; label?: Record<string, string> };
   };
-  if (!inputIdxDim?.category?.index) {
-    console.warn("Eurostat: keine inputidx-Dimension gefunden");
+  if (!productDim?.category?.index) {
+    console.warn("Eurostat: keine product-Dimension gefunden");
     return results;
   }
-  const inputIdxIndex = inputIdxDim.category.index;
+  const productIndex = productDim.category.index;
 
   // Extract time dimension positions
   const timeDim = dimensions.time as {
@@ -120,7 +120,7 @@ function parseJsonStat(
   }
 
   // Iterate over all product codes and time periods
-  for (const [productCode, productPos] of Object.entries(inputIdxIndex)) {
+  for (const [productCode, productPos] of Object.entries(productIndex)) {
     const mapping = PRODUKT_MAPPING[productCode];
     if (!mapping) continue;
 
