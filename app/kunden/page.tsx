@@ -36,6 +36,7 @@ export default function KundenPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
 
   const fetchKunden = useCallback(async (currentPage: number) => {
     setLoading(true);
@@ -66,6 +67,23 @@ export default function KundenPage() {
     const t = setTimeout(() => fetchKunden(page), 300);
     return () => clearTimeout(t);
   }, [fetchKunden, page]);
+
+  async function deleteKunde(id: number, name: string) {
+    if (!confirm(`Kunde "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/kunden/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? "Fehler beim Löschen");
+        return;
+      }
+      setKunden((prev) => prev.filter((k) => k.id !== id));
+      setTotal((t) => (t !== null ? t - 1 : null));
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   function getKontaktInfo(kontakte: KundeKontakt[]) {
     const phone = kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
@@ -190,12 +208,22 @@ export default function KundenPage() {
                         {!phone && !email && <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/kunden/${kunde.id}`}
-                          className="text-green-700 hover:text-green-900 hover:underline font-medium"
-                        >
-                          Details →
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            href={`/kunden/${kunde.id}`}
+                            className="text-green-700 hover:text-green-900 hover:underline font-medium"
+                          >
+                            Details →
+                          </Link>
+                          <button
+                            onClick={() => deleteKunde(kunde.id, kunde.name)}
+                            disabled={deleting === kunde.id}
+                            className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40"
+                            title="Löschen"
+                          >
+                            {deleting === kunde.id ? "…" : "✕"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
