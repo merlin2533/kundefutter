@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       artikelZuordnungen: { include: { artikel: true } },
+      _count: { select: { artikelZuordnungen: true } },
     },
     orderBy: { name: "asc" },
   });

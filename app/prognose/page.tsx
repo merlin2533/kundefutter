@@ -14,20 +14,25 @@ interface PrognoseRow {
   bestellvorschlag: boolean;
 }
 
-interface BestellvorschlagRow {
+interface BestellvorschlagPosition {
   artikelId: number;
   artikelName: string;
+  artikelnummer: string;
   einheit: string;
   bestellmenge: number;
-  einkaufspreis: number;
-  lieferantId: number;
-  lieferantName: string;
+  bevorzugterLieferant: {
+    lieferantId: number;
+    name: string;
+    einkaufspreis: number;
+    mindestbestellmenge: number;
+  } | null;
 }
 
 interface BestellvorschlagGruppe {
   lieferantId: number;
   lieferantName: string;
-  positionen: BestellvorschlagRow[];
+  positionen: BestellvorschlagPosition[];
+  gesamtEinkaufswert: number;
 }
 
 export default function PrognosePageWrapper() {
@@ -264,22 +269,8 @@ function BestellvorschlagTab({
       });
       const res = await fetch(`/api/prognose/bestellvorschlag?${params}`);
       if (!res.ok) throw new Error("Fehler beim Laden des Bestellvorschlags");
-      const data = await res.json();
-
-      // Group by supplier
-      const rawRows: BestellvorschlagRow[] = Array.isArray(data) ? data : [];
-      const gruppenMap = new Map<number, BestellvorschlagGruppe>();
-      for (const row of rawRows) {
-        if (!gruppenMap.has(row.lieferantId)) {
-          gruppenMap.set(row.lieferantId, {
-            lieferantId: row.lieferantId,
-            lieferantName: row.lieferantName,
-            positionen: [],
-          });
-        }
-        gruppenMap.get(row.lieferantId)!.positionen.push(row);
-      }
-      setGruppen(Array.from(gruppenMap.values()));
+      const data: BestellvorschlagGruppe[] = await res.json();
+      setGruppen(Array.isArray(data) ? data : []);
     } catch {
       setError("Fehler beim Laden des Bestellvorschlags.");
     } finally {
@@ -297,9 +288,13 @@ function BestellvorschlagTab({
     setMengenOverride((prev) => ({ ...prev, [artikelId]: value }));
   }
 
+  function getEinkaufspreis(p: BestellvorschlagPosition): number {
+    return p.bevorzugterLieferant?.einkaufspreis ?? 0;
+  }
+
   function gruppeGesamtwert(gruppe: BestellvorschlagGruppe) {
     return gruppe.positionen.reduce(
-      (sum, p) => sum + getMenge(p.artikelId, p.bestellmenge) * p.einkaufspreis,
+      (sum, p) => sum + getMenge(p.artikelId, p.bestellmenge) * getEinkaufspreis(p),
       0
     );
   }
@@ -361,8 +356,8 @@ function BestellvorschlagTab({
                           className="w-24 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
                         />
                       </td>
-                      <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>
-                      <td className="px-4 py-3 font-mono">{formatEuro(menge * pos.einkaufspreis)}</td>
+                      <td className="px-4 py-3 font-mono">{formatEuro(getEinkaufspreis(pos))}</td>
+                      <td className="px-4 py-3 font-mono">{formatEuro(menge * getEinkaufspreis(pos))}</td>
                     </tr>
                   );
                 })}

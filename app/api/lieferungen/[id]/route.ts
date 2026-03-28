@@ -96,22 +96,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { aktion } = await req.json();
 
   if (aktion === "rechnung_erstellen") {
-    const einstellung = await prisma.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
-    const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
+    const lieferung = await prisma.$transaction(async (tx) => {
+      const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
+      const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
 
-    await prisma.einstellung.upsert({
-      where: { key: "letzte_rechnungsnummer" },
-      update: { value: rechnungNr },
-      create: { key: "letzte_rechnungsnummer", value: rechnungNr },
-    });
+      await tx.einstellung.upsert({
+        where: { key: "letzte_rechnungsnummer" },
+        update: { value: rechnungNr },
+        create: { key: "letzte_rechnungsnummer", value: rechnungNr },
+      });
 
-    const lieferung = await prisma.lieferung.update({
-      where: { id: Number(id) },
-      data: { rechnungNr, rechnungDatum: new Date() },
-      include: {
-        kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
-      },
+      return tx.lieferung.update({
+        where: { id: Number(id) },
+        data: { rechnungNr, rechnungDatum: new Date() },
+        include: {
+          kunde: { include: { kontakte: true } },
+          positionen: { include: { artikel: true } },
+        },
+      });
     });
     return NextResponse.json(lieferung);
   }

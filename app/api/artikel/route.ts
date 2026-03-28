@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
-  if (aktiv !== null) where.aktiv = aktiv !== "false";
+  if (aktiv !== null) where.aktiv = aktiv === "true";
   if (search) {
     where.OR = [
       { name: { contains: search } },
