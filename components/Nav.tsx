@@ -14,6 +14,9 @@ const links = [
   { href: "/prognose", label: "Prognose" },
   { href: "/exporte", label: "Export" },
   { href: "/mahnwesen", label: "Mahnwesen" },
+  { href: "/mengenrabatte", label: "Mengenrabatte" },
+  { href: "/statistik", label: "Statistik" },
+  { href: "/einstellungen", label: "Einstellungen" },
 ];
 
 export default function Nav() {

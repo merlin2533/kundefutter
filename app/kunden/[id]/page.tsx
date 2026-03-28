@@ -84,7 +84,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Lieferhistorie"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -850,6 +850,9 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [lieferscheinModal, setLieferscheinModal] = useState<Lieferung | null>(null);
   const [rechnungModal, setRechnungModal] = useState<Lieferung | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"alle" | "geplant" | "geliefert" | "storniert">("alle");
+  const [zahlungFilter, setZahlungFilter] = useState<"alle" | "offen" | "bezahlt" | "ueberfaellig">("alle");
 
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
@@ -882,6 +885,25 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
     setTimeout(() => { setActionLoading(null); onRefresh(); }, 1500);
   }
 
+  const gefiltert = kunde.lieferungen.filter((l) => {
+    if (statusFilter !== "alle" && l.status !== statusFilter) return false;
+    if (zahlungFilter !== "alle") {
+      const zs = zahlungsStatus(l);
+      if (zahlungFilter === "bezahlt" && zs.label !== "Bezahlt") return false;
+      if (zahlungFilter === "offen" && zs.label !== "Offen") return false;
+      if (zahlungFilter === "ueberfaellig" && zs.label !== "Überfällig") return false;
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const inRechnungNr = l.rechnungNr?.toLowerCase().includes(q) ?? false;
+      const inArtikel = l.positionen.some((p) =>
+        p.artikel.name.toLowerCase().includes(q)
+      );
+      if (!inRechnungNr && !inArtikel) return false;
+    }
+    return true;
+  });
+
   const gesamtBetrag = kunde.lieferungen
     .filter((l) => l.status === "geliefert")
     .reduce((s, l) => s + lieferungTotal(l), 0);
@@ -911,6 +933,47 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
         </div>
       </div>
 
+      {/* Suchleiste und Filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Suche nach Artikel oder Rechnungsnr."
+          className="flex-1 min-w-[200px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        <div className="flex gap-1">
+          {(["alle", "geplant", "geliefert", "storniert"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                statusFilter === s
+                  ? "bg-green-600 text-white"
+                  : "border border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {s === "alle" ? "Alle Status" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {(["alle", "offen", "bezahlt", "ueberfaellig"] as const).map((z) => (
+            <button
+              key={z}
+              onClick={() => setZahlungFilter(z)}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                zahlungFilter === z
+                  ? "bg-green-600 text-white"
+                  : "border border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {z === "alle" ? "Alle Zahlungen" : z === "ueberfaellig" ? "Überfällig" : z.charAt(0).toUpperCase() + z.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Tabelle */}
       <div className="overflow-x-auto border border-gray-200 rounded-xl">
         <table className="w-full text-sm">
@@ -927,7 +990,14 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {kunde.lieferungen.map((l) => {
+            {gefiltert.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-400">
+                  Keine Lieferungen gefunden.
+                </td>
+              </tr>
+            ) : null}
+            {gefiltert.map((l) => {
               const total = lieferungTotal(l);
               const posSummary = l.positionen.slice(0, 2)
                 .map((p) => `${p.menge} ${p.artikel.einheit} ${p.artikel.name}`)
@@ -1058,13 +1128,33 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
             <p className="text-sm text-gray-600 mb-4">
               Betrag: <strong>{formatEuro(lieferungTotal(rechnungModal))}</strong>
             </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 flex-wrap">
               <button
                 onClick={() => setRechnungModal(null)}
                 className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Schließen
               </button>
+              {(() => {
+                const emailKontakt = kunde.kontakte.find((k) => k.typ === "email");
+                if (!emailKontakt) return null;
+                const rechnungNr = rechnungModal.rechnungNr ?? "";
+                const datum = formatDatum(rechnungModal.datum);
+                const betrag = formatEuro(lieferungTotal(rechnungModal));
+                const subject = encodeURIComponent(`Rechnung ${rechnungNr} - AgrarOffice Röthemeier`);
+                const body = encodeURIComponent(
+                  `Sehr geehrte Damen und Herren,\n\nerbeten Sie die Rechnung ${rechnungNr} vom ${datum} über ${betrag}.\n\nMit freundlichen Grüßen\nAgrarOffice Röthemeier`
+                );
+                return (
+                  <a
+                    href={`mailto:${emailKontakt.wert}?subject=${subject}&body=${body}`}
+                    onClick={() => setRechnungModal(null)}
+                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                  >
+                    📧 Per E-Mail senden
+                  </a>
+                );
+              })()}
               <a
                 href={`/api/exporte/rechnung?lieferungId=${rechnungModal.id}`}
                 target="_blank"
