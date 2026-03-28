@@ -87,7 +87,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Agrarantrag"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -1595,8 +1595,184 @@ export default function KundeDetailPage() {
         {activeTab === "Statistik" && <StatistikTab kunde={kunde} />}
         {activeTab === "Lieferhistorie" && <LieferhistorieTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} />}
+        {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
       </div>
+    </div>
+  );
+}
+
+// ─── Notizen Tab ──────────────────────────────────────────────────────────────
+
+const THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
+const THEMA_FARBEN: Record<string, string> = {
+  "Info": "bg-blue-50 text-blue-700 border-blue-200",
+  "Wichtig": "bg-red-50 text-red-700 border-red-200",
+  "Offener Punkt": "bg-orange-50 text-orange-700 border-orange-200",
+  "Erledigt": "bg-green-50 text-green-700 border-green-200",
+  "Rückruf": "bg-purple-50 text-purple-700 border-purple-200",
+  "Angebot": "bg-yellow-50 text-yellow-700 border-yellow-200",
+};
+
+interface KundeNotiz {
+  id: number;
+  kundeId: number;
+  text: string;
+  thema?: string | null;
+  erstellt: string;
+}
+
+function NotizenTab({ kundeId }: { kundeId: number }) {
+  const [notizen, setNotizen] = useState<KundeNotiz[]>([]);
+  const [newText, setNewText] = useState("");
+  const [newThema, setNewThema] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [filterThema, setFilterThema] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/kunden/${kundeId}/notizen`)
+      .then((r) => r.json())
+      .then((data) => {
+        setNotizen(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [kundeId]);
+
+  async function handleAdd() {
+    if (!newText.trim()) return;
+    const res = await fetch(`/api/kunden/${kundeId}/notizen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: newText, thema: newThema || null }),
+    });
+    if (res.ok) {
+      const notiz = await res.json();
+      setNotizen((prev) => [notiz, ...prev]);
+      setNewText("");
+      setNewThema("");
+    }
+  }
+
+  async function handleDelete(notizId: number) {
+    const res = await fetch(`/api/kunden/${kundeId}/notizen?notizId=${notizId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setNotizen((prev) => prev.filter((n) => n.id !== notizId));
+    }
+  }
+
+  const filtered = filterThema ? notizen.filter((n) => n.thema === filterThema) : notizen;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-gray-800">Notizen</h3>
+
+      {/* Add form */}
+      <div className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+        <textarea
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="Neue Notiz eingeben…"
+          rows={3}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+        />
+        <div className="flex items-center gap-3">
+          <select
+            value={newThema}
+            onChange={(e) => setNewThema(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">Kein Thema</option>
+            {THEMEN.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleAdd}
+            disabled={!newText.trim()}
+            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Notiz hinzufügen
+          </button>
+        </div>
+      </div>
+
+      {/* Filter buttons */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setFilterThema(null)}
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+            filterThema === null
+              ? "bg-gray-800 text-white border-gray-800"
+              : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          Alle ({notizen.length})
+        </button>
+        {THEMEN.map((t) => {
+          const count = notizen.filter((n) => n.thema === t).length;
+          if (count === 0) return null;
+          return (
+            <button
+              key={t}
+              onClick={() => setFilterThema(filterThema === t ? null : t)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                filterThema === t
+                  ? "bg-gray-800 text-white border-gray-800"
+                  : `${THEMA_FARBEN[t] ?? "bg-gray-50 text-gray-700 border-gray-200"} hover:opacity-80`
+              }`}
+            >
+              {t} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Notes list */}
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade Notizen…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine Notizen vorhanden.</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((notiz) => (
+            <div key={notiz.id} className="border border-gray-200 rounded-lg p-4 bg-white space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    {new Date(notiz.erstellt).toLocaleString("de-DE", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  {notiz.thema && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                        THEMA_FARBEN[notiz.thema] ?? "bg-gray-50 text-gray-700 border-gray-200"
+                      }`}
+                    >
+                      {notiz.thema}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDelete(notiz.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors text-sm"
+                  title="Notiz löschen"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">{notiz.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

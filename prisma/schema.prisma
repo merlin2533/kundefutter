@@ -35,6 +35,7 @@ model Kunde {
   sammelrechnungen Sammelrechnung[]
   aktivitaeten     KundeAktivitaet[]
   antragDaten      AntragEmpfaenger[]
+  kundeNotizen     KundeNotiz[]
 }
 
 model KundeKontakt {
@@ -45,6 +46,19 @@ model KundeKontakt {
   label   String? // z.B. "Büro", "Herr Müller"
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+}
+
+// ─── NOTIZEN ─────────────────────────────────────────────────────────────────
+
+model KundeNotiz {
+  id       Int      @id @default(autoincrement())
+  kundeId  Int
+  kunde    Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  text     String
+  thema    String?  // e.g. "Wichtig", "Offener Punkt", "Erledigt", "Info"
+  erstellt DateTime @default(now())
+
+  @@index([kundeId])
 }
 
 // ─── CRM ──────────────────────────────────────────────────────────────────────
