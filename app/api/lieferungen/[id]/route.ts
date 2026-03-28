@@ -30,6 +30,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     if (!alt) throw new Error("Nicht gefunden");
 
+    // Status-Uebergangsvalidierung
+    if (data.status !== undefined && data.status !== alt.status) {
+      const erlaubteUebergaenge: Record<string, string[]> = {
+        geplant: ["geliefert", "storniert"],
+        geliefert: ["storniert"],
+        storniert: [],
+      };
+      const erlaubt = erlaubteUebergaenge[alt.status] ?? [];
+      if (!erlaubt.includes(data.status)) {
+        throw new Error(`Statuswechsel von "${alt.status}" nach "${data.status}" ist nicht erlaubt`);
+      }
+    }
+
     // Status: geplant → geliefert: Bestand reduzieren
     if (alt.status === "geplant" && data.status === "geliefert") {
       for (const pos of alt.positionen) {
@@ -110,26 +123,37 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { aktion } = await req.json();
 
   if (aktion === "rechnung_erstellen") {
-    const lieferung = await prisma.$transaction(async (tx) => {
-      const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
-      const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
+    try {
+      const lieferung = await prisma.$transaction(async (tx) => {
+        // Pruefen ob bereits eine Rechnungsnummer existiert
+        const existing = await tx.lieferung.findUnique({ where: { id: Number(id) }, select: { rechnungNr: true } });
+        if (existing?.rechnungNr) {
+          throw new Error("Lieferung hat bereits eine Rechnungsnummer");
+        }
 
-      await tx.einstellung.upsert({
-        where: { key: "letzte_rechnungsnummer" },
-        update: { value: rechnungNr },
-        create: { key: "letzte_rechnungsnummer", value: rechnungNr },
-      });
+        const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
+        const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
 
-      return tx.lieferung.update({
-        where: { id: Number(id) },
-        data: { rechnungNr, rechnungDatum: new Date() },
-        include: {
-          kunde: { include: { kontakte: true } },
-          positionen: { include: { artikel: true } },
-        },
+        await tx.einstellung.upsert({
+          where: { key: "letzte_rechnungsnummer" },
+          update: { value: rechnungNr },
+          create: { key: "letzte_rechnungsnummer", value: rechnungNr },
+        });
+
+        return tx.lieferung.update({
+          where: { id: Number(id) },
+          data: { rechnungNr, rechnungDatum: new Date() },
+          include: {
+            kunde: { include: { kontakte: true } },
+            positionen: { include: { artikel: true } },
+          },
+        });
       });
-    });
-    return NextResponse.json(lieferung);
+      return NextResponse.json(lieferung);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
   }
 
   return NextResponse.json({ error: "Unbekannte Aktion" }, { status: 400 });

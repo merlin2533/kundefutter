@@ -27,7 +27,7 @@ export default function Nav() {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
-    if (href === "/kunden") return pathname === "/kunden" || pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte");
+    if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte"));
     return pathname === href || pathname.startsWith(href + "/");
   }
 

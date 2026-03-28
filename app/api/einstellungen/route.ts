@@ -18,6 +18,10 @@ export async function PUT(req: NextRequest) {
   if (!key || value === undefined) {
     return NextResponse.json({ error: "key und value erforderlich" }, { status: 400 });
   }
+  // Nur Firma-Einstellungen duerfen ueber diese Route geaendert werden
+  if (!key.startsWith("firma.")) {
+    return NextResponse.json({ error: "Nur Einstellungen mit Prefix 'firma.' sind erlaubt" }, { status: 400 });
+  }
   const einstellung = await prisma.einstellung.upsert({
     where: { key },
     update: { value },

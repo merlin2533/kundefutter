@@ -26,7 +26,26 @@ export async function POST(req: NextRequest) {
   }
 
   // Create Sammelrechnung in a transaction
-  const sammelrechnung = await prisma.$transaction(async (tx) => {
+  let sammelrechnung;
+  try {
+  sammelrechnung = await prisma.$transaction(async (tx) => {
+    // Pruefen ob Lieferungen bereits eine Rechnung oder Sammelrechnung haben
+    const betroffene = await tx.lieferung.findMany({
+      where: { id: { in: lieferungIds }, kundeId },
+      select: { id: true, rechnungNr: true, sammelrechnungId: true, status: true },
+    });
+    if (betroffene.length !== lieferungIds.length) {
+      throw new Error("Nicht alle Lieferungen wurden gefunden oder gehoeren nicht zum angegebenen Kunden");
+    }
+    const bereitsAbgerechnet = betroffene.filter((l) => l.rechnungNr || l.sammelrechnungId);
+    if (bereitsAbgerechnet.length > 0) {
+      throw new Error(`Lieferungen ${bereitsAbgerechnet.map((l) => l.id).join(", ")} haben bereits eine Rechnung`);
+    }
+    const nichtGeliefert = betroffene.filter((l) => l.status !== "geliefert");
+    if (nichtGeliefert.length > 0) {
+      throw new Error(`Lieferungen ${nichtGeliefert.map((l) => l.id).join(", ")} haben nicht den Status "geliefert"`);
+    }
+
     // Get next invoice number
     const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
     const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
@@ -64,6 +83,10 @@ export async function POST(req: NextRequest) {
       },
     });
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
   if (!sammelrechnung) {
     return NextResponse.json({ error: "Fehler beim Erstellen der Sammelrechnung" }, { status: 500 });

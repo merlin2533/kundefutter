@@ -16,8 +16,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { kundeId, artikelId, kategorie, vonMenge, rabattProzent, aktiv } = body;
 
-  if (!vonMenge || !rabattProzent) {
+  if (vonMenge === undefined || vonMenge === null || rabattProzent === undefined || rabattProzent === null) {
     return NextResponse.json({ error: "vonMenge und rabattProzent sind erforderlich" }, { status: 400 });
+  }
+  if (Number(rabattProzent) < 0 || Number(rabattProzent) > 100) {
+    return NextResponse.json({ error: "rabattProzent muss zwischen 0 und 100 liegen" }, { status: 400 });
   }
   if (!artikelId && !kategorie) {
     return NextResponse.json({ error: "Entweder artikelId oder kategorie muss angegeben werden" }, { status: 400 });
@@ -46,6 +49,10 @@ export async function DELETE(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: "id fehlt" }, { status: 400 });
   }
-  await prisma.mengenrabatt.delete({ where: { id: Number(id) } });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.mengenrabatt.delete({ where: { id: Number(id) } });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Mengenrabatt nicht gefunden" }, { status: 404 });
+  }
 }

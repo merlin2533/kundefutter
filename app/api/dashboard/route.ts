@@ -25,8 +25,8 @@ export async function GET() {
     prisma.lieferung.groupBy({
       by: ["kundeId"],
       where: { status: "geliefert", datum: { gte: monatsAnfang } },
-      _sum: { id: true },
-      orderBy: { _sum: { id: "desc" } },
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
       take: 5,
     }),
     prisma.lieferung.count({
@@ -36,8 +36,8 @@ export async function GET() {
       },
     }),
     prisma.lieferung.findMany({
-      where: { status: "geliefert", bezahltAm: null },
-      select: { datum: true, zahlungsziel: true },
+      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
+      select: { datum: true, rechnungDatum: true, zahlungsziel: true },
     }),
   ]);
 
@@ -64,26 +64,33 @@ export async function GET() {
   const offeneRechnungen = offeneRechnungenListe.length;
   const ueberfaelligeRechnungen = offeneRechnungenListe.filter((l) => {
     const tage = l.zahlungsziel ?? 30;
-    const faellig = new Date(l.datum.getTime() + tage * 24 * 60 * 60 * 1000);
+    const basisDatum = l.rechnungDatum ?? l.datum;
+    const faellig = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
     faellig.setHours(0, 0, 0, 0);
     return heuteStart > faellig;
   }).length;
 
-  // Top-Kunden mit Namen anreichern
-  const topKundenMitNamen = await Promise.all(
-    topKunden.map(async (k) => {
-      const kunde = await prisma.kunde.findUnique({ where: { id: k.kundeId } });
-      const lieferungen = await prisma.lieferung.findMany({
-        where: { kundeId: k.kundeId, status: "geliefert", datum: { gte: monatsAnfang } },
-        include: { positionen: true },
-      });
-      const umsatz = lieferungen.reduce(
-        (s, l) => s + l.positionen.reduce((ss, p) => ss + p.menge * p.verkaufspreis, 0),
-        0
-      );
-      return { kundeId: k.kundeId, name: kunde?.name ?? "?", umsatz };
-    })
-  );
+  // Top-Kunden mit Namen anreichern (aus bereits geladenen Daten berechnen)
+  const topKundenIds = topKunden.map((k) => k.kundeId);
+  const topKundenEntities = await prisma.kunde.findMany({
+    where: { id: { in: topKundenIds } },
+    select: { id: true, name: true },
+  });
+  const kundeNameMap = new Map(topKundenEntities.map((k) => [k.id, k.name]));
+
+  // Umsatz aus bereits geladenen geliefertDiesenMonat berechnen
+  const kundeUmsatzMap = new Map<number, number>();
+  for (const l of geliefertDiesenMonat) {
+    if (!topKundenIds.includes(l.kundeId)) continue;
+    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    kundeUmsatzMap.set(l.kundeId, (kundeUmsatzMap.get(l.kundeId) ?? 0) + total);
+  }
+
+  const topKundenMitNamen = topKunden.map((k) => ({
+    kundeId: k.kundeId,
+    name: kundeNameMap.get(k.kundeId) ?? "?",
+    umsatz: kundeUmsatzMap.get(k.kundeId) ?? 0,
+  }));
 
   return NextResponse.json({
     kundenAktiv,

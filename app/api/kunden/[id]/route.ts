@@ -54,19 +54,27 @@ export async function PUT(req: NextRequest, { params }: Params) {
     };
   }
 
-  const kunde = await prisma.kunde.update({
-    where: { id: Number(id) },
-    data: updateData,
-    include: { kontakte: true },
-  });
-  return NextResponse.json(kunde);
+  try {
+    const kunde = await prisma.kunde.update({
+      where: { id: Number(id) },
+      data: updateData,
+      include: { kontakte: true },
+    });
+    return NextResponse.json(kunde);
+  } catch {
+    return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  await prisma.kunde.update({
-    where: { id: Number(id) },
-    data: { aktiv: false },
-  });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.kunde.update({
+      where: { id: Number(id) },
+      data: { aktiv: false },
+    });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
+  }
 }
