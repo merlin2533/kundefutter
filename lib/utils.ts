@@ -32,6 +32,10 @@ export function naechsteRechnungsnummer(letzte: string | null): string {
   const jahr = new Date().getFullYear();
   if (!letzte) return `RE-${jahr}-0001`;
   const parts = letzte.split("-");
+  // Wenn das Jahr der letzten Rechnungsnummer nicht dem aktuellen Jahr entspricht,
+  // beginne neu bei 0001
+  const letzteJahr = parts.length >= 3 ? parseInt(parts[1]) : 0;
+  if (letzteJahr !== jahr) return `RE-${jahr}-0001`;
   const num = parseInt(parts[parts.length - 1] || "0") + 1;
   return `RE-${jahr}-${String(num).padStart(4, "0")}`;
 }

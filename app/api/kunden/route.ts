@@ -32,13 +32,30 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { kontakte, ...data } = body;
+  const { kontakte, name, firma, kategorie, strasse, plz, ort, land, lat, lng, notizen } = body;
+
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
+  }
 
   const kunde = await prisma.kunde.create({
     data: {
-      ...data,
-      kontakte: kontakte?.length
-        ? { create: kontakte }
+      name: name.trim(),
+      firma: firma || null,
+      kategorie: kategorie || "Sonstige",
+      strasse: strasse || null,
+      plz: plz || null,
+      ort: ort || null,
+      land: land || "Deutschland",
+      lat: lat != null ? Number(lat) : null,
+      lng: lng != null ? Number(lng) : null,
+      notizen: notizen || null,
+      kontakte: Array.isArray(kontakte) && kontakte.length
+        ? { create: kontakte.map((k: { typ: string; wert: string; label?: string }) => ({
+            typ: k.typ,
+            wert: k.wert,
+            label: k.label || null,
+          })) }
         : undefined,
     },
     include: { kontakte: true },

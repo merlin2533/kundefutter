@@ -45,71 +45,83 @@ export async function POST(req: NextRequest) {
   const { kundeId, datum, notiz, wiederkehrend } = body;
   const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = body.positionen;
 
-  // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
-  const angereichert = await Promise.all(
-    positionen.map(async (pos) => {
-      const artikel = await prisma.artikel.findUnique({ where: { id: pos.artikelId } });
-      const kundePreis = await prisma.kundeArtikelPreis.findUnique({
-        where: { kundeId_artikelId: { kundeId, artikelId: pos.artikelId } },
-      });
-      const bevorzugterLieferant = await prisma.artikelLieferant.findFirst({
-        where: { artikelId: pos.artikelId, bevorzugt: true },
-      });
+  if (!kundeId || !Array.isArray(positionen) || positionen.length === 0) {
+    return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
+  }
 
-      let basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel!, kundePreis);
+  try {
+  const lieferung = await prisma.$transaction(async (tx) => {
+    // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
+    const angereichert = await Promise.all(
+      positionen.map(async (pos) => {
+        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        if (!artikel) throw new Error(`Artikel mit ID ${pos.artikelId} nicht gefunden`);
+        const kundePreis = await tx.kundeArtikelPreis.findUnique({
+          where: { kundeId_artikelId: { kundeId, artikelId: pos.artikelId } },
+        });
+        const bevorzugterLieferant = await tx.artikelLieferant.findFirst({
+          where: { artikelId: pos.artikelId, bevorzugt: true },
+        });
 
-      // Mengenrabatt suchen: Priorität kundenspezifisch > allgemein; höchster Rabatt gewinnt
-      const alleRabatte = await prisma.mengenrabatt.findMany({
-        where: {
-          aktiv: true,
-          vonMenge: { lte: pos.menge },
-          OR: [
-            { kundeId: kundeId },
-            { kundeId: null },
-          ],
-        },
-      });
+        let basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel, kundePreis);
 
-      // Filtere passende Rabatte (Artikel-ID oder Kategorie)
-      const passende = alleRabatte.filter((r) => {
-        if (r.artikelId !== null) return r.artikelId === pos.artikelId;
-        if (r.kategorie !== null) return r.kategorie === artikel?.kategorie;
-        return false;
-      });
+        // Mengenrabatt suchen: Priorität kundenspezifisch > allgemein; höchster Rabatt gewinnt
+        const alleRabatte = await tx.mengenrabatt.findMany({
+          where: {
+            aktiv: true,
+            vonMenge: { lte: pos.menge },
+            OR: [
+              { kundeId: kundeId },
+              { kundeId: null },
+            ],
+          },
+        });
 
-      // Wähle den höchsten Rabatt
-      let bestRabatt = 0;
-      for (const r of passende) {
-        if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
-      }
+        // Filtere passende Rabatte (Artikel-ID oder Kategorie)
+        const passende = alleRabatte.filter((r) => {
+          if (r.artikelId !== null) return r.artikelId === pos.artikelId;
+          if (r.kategorie !== null) return r.kategorie === artikel.kategorie;
+          return false;
+        });
 
-      const rabattVerkaufspreis = bestRabatt > 0
-        ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
-        : basisVerkaufspreis;
+        // Wähle den höchsten Rabatt
+        let bestRabatt = 0;
+        for (const r of passende) {
+          if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
+        }
 
-      return {
-        artikelId: pos.artikelId,
-        menge: pos.menge,
-        verkaufspreis: rabattVerkaufspreis,
-        einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
-        chargeNr: pos.chargeNr ?? null,
-        rabattProzent: bestRabatt,
-      };
-    })
-  );
+        const rabattVerkaufspreis = bestRabatt > 0
+          ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
+          : basisVerkaufspreis;
 
-  const lieferung = await prisma.lieferung.create({
-    data: {
-      kundeId,
-      datum: datum ? new Date(datum) : new Date(),
-      notiz,
-      wiederkehrend: wiederkehrend ?? false,
-      positionen: { create: angereichert },
-    },
-    include: {
-      kunde: true,
-      positionen: { include: { artikel: true } },
-    },
+        return {
+          artikelId: pos.artikelId,
+          menge: pos.menge,
+          verkaufspreis: rabattVerkaufspreis,
+          einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
+          chargeNr: pos.chargeNr ?? null,
+          rabattProzent: bestRabatt,
+        };
+      })
+    );
+
+    return tx.lieferung.create({
+      data: {
+        kundeId,
+        datum: datum ? new Date(datum) : new Date(),
+        notiz,
+        wiederkehrend: wiederkehrend ?? false,
+        positionen: { create: angereichert },
+      },
+      include: {
+        kunde: true,
+        positionen: { include: { artikel: true } },
+      },
+    });
   });
   return NextResponse.json(lieferung, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

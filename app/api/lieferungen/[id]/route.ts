@@ -78,11 +78,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
-    // Nur erlaubte Felder übergeben (inkl. bezahltAm, zahlungsziel)
-    const { bezahltAm, zahlungsziel, ...restData } = data;
-    const updateData: Record<string, unknown> = { ...restData };
-    if (bezahltAm !== undefined) updateData.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;
-    if (zahlungsziel !== undefined) updateData.zahlungsziel = zahlungsziel;
+    // Nur erlaubte Felder übergeben
+    const updateData: Record<string, unknown> = {};
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.notiz !== undefined) updateData.notiz = data.notiz;
+    if (data.stornoBegründung !== undefined) updateData.stornoBegründung = data.stornoBegründung;
+    if (data.datum !== undefined) updateData.datum = new Date(data.datum);
+    if (data.bezahltAm !== undefined) updateData.bezahltAm = data.bezahltAm ? new Date(data.bezahltAm) : null;
+    if (data.zahlungsziel !== undefined) updateData.zahlungsziel = data.zahlungsziel;
 
     return tx.lieferung.update({
       where: { id: Number(id) },
