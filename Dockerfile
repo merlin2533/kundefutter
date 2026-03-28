@@ -26,8 +26,11 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
+
+# Install Prisma CLI with all its dependencies cleanly
+COPY package.json package-lock.json ./
+RUN npm install --ignore-scripts --no-fund --no-audit prisma
 
 # Entrypoint script
 COPY docker-entrypoint.sh ./

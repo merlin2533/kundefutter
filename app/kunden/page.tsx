@@ -151,10 +151,10 @@ export default function KundenPage() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Firma</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Kategorie</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Ort</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Kontakte</th>
+                  <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Firma</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Kategorie</th>
+                  <th className="hidden lg:table-cell text-left px-4 py-3 font-medium text-gray-600">Ort</th>
+                  <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Kontakte</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Aktionen</th>
                 </tr>
               </thead>
@@ -168,15 +168,16 @@ export default function KundenPage() {
                         {!kunde.aktiv && (
                           <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">inaktiv</span>
                         )}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">{kunde.firma}</div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{kunde.firma ?? "—"}</td>
-                      <td className="px-4 py-3">
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{kunde.firma ?? "—"}</td>
+                      <td className="hidden md:table-cell px-4 py-3">
                         <KategorieBadge kategorie={kunde.kategorie} />
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">
                         {[kunde.plz, kunde.ort].filter(Boolean).join(" ") || "—"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs space-y-0.5">
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 text-xs space-y-0.5">
                         {phone && <div>📞 {phone}</div>}
                         {email && <div>📧 {email}</div>}
                         {!phone && !email && <span className="text-gray-400">—</span>}

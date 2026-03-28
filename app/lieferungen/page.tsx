@@ -279,8 +279,8 @@ export default function LieferungenPage() {
       {tab === "liste" && (
         <>
           {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-5">
-            <div className="flex gap-1">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
+            <div className="flex gap-1 flex-wrap">
               {["alle", "geplant", "geliefert", "storniert"].map((s) => (
                 <button
                   key={s}
@@ -295,25 +295,27 @@ export default function LieferungenPage() {
                 </button>
               ))}
             </div>
-            <input
-              type="date"
-              value={vonFilter}
-              onChange={(e) => setVonFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-            />
-            <span className="flex items-center text-gray-500 text-sm">bis</span>
-            <input
-              type="date"
-              value={bisFilter}
-              onChange={(e) => setBisFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-            />
+            <div className="flex gap-2 items-center flex-wrap">
+              <input
+                type="date"
+                value={vonFilter}
+                onChange={(e) => setVonFilter(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+              />
+              <span className="text-gray-500 text-sm">bis</span>
+              <input
+                type="date"
+                value={bisFilter}
+                onChange={(e) => setBisFilter(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+              />
+            </div>
             <input
               type="text"
               placeholder="Kunde suchen…"
               value={kundeSearch}
               onChange={(e) => setKundeSearch(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-green-700"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-green-700"
             />
           </div>
 
@@ -326,9 +328,17 @@ export default function LieferungenPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Datum", "Kunde", "Positionen", "Gesamtumsatz", "Gesamtmarge", "Status", "Aktionen"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                        {h}
+                    {[
+                      { label: "Datum", cls: "" },
+                      { label: "Kunde", cls: "" },
+                      { label: "Positionen", cls: "hidden md:table-cell" },
+                      { label: "Gesamtumsatz", cls: "hidden sm:table-cell" },
+                      { label: "Gesamtmarge", cls: "hidden lg:table-cell" },
+                      { label: "Status", cls: "" },
+                      { label: "Aktionen", cls: "" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -343,10 +353,11 @@ export default function LieferungenPage() {
                         <td className="px-4 py-3 whitespace-nowrap">{formatDatum(l.datum)}</td>
                         <td className="px-4 py-3 font-medium">
                           {l.kunde.firma ? `${l.kunde.firma} (${l.kunde.name})` : l.kunde.name}
+                          <div className="sm:hidden text-xs text-gray-500 font-mono mt-0.5">{formatEuro(umsatz)}</div>
                         </td>
-                        <td className="px-4 py-3 text-center">{l.positionen.length}</td>
-                        <td className="px-4 py-3 font-mono whitespace-nowrap">{formatEuro(umsatz)}</td>
-                        <td className="px-4 py-3">
+                        <td className="hidden md:table-cell px-4 py-3 text-center">{l.positionen.length}</td>
+                        <td className="hidden sm:table-cell px-4 py-3 font-mono whitespace-nowrap">{formatEuro(umsatz)}</td>
+                        <td className="hidden lg:table-cell px-4 py-3">
                           <MargeBadge pct={margePct} />
                         </td>
                         <td className="px-4 py-3">
