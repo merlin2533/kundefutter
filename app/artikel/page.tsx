@@ -24,6 +24,7 @@ interface Artikel {
   mindestbestand: number;
   beschreibung?: string | null;
   aktiv: boolean;
+  lagerort?: string | null;
   lieferanten: ArtikelLieferant[];
 }
 
@@ -105,7 +106,7 @@ export default function ArtikelPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Artikelnr.", "Name", "Kategorie", "Einheit", "Standardpreis", "Bestand", "Ampel", "Lieferant"].map((h) => (
+                {["Artikelnr.", "Name", "Kategorie", "Einheit", "Standardpreis", "Bestand", "Ampel", "Lagerort", "Lieferant"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     {h}
                   </th>
@@ -133,6 +134,15 @@ export default function ArtikelPage() {
                     </td>
                     <td className="px-4 py-3">
                       <LagerBadge status={status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.lagerort ? (
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
+                          {a.lagerort}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{bevorzugterLieferant(a)}</td>
                   </tr>

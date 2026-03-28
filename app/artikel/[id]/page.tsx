@@ -46,6 +46,7 @@ interface Artikel {
   mindestbestand: number;
   beschreibung?: string | null;
   aktiv: boolean;
+  lagerort?: string | null;
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
   bedarfe: Bedarf[];
@@ -124,6 +125,7 @@ export default function ArtikelDetailPage() {
       mindestbestand: data.mindestbestand,
       beschreibung: data.beschreibung ?? "",
       aktiv: data.aktiv,
+      lagerort: data.lagerort ?? "",
     });
     setLoading(false);
   }, [id]);
@@ -403,6 +405,18 @@ export default function ArtikelDetailPage() {
                   className={`${inputCls} resize-none`}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lagerort <span className="text-gray-400 text-xs">(optional, z.B. Halle 1)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.lagerort ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, lagerort: e.target.value })}
+                  placeholder="z.B. Halle 1, Außenlager, Silo A"
+                  className={inputCls}
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -451,6 +465,18 @@ export default function ArtikelDetailPage() {
                     </dd>
                   </div>
                 ))}
+                <div className="py-3 flex gap-4">
+                  <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
+                  <dd className="text-sm text-gray-900">
+                    {artikel.lagerort ? (
+                      <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
+                        {artikel.lagerort}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </dd>
+                </div>
                 {marge !== null && (
                   <div className="py-3 flex gap-4">
                     <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Marge</dt>
