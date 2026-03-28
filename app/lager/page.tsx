@@ -153,12 +153,20 @@ export default function LagerPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Lager</h1>
-        <Link
-          href="/lager/wareneingang"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          + Wareneingang
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href="/lager/umbuchungen"
+            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Umbuchungen
+          </Link>
+          <Link
+            href="/lager/wareneingang"
+            className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            + Wareneingang
+          </Link>
+        </div>
       </div>
 
       {/* Summary cards */}

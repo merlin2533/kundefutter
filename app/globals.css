@@ -36,3 +36,11 @@ body {
   thead { background: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
   .no-print { display: none !important; }
 }
+
+/* Tour Handzettel: hidden on screen, visible when printing */
+@media screen {
+  .tour-handzettel { display: none; }
+}
+@media print {
+  .tour-handzettel { display: block !important; }
+}
