@@ -32,16 +32,47 @@ export const PRODUKT_MAPPING: Record<
 };
 
 export const PRODUKT_MAPPING_OUTPUT: Record<string, string> = {
+  WH_SOFT: "Weichweizen",
+  RYE: "Roggen",
+  BARL: "Gerste",
+  OATS: "Hafer",
+  MAIZE: "Körnermais",
+  RAPE: "Raps",
+  SOY: "Soja",
+  SUNFL: "Sonnenblumen",
   C0000: "Getreide (gesamt)",
-  C1110: "Weichweizen",
-  C1120: "Roggen",
-  C1130: "Gerste",
-  C1140: "Hafer",
-  C1150: "Körnermais",
   D0000: "Ölsaaten",
-  D1100: "Raps",
-  D1200: "Sonnenblumen",
-  D1300: "Soja",
+};
+
+// German agricultural output price label patterns to match against Eurostat labels
+const LABEL_MAPPING: Record<string, { code: string; name: string }> = {
+  // Match against Eurostat label strings (lowercased)
+  'wheat': { code: 'WH_SOFT', name: 'Weichweizen' },
+  'weizen': { code: 'WH_SOFT', name: 'Weichweizen' },
+  'weichweizen': { code: 'WH_SOFT', name: 'Weichweizen' },
+  'soft wheat': { code: 'WH_SOFT', name: 'Weichweizen' },
+  'rye': { code: 'RYE', name: 'Roggen' },
+  'roggen': { code: 'RYE', name: 'Roggen' },
+  'barley': { code: 'BARL', name: 'Gerste' },
+  'gerste': { code: 'BARL', name: 'Gerste' },
+  'oats': { code: 'OATS', name: 'Hafer' },
+  'hafer': { code: 'OATS', name: 'Hafer' },
+  'maize': { code: 'MAIZE', name: 'Körnermais' },
+  'mais': { code: 'MAIZE', name: 'Körnermais' },
+  'grain maize': { code: 'MAIZE', name: 'Körnermais' },
+  'rapeseed': { code: 'RAPE', name: 'Raps' },
+  'raps': { code: 'RAPE', name: 'Raps' },
+  'rape': { code: 'RAPE', name: 'Raps' },
+  'soybean': { code: 'SOY', name: 'Soja' },
+  'soja': { code: 'SOY', name: 'Soja' },
+  'soy': { code: 'SOY', name: 'Soja' },
+  'sunflower': { code: 'SUNFL', name: 'Sonnenblumen' },
+  'sonnenblumen': { code: 'SUNFL', name: 'Sonnenblumen' },
+  'cereals': { code: 'C0000', name: 'Getreide (gesamt)' },
+  'getreide': { code: 'C0000', name: 'Getreide (gesamt)' },
+  'oilseed': { code: 'D0000', name: 'Ölsaaten' },
+  'oilseeds': { code: 'D0000', name: 'Ölsaaten' },
+  'ölsaaten': { code: 'D0000', name: 'Ölsaaten' },
 };
 
 export interface ProduktNode {
@@ -100,11 +131,11 @@ export const PRODUKT_BAUM: ProduktNode[] = [
         name: "Getreide (gesamt)",
         dataset: "apri_pi15_outq",
         children: [
-          { code: "C1110", name: "Weichweizen", dataset: "apri_pi15_outq" },
-          { code: "C1120", name: "Roggen", dataset: "apri_pi15_outq" },
-          { code: "C1130", name: "Gerste", dataset: "apri_pi15_outq" },
-          { code: "C1140", name: "Hafer", dataset: "apri_pi15_outq" },
-          { code: "C1150", name: "Körnermais", dataset: "apri_pi15_outq" },
+          { code: "WH_SOFT", name: "Weichweizen", dataset: "apri_pi15_outq" },
+          { code: "RYE", name: "Roggen", dataset: "apri_pi15_outq" },
+          { code: "BARL", name: "Gerste", dataset: "apri_pi15_outq" },
+          { code: "OATS", name: "Hafer", dataset: "apri_pi15_outq" },
+          { code: "MAIZE", name: "Körnermais", dataset: "apri_pi15_outq" },
         ],
       },
       {
@@ -112,9 +143,9 @@ export const PRODUKT_BAUM: ProduktNode[] = [
         name: "Ölsaaten",
         dataset: "apri_pi15_outq",
         children: [
-          { code: "D1100", name: "Raps", dataset: "apri_pi15_outq" },
-          { code: "D1300", name: "Soja", dataset: "apri_pi15_outq" },
-          { code: "D1200", name: "Sonnenblumen", dataset: "apri_pi15_outq" },
+          { code: "RAPE", name: "Raps", dataset: "apri_pi15_outq" },
+          { code: "SOY", name: "Soja", dataset: "apri_pi15_outq" },
+          { code: "SUNFL", name: "Sonnenblumen", dataset: "apri_pi15_outq" },
         ],
       },
     ],
@@ -235,17 +266,15 @@ function parseJsonStat(
 
 /**
  * Parse JSON-stat response from Eurostat for output price dataset.
- * Similar to parseJsonStat but uses 'product' dimension for output codes.
+ * Uses label-based fuzzy matching to map Eurostat codes to our standard codes,
+ * since the actual dimension codes may differ from what we expect.
  */
-function parseJsonStatOutput(
-  json: Record<string, unknown>,
-  codes: string[]
-): EurostatEntry[] {
+function parseJsonStatOutput(json: Record<string, unknown>): EurostatEntry[] {
   const results: EurostatEntry[] = [];
 
+  // Navigate to data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let data: any = json;
-
   if (json.id && json.dimension) {
     data = json;
   } else if (json.dataset) {
@@ -263,45 +292,59 @@ function parseJsonStatOutput(
     return results;
   }
 
-  // Try outputidx dimension first, then fall back to product
-  const outputDim = (dimensions.outputidx ?? dimensions.product) as {
-    category: { index: Record<string, number>; label?: Record<string, string> };
-  } | undefined;
-  if (!outputDim?.category?.index) {
-    console.warn("Eurostat Output: keine outputidx/product-Dimension gefunden");
+  // Find the product/outputidx dimension - try different names
+  const outputDimKey = ['outputidx', 'product', 'indic_ag', 'prc_typ'].find(k => dimensions[k]);
+  if (!outputDimKey) {
+    console.warn('Eurostat output: no product dimension found. Available:', Object.keys(dimensions));
     return results;
   }
-  const outputIndex = outputDim.category.index;
+
+  const outputDim = dimensions[outputDimKey] as {
+    category: { index: Record<string, number>; label?: Record<string, string> }
+  };
 
   const timeDim = dimensions.time as {
-    category: { index: Record<string, number>; label?: Record<string, string> };
+    category: { index: Record<string, number> }
   };
   if (!timeDim?.category?.index) {
     console.warn("Eurostat Output: keine time-Dimension gefunden");
     return results;
   }
+
+  const outputIndex = outputDim.category.index;
+  const outputLabels = outputDim.category.label ?? {};
   const timeIndex = timeDim.category.index;
   const timeCount = Object.keys(timeIndex).length;
-
   const values = data.value as Record<string, number>;
   if (!values) {
     console.warn("Eurostat Output: keine Wertdaten gefunden");
     return results;
   }
 
-  for (const [productCode, productPos] of Object.entries(outputIndex)) {
-    if (!codes.includes(productCode)) continue;
-    const name = PRODUKT_MAPPING_OUTPUT[productCode];
-    if (!name) continue;
+  for (const [rawCode, productPos] of Object.entries(outputIndex)) {
+    const rawLabel = outputLabels[rawCode] ?? rawCode;
+
+    // Try to match the label to our known products
+    const labelLower = rawLabel.toLowerCase();
+    let mappedName = rawLabel; // default: use Eurostat's own label
+    let mappedCode = rawCode;  // default: use Eurostat's raw code
+
+    // Check if any of our label patterns match
+    for (const [pattern, mapping] of Object.entries(LABEL_MAPPING)) {
+      if (labelLower.includes(pattern)) {
+        mappedName = mapping.name;
+        mappedCode = mapping.code;
+        break;
+      }
+    }
 
     for (const [timePeriod, timePos] of Object.entries(timeIndex)) {
       const flatIndex = productPos * timeCount + timePos;
       const value = values[String(flatIndex)];
-
       if (value !== undefined && value !== null) {
         results.push({
-          produktCode: productCode,
-          produktName: name,
+          produktCode: mappedCode,
+          produktName: mappedName,
           zeitraum: timePeriod,
           indexWert: value,
         });
@@ -360,32 +403,24 @@ export async function fetchEurostatAnnual(
 
 /**
  * Fetch quarterly output price index data from Eurostat (dataset apri_pi15_outq).
- * Returns parsed entries for Germany, all mapped output product codes.
+ * Uses auto-discovery: fetches all available codes without filtering, then maps
+ * them to our standard product codes via label-based fuzzy matching.
  * Fails gracefully if data is unavailable.
  */
 export async function fetchEurostatOutput(
   sinceYear: number = 2020
 ): Promise<EurostatEntry[]> {
-  const codes = [
-    "C0000",
-    "C1110",
-    "C1120",
-    "C1130",
-    "C1140",
-    "C1150",
-    "D0000",
-    "D1100",
-    "D1200",
-    "D1300",
-  ];
-  const params = codes.map((c) => `outputidx=${c}`).join("&");
-  const url = `${EUROSTAT_BASE}/apri_pi15_outq?format=JSON&geo=DE&unit=I15&p_adj=NI&${params}&sinceTimePeriod=${sinceYear}`;
+  // Step 1: Fetch WITHOUT specifying outputidx codes to get all available codes
+  const discoveryUrl = `${EUROSTAT_BASE}/apri_pi15_outq?format=JSON&geo=DE&unit=I15&p_adj=NI&sinceTimePeriod=${sinceYear}`;
 
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(discoveryUrl, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = await res.json();
-    return parseJsonStatOutput(json, codes);
+
+    // Parse the response - it should contain an 'outputidx' dimension with available codes
+    // The actual codes will be in json.dimension.outputidx.category.index
+    return parseJsonStatOutput(json);
   } catch {
     return [];
   }

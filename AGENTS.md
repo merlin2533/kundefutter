@@ -198,6 +198,34 @@ Client-Komponente, registriert `/sw.js` für PWA-Offline-Support.
 
 ---
 
+## Einstellungen-Architektur (Pflichtprinzip)
+
+**Regel: Alle Einstellungen/Konfigurationen IMMER als Kachelseite + Unterseiten aufbauen.**
+
+Struktur:
+- `/einstellungen/page.tsx` — Kachelübersicht (EinstellungTile-Komponente)
+- `/einstellungen/[bereich]/page.tsx` — Unterseite je Bereich
+- Jede Unterseite hat Breadcrumb: `Einstellungen › Bereichsname`
+
+Bestehende Kacheln:
+| Kachel | Seite | Inhalt |
+|--------|-------|--------|
+| Firma | /einstellungen/firma | Name, Adresse, Kontakt |
+| Erscheinungsbild | /einstellungen/erscheinungsbild | Logo (DB: system.logo) |
+| Lager | /einstellungen/lager | Mindestbestände |
+| Adressen | /einstellungen/adressen | Batch-Geocoding |
+| Tour-Namen | /einstellungen/tournamen | system.tournamen JSON-Array |
+| System | /einstellungen/system | Version, DB |
+| Stammdaten | /einstellungen/stammdaten | Kategorien, Mitarbeiter, Einheiten |
+| Lieferanten | /einstellungen/lieferanten | Zahlungskonditionen, MwSt |
+
+**Beim Hinzufügen neuer Features:** Prüfe immer ob konfigurierbare Werte in
+eine Einstellungen-Kachel gehören. Neue Konfigurationsbereiche → neue Kachel + Unterseite.
+
+EinstellungTile-Komponente ist in /app/einstellungen/page.tsx definiert.
+
+---
+
 ## Entwicklungs-Checkliste
 
 Vor jedem Code-Schreiben:

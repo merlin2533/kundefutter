@@ -137,7 +137,12 @@ function ProduktBaumNav({
             {node.name}
           </span>
           {!hasData && !node.isGroup && (
-            <span className="text-xs text-gray-300 ml-1 flex-shrink-0">–</span>
+            <span
+              className="text-xs text-gray-300 ml-1 flex-shrink-0"
+              title="Keine Daten von Eurostat verfügbar"
+            >
+              –
+            </span>
           )}
         </div>
         {hasChildren && isExpanded &&
@@ -526,13 +531,35 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
     );
   }
 
+  // Codes belonging to Erzeuger sections (mapped codes from LABEL_MAPPING)
+  const GETREIDE_ERZEUGER_CODES = new Set(["C0000", "WH_SOFT", "RYE", "BARL", "OATS", "MAIZE"]);
+  const OELSAATEN_ERZEUGER_CODES = new Set(["D0000", "RAPE", "SOY", "SUNFL"]);
+
   // Determine section groupings from prefixes
-  const prefixGroups: { prefix: string; label: string; bg: string; farbe: string }[] = [
+  const prefixGroups: {
+    prefix: string;
+    label: string;
+    bg: string;
+    farbe: string;
+    matchFn?: (code: string) => boolean;
+  }[] = [
     { prefix: "206", label: "Futtermittel", bg: "bg-green-50", farbe: "#16a34a" },
     { prefix: "203", label: "Dünger", bg: "bg-amber-50", farbe: "#d97706" },
     { prefix: "201", label: "Saatgut", bg: "bg-blue-50", farbe: "#2563eb" },
-    { prefix: "C", label: "Getreide (Erzeuger)", bg: "bg-yellow-50", farbe: "#ca8a04" },
-    { prefix: "D", label: "Ölsaaten (Erzeuger)", bg: "bg-lime-50", farbe: "#65a30d" },
+    {
+      prefix: "C_ERZEUGER",
+      label: "Getreide (Erzeuger)",
+      bg: "bg-yellow-50",
+      farbe: "#ca8a04",
+      matchFn: (code) => GETREIDE_ERZEUGER_CODES.has(code),
+    },
+    {
+      prefix: "D_ERZEUGER",
+      label: "Ölsaaten (Erzeuger)",
+      bg: "bg-lime-50",
+      farbe: "#65a30d",
+      matchFn: (code) => OELSAATEN_ERZEUGER_CODES.has(code),
+    },
   ];
 
   const sections: {
@@ -556,9 +583,9 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
     ...ERZEUGER_CODES,
   ]);
 
-  for (const { prefix, label, bg, farbe } of prefixGroups) {
+  for (const { prefix, label, bg, farbe, matchFn } of prefixGroups) {
     const codes = Object.keys(grouped)
-      .filter((c) => c.startsWith(prefix))
+      .filter((c) => matchFn ? matchFn(c) : c.startsWith(prefix))
       .sort();
     const zeilen = codes.map((code) => {
       const reihe = grouped[code];
@@ -880,7 +907,7 @@ export default function MarktpreisePage() {
       </div>
 
       {/* Sync button */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={handleSync}
           disabled={syncing}
@@ -891,6 +918,9 @@ export default function MarktpreisePage() {
         {syncing && (
           <span className="text-sm text-gray-400">Lade neue Daten…</span>
         )}
+        <span className="text-xs text-gray-400 italic">
+          Erzeugerpreise: werden automatisch von Eurostat geladen (Verfügbarkeit abhängig von API)
+        </span>
       </div>
 
       {/* 2-column layout */}
