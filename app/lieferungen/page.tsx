@@ -605,6 +605,16 @@ export default function LieferungenPage() {
                               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
                             />
                           </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs text-gray-500 mb-1">Chargen-/Losnummer (optional)</label>
+                            <input
+                              type="text"
+                              value={pos.chargeNr}
+                              onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
+                              placeholder="z.B. CH-2024-001"
+                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                            />
+                          </div>
                           <div className="flex items-end gap-2">
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Marge</label>
