@@ -27,3 +27,12 @@ body {
   /* Hintergrundfarben drucken */
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+@media print {
+  nav, header, .print\:hidden, [class*="print:hidden"] { display: none !important; }
+  body { font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ddd; padding: 4px 6px; }
+  thead { background: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
+  .no-print { display: none !important; }
+}

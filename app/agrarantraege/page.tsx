@@ -66,10 +66,6 @@ export default function AgrarantraegeePage() {
   const [autoImporting, setAutoImporting] = useState(false);
   const [autoImportResult, setAutoImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string } | null>(null);
 
-  // Serverpath import state
-  const [serverPath, setServerPath] = useState("");
-  const [serverImporting, setServerImporting] = useState(false);
-
   // Link modal
   const [linkItem, setLinkItem] = useState<AntragEmpfaenger | null>(null);
   const [linkKunden, setLinkKunden] = useState<{ id: number; name: string; firma: string | null }[]>([]);
@@ -320,44 +316,6 @@ export default function AgrarantraegeePage() {
           </p>
         )}
 
-        {/* Serverpath import */}
-        <div className="border-t border-gray-100 mt-4 pt-4">
-          <p className="text-sm text-gray-600 mb-2">
-            Oder: Serverpfad der CSV-Datei (z.B. <code className="bg-gray-100 px-1 rounded text-xs">/data/impdata2024.csv</code>):
-          </p>
-          <div className="flex gap-3 items-center flex-wrap">
-            <input
-              type="text"
-              placeholder="/data/impdata2024.csv"
-              value={serverPath}
-              onChange={(e) => setServerPath(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-green-600 font-mono"
-            />
-            <button
-              onClick={handleServerPathImport}
-              disabled={autoImporting || serverImporting || !serverPath.trim()}
-              className="px-4 py-2 text-sm bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {serverImporting ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Importiere…
-                </>
-              ) : (
-                "Importieren"
-              )}
-            </button>
-          </div>
-          {serverImporting && (
-            <p className="text-xs text-gray-500 mt-2">
-              Wird heruntergeladen und importiert… (kann bei 250MB bis zu 2 Minuten dauern)
-            </p>
-          )}
-        </div>
-
         {autoImportResult && (
           <div className={`mt-3 text-sm px-3 py-2 rounded-lg border ${autoImportResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
             {autoImportResult.ok
@@ -607,16 +565,6 @@ export default function AgrarantraegeePage() {
         </div>
       )}
 
-      {/* Print styles */}
-      <style jsx global>{`
-        @media print {
-          nav, .print\\:hidden { display: none !important; }
-          body { font-size: 11px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 4px 6px; }
-          thead { background: #f0fdf4 !important; -webkit-print-color-adjust: exact; }
-        }
-      `}</style>
     </div>
   );
 }
