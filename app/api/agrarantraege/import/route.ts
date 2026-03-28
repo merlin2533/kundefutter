@@ -9,9 +9,12 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 // Known column name variations in AFIG CSV files
+// Includes exact 2024 column names from agrarzahlungen.de
 const COL_ALIASES: Record<string, string[]> = {
   haushaltsjahr: ["haushaltsjahr", "budget year", "year"],
   name: [
+    // 2024 format uses "Verdands" (typo) instead of "Verbands"
+    "name des begünstigten/rechtsträgers/verdands",
     "name des begünstigten/rechtsträgers/verbands",
     "name des begünstigten",
     "begünstigter",
@@ -22,16 +25,20 @@ const COL_ALIASES: Record<string, string[]> = {
   gemeinde: ["gemeinde", "ort", "municipality", "city"],
   land: ["betroffener staat", "land", "state", "country"],
   massnahme: [
-    "code der maßnahme/der interventionskategorie/des sektors",
+    // 2024: "Code der Maßnahme/der Interventionskategorie/des Sektors gemäß Anhang IX"
+    "code der ma", // short prefix matches all variants regardless of encoding
+    "code der massnahme",
     "code der maßnahme",
     "maßnahme",
+    "massnahme",
     "measure code",
     "intervention code",
   ],
   ziel: ["spezifisches ziel", "specific objective", "ziel"],
-  egfl: ["egfl-betrag", "egfl betrag", "egfl (eur)", "egfl", "total egfl", "betrag egfl"],
-  eler: ["eler-betrag", "eler betrag", "eler (eur)", "eler", "total eler", "betrag eler"],
-  mutter: ["mutterunternehmen", "parent company", "parent"],
+  // Use "betrag je vorhaben" (per-measure amount) — summing gives correct total
+  egfl: ["betrag je vorhaben im rahmen des egfl", "egfl-betrag", "egfl betrag", "egfl (eur)", "egfl", "total egfl", "betrag egfl"],
+  eler: ["betrag je vorhaben im rahmen des eler", "eler-betrag", "eler betrag", "eler (eur)", "eler", "total eler", "betrag eler"],
+  mutter: ["mutterunternehmen", "name des mutterunternehmen", "parent company", "parent"],
 };
 
 function findCol(headers: string[], key: string): number {
@@ -240,9 +247,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // NOTE: for files >100MB, use Auto-Download (url) or Serverpfad instead.
     const buffer = await (file as File).arrayBuffer();
-    const text = new TextDecoder("latin1").decode(buffer);
+
+    // Auto-detect encoding: try UTF-8 first (BOM or valid UTF-8), fall back to Latin-1
+    let text: string;
+    const bytes = new Uint8Array(buffer);
+    const hasUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+      if (hasUtf8Bom) text = text.slice(1); // strip BOM
+    } catch {
+      text = new TextDecoder("latin1").decode(buffer);
+    }
 
     if (!text.trim()) {
       return NextResponse.json({ error: "CSV-Inhalt ist leer" }, { status: 400 });

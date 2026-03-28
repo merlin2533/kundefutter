@@ -118,7 +118,7 @@ export default function AgrarantraegeePage() {
   }
 
   async function handleAutoImport() {
-    const resolvedUrl = autoUrl.trim() || `https://www.agrarzahlungen.de/fileadmin/user_upload/files/impdata${autoYear}.csv`;
+    const resolvedUrl = autoUrl.trim() || `https://www.agrarzahlungen.de/fileadmin/afig-csv/impdata${autoYear}.csv`;
     setAutoImporting(true);
     setAutoImportResult(null);
     try {
@@ -127,11 +127,21 @@ export default function AgrarantraegeePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "url", url: resolvedUrl }),
       });
-      const data = await res.json();
+      let data: { ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string };
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => "");
+        if (res.status === 502 || res.status === 504) {
+          data = { ok: false, error: `Server konnte die URL nicht erreichen (HTTP ${res.status}). Bitte CSV manuell unter agrarzahlungen.de herunterladen und per Datei-Upload importieren.` };
+        } else {
+          data = { ok: false, error: `Serverfehler (HTTP ${res.status})${text ? ": " + text.slice(0, 200) : ""}` };
+        }
+      }
       setAutoImportResult(data);
       if (data.ok) fetchItems();
     } catch {
-      setAutoImportResult({ ok: false, error: "Netzwerkfehler beim Auto-Import" });
+      setAutoImportResult({ ok: false, error: "Verbindungsfehler: Server nicht erreichbar oder Anfrage abgebrochen. Bitte CSV manuell herunterladen und per Datei-Upload importieren." });
     } finally {
       setAutoImporting(false);
     }
