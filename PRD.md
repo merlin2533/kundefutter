@@ -165,22 +165,46 @@ Bestellmenge = (Ø Tagesverbrauch × Zielhorizont in Tagen) – aktueller Bestan
 
 ## 5. Ideen für spätere Erweiterungen (Backlog)
 
-Diese Punkte wurden identifiziert, sind aber nicht Teil des MVP:
+Diese Punkte wurden identifiziert, sind aber nicht Teil des MVP. Priorisierung nach Priorität:
 
-| # | Erweiterung | Nutzen |
-|---|---|---|
-| 1 | **Dashboard mit KPIs** | Umsatz, Top-Kunden, offene Lieferungen, Lageralarme auf einen Blick |
-| 2 | **Saisonale Prognose** | Verbrauchsmuster nach Jahreszeit (z.B. mehr Dünger im Frühjahr) |
-| 3 | **Routenplanung** | Optimale Lieferreihenfolge auf der Karte (z.B. ein Fahrtag mit 10 Kunden) |
-| 4 | **Rechnungserstellung** | PDF-Rechnung direkt aus Lieferung generieren |
-| 5 | **E-Mail-Benachrichtigung** | Automatische Warnung bei Lagerunterschreitung |
-| 6 | **Kundenportal (readonly)** | Kunden sehen ihre eigenen Bestellhistorie / Rechnungen |
-| 7 | **Mehrere Lagerorte** | Verschiedene Lagerstandorte pro Artikel |
-| 8 | **Chargen-/MHD-Tracking** | Mindesthaltbarkeitsdatum für Saatgut & Futter |
-| 9 | **Benutzerrollen** | Admin / Disponent / Außendienst mit unterschiedlichen Rechten |
-| 10 | **Mobile App / PWA** | Außendienst kann unterwegs Kunden ansehen & Lieferungen erfassen |
-| 11 | **Lieferantenbestellung** | Bestellungen direkt per PDF/E-Mail an Lieferant senden |
-| 12 | **Preislisten-Import** | Einkaufspreise via Excel-Upload vom Lieferanten aktualisieren |
+### Priorität 1 – Kurzfristig (hoher Nutzen, überschaubarer Aufwand)
+
+| # | Erweiterung | Beschreibung | Nutzen |
+|---|---|---|---|
+| 1 | **Dashboard mit KPIs** | Startseite mit: Umsatz laufender Monat, offene Lieferungen, Lageralarm-Zähler, Top-5-Kunden, fällige Lieferungen | Alles auf einen Blick – kein mühsames Zusammenklicken |
+| 2 | **Saisonale Prognose** | Verbrauchsmuster nach Kalendermonat auswerten; Prognose berücksichtigt saisonale Schwankungen (Dünger März/April, Saatgut Frühjahr/Herbst, Futter gleichmäßig) | Verhindert Fehlbestellungen durch rein lineare Hochrechnung |
+| 3 | **Chargen- / MHD-Tracking** | Mindesthaltbarkeitsdatum pro Wareneingangsposition, FIFO-Warnung bei ablaufender Ware, Filterung nach Chargen | Pflicht für Saatgut & bestimmte Futtermittel; vermeidet Haftungsrisiken |
+| 4 | **Wiederkehrende Lieferungen automatisch anlegen** | Aus KundeBedarf (Menge + Intervall) automatisch Lieferungen als „geplant" vorbelegen | Spart manuelle Erfassung bei Stammkunden; nichts wird vergessen |
+| 5 | **Stornobegründung & Kundenkommunikations-Log** | Pflichtfeld bei Stornierung; freie Gesprächsnotizen pro Kunde (Datum, Bearbeiter, Text) | Wissen bleibt im System, auch wenn jemand krank ist |
+
+### Priorität 2 – Mittelfristig (strategisch wichtig)
+
+| # | Erweiterung | Beschreibung | Nutzen |
+|---|---|---|---|
+| 6 | **Rechnungserstellung** | PDF-Rechnung direkt aus Lieferung generieren (Logo, Steuern, Zahlungsziel, fortlaufende Rechnungsnummer) | Ersetzt das zweite Tool; alles in einem System |
+| 7 | **Lieferantenbestellung per PDF / E-Mail** | Bestellvorschlag als fertiges Bestelldokument direkt an Lieferant senden (PDF-Anhang oder mailto-Link) | Spart Zeit, verhindert Fehler beim manuellen Abtippen |
+| 8 | **Preislisten-Import vom Lieferanten** | Einkaufspreise via Excel-Upload aktualisieren; Vorschau + Bestätigung vor Übernahme; Preishistorie pro ArtikelLieferant | Preisänderungen in Sekunden statt stundenlanger Handpflege; alte Margen bleiben nachvollziehbar |
+| 9 | **Mehrere Lagerorte** | Lagerbestand pro Artikel auf mehrere Standorte aufteilen (Hauptlager, Außenlager, Scheune); Gesamtbestand + Bestand je Standort | Sobald mehr als ein physischer Lagerort existiert zwingend notwendig |
+| 10 | **E-Mail-Benachrichtigung** | Automatische E-Mail bei Lagerunterschreitung, ablaufendem MHD und fälligen Lieferungen | Proaktive Warnung ohne tägliches Einloggen |
+
+### Priorität 3 – Strategisch / Phase 3
+
+| # | Erweiterung | Beschreibung | Nutzen |
+|---|---|---|---|
+| 11 | **Benutzerrollen & Rechte** | Rollen: Admin / Disponent / Außendienst; Außendienst sieht keine Einkaufspreise, Disponent kann keine Stammdaten löschen | Sobald mehrere Personen arbeiten unerlässlich |
+| 12 | **Routenplanung auf der Karte** | Liefertag mit mehreren Kunden: optimale Reihenfolge berechnen (Nearest-Neighbor oder OSRM-API), Route auf OSM-Karte visualisieren, Export als Fahrerliste | Spart Sprit und Fahrzeit |
+| 13 | **Mobile PWA / Offline-Fähigkeit** | App auf Handy installierbar; Kundenliste & Lieferungen offline verfügbar; Sync wenn wieder online | Außendienst auf Höfen hat oft schlechtes Netz |
+| 14 | **Kundenportal (readonly)** | Kunden können sich einloggen und eigene Lieferhistorie & Rechnungen einsehen | Serviceverbesserung; weniger Rückfragen per Telefon |
+| 15 | **Preishistorie** | Jede Änderung an Einkaufs- und Verkaufspreisen wird versioniert gespeichert | Alte Lieferungen behalten korrekte Margen; Preisstreitigkeiten lückenlos nachvollziehbar |
+
+### Bekannte Risiken & Designentscheidungen
+
+| Risiko | Empfehlung |
+|---|---|
+| Geocoding schlägt fehl bei Hofadressen (Flurnamen, keine Hausnummern) | Manuelle Koordinateneingabe als Fallback muss gut zugänglich sein |
+| Lieferung und Rechnung sind heute dasselbe Konzept | Datenmodell frühzeitig trennen (Lieferung → kann eine Rechnung erzeugen) |
+| Einkaufspreis-Änderungen überschreiben alte Margen | Preishistorie (Punkt 15) oder Snapshot-Preis pro Lieferposition |
+| Keine Stornobegründung | In Phase 1 als Pflichtfeld einplanen |
 
 ---
 
