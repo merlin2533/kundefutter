@@ -45,8 +45,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
             docker.io/${{ secrets.DOCKER_USERNAME }}/kundefutter
           tags: |
-            # latest bei jedem push auf main
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # latest immer
+            type=raw,value=latest
             # Versions-Tag z.B. v1.2.3 → 1.2.3
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
