@@ -19,6 +19,7 @@ interface DashboardData {
   faelligNaechste14Tage: number;
   offeneRechnungen: number;
   ueberfaelligeRechnungen: number;
+  wiederkehrendFaellig: number;
   topKunden: { kundeId: number; name: string; umsatz: number }[];
   markttrend: MarktTrend[];
 }
@@ -159,7 +160,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 2: Alert KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <KpiCard
           label="Lager-Alarme"
           value={data.lagerAlarme}
@@ -178,6 +179,16 @@ export default function DashboardPage() {
           sub="geplante Lieferungen"
           color={data.faelligNaechste14Tage > 0 ? "yellow" : "green"}
         />
+        {data.wiederkehrendFaellig > 0 && (
+          <Link href="/lieferungen" className="block">
+            <KpiCard
+              label="Wiederkehrend fällig"
+              value={data.wiederkehrendFaellig}
+              sub="→ Jetzt auslösen"
+              color="orange"
+            />
+          </Link>
+        )}
       </div>
 
       {/* Row 3: 3-column grid */}

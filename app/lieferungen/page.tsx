@@ -50,6 +50,8 @@ export default function LieferungenPage() {
   const [wLoading, setWLoading] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [wSaving, setWSaving] = useState(false);
+  const [faelligeAnzahl, setFaelligeAnzahl] = useState(0);
+  const [wErfolgMsg, setWErfolgMsg] = useState("");
 
   const fetchLieferungen = useCallback(async () => {
     setLoading(true);
@@ -73,13 +75,50 @@ export default function LieferungenPage() {
     setWLoading(true);
     const res = await fetch("/api/lieferungen/wiederkehrend?tage=30");
     const data = await res.json();
-    setWiederkehrend(Array.isArray(data) ? data : []);
+    const liste = Array.isArray(data) ? data : [];
+    setWiederkehrend(liste);
+    setFaelligeAnzahl(liste.filter((w: WiederkehrendBedarf) => w.ueberfaellig).length);
     setWLoading(false);
   }
 
   useEffect(() => {
     if (tab === "wiederkehrend") fetchWiederkehrend();
   }, [tab]);
+
+  async function handleAlleAusloesen() {
+    setWSaving(true);
+    setWErfolgMsg("");
+    try {
+      const res = await fetch("/api/lieferungen/wiederkehrend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ alleAusloesen: true }),
+      });
+      const result = await res.json();
+      setWErfolgMsg(`${result.ausgeloest} Lieferung(en) erfolgreich angelegt.`);
+      setSelected(new Set());
+      await fetchWiederkehrend();
+    } finally {
+      setWSaving(false);
+    }
+  }
+
+  async function handleEinzelnAusloesen(bedarfId: number) {
+    setWSaving(true);
+    setWErfolgMsg("");
+    try {
+      const res = await fetch("/api/lieferungen/wiederkehrend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bedarfIds: [bedarfId] }),
+      });
+      const result = await res.json();
+      setWErfolgMsg(`${result.ausgeloest} Lieferung erfolgreich angelegt.`);
+      await fetchWiederkehrend();
+    } finally {
+      setWSaving(false);
+    }
+  }
 
   function toggleSelect(id: number) {
     setSelected((prev) => {
@@ -100,12 +139,15 @@ export default function LieferungenPage() {
   async function handleWiederkehrendAnlegen() {
     if (selected.size === 0) return;
     setWSaving(true);
+    setWErfolgMsg("");
     try {
-      await fetch("/api/lieferungen/wiederkehrend", {
+      const res = await fetch("/api/lieferungen/wiederkehrend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bedarfIds: Array.from(selected) }),
       });
+      const result = await res.json();
+      setWErfolgMsg(`${result.ausgeloest} Lieferung(en) erfolgreich angelegt.`);
       setSelected(new Set());
       await fetchWiederkehrend();
     } finally {
@@ -256,6 +298,27 @@ export default function LieferungenPage() {
 
       {tab === "wiederkehrend" && (
         <div>
+          {faelligeAnzahl > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center justify-between mb-4">
+              <span className="text-orange-800 font-medium">
+                {faelligeAnzahl} wiederkehrende Lieferung(en) fällig
+              </span>
+              <button
+                onClick={handleAlleAusloesen}
+                disabled={wSaving}
+                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {wSaving ? "Auslösen…" : "Alle jetzt auslösen"}
+              </button>
+            </div>
+          )}
+
+          {wErfolgMsg && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-green-800 text-sm font-medium">
+              {wErfolgMsg}
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">Regelmäßige Bedarfe der nächsten 30 Tage</p>
             <button
@@ -284,7 +347,7 @@ export default function LieferungenPage() {
                         className="rounded border-gray-300 text-green-700 focus:ring-green-700"
                       />
                     </th>
-                    {["Kunde", "Artikel", "Menge", "Letztes Datum", "Nächstes Datum", "Status"].map((h) => (
+                    {["Kunde", "Artikel", "Menge", "Letztes Datum", "Nächstes Datum", "Status", "Aktion"].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                         {h}
                       </th>
@@ -321,6 +384,15 @@ export default function LieferungenPage() {
                             Geplant
                           </span>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleEinzelnAusloesen(w.bedarf.id)}
+                          disabled={wSaving}
+                          className="px-2 py-1 text-xs font-medium bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-200 rounded transition-colors disabled:opacity-50"
+                        >
+                          Auslösen
+                        </button>
                       </td>
                     </tr>
                   ))}

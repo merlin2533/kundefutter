@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { lagerStatus } from "@/lib/utils";
+import { lagerStatus, addTage } from "@/lib/utils";
 
 export async function GET() {
   const heute = new Date();
@@ -14,6 +14,7 @@ export async function GET() {
     topKunden,
     faelligNaechste14Tage,
     offeneRechnungenListe,
+    alleBedarfe,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
@@ -38,6 +39,10 @@ export async function GET() {
     prisma.lieferung.findMany({
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
       select: { datum: true, rechnungDatum: true, zahlungsziel: true },
+    }),
+    prisma.kundeBedarf.findMany({
+      where: { aktiv: true },
+      include: { artikel: true },
     }),
   ]);
 
@@ -92,6 +97,27 @@ export async function GET() {
     umsatz: kundeUmsatzMap.get(k.kundeId) ?? 0,
   }));
 
+  // Wiederkehrend fällig: Bedarfe, deren nächstes Lieferdatum <= heute
+  let wiederkehrendFaellig = 0;
+  for (const bedarf of alleBedarfe) {
+    const letztePos = await prisma.lieferposition.findFirst({
+      where: {
+        artikelId: bedarf.artikelId,
+        lieferung: {
+          kundeId: bedarf.kundeId,
+          status: { not: "storniert" },
+        },
+      },
+      orderBy: { lieferung: { datum: "desc" } },
+      include: { lieferung: true },
+    });
+    const letztesDatum = letztePos?.lieferung?.datum ?? new Date(0);
+    const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
+    if (naechstesDatum <= heute) {
+      wiederkehrendFaellig++;
+    }
+  }
+
   // Markttrend aus Cache laden (letzte 2 Quartale für die 3 Hauptkategorien)
   const hauptCodes = [
     { code: "206000", label: "Futter" },
@@ -130,6 +156,7 @@ export async function GET() {
     faelligNaechste14Tage,
     offeneRechnungen,
     ueberfaelligeRechnungen,
+    wiederkehrendFaellig,
     topKunden: topKundenMitNamen.sort((a, b) => b.umsatz - a.umsatz),
     markttrend,
   });

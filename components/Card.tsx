@@ -15,13 +15,14 @@ export function KpiCard({
   label: string;
   value: string | number;
   sub?: string;
-  color?: "green" | "blue" | "yellow" | "red";
+  color?: "green" | "blue" | "yellow" | "red" | "orange";
 }) {
   const colors = {
     green: "border-l-4 border-green-500",
     blue: "border-l-4 border-blue-500",
     yellow: "border-l-4 border-yellow-500",
     red: "border-l-4 border-red-500",
+    orange: "border-l-4 border-orange-500",
   };
   return (
     <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 ${colors[color]}`}>
