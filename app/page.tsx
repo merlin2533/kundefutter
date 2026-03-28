@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { KpiCard, Card } from "@/components/Card";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface MarktTrend {
   kategorie: string;
@@ -23,17 +23,76 @@ interface DashboardData {
   markttrend: MarktTrend[];
 }
 
+interface Aktivitaet {
+  id: number;
+  datum: string;
+  typ: string;
+  betreff: string;
+  kunde: { id: number; name: string; firma: string | null } | null;
+}
+
+const SCHNELLZUGRIFF = [
+  { href: "/lieferungen/neu", label: "Neue Lieferung", icon: "📦", color: "bg-green-50 border-green-200 hover:bg-green-100" },
+  { href: "/lager/wareneingang", label: "Wareneingang", icon: "🚚", color: "bg-blue-50 border-blue-200 hover:bg-blue-100" },
+  { href: "/kunden/neu", label: "Neuer Kunde", icon: "👤", color: "bg-purple-50 border-purple-200 hover:bg-purple-100" },
+  { href: "/crm", label: "CRM Aktivität", icon: "💬", color: "bg-orange-50 border-orange-200 hover:bg-orange-100" },
+  { href: "/tourenplanung", label: "Tourenplanung", icon: "🗺️", color: "bg-yellow-50 border-yellow-200 hover:bg-yellow-100" },
+  { href: "/prognose", label: "Bestellvorschlag", icon: "📊", color: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
+  { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100" },
+  { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100" },
+];
+
+const TYP_BADGE: Record<string, string> = {
+  besuch: "bg-purple-100 text-purple-700",
+  anruf: "bg-blue-100 text-blue-700",
+  email: "bg-teal-100 text-teal-700",
+  notiz: "bg-gray-100 text-gray-600",
+  aufgabe: "bg-orange-100 text-orange-700",
+};
+
+const TYP_LABEL: Record<string, string> = {
+  besuch: "Besuch",
+  anruf: "Anruf",
+  email: "E-Mail",
+  notiz: "Notiz",
+  aufgabe: "Aufgabe",
+};
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  return hour < 12 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend";
+}
+
+function formatHeaderDate(): string {
+  return new Date().toLocaleDateString("de-DE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const loadData = () => {
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((d) => {
-        setData(d);
-        setLastUpdated(new Date());
-      });
+    Promise.all([
+      fetch("/api/dashboard").then((r) => r.json()),
+      fetch("/api/kunden/aktivitaeten?offene=1").then((r) => r.json()),
+    ]).then(([dashboard, akt]) => {
+      setData(dashboard);
+      // Sort by datum desc, take last 5
+      const sorted = Array.isArray(akt)
+        ? [...akt].sort(
+            (a: Aktivitaet, b: Aktivitaet) =>
+              new Date(b.datum).getTime() - new Date(a.datum).getTime()
+          ).slice(0, 5)
+        : [];
+      setAktivitaeten(sorted);
+      setLastUpdated(new Date());
+    });
   };
 
   useEffect(() => {
@@ -49,48 +108,63 @@ export default function DashboardPage() {
       ? ((data.deckungsbeitragMonat / data.umsatzMonat) * 100).toFixed(1)
       : "0.0";
 
+  const maxUmsatz = data.topKunden.length > 0 ? data.topKunden[0].umsatz : 1;
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {getGreeting()} —{" "}
+            <span className="text-gray-500 font-normal">{formatHeaderDate()}</span>
+          </h1>
+        </div>
         {lastUpdated && (
           <button
             onClick={loadData}
             className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             title="Klicken zum sofortigen Neu laden"
           >
-            Aktualisiert: {lastUpdated.getHours().toString().padStart(2, "0")}:{lastUpdated.getMinutes().toString().padStart(2, "0")} Uhr
+            Aktualisiert:{" "}
+            {lastUpdated.getHours().toString().padStart(2, "0")}:
+            {lastUpdated.getMinutes().toString().padStart(2, "0")} Uhr
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-        <KpiCard label="Aktive Kunden" value={data.kundenAktiv} color="blue" />
-        <KpiCard label="Offene Lieferungen" value={data.offeneLieferungen} color="yellow" />
-        <KpiCard label="Umsatz (Monat)" value={formatEuro(data.umsatzMonat)} color="green" />
+      {/* Row 1: Core KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <KpiCard
+          label="Umsatz (Monat)"
+          value={formatEuro(data.umsatzMonat)}
+          color="green"
+        />
         <KpiCard
           label="Deckungsbeitrag"
           value={formatEuro(data.deckungsbeitragMonat)}
           sub={`${marge} % Marge`}
           color="green"
         />
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <KpiCard
-          label="Lager-Alarme"
-          value={data.lagerAlarme}
-          color={data.lagerAlarme > 0 ? "red" : "green"}
-        />
-        <KpiCard
-          label="Fällig (14 Tage)"
-          value={data.faelligNaechste14Tage}
-          sub="geplante Lieferungen"
+          label="Aktive Kunden"
+          value={data.kundenAktiv}
           color="blue"
         />
         <KpiCard
-          label="Offene Rechnungen"
-          value={data.offeneRechnungen}
-          color={data.offeneRechnungen > 0 ? "yellow" : "green"}
+          label="Offene Lieferungen"
+          value={data.offeneLieferungen}
+          color="yellow"
+        />
+      </div>
+
+      {/* Row 2: Alert KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        <KpiCard
+          label="Lager-Alarme"
+          value={data.lagerAlarme}
+          sub={data.lagerAlarme > 0 ? "→ Lagerübersicht" : "Alles im grünen Bereich"}
+          color={data.lagerAlarme > 0 ? "red" : "green"}
         />
         <KpiCard
           label="Überfällige Rechnungen"
@@ -98,38 +172,105 @@ export default function DashboardPage() {
           sub={data.ueberfaelligeRechnungen > 0 ? "→ Mahnwesen" : undefined}
           color={data.ueberfaelligeRechnungen > 0 ? "red" : "green"}
         />
+        <KpiCard
+          label="Fällig (14 Tage)"
+          value={data.faelligNaechste14Tage}
+          sub="geplante Lieferungen"
+          color={data.faelligNaechste14Tage > 0 ? "yellow" : "green"}
+        />
       </div>
 
-      <div className={`grid gap-6 ${data.markttrend.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+      {/* Row 3: 3-column grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Col 1: Top Kunden with progress bars */}
         <Card>
-          <h2 className="font-semibold mb-3">Top-Kunden (laufender Monat)</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">Top-Kunden (lfd. Monat)</h2>
+            <Link href="/kunden" className="text-xs text-green-700 hover:underline">
+              Alle →
+            </Link>
+          </div>
           {data.topKunden.length === 0 ? (
             <p className="text-sm text-gray-400">Noch keine Umsätze diesen Monat</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 border-b">
-                  <th className="pb-1">Kunde</th>
-                  <th className="pb-1 text-right">Umsatz</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topKunden.map((k) => (
-                  <tr key={k.kundeId} className="border-b last:border-0">
-                    <td className="py-1.5">
-                      <Link href={`/kunden/${k.kundeId}`} className="text-green-700 hover:underline">
+            <div className="space-y-3">
+              {data.topKunden.map((k) => {
+                const barWidth = maxUmsatz > 0 ? (k.umsatz / maxUmsatz) * 100 : 0;
+                return (
+                  <div key={k.kundeId}>
+                    <div className="flex items-center justify-between text-sm mb-0.5">
+                      <Link
+                        href={`/kunden/${k.kundeId}`}
+                        className="text-green-700 hover:underline truncate max-w-[55%]"
+                      >
                         {k.name}
                       </Link>
-                    </td>
-                    <td className="py-1.5 text-right font-mono">{formatEuro(k.umsatz)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span className="font-mono text-gray-700 text-xs">{formatEuro(k.umsatz)}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-400 rounded-full transition-all duration-300"
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </Card>
 
-        {data.markttrend.length > 0 && (
+        {/* Col 2: Schnellzugriff */}
+        <Card>
+          <h2 className="font-semibold mb-3">Schnellzugriff</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {SCHNELLZUGRIFF.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-2 p-2.5 rounded-lg border text-sm font-medium transition-colors ${item.color}`}
+              >
+                <span className="text-lg leading-none">{item.icon}</span>
+                <span className="leading-tight">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        {/* Col 3: Letzte CRM-Aktivitäten or Markttrend */}
+        {aktivitaeten.length > 0 ? (
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Letzte CRM-Aktivitäten</h2>
+              <Link href="/crm" className="text-xs text-green-700 hover:underline">
+                Alle →
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {aktivitaeten.map((a) => (
+                <div key={a.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded font-medium ${TYP_BADGE[a.typ] ?? "bg-gray-100 text-gray-600"}`}
+                    >
+                      {TYP_LABEL[a.typ] ?? a.typ}
+                    </span>
+                    <span className="text-xs text-gray-400">{formatDatum(a.datum)}</span>
+                  </div>
+                  {a.kunde && (
+                    <Link
+                      href={`/kunden/${a.kunde.id}`}
+                      className="text-green-700 hover:underline text-xs font-medium"
+                    >
+                      {a.kunde.firma ?? a.kunde.name}
+                    </Link>
+                  )}
+                  <p className="text-gray-600 truncate">{a.betreff}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : data.markttrend.length > 0 ? (
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">Markttrend (Eurostat)</h2>
@@ -158,30 +299,12 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-gray-400 mt-2">Index 2015 = 100</p>
           </Card>
+        ) : (
+          <Card>
+            <h2 className="font-semibold mb-3">Markttrend</h2>
+            <p className="text-sm text-gray-400">Keine Marktdaten verfügbar</p>
+          </Card>
         )}
-
-        <Card>
-          <h2 className="font-semibold mb-3">Schnellzugriff</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { href: "/lieferungen", label: "Neue Lieferung", icon: "📦" },
-              { href: "/lager", label: "Lagerübersicht", icon: "🏭" },
-              { href: "/prognose", label: "Bestellvorschlag", icon: "📊" },
-              { href: "/kunden/karte", label: "Kundenkarte", icon: "🗺️" },
-              { href: "/exporte", label: "Exporte", icon: "📥" },
-              { href: "/artikel", label: "Artikel", icon: "🌾" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-sm"
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </Card>
       </div>
     </div>
   );
