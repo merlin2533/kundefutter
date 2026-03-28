@@ -8,7 +8,7 @@ services:
   kundefutter:
     image: ghcr.io/merlin2533/kundefutter:latest
     ports:
-      - "3000:3000"
+      - "8080:3000"
     volumes:
       - kundefutter_data:/data
       - kundefutter_uploads:/app/public/uploads
@@ -17,6 +17,18 @@ services:
       - NODE_ENV=production
     restart: unless-stopped
 
+  backup:
+    image: keinos/sqlite3:latest
+    volumes:
+      - kundefutter_data:/data:ro
+      - kundefutter_backups:/backups
+      - ./backup.sh:/backup.sh:ro
+    entrypoint: /bin/sh
+    command: >
+      -c "echo '0 2 * * * /bin/sh /backup.sh' | crontab - && crond -f -l 2"
+    restart: unless-stopped
+
 volumes:
   kundefutter_data:
   kundefutter_uploads:
+  kundefutter_backups:

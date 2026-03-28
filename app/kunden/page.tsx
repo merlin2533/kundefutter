@@ -92,9 +92,11 @@ export default function KundenPage() {
         }),
       });
       if (!res.ok) throw new Error("Fehler beim Speichern");
+      const neu = await res.json();
       setShowModal(false);
       setForm(defaultForm);
-      await fetchKunden();
+      // Optimistic: neuen Kunden direkt in die Liste einfügen
+      setKunden((prev) => [{ ...neu, kontakte: [] }, ...prev]);
     } catch {
       setError("Fehler beim Speichern. Bitte versuche es erneut.");
     } finally {
