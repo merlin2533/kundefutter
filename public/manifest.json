@@ -1,7 +1,7 @@
 {
-  "name": "KundeFutter – Verwaltung",
-  "short_name": "KundeFutter",
-  "description": "Kunden-, Artikel- und Lagerverwaltung für Futter, Dünger & Saatgut",
+  "name": "AgrarOffice Röthemeier",
+  "short_name": "AgrarOffice",
+  "description": "Futter · Dünger · Saatgut – Kunden-, Artikel- und Lagerverwaltung",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

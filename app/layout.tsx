@@ -3,13 +3,13 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "KundeFutter – Verwaltung",
-  description: "Kunden-, Artikel- und Lagerverwaltung für Futter, Dünger & Saatgut",
+  title: "AgrarOffice Röthemeier",
+  description: "Futter · Dünger · Saatgut – Kunden-, Artikel- und Lagerverwaltung",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "KundeFutter",
+    title: "AgrarOffice",
   },
   other: {
     "mobile-web-app-capable": "yes",

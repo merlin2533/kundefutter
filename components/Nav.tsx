@@ -13,6 +13,7 @@ const links = [
   { href: "/lieferungen", label: "Lieferungen" },
   { href: "/prognose", label: "Prognose" },
   { href: "/exporte", label: "Export" },
+  { href: "/mahnwesen", label: "Mahnwesen" },
 ];
 
 export default function Nav() {
@@ -28,7 +29,10 @@ export default function Nav() {
   return (
     <header className="bg-green-800 text-white shadow-md">
       <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between">
-        <span className="font-bold text-lg tracking-tight whitespace-nowrap">🌾 KundeFutter</span>
+        <span className="font-bold text-lg tracking-tight whitespace-nowrap leading-tight">
+          <span className="text-white">AgrarOffice</span>
+          <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">Röthemeier</span>
+        </span>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex flex-wrap gap-1">
