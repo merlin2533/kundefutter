@@ -1,6 +1,7 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, Circle, GeoJSON, useMapEvents } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Circle, GeoJSON, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -64,6 +65,14 @@ function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void
   return null;
 }
 
+function MapUpdater({ center }: { center: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) map.setView(center, 11);
+  }, [center, map]);
+  return null;
+}
+
 export default function GebietsMap({ center, radiusKm, kunden, geojson, onMapClick }: Props) {
   const kundenMitKoords = kunden.filter((k) => k.lat != null && k.lng != null);
 
@@ -79,6 +88,7 @@ export default function GebietsMap({ center, radiusKm, kunden, geojson, onMapCli
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <ClickHandler onClick={onMapClick} />
+      <MapUpdater center={center} />
 
       {geojson && geojson.features.length > 0 && (
         <GeoJSON

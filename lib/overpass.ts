@@ -110,10 +110,7 @@ export async function fetchFarmlandAround(
   radiusMeters: number
 ): Promise<FarmlandResult> {
   const query = `[out:json][timeout:60];
-(
-  way["landuse"="farmland"](around:${radiusMeters},${lat},${lng});
-  relation["landuse"="farmland"](around:${radiusMeters},${lat},${lng});
-);
+way["landuse"="farmland"](around:${radiusMeters},${lat},${lng});
 out body;
 >;
 out skel qt;`;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -28,7 +28,7 @@ interface AktuellKpi {
 
 function parseZeitraum(z: string): { jahr: number; quartal: number } {
   const [jahrStr, qStr] = z.split("-Q");
-  return { jahr: parseInt(jahrStr), quartal: parseInt(qStr) };
+  return { jahr: parseInt(jahrStr), quartal: qStr ? parseInt(qStr) : 0 };
 }
 
 function zeitraumSortKey(z: string): number {
@@ -515,7 +515,7 @@ function KpiKarten({ daten }: { daten: MarktpreisEintrag[] }) {
             <p className="text-3xl font-bold mt-1 text-gray-900">{kpi.aktuell.toFixed(1)}</p>
             <p className={`text-sm mt-1 ${changeColor}`}>
               {arrow} {kpi.veraenderung >= 0 ? "+" : ""}
-              {kpi.veraenderung.toFixed(1)}% ggue. Vorquartal
+              {kpi.veraenderung.toFixed(1)}% ggü. Vorquartal
             </p>
           </Card>
         );
@@ -525,8 +525,6 @@ function KpiKarten({ daten }: { daten: MarktpreisEintrag[] }) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-
-import { Fragment } from "react";
 
 export default function MarktpreisePage() {
   const [daten, setDaten] = useState<MarktpreisEintrag[] | null>(null);

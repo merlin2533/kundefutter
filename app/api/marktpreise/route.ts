@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
     if (needsRefresh) {
       const entries = await fetchEurostatQuarterly(2020);
 
-      for (const entry of entries) {
-        await prisma.marktpreisCache.upsert({
+      const ops = entries.map((entry) =>
+        prisma.marktpreisCache.upsert({
           where: {
             dataset_produktCode_zeitraum_land: {
               dataset: "apri_pi15_inq",
@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
             einheit: "I15",
             land: "DE",
           },
-        });
-      }
+        })
+      );
+      await prisma.$transaction(ops);
     }
 
     // Build filter for query

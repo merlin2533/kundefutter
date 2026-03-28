@@ -93,18 +93,22 @@ export async function GET() {
   }));
 
   // Markttrend aus Cache laden (letzte 2 Quartale für die 3 Hauptkategorien)
-  const markttrend: { kategorie: string; aktuell: number; veraenderung: number }[] = [];
   const hauptCodes = [
     { code: "206000", label: "Futter" },
     { code: "203000", label: "Dünger" },
     { code: "201000", label: "Saatgut" },
   ];
+  const alleMarktpreise = await prisma.marktpreisCache.findMany({
+    where: {
+      dataset: "apri_pi15_inq",
+      produktCode: { in: hauptCodes.map((c) => c.code) },
+      land: "DE",
+    },
+    orderBy: { zeitraum: "desc" },
+  });
+  const markttrend: { kategorie: string; aktuell: number; veraenderung: number }[] = [];
   for (const { code, label } of hauptCodes) {
-    const recent = await prisma.marktpreisCache.findMany({
-      where: { dataset: "apri_pi15_inq", produktCode: code, land: "DE" },
-      orderBy: { zeitraum: "desc" },
-      take: 2,
-    });
+    const recent = alleMarktpreise.filter((m) => m.produktCode === code).slice(0, 2);
     if (recent.length > 0) {
       const aktuell = recent[0].indexWert;
       const vorq = recent.length > 1 ? recent[1].indexWert : aktuell;

@@ -60,7 +60,7 @@ export default function GebietsanalysePage() {
       const q = encodeURIComponent(adresse.trim());
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
-        { headers: { "Accept-Language": "de" } },
+        { headers: { "Accept-Language": "de", "User-Agent": "AgrarOffice/1.0" } },
       );
       const data = await res.json();
       if (data.length === 0) {
