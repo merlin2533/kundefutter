@@ -156,6 +156,25 @@ export default function StammdatenPage() {
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
         />
+
+        {/* Kundenimport */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-gray-800">Kundenimport</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Excel- oder CSV-Datei hochladen und Kunden-Stammdaten importieren.
+                Unterstützte Spalten: Name, Firma, Kategorie, Strasse, PLZ, Ort, Land, Telefon, Mobil, E-Mail, Notizen.
+              </p>
+            </div>
+            <Link
+              href="/kundenimport"
+              className="whitespace-nowrap px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors"
+            >
+              → Importieren
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

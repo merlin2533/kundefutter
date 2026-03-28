@@ -400,18 +400,21 @@ model AgrarflaechenCache {
 // ─── AGRARANTRÄGE (AFIG / agrarzahlungen.de) ──────────────────────────────────
 
 model AntragEmpfaenger {
-  id                Int      @id @default(autoincrement())
-  haushaltsjahr     Int
-  name              String   // Name des Begünstigten
-  plz               String?
-  gemeinde          String?
-  land              String?
-  egflGesamt        Float    @default(0)
-  elerGesamt        Float    @default(0)
-  gesamtBetrag      Float    @default(0)
-  massnahmen        String?  // JSON: [{code, ziel, egfl, eler}]
-  mutterunternehmen String?
-  importiertAm      DateTime @default(now())
+  id                        Int      @id @default(autoincrement())
+  haushaltsjahr             Int
+  name                      String   // Name des Begünstigten
+  plz                       String?
+  gemeinde                  String?
+  land                      String?
+  steuerNr                  String?  // Steuerliches Identifikationsmerkmal
+  egflGesamt                Float    @default(0)  // EGFL-Gesamtbetrag für diesen Begünstigten (Spalte 12)
+  elerGesamt                Float    @default(0)  // ELER-Gesamtbetrag EU-Mittel (Spalte 14)
+  nationalKofiGesamt        Float    @default(0)  // National kofinanzierter Gesamtbetrag (Spalte 16)
+  elerUndKofiGesamt         Float    @default(0)  // ELER + national Kofi (Spalte 17)
+  gesamtBetrag              Float    @default(0)  // EU-Betrag + Kofi gesamt (Spalte 18)
+  massnahmen                String?  // JSON: [{code, ziel, egfl, eler, nationalKofi, anfang, ende}]
+  mutterunternehmen         String?
+  importiertAm              DateTime @default(now())
 
   kundeId           Int?
   kunde             Kunde?   @relation(fields: [kundeId], references: [id], onDelete: SetNull)

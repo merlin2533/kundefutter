@@ -9,8 +9,11 @@ interface AntragEmpfaenger {
   plz: string | null;
   gemeinde: string | null;
   land: string | null;
+  steuerNr: string | null;
   egflGesamt: number;
   elerGesamt: number;
+  nationalKofiGesamt: number;
+  elerUndKofiGesamt: number;
   gesamtBetrag: number;
   massnahmen: string | null;
   mutterunternehmen: string | null;
@@ -24,6 +27,9 @@ interface Massnahme {
   ziel: string;
   egfl: number;
   eler: number;
+  nationalKofi: number;
+  anfang: string;
+  ende: string;
 }
 
 function formatEurAntrag(n: number) {
@@ -333,13 +339,15 @@ export default function AgrarantraegeePage() {
                       <td colSpan={8} className="px-6 py-4">
                         <h4 className="text-xs font-semibold text-gray-700 mb-2">Maßnahmen-Details:</h4>
                         <div className="overflow-x-auto">
-                          <table className="text-xs w-full max-w-2xl">
+                          <table className="text-xs w-full">
                             <thead>
                               <tr className="text-gray-500">
-                                <th className="text-left pb-1 pr-4">Code</th>
-                                <th className="text-left pb-1 pr-4">Spezifisches Ziel</th>
-                                <th className="text-right pb-1 pr-4">EGFL (EUR)</th>
-                                <th className="text-right pb-1">ELER (EUR)</th>
+                                <th className="text-left pb-1 pr-3">Code</th>
+                                <th className="text-left pb-1 pr-3">Spezifisches Ziel</th>
+                                <th className="text-left pb-1 pr-3">Zeitraum</th>
+                                <th className="text-right pb-1 pr-3">EGFL</th>
+                                <th className="text-right pb-1 pr-3">ELER (EU)</th>
+                                <th className="text-right pb-1">Nat. Kofi</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -348,18 +356,35 @@ export default function AgrarantraegeePage() {
                                 try { ms = JSON.parse(item.massnahmen!); } catch { return null; }
                                 return ms.map((m, i) => (
                                   <tr key={i} className="border-t border-green-100">
-                                    <td className="py-1 pr-4 font-mono font-medium">{m.code}</td>
-                                    <td className="py-1 pr-4 text-gray-600">{m.ziel || "—"}</td>
-                                    <td className="py-1 pr-4 text-right font-mono">{m.egfl > 0 ? formatEurAntrag(m.egfl) : "—"}</td>
-                                    <td className="py-1 text-right font-mono">{m.eler > 0 ? formatEurAntrag(m.eler) : "—"}</td>
+                                    <td className="py-1 pr-3 font-mono font-medium">{m.code}</td>
+                                    <td className="py-1 pr-3 text-gray-600">{m.ziel || "—"}</td>
+                                    <td className="py-1 pr-3 text-gray-500 whitespace-nowrap">
+                                      {m.anfang || m.ende ? `${m.anfang || ""}${m.anfang && m.ende ? " – " : ""}${m.ende || ""}` : "—"}
+                                    </td>
+                                    <td className="py-1 pr-3 text-right font-mono">{m.egfl > 0 ? formatEurAntrag(m.egfl) : "—"}</td>
+                                    <td className="py-1 pr-3 text-right font-mono">{m.eler > 0 ? formatEurAntrag(m.eler) : "—"}</td>
+                                    <td className="py-1 text-right font-mono">{m.nationalKofi > 0 ? formatEurAntrag(m.nationalKofi) : "—"}</td>
                                   </tr>
                                 ));
                               })()}
                             </tbody>
                           </table>
                         </div>
+                        <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-600">
+                          <span>EGFL gesamt: <strong>{formatEurAntrag(item.egflGesamt)}</strong></span>
+                          <span>ELER (EU) gesamt: <strong>{formatEurAntrag(item.elerGesamt)}</strong></span>
+                          {item.nationalKofiGesamt > 0 && (
+                            <span>Nat. Kofinanzierung: <strong>{formatEurAntrag(item.nationalKofiGesamt)}</strong></span>
+                          )}
+                          {item.elerUndKofiGesamt > 0 && (
+                            <span>ELER + Kofi: <strong>{formatEurAntrag(item.elerUndKofiGesamt)}</strong></span>
+                          )}
+                        </div>
                         {item.mutterunternehmen && (
                           <p className="text-xs text-gray-500 mt-2">Mutterunternehmen: {item.mutterunternehmen}</p>
+                        )}
+                        {item.steuerNr && (
+                          <p className="text-xs text-gray-500 mt-1">Steuer-Nr.: {item.steuerNr}</p>
                         )}
                       </td>
                     </tr>

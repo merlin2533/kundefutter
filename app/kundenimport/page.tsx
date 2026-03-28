@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { Card } from "@/components/Card";
 
 interface KundeVorschau {
@@ -82,6 +83,13 @@ export default function KundenimportPage() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+        <Link href="/einstellungen" className="hover:text-green-700">Einstellungen</Link>
+        <span>›</span>
+        <Link href="/einstellungen/stammdaten" className="hover:text-green-700">Stammdaten</Link>
+        <span>›</span>
+        <span className="text-gray-800 font-medium">Kundenimport</span>
+      </div>
       <h1 className="text-2xl font-bold mb-6">Kundenimport</h1>
 
       <Card className="mb-6 max-w-xl">

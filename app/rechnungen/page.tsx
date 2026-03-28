@@ -4,8 +4,12 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface Lieferposition {
+  id: number;
   menge: number;
   verkaufspreis: number;
+  rabattProzent: number;
+  chargeNr: string | null;
+  artikel: { id: number; name: string; einheit: string };
 }
 
 interface Rechnung {
@@ -13,17 +17,20 @@ interface Rechnung {
   rechnungNr: string;
   rechnungDatum: string;
   datum: string;
+  notiz: string | null;
   kunde: { id: number; name: string; firma: string | null };
   positionen: Lieferposition[];
   bezahltAm: string | null;
   zahlungsziel: number | null;
-  status: string;
 }
 
 type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt";
 
 function berechneBetrag(positionen: Lieferposition[]) {
-  return positionen.reduce((sum, p) => sum + p.menge * p.verkaufspreis, 0);
+  return positionen.reduce(
+    (sum, p) => sum + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100),
+    0
+  );
 }
 
 function getRechnungStatus(r: Rechnung): "bezahlt" | "ueberfaellig" | "offen" {
@@ -40,11 +47,7 @@ function StatusBadge({ status }: { status: "bezahlt" | "ueberfaellig" | "offen" 
     ueberfaellig: "bg-red-100 text-red-800",
     offen: "bg-yellow-100 text-yellow-800",
   };
-  const label = {
-    bezahlt: "Bezahlt",
-    ueberfaellig: "Überfällig",
-    offen: "Offen",
-  };
+  const label = { bezahlt: "Bezahlt", ueberfaellig: "Überfällig", offen: "Offen" };
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
       {label[status]}
@@ -57,27 +60,17 @@ export default function RechnungenPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("alle");
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<number | null>(null);
   const [buchungId, setBuchungId] = useState<number | null>(null);
   const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
+  function load() {
     fetch("/api/lieferungen?hatRechnung=true")
       .then((r) => r.json())
-      .then((data) => {
-        setRechnungen(data);
-        setLoading(false);
-      });
-  }, []);
-
-  function reload() {
-    setLoading(true);
-    fetch("/api/lieferungen?hatRechnung=true")
-      .then((r) => r.json())
-      .then((data) => {
-        setRechnungen(data);
-        setLoading(false);
-      });
+      .then((data) => { setRechnungen(data); setLoading(false); });
   }
+
+  useEffect(() => { load(); }, []);
 
   async function buchungSpeichern(id: number) {
     await fetch(`/api/lieferungen/${id}`, {
@@ -86,7 +79,18 @@ export default function RechnungenPage() {
       body: JSON.stringify({ bezahltAm: buchungDatum }),
     });
     setBuchungId(null);
-    reload();
+    setLoading(true);
+    load();
+  }
+
+  async function zahlungLoesen(id: number) {
+    await fetch(`/api/lieferungen/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bezahltAm: null }),
+    });
+    setLoading(true);
+    load();
   }
 
   const gefiltert = rechnungen.filter((r) => {
@@ -118,7 +122,7 @@ export default function RechnungenPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rechnungen</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Alle erstellten Rechnungen</p>
+          <p className="text-sm text-gray-500 mt-0.5">Alle erstellten Rechnungen aus Lieferscheinen</p>
         </div>
         <Link
           href="/rechnungen/neu"
@@ -131,16 +135,25 @@ export default function RechnungenPage() {
       {/* KPI-Kacheln */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Gesamt Rechnungen</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Gesamt</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{rechnungen.length}</p>
+          <p className="text-xs text-gray-400 mt-1">
+            {formatEuro(rechnungen.reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-yellow-200 shadow-sm p-4">
           <p className="text-xs text-yellow-700 uppercase tracking-wide">Offen</p>
           <p className="text-2xl font-bold text-yellow-700 mt-1">{formatEuro(gesamtOffen)}</p>
+          <p className="text-xs text-yellow-600 mt-1">
+            {rechnungen.filter((r) => getRechnungStatus(r) === "offen").length} Rechnungen
+          </p>
         </div>
         <div className="bg-white rounded-xl border border-red-200 shadow-sm p-4">
           <p className="text-xs text-red-700 uppercase tracking-wide">Überfällig</p>
           <p className="text-2xl font-bold text-red-700 mt-1">{formatEuro(gesamtUeberfaellig)}</p>
+          <p className="text-xs text-red-600 mt-1">
+            {rechnungen.filter((r) => getRechnungStatus(r) === "ueberfaellig").length} Rechnungen
+          </p>
         </div>
       </div>
 
@@ -170,20 +183,18 @@ export default function RechnungenPage() {
         </div>
       </div>
 
-      {/* Tabelle */}
       {loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
       ) : gefiltert.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          {rechnungen.length === 0
-            ? "Noch keine Rechnungen vorhanden."
-            : "Keine Rechnungen für diesen Filter."}
+          {rechnungen.length === 0 ? "Noch keine Rechnungen vorhanden." : "Keine Rechnungen für diesen Filter."}
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="w-8" />
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Rechnung-Nr</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Datum</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Fällig am</th>
@@ -199,56 +210,124 @@ export default function RechnungenPage() {
                 const betrag = berechneBetrag(r.positionen);
                 const faelligAm = new Date(r.rechnungDatum);
                 faelligAm.setDate(faelligAm.getDate() + (r.zahlungsziel ?? 30));
+                const isExpanded = expanded === r.id;
                 return (
-                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.rechnungNr}</td>
-                    <td className="px-4 py-3 text-gray-700">{formatDatum(r.rechnungDatum)}</td>
-                    <td className={`px-4 py-3 ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
-                      {formatDatum(faelligAm)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/kunden/${r.kunde.id}`} className="text-green-700 hover:underline font-medium">
-                        {r.kunde.name}
-                      </Link>
-                      {r.kunde.firma && (
-                        <span className="text-xs text-gray-400 block">{r.kunde.firma}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">{formatEuro(betrag)}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={st} />
-                      {r.bezahltAm && (
-                        <span className="text-xs text-gray-400 block mt-0.5">{formatDatum(r.bezahltAm)}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                  <>
+                    <tr
+                      key={r.id}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
+                      onClick={() => setExpanded(isExpanded ? null : r.id)}
+                    >
+                      <td className="px-3 py-3 text-gray-400 text-xs text-center">
+                        {isExpanded ? "▲" : "▼"}
+                      </td>
+                      <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.rechnungNr}</td>
+                      <td className="px-4 py-3 text-gray-700">{formatDatum(r.rechnungDatum)}</td>
+                      <td className={`px-4 py-3 ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
+                        {formatDatum(faelligAm)}
+                      </td>
+                      <td className="px-4 py-3">
                         <Link
-                          href={`/lieferungen/${r.id}`}
-                          className="text-xs text-blue-600 hover:underline"
+                          href={`/kunden/${r.kunde.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-green-700 hover:underline font-medium"
                         >
-                          Details
+                          {r.kunde.firma ?? r.kunde.name}
                         </Link>
-                        {st !== "bezahlt" && (
-                          <button
-                            onClick={() => {
-                              setBuchungId(r.id);
-                              setBuchungDatum(new Date().toISOString().slice(0, 10));
-                            }}
-                            className="text-xs text-green-700 hover:underline"
-                          >
-                            Zahlung buchen
-                          </button>
+                        {r.kunde.firma && (
+                          <span className="text-xs text-gray-400 block">{r.kunde.name}</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">{formatEuro(betrag)}</td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={st} />
+                        {r.bezahltAm && (
+                          <span className="text-xs text-gray-400 block mt-0.5">{formatDatum(r.bezahltAm)}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link
+                            href={`/lieferungen/${r.id}`}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Lieferschein
+                          </Link>
+                          {st !== "bezahlt" ? (
+                            <button
+                              onClick={() => {
+                                setBuchungId(r.id);
+                                setBuchungDatum(new Date().toISOString().slice(0, 10));
+                              }}
+                              className="text-xs text-green-700 hover:underline font-medium"
+                            >
+                              Zahlung buchen
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => zahlungLoesen(r.id)}
+                              className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                              title="Zahlung rückgängig"
+                            >
+                              Rückgängig
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Positionen-Zeile */}
+                    {isExpanded && (
+                      <tr key={`${r.id}-pos`} className="bg-green-50 border-b border-green-100">
+                        <td colSpan={8} className="px-6 py-3">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-gray-500">
+                                <th className="text-left pb-1 pr-4 font-medium">Artikel</th>
+                                <th className="text-right pb-1 pr-4 font-medium">Menge</th>
+                                <th className="text-right pb-1 pr-4 font-medium">Einzelpreis</th>
+                                <th className="text-right pb-1 pr-4 font-medium">Rabatt</th>
+                                <th className="text-right pb-1 font-medium">Gesamt</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.positionen.map((p) => {
+                                const netto = p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100);
+                                return (
+                                  <tr key={p.id} className="border-t border-green-100">
+                                    <td className="py-1 pr-4 font-medium text-gray-800">
+                                      {p.artikel.name}
+                                      {p.chargeNr && <span className="text-gray-400 ml-1">[{p.chargeNr}]</span>}
+                                    </td>
+                                    <td className="py-1 pr-4 text-right font-mono">
+                                      {p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 })} {p.artikel.einheit}
+                                    </td>
+                                    <td className="py-1 pr-4 text-right font-mono">{formatEuro(p.verkaufspreis)}</td>
+                                    <td className="py-1 pr-4 text-right text-gray-500">
+                                      {p.rabattProzent > 0 ? `${p.rabattProzent} %` : "—"}
+                                    </td>
+                                    <td className="py-1 text-right font-mono font-medium">{formatEuro(netto)}</td>
+                                  </tr>
+                                );
+                              })}
+                              <tr className="border-t-2 border-green-200 font-semibold">
+                                <td colSpan={4} className="py-1.5 pr-4 text-right text-gray-700">Netto gesamt:</td>
+                                <td className="py-1.5 text-right font-mono text-green-800">{formatEuro(betrag)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          {r.notiz && (
+                            <p className="text-xs text-gray-500 mt-2 italic">{r.notiz}</p>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 );
               })}
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t-2 border-gray-200">
-                <td colSpan={4} className="px-4 py-3 text-sm font-semibold text-gray-700">
+                <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-gray-700">
                   {gefiltert.length} Rechnung{gefiltert.length !== 1 ? "en" : ""}
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">

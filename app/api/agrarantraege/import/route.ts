@@ -21,6 +21,7 @@ const COL_ALIASES: Record<string, string[]> = {
     "name",
     "recipient",
   ],
+  steuerNr: ["steuerliches identifikationsmerkmal", "steuer", "identifikationsmerkmal"],
   plz: ["plz", "postcode", "postal code", "postleitzahl"],
   gemeinde: ["gemeinde", "ort", "municipality", "city"],
   land: ["betroffener staat", "land", "state", "country"],
@@ -35,10 +36,19 @@ const COL_ALIASES: Record<string, string[]> = {
     "intervention code",
   ],
   ziel: ["spezifisches ziel", "specific objective", "ziel"],
-  // Use "betrag je vorhaben" (per-measure amount) — summing gives correct total
-  egfl: ["betrag je vorhaben im rahmen des egfl", "egfl-betrag", "egfl betrag", "egfl (eur)", "egfl", "total egfl", "betrag egfl"],
-  eler: ["betrag je vorhaben im rahmen des eler", "eler-betrag", "eler betrag", "eler (eur)", "eler", "total eler", "betrag eler"],
-  mutter: ["mutterunternehmen", "name des mutterunternehmen", "parent company", "parent"],
+  anfang: ["anfangsdatum", "start date", "von", "begin"],
+  ende: ["enddatum", "end date", "bis", "end"],
+  // Per-measure amounts (columns 11, 13, 15) — stored per Maßnahme
+  egflMassnahme: ["betrag je vorhaben im rahmen des egfl"],
+  elerMassnahme: ["betrag je vorhaben im rahmen des eler (eu-mittel)", "betrag je vorhaben im rahmen des eler"],
+  nationalKofiMassnahme: ["betrag je vorhaben im rahmen der nationalen kofinanzierung", "nationale kofinanzierung je vorhaben"],
+  // Pre-calculated totals per beneficiary (use these for the stored Gesamt fields)
+  egflGesamt: ["egfl- gesamtbetrag", "egfl-gesamtbetrag", "egfl gesamtbetrag"],
+  elerGesamt: ["eler-gesamtbetrag für diesen begünstigten (eu-mittel)", "eler-gesamtbetrag", "eler gesamtbetrag"],
+  nationalKofiGesamt: ["national kofinanzierter gesamtbetrag", "kofinanzierter gesamtbetrag"],
+  elerUndKofiGesamt: ["summe des eler-betrags (eu-mittel) und des kofinanzierten betrags", "summe eler und kofi"],
+  gesamtBetrag: ["eu-betrag (egfl und eler) und kofinanzierter betrag insgesamt", "gesamtbetrag", "gesamt"],
+  mutter: ["name des mutterunternehmen", "mutterunternehmen", "parent company", "parent"],
 };
 
 function findCol(headers: string[], key: string): number {
@@ -86,31 +96,56 @@ function splitCsvLine(line: string, sep: string): string[] {
 type AggEntry = {
   haushaltsjahr: number;
   name: string;
+  steuerNr: string;
   plz: string;
   gemeinde: string;
   land: string;
-  egfl: number;
-  eler: number;
-  massnahmen: Array<{ code: string; ziel: string; egfl: number; eler: number }>;
+  egflGesamt: number;
+  elerGesamt: number;
+  nationalKofiGesamt: number;
+  elerUndKofiGesamt: number;
+  gesamtBetrag: number;
+  massnahmen: Array<{
+    code: string;
+    ziel: string;
+    egfl: number;
+    eler: number;
+    nationalKofi: number;
+    anfang: string;
+    ende: string;
+  }>;
   mutter: string;
 };
+
+function str(row: string[], col: number): string {
+  if (col === -1) return "";
+  return (row[col] ?? "").replace(/^"|"$/g, "").trim();
+}
 
 async function processStream(
   rl: ReturnType<typeof createInterface>
 ): Promise<{ aggMap: Map<string, AggEntry>; error?: string }> {
   const aggMap = new Map<string, AggEntry>();
 
-  let headers: string[] = [];
   let sep = ";";
   let colYear = -1;
   let colName = -1;
+  let colSteuerNr = -1;
   let colPlz = -1;
   let colGemeinde = -1;
   let colLand = -1;
   let colMass = -1;
   let colZiel = -1;
-  let colEgfl = -1;
-  let colEler = -1;
+  let colAnfang = -1;
+  let colEnde = -1;
+  let colEgflM = -1;
+  let colElerM = -1;
+  let colNationalKofiM = -1;
+  let colEgflG = -1;
+  let colElerG = -1;
+  let colNationalKofiG = -1;
+  let colElerUndKofiG = -1;
+  let colGesamtBetrag = -1;
   let colMutter = -1;
   let lineIndex = 0;
 
@@ -119,20 +154,28 @@ async function processStream(
     if (!line) continue;
 
     if (lineIndex === 0) {
-      // Parse headers from first line
       sep = line.includes(";") ? ";" : ",";
-      headers = line.split(sep).map((h) => h.replace(/^"|"$/g, "").trim());
+      const headers = line.split(sep).map((h) => h.replace(/^"|"$/g, "").trim());
 
-      colYear     = findCol(headers, "haushaltsjahr");
-      colName     = findCol(headers, "name");
-      colPlz      = findCol(headers, "plz");
-      colGemeinde = findCol(headers, "gemeinde");
-      colLand     = findCol(headers, "land");
-      colMass     = findCol(headers, "massnahme");
-      colZiel     = findCol(headers, "ziel");
-      colEgfl     = findCol(headers, "egfl");
-      colEler     = findCol(headers, "eler");
-      colMutter   = findCol(headers, "mutter");
+      colYear           = findCol(headers, "haushaltsjahr");
+      colName           = findCol(headers, "name");
+      colSteuerNr       = findCol(headers, "steuerNr");
+      colPlz            = findCol(headers, "plz");
+      colGemeinde       = findCol(headers, "gemeinde");
+      colLand           = findCol(headers, "land");
+      colMass           = findCol(headers, "massnahme");
+      colZiel           = findCol(headers, "ziel");
+      colAnfang         = findCol(headers, "anfang");
+      colEnde           = findCol(headers, "ende");
+      colEgflM          = findCol(headers, "egflMassnahme");
+      colElerM          = findCol(headers, "elerMassnahme");
+      colNationalKofiM  = findCol(headers, "nationalKofiMassnahme");
+      colEgflG          = findCol(headers, "egflGesamt");
+      colElerG          = findCol(headers, "elerGesamt");
+      colNationalKofiG  = findCol(headers, "nationalKofiGesamt");
+      colElerUndKofiG   = findCol(headers, "elerUndKofiGesamt");
+      colGesamtBetrag   = findCol(headers, "gesamtBetrag");
+      colMutter         = findCol(headers, "mutter");
 
       if (colName === -1) {
         return {
@@ -147,41 +190,59 @@ async function processStream(
 
     const row = splitCsvLine(line, sep);
 
-    const name = (colName !== -1 ? row[colName] : "").replace(/^"|"$/g, "").trim();
+    const name = str(row, colName);
     if (!name || name.toLowerCase() === "kleinempfänger") {
       lineIndex++;
       continue;
     }
 
-    const year   = colYear !== -1 ? parseInt(row[colYear] ?? "0") : 0;
-    const plz    = (colPlz !== -1 ? row[colPlz] : "").replace(/^"|"$/g, "").trim();
-    const gem    = (colGemeinde !== -1 ? row[colGemeinde] : "").replace(/^"|"$/g, "").trim();
-    const land   = (colLand !== -1 ? row[colLand] : "").replace(/^"|"$/g, "").trim();
-    const mass   = (colMass !== -1 ? row[colMass] : "").replace(/^"|"$/g, "").trim();
-    const ziel   = (colZiel !== -1 ? row[colZiel] : "").replace(/^"|"$/g, "").trim();
-    const egfl   = parseNum(colEgfl !== -1 ? row[colEgfl] : undefined);
-    const eler   = parseNum(colEler !== -1 ? row[colEler] : undefined);
-    const mutter = (colMutter !== -1 ? row[colMutter] : "").replace(/^"|"$/g, "").trim();
+    const year          = colYear !== -1 ? parseInt(row[colYear] ?? "0") : 0;
+    const steuerNr      = str(row, colSteuerNr);
+    const plz           = str(row, colPlz);
+    const gem           = str(row, colGemeinde);
+    const land          = str(row, colLand);
+    const mass          = str(row, colMass);
+    const ziel          = str(row, colZiel);
+    const anfang        = str(row, colAnfang);
+    const ende          = str(row, colEnde);
+    const egflM         = parseNum(row[colEgflM]);
+    const elerM         = parseNum(row[colElerM]);
+    const nationalKofiM = parseNum(row[colNationalKofiM]);
+    // Use CSV's pre-calculated per-beneficiary totals (same value repeated on each row)
+    const egflG         = parseNum(row[colEgflG]);
+    const elerG         = parseNum(row[colElerG]);
+    const nationalKofiG = parseNum(row[colNationalKofiG]);
+    const elerUndKofiG  = parseNum(row[colElerUndKofiG]);
+    const gesamtBetrag  = parseNum(row[colGesamtBetrag]);
+    const mutter        = str(row, colMutter);
 
     const key = `${year}|${name.toLowerCase()}|${plz}`;
 
     const existing = aggMap.get(key);
     if (existing) {
-      existing.egfl += egfl;
-      existing.eler += eler;
       if (mass) {
-        existing.massnahmen.push({ code: mass, ziel, egfl, eler });
+        existing.massnahmen.push({ code: mass, ziel, egfl: egflM, eler: elerM, nationalKofi: nationalKofiM, anfang, ende });
       }
+      // Update totals from CSV (they're the same on every row — just overwrite)
+      existing.egflGesamt        = egflG || existing.egflGesamt;
+      existing.elerGesamt        = elerG || existing.elerGesamt;
+      existing.nationalKofiGesamt = nationalKofiG || existing.nationalKofiGesamt;
+      existing.elerUndKofiGesamt = elerUndKofiG || existing.elerUndKofiGesamt;
+      existing.gesamtBetrag      = gesamtBetrag || existing.gesamtBetrag;
     } else {
       aggMap.set(key, {
         haushaltsjahr: year,
         name,
+        steuerNr,
         plz,
         gemeinde: gem,
         land,
-        egfl,
-        eler,
-        massnahmen: mass ? [{ code: mass, ziel, egfl, eler }] : [],
+        egflGesamt: egflG,
+        elerGesamt: elerG,
+        nationalKofiGesamt: nationalKofiG,
+        elerUndKofiGesamt: elerUndKofiG,
+        gesamtBetrag,
+        massnahmen: mass ? [{ code: mass, ziel, egfl: egflM, eler: elerM, nationalKofi: nationalKofiM, anfang, ende }] : [],
         mutter,
       });
     }
@@ -214,12 +275,15 @@ async function insertAggMap(aggMap: Map<string, AggEntry>): Promise<number> {
       const data = batch.map((r) => ({
         haushaltsjahr: r.haushaltsjahr,
         name: r.name,
+        steuerNr: r.steuerNr || null,
         plz: r.plz || null,
         gemeinde: r.gemeinde || null,
         land: r.land || null,
-        egflGesamt: r.egfl,
-        elerGesamt: r.eler,
-        gesamtBetrag: r.egfl + r.eler,
+        egflGesamt: r.egflGesamt,
+        elerGesamt: r.elerGesamt,
+        nationalKofiGesamt: r.nationalKofiGesamt,
+        elerUndKofiGesamt: r.elerUndKofiGesamt,
+        gesamtBetrag: r.gesamtBetrag,
         massnahmen: r.massnahmen.length > 0 ? JSON.stringify(r.massnahmen) : null,
         mutterunternehmen: r.mutter || null,
       }));
