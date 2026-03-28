@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "claude/**"          # auch auf Feature-Branches bauen
     tags:
       - "v*.*.*"
   workflow_dispatch:        # Manueller Trigger jederzeit möglich

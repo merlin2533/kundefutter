@@ -177,18 +177,18 @@ export default function ArtikelDetailPage() {
     setLiefError("");
     const newEntry = {
       lieferantId: Number(lievForm.lieferantId),
-      artikelNrBeiLieferant: lievForm.artikelNrBeiLieferant || undefined,
+      lieferantenArtNr: lievForm.artikelNrBeiLieferant || undefined,
       einkaufspreis: Number(lievForm.einkaufspreis),
       mindestbestellmenge: lievForm.mindestbestellmenge ? Number(lievForm.mindestbestellmenge) : undefined,
-      lieferzeit: lievForm.lieferzeit ? Number(lievForm.lieferzeit) : undefined,
+      lieferzeitTage: lievForm.lieferzeit ? Number(lievForm.lieferzeit) : undefined,
       bevorzugt: lievForm.bevorzugt,
     };
     const existing = (artikel?.lieferanten ?? []).map((l) => ({
       lieferantId: l.lieferantId,
-      artikelNrBeiLieferant: l.artikelNrBeiLieferant,
+      lieferantenArtNr: l.artikelNrBeiLieferant,
       einkaufspreis: l.einkaufspreis,
       mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeit: l.lieferzeit,
+      lieferzeitTage: l.lieferzeit,
       bevorzugt: l.bevorzugt,
     }));
     const res = await fetch(`/api/artikel/${id}`, {

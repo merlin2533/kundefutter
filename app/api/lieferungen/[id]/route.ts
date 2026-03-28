@@ -22,6 +22,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { positionen, ...data } = body;
 
+  try {
   const result = await prisma.$transaction(async (tx) => {
     const alt = await tx.lieferung.findUnique({
       where: { id: Number(id) },
@@ -88,6 +89,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   });
 
   return NextResponse.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }
 
 // Rechnung erstellen

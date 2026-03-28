@@ -24,33 +24,35 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const body = await req.json();
   const { lieferanten, ...data } = body;
 
-  // Preishistorie eintragen wenn Preis geändert wurde
-  const alt = await prisma.artikel.findUnique({ where: { id: Number(id) } });
-  if (alt && data.standardpreis !== undefined && alt.standardpreis !== data.standardpreis) {
-    await prisma.artikelPreisHistorie.create({
+  const artikel = await prisma.$transaction(async (tx) => {
+    // Preishistorie eintragen wenn Preis geändert wurde
+    const alt = await tx.artikel.findUnique({ where: { id: Number(id) } });
+    if (alt && data.standardpreis !== undefined && alt.standardpreis !== data.standardpreis) {
+      await tx.artikelPreisHistorie.create({
+        data: {
+          artikelId: Number(id),
+          alterPreis: alt.standardpreis,
+          neuerPreis: data.standardpreis,
+        },
+      });
+    }
+
+    return tx.artikel.update({
+      where: { id: Number(id) },
       data: {
-        artikelId: Number(id),
-        alterPreis: alt.standardpreis,
-        neuerPreis: data.standardpreis,
+        ...data,
+        ...(lieferanten !== undefined && {
+          lieferanten: {
+            deleteMany: {},
+            create: lieferanten,
+          },
+        }),
+      },
+      include: {
+        lieferanten: { include: { lieferant: true } },
+        dokumente: true,
       },
     });
-  }
-
-  const artikel = await prisma.artikel.update({
-    where: { id: Number(id) },
-    data: {
-      ...data,
-      ...(lieferanten !== undefined && {
-        lieferanten: {
-          deleteMany: {},
-          create: lieferanten,
-        },
-      }),
-    },
-    include: {
-      lieferanten: { include: { lieferant: true } },
-      dokumente: true,
-    },
   });
   return NextResponse.json(artikel);
 }

@@ -409,18 +409,18 @@ export default function LieferungenPage() {
                 </thead>
                 <tbody>
                   {wiederkehrend.map((w) => (
-                    <tr key={w.id} className="border-b last:border-0 hover:bg-green-50 transition-colors">
+                    <tr key={w.bedarf.id} className="border-b last:border-0 hover:bg-green-50 transition-colors">
                       <td className="px-4 py-3 text-center">
                         <input
                           type="checkbox"
-                          checked={selected.has(w.id)}
-                          onChange={() => toggleSelect(w.id)}
+                          checked={selected.has(w.bedarf.id)}
+                          onChange={() => toggleSelect(w.bedarf.id)}
                           className="rounded border-gray-300 text-green-700 focus:ring-green-700"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium">{w.kunde.name}</td>
-                      <td className="px-4 py-3">{w.artikel.name}</td>
-                      <td className="px-4 py-3">{w.menge} {w.artikel.einheit}</td>
+                      <td className="px-4 py-3 font-medium">{w.bedarf.kunde.name}</td>
+                      <td className="px-4 py-3">{w.bedarf.artikel.name}</td>
+                      <td className="px-4 py-3">{w.bedarf.menge} {w.bedarf.artikel.einheit}</td>
                       <td className="px-4 py-3 text-gray-600">
                         {w.letztesDatum ? formatDatum(w.letztesDatum) : "—"}
                       </td>
