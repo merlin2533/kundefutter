@@ -20,7 +20,7 @@ function EinstellungTile({ href, icon, title, description }: {
 
 export default function EinstellungenPage() {
   return (
-    <div className="max-w-4xl">
+    <div>
       <h1 className="text-2xl font-bold mb-8">Einstellungen</h1>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
