@@ -9,20 +9,21 @@ datasource db {
 // ─── KUNDE ────────────────────────────────────────────────────────────────────
 
 model Kunde {
-  id          Int      @id @default(autoincrement())
-  name        String
-  firma       String?
-  kategorie   String   @default("Sonstige") // Landwirt | Pferdehof | Kleintierhalter | Großhändler | Sonstige
-  strasse     String?
-  plz         String?
-  ort         String?
-  land        String   @default("Deutschland")
-  lat         Float?
-  lng         Float?
-  notizen     String?
-  aktiv       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  name             String
+  firma            String?
+  kategorie        String   @default("Sonstige")
+  verantwortlicher String?  // frei gewählt aus Mitarbeiterliste
+  strasse          String?
+  plz              String?
+  ort              String?
+  land             String   @default("Deutschland")
+  lat              Float?
+  lng              Float?
+  notizen          String?
+  aktiv            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   kontakte        KundeKontakt[]
   bedarfe         KundeBedarf[]
@@ -30,6 +31,7 @@ model Kunde {
   lieferungen     Lieferung[]
   mengenrabatte   Mengenrabatt[]
   sammelrechnungen Sammelrechnung[]
+  aktivitaeten    KundeAktivitaet[]
 }
 
 model KundeKontakt {
@@ -40,6 +42,26 @@ model KundeKontakt {
   label   String? // z.B. "Büro", "Herr Müller"
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+}
+
+// ─── CRM ──────────────────────────────────────────────────────────────────────
+
+model KundeAktivitaet {
+  id        Int      @id @default(autoincrement())
+  kundeId   Int
+  typ       String   // besuch | anruf | email | notiz | aufgabe
+  betreff   String
+  inhalt    String?
+  datum     DateTime @default(now())
+  erledigt  Boolean  @default(false)
+  faelligAm DateTime?
+  createdAt DateTime @default(now())
+
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@index([kundeId])
+  @@index([datum])
+  @@index([faelligAm])
 }
 
 // ─── LIEFERANT ────────────────────────────────────────────────────────────────

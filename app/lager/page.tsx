@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { LagerBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -505,7 +506,7 @@ export default function LagerPage() {
       {/* ── Wareneingang Modal ────────────────────────────────────────────────── */}
       {showWEModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Neuer Wareneingang</h2>
               <button
@@ -526,16 +527,13 @@ export default function LagerPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Lieferant <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={lieferantenList.map((l) => ({ value: l.id, label: l.name }))}
                     value={weForm.lieferantId}
-                    onChange={(e) => setWeForm({ ...weForm, lieferantId: e.target.value })}
-                    className={inputCls}
-                  >
-                    <option value="">– Lieferant wählen –</option>
-                    {lieferantenList.map((l) => (
-                      <option key={l.id} value={l.id}>{l.name}</option>
-                    ))}
-                  </select>
+                    onChange={(v) => setWeForm({ ...weForm, lieferantId: v })}
+                    placeholder="– Lieferant wählen –"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
@@ -574,16 +572,13 @@ export default function LagerPage() {
                     <div key={idx} className="flex gap-3 items-end flex-wrap bg-gray-50 rounded-lg p-3">
                       <div className="flex-1 min-w-[160px]">
                         <label className="block text-xs font-medium text-gray-500 mb-1">Artikel</label>
-                        <select
+                        <SearchableSelect
+                          options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
                           value={pos.artikelId}
-                          onChange={(e) => updatePosition(idx, "artikelId", e.target.value)}
-                          className={inputCls}
-                        >
-                          <option value="">– Artikel wählen –</option>
-                          {artikelList.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
+                          onChange={(v) => updatePosition(idx, "artikelId", v)}
+                          placeholder="– Artikel wählen –"
+                          required
+                        />
                       </div>
                       <div className="w-28">
                         <label className="block text-xs font-medium text-gray-500 mb-1">Menge</label>

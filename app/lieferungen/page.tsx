@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface Position {
   artikelId: number;
@@ -464,7 +465,7 @@ export default function LieferungenPage() {
       {/* New Lieferung Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Neue Lieferung</h2>
               <button
@@ -561,16 +562,13 @@ export default function LieferungenPage() {
                         <div className="grid grid-cols-2 gap-2 mb-2">
                           <div className="col-span-2">
                             <label className="block text-xs text-gray-500 mb-1">Artikel</label>
-                            <select
+                            <SearchableSelect
+                              options={artikel.map((a) => ({ value: a.id, label: a.name, sub: a.einheit }))}
                               value={pos.artikelId}
-                              onChange={(e) => updatePosition(idx, "artikelId", e.target.value)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                            >
-                              <option value="">— Artikel wählen —</option>
-                              {artikel.map((a) => (
-                                <option key={a.id} value={a.id}>{a.name}</option>
-                              ))}
-                            </select>
+                              onChange={(v) => updatePosition(idx, "artikelId", v)}
+                              placeholder="— Artikel wählen —"
+                              required
+                            />
                           </div>
                           <div>
                             <label className="block text-xs text-gray-500 mb-1">Menge</label>

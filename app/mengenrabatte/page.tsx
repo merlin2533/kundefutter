@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { formatEuro } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface Artikel {
   id: number;
@@ -203,7 +204,7 @@ export default function MengenrabattePage() {
       {/* Add Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg my-8">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-8">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Neuer Mengenrabatt</h2>
               <button
@@ -255,19 +256,13 @@ export default function MengenrabattePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Artikel <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <SearchableSelect
+                    options={artikel.map((a) => ({ value: a.id, label: a.name, sub: `${a.artikelnummer} · ${a.kategorie}` }))}
                     value={formArtikelId}
-                    onChange={(e) => setFormArtikelId(e.target.value)}
+                    onChange={setFormArtikelId}
+                    placeholder="— Artikel wählen —"
                     required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                  >
-                    <option value="">— Artikel wählen —</option>
-                    {artikel.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.artikelnummer}) [{a.kategorie}]
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               ) : (
                 <div>
@@ -291,18 +286,14 @@ export default function MengenrabattePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Kunde <span className="text-gray-400 text-xs font-normal">(leer = gilt für alle Kunden)</span>
                 </label>
-                <select
+                <SearchableSelect
+                  options={kunden.map((k) => ({ value: k.id, label: k.firma ? `${k.firma} – ${k.name}` : k.name }))}
                   value={formKundeId}
-                  onChange={(e) => setFormKundeId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                >
-                  <option value="">— Alle Kunden —</option>
-                  {kunden.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.firma ? `${k.firma} – ${k.name}` : k.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setFormKundeId}
+                  placeholder="— Alle Kunden —"
+                  allowClear
+                  clearLabel="— Alle Kunden —"
+                />
               </div>
 
               {/* Von Menge + Rabatt */}

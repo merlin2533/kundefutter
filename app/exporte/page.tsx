@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface ExportCard {
   title: string;
@@ -64,6 +65,8 @@ interface ExportState {
   kundeId: string;
 }
 
+interface Kunde { id: number; name: string; firma?: string; }
+
 export default function ExportePage() {
   const [states, setStates] = useState<Record<string, ExportState>>(() => {
     const init: Record<string, ExportState> = {};
@@ -73,6 +76,24 @@ export default function ExportePage() {
     return init;
   });
   const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+  const [kunden, setKunden] = useState<Kunde[]>([]);
+
+  // Massenexport state
+  const [bulkTyp, setBulkTyp] = useState<"rechnung" | "lieferschein">("rechnung");
+  const [bulkKundeId, setBulkKundeId] = useState("");
+  const [bulkVon, setBulkVon] = useState(firstOfMonth);
+  const [bulkBis, setBulkBis] = useState(today);
+  const [bulkRnrVon, setBulkRnrVon] = useState("");
+  const [bulkRnrBis, setBulkRnrBis] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState("");
+  const [bulkCount, setBulkCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/kunden")
+      .then((r) => r.json())
+      .then((d) => setKunden(Array.isArray(d) ? d : []));
+  }, []);
 
   function updateState(typ: string, field: keyof ExportState, value: string) {
     setStates((prev) => ({
@@ -92,6 +113,41 @@ export default function ExportePage() {
       params.set("kundeId", s.kundeId);
     }
     return `/api/exporte?${params}`;
+  }
+
+  async function handleBulkDownload() {
+    setBulkLoading(true);
+    setBulkError("");
+    setBulkCount(null);
+    try {
+      const params = new URLSearchParams({ typ: bulkTyp });
+      if (bulkKundeId) params.set("kundeId", bulkKundeId);
+      if (bulkVon) params.set("von", bulkVon);
+      if (bulkBis) params.set("bis", bulkBis);
+      if (bulkTyp === "rechnung" && bulkRnrVon) params.set("rnrVon", bulkRnrVon);
+      if (bulkTyp === "rechnung" && bulkRnrBis) params.set("rnrBis", bulkRnrBis);
+      const res = await fetch(`/api/exporte/bulk?${params}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setBulkError(data.error ?? "Export fehlgeschlagen");
+        return;
+      }
+      const count = res.headers.get("X-Export-Count");
+      if (count) setBulkCount(Number(count));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `massenexport-${bulkTyp}-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setBulkError("Netzwerkfehler beim Massenexport");
+    } finally {
+      setBulkLoading(false);
+    }
   }
 
   async function handleDownload(card: ExportCard) {
@@ -171,13 +227,14 @@ export default function ExportePage() {
                   )}
                   {card.hasKundeFilter && (
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1">Kunden-ID (optional)</label>
-                      <input
-                        type="number"
-                        placeholder="Alle Kunden"
+                      <label className="text-xs text-gray-500 block mb-1">Kunde (optional)</label>
+                      <SearchableSelect
+                        options={kunden.map((k) => ({ value: k.id, label: k.firma ? `${k.firma} – ${k.name}` : k.name }))}
                         value={s.kundeId}
-                        onChange={(e) => updateState(card.typ, "kundeId", e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                        onChange={(v) => updateState(card.typ, "kundeId", v)}
+                        placeholder="Alle Kunden"
+                        allowClear
+                        clearLabel="Alle Kunden"
                       />
                     </div>
                   )}
@@ -217,6 +274,116 @@ export default function ExportePage() {
             Zum Preislisten-Import →
           </Link>
         </div>
+      </div>
+
+      {/* ── Massenexport ───────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <h2 className="text-lg font-bold mb-1">Massenexport PDF</h2>
+        <p className="text-sm text-gray-500 mb-5">Mehrere Rechnungen oder Lieferscheine als ZIP-Archiv herunterladen.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Typ */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Typ</label>
+            <div className="flex gap-2">
+              {(["rechnung", "lieferschein"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setBulkTyp(t)}
+                  className={`flex-1 py-2 text-sm rounded-lg border font-medium transition-colors ${
+                    bulkTyp === t ? "bg-green-700 text-white border-green-700" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {t === "rechnung" ? "Rechnungen" : "Lieferscheine"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Kunde */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Kunde (optional)</label>
+            <SearchableSelect
+              options={kunden.map((k) => ({ value: k.id, label: k.firma ? `${k.firma} – ${k.name}` : k.name }))}
+              value={bulkKundeId}
+              onChange={setBulkKundeId}
+              placeholder="Alle Kunden"
+              allowClear
+              clearLabel="Alle Kunden"
+            />
+          </div>
+
+          {/* Datum */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lieferdatum von</label>
+            <input
+              type="date"
+              value={bulkVon}
+              onChange={(e) => setBulkVon(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Lieferdatum bis</label>
+            <input
+              type="date"
+              value={bulkBis}
+              onChange={(e) => setBulkBis(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
+
+          {/* Rechnungsnummer-Bereich (nur Rechnungen) */}
+          {bulkTyp === "rechnung" && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rechnungsnummer von (optional)</label>
+                <input
+                  type="text"
+                  value={bulkRnrVon}
+                  onChange={(e) => setBulkRnrVon(e.target.value)}
+                  placeholder="z.B. RE-2026-0001"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rechnungsnummer bis (optional)</label>
+                <input
+                  type="text"
+                  value={bulkRnrBis}
+                  onChange={(e) => setBulkRnrBis(e.target.value)}
+                  placeholder="z.B. RE-2026-0050"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {bulkError && (
+          <div className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {bulkError}
+          </div>
+        )}
+        {bulkCount !== null && !bulkLoading && (
+          <p className="mt-3 text-sm text-green-700">{bulkCount} {bulkTyp === "rechnung" ? "Rechnungen" : "Lieferscheine"} heruntergeladen.</p>
+        )}
+
+        <button
+          onClick={handleBulkDownload}
+          disabled={bulkLoading}
+          className="mt-5 px-6 py-2.5 text-sm font-medium bg-green-800 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
+        >
+          {bulkLoading ? (
+            <>
+              <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Erstelle ZIP…
+            </>
+          ) : (
+            `Massenexport ${bulkTyp === "rechnung" ? "Rechnungen" : "Lieferscheine"} (ZIP)`
+          )}
+        </button>
       </div>
     </div>
   );
