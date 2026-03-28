@@ -59,3 +59,16 @@ jobs:
 
       - name: Image digest
         run: echo "Image pushed → ${{ steps.meta.outputs.tags }}"
+
+      - name: Package öffentlich schalten
+        # Macht das ghcr.io-Package nach dem ersten Push automatisch public.
+        # Funktioniert nur wenn das GitHub-Repo bereits public ist.
+        run: |
+          PACKAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/${PACKAGE_NAME}" \
+            -d '{"visibility":"public"}' || true
+          echo "Package visibility set to public"
