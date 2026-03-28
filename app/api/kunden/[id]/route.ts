@@ -14,7 +14,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       lieferungen: {
         include: { positionen: { include: { artikel: true } } },
         orderBy: { datum: "desc" },
-        take: 50,
+        take: 100,
       },
     },
   });
