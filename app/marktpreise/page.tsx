@@ -63,9 +63,9 @@ function codeColor(code: string, index: number): string {
 }
 
 // Betriebsmittel main codes
-const BETRIEBSMITTEL_CODES = ["203000", "206000", "201000", "204000"];
+const BETRIEBSMITTEL_CODES = ["203000", "203110", "203120", "203130"];
 // Erzeuger main codes
-const ERZEUGER_CODES = ["C0000", "D0000", "F0000", "G0000"];
+const ERZEUGER_CODES = ["WH_SOFT", "RYE", "OATS", "MAIZE", "RAPE", "SOY", "SUNFL"];
 
 // ─── Produkt Baum Navigator ───────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function ProduktBaumNav({
   verfuegbareCodes: Set<string>;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(["betriebsmittel", "erzeuger", "203000", "C0000", "D0000", "206000", "206100", "206200", "201000", "204000"])
+    new Set(["betriebsmittel", "erzeuger", "203000", "C0000", "D0000"])
   );
 
   function toggleExpand(code: string) {
@@ -538,7 +538,7 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
   }
 
   // Codes belonging to Erzeuger sections (mapped codes from LABEL_MAPPING)
-  const GETREIDE_ERZEUGER_CODES = new Set(["C0000", "WH_SOFT", "RYE", "BARL", "OATS", "MAIZE"]);
+  const GETREIDE_ERZEUGER_CODES = new Set(["C0000", "WH_SOFT", "RYE", "OATS", "MAIZE"]);
   const OELSAATEN_ERZEUGER_CODES = new Set(["D0000", "RAPE", "SOY", "SUNFL"]);
 
   // Determine section groupings from prefixes
@@ -549,19 +549,17 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
     farbe: string;
     matchFn?: (code: string) => boolean;
   }[] = [
-    { prefix: "206", label: "Futtermittel", bg: "bg-green-50", farbe: "#16a34a" },
     { prefix: "203", label: "Dünger", bg: "bg-amber-50", farbe: "#d97706" },
-    { prefix: "201", label: "Saatgut", bg: "bg-blue-50", farbe: "#2563eb" },
     {
       prefix: "C_ERZEUGER",
-      label: "Getreide (Erzeuger)",
+      label: "Getreide (Erzeugerpreise)",
       bg: "bg-yellow-50",
       farbe: "#ca8a04",
       matchFn: (code) => GETREIDE_ERZEUGER_CODES.has(code),
     },
     {
       prefix: "D_ERZEUGER",
-      label: "Ölsaaten (Erzeuger)",
+      label: "Ölsaaten (Erzeugerpreise)",
       bg: "bg-lime-50",
       farbe: "#65a30d",
       matchFn: (code) => OELSAATEN_ERZEUGER_CODES.has(code),
@@ -584,10 +582,7 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
     }[];
   }[] = [];
 
-  const mainCodes = new Set([
-    ...BETRIEBSMITTEL_CODES,
-    ...ERZEUGER_CODES,
-  ]);
+  const mainCodes = new Set(["203000", "C0000", "D0000"]);
 
   for (const { prefix, label, bg, farbe, matchFn } of prefixGroups) {
     const codes = Object.keys(grouped)
@@ -715,20 +710,10 @@ const KPI_META: Record<
   string,
   { label: string; farbeClass: string; bgClass: string }
 > = {
-  "206000": {
-    label: "Futtermittel",
-    farbeClass: "text-green-600",
-    bgClass: "bg-green-50",
-  },
   "203000": {
     label: "Dünger",
     farbeClass: "text-amber-600",
     bgClass: "bg-amber-50",
-  },
-  "201000": {
-    label: "Saatgut",
-    farbeClass: "text-blue-600",
-    bgClass: "bg-blue-50",
   },
   C0000: {
     label: "Getreide",
@@ -742,7 +727,7 @@ const KPI_META: Record<
   },
 };
 
-const KPI_CODES = ["206000", "203000", "201000", "C0000", "D0000"];
+const KPI_CODES = ["203000", "C0000", "D0000"];
 
 function KpiKarten({
   daten,
@@ -820,7 +805,7 @@ function KpiKarten({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const DEFAULT_SELECTED = new Set(["203000", "206000", "201000"]);
+const DEFAULT_SELECTED = new Set(["WH_SOFT", "RYE", "OATS", "MAIZE", "RAPE", "SOY", "SUNFL"]);
 
 export default function MarktpreisePage() {
   const [daten, setDaten] = useState<MarktpreisEintrag[] | null>(null);
