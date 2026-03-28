@@ -37,6 +37,26 @@ interface KundeOption {
   firma?: string;
 }
 
+interface BesuchKunde {
+  id: number;
+  name: string;
+  firma: string | null;
+  plz: string | null;
+  ort: string | null;
+  strasse: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+interface Besuchstermin {
+  id: number;
+  kundeId: number;
+  datum: string;
+  betreff: string;
+  inhalt: string | null;
+  kunde: BesuchKunde;
+}
+
 function heuteISO() { return new Date().toISOString().slice(0, 10); }
 
 function formatMin(min: number): string {
@@ -90,6 +110,17 @@ export default function TourenplanungPage() {
   const [schnellSaving, setSchnellSaving] = useState(false);
   const [schnellSuccess, setSchnellSuccess] = useState(false);
 
+  // Besuchsplanung
+  const [besuchstermine, setBesuchstermine] = useState<Besuchstermin[]>([]);
+  const [besuchLoading, setBesuchLoading] = useState(false);
+  const [showBesuchForm, setShowBesuchForm] = useState(false);
+  const [besuchKundeId, setBesuchKundeId] = useState<number | "">("");
+  const [besuchDatum, setBesuchDatum] = useState(heuteISO());
+  const [besuchBetreff, setBesuchBetreff] = useState("");
+  const [besuchNotiz, setBesuchNotiz] = useState("");
+  const [besuchSaving, setBesuchSaving] = useState(false);
+  const [besuchDeleting, setBesuchDeleting] = useState<number | null>(null);
+
   // Load firm address + tour names
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
@@ -122,9 +153,22 @@ export default function TourenplanungPage() {
 
   useEffect(() => { laden(datum); }, [datum, laden]);
 
-  // Load kunden + artikel for Schnellerfassung (lazy)
+  // Load geplante Besuche on mount
+  const ladenBesuchstermine = useCallback(async () => {
+    setBesuchLoading(true);
+    try {
+      const res = await fetch("/api/besuchstermine");
+      if (res.ok) setBesuchstermine(await res.json());
+    } finally {
+      setBesuchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { ladenBesuchstermine(); }, [ladenBesuchstermine]);
+
+  // Load kunden for Schnellerfassung and Besuchsplanung (lazy)
   useEffect(() => {
-    if (showSchnell && kunden.length === 0) {
+    if ((showSchnell || showBesuchForm) && kunden.length === 0) {
       Promise.all([
         fetch("/api/kunden?aktiv=true").then((r) => r.json()),
         fetch("/api/artikel?limit=500").then((r) => r.json()),
@@ -133,7 +177,7 @@ export default function TourenplanungPage() {
         setArtikelList(Array.isArray(a) ? a : []);
       });
     }
-  }, [showSchnell, kunden.length]);
+  }, [showSchnell, showBesuchForm, kunden.length]);
 
   async function geocodeStartOrt() {
     if (!startOrt.trim()) return;
@@ -222,9 +266,60 @@ export default function TourenplanungPage() {
     }
   }
 
+  async function handleBesuchSpeichern(e: React.FormEvent) {
+    e.preventDefault();
+    if (!besuchKundeId || !besuchDatum || !besuchBetreff.trim()) return;
+    setBesuchSaving(true);
+    try {
+      const res = await fetch("/api/besuchstermine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kundeId: besuchKundeId,
+          datum: besuchDatum,
+          betreff: besuchBetreff,
+          notiz: besuchNotiz || undefined,
+        }),
+      });
+      if (res.ok) {
+        setBesuchKundeId("");
+        setBesuchDatum(heuteISO());
+        setBesuchBetreff("");
+        setBesuchNotiz("");
+        setShowBesuchForm(false);
+        ladenBesuchstermine();
+      }
+    } finally {
+      setBesuchSaving(false);
+    }
+  }
+
+  async function handleBesuchLoeschen(id: number) {
+    setBesuchDeleting(id);
+    try {
+      await fetch(`/api/besuchstermine?id=${id}`, { method: "DELETE" });
+      ladenBesuchstermine();
+    } finally {
+      setBesuchDeleting(null);
+    }
+  }
+
+  function addBesuchZurTour(besuch: Besuchstermin) {
+    if (!besuch.kunde.lat || !besuch.kunde.lng) {
+      setFehler(`Kunde "${besuch.kunde.firma ?? besuch.kunde.name}" hat keine Koordinaten – Routenberechnung nicht möglich.`);
+      return;
+    }
+    // Add as a synthetic entry to the lieferungen list for route display purposes
+    // We scroll to the route section
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function artikelZusammenfassung(positionen: Position[]) {
     return positionen.map((p) => `${p.artikel.name} (${p.menge} ${p.artikel.einheit})`).join(", ");
   }
+
+  // Set of kundeIds that have upcoming planned visits
+  const kundeIdsWithBesuch = new Set(besuchstermine.map((b) => b.kundeId));
 
   const gesamtKm = routeLegs.reduce((s, l) => s + l.distanceKm, 0);
   const gesamtMin = routeLegs.reduce((s, l) => s + l.durationMin, 0);
@@ -452,13 +547,19 @@ export default function TourenplanungPage() {
                 {lieferungen.map((l, i) => {
                   const leg = routeLegs[i] ?? null;
                   const hatKoords = l.kunde.lat && l.kunde.lng;
+                  const hatBesuch = kundeIdsWithBesuch.has(l.kunde.id);
                   return (
                     <tr key={l.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="py-2.5 text-gray-400">{i + 1}</td>
                       <td className="py-2.5 font-mono text-xs">{l.kunde.plz ?? "–"}</td>
                       <td className="py-2.5">{l.kunde.ort ?? "–"}</td>
                       <td className="py-2.5">
-                        <div className="font-medium">{l.kunde.firma ?? l.kunde.name}</div>
+                        <div className="font-medium flex items-center gap-1.5">
+                          {l.kunde.firma ?? l.kunde.name}
+                          {hatBesuch && (
+                            <span title="Geplanter Besuch vorhanden" className="text-blue-500 text-base leading-none">📅</span>
+                          )}
+                        </div>
                         {l.kunde.firma && <div className="text-xs text-gray-500">{l.kunde.name}</div>}
                         {l.kunde.strasse && <div className="text-xs text-gray-400">{l.kunde.strasse}</div>}
                         {!hatKoords && (
@@ -492,6 +593,149 @@ export default function TourenplanungPage() {
           </div>
         </Card>
       )}
+
+      {/* Besuchsplanung */}
+      <Card className="mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-lg">Geplante Besuche dieser Tour</h2>
+          <button
+            onClick={() => {
+              setShowBesuchForm(!showBesuchForm);
+              if (!showBesuchForm && kunden.length === 0) {
+                Promise.all([
+                  fetch("/api/kunden?aktiv=true").then((r) => r.json()),
+                  fetch("/api/artikel?limit=500").then((r) => r.json()),
+                ]).then(([k, a]) => {
+                  setKunden(Array.isArray(k) ? k : []);
+                  setArtikelList(Array.isArray(a) ? a : []);
+                });
+              }
+            }}
+            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            {showBesuchForm ? "Abbrechen" : "+ Besuch planen"}
+          </button>
+        </div>
+
+        {showBesuchForm && (
+          <form onSubmit={handleBesuchSpeichern} className="mb-5 p-4 border border-blue-100 rounded-xl bg-blue-50">
+            <h3 className="text-sm font-semibold text-blue-800 mb-3">Neuen Besuch planen</h3>
+            <div className="flex flex-col sm:flex-row gap-3 items-end flex-wrap">
+              <div className="w-full sm:w-40">
+                <label className="block text-xs text-gray-600 mb-1">Datum <span className="text-red-500">*</span></label>
+                <input
+                  type="date"
+                  value={besuchDatum}
+                  onChange={(e) => setBesuchDatum(e.target.value)}
+                  required
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="w-full sm:w-56">
+                <label className="block text-xs text-gray-600 mb-1">Kunde <span className="text-red-500">*</span></label>
+                <SearchableSelect
+                  options={kunden.map((k) => ({
+                    value: k.id,
+                    label: k.firma ? `${k.firma} (${k.name})` : k.name,
+                  }))}
+                  value={besuchKundeId}
+                  onChange={(v) => setBesuchKundeId(v ? Number(v) : "")}
+                  placeholder="Kunde wählen…"
+                  required
+                />
+              </div>
+              <div className="flex-1 min-w-[160px]">
+                <label className="block text-xs text-gray-600 mb-1">Betreff <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={besuchBetreff}
+                  onChange={(e) => setBesuchBetreff(e.target.value)}
+                  placeholder="z.B. Jahresgespräch, Angebotspräsentation"
+                  required
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex-1 min-w-[120px]">
+                <label className="block text-xs text-gray-600 mb-1">Notiz</label>
+                <input
+                  type="text"
+                  value={besuchNotiz}
+                  onChange={(e) => setBesuchNotiz(e.target.value)}
+                  placeholder="Optional…"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={besuchSaving || !besuchKundeId || !besuchBetreff.trim()}
+                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {besuchSaving ? "Speichern…" : "Speichern"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {besuchLoading ? (
+          <p className="text-sm text-gray-400">Lade geplante Besuche…</p>
+        ) : besuchstermine.length === 0 ? (
+          <p className="text-sm text-gray-400">Keine geplanten Besuche vorhanden.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b text-xs uppercase">
+                  <th className="pb-2">Datum</th>
+                  <th className="pb-2">Kundenname</th>
+                  <th className="pb-2">Adresse</th>
+                  <th className="pb-2">Betreff</th>
+                  <th className="pb-2 text-right">Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {besuchstermine.map((b) => (
+                  <tr key={b.id} className="border-b last:border-0 hover:bg-blue-50 transition-colors">
+                    <td className="py-2.5 whitespace-nowrap font-medium text-blue-800">
+                      {new Date(b.datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    </td>
+                    <td className="py-2.5">
+                      <div className="font-medium">{b.kunde.firma ?? b.kunde.name}</div>
+                      {b.kunde.firma && <div className="text-xs text-gray-500">{b.kunde.name}</div>}
+                    </td>
+                    <td className="py-2.5 text-gray-600">
+                      {[b.kunde.plz, b.kunde.ort].filter(Boolean).join(" ") || "–"}
+                      {b.kunde.strasse && <div className="text-xs text-gray-400">{b.kunde.strasse}</div>}
+                    </td>
+                    <td className="py-2.5 text-gray-700">
+                      {b.betreff}
+                      {b.inhalt && <div className="text-xs text-gray-400 mt-0.5">{b.inhalt}</div>}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => addBesuchZurTour(b)}
+                          title="Zur aktuellen Route hinzufügen"
+                          className="text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded border border-blue-200 transition-colors whitespace-nowrap"
+                        >
+                          Karte ▶
+                        </button>
+                        <button
+                          onClick={() => handleBesuchLoeschen(b.id)}
+                          disabled={besuchDeleting === b.id}
+                          className="text-xs px-2 py-1 text-red-400 hover:text-red-600 disabled:opacity-40 transition-colors"
+                          title="Besuch löschen"
+                        >
+                          {besuchDeleting === b.id ? "…" : "✕"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

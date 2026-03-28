@@ -148,6 +148,46 @@ function Field({
   );
 }
 
+// ─── Nächster Besuch Info ────────────────────────────────────────────────────
+
+interface NaechsterBesuchItem {
+  id: number;
+  datum: string;
+  betreff: string;
+  inhalt: string | null;
+}
+
+function NaechsterBesuchInfo({ kundeId }: { kundeId: number }) {
+  const [besuche, setBesuche] = useState<NaechsterBesuchItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/besuchstermine?kundeId=${kundeId}`)
+      .then((r) => r.json())
+      .then((d) => setBesuche(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false));
+  }, [kundeId]);
+
+  if (loading) return null;
+  if (besuche.length === 0) return null;
+
+  const naechster = besuche[0];
+  return (
+    <div className="mt-2 p-3 rounded-xl border border-blue-200 bg-blue-50">
+      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Nächster Besuch</p>
+      <p className="text-sm font-medium text-blue-900">
+        {new Date(naechster.datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}
+        {" — "}
+        {naechster.betreff}
+      </p>
+      {naechster.inhalt && <p className="text-xs text-blue-600 mt-0.5">{naechster.inhalt}</p>}
+      {besuche.length > 1 && (
+        <p className="text-xs text-blue-500 mt-1">+{besuche.length - 1} weitere geplante Besuche</p>
+      )}
+    </div>
+  );
+}
+
 // ─── Stammdaten Tab ──────────────────────────────────────────────────────────
 
 function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
@@ -284,6 +324,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
         <p className="text-xs text-gray-400">
           Erstellt: {formatDatum(kunde.createdAt)} · Geändert: {formatDatum(kunde.updatedAt)}
         </p>
+        <NaechsterBesuchInfo kundeId={kunde.id} />
       </div>
     );
   }
