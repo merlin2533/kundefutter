@@ -211,10 +211,10 @@ export default function ArtikelDetailPage() {
     if (!artikel) return;
     const updated = artikel.lieferanten.map((l) => ({
       lieferantId: l.lieferantId,
-      artikelNrBeiLieferant: l.artikelNrBeiLieferant,
+      lieferantenArtNr: l.artikelNrBeiLieferant,
       einkaufspreis: l.einkaufspreis,
       mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeit: l.lieferzeit,
+      lieferzeitTage: l.lieferzeit,
       bevorzugt: l.lieferantId === lieferantId ? !l.bevorzugt : l.bevorzugt,
     }));
     await fetch(`/api/artikel/${id}`, {
