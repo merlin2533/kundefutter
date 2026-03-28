@@ -78,9 +78,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
+    // Nur erlaubte Felder übergeben (inkl. bezahltAm, zahlungsziel)
+    const { bezahltAm, zahlungsziel, ...restData } = data;
+    const updateData: Record<string, unknown> = { ...restData };
+    if (bezahltAm !== undefined) updateData.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;
+    if (zahlungsziel !== undefined) updateData.zahlungsziel = zahlungsziel;
+
     return tx.lieferung.update({
       where: { id: Number(id) },
-      data,
+      data: updateData,
       include: {
         kunde: true,
         positionen: { include: { artikel: true } },

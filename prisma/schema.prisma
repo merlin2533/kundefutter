@@ -177,6 +177,8 @@ model Lieferung {
   notiz            String?
   rechnungNr       String?  // gesetzt wenn Rechnung erstellt wurde
   rechnungDatum    DateTime?
+  bezahltAm        DateTime?
+  zahlungsziel     Int?      @default(30)  // Tage
   wiederkehrend    Boolean  @default(false) // wurde automatisch angelegt
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

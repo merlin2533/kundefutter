@@ -20,6 +20,8 @@ interface Lieferung {
   status: string;
   notiz?: string;
   rechnungNr?: string;
+  bezahltAm?: string | null;
+  zahlungsziel?: number | null;
   kunde: { id: number; name: string; firma?: string };
   positionen: Position[];
 }
@@ -36,6 +38,7 @@ export default function LieferungDetailPage() {
   const [showStornoModal, setShowStornoModal] = useState(false);
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
+  const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
 
   async function load() {
     setLoading(true);
@@ -43,6 +46,7 @@ export default function LieferungDetailPage() {
     if (!res.ok) { setLoading(false); setError("Lieferung nicht gefunden."); return; }
     const data = await res.json();
     setLieferung(data);
+    setZahlungszielEdit(String(data.zahlungsziel ?? 30));
     setLoading(false);
   }
 
@@ -106,6 +110,44 @@ export default function LieferungDetailPage() {
     }
   }
 
+  async function markiereBezahlt() {
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
+      });
+      if (!res.ok) throw new Error("Fehler beim Aktualisieren");
+      await load();
+    } catch {
+      setError("Fehler beim Markieren als bezahlt.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function speichereZahlungsziel() {
+    const tage = parseInt(zahlungszielEdit, 10);
+    if (isNaN(tage) || tage < 0) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ zahlungsziel: tage }),
+      });
+      if (!res.ok) throw new Error("Fehler beim Speichern");
+      await load();
+    } catch {
+      setError("Fehler beim Speichern des Zahlungsziels.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   if (loading) {
     return <div className="text-gray-400 text-sm p-6">Lade Lieferung…</div>;
   }
@@ -125,6 +167,27 @@ export default function LieferungDetailPage() {
   const gesamtEinkauf = lieferung.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
   const gesamtMarge = gesamtUmsatz - gesamtEinkauf;
   const gesamtMargePct = gesamtUmsatz > 0 ? (gesamtMarge / gesamtUmsatz) * 100 : 0;
+
+  const heute = new Date();
+  heute.setHours(0, 0, 0, 0);
+  const zahlungszielTage = lieferung.zahlungsziel ?? 30;
+  const lieferDatum = new Date(lieferung.datum);
+  const faelligkeitsDatum = new Date(lieferDatum.getTime() + zahlungszielTage * 24 * 60 * 60 * 1000);
+  const istGeliefert = lieferung.status === "geliefert";
+  const istBezahlt = !!lieferung.bezahltAm;
+  const istUeberfaellig = istGeliefert && !istBezahlt && heute > faelligkeitsDatum;
+  const faelligSeitTagen = istUeberfaellig
+    ? Math.floor((heute.getTime() - faelligkeitsDatum.getTime()) / (24 * 60 * 60 * 1000))
+    : 0;
+
+  function ZahlungsstatusBadge() {
+    if (!istGeliefert) return null;
+    if (istBezahlt)
+      return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Bezahlt</span>;
+    if (istUeberfaellig)
+      return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">Überfällig ({faelligSeitTagen} Tage)</span>;
+    return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Offen</span>;
+  }
 
   return (
     <div>
@@ -165,6 +228,41 @@ export default function LieferungDetailPage() {
                 Rechnung: <span className="font-mono font-medium">{lieferung.rechnungNr}</span>
               </p>
             )}
+            {istGeliefert && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <ZahlungsstatusBadge />
+                {istBezahlt && lieferung.bezahltAm && (
+                  <span className="text-xs text-gray-500">
+                    bezahlt am {formatDatum(lieferung.bezahltAm)}
+                  </span>
+                )}
+                {!istBezahlt && (
+                  <span className="text-xs text-gray-500">
+                    Fällig: {formatDatum(faelligkeitsDatum.toISOString())}
+                  </span>
+                )}
+              </div>
+            )}
+            {istGeliefert && (
+              <div className="mt-2 flex items-center gap-2 text-sm">
+                <label className="text-gray-600 whitespace-nowrap">Zahlungsziel:</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={zahlungszielEdit}
+                  onChange={(e) => setZahlungszielEdit(e.target.value)}
+                  className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-green-700"
+                />
+                <span className="text-gray-500">Tage</span>
+                <button
+                  onClick={speichereZahlungsziel}
+                  disabled={actionLoading}
+                  className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
+                >
+                  Speichern
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -181,6 +279,15 @@ export default function LieferungDetailPage() {
 
             {lieferung.status === "geliefert" && (
               <>
+                {!istBezahlt && (
+                  <button
+                    onClick={markiereBezahlt}
+                    disabled={actionLoading}
+                    className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                  >
+                    {actionLoading ? "…" : "Als bezahlt markieren"}
+                  </button>
+                )}
                 <button
                   onClick={() => { setShowStornoModal(true); setStornoBegrundung(""); setStornoError(""); }}
                   disabled={actionLoading}
