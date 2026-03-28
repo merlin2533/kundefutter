@@ -17,6 +17,8 @@ const links = [
   { href: "/mengenrabatte", label: "Mengenrabatte" },
   { href: "/statistik", label: "Statistik" },
   { href: "/einstellungen", label: "Einstellungen" },
+  { href: "/kundenimport", label: "Kundenimport" },
+  { href: "/tourenplanung", label: "Tourenplanung" },
 ];
 
 export default function Nav() {

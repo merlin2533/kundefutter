@@ -61,6 +61,7 @@ interface NewPosition {
   menge: number;
   verkaufspreis: number;
   einkaufspreis: number;
+  chargeNr: string;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -70,6 +71,7 @@ const emptyPosition = (): NewPosition => ({
   menge: 1,
   verkaufspreis: 0,
   einkaufspreis: 0,
+  chargeNr: "",
 });
 
 export default function LieferungenPage() {
@@ -174,6 +176,7 @@ export default function LieferungenPage() {
             menge: Number(p.menge),
             verkaufspreis: Number(p.verkaufspreis),
             einkaufspreis: Number(p.einkaufspreis),
+            chargeNr: p.chargeNr || undefined,
           })),
         }),
       });

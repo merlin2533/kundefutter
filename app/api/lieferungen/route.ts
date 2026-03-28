@@ -41,11 +41,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { kundeId, datum, notiz, positionen, wiederkehrend } = await req.json();
+  const body = await req.json();
+  const { kundeId, datum, notiz, wiederkehrend } = body;
+  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = body.positionen;
 
   // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
   const angereichert = await Promise.all(
-    positionen.map(async (pos: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number }) => {
+    positionen.map(async (pos) => {
       const artikel = await prisma.artikel.findUnique({ where: { id: pos.artikelId } });
       const kundePreis = await prisma.kundeArtikelPreis.findUnique({
         where: { kundeId_artikelId: { kundeId, artikelId: pos.artikelId } },
@@ -54,11 +56,44 @@ export async function POST(req: NextRequest) {
         where: { artikelId: pos.artikelId, bevorzugt: true },
       });
 
+      let basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel!, kundePreis);
+
+      // Mengenrabatt suchen: Priorität kundenspezifisch > allgemein; höchster Rabatt gewinnt
+      const alleRabatte = await prisma.mengenrabatt.findMany({
+        where: {
+          aktiv: true,
+          vonMenge: { lte: pos.menge },
+          OR: [
+            { kundeId: kundeId },
+            { kundeId: null },
+          ],
+        },
+      });
+
+      // Filtere passende Rabatte (Artikel-ID oder Kategorie)
+      const passende = alleRabatte.filter((r) => {
+        if (r.artikelId !== null) return r.artikelId === pos.artikelId;
+        if (r.kategorie !== null) return r.kategorie === artikel?.kategorie;
+        return false;
+      });
+
+      // Wähle den höchsten Rabatt
+      let bestRabatt = 0;
+      for (const r of passende) {
+        if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
+      }
+
+      const rabattVerkaufspreis = bestRabatt > 0
+        ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
+        : basisVerkaufspreis;
+
       return {
         artikelId: pos.artikelId,
         menge: pos.menge,
-        verkaufspreis: pos.verkaufspreis ?? berechneVerkaufspreis(artikel!, kundePreis),
+        verkaufspreis: rabattVerkaufspreis,
         einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
+        chargeNr: pos.chargeNr ?? null,
+        rabattProzent: bestRabatt,
       };
     })
   );
