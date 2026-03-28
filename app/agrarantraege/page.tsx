@@ -57,8 +57,18 @@ export default function AgrarantraegeePage() {
 
   // Import
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; error?: string } | null>(null);
+  const [importResult, setImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Auto-import state
+  const [autoYear, setAutoYear] = useState("2024");
+  const [autoUrl, setAutoUrl] = useState("");
+  const [autoImporting, setAutoImporting] = useState(false);
+  const [autoImportResult, setAutoImportResult] = useState<{ ok: boolean; importiert?: number; jahre?: number[]; modus?: string; error?: string } | null>(null);
+
+  // Serverpath import state
+  const [serverPath, setServerPath] = useState("");
+  const [serverImporting, setServerImporting] = useState(false);
 
   // Link modal
   const [linkItem, setLinkItem] = useState<AntragEmpfaenger | null>(null);
@@ -108,6 +118,46 @@ export default function AgrarantraegeePage() {
       setImportResult({ ok: false, error: "Netzwerkfehler beim Import" });
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function handleAutoImport() {
+    const resolvedUrl = autoUrl.trim() || `https://www.agrarzahlungen.de/fileadmin/user_upload/files/impdata${autoYear}.csv`;
+    setAutoImporting(true);
+    setAutoImportResult(null);
+    try {
+      const res = await fetch("/api/agrarantraege/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "url", url: resolvedUrl }),
+      });
+      const data = await res.json();
+      setAutoImportResult(data);
+      if (data.ok) fetchItems();
+    } catch {
+      setAutoImportResult({ ok: false, error: "Netzwerkfehler beim Auto-Import" });
+    } finally {
+      setAutoImporting(false);
+    }
+  }
+
+  async function handleServerPathImport() {
+    if (!serverPath.trim()) return;
+    setServerImporting(true);
+    setAutoImportResult(null);
+    try {
+      const res = await fetch("/api/agrarantraege/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "serverpath", path: serverPath.trim() }),
+      });
+      const data = await res.json();
+      setAutoImportResult(data);
+      if (data.ok) { fetchItems(); setServerPath(""); }
+    } catch {
+      setAutoImportResult({ ok: false, error: "Netzwerkfehler beim Serverpfad-Import" });
+    } finally {
+      setServerImporting(false);
     }
   }
 
@@ -209,11 +259,110 @@ export default function AgrarantraegeePage() {
             {importing ? "Importiere…" : "CSV importieren"}
           </button>
         </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Bei 250MB-Dateien bitte Auto-Download oder Serverpfad verwenden, da Browser-Upload zu langsam ist.
+        </p>
         {importResult && (
           <div className={`mt-3 text-sm px-3 py-2 rounded-lg border ${importResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
             {importResult.ok
               ? `✓ ${importResult.importiert?.toLocaleString("de-DE")} Datensätze importiert (Jahre: ${importResult.jahre?.join(", ")})`
               : `Fehler: ${importResult.error}`}
+          </div>
+        )}
+      </div>
+
+      {/* Auto-Import */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
+        <h2 className="font-semibold mb-1">Auto-Download von agrarzahlungen.de</h2>
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+          Bei 250MB-Dateien bitte Auto-Download oder Serverpfad verwenden, da Browser-Upload zu langsam ist.
+        </p>
+
+        {/* URL download */}
+        <div className="flex gap-3 items-center flex-wrap mb-2">
+          <select
+            value={autoYear}
+            onChange={(e) => { setAutoYear(e.target.value); setAutoUrl(""); }}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+          >
+            {[2024, 2023, 2022, 2021, 2020, 2019, 2018].map((y) => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder={`URL (optional): https://www.agrarzahlungen.de/…/impdata${autoYear}.csv`}
+            value={autoUrl}
+            onChange={(e) => setAutoUrl(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-96 focus:outline-none focus:ring-2 focus:ring-green-600"
+          />
+          <button
+            onClick={handleAutoImport}
+            disabled={autoImporting || serverImporting}
+            className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {autoImporting ? (
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Herunterladen…
+              </>
+            ) : (
+              "Herunterladen und importieren"
+            )}
+          </button>
+        </div>
+        {autoImporting && (
+          <p className="text-xs text-gray-500 mb-2">
+            Wird heruntergeladen und importiert… (kann bei 250MB bis zu 2 Minuten dauern)
+          </p>
+        )}
+
+        {/* Serverpath import */}
+        <div className="border-t border-gray-100 mt-4 pt-4">
+          <p className="text-sm text-gray-600 mb-2">
+            Oder: Serverpfad der CSV-Datei (z.B. <code className="bg-gray-100 px-1 rounded text-xs">/data/impdata2024.csv</code>):
+          </p>
+          <div className="flex gap-3 items-center flex-wrap">
+            <input
+              type="text"
+              placeholder="/data/impdata2024.csv"
+              value={serverPath}
+              onChange={(e) => setServerPath(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-green-600 font-mono"
+            />
+            <button
+              onClick={handleServerPathImport}
+              disabled={autoImporting || serverImporting || !serverPath.trim()}
+              className="px-4 py-2 text-sm bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {serverImporting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Importiere…
+                </>
+              ) : (
+                "Importieren"
+              )}
+            </button>
+          </div>
+          {serverImporting && (
+            <p className="text-xs text-gray-500 mt-2">
+              Wird heruntergeladen und importiert… (kann bei 250MB bis zu 2 Minuten dauern)
+            </p>
+          )}
+        </div>
+
+        {autoImportResult && (
+          <div className={`mt-3 text-sm px-3 py-2 rounded-lg border ${autoImportResult.ok ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+            {autoImportResult.ok
+              ? `✓ ${autoImportResult.importiert?.toLocaleString("de-DE")} Datensätze importiert (Jahre: ${autoImportResult.jahre?.join(", ")}, Modus: ${autoImportResult.modus})`
+              : `Fehler: ${autoImportResult.error}`}
           </div>
         )}
       </div>
