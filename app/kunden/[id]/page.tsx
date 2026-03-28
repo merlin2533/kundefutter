@@ -1173,6 +1173,26 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
         </div>
       </div>
 
+      {/* Sammelrechnung Action */}
+      {selectedIds.size >= 2 && (
+        <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+          <span className="text-sm text-green-800 font-medium">{selectedIds.size} Lieferungen ausgewählt</span>
+          <button
+            onClick={erstelleSammelrechnung}
+            disabled={sammelrechnungLoading}
+            className="px-4 py-1.5 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+          >
+            {sammelrechnungLoading ? "Erstelle PDF…" : "Sammelrechnung erstellen"}
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Auswahl löschen
+          </button>
+        </div>
+      )}
+
       {/* Suchleiste und Filter */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
@@ -1233,7 +1253,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
           <tbody className="divide-y divide-gray-100">
             {gefiltert.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-3 py-6 text-center text-sm text-gray-400">
                   Keine Lieferungen gefunden.
                 </td>
               </tr>
@@ -1249,6 +1269,17 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
 
               return (
                 <tr key={l.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2.5 text-center">
+                    {sammelrechnungFaehig(l) ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(l.id)}
+                        onChange={() => toggleSammelrechnungSelect(l.id)}
+                        className="rounded border-gray-300 text-green-700 focus:ring-green-700"
+                        title="Für Sammelrechnung auswählen"
+                      />
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2.5 whitespace-nowrap text-xs">{formatDatum(l.datum)}</td>
                   <td className="px-3 py-2.5 text-gray-600 text-xs max-w-[180px] truncate">
                     {posSummary}{more}
