@@ -11,6 +11,8 @@ interface Position {
   einheit: string;
   verkaufspreis: number;
   einkaufspreis: number;
+  chargeNr?: string | null;
+  rabattProzent?: number;
   artikel: { id: number; name: string; einheit: string };
 }
 
@@ -324,7 +326,7 @@ export default function LieferungDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {["Artikel", "Menge", "Einheit", "Verkaufspreis", "Einkaufspreis", "Marge €", "Marge %"].map((h) => (
+              {["Artikel", "Charge", "Menge", "Einheit", "Verkaufspreis", "Rabatt", "Einkaufspreis", "Marge €", "Marge %"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   {h}
                 </th>
@@ -341,9 +343,15 @@ export default function LieferungDetailPage() {
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium">{pos.artikel.name}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{pos.chargeNr ?? "—"}</td>
                   <td className="px-4 py-3 font-mono">{pos.menge}</td>
                   <td className="px-4 py-3 text-gray-600">{pos.artikel.einheit}</td>
                   <td className="px-4 py-3 font-mono">{formatEuro(pos.verkaufspreis)}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {pos.rabattProzent && pos.rabattProzent > 0 ? (
+                      <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{pos.rabattProzent}%</span>
+                    ) : "—"}
+                  </td>
                   <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>
                   <td className="px-4 py-3 font-mono">{formatEuro(margeEuro)}</td>
                   <td className="px-4 py-3">
@@ -355,7 +363,7 @@ export default function LieferungDetailPage() {
           </tbody>
           <tfoot className="bg-gray-50 border-t-2 border-gray-200">
             <tr>
-              <td colSpan={3} className="px-4 py-3 font-semibold text-gray-700">Gesamt</td>
+              <td colSpan={5} className="px-4 py-3 font-semibold text-gray-700">Gesamt</td>
               <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtUmsatz)}</td>
               <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtEinkauf)}</td>
               <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtMarge)}</td>
