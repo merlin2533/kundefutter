@@ -28,6 +28,8 @@ const groups: NavGroup[] = [
       { href: "/artikel", label: "Artikelstamm" },
       { href: "/lieferanten", label: "Lieferanten" },
       { href: "/lager", label: "Lager" },
+      { href: "/inventur", label: "Inventur" },
+      { href: "/kalkulation", label: "Preiskalkulation" },
     ],
   },
   {
