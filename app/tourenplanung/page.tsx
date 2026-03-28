@@ -59,6 +59,87 @@ interface Besuchstermin {
 
 function heuteISO() { return new Date().toISOString().slice(0, 10); }
 
+interface TourStop {
+  id: number;
+  kundeName: string;
+  adresse: string;
+  artikel: string;
+  menge: string;
+  einheit: string;
+  notiz: string;
+}
+
+const thStyle: React.CSSProperties = { border: '1px solid #ccc', padding: '6px 8px', textAlign: 'left', background: '#f0fdf4' };
+const tdStyle: React.CSSProperties = { border: '1px solid #ddd', padding: '6px 8px', verticalAlign: 'top' };
+
+function TourHandzettel({
+  tourname,
+  datum,
+  stops,
+}: {
+  tourname: string;
+  datum: string;
+  stops: TourStop[];
+}) {
+  return (
+    <div className="tour-handzettel">
+      {/* Header */}
+      <div style={{ borderBottom: '2px solid #16a34a', paddingBottom: 8, marginBottom: 16 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 'bold', margin: 0 }}>
+          Tourenplan: {tourname || 'Ohne Name'}
+        </h1>
+        <p style={{ margin: '4px 0 0', color: '#666' }}>
+          Datum: {datum} | Erstellt: {new Date().toLocaleDateString('de-DE')}
+        </p>
+      </div>
+
+      {/* Stops table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr style={{ background: '#f0fdf4' }}>
+            <th style={thStyle}>Nr</th>
+            <th style={thStyle}>Kunde / Adresse</th>
+            <th style={thStyle}>Artikel</th>
+            <th style={thStyle}>Menge</th>
+            <th style={thStyle}>Notiz</th>
+            <th style={{ ...thStyle, width: 60 }}>&#10003; &Uuml;bergabe</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stops.map((stop, i) => (
+            <tr key={stop.id} style={{ borderBottom: '1px solid #ddd' }}>
+              <td style={tdStyle}>{i + 1}</td>
+              <td style={tdStyle}>
+                <strong>{stop.kundeName}</strong><br />
+                <small style={{ color: '#666' }}>{stop.adresse}</small>
+              </td>
+              <td style={tdStyle}>{stop.artikel}</td>
+              <td style={{ ...tdStyle, textAlign: 'center' }}>{stop.menge} {stop.einheit}</td>
+              <td style={tdStyle}>{stop.notiz || ''}</td>
+              <td style={{ ...tdStyle, borderLeft: '1px solid #999' }}>&nbsp;</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Summary */}
+      <div style={{ marginTop: 16, fontSize: 11, color: '#666' }}>
+        Gesamt: {stops.length} Stopp{stops.length !== 1 ? 's' : ''}
+      </div>
+
+      {/* Signature line */}
+      <div style={{ marginTop: 32, display: 'flex', gap: 48 }}>
+        <div>
+          <div style={{ borderTop: '1px solid #000', paddingTop: 4, width: 200 }}>Fahrer</div>
+        </div>
+        <div>
+          <div style={{ borderTop: '1px solid #000', paddingTop: 4, width: 200 }}>Datum</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatMin(min: number): string {
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);
@@ -504,6 +585,12 @@ export default function TourenplanungPage() {
                 className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
               >
                 Touren-PDF
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"
+              >
+                🖨 Ausdruck / Handzettel
               </button>
             </>
           )}
