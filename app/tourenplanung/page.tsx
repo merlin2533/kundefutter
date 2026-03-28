@@ -681,6 +681,23 @@ export default function TourenplanungPage() {
         </Card>
       )}
 
+      {/* Handzettel – only visible when printing */}
+      <div className="hidden print:block">
+        <TourHandzettel
+          tourname={tourname}
+          datum={new Date(datum).toLocaleDateString('de-DE')}
+          stops={lieferungen.map((l) => ({
+            id: l.id,
+            kundeName: l.kunde.firma ?? l.kunde.name,
+            adresse: [l.kunde.strasse, l.kunde.plz, l.kunde.ort].filter(Boolean).join(', '),
+            artikel: l.positionen.map((p) => p.artikel.name).join(', '),
+            menge: l.positionen.map((p) => p.menge).join(' / '),
+            einheit: l.positionen.map((p) => p.artikel.einheit).join(' / '),
+            notiz: l.notiz ?? '',
+          }))}
+        />
+      </div>
+
       {/* Besuchsplanung */}
       <Card className="mt-6">
         <div className="flex items-center justify-between mb-4">
