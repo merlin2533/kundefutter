@@ -16,9 +16,21 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const loadData = () => {
+    fetch("/api/dashboard")
+      .then((r) => r.json())
+      .then((d) => {
+        setData(d);
+        setLastUpdated(new Date());
+      });
+  };
 
   useEffect(() => {
-    fetch("/api/dashboard").then((r) => r.json()).then(setData);
+    loadData();
+    const interval = setInterval(loadData, 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   if (!data) return <p className="text-gray-400 mt-8">Lade Dashboard…</p>;
@@ -30,7 +42,18 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        {lastUpdated && (
+          <button
+            onClick={loadData}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            title="Klicken zum sofortigen Neu laden"
+          >
+            Aktualisiert: {lastUpdated.getHours().toString().padStart(2, "0")}:{lastUpdated.getMinutes().toString().padStart(2, "0")} Uhr
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <KpiCard label="Aktive Kunden" value={data.kundenAktiv} color="blue" />

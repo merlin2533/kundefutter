@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
 
   if (!notiz || notiz.trim() === "") {
     return NextResponse.json(
-      { error: "Begründung ist Pflichtfeld bei Lagerkorrektur" },
+      { error: "Begründung ist bei Korrekturen Pflicht" },
       { status: 400 }
     );
   }

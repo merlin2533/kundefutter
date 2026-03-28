@@ -14,3 +14,16 @@ body {
 .ampel-gruen { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 .ampel-gelb  { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
 .ampel-rot   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+@media print {
+  /* Nav ausblenden */
+  header { display: none !important; }
+  /* Buttons ausblenden */
+  button, a[href]:not(.print-link) { display: none !important; }
+  /* Vollbreite ohne Padding */
+  main { padding: 0 !important; max-width: 100% !important; }
+  /* Seitenumbrüche verhindern */
+  tr, .card { break-inside: avoid; }
+  /* Hintergrundfarben drucken */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

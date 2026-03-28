@@ -479,7 +479,7 @@ export default function LagerPage() {
                   placeholder="Grund der Korrektur…"
                   value={korrekturForm.notiz}
                   onChange={(e) => setKorrekturForm({ ...korrekturForm, notiz: e.target.value })}
-                  className={inputCls}
+                  className={`${inputCls} ${korrekturForm.notiz.trim() === "" ? "border-red-400 focus:ring-red-400" : ""}`}
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
