@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer, formatDatum, formatEuro } from "@/lib/utils";
+import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
-// Firmendaten — hier anpassen
-const FIRMA = {
-  name: "Landhandel Röthemeier",
-  zusatz: "AgrarOffice",
-  strasse: "",       // z.B. "Musterstraße 1"
-  plzOrt: "",        // z.B. "29221 Celle"
-  telefon: "",
-  email: "",
-  steuernummer: "",  // z.B. "12/345/67890"
-  iban: "",          // z.B. "DE12 3456 7890 1234 5678 90"
-  bic: "",
-  bank: "",
-};
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -61,6 +48,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
   }
 
+  const FIRMA = await ladeFirmaDaten();
   const doc = new jsPDF();
   const k = lieferung.kunde;
   const zahlungsziel = lieferung.zahlungsziel ?? 30;

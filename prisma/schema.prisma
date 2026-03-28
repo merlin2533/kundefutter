@@ -191,6 +191,10 @@ model Lieferung {
   lagerbewegungen   Lagerbewegung[]
   sammelrechnung    Sammelrechnung?  @relation(fields: [sammelrechnungId], references: [id])
   sammelrechnungId  Int?
+
+  @@index([kundeId])
+  @@index([status])
+  @@index([datum])
 }
 
 model Lieferposition {

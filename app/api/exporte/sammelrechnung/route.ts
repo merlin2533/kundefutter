@@ -1,21 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer, formatDatum, formatEuro } from "@/lib/utils";
+import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
-const FIRMA = {
-  name: "Landhandel Röthemeier",
-  zusatz: "AgrarOffice",
-  strasse: "",
-  plzOrt: "",
-  telefon: "",
-  email: "",
-  steuernummer: "",
-  iban: "",
-  bic: "",
-  bank: "",
-};
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -92,6 +80,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Fehler beim Erstellen der Sammelrechnung" }, { status: 500 });
   }
 
+  const FIRMA = await ladeFirmaDaten();
   const k = sammelrechnung.kunde;
   const doc = new jsPDF();
   const mwstSatz = 7;

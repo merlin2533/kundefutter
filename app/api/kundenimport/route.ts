@@ -17,30 +17,38 @@ export async function POST(req: NextRequest) {
   const vorschau: Record<string, unknown>[] = [];
   const duplikate: Record<string, unknown>[] = [];
 
+  // Parse all rows first
+  const eintraege: { name: string; firma: string | null; kategorie: string; strasse: string | null; plz: string | null; ort: string | null; land: string; telefon: string | null; mobil: string | null; email: string | null; notizen: string | null }[] = [];
   for (const row of rows) {
-    const name = String(
-      row["Name"] ?? row["name"] ?? row["NAME"] ?? ""
-    ).trim();
-
+    const name = String(row["Name"] ?? row["name"] ?? row["NAME"] ?? "").trim();
     if (!name) continue;
+    eintraege.push({
+      name,
+      firma: String(row["Firma"] ?? row["firma"] ?? "").trim() || null,
+      kategorie: String(row["Kategorie"] ?? row["kategorie"] ?? "").trim() || "Sonstige",
+      strasse: String(row["Strasse"] ?? row["Straße"] ?? row["strasse"] ?? "").trim() || null,
+      plz: String(row["PLZ"] ?? row["plz"] ?? "").trim() || null,
+      ort: String(row["Ort"] ?? row["ort"] ?? "").trim() || null,
+      land: String(row["Land"] ?? row["land"] ?? "").trim() || "Deutschland",
+      telefon: String(row["Telefon"] ?? row["telefon"] ?? "").trim() || null,
+      mobil: String(row["Mobil"] ?? row["mobil"] ?? "").trim() || null,
+      email: String(row["Email"] ?? row["email"] ?? row["E-Mail"] ?? "").trim() || null,
+      notizen: String(row["Notizen"] ?? row["notizen"] ?? "").trim() || null,
+    });
+  }
 
-    const firma = String(row["Firma"] ?? row["firma"] ?? "").trim() || null;
-    const kategorie = String(row["Kategorie"] ?? row["kategorie"] ?? "").trim() || "Sonstige";
-    const strasse = String(row["Strasse"] ?? row["Straße"] ?? row["strasse"] ?? "").trim() || null;
-    const plz = String(row["PLZ"] ?? row["plz"] ?? "").trim() || null;
-    const ort = String(row["Ort"] ?? row["ort"] ?? "").trim() || null;
-    const land = String(row["Land"] ?? row["land"] ?? "").trim() || "Deutschland";
-    const telefon = String(row["Telefon"] ?? row["telefon"] ?? "").trim() || null;
-    const mobil = String(row["Mobil"] ?? row["mobil"] ?? "").trim() || null;
-    const email = String(row["Email"] ?? row["email"] ?? row["E-Mail"] ?? "").trim() || null;
-    const notizen = String(row["Notizen"] ?? row["notizen"] ?? "").trim() || null;
+  // Batch duplicate check: single query for all names
+  const namen = eintraege.map((e) => e.name);
+  const existierende = await prisma.kunde.findMany({
+    where: { name: { in: namen } },
+    select: { id: true, name: true },
+  });
+  const existierendeMap = new Map(existierende.map((k) => [k.name, k.id]));
 
-    const eintrag = { name, firma, kategorie, strasse, plz, ort, land, telefon, mobil, email, notizen };
-
-    // Duplikat-Prüfung: gleicher Name bereits in DB
-    const existing = await prisma.kunde.findFirst({ where: { name } });
-    if (existing) {
-      duplikate.push({ ...eintrag, existierendeId: existing.id });
+  for (const eintrag of eintraege) {
+    const existierendeId = existierendeMap.get(eintrag.name);
+    if (existierendeId !== undefined) {
+      duplikate.push({ ...eintrag, existierendeId });
     } else {
       vorschau.push(eintrag);
     }
