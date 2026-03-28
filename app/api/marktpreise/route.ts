@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fetchEurostatQuarterly, PRODUKT_MAPPING } from "@/lib/eurostat";
+import {
+  fetchEurostatQuarterly,
+  fetchEurostatOutput,
+  PRODUKT_MAPPING,
+} from "@/lib/eurostat";
 
 const CACHE_MAX_AGE_DAYS = 7;
 
@@ -11,7 +15,7 @@ export async function GET(request: NextRequest) {
     const kategorie = searchParams.get("kategorie");
     const force = searchParams.get("force") === "true";
 
-    // Check if cache needs refreshing
+    // Check if cache needs refreshing (input prices)
     let needsRefresh = force;
 
     if (!needsRefresh) {
@@ -32,9 +36,10 @@ export async function GET(request: NextRequest) {
 
     // Refresh cache from Eurostat if needed
     if (needsRefresh) {
+      // Fetch input prices
       const entries = await fetchEurostatQuarterly(2020);
 
-      const ops = entries.map((entry) =>
+      const inputOps = entries.map((entry) =>
         prisma.marktpreisCache.upsert({
           where: {
             dataset_produktCode_zeitraum_land: {
@@ -60,27 +65,71 @@ export async function GET(request: NextRequest) {
           },
         })
       );
-      await prisma.$transaction(ops);
+      await prisma.$transaction(inputOps);
+
+      // Fetch output prices - fail gracefully if unavailable
+      try {
+        const outputEntries = await fetchEurostatOutput(2020);
+        if (outputEntries.length > 0) {
+          const outputOps = outputEntries.map((entry) =>
+            prisma.marktpreisCache.upsert({
+              where: {
+                dataset_produktCode_zeitraum_land: {
+                  dataset: "apri_pi15_outq",
+                  produktCode: entry.produktCode,
+                  zeitraum: entry.zeitraum,
+                  land: "DE",
+                },
+              },
+              update: {
+                produktName: entry.produktName,
+                indexWert: entry.indexWert,
+                abgerufenAm: new Date(),
+              },
+              create: {
+                dataset: "apri_pi15_outq",
+                produktCode: entry.produktCode,
+                produktName: entry.produktName,
+                zeitraum: entry.zeitraum,
+                indexWert: entry.indexWert,
+                einheit: "I15",
+                land: "DE",
+              },
+            })
+          );
+          await prisma.$transaction(outputOps);
+        }
+      } catch (outputErr) {
+        console.warn("Eurostat Output-Preise nicht verfügbar:", outputErr);
+      }
     }
 
     // Build filter for query
-    const where: Record<string, unknown> = { dataset: "apri_pi15_inq" };
+    const inputWhere: Record<string, unknown> = { dataset: "apri_pi15_inq" };
 
     if (kategorie) {
-      // Map kategorie to product codes
       const codes = Object.entries(PRODUKT_MAPPING)
         .filter(([, info]) => info.kategorie === kategorie)
         .map(([code]) => code);
 
       if (codes.length > 0) {
-        where.produktCode = { in: codes };
+        inputWhere.produktCode = { in: codes };
       }
     }
 
-    const daten = await prisma.marktpreisCache.findMany({
-      where,
-      orderBy: [{ produktCode: "asc" }, { zeitraum: "desc" }],
-    });
+    // Fetch both input and output data
+    const [inputDaten, outputDaten] = await Promise.all([
+      prisma.marktpreisCache.findMany({
+        where: inputWhere,
+        orderBy: [{ produktCode: "asc" }, { zeitraum: "desc" }],
+      }),
+      prisma.marktpreisCache.findMany({
+        where: { dataset: "apri_pi15_outq" },
+        orderBy: [{ produktCode: "asc" }, { zeitraum: "desc" }],
+      }),
+    ]);
+
+    const daten = [...inputDaten, ...outputDaten];
 
     // Determine last update time
     const letzteAktualisierung =
@@ -94,7 +143,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       daten,
       letzteAktualisierung: letzteAktualisierung.toISOString(),
-      quelle: "Eurostat apri_pi15_inq",
+      quelle: "Eurostat apri_pi15_inq + apri_pi15_outq",
     });
   } catch (error) {
     console.error("Marktpreise API Fehler:", error);
