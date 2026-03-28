@@ -1623,9 +1623,6 @@ const TYP_LABELS: Record<string, { label: string; color: string; icon: string }>
 function CrmTab({ kundeId }: { kundeId: number }) {
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ typ: "besuch", betreff: "", inhalt: "", datum: new Date().toISOString().slice(0, 16), faelligAm: "" });
-  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [filter, setFilter] = useState<"alle" | "offen">("alle");
 
@@ -1638,23 +1635,6 @@ function CrmTab({ kundeId }: { kundeId: number }) {
   }
 
   useEffect(() => { fetch_(); }, [kundeId]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await fetch("/api/kunden/aktivitaeten", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kundeId, ...form, faelligAm: form.faelligAm || null }),
-      });
-      setShowForm(false);
-      setForm({ typ: "besuch", betreff: "", inhalt: "", datum: new Date().toISOString().slice(0, 16), faelligAm: "" });
-      fetch_();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function toggleErledigt(item: Aktivitaet) {
     await fetch(`/api/kunden/aktivitaeten?id=${item.id}`, {
@@ -1691,82 +1671,13 @@ function CrmTab({ kundeId }: { kundeId: number }) {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+        <Link
+          href={`/kunden/${kundeId}/aktivitaet`}
+          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors inline-block"
         >
           + Aktivität erfassen
-        </button>
+        </Link>
       </div>
-
-      {showForm && (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold mb-3">Neue Aktivität</h3>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Typ <span className="text-red-500">*</span></label>
-                <select
-                  value={form.typ}
-                  onChange={(e) => setForm({ ...form, typ: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {Object.entries(TYP_LABELS).map(([k, v]) => (
-                    <option key={k} value={k}>{v.icon} {v.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Datum</label>
-                <input
-                  type="datetime-local"
-                  value={form.datum}
-                  onChange={(e) => setForm({ ...form, datum: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Betreff / Titel <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={form.betreff}
-                onChange={(e) => setForm({ ...form, betreff: e.target.value })}
-                required
-                placeholder="z.B. Besuch wegen Herbstbestellung"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Details / Notizen</label>
-              <textarea
-                rows={3}
-                value={form.inhalt}
-                onChange={(e) => setForm({ ...form, inhalt: e.target.value })}
-                placeholder="Gesprächsinhalt, Ergebnisse, nächste Schritte…"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-              />
-            </div>
-            {form.typ === "aufgabe" && (
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Fällig am</label>
-                <input
-                  type="date"
-                  value={form.faelligAm}
-                  onChange={(e) => setForm({ ...form, faelligAm: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-            )}
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
-              <button type="submit" disabled={saving} className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-60">
-                {saving ? "…" : "Speichern"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
 
       {loading ? (
         <p className="text-sm text-gray-400">Lade…</p>

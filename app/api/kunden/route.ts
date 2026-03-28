@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { kontakte, name, firma, kategorie, strasse, plz, ort, land, lat, lng, notizen } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, strasse, plz, ort, land, lat, lng, notizen } = body;
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       firma: firma || null,
       kategorie: kategorie || "Sonstige",
+      verantwortlicher: verantwortlicher || null,
       strasse: strasse || null,
       plz: plz || null,
       ort: ort || null,

@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
     return plzA.localeCompare(plzB);
   });
 
+  const tourname = searchParams.get("tourname");
   const heute = formatDatum(new Date());
   const datumFormatiert = formatDatum(new Date(datum));
 
@@ -44,7 +45,10 @@ export async function GET(req: NextRequest) {
   // Header
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(`Tourenliste - ${datumFormatiert}`, 14, 20);
+  const titel = tourname
+    ? `${tourname} - ${datumFormatiert}`
+    : `Tourenliste - ${datumFormatiert}`;
+  doc.text(titel, 14, 20);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");

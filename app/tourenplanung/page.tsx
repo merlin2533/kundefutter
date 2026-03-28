@@ -2,10 +2,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface Kontakt { typ: string; wert: string; }
-interface Artikel { name: string; einheit: string; }
-interface Position { menge: number; artikel: Artikel; }
+interface Artikel { id: number; name: string; einheit: string; standardpreis: number; einkaufspreis?: number; }
+interface Position { menge: number; artikel: { name: string; einheit: string } }
 interface Kunde {
   id: number;
   name: string;
@@ -28,6 +29,12 @@ interface Lieferung {
 interface RouteLeg {
   distanceKm: number;
   durationMin: number;
+}
+
+interface KundeOption {
+  id: number;
+  name: string;
+  firma?: string;
 }
 
 function heuteISO() { return new Date().toISOString().slice(0, 10); }
@@ -68,13 +75,35 @@ export default function TourenplanungPage() {
   const [startLng, setStartLng] = useState<number | null>(null);
   const [geocoding, setGeocoding] = useState(false);
 
-  // Load firm address from settings as default start
+  // Tourname
+  const [tourname, setTourname] = useState("");
+  const [gespeicherteTournamen, setGespeicherteTournamen] = useState<string[]>([]);
+
+  // Schnellerfassung
+  const [showSchnell, setShowSchnell] = useState(false);
+  const [kunden, setKunden] = useState<KundeOption[]>([]);
+  const [artikelList, setArtikelList] = useState<Artikel[]>([]);
+  const [schnellKundeId, setSchnellKundeId] = useState<number | "">("");
+  const [schnellArtikelId, setSchnellArtikelId] = useState<number | "">("");
+  const [schnellMenge, setSchnellMenge] = useState(1);
+  const [schnellNotiz, setSchnellNotiz] = useState("");
+  const [schnellSaving, setSchnellSaving] = useState(false);
+  const [schnellSuccess, setSchnellSuccess] = useState(false);
+
+  // Load firm address + tour names
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
       .then((r) => r.json())
       .then((d) => {
         const teile = [d["firma.strasse"], d["firma.plz"], d["firma.ort"]].filter(Boolean);
         if (teile.length > 0) setStartOrt(teile.join(", "));
+      });
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.tournamen"]) {
+          try { setGespeicherteTournamen(JSON.parse(d["system.tournamen"])); } catch { /* ignore */ }
+        }
       });
   }, []);
 
@@ -92,6 +121,19 @@ export default function TourenplanungPage() {
   }, []);
 
   useEffect(() => { laden(datum); }, [datum, laden]);
+
+  // Load kunden + artikel for Schnellerfassung (lazy)
+  useEffect(() => {
+    if (showSchnell && kunden.length === 0) {
+      Promise.all([
+        fetch("/api/kunden?aktiv=true").then((r) => r.json()),
+        fetch("/api/artikel?limit=500").then((r) => r.json()),
+      ]).then(([k, a]) => {
+        setKunden(Array.isArray(k) ? k : []);
+        setArtikelList(Array.isArray(a) ? a : []);
+      });
+    }
+  }, [showSchnell, kunden.length]);
 
   async function geocodeStartOrt() {
     if (!startOrt.trim()) return;
@@ -131,6 +173,55 @@ export default function TourenplanungPage() {
     setRouteLoading(false);
   }
 
+  async function saveTourname() {
+    if (!tourname.trim()) return;
+    const name = tourname.trim();
+    if (!gespeicherteTournamen.includes(name)) {
+      const updated = [...gespeicherteTournamen, name];
+      setGespeicherteTournamen(updated);
+      await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "system.tournamen", value: JSON.stringify(updated) }),
+      });
+    }
+  }
+
+  async function handleSchnellerfassung(e: React.FormEvent) {
+    e.preventDefault();
+    if (!schnellKundeId || !schnellArtikelId) return;
+    setSchnellSaving(true);
+    try {
+      const art = artikelList.find((a) => a.id === Number(schnellArtikelId));
+      const res = await fetch("/api/lieferungen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kundeId: schnellKundeId,
+          datum,
+          notiz: schnellNotiz || undefined,
+          positionen: [{
+            artikelId: schnellArtikelId,
+            menge: Number(schnellMenge),
+            verkaufspreis: art?.standardpreis ?? 0,
+            einkaufspreis: art?.einkaufspreis ?? 0,
+          }],
+        }),
+      });
+      if (res.ok) {
+        setSchnellKundeId("");
+        setSchnellArtikelId("");
+        setSchnellMenge(1);
+        setSchnellNotiz("");
+        setSchnellSuccess(true);
+        setTimeout(() => setSchnellSuccess(false), 2000);
+        laden(datum);
+      }
+    } finally {
+      setSchnellSaving(false);
+    }
+  }
+
   function artikelZusammenfassung(positionen: Position[]) {
     return positionen.map((p) => `${p.artikel.name} (${p.menge} ${p.artikel.einheit})`).join(", ");
   }
@@ -139,11 +230,13 @@ export default function TourenplanungPage() {
   const gesamtMin = routeLegs.reduce((s, l) => s + l.durationMin, 0);
   const mitKoords = lieferungen.filter((l) => l.kunde.lat && l.kunde.lng).length;
 
+  const pdfUrl = `/api/exporte/tour?datum=${datum}${tourname ? `&tourname=${encodeURIComponent(tourname)}` : ""}`;
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Tourenplanung</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <h2 className="font-semibold mb-3">Lieferdatum</h2>
           <input
@@ -155,7 +248,51 @@ export default function TourenplanungPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold mb-3">Startpunkt (für Routenberechnung)</h2>
+          <h2 className="font-semibold mb-3">Tourname</h2>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tourname}
+              onChange={(e) => setTourname(e.target.value)}
+              list="tournamen-list"
+              placeholder="z.B. Montag Nord, Freitag Süd"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+            />
+            <button
+              onClick={saveTourname}
+              disabled={!tourname.trim()}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg disabled:opacity-50 transition-colors"
+              title="Tourname speichern"
+            >
+              Speichern
+            </button>
+          </div>
+          <datalist id="tournamen-list">
+            {gespeicherteTournamen.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+          {gespeicherteTournamen.length > 0 && (
+            <div className="flex gap-1 mt-2 flex-wrap">
+              {gespeicherteTournamen.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setTourname(n)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                    tourname === n
+                      ? "bg-green-100 border-green-300 text-green-800"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="font-semibold mb-3">Startpunkt (Routenberechnung)</h2>
           <div className="flex gap-2">
             <input
               type="text"
@@ -175,6 +312,78 @@ export default function TourenplanungPage() {
           {startLat && <p className="text-xs text-green-700 mt-1">✓ {startLat.toFixed(4)}, {startLng?.toFixed(4)}</p>}
         </Card>
       </div>
+
+      {/* Schnellerfassung */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold">Schnellerfassung Lieferung</h2>
+          <button
+            onClick={() => setShowSchnell(!showSchnell)}
+            className="text-sm text-green-700 hover:text-green-900 font-medium"
+          >
+            {showSchnell ? "Ausblenden" : "Einblenden"}
+          </button>
+        </div>
+        {showSchnell && (
+          <form onSubmit={handleSchnellerfassung} className="flex flex-col sm:flex-row gap-3 items-end flex-wrap">
+            <div className="w-full sm:w-52">
+              <label className="block text-xs text-gray-500 mb-1">Kunde</label>
+              <SearchableSelect
+                options={kunden.map((k) => ({
+                  value: k.id,
+                  label: k.firma ? `${k.firma} (${k.name})` : k.name,
+                }))}
+                value={schnellKundeId}
+                onChange={(v) => setSchnellKundeId(v ? Number(v) : "")}
+                placeholder="Kunde wählen…"
+                required
+              />
+            </div>
+            <div className="w-full sm:w-52">
+              <label className="block text-xs text-gray-500 mb-1">Artikel</label>
+              <SearchableSelect
+                options={artikelList.map((a) => ({
+                  value: a.id,
+                  label: a.name,
+                  sub: a.einheit,
+                }))}
+                value={schnellArtikelId}
+                onChange={(v) => setSchnellArtikelId(v ? Number(v) : "")}
+                placeholder="Artikel wählen…"
+                required
+              />
+            </div>
+            <div className="w-24">
+              <label className="block text-xs text-gray-500 mb-1">Menge</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={schnellMenge}
+                onChange={(e) => setSchnellMenge(parseFloat(e.target.value) || 1)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <div className="flex-1 min-w-[120px]">
+              <label className="block text-xs text-gray-500 mb-1">Notiz</label>
+              <input
+                type="text"
+                value={schnellNotiz}
+                onChange={(e) => setSchnellNotiz(e.target.value)}
+                placeholder="Optional…"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={schnellSaving || !schnellKundeId || !schnellArtikelId}
+              className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {schnellSaving ? "…" : schnellSuccess ? "✓ Hinzugefügt" : "+ Lieferung"}
+            </button>
+          </form>
+        )}
+      </Card>
 
       <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
         <h2 className="font-semibold text-lg">
@@ -196,7 +405,7 @@ export default function TourenplanungPage() {
                 {routeLoading ? "Berechne…" : "Route berechnen (OSRM)"}
               </button>
               <button
-                onClick={() => window.open(`/api/exporte/tour?datum=${datum}`, "_blank")}
+                onClick={() => window.open(pdfUrl, "_blank")}
                 className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
               >
                 Touren-PDF

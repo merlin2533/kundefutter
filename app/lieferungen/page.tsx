@@ -3,15 +3,6 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import SearchableSelect from "@/components/SearchableSelect";
-
-interface Position {
-  artikelId: number;
-  artikelName: string;
-  menge: number;
-  verkaufspreis: number;
-  einkaufspreis: number;
-}
 
 interface Lieferung {
   id: number;
@@ -26,20 +17,6 @@ interface Lieferung {
     einkaufspreis: number;
     artikel: { name: string };
   }[];
-}
-
-interface Kunde {
-  id: number;
-  name: string;
-  firma?: string;
-}
-
-interface Artikel {
-  id: number;
-  name: string;
-  einheit: string;
-  standardpreis: number;
-  einkaufspreis?: number;
 }
 
 interface WiederkehrendBedarf {
@@ -57,24 +34,6 @@ interface WiederkehrendBedarf {
   ueberfaellig: boolean;
 }
 
-interface NewPosition {
-  artikelId: number | "";
-  menge: number;
-  verkaufspreis: number;
-  einkaufspreis: number;
-  chargeNr: string;
-}
-
-const today = new Date().toISOString().split("T")[0];
-
-const emptyPosition = (): NewPosition => ({
-  artikelId: "",
-  menge: 1,
-  verkaufspreis: 0,
-  einkaufspreis: 0,
-  chargeNr: "",
-});
-
 export default function LieferungenPage() {
   const [tab, setTab] = useState<"liste" | "wiederkehrend">("liste");
 
@@ -85,18 +44,6 @@ export default function LieferungenPage() {
   const [vonFilter, setVonFilter] = useState("");
   const [bisFilter, setBisFilter] = useState("");
   const [kundeSearch, setKundeSearch] = useState("");
-
-  // Modal state
-  const [showModal, setShowModal] = useState(false);
-  const [kunden, setKunden] = useState<Kunde[]>([]);
-  const [artikel, setArtikel] = useState<Artikel[]>([]);
-  const [formKundeId, setFormKundeId] = useState<number | "">("");
-  const [formKundeSearch, setFormKundeSearch] = useState("");
-  const [formDatum, setFormDatum] = useState(today);
-  const [formNotiz, setFormNotiz] = useState("");
-  const [positionen, setPositionen] = useState<NewPosition[]>([emptyPosition()]);
-  const [saving, setSaving] = useState(false);
-  const [modalError, setModalError] = useState("");
 
   // Wiederkehrend state
   const [wiederkehrend, setWiederkehrend] = useState<WiederkehrendBedarf[]>([]);
@@ -121,78 +68,6 @@ export default function LieferungenPage() {
     const t = setTimeout(fetchLieferungen, 300);
     return () => clearTimeout(t);
   }, [fetchLieferungen]);
-
-  async function fetchKundenArtikel() {
-    const [kr, ar] = await Promise.all([
-      fetch("/api/kunden").then((r) => r.json()),
-      fetch("/api/artikel").then((r) => r.json()),
-    ]);
-    setKunden(Array.isArray(kr) ? kr : []);
-    setArtikel(Array.isArray(ar) ? ar : []);
-  }
-
-  function openModal() {
-    setShowModal(true);
-    setFormKundeId("");
-    setFormKundeSearch("");
-    setFormDatum(today);
-    setFormNotiz("");
-    setPositionen([emptyPosition()]);
-    setModalError("");
-    fetchKundenArtikel();
-  }
-
-  function updatePosition(idx: number, field: keyof NewPosition, value: string | number) {
-    const updated = positionen.map((p, i) => {
-      if (i !== idx) return p;
-      const next = { ...p, [field]: value };
-      if (field === "artikelId") {
-        const art = artikel.find((a) => a.id === Number(value));
-        if (art) {
-          next.verkaufspreis = art.standardpreis;
-          next.einkaufspreis = art.einkaufspreis ?? 0;
-        }
-      }
-      return next;
-    });
-    setPositionen(updated);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!formKundeId) { setModalError("Bitte einen Kunden auswählen."); return; }
-    if (positionen.some((p) => !p.artikelId)) { setModalError("Bitte alle Positionen mit einem Artikel belegen."); return; }
-    setSaving(true);
-    setModalError("");
-    try {
-      const res = await fetch("/api/lieferungen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kundeId: formKundeId,
-          datum: formDatum,
-          notiz: formNotiz || undefined,
-          positionen: positionen.map((p) => ({
-            artikelId: p.artikelId,
-            menge: Number(p.menge),
-            verkaufspreis: Number(p.verkaufspreis),
-            einkaufspreis: Number(p.einkaufspreis),
-            chargeNr: p.chargeNr || undefined,
-          })),
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error ?? "Fehler beim Speichern");
-      }
-      setShowModal(false);
-      await fetchLieferungen();
-    } catch (err) {
-      setModalError(err instanceof Error ? err.message : "Fehler beim Speichern.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
   async function fetchWiederkehrend() {
     setWLoading(true);
@@ -245,22 +120,16 @@ export default function LieferungenPage() {
     return l.positionen.reduce((sum, p) => sum + p.menge * (p.verkaufspreis - p.einkaufspreis), 0);
   }
 
-  const filteredKunden = kunden.filter((k) =>
-    formKundeSearch === "" ||
-    k.name.toLowerCase().includes(formKundeSearch.toLowerCase()) ||
-    (k.firma ?? "").toLowerCase().includes(formKundeSearch.toLowerCase())
-  );
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Lieferungen</h1>
-        <button
-          onClick={openModal}
+        <Link
+          href="/lieferungen/neu"
           className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Neue Lieferung
-        </button>
+        </Link>
       </div>
 
       {/* Tabs */}
@@ -458,203 +327,6 @@ export default function LieferungenPage() {
                 </tbody>
               </table>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* New Lieferung Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl my-8">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Neue Lieferung</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-5">
-              {modalError && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {modalError}
-                </div>
-              )}
-
-              {/* Kunde */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Kunde <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Kunde suchen…"
-                  value={formKundeSearch}
-                  onChange={(e) => { setFormKundeSearch(e.target.value); setFormKundeId(""); }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 mb-1"
-                />
-                {formKundeSearch && !formKundeId && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden max-h-40 overflow-y-auto">
-                    {filteredKunden.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-400">Keine Kunden gefunden</p>
-                    ) : (
-                      filteredKunden.slice(0, 10).map((k) => (
-                        <button
-                          key={k.id}
-                          type="button"
-                          onClick={() => { setFormKundeId(k.id); setFormKundeSearch(k.firma ? `${k.firma} (${k.name})` : k.name); }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-green-50 transition-colors border-b last:border-0 border-gray-100"
-                        >
-                          {k.firma ? `${k.firma} – ` : ""}{k.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
-                {formKundeId && (
-                  <p className="text-xs text-green-700 mt-1">Ausgewählt: {formKundeSearch}</p>
-                )}
-              </div>
-
-              {/* Datum */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-                <input
-                  type="date"
-                  value={formDatum}
-                  onChange={(e) => setFormDatum(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                />
-              </div>
-
-              {/* Notiz */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notiz</label>
-                <textarea
-                  rows={2}
-                  value={formNotiz}
-                  onChange={(e) => setFormNotiz(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
-                />
-              </div>
-
-              {/* Positionen */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700">Positionen</label>
-                  <button
-                    type="button"
-                    onClick={() => setPositionen([...positionen, emptyPosition()])}
-                    className="text-sm text-green-700 hover:text-green-900 font-medium"
-                  >
-                    + Position hinzufügen
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {positionen.map((pos, idx) => {
-                    const margeEuro = pos.menge * (pos.verkaufspreis - pos.einkaufspreis);
-                    const margePct = pos.verkaufspreis > 0
-                      ? ((pos.verkaufspreis - pos.einkaufspreis) / pos.verkaufspreis) * 100
-                      : 0;
-                    return (
-                      <div key={idx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                          <div className="col-span-2">
-                            <label className="block text-xs text-gray-500 mb-1">Artikel</label>
-                            <SearchableSelect
-                              options={artikel.map((a) => ({ value: a.id, label: a.name, sub: a.einheit }))}
-                              value={pos.artikelId}
-                              onChange={(v) => updatePosition(idx, "artikelId", v)}
-                              placeholder="— Artikel wählen —"
-                              required
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">Menge</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={pos.menge}
-                              onChange={(e) => updatePosition(idx, "menge", parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">Verkaufspreis (€)</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={pos.verkaufspreis}
-                              onChange={(e) => updatePosition(idx, "verkaufspreis", parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">Einkaufspreis (€)</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={pos.einkaufspreis}
-                              onChange={(e) => updatePosition(idx, "einkaufspreis", parseFloat(e.target.value) || 0)}
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-xs text-gray-500 mb-1">Chargen-/Losnummer (optional)</label>
-                            <input
-                              type="text"
-                              value={pos.chargeNr}
-                              onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
-                              placeholder="z.B. CH-2024-001"
-                              className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                            />
-                          </div>
-                          <div className="flex items-end gap-2">
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">Marge</label>
-                              <div className="flex items-center gap-1.5">
-                                <MargeBadge pct={margePct} />
-                                <span className="text-xs text-gray-500">({formatEuro(margeEuro)})</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        {positionen.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setPositionen(positionen.filter((_, i) => i !== idx))}
-                            className="text-xs text-red-500 hover:text-red-700"
-                          >
-                            Position entfernen
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
-                >
-                  {saving ? "Speichern…" : "Lieferung anlegen"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

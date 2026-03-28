@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
 import { formatEuro, lagerStatus } from "@/lib/utils";
 
@@ -27,17 +28,6 @@ interface Artikel {
 }
 
 const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
-const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück"];
-
-const defaultForm = {
-  name: "",
-  artikelnummer: "",
-  kategorie: "Futter",
-  einheit: "kg",
-  standardpreis: 0,
-  mindestbestand: 0,
-  beschreibung: "",
-};
 
 export default function ArtikelPage() {
   const router = useRouter();
@@ -45,10 +35,6 @@ export default function ArtikelPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState(defaultForm);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -71,43 +57,16 @@ export default function ArtikelPage() {
     return bev?.lieferant.name ?? "–";
   }
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) { setError("Name ist Pflichtfeld."); return; }
-    setSaving(true);
-    setError("");
-    const body = {
-      ...form,
-      artikelnummer: form.artikelnummer.trim() || undefined,
-      standardpreis: Number(form.standardpreis),
-      mindestbestand: Number(form.mindestbestand),
-    };
-    const res = await fetch("/api/artikel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setShowModal(false);
-      setForm(defaultForm);
-      load();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Fehler beim Speichern.");
-    }
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Artikel</h1>
-        <button
-          onClick={() => { setShowModal(true); setError(""); setForm(defaultForm); }}
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        <Link
+          href="/artikel/neu"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Neuer Artikel
-        </button>
+        </Link>
       </div>
 
       {/* Filters */}
@@ -183,115 +142,6 @@ export default function ArtikelPage() {
           </table>
         )}
       </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-            <h2 className="text-lg font-bold mb-5">Neuer Artikel</h2>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Artikelnummer <span className="text-gray-400 text-xs">(leer = automatisch)</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.artikelnummer}
-                  onChange={(e) => setForm({ ...form, artikelnummer: e.target.value })}
-                  placeholder="ART-00001"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
-                  <select
-                    value={form.kategorie}
-                    onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                  >
-                    {KATEGORIEN.map((k) => (
-                      <option key={k} value={k}>{k === "Duenger" ? "Dünger" : k}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Einheit</label>
-                  <select
-                    value={form.einheit}
-                    onChange={(e) => setForm({ ...form, einheit: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                  >
-                    {EINHEITEN.map((e) => <option key={e} value={e}>{e}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.standardpreis}
-                    onChange={(e) => setForm({ ...form, standardpreis: parseFloat(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.mindestbestand}
-                    onChange={(e) => setForm({ ...form, mindestbestand: parseFloat(e.target.value) || 0 })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
-                <textarea
-                  rows={3}
-                  value={form.beschreibung}
-                  onChange={(e) => setForm({ ...form, beschreibung: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
-                />
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
-                >
-                  {saving ? "Speichern…" : "Artikel anlegen"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
