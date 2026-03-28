@@ -92,6 +92,31 @@ export async function GET() {
     umsatz: kundeUmsatzMap.get(k.kundeId) ?? 0,
   }));
 
+  // Markttrend aus Cache laden (letzte 2 Quartale für die 3 Hauptkategorien)
+  const markttrend: { kategorie: string; aktuell: number; veraenderung: number }[] = [];
+  const hauptCodes = [
+    { code: "206000", label: "Futter" },
+    { code: "203000", label: "Dünger" },
+    { code: "201000", label: "Saatgut" },
+  ];
+  for (const { code, label } of hauptCodes) {
+    const recent = await prisma.marktpreisCache.findMany({
+      where: { dataset: "apri_pi15_inq", produktCode: code, land: "DE" },
+      orderBy: { zeitraum: "desc" },
+      take: 2,
+    });
+    if (recent.length > 0) {
+      const aktuell = recent[0].indexWert;
+      const vorq = recent.length > 1 ? recent[1].indexWert : aktuell;
+      const veraenderung = vorq !== 0 ? ((aktuell - vorq) / vorq) * 100 : 0;
+      markttrend.push({
+        kategorie: label,
+        aktuell: Math.round(aktuell * 10) / 10,
+        veraenderung: Math.round(veraenderung * 10) / 10,
+      });
+    }
+  }
+
   return NextResponse.json({
     kundenAktiv,
     offeneLieferungen,
@@ -102,5 +127,6 @@ export async function GET() {
     offeneRechnungen,
     ueberfaelligeRechnungen,
     topKunden: topKundenMitNamen.sort((a, b) => b.umsatz - a.umsatz),
+    markttrend,
   });
 }

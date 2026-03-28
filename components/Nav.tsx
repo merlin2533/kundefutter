@@ -19,6 +19,8 @@ const links = [
   { href: "/einstellungen", label: "Einstellungen" },
   { href: "/kundenimport", label: "Kundenimport" },
   { href: "/tourenplanung", label: "Tourenplanung" },
+  { href: "/marktpreise", label: "Marktpreise" },
+  { href: "/gebietsanalyse", label: "Gebietsanalyse" },
 ];
 
 export default function Nav() {

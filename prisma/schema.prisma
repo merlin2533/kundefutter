@@ -292,3 +292,36 @@ model Einstellung {
   key   String @id
   value String
 }
+
+// ─── OPEN DATA: Marktpreise (Eurostat) ───────────────────────────────────────
+
+model MarktpreisCache {
+  id          Int      @id @default(autoincrement())
+  dataset     String   // "apri_pi15_inq" (quartalsweise) oder "apri_pi15_ina" (jährlich)
+  produktCode String   // z.B. "206000" (Futtermittel)
+  produktName String   // z.B. "Futtermittel"
+  zeitraum    String   // z.B. "2024-Q3" oder "2024"
+  indexWert   Float    // Indexwert (2015 = 100)
+  einheit     String   @default("I15")
+  land        String   @default("DE")
+  abgerufenAm DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([dataset, produktCode, zeitraum, land])
+}
+
+// ─── OPEN DATA: Agrarflächen (Overpass / OSM) ────────────────────────────────
+
+model AgrarflaechenCache {
+  id           Int      @id @default(autoincrement())
+  lat          Float
+  lng          Float
+  radius       Int      // Meter
+  flaecheHa    Float    // Gesamtfläche in Hektar
+  polygonCount Int      // Anzahl Polygone
+  geojson      String   // GeoJSON FeatureCollection
+  abgerufenAm  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@unique([lat, lng, radius])
+}
