@@ -97,24 +97,28 @@ export async function GET() {
     umsatz: kundeUmsatzMap.get(k.kundeId) ?? 0,
   }));
 
-  // Wiederkehrend fällig: Bedarfe, deren nächstes Lieferdatum <= heute
+  // Wiederkehrend fällig: single bulk query instead of N+1
   let wiederkehrendFaellig = 0;
-  for (const bedarf of alleBedarfe) {
-    const letztePos = await prisma.lieferposition.findFirst({
+  if (alleBedarfe.length > 0) {
+    const artikelIds = [...new Set(alleBedarfe.map((b) => b.artikelId))];
+    const kundeIds = [...new Set(alleBedarfe.map((b) => b.kundeId))];
+    const letzteLieferungen = await prisma.lieferposition.findMany({
       where: {
-        artikelId: bedarf.artikelId,
-        lieferung: {
-          kundeId: bedarf.kundeId,
-          status: { not: "storniert" },
-        },
+        artikelId: { in: artikelIds },
+        lieferung: { kundeId: { in: kundeIds }, status: { not: "storniert" } },
       },
+      select: { artikelId: true, lieferung: { select: { kundeId: true, datum: true } } },
       orderBy: { lieferung: { datum: "desc" } },
-      include: { lieferung: true },
     });
-    const letztesDatum = letztePos?.lieferung?.datum ?? new Date(0);
-    const naechstesDatum = addTage(new Date(letztesDatum), bedarf.intervallTage);
-    if (naechstesDatum <= heute) {
-      wiederkehrendFaellig++;
+    // Build map: "artikelId|kundeId" → latest datum
+    const latestMap = new Map<string, Date>();
+    for (const pos of letzteLieferungen) {
+      const key = `${pos.artikelId}|${pos.lieferung.kundeId}`;
+      if (!latestMap.has(key)) latestMap.set(key, new Date(pos.lieferung.datum));
+    }
+    for (const bedarf of alleBedarfe) {
+      const letztesDatum = latestMap.get(`${bedarf.artikelId}|${bedarf.kundeId}`) ?? new Date(0);
+      if (addTage(letztesDatum, bedarf.intervallTage) <= heute) wiederkehrendFaellig++;
     }
   }
 

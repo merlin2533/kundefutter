@@ -137,25 +137,6 @@ export default function AgrarantraegeePage() {
     }
   }
 
-  async function handleServerPathImport() {
-    if (!serverPath.trim()) return;
-    setServerImporting(true);
-    setAutoImportResult(null);
-    try {
-      const res = await fetch("/api/agrarantraege/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "serverpath", path: serverPath.trim() }),
-      });
-      const data = await res.json();
-      setAutoImportResult(data);
-      if (data.ok) { fetchItems(); setServerPath(""); }
-    } catch {
-      setAutoImportResult({ ok: false, error: "Netzwerkfehler beim Serverpfad-Import" });
-    } finally {
-      setServerImporting(false);
-    }
-  }
 
   async function openLink(item: AntragEmpfaenger) {
     setLinkItem(item);
@@ -294,7 +275,7 @@ export default function AgrarantraegeePage() {
           />
           <button
             onClick={handleAutoImport}
-            disabled={autoImporting || serverImporting}
+            disabled={autoImporting}
             className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {autoImporting ? (
