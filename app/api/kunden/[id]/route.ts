@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await req.json();
-  const { kontakte, name, firma, kategorie, verantwortlicher, strasse, plz, ort, land, lat, lng, notizen, aktiv } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv } = body;
 
   // Nur erlaubte Felder uebernehmen
   const updateData: Record<string, unknown> = {};
@@ -33,6 +33,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (firma !== undefined) updateData.firma = firma || null;
   if (kategorie !== undefined) updateData.kategorie = kategorie;
   if (verantwortlicher !== undefined) updateData.verantwortlicher = verantwortlicher || null;
+  if (betriebsnummer !== undefined) updateData.betriebsnummer = betriebsnummer || null;
+  if (flaeche !== undefined) updateData.flaeche = flaeche != null ? Number(flaeche) : null;
   if (strasse !== undefined) updateData.strasse = strasse || null;
   if (plz !== undefined) updateData.plz = plz || null;
   if (ort !== undefined) updateData.ort = ort || null;

@@ -19,6 +19,7 @@ const groups: NavGroup[] = [
       { href: "/kundenimport", label: "Import" },
       { href: "/crm", label: "CRM / Aktivitäten" },
       { href: "/gebietsanalyse", label: "Gebietsanalyse" },
+      { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
     ],
   },
   {

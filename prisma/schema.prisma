@@ -14,6 +14,8 @@ model Kunde {
   firma            String?
   kategorie        String   @default("Sonstige")
   verantwortlicher String?  // frei gewählt aus Mitarbeiterliste
+  betriebsnummer   String?  // z.B. aus AFIG/InVeKoS
+  flaeche          Float?   // ha, manuell erfasst
   strasse          String?
   plz              String?
   ort              String?
@@ -25,13 +27,14 @@ model Kunde {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  kontakte        KundeKontakt[]
-  bedarfe         KundeBedarf[]
-  artikelPreise   KundeArtikelPreis[]
-  lieferungen     Lieferung[]
-  mengenrabatte   Mengenrabatt[]
+  kontakte         KundeKontakt[]
+  bedarfe          KundeBedarf[]
+  artikelPreise    KundeArtikelPreis[]
+  lieferungen      Lieferung[]
+  mengenrabatte    Mengenrabatt[]
   sammelrechnungen Sammelrechnung[]
-  aktivitaeten    KundeAktivitaet[]
+  aktivitaeten     KundeAktivitaet[]
+  antragDaten      AntragEmpfaenger[]
 }
 
 model KundeKontakt {
@@ -346,4 +349,30 @@ model AgrarflaechenCache {
   createdAt    DateTime @default(now())
 
   @@unique([lat, lng, radius])
+}
+
+// ─── AGRARANTRÄGE (AFIG / agrarzahlungen.de) ──────────────────────────────────
+
+model AntragEmpfaenger {
+  id                Int      @id @default(autoincrement())
+  haushaltsjahr     Int
+  name              String   // Name des Begünstigten
+  plz               String?
+  gemeinde          String?
+  land              String?
+  egflGesamt        Float    @default(0)
+  elerGesamt        Float    @default(0)
+  gesamtBetrag      Float    @default(0)
+  massnahmen        String?  // JSON: [{code, ziel, egfl, eler}]
+  mutterunternehmen String?
+  importiertAm      DateTime @default(now())
+
+  kundeId           Int?
+  kunde             Kunde?   @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+
+  @@index([name])
+  @@index([plz])
+  @@index([gemeinde])
+  @@index([haushaltsjahr])
+  @@index([kundeId])
 }
