@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
+import { formatEuro, formatPercent } from "@/lib/utils";
 
 interface KundeABC {
   kundeId: number;
@@ -27,13 +28,6 @@ interface ABCData {
   cKunden: GruppeInfo;
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function fmtPct(n: number) {
-  return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
-}
 
 function KlasseBadge({ klasse }: { klasse: "A" | "B" | "C" }) {
   const styles = {
@@ -86,24 +80,24 @@ export default function ABCPage() {
         <KpiCard
           label="A-Kunden"
           value={data.aKunden.anzahl}
-          sub={`${fmtPct(data.aKunden.anteil)} vom Umsatz`}
+          sub={`${formatPercent(data.aKunden.anteil)} vom Umsatz`}
           color="green"
         />
         <KpiCard
           label="B-Kunden"
           value={data.bKunden.anzahl}
-          sub={`${fmtPct(data.bKunden.anteil)} vom Umsatz`}
+          sub={`${formatPercent(data.bKunden.anteil)} vom Umsatz`}
           color="yellow"
         />
         <KpiCard
           label="C-Kunden"
           value={data.cKunden.anzahl}
-          sub={`${fmtPct(data.cKunden.anteil)} vom Umsatz`}
+          sub={`${formatPercent(data.cKunden.anteil)} vom Umsatz`}
           color="blue"
         />
         <KpiCard
           label="Gesamtumsatz"
-          value={fmt(data.gesamt)}
+          value={formatEuro(data.gesamt)}
           sub={`${data.kunden.length} Kunden gesamt`}
           color="green"
         />
@@ -137,9 +131,9 @@ export default function ABCPage() {
                     {k.name}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-right font-mono">{fmt(k.umsatz)}</td>
-                <td className="px-4 py-2.5 text-right">{fmtPct(k.anteil)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-500">{fmtPct(k.kumuliert)}</td>
+                <td className="px-4 py-2.5 text-right font-mono">{formatEuro(k.umsatz)}</td>
+                <td className="px-4 py-2.5 text-right">{formatPercent(k.anteil)}</td>
+                <td className="px-4 py-2.5 text-right text-gray-500">{formatPercent(k.kumuliert)}</td>
               </tr>
             ))}
           </tbody>

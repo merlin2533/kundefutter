@@ -53,3 +53,7 @@ export function formatDatum(d: Date | string): string {
 export function formatEuro(n: number): string {
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
+
+export function formatPercent(n: number): string {
+  return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "\u00a0%";
+}

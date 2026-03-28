@@ -90,9 +90,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
       (p) => p.differenz !== null && p.differenz !== 0
     );
 
+    const artikelIds = positionenMitDiff.map((p) => p.artikelId);
+    const artikelList = await prisma.artikel.findMany({
+      where: { id: { in: artikelIds } },
+      select: { id: true, aktuellerBestand: true },
+    });
+    const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
     await prisma.$transaction(async (tx) => {
       for (const pos of positionenMitDiff) {
-        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        const artikel = artikelMap.get(pos.artikelId);
         if (!artikel) continue;
         const neuerBestand = artikel.aktuellerBestand + (pos.differenz ?? 0);
         await tx.artikel.update({

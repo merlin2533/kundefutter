@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { formatEuro, formatPercent } from "@/lib/utils";
 
 interface DBItem {
   id: number;
@@ -18,13 +19,6 @@ interface DBData {
   items: DBItem[];
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function fmtPct(n: number) {
-  return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
-}
 
 function margeColor(pct: number) {
   if (pct >= 20) return "text-green-700";
@@ -158,13 +152,13 @@ export default function DeckungsbeitragPage() {
                   <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-2.5 text-gray-400">{i + 1}</td>
                     <td className="px-4 py-2.5 font-medium text-gray-800">{item.name}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-gray-600">{fmt(item.umsatz)}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-gray-500">{fmt(item.einkauf)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-gray-600">{formatEuro(item.umsatz)}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-gray-500">{formatEuro(item.einkauf)}</td>
                     <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-800">
-                      {fmt(item.deckungsbeitrag)}
+                      {formatEuro(item.deckungsbeitrag)}
                     </td>
                     <td className={`px-4 py-2.5 text-right font-semibold ${margeColor(item.dbMarge)}`}>
-                      {fmtPct(item.dbMarge)}
+                      {formatPercent(item.dbMarge)}
                     </td>
                     <td className="px-4 py-2.5 print:hidden">
                       <div className="w-full bg-gray-100 rounded-full h-2.5">

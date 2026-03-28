@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { formatEuro } from "@/lib/utils";
 
 const MONAT_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 
@@ -24,9 +25,6 @@ interface SaisonalData {
   topArtikel: { artikelId: number; name: string; umsatzGesamt: number; umsatzProMonat: number[] }[];
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
 
 const BAR_COLORS = ["#166534", "#15803d", "#4ade80", "#bbf7d0"];
 
@@ -110,7 +108,7 @@ function SvgBarChart({ data, jahre }: { data: MonatRow[]; jahre: number[] }) {
               fill={BAR_COLORS[ji % BAR_COLORS.length]}
               rx={1}
             >
-              <title>{`${MONAT_LABELS[mi]} ${j}: ${fmt(umsatz)}`}</title>
+              <title>{`${MONAT_LABELS[mi]} ${j}: ${formatEuro(umsatz)}`}</title>
             </rect>
           );
         });
@@ -254,7 +252,7 @@ export default function SaisonalPage() {
                       return (
                         <>
                           <td key={`${j}-u`} className="px-3 py-2.5 text-right font-mono text-gray-700">
-                            {entry.umsatz > 0 ? fmt(entry.umsatz) : "—"}
+                            {entry.umsatz > 0 ? formatEuro(entry.umsatz) : "—"}
                           </td>
                           <td key={`${j}-a`} className="px-3 py-2.5 text-right text-gray-400">
                             {entry.anzahl > 0 ? entry.anzahl : "—"}
@@ -277,7 +275,7 @@ export default function SaisonalPage() {
                   <div key={a.artikelId} className="flex items-center gap-3">
                     <span className="text-sm text-gray-400 w-5 text-right">{i + 1}.</span>
                     <span className="text-sm font-medium text-gray-700 flex-1">{a.name}</span>
-                    <span className="text-sm font-mono text-gray-600">{fmt(a.umsatzGesamt)}</span>
+                    <span className="text-sm font-mono text-gray-600">{formatEuro(a.umsatzGesamt)}</span>
                   </div>
                 ))}
               </div>
