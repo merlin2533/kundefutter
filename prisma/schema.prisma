@@ -24,10 +24,12 @@ model Kunde {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  kontakte      KundeKontakt[]
-  bedarfe       KundeBedarf[]
-  artikelPreise KundeArtikelPreis[]
-  lieferungen   Lieferung[]
+  kontakte        KundeKontakt[]
+  bedarfe         KundeBedarf[]
+  artikelPreise   KundeArtikelPreis[]
+  lieferungen     Lieferung[]
+  mengenrabatte   Mengenrabatt[]
+  sammelrechnungen Sammelrechnung[]
 }
 
 model KundeKontakt {
@@ -84,6 +86,7 @@ model Artikel {
   lagerbewegungen  Lagerbewegung[]
   wareineingangPos WareineingangPosition[]
   dokumente        ArtikelDokument[]
+  mengenrabatte    Mengenrabatt[]
 }
 
 model ArtikelDokument {
@@ -183,18 +186,22 @@ model Lieferung {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  kunde           Kunde            @relation(fields: [kundeId], references: [id])
-  positionen      Lieferposition[]
-  lagerbewegungen Lagerbewegung[]
+  kunde             Kunde            @relation(fields: [kundeId], references: [id])
+  positionen        Lieferposition[]
+  lagerbewegungen   Lagerbewegung[]
+  sammelrechnung    Sammelrechnung?  @relation(fields: [sammelrechnungId], references: [id])
+  sammelrechnungId  Int?
 }
 
 model Lieferposition {
-  id            Int   @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   lieferungId   Int
   artikelId     Int
   menge         Float
   verkaufspreis Float
-  einkaufspreis Float @default(0)
+  einkaufspreis Float   @default(0)
+  chargeNr      String? // Chargen-/Losnummer (gesetzlich für Saatgut)
+  rabattProzent Float   @default(0) // Mengenrabatt der angewendet wurde
 
   lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
   artikel   Artikel   @relation(fields: [artikelId], references: [id])
@@ -241,6 +248,38 @@ model Lagerbewegung {
   artikel      Artikel       @relation(fields: [artikelId], references: [id])
   lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
   wareneingang Wareneingang? @relation(fields: [wareneingangId], references: [id])
+}
+
+// ─── MENGENRABATTE ────────────────────────────────────────────────────────────
+
+model Mengenrabatt {
+  id            Int      @id @default(autoincrement())
+  kundeId       Int?     // null = gilt für alle Kunden
+  artikelId     Int?     // null = gilt für alle Artikel der Kategorie
+  kategorie     String?  // alternativ zu artikelId: gilt für ganze Kategorie
+  vonMenge      Float    // ab dieser Menge gilt der Rabatt
+  rabattProzent Float    // Rabatt in %
+  aktiv         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  kunde   Kunde?   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  artikel Artikel? @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+}
+
+// ─── SAMMELRECHNUNG ───────────────────────────────────────────────────────────
+
+model Sammelrechnung {
+  id           Int      @id @default(autoincrement())
+  kundeId      Int
+  rechnungNr   String?
+  rechnungDatum DateTime?
+  bezahltAm   DateTime?
+  zahlungsziel Int      @default(30)
+  notiz        String?
+  createdAt    DateTime @default(now())
+
+  kunde       Kunde       @relation(fields: [kundeId], references: [id])
+  lieferungen Lieferung[]
 }
 
 // ─── SYSTEM: Rechnungsnummer-Zähler ──────────────────────────────────────────
