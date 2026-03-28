@@ -1,0 +1,16 @@
+services:
+  kundefutter:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - kundefutter_data:/data
+      - kundefutter_uploads:/app/public/uploads
+    environment:
+      - DATABASE_URL=file:/data/kundefutter.db
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  kundefutter_data:
+  kundefutter_uploads:

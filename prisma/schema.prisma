@@ -1,13 +1,249 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "sqlite"
+}
+
+// ─── KUNDE ────────────────────────────────────────────────────────────────────
+
+model Kunde {
+  id          Int      @id @default(autoincrement())
+  name        String
+  firma       String?
+  kategorie   String   @default("Sonstige") // Landwirt | Pferdehof | Kleintierhalter | Großhändler | Sonstige
+  strasse     String?
+  plz         String?
+  ort         String?
+  land        String   @default("Deutschland")
+  lat         Float?
+  lng         Float?
+  notizen     String?
+  aktiv       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  kontakte      KundeKontakt[]
+  bedarfe       KundeBedarf[]
+  artikelPreise KundeArtikelPreis[]
+  lieferungen   Lieferung[]
+}
+
+model KundeKontakt {
+  id      Int     @id @default(autoincrement())
+  kundeId Int
+  typ     String  // telefon | mobil | email | fax
+  wert    String
+  label   String? // z.B. "Büro", "Herr Müller"
+
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+}
+
+// ─── LIEFERANT ────────────────────────────────────────────────────────────────
+
+model Lieferant {
+  id              Int      @id @default(autoincrement())
+  name            String
+  ansprechpartner String?
+  email           String?
+  telefon         String?
+  strasse         String?
+  plz             String?
+  ort             String?
+  notizen         String?
+  aktiv           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  artikelZuordnungen ArtikelLieferant[]
+  wareneingaenge     Wareneingang[]
+}
+
+// ─── ARTIKEL ──────────────────────────────────────────────────────────────────
+
+model Artikel {
+  id               Int      @id @default(autoincrement())
+  artikelnummer    String   @unique
+  name             String
+  kategorie        String   // Futter | Duenger | Saatgut
+  einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
+  beschreibung     String?
+  standardpreis    Float    @default(0)
+  mindestbestand   Float    @default(0)
+  aktuellerBestand Float    @default(0)
+  aktiv            Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  lieferanten      ArtikelLieferant[]
+  kundePreise      KundeArtikelPreis[]
+  preisHistorie    ArtikelPreisHistorie[]
+  bedarfe          KundeBedarf[]
+  lieferpositionen Lieferposition[]
+  lagerbewegungen  Lagerbewegung[]
+  wareineingangPos WareineingangPosition[]
+  dokumente        ArtikelDokument[]
+}
+
+model ArtikelDokument {
+  id          Int      @id @default(autoincrement())
+  artikelId   Int
+  name        String
+  dateiname   String   // original filename
+  pfad        String   // stored path under /uploads/artikel/
+  typ         String?  // MIME type
+  groesse     Int?     // bytes
+  notiz       String?
+  createdAt   DateTime @default(now())
+
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+}
+
+model ArtikelLieferant {
+  id                  Int      @id @default(autoincrement())
+  artikelId           Int
+  lieferantId         Int
+  lieferantenArtNr    String?
+  einkaufspreis       Float    @default(0)
+  mindestbestellmenge Float    @default(0)
+  lieferzeitTage      Int      @default(3)
+  bevorzugt           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  artikel   Artikel   @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+  lieferant Lieferant @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
+
+  @@unique([artikelId, lieferantId])
+}
+
+// Preishistorie: jede Änderung am Standardpreis wird versioniert
+model ArtikelPreisHistorie {
+  id          Int      @id @default(autoincrement())
+  artikelId   Int
+  alterPreis  Float
+  neuerPreis  Float
+  geaendertAm DateTime @default(now())
+  notiz       String?
+
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+}
+
+// ─── PREISE & KONDITIONEN ─────────────────────────────────────────────────────
+
+model KundeArtikelPreis {
+  id        Int      @id @default(autoincrement())
+  kundeId   Int
+  artikelId Int
+  preis     Float
+  rabatt    Float    @default(0) // Prozent
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kunde   Kunde   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@unique([kundeId, artikelId])
+}
+
+// ─── BEDARF (wiederkehrende Lieferungen) ──────────────────────────────────────
+
+model KundeBedarf {
+  id            Int      @id @default(autoincrement())
+  kundeId       Int
+  artikelId     Int
+  menge         Float
+  intervallTage Int      @default(30)
+  notiz         String?
+  aktiv         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  kunde   Kunde   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@unique([kundeId, artikelId])
+}
+
+// ─── LIEFERUNG ────────────────────────────────────────────────────────────────
+
+model Lieferung {
+  id               Int      @id @default(autoincrement())
+  kundeId          Int
+  datum            DateTime @default(now())
+  status           String   @default("geplant") // geplant | geliefert | storniert
+  stornoBegründung String?
+  notiz            String?
+  rechnungNr       String?  // gesetzt wenn Rechnung erstellt wurde
+  rechnungDatum    DateTime?
+  wiederkehrend    Boolean  @default(false) // wurde automatisch angelegt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  kunde           Kunde            @relation(fields: [kundeId], references: [id])
+  positionen      Lieferposition[]
+  lagerbewegungen Lagerbewegung[]
+}
+
+model Lieferposition {
+  id            Int   @id @default(autoincrement())
+  lieferungId   Int
+  artikelId     Int
+  menge         Float
+  verkaufspreis Float
+  einkaufspreis Float @default(0)
+
+  lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
+  artikel   Artikel   @relation(fields: [artikelId], references: [id])
+}
+
+// ─── WARENEINGANG ─────────────────────────────────────────────────────────────
+
+model Wareneingang {
+  id          Int      @id @default(autoincrement())
+  lieferantId Int
+  datum       DateTime @default(now())
+  notiz       String?
+  createdAt   DateTime @default(now())
+
+  lieferant       Lieferant              @relation(fields: [lieferantId], references: [id])
+  positionen      WareineingangPosition[]
+  lagerbewegungen Lagerbewegung[]
+}
+
+model WareineingangPosition {
+  id             Int   @id @default(autoincrement())
+  wareneingangId Int
+  artikelId      Int
+  menge          Float
+  einkaufspreis  Float
+
+  wareneingang Wareneingang @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
+  artikel      Artikel      @relation(fields: [artikelId], references: [id])
+}
+
+// ─── LAGERBEWEGUNG ────────────────────────────────────────────────────────────
+
+model Lagerbewegung {
+  id             Int      @id @default(autoincrement())
+  artikelId      Int
+  typ            String   // eingang | ausgang | korrektur
+  menge          Float    // positiv = Zugang, negativ = Abgang
+  bestandNach    Float
+  datum          DateTime @default(now())
+  notiz          String?
+  lieferungId    Int?
+  wareneingangId Int?
+
+  artikel      Artikel       @relation(fields: [artikelId], references: [id])
+  lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
+  wareneingang Wareneingang? @relation(fields: [wareneingangId], references: [id])
+}
+
+// ─── SYSTEM: Rechnungsnummer-Zähler ──────────────────────────────────────────
+
+model Einstellung {
+  key   String @id
+  value String
 }
