@@ -13,6 +13,7 @@ export async function GET() {
     lagerArtikel,
     topKunden,
     faelligNaechste14Tage,
+    offeneRechnungenListe,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
@@ -34,6 +35,10 @@ export async function GET() {
         datum: { lte: new Date(heute.getTime() + 14 * 24 * 60 * 60 * 1000) },
       },
     }),
+    prisma.lieferung.findMany({
+      where: { status: "geliefert", bezahltAm: null },
+      select: { datum: true, zahlungsziel: true },
+    }),
   ]);
 
   const umsatzMonat = geliefertDiesenMonat.reduce((sum, l) => {
@@ -53,6 +58,16 @@ export async function GET() {
   const lagerAlarme = lagerArtikel.filter(
     (a) => lagerStatus(a.aktuellerBestand, a.mindestbestand) !== "gruen"
   ).length;
+
+  const heuteStart = new Date(heute);
+  heuteStart.setHours(0, 0, 0, 0);
+  const offeneRechnungen = offeneRechnungenListe.length;
+  const ueberfaelligeRechnungen = offeneRechnungenListe.filter((l) => {
+    const tage = l.zahlungsziel ?? 30;
+    const faellig = new Date(l.datum.getTime() + tage * 24 * 60 * 60 * 1000);
+    faellig.setHours(0, 0, 0, 0);
+    return heuteStart > faellig;
+  }).length;
 
   // Top-Kunden mit Namen anreichern
   const topKundenMitNamen = await Promise.all(
@@ -77,6 +92,8 @@ export async function GET() {
     deckungsbeitragMonat: Math.round(deckungsbeitragMonat * 100) / 100,
     lagerAlarme,
     faelligNaechste14Tage,
+    offeneRechnungen,
+    ueberfaelligeRechnungen,
     topKunden: topKundenMitNamen.sort((a, b) => b.umsatz - a.umsatz),
   });
 }
