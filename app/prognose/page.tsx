@@ -6,12 +6,12 @@ interface PrognoseRow {
   artikelId: number;
   artikelName: string;
   kategorie: string;
-  bestand: number;
+  aktuellerBestand: number;
   einheit: string;
-  tagesverbrauch: number;
+  avgTagesverbrauch: number;
   effektiverTagesverbrauch: number;
   reichweiteTage: number | null;
-  bestellen: boolean;
+  bestellvorschlag: boolean;
 }
 
 interface BestellvorschlagRow {
@@ -199,11 +199,11 @@ function PrognoseTab({
               <tr key={row.artikelId} className="border-b last:border-0 hover:bg-green-50 transition-colors">
                 <td className="px-4 py-3 font-medium">{row.artikelName}</td>
                 <td className="px-4 py-3 text-gray-600">{row.kategorie}</td>
-                <td className="px-4 py-3 font-mono">{row.bestand} {row.einheit}</td>
+                <td className="px-4 py-3 font-mono">{row.aktuellerBestand} {row.einheit}</td>
                 <td className="px-4 py-3 font-mono">
-                  {row.tagesverbrauch === 0
+                  {row.avgTagesverbrauch === 0
                     ? <span className="text-gray-400 text-xs">Kein Verbrauch</span>
-                    : `${row.tagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
+                    : `${row.avgTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
                 </td>
                 <td className="px-4 py-3 font-mono">
                   {row.effektiverTagesverbrauch === 0
@@ -216,7 +216,7 @@ function PrognoseTab({
                     : `${row.reichweiteTage} Tage`}
                 </td>
                 <td className="px-4 py-3">
-                  {row.bestellen ? (
+                  {row.bestellvorschlag ? (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700 border border-red-200">
                       Bestellen
                     </span>
