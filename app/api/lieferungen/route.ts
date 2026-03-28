@@ -8,10 +8,19 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const von = searchParams.get("von");
   const bis = searchParams.get("bis");
+  const search = searchParams.get("search");
 
   const where: Record<string, unknown> = {};
   if (kundeId) where.kundeId = Number(kundeId);
   if (status) where.status = status;
+  if (search) {
+    where.kunde = {
+      OR: [
+        { name: { contains: search } },
+        { firma: { contains: search } },
+      ],
+    };
+  }
   if (von || bis) {
     where.datum = {
       ...(von && { gte: new Date(von) }),
