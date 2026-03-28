@@ -1,3 +1,5 @@
+# ── Entwicklung (lokal bauen) ──────────────────────────────────────────────────
+# docker compose up --build
 services:
   kundefutter:
     build: .

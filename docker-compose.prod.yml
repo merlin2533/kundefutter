@@ -1,0 +1,22 @@
+# ── Produktion (fertiges Image von ghcr.io ziehen) ────────────────────────────
+# docker compose -f docker-compose.prod.yml up -d
+#
+# Erstes Mal oder nach Update:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+services:
+  kundefutter:
+    image: ghcr.io/merlin2533/kundefutter:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - kundefutter_data:/data
+      - kundefutter_uploads:/app/public/uploads
+    environment:
+      - DATABASE_URL=file:/data/kundefutter.db
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  kundefutter_data:
+  kundefutter_uploads:
