@@ -16,6 +16,8 @@ interface KundeKontakt {
   typ: string;
   wert: string;
   label?: string;
+  vorname?: string;
+  nachname?: string;
 }
 
 interface Artikel {
@@ -553,7 +555,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ typ: "telefon", wert: "", label: "" });
+  const [form, setForm] = useState({ typ: "telefon", wert: "", label: "", vorname: "", nachname: "" });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
@@ -563,8 +565,8 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
     setSaving(true);
     try {
       const newKontakte = [
-        ...kunde.kontakte.map(({ typ, wert, label }) => ({ typ, wert, label })),
-        { typ: form.typ, wert: form.wert.trim(), label: form.label || undefined },
+        ...kunde.kontakte.map(({ typ, wert, label, vorname, nachname }) => ({ typ, wert, label, vorname, nachname })),
+        { typ: form.typ, wert: form.wert.trim(), label: form.label || undefined, vorname: form.vorname.trim() || undefined, nachname: form.nachname.trim() || undefined },
       ];
       const res = await fetch(`/api/kunden/${kunde.id}`, {
         method: "PUT",
@@ -573,7 +575,7 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
       });
       if (!res.ok) throw new Error();
       setShowAdd(false);
-      setForm({ typ: "telefon", wert: "", label: "" });
+      setForm({ typ: "telefon", wert: "", label: "", vorname: "", nachname: "" });
       onRefresh();
     } catch {
       // ignore
@@ -587,7 +589,7 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
     try {
       const newKontakte = kunde.kontakte
         .filter((k) => k.id !== kontaktId)
-        .map(({ typ, wert, label }) => ({ typ, wert, label }));
+        .map(({ typ, wert, label, vorname, nachname }) => ({ typ, wert, label, vorname, nachname }));
       await fetch(`/api/kunden/${kunde.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -622,6 +624,9 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
               <div className="flex items-center gap-3">
                 <span className="text-lg">{kontaktIcon(k.typ)}</span>
                 <div>
+                  {(k.vorname || k.nachname) && (
+                    <p className="text-xs font-medium text-gray-700">{[k.vorname, k.nachname].filter(Boolean).join(" ")}</p>
+                  )}
                   <p className="text-sm font-medium text-gray-800">{k.wert}</p>
                   <p className="text-xs text-gray-500">
                     {k.typ.charAt(0).toUpperCase() + k.typ.slice(1)}
@@ -645,6 +650,28 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <h3 className="text-sm font-semibold mb-3">Neuer Kontakt</h3>
           <form onSubmit={handleAdd} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
+                <input
+                  type="text"
+                  placeholder="Max"
+                  value={form.vorname}
+                  onChange={(e) => setForm({ ...form, vorname: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nachname</label>
+                <input
+                  type="text"
+                  placeholder="Mustermann"
+                  value={form.nachname}
+                  onChange={(e) => setForm({ ...form, nachname: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>

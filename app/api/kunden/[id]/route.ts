@@ -52,10 +52,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     updateData.kontakte = {
       deleteMany: {},
       create: Array.isArray(kontakte)
-        ? kontakte.map((k: { typ: string; wert: string; label?: string }) => ({
+        ? kontakte.map((k: { typ: string; wert: string; label?: string; vorname?: string; nachname?: string }) => ({
             typ: k.typ,
             wert: k.wert,
             label: k.label || null,
+            vorname: k.vorname || null,
+            nachname: k.nachname || null,
           }))
         : [],
     };
