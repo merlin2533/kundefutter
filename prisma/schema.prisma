@@ -37,6 +37,8 @@ model Kunde {
   aktivitaeten     KundeAktivitaet[]
   antragDaten      AntragEmpfaenger[]
   kundeNotizen     KundeNotiz[]
+  angebote         Angebot[]
+  schlaegte        KundeSchlag[]
 }
 
 model KundeKontakt {
@@ -125,6 +127,7 @@ model Artikel {
   preisHistorie    ArtikelPreisHistorie[]
   bedarfe          KundeBedarf[]
   lieferpositionen Lieferposition[]
+  angebotPositionen AngebotPosition[]
   lagerbewegungen  Lagerbewegung[]
   wareineingangPos WareineingangPosition[]
   dokumente        ArtikelDokument[]
@@ -424,5 +427,60 @@ model AntragEmpfaenger {
   @@index([plz])
   @@index([gemeinde])
   @@index([haushaltsjahr])
+  @@index([kundeId])
+}
+
+// ─── ANGEBOTSWESEN ────────────────────────────────────────────────────────────
+
+model Angebot {
+  id          Int      @id @default(autoincrement())
+  nummer      String   @unique          // z.B. AN-2026-0001
+  datum       DateTime @default(now())
+  gueltigBis  DateTime?
+  status      String   @default("OFFEN") // OFFEN | ANGENOMMEN | ABGELEHNT | ABGELAUFEN
+  kundeId     Int
+  notiz       String?
+  erstellt    DateTime @default(now())
+  aktualisiert DateTime @updatedAt
+
+  kunde       Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  positionen  AngebotPosition[]
+
+  @@index([kundeId])
+  @@index([status])
+  @@index([datum])
+}
+
+model AngebotPosition {
+  id         Int    @id @default(autoincrement())
+  angebotId  Int
+  artikelId  Int
+  menge      Float
+  preis      Float  // Angebotspreis (netto)
+  rabatt     Float  @default(0)
+  einheit    String @default("kg")
+  notiz      String?
+
+  angebot    Angebot @relation(fields: [angebotId], references: [id], onDelete: Cascade)
+  artikel    Artikel @relation(fields: [artikelId], references: [id])
+}
+
+// ─── SCHLAGKARTEI ─────────────────────────────────────────────────────────────
+
+model KundeSchlag {
+  id         Int      @id @default(autoincrement())
+  kundeId    Int
+  name       String                          // Schlagname / Feldname
+  flaeche    Float                           // ha
+  fruchtart  String?                         // Weizen, Raps, Gerste …
+  sorte      String?                         // Sortenname
+  vorfrucht  String?
+  aussaatJahr Int?
+  aussaatMenge Float?                        // kg/ha
+  notiz      String?
+  erstellt   DateTime @default(now())
+
+  kunde      Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
   @@index([kundeId])
 }
