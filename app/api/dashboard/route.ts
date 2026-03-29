@@ -5,6 +5,8 @@ import { lagerStatus, addTage } from "@/lib/utils";
 export async function GET() {
   const heute = new Date();
   const monatsAnfang = new Date(heute.getFullYear(), heute.getMonth(), 1);
+  const vorMonatAnfang = new Date(heute.getFullYear(), heute.getMonth() - 1, 1);
+  const vorMonatEnde = new Date(heute.getFullYear(), heute.getMonth(), 0, 23, 59, 59, 999);
 
   const vor90Tagen = new Date(heute.getTime() - 90 * 24 * 60 * 60 * 1000);
 
@@ -12,6 +14,7 @@ export async function GET() {
     kundenAktiv,
     offeneLieferungen,
     geliefertDiesenMonat,
+    geliefertVormonat,
     lagerArtikel,
     topKunden,
     faelligNaechste14Tage,
@@ -19,12 +22,19 @@ export async function GET() {
     alleBedarfe,
     wiedervorlagenRaw,
     aktivKunden,
+    letzteAktivitaetenRaw,
+    letzteAngeboteRaw,
+    letzteAufgabenErledigtRaw,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
     prisma.lieferung.findMany({
       where: { status: "geliefert", datum: { gte: monatsAnfang } },
       include: { positionen: true },
+    }),
+    prisma.lieferung.findMany({
+      where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
+      include: { positionen: { select: { menge: true, verkaufspreis: true } } },
     }),
     prisma.artikel.findMany({ where: { aktiv: true } }),
     prisma.lieferung.groupBy({
@@ -42,7 +52,16 @@ export async function GET() {
     }),
     prisma.lieferung.findMany({
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
-      select: { datum: true, rechnungDatum: true, zahlungsziel: true },
+      select: {
+        id: true,
+        datum: true,
+        rechnungNr: true,
+        rechnungDatum: true,
+        zahlungsziel: true,
+        kundeId: true,
+        kunde: { select: { id: true, name: true, firma: true } },
+        positionen: { select: { menge: true, verkaufspreis: true } },
+      },
     }),
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
@@ -75,6 +94,41 @@ export async function GET() {
       },
       orderBy: { name: "asc" },
       take: 200,
+    }),
+    prisma.kundeAktivitaet.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        typ: true,
+        betreff: true,
+        createdAt: true,
+        kunde: { select: { id: true, name: true, firma: true } },
+      },
+    }),
+    prisma.angebot.findMany({
+      orderBy: { erstellt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        nummer: true,
+        erstellt: true,
+        status: true,
+        kunde: { select: { id: true, name: true, firma: true } },
+      },
+    }),
+    prisma.aufgabe.findMany({
+      where: { erledigt: true },
+      orderBy: { erledigtAm: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        betreff: true,
+        erledigtAm: true,
+        typ: true,
+        kundeId: true,
+        kunde: { select: { id: true, name: true, firma: true } },
+      },
     }),
   ]);
 
@@ -110,16 +164,7 @@ export async function GET() {
 
   const lagerAlarme = lagerAlarmArtikel.length;
 
-  const heuteStart = new Date(heute);
-  heuteStart.setHours(0, 0, 0, 0);
   const offeneRechnungen = offeneRechnungenListe.length;
-  const ueberfaelligeRechnungen = offeneRechnungenListe.filter((l) => {
-    const tage = l.zahlungsziel ?? 30;
-    const basisDatum = l.rechnungDatum ?? l.datum;
-    const faellig = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
-    faellig.setHours(0, 0, 0, 0);
-    return heuteStart > faellig;
-  }).length;
 
   // Top-Kunden mit Namen anreichern (aus bereits geladenen Daten berechnen)
   const topKundenIds = topKunden.map((k) => k.kundeId);
@@ -207,6 +252,127 @@ export async function GET() {
     kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : null,
   }));
 
+  // Umsatz Vormonat
+  const umsatzVormonat = geliefertVormonat.reduce((sum, l) => {
+    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+  }, 0);
+
+  // Fällige Rechnungen: berechne Betrag und Überfälligkeit je Rechnung
+  const heuteStart = new Date(heute);
+  heuteStart.setHours(0, 0, 0, 0);
+  const faelligeRechnungenMitDetails = offeneRechnungenListe.map((l) => {
+    const tage = l.zahlungsziel ?? 30;
+    const basisDatum = l.rechnungDatum ?? l.datum;
+    const faelligDatum = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
+    faelligDatum.setHours(0, 0, 0, 0);
+    const ueberfaelligTage = Math.max(0, Math.floor((heuteStart.getTime() - faelligDatum.getTime()) / (24 * 60 * 60 * 1000)));
+    const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    return {
+      id: l.id,
+      rechnungNr: l.rechnungNr,
+      kundeId: l.kundeId,
+      kundeName: l.kunde ? (l.kunde.firma ?? l.kunde.name) : "?",
+      betrag: Math.round(betrag * 100) / 100,
+      faelligAm: faelligDatum.toISOString(),
+      ueberfaelligTage,
+    };
+  });
+
+  const faelligeRechnungenSumme = faelligeRechnungenMitDetails.reduce((s, r) => s + r.betrag, 0);
+  const ueberfaelligeRechnungen = faelligeRechnungenMitDetails.filter((r) => r.ueberfaelligTage > 0).length;
+  const faelligeRechnungen = faelligeRechnungenMitDetails
+    .sort((a, b) => b.ueberfaelligTage - a.ueberfaelligTage)
+    .slice(0, 5);
+
+  // Lager-Kritisch: Top 5 kritischste Artikel (rot zuerst, dann gelb)
+  const lagerKritisch = lagerAlarmArtikel.slice(0, 5);
+
+  // Letzte Aktivitäten Timeline: kombiniere CRM, Lieferungen, Angebote, erledigte Aufgaben
+  type TimelineEntry = {
+    id: string;
+    zeitpunkt: string;
+    typ: "crm" | "lieferung" | "angebot" | "aufgabe";
+    icon: string;
+    titel: string;
+    kundeName?: string;
+    kundeId?: number;
+    link?: string;
+  };
+
+  const timeline: TimelineEntry[] = [];
+
+  // CRM-Aktivitäten
+  for (const a of letzteAktivitaetenRaw) {
+    timeline.push({
+      id: `crm-${a.id}`,
+      zeitpunkt: a.createdAt.toISOString(),
+      typ: "crm",
+      icon: a.typ === "besuch" ? "👤" : a.typ === "anruf" ? "📞" : a.typ === "email" ? "✉️" : "💬",
+      titel: a.betreff,
+      kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : undefined,
+      kundeId: a.kunde?.id,
+      link: a.kunde ? `/kunden/${a.kunde.id}?tab=CRM` : "/crm",
+    });
+  }
+
+  // Neue Lieferungen (letzten 10)
+  const letzteNeuereLieferungen = await prisma.lieferung.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      kunde: { select: { id: true, name: true, firma: true } },
+    },
+  });
+  for (const l of letzteNeuereLieferungen) {
+    timeline.push({
+      id: `lieferung-${l.id}`,
+      zeitpunkt: l.createdAt.toISOString(),
+      typ: "lieferung",
+      icon: "📦",
+      titel: `Lieferung ${l.status === "geliefert" ? "geliefert" : "geplant"}`,
+      kundeName: l.kunde ? (l.kunde.firma ?? l.kunde.name) : undefined,
+      kundeId: l.kunde?.id,
+      link: `/lieferungen/${l.id}`,
+    });
+  }
+
+  // Neue Angebote
+  for (const a of letzteAngeboteRaw) {
+    timeline.push({
+      id: `angebot-${a.id}`,
+      zeitpunkt: a.erstellt.toISOString(),
+      typ: "angebot",
+      icon: "📝",
+      titel: `Angebot ${a.nummer}`,
+      kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : undefined,
+      kundeId: a.kunde?.id,
+      link: `/angebote/${a.id}`,
+    });
+  }
+
+  // Erledigte Aufgaben
+  for (const a of letzteAufgabenErledigtRaw) {
+    if (!a.erledigtAm) continue;
+    timeline.push({
+      id: `aufgabe-${a.id}`,
+      zeitpunkt: a.erledigtAm.toISOString(),
+      typ: "aufgabe",
+      icon: "✅",
+      titel: a.betreff,
+      kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : undefined,
+      kundeId: a.kundeId ?? undefined,
+      link: a.kundeId ? `/kunden/${a.kundeId}?tab=Aufgaben` : "/aufgaben",
+    });
+  }
+
+  // Chronologisch absteigend sortieren, Top 10
+  const letzteAktivitaeten = timeline
+    .sort((a, b) => new Date(b.zeitpunkt).getTime() - new Date(a.zeitpunkt).getTime())
+    .slice(0, 10);
+
   // Kein Kontakt (90+ Tage, mindestens 1 Lieferung)
   const keinKontakt = aktivKunden
     .map((k) => ({
@@ -231,16 +397,21 @@ export async function GET() {
     kundenAktiv,
     offeneLieferungen,
     umsatzMonat: Math.round(umsatzMonat * 100) / 100,
+    umsatzVormonat: Math.round(umsatzVormonat * 100) / 100,
     deckungsbeitragMonat: Math.round(deckungsbeitragMonat * 100) / 100,
     lagerAlarme,
     artikelAlarme: lagerAlarmArtikel,
+    lagerKritisch,
     faelligNaechste14Tage,
     offeneRechnungen,
     ueberfaelligeRechnungen,
+    faelligeRechnungen,
+    faelligeRechnungenSumme: Math.round(faelligeRechnungenSumme * 100) / 100,
     wiederkehrendFaellig,
     topKunden: topKundenMitNamen.sort((a, b) => b.umsatz - a.umsatz),
     markttrend,
     wiedervorlagen,
     keinKontakt,
+    letzteAktivitaeten,
   });
 }

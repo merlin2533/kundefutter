@@ -27,7 +27,7 @@ const STATUS_FARBEN: Record<string, string> = {
   OFFEN: "bg-yellow-100 text-yellow-800",
   ANGENOMMEN: "bg-green-100 text-green-800",
   ABGELEHNT: "bg-red-100 text-red-800",
-  ABGELAUFEN: "bg-gray-100 text-gray-600",
+  ABGELAUFEN: "bg-red-200 text-red-900 font-semibold",
 };
 
 export default function AngebotePage() {
@@ -58,7 +58,12 @@ export default function AngebotePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Angebote</h1>
+          <span className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">Angebote</h1>
+            <Link href="/hilfe#lieferungen" title="Hilfe: Lieferungen & Angebote" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </Link>
+          </span>
           <p className="text-sm text-gray-500 mt-0.5">{angebote.length} Angebote gefunden</p>
         </div>
         <Link
@@ -144,7 +149,7 @@ export default function AngebotePage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {angebote.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={a.id} className={`transition-colors ${a.status === "ABGELAUFEN" ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}`}>
                     <td className="px-4 py-3 font-mono font-medium text-gray-900">{a.nummer}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDatum(a.datum)}</td>
                     <td className="px-4 py-3 text-gray-600">

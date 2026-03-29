@@ -14,6 +14,14 @@ interface Aktivitaet {
   kunde: { id: number; name: string; firma?: string | null };
 }
 
+interface WiedervorlageForm {
+  aktivitaetId: number;
+  kundeId: number;
+  betreff: string;
+  typ: string;
+  faelligAm: string;
+}
+
 interface Kunde {
   id: number;
   name: string;
@@ -37,6 +45,11 @@ export default function CrmPage() {
   const [typFilter, setTypFilter] = useState("alle");
   const [searchText, setSearchText] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Wiedervorlage
+  const [wiedervorlage, setWiedervorlage] = useState<WiedervorlageForm | null>(null);
+  const [wiedervorlageSaving, setWiedervorlageSaving] = useState(false);
+  const [wiedervorlageSuccess, setWiedervorlageSuccess] = useState<number | null>(null);
 
   // Schnellerfassung
   const [kunden, setKunden] = useState<Kunde[]>([]);
@@ -108,6 +121,52 @@ export default function CrmPage() {
     }
   }
 
+  function openWiedervorlage(item: Aktivitaet) {
+    const defaultDatum = new Date();
+    defaultDatum.setDate(defaultDatum.getDate() + 7);
+    const crmTypToAufgabeTyp: Record<string, string> = {
+      anruf: "anruf",
+      besuch: "besuch",
+      email: "email",
+      aufgabe: "aufgabe",
+      notiz: "aufgabe",
+    };
+    setWiedervorlage({
+      aktivitaetId: item.id,
+      kundeId: item.kunde.id,
+      betreff: `Wiedervorlage: ${item.betreff}`,
+      typ: crmTypToAufgabeTyp[item.typ] ?? "aufgabe",
+      faelligAm: defaultDatum.toISOString().split("T")[0],
+    });
+    setWiedervorlageSuccess(null);
+  }
+
+  async function handleWiedervorlageSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!wiedervorlage) return;
+    setWiedervorlageSaving(true);
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          betreff: wiedervorlage.betreff,
+          kundeId: wiedervorlage.kundeId,
+          typ: wiedervorlage.typ,
+          faelligAm: wiedervorlage.faelligAm || null,
+          prioritaet: "normal",
+        }),
+      });
+      if (res.ok) {
+        setWiedervorlageSuccess(wiedervorlage.aktivitaetId);
+        setWiedervorlage(null);
+        setTimeout(() => setWiedervorlageSuccess(null), 3000);
+      }
+    } finally {
+      setWiedervorlageSaving(false);
+    }
+  }
+
   const typen = ["alle", ...TYPEN_KEYS];
 
   // Filter by type and search
@@ -130,7 +189,12 @@ export default function CrmPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold">CRM – Aktivitäten & Aufgaben</h1>
+          <span className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">CRM – Aktivitäten &amp; Aufgaben</h1>
+            <Link href="/hilfe#crm" title="Hilfe: CRM & Aufgaben" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </Link>
+          </span>
           <p className="text-sm text-gray-500 mt-0.5">Kundenbesuche, Anrufe, Notizen und offene Aufgaben im Überblick.</p>
           {overdueCount > 0 && (
             <p className="mt-1 text-sm font-medium text-red-600">{overdueCount} überfällige Aufgabe{overdueCount !== 1 ? "n" : ""}</p>
@@ -247,56 +311,117 @@ export default function CrmPage() {
             const meta = TYP_META[item.typ] ?? TYP_META.notiz;
             const isOverdue = item.faelligAm && !item.erledigt && new Date(item.faelligAm) < new Date();
             return (
-              <div
-                key={item.id}
-                className={`flex gap-3 p-4 rounded-xl border bg-white transition-colors ${isOverdue ? "border-red-200" : "border-gray-200"}`}
-              >
-                <div className="text-xl leading-none mt-0.5 shrink-0">{meta.icon}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>{meta.label}</span>
+              <div key={item.id} className="space-y-0">
+                <div
+                  className={`flex gap-3 p-4 rounded-xl border bg-white transition-colors ${isOverdue ? "border-red-200" : "border-gray-200"} ${wiedervorlage?.aktivitaetId === item.id ? "rounded-b-none border-b-0" : ""}`}
+                >
+                  <div className="text-xl leading-none mt-0.5 shrink-0">{meta.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${meta.color}`}>{meta.label}</span>
+                      <Link
+                        href={`/kunden/${item.kunde.id}?tab=CRM`}
+                        className="text-sm font-medium text-green-700 hover:underline"
+                      >
+                        {item.kunde.firma ? `${item.kunde.firma} (${item.kunde.name})` : item.kunde.name}
+                      </Link>
+                      {isOverdue && <span className="text-xs text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded">Überfällig</span>}
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-gray-900">{item.betreff}</p>
+                    {item.inhalt && <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{item.inhalt}</p>}
+                    <div className="mt-1.5 flex gap-3 text-xs text-gray-400">
+                      <span>{new Date(item.datum).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</span>
+                      {item.faelligAm && (
+                        <span className={isOverdue ? "text-red-500 font-medium" : ""}>
+                          Fällig: {new Date(item.faelligAm).toLocaleDateString("de-DE")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 items-end shrink-0">
+                    {item.typ === "aufgabe" && (
+                      <button
+                        onClick={() => toggleErledigt(item)}
+                        className="text-xs px-2 py-1 rounded border border-green-500 text-green-700 hover:bg-green-50 transition-colors"
+                      >
+                        Erledigen
+                      </button>
+                    )}
+                    {wiedervorlageSuccess === item.id ? (
+                      <span className="text-xs text-green-600 font-medium">Aufgabe erstellt</span>
+                    ) : (
+                      <button
+                        onClick={() => wiedervorlage?.aktivitaetId === item.id ? setWiedervorlage(null) : openWiedervorlage(item)}
+                        className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors whitespace-nowrap"
+                      >
+                        {wiedervorlage?.aktivitaetId === item.id ? "Abbrechen" : "Wiedervorlage"}
+                      </button>
+                    )}
                     <Link
                       href={`/kunden/${item.kunde.id}?tab=CRM`}
-                      className="text-sm font-medium text-green-700 hover:underline"
+                      className="text-xs text-gray-400 hover:text-gray-600"
                     >
-                      {item.kunde.firma ? `${item.kunde.firma} (${item.kunde.name})` : item.kunde.name}
+                      Zum Kunden →
                     </Link>
-                    {isOverdue && <span className="text-xs text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded">Überfällig</span>}
-                  </div>
-                  <p className="mt-1 text-sm font-medium text-gray-900">{item.betreff}</p>
-                  {item.inhalt && <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{item.inhalt}</p>}
-                  <div className="mt-1.5 flex gap-3 text-xs text-gray-400">
-                    <span>{new Date(item.datum).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}</span>
-                    {item.faelligAm && (
-                      <span className={isOverdue ? "text-red-500 font-medium" : ""}>
-                        Fällig: {new Date(item.faelligAm).toLocaleDateString("de-DE")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1 items-end shrink-0">
-                  {item.typ === "aufgabe" && (
                     <button
-                      onClick={() => toggleErledigt(item)}
-                      className="text-xs px-2 py-1 rounded border border-green-500 text-green-700 hover:bg-green-50 transition-colors"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deleting === item.id}
+                      className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
                     >
-                      Erledigen
+                      {deleting === item.id ? "…" : "Löschen"}
                     </button>
-                  )}
-                  <Link
-                    href={`/kunden/${item.kunde.id}?tab=CRM`}
-                    className="text-xs text-gray-400 hover:text-gray-600"
-                  >
-                    Zum Kunden →
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    disabled={deleting === item.id}
-                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
-                  >
-                    {deleting === item.id ? "…" : "Löschen"}
-                  </button>
+                  </div>
                 </div>
+                {wiedervorlage?.aktivitaetId === item.id && (
+                  <form
+                    onSubmit={handleWiedervorlageSubmit}
+                    className="border border-gray-200 border-t-blue-200 bg-blue-50 rounded-b-xl px-4 py-3 space-y-3"
+                  >
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Wiedervorlage als Aufgabe erstellen</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={wiedervorlage.betreff}
+                        onChange={(e) => setWiedervorlage({ ...wiedervorlage, betreff: e.target.value })}
+                        placeholder="Betreff *"
+                        required
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      <select
+                        value={wiedervorlage.typ}
+                        onChange={(e) => setWiedervorlage({ ...wiedervorlage, typ: e.target.value })}
+                        className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full sm:w-32"
+                      >
+                        <option value="aufgabe">Aufgabe</option>
+                        <option value="anruf">Anruf</option>
+                        <option value="besuch">Besuch</option>
+                        <option value="email">E-Mail</option>
+                      </select>
+                      <input
+                        type="date"
+                        value={wiedervorlage.faelligAm}
+                        onChange={(e) => setWiedervorlage({ ...wiedervorlage, faelligAm: e.target.value })}
+                        className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full sm:w-40"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={wiedervorlageSaving || !wiedervorlage.betreff.trim()}
+                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {wiedervorlageSaving ? "…" : "Aufgabe erstellen"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWiedervorlage(null)}
+                        className="px-4 py-1.5 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Abbrechen
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             );
           })}

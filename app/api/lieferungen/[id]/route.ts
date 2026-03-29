@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
+import { isDriveKonfiguriert, ensureKundeUnterordner } from "@/lib/googleDrive";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -205,6 +206,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           },
         });
       });
+      // Fire-and-forget: Kunden-Unterordner "Rechnungen" in Google Drive vorbereiten
+      // Eigentlicher PDF-Upload erfolgt vom Client via /api/drive/dokumente
+      isDriveKonfiguriert()
+        .then((ok) => {
+          if (!ok) return;
+          return ensureKundeUnterordner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen");
+        })
+        .catch((e: unknown) => {
+          console.warn("[drive] Kunden-Unterordner Vorbereitung fehlgeschlagen:", e instanceof Error ? e.message : e);
+        });
+
       return NextResponse.json(lieferung);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Interner Fehler";

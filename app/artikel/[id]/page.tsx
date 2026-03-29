@@ -309,6 +309,43 @@ export default function ArtikelDetailPage() {
         </div>
       </div>
 
+      {/* Nachbestellung Box — shown when Bestand < Mindestbestand */}
+      {artikel.aktuellerBestand < artikel.mindestbestand && (() => {
+        const bevorzugterLief = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
+        return (
+          <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Nachbestellung empfohlen</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Aktueller Bestand ({artikel.aktuellerBestand} {artikel.einheit}) liegt unter dem Mindestbestand ({artikel.mindestbestand} {artikel.einheit}).
+                </p>
+                {bevorzugterLief && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Bevorzugter Lieferant: <span className="font-medium">{bevorzugterLief.lieferant.name}</span>
+                    {bevorzugterLief.einkaufspreis > 0 && (
+                      <span className="ml-1">· EK: {formatEuro(bevorzugterLief.einkaufspreis)} / {artikel.einheit}</span>
+                    )}
+                    {bevorzugterLief.mindestbestellmenge && (
+                      <span className="ml-1">· MBM: {bevorzugterLief.mindestbestellmenge} {artikel.einheit}</span>
+                    )}
+                  </p>
+                )}
+                {!bevorzugterLief && (
+                  <p className="text-xs text-amber-600 mt-1 italic">Kein Lieferant zugeordnet — bitte im Tab &quot;Lieferanten&quot; ergänzen.</p>
+                )}
+              </div>
+              <a
+                href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLief ? `&lieferantId=${bevorzugterLief.lieferantId}` : ""}`}
+                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap"
+              >
+                Wareneingang erfassen
+              </a>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap">
         {TABS.map((t) => (

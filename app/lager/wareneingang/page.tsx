@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
@@ -25,29 +25,47 @@ type WEPosition = {
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
 
-export default function WareneingangPage() {
+function WareneingangInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const artikelIdParam = searchParams.get("artikelId");
+  const lieferantIdParam = searchParams.get("lieferantId");
 
   const [lieferantenList, setLieferantenList] = useState<Lieferant[]>([]);
   const [artikelList, setArtikelList] = useState<Artikel[]>([]);
 
-  const [lieferantId, setLieferantId] = useState("");
+  const [lieferantId, setLieferantId] = useState(lieferantIdParam ?? "");
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<WEPosition[]>([
-    { artikelId: "", menge: 0, einkaufspreis: 0 },
+    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0 },
   ]);
+  const [vorbefuelltHinweis, setVorbefuelltHinweis] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/lieferanten")
-      .then((r) => r.json())
-      .then(setLieferantenList);
-    fetch("/api/artikel?limit=500")
-      .then((r) => r.json())
-      .then(setArtikelList);
+    async function load() {
+      const [liefRes, artRes] = await Promise.all([
+        fetch("/api/lieferanten").then((r) => r.json()),
+        fetch("/api/artikel?limit=500").then((r) => r.json()),
+      ]);
+      setLieferantenList(Array.isArray(liefRes) ? liefRes : []);
+      const artikelData: Artikel[] = Array.isArray(artRes) ? artRes : [];
+      setArtikelList(artikelData);
+
+      if (artikelIdParam || lieferantIdParam) {
+        const art = artikelData.find((a) => String(a.id) === artikelIdParam);
+        const lief = Array.isArray(liefRes) ? (liefRes as Lieferant[]).find((l) => String(l.id) === lieferantIdParam) : null;
+        const parts: string[] = [];
+        if (art) parts.push(`Artikel: ${art.name}`);
+        if (lief) parts.push(`Lieferant: ${lief.name}`);
+        if (parts.length > 0) setVorbefuelltHinweis(parts.join(" · "));
+      }
+    }
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addPosition() {
@@ -122,6 +140,12 @@ export default function WareneingangPage() {
           Abbrechen
         </Link>
       </div>
+
+      {vorbefuelltHinweis && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          <span className="font-semibold">Vorlage:</span> {vorbefuelltHinweis} — Bitte Menge und Preis eintragen.
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-300 shadow-sm p-6 space-y-6">
         {error && (
@@ -268,5 +292,13 @@ export default function WareneingangPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WareneingangPage() {
+  return (
+    <Suspense fallback={<div><h1 className="text-2xl font-bold mb-6">Neuer Wareneingang</h1><p className="text-gray-400 text-sm">Lade…</p></div>}>
+      <WareneingangInner />
+    </Suspense>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
+import DriveUploadButton from "@/components/DriveUploadButton";
 
 interface ArtikelInfo {
   name: string;
@@ -34,6 +35,7 @@ interface Lieferung {
   rechnungDatum?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
+  kundeId: number;
   kunde: Kunde;
   positionen: Position[];
 }
@@ -178,7 +180,7 @@ export default function RechnungPrintPage() {
       `}</style>
 
       {/* Screen-only controls */}
-      <div className="print-hidden flex items-center gap-4 p-4 bg-gray-50 border-b border-gray-200 no-print">
+      <div className="print-hidden flex items-center flex-wrap gap-4 p-4 bg-gray-50 border-b border-gray-200 no-print">
         <Link
           href={`/lieferungen/${id}`}
           className="text-sm text-green-700 hover:text-green-900 hover:underline"
@@ -191,6 +193,30 @@ export default function RechnungPrintPage() {
         >
           Drucken
         </button>
+        {lieferung && (
+          <DriveUploadButton
+            kundeId={lieferung.kunde ? (lieferung as unknown as { kundeId: number }).kundeId ?? 0 : 0}
+            typ="rechnung"
+            dateiName={`Rechnung_${lieferung.rechnungNr ?? `LS-${lieferung.id}`}.pdf`}
+            getInhalt={async () => {
+              try {
+                const { default: html2canvas } = await import("html2canvas");
+                const { jsPDF } = await import("jspdf");
+                const element = document.querySelector<HTMLElement>("[data-print-area]");
+                if (!element) return null;
+                const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+                const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                const imgData = canvas.toDataURL("image/png");
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+                return pdf.output("datauristring").split(",")[1];
+              } catch {
+                return null;
+              }
+            }}
+          />
+        )}
         {error && (
           <span className="text-sm text-red-600">{error}</span>
         )}
@@ -198,6 +224,7 @@ export default function RechnungPrintPage() {
 
       {/* Rechnung document */}
       <div
+        data-print-area
         style={{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: "11pt",

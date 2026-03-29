@@ -21,6 +21,16 @@ interface Artikel {
   mindestbestand: number;
 }
 
+interface KundeBedarf {
+  id: number;
+  artikelId: number;
+  menge: number;
+  intervallTage: number;
+  notiz?: string | null;
+  aktiv: boolean;
+  artikel: Artikel;
+}
+
 function LagerAmpel({ art }: { art: Artikel | undefined }) {
   if (!art) return null;
   if (art.aktuellerBestand <= 0) {
@@ -70,6 +80,7 @@ function NeuesAngebotForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedKundeId = searchParams.get("kundeId") ?? "";
+  const ausBedarfen = searchParams.get("ausBedarfen") === "true";
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
@@ -81,6 +92,8 @@ function NeuesAngebotForm() {
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [bedarfenGeladen, setBedarfenGeladen] = useState(false);
+  const [loadingBedarfe, setLoadingBedarfe] = useState(false);
 
   useEffect(() => {
     fetch("/api/kunden?aktiv=true&limit=500")
@@ -92,6 +105,45 @@ function NeuesAngebotForm() {
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
+
+  // Auto-load Bedarfe when ausBedarfen=true and a kundeId is set
+  useEffect(() => {
+    if (ausBedarfen && preselectedKundeId && artikel.length > 0 && !bedarfenGeladen) {
+      ladeBedarfe(preselectedKundeId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ausBedarfen, preselectedKundeId, artikel.length]);
+
+  async function ladeBedarfe(kid: string) {
+    if (!kid) return;
+    setLoadingBedarfe(true);
+    try {
+      const res = await fetch(`/api/kunden/${kid}/bedarfe`);
+      const data: KundeBedarf[] = await res.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+      const neuPositionen: Position[] = data
+        .filter((b) => b.aktiv)
+        .map((b) => {
+          const artDetails = artikel.find((a) => a.id === b.artikelId);
+          return {
+            artikelId: String(b.artikelId),
+            menge: String(b.menge),
+            preis: artDetails ? String(artDetails.standardpreis) : "",
+            rabatt: "0",
+            einheit: artDetails?.einheit ?? b.artikel?.einheit ?? "kg",
+            notiz: b.notiz ?? "",
+          };
+        });
+      if (neuPositionen.length > 0) {
+        setPositionen(neuPositionen);
+        setBedarfenGeladen(true);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingBedarfe(false);
+    }
+  }
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
@@ -211,6 +263,19 @@ function NeuesAngebotForm() {
                 placeholder="Kunden wählen…"
                 required
               />
+              {kundeId && (
+                <button
+                  type="button"
+                  onClick={() => { setBedarfenGeladen(false); ladeBedarfe(kundeId); }}
+                  disabled={loadingBedarfe}
+                  className="mt-2 text-xs px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-300 rounded-lg font-medium transition-colors disabled:opacity-50"
+                >
+                  {loadingBedarfe ? "Lade…" : bedarfenGeladen ? "Bedarfe neu laden" : "Bedarfe laden"}
+                </button>
+              )}
+              {bedarfenGeladen && (
+                <p className="text-xs text-orange-700 mt-1">Positionen aus Kundenbedarf vorausgefüllt.</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

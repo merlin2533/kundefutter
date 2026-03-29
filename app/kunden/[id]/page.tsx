@@ -90,7 +90,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben", "Dokumente"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben", "Dokumente", "Vorgangskette"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -703,6 +703,25 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
   );
 }
 
+// ─── Bedarfsableitung aus Schlagkartei ───────────────────────────────────────
+
+interface AbgeleiteterBedarf {
+  fruchtart: string;
+  schlagName: string;
+  flaeche: number;
+  nBedarf: number; // kg N-Dünger gesamt
+  pBedarf: number; // kg P-Dünger gesamt
+}
+
+function berechneBedarfFuerFruchtart(fruchtart: string | null | undefined, flaeche: number): { nKgHa: number; pKgHa: number } {
+  const f = (fruchtart ?? "").toLowerCase();
+  if (f.includes("mais")) return { nKgHa: 200, pKgHa: 50 };
+  if (f.includes("raps")) return { nKgHa: 190, pKgHa: 60 };
+  if (f.includes("weizen") || f.includes("gerste") || f.includes("roggen") || f.includes("getreide") || f.includes("triticale") || f.includes("hafer")) return { nKgHa: 180, pKgHa: 40 };
+  if (f.includes("gras") || f.includes("grünland") || f.includes("grunland") || f.includes("wiese") || f.includes("weide")) return { nKgHa: 150, pKgHa: 0 };
+  return { nKgHa: 160, pKgHa: 30 };
+}
+
 // ─── Bedarfe Tab ─────────────────────────────────────────────────────────────
 
 function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
@@ -712,12 +731,86 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
+  // Schlagkartei-Ableitung
+  const [showAbleitung, setShowAbleitung] = useState(false);
+  const [schlaegte, setSchlaegte] = useState<KundeSchlag[]>([]);
+  const [loadingSchlaegte, setLoadingSchlaegte] = useState(false);
+  const [abgeleiteteBedarfe, setAbgeleiteteBedarfe] = useState<AbgeleiteterBedarf[]>([]);
+  const [uebernehmen, setUebernehmen] = useState(false);
+  // Per-row artikel selection for N and P
+  const [nArtikelId, setNArtikelId] = useState("");
+  const [pArtikelId, setPArtikelId] = useState("");
+
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
       .then((r) => r.json())
       .then(setArtikel)
       .catch(() => {});
   }, []);
+
+  async function handleLadeSchlaegte() {
+    setLoadingSchlaegte(true);
+    setShowAbleitung(true);
+    try {
+      const res = await fetch(`/api/kunden/${kunde.id}/schlaegte`);
+      const data = await res.json();
+      const list: KundeSchlag[] = Array.isArray(data) ? data : [];
+      setSchlaegte(list);
+      const bedarfe: AbgeleiteterBedarf[] = list
+        .filter((s) => s.flaeche > 0)
+        .map((s) => {
+          const { nKgHa, pKgHa } = berechneBedarfFuerFruchtart(s.fruchtart, s.flaeche);
+          return {
+            fruchtart: s.fruchtart ?? "Sonstige",
+            schlagName: s.name,
+            flaeche: s.flaeche,
+            nBedarf: Math.round(nKgHa * s.flaeche),
+            pBedarf: Math.round(pKgHa * s.flaeche),
+          };
+        });
+      setAbgeleiteteBedarfe(bedarfe);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingSchlaegte(false);
+    }
+  }
+
+  async function handleBedarfeUebernehmen() {
+    if (!nArtikelId && !pArtikelId) return;
+    setUebernehmen(true);
+    try {
+      const totalN = abgeleiteteBedarfe.reduce((s, b) => s + b.nBedarf, 0);
+      const totalP = abgeleiteteBedarfe.reduce((s, b) => s + b.pBedarf, 0);
+
+      const promises: Promise<Response>[] = [];
+      if (nArtikelId && totalN > 0) {
+        promises.push(fetch(`/api/kunden/${kunde.id}/bedarfe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artikelId: Number(nArtikelId), menge: totalN, intervallTage: 365, notiz: "Aus Schlagkartei abgeleitet (N-Dünger)" }),
+        }));
+      }
+      if (pArtikelId && totalP > 0) {
+        promises.push(fetch(`/api/kunden/${kunde.id}/bedarfe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artikelId: Number(pArtikelId), menge: totalP, intervallTage: 365, notiz: "Aus Schlagkartei abgeleitet (P-Dünger)" }),
+        }));
+      }
+      await Promise.all(promises);
+      setShowAbleitung(false);
+      setAbgeleiteteBedarfe([]);
+      setSchlaegte([]);
+      setNArtikelId("");
+      setPArtikelId("");
+      onRefresh();
+    } catch {
+      // ignore
+    } finally {
+      setUebernehmen(false);
+    }
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -759,9 +852,28 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
     }
   }
 
+  const totalN = abgeleiteteBedarfe.reduce((s, b) => s + b.nBedarf, 0);
+  const totalP = abgeleiteteBedarfe.reduce((s, b) => s + b.pBedarf, 0);
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap gap-2 justify-between items-center">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleLadeSchlaegte}
+            className="text-sm px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Bedarf aus Schlagkartei ableiten
+          </button>
+          {kunde.bedarfe.length > 0 && (
+            <Link
+              href={`/angebote/neu?kundeId=${kunde.id}&ausBedarfen=true`}
+              className="text-sm px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors inline-block"
+            >
+              Angebot aus Bedarfen erstellen
+            </Link>
+          )}
+        </div>
         <button
           onClick={() => setShowAdd(true)}
           className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
@@ -769,6 +881,114 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
           + Bedarf hinzufügen
         </button>
       </div>
+
+      {/* Schlagkartei-Ableitung Panel */}
+      {showAbleitung && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-blue-900">Bedarfsableitung aus Schlagkartei</h3>
+            <button
+              onClick={() => setShowAbleitung(false)}
+              className="text-blue-400 hover:text-blue-700 text-xs"
+            >
+              Schließen
+            </button>
+          </div>
+
+          {loadingSchlaegte ? (
+            <p className="text-sm text-blue-600">Lade Schlagdaten…</p>
+          ) : schlaegte.length === 0 ? (
+            <p className="text-sm text-blue-600">Keine Schlagdaten vorhanden. Bitte zuerst Schläge in der Schlagkartei anlegen.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm bg-white rounded-lg overflow-hidden border border-blue-100">
+                  <thead className="bg-blue-100 text-blue-800">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">Schlag</th>
+                      <th className="text-left px-3 py-2 font-medium">Fruchtart</th>
+                      <th className="text-right px-3 py-2 font-medium">Fläche (ha)</th>
+                      <th className="text-right px-3 py-2 font-medium">N-Bedarf (kg)</th>
+                      <th className="text-right px-3 py-2 font-medium hidden sm:table-cell">P-Bedarf (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-blue-50">
+                    {abgeleiteteBedarfe.map((b, i) => (
+                      <tr key={i} className="hover:bg-blue-50">
+                        <td className="px-3 py-2 font-medium">{b.schlagName}</td>
+                        <td className="px-3 py-2 text-gray-600">{b.fruchtart}</td>
+                        <td className="px-3 py-2 text-right">{b.flaeche.toLocaleString("de-DE")}</td>
+                        <td className="px-3 py-2 text-right font-medium">{b.nBedarf.toLocaleString("de-DE")}</td>
+                        <td className="px-3 py-2 text-right hidden sm:table-cell">{b.pBedarf > 0 ? b.pBedarf.toLocaleString("de-DE") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-blue-100 font-semibold text-blue-900">
+                    <tr>
+                      <td className="px-3 py-2" colSpan={2}>Gesamt</td>
+                      <td className="px-3 py-2 text-right">
+                        {abgeleiteteBedarfe.reduce((s, b) => s + b.flaeche, 0).toLocaleString("de-DE")} ha
+                      </td>
+                      <td className="px-3 py-2 text-right">{totalN.toLocaleString("de-DE")} kg</td>
+                      <td className="px-3 py-2 text-right hidden sm:table-cell">{totalP > 0 ? `${totalP.toLocaleString("de-DE")} kg` : "—"}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <div className="bg-white border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Als Bedarfe übernehmen</p>
+                <p className="text-xs text-gray-500">Wähle die Artikel für N-Dünger und P-Dünger. Der Gesamtbedarf wird als Jahresbedarf (365 Tage Intervall) gespeichert.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {totalN > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        N-Dünger-Artikel ({totalN.toLocaleString("de-DE")} kg gesamt)
+                      </label>
+                      <SearchableSelect
+                        options={artikel.map((a) => ({ value: String(a.id), label: a.name, sub: a.artikelnummer }))}
+                        value={nArtikelId}
+                        onChange={setNArtikelId}
+                        placeholder="— N-Dünger wählen —"
+                      />
+                    </div>
+                  )}
+                  {totalP > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        P-Dünger-Artikel ({totalP.toLocaleString("de-DE")} kg gesamt)
+                      </label>
+                      <SearchableSelect
+                        options={artikel.map((a) => ({ value: String(a.id), label: a.name, sub: a.artikelnummer }))}
+                        value={pArtikelId}
+                        onChange={setPArtikelId}
+                        placeholder="— P-Dünger wählen —"
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowAbleitung(false)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBedarfeUebernehmen}
+                    disabled={uebernehmen || (!nArtikelId && !pArtikelId)}
+                    className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uebernehmen ? "Speichere…" : "Als Bedarfe übernehmen"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {kunde.bedarfe.length === 0 ? (
         <p className="text-sm text-gray-400">Keine Bedarfe erfasst.</p>
@@ -1872,7 +2092,7 @@ export default function KundeDetailPage() {
         const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())[0];
         const offeneLieferungen = kunde.lieferungen.filter((l) => l.status === "geplant").length;
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             {/* Kontakt */}
             <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kontakt</p>
@@ -1976,6 +2196,8 @@ export default function KundeDetailPage() {
                 </div>
               )}
             </div>
+            {/* Google Drive Dokumente */}
+            <DriveDokumenteBox kundeId={kunde.id} />
           </div>
         );
       })()}
@@ -2014,6 +2236,7 @@ export default function KundeDetailPage() {
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
         {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
+        {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} />}
       </div>
     </div>
   );
@@ -3095,6 +3318,263 @@ function AufgabenTab({ kundeId }: { kundeId: number }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Vorgangskette Tab ────────────────────────────────────────────────────────
+
+interface VorgangAngebot {
+  id: number;
+  nummer: string;
+  datum: string;
+  status: string;
+  gesamtbetrag: number;
+}
+
+function VorgangskettTab({ kundeId, lieferungen }: { kundeId: number; lieferungen: Lieferung[] }) {
+  const [angebote, setAngebote] = useState<VorgangAngebot[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/angebote?kundeId=${kundeId}`)
+      .then((r) => r.json())
+      .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [kundeId]);
+
+  // Match Lieferungen zu Angeboten via Notiz-Text
+  function findLinkedLieferungen(angebot: VorgangAngebot): Lieferung[] {
+    return lieferungen.filter((l) =>
+      l.notiz && (
+        l.notiz.includes(`Angebot ${angebot.nummer}`) ||
+        l.notiz.includes(`AN-`) && l.notiz.includes(angebot.nummer)
+      )
+    );
+  }
+
+  // Lieferungen ohne Angebots-Referenz
+  const unlinkedLieferungen = lieferungen.filter((l) =>
+    !angebote.some((a) => l.notiz && l.notiz.includes(a.nummer))
+  );
+
+  function stepColor(done: boolean, active: boolean) {
+    if (done) return "bg-green-500 border-green-500 text-white";
+    if (active) return "bg-yellow-400 border-yellow-400 text-white";
+    return "bg-gray-200 border-gray-300 text-gray-400";
+  }
+
+  function lieferungStepColor(l: Lieferung) {
+    if (l.status === "storniert") return "bg-red-400 border-red-400 text-white";
+    if (l.bezahltAm) return "bg-green-500 border-green-500 text-white";
+    if (l.rechnungNr) return "bg-yellow-400 border-yellow-400 text-white";
+    if (l.status === "geliefert") return "bg-blue-400 border-blue-400 text-white";
+    return "bg-gray-200 border-gray-300 text-gray-400";
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Lade Vorgangskette…</p>;
+
+  const hasData = angebote.length > 0 || lieferungen.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-gray-900">Vorgangskette</h3>
+        <div className="flex gap-2">
+          <a href={`/angebote/neu?kundeId=${kundeId}`} className="text-xs px-2.5 py-1.5 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors">
+            + Angebot
+          </a>
+          <a href={`/lieferungen/neu?kundeId=${kundeId}`} className="text-xs px-2.5 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            + Lieferung
+          </a>
+        </div>
+      </div>
+
+      {!hasData && (
+        <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
+          <p className="text-2xl mb-2">📋</p>
+          <p className="text-sm">Noch keine Vorgänge für diesen Kunden.</p>
+        </div>
+      )}
+
+      {/* Angebot-basierte Ketten */}
+      {angebote.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Angebote &amp; zugehörige Lieferungen</p>
+          {angebote.map((a) => {
+            const linkedLief = findLinkedLieferungen(a);
+            const isAngenommen = a.status === "ANGENOMMEN";
+            const isAbgelehnt = a.status === "ABGELEHNT" || a.status === "ABGELAUFEN";
+            return (
+              <div key={a.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+                {/* Angebot Step */}
+                <div className="flex items-start gap-3">
+                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${stepColor(isAngenommen, !isAngenommen && !isAbgelehnt)}`}>
+                    A
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a href={`/angebote/${a.id}`} className="text-sm font-semibold text-green-700 hover:underline">
+                        {a.nummer}
+                      </a>
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${ANGEBOT_STATUS_FARBEN[a.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {ANGEBOT_STATUS_LABELS[a.status] ?? a.status}
+                      </span>
+                      <span className="text-xs text-gray-400">{formatDatum(a.datum)}</span>
+                      <span className="text-xs font-medium text-gray-700">{formatEuro(a.gesamtbetrag)}</span>
+                    </div>
+                    {a.status === "ANGENOMMEN" && linkedLief.length === 0 && (
+                      <a
+                        href={`/lieferungen/neu?ausAngebot=${a.id}`}
+                        className="mt-1.5 inline-block text-xs text-blue-600 hover:underline"
+                      >
+                        Als Lieferung übernehmen →
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Verbindungslinie + Lieferungen */}
+                {linkedLief.length > 0 && (
+                  <div className="ml-3.5 mt-1 border-l-2 border-gray-200 pl-6 space-y-3 pt-2">
+                    {linkedLief.map((l) => {
+                      const hatRechnung = !!l.rechnungNr;
+                      const hatBezahlt = !!l.bezahltAm;
+                      const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+                      return (
+                        <div key={l.id}>
+                          {/* Lieferung Step */}
+                          <div className="flex items-start gap-3">
+                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${lieferungStepColor(l)}`}>
+                              L
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <a href={`/lieferungen/${l.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
+                                  Lieferung #{l.id}
+                                </a>
+                                {statusBadge(l.status)}
+                                <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
+                                <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Rechnung Step */}
+                          <div className="mt-1 ml-3 border-l-2 border-gray-100 pl-5 space-y-2 pt-2">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${stepColor(hatBezahlt, hatRechnung && !hatBezahlt)}`}>
+                                R
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                {hatRechnung ? (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <a href={`/lieferungen/${l.id}/rechnung`} target="_blank" className="text-sm font-medium text-gray-800 hover:text-green-700">
+                                      Rechnung {l.rechnungNr}
+                                    </a>
+                                    {l.rechnungDatum && <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>}
+                                    {hatBezahlt ? (
+                                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Bezahlt</span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">Offen</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lieferungen ohne Angebots-Referenz */}
+      {unlinkedLieferungen.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Direkte Lieferungen (ohne Angebot)</p>
+          {unlinkedLieferungen.map((l) => {
+            const hatRechnung = !!l.rechnungNr;
+            const hatBezahlt = !!l.bezahltAm;
+            const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+            return (
+              <div key={l.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+                {/* Lieferung */}
+                <div className="flex items-start gap-3">
+                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${lieferungStepColor(l)}`}>
+                    L
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <a href={`/lieferungen/${l.id}`} className="text-sm font-semibold text-gray-800 hover:text-green-700">
+                        Lieferung #{l.id}
+                      </a>
+                      {statusBadge(l.status)}
+                      <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
+                      <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
+                    </div>
+                    {l.notiz && <p className="text-xs text-gray-500 mt-0.5 truncate">{l.notiz}</p>}
+                  </div>
+                </div>
+
+                {/* Rechnung */}
+                <div className="mt-2 ml-3.5 border-l-2 border-gray-100 pl-5 pt-1">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${stepColor(hatBezahlt, hatRechnung && !hatBezahlt)}`}>
+                      R
+                    </div>
+                    <div className="flex-1">
+                      {hatRechnung ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <a href={`/lieferungen/${l.id}/rechnung`} target="_blank" className="text-sm font-medium text-gray-800 hover:text-green-700">
+                            {l.rechnungNr}
+                          </a>
+                          {l.rechnungDatum && <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>}
+                          {hatBezahlt ? (
+                            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Bezahlt</span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">Offen</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legende */}
+      <div className="flex gap-4 flex-wrap text-xs text-gray-500 pt-2 border-t border-gray-100">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+          Abgeschlossen / Bezahlt
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" />
+          In Bearbeitung
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-gray-200 inline-block" />
+          Ausstehend
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="font-bold text-gray-600">A</span> = Angebot,
+          <span className="font-bold text-gray-600 ml-1">L</span> = Lieferung,
+          <span className="font-bold text-gray-600 ml-1">R</span> = Rechnung
+        </span>
+      </div>
     </div>
   );
 }

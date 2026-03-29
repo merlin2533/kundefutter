@@ -17,6 +17,16 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const search = searchParams.get("search");
 
+  // Automatisch abgelaufene Angebote auf ABGELAUFEN setzen
+  try {
+    await prisma.angebot.updateMany({
+      where: { status: "OFFEN", gueltigBis: { lt: new Date() } },
+      data: { status: "ABGELAUFEN" },
+    });
+  } catch {
+    // Nicht-kritisch – weiter mit der Abfrage
+  }
+
   const where: Record<string, unknown> = {};
   if (kundeId) where.kundeId = Number(kundeId);
   if (status && status !== "alle") where.status = status;

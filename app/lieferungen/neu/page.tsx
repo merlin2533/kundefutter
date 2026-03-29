@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 
 interface Kunde {
@@ -91,12 +91,16 @@ const STATUS_OPTIONS = [
   { value: "geliefert", label: "Geliefert" },
 ];
 
-export default function NeueLieferungPage() {
+function NeueLieferungInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const ausAngebotId = searchParams.get("ausAngebot");
+  const kundeIdParam = searchParams.get("kundeId");
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [angebotHinweis, setAngebotHinweis] = useState<string | null>(null);
 
   const [kundeId, setKundeId] = useState<number | "">("");
   const [datum, setDatum] = useState(today);
@@ -114,13 +118,52 @@ export default function NeueLieferungPage() {
           fetch("/api/kunden").then((r) => r.json()),
           fetch("/api/artikel").then((r) => r.json()),
         ]);
-        setKunden(Array.isArray(kr) ? kr : []);
-        setArtikel(Array.isArray(ar) ? ar : []);
+        const kundenData = Array.isArray(kr) ? kr : [];
+        const artikelData = Array.isArray(ar) ? ar : [];
+        setKunden(kundenData);
+        setArtikel(artikelData);
+
+        // Pre-fill from angebot if param present
+        if (ausAngebotId) {
+          try {
+            const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.json());
+            if (ang && ang.id) {
+              setKundeId(ang.kundeId ?? ang.kunde?.id ?? "");
+              setAngebotHinweis(`Erstellt aus Angebot ${ang.nummer}`);
+              setNotiz(`Aus Angebot ${ang.nummer} übernommen`);
+              if (Array.isArray(ang.positionen) && ang.positionen.length > 0) {
+                setPositionen(ang.positionen.map((pos: {
+                  artikelId: number;
+                  menge: number;
+                  preis: number;
+                  rabatt: number;
+                  artikel?: { einheit?: string };
+                }) => {
+                  const art = artikelData.find((a: Artikel) => a.id === pos.artikelId);
+                  const vkPreis = pos.preis * (1 - pos.rabatt / 100);
+                  return {
+                    artikelId: pos.artikelId,
+                    menge: pos.menge,
+                    verkaufspreis: Math.round(vkPreis * 100) / 100,
+                    einkaufspreis: art?.einkaufspreis ?? 0,
+                    chargeNr: "",
+                  };
+                }));
+              }
+            }
+          } catch {
+            // ignore, fallback to empty form
+          }
+        } else if (kundeIdParam) {
+          const kid = parseInt(kundeIdParam, 10);
+          if (!isNaN(kid)) setKundeId(kid);
+        }
       } finally {
         setLoading(false);
       }
     }
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function updatePosition(idx: number, field: keyof NewPosition, value: string | number) {
@@ -226,6 +269,12 @@ export default function NeueLieferungPage() {
           Abbrechen
         </Link>
       </div>
+
+      {angebotHinweis && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg px-4 py-3 flex items-center gap-2">
+          <span className="font-semibold">Vorlage:</span> {angebotHinweis} — Bitte Preise und Mengen prüfen.
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <form onSubmit={handleSubmit} className="p-5 space-y-5">
@@ -478,5 +527,13 @@ export default function NeueLieferungPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function NeueLieferungPage() {
+  return (
+    <Suspense fallback={<div><h1 className="text-2xl font-bold mb-6">Neue Lieferung</h1><p className="text-gray-400 text-sm">Lade…</p></div>}>
+      <NeueLieferungInner />
+    </Suspense>
   );
 }
