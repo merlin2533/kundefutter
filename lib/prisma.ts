@@ -13,4 +13,6 @@ function makeClient() {
 
 export const prisma = globalForPrisma.prisma || makeClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Singleton in allen Umgebungen — ohne dies wird in Production bei jedem
+// Request ein neuer PrismaClient erstellt → Connection-Pool-Erschöpfung
+globalForPrisma.prisma = prisma;
