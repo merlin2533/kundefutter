@@ -126,7 +126,14 @@ export default function ChargenPage() {
               <p className="text-sm">Keine Einträge mit Charge „{query}" gefunden.</p>
             </div>
           ) : (
-            <p className="text-sm text-gray-600 font-medium">{totalFound} Treffer für „{query}"</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-600 font-medium">{totalFound} Treffer für „{query}"</p>
+              {result.lieferungen.length >= 500 && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  Anzeige auf 500 Lieferungen begrenzt — Suchbegriff präzisieren
+                </span>
+              )}
+            </div>
           )}
 
           {/* Wareneingänge */}

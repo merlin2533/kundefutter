@@ -51,7 +51,7 @@ function NeuesAngebotForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true")
+    fetch("/api/kunden?aktiv=true&limit=500")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});

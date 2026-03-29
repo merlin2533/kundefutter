@@ -2738,26 +2738,33 @@ function AufgabenTab({ kundeId }: { kundeId: number }) {
     e.preventDefault();
     if (!betreff.trim()) return;
     setSaving(true);
-    await fetch("/api/aufgaben", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ betreff: betreff.trim(), faelligAm: faelligAm || null, prioritaet, typ, kundeId }),
-    });
-    setBetreff(""); setFaelligAm(""); setPrioritaet("normal"); setTyp("aufgabe");
-    setShowForm(false);
-    setSaving(false);
-    fetchAufgaben();
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betreff: betreff.trim(), faelligAm: faelligAm || null, prioritaet, typ, kundeId }),
+      });
+      if (!res.ok) return;
+      setBetreff(""); setFaelligAm(""); setPrioritaet("normal"); setTyp("aufgabe");
+      setShowForm(false);
+      fetchAufgaben();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleErledigt(a: AufgabeItem) {
     setToggling(a.id);
-    await fetch(`/api/aufgaben/${a.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ erledigt: !a.erledigt }),
-    });
-    await fetchAufgaben();
-    setToggling(null);
+    try {
+      const res = await fetch(`/api/aufgaben/${a.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ erledigt: !a.erledigt }),
+      });
+      if (res.ok) await fetchAufgaben();
+    } finally {
+      setToggling(null);
+    }
   }
 
   const offen = aufgaben.filter((a) => !a.erledigt);
