@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
 import { PRODUKT_BAUM, type ProduktNode } from "@/lib/eurostat";
+import type { MatifProdukt } from "@/lib/matif";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -803,6 +804,229 @@ function KpiKarten({
   );
 }
 
+// ─── MATIF Spotpreise + Prognose ──────────────────────────────────────────────
+
+const MATIF_META: Record<string, { farbeClass: string; borderClass: string }> = {
+  WEIZEN: { farbeClass: "text-amber-700",  borderClass: "border-l-4 border-amber-400" },
+  RAPS:   { farbeClass: "text-yellow-700", borderClass: "border-l-4 border-yellow-500" },
+  MAIS:   { farbeClass: "text-lime-700",   borderClass: "border-l-4 border-lime-500"  },
+};
+
+function MatifSpotSection() {
+  const [preise, setPreise] = useState<MatifProdukt[] | null>(null);
+  const [letzteAktualisierung, setLetzteAktualisierung] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
+
+  const laden = useCallback(async (force = false) => {
+    try {
+      setFehler(null);
+      const url = force
+        ? "/api/marktpreise/spot?force=true"
+        : "/api/marktpreise/spot";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setPreise(json.preise ?? []);
+      if (json.letzteAktualisierung) {
+        setLetzteAktualisierung(
+          new Date(json.letzteAktualisierung).toLocaleString("de-DE", {
+            day:    "2-digit",
+            month:  "2-digit",
+            year:   "numeric",
+            hour:   "2-digit",
+            minute: "2-digit",
+          })
+        );
+      }
+    } catch (err) {
+      setFehler(err instanceof Error ? err.message : "Unbekannter Fehler");
+      setPreise([]);
+    }
+  }, []);
+
+  useEffect(() => { laden(); }, [laden]);
+
+  async function handleSync() {
+    setSyncing(true);
+    try { await laden(true); } finally { setSyncing(false); }
+  }
+
+  if (preise === null) {
+    return (
+      <Card>
+        <p className="text-sm text-gray-400">Lade MATIF-Futurespreise…</p>
+      </Card>
+    );
+  }
+
+  if (fehler || preise.length === 0) {
+    return (
+      <Card>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">
+              Aktuelle Futurespreise (MATIF) + 1-Wochen-Prognose
+            </h2>
+            <p className="text-sm text-red-500 mt-1">
+              {fehler
+                ? `MATIF-Daten nicht verfügbar: ${fehler}`
+                : "Keine MATIF-Daten verfügbar (Yahoo Finance / Euronext)"}
+            </p>
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+          >
+            {syncing ? "Lade…" : "Erneut versuchen"}
+          </button>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-800">
+            Aktuelle Futurespreise (MATIF) + 1-Wochen-Prognose
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Quelle: Euronext MATIF via Yahoo Finance · Schlusskurse in EUR/t ·{" "}
+            Stand: {letzteAktualisierung || "–"}
+          </p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex-shrink-0"
+        >
+          {syncing ? "Aktualisiere…" : "Aktualisieren"}
+        </button>
+      </div>
+
+      {/* Karten */}
+      <div className="grid sm:grid-cols-3 gap-4">
+        {preise.map((p) => {
+          const meta = MATIF_META[p.produktCode] ?? {
+            farbeClass:  "text-gray-700",
+            borderClass: "border-l-4 border-gray-400",
+          };
+          const isUp     = (p.veraenderung ?? 0) > 0.5;
+          const isDown   = (p.veraenderung ?? 0) < -0.5;
+          const arrow    = isUp ? "▲" : isDown ? "▼" : "–";
+          const deltaClr = isUp
+            ? "text-red-600"
+            : isDown
+              ? "text-green-600"
+              : "text-gray-500";
+
+          const pDiff =
+            p.prognose1W != null
+              ? Math.round((p.prognose1W - p.preis) * 10) / 10
+              : null;
+          const pUp     = (pDiff ?? 0) > 0.5;
+          const pDown   = (pDiff ?? 0) < -0.5;
+          const pArrow  = pUp ? "▲" : pDown ? "▼" : "→";
+          const pColor  = pUp
+            ? "text-red-600"
+            : pDown
+              ? "text-green-600"
+              : "text-gray-500";
+
+          return (
+            <div
+              key={p.produktCode}
+              className={`rounded-lg p-4 bg-white border border-gray-100 shadow-sm ${meta.borderClass}`}
+            >
+              <p className={`text-sm font-medium ${meta.farbeClass}`}>
+                {p.produktName}
+              </p>
+              <p className="text-3xl font-bold text-gray-900 mt-1 tabular-nums">
+                {p.preis.toLocaleString("de-DE", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}{" "}
+                <span className="text-base font-normal text-gray-500">EUR/t</span>
+              </p>
+
+              {/* Vorwoche */}
+              {p.veraenderung != null ? (
+                <p className={`text-sm mt-1 ${deltaClr}`}>
+                  {arrow}{" "}
+                  {p.veraenderung >= 0 ? "+" : ""}
+                  {p.veraenderung.toLocaleString("de-DE", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}{" "}
+                  EUR/t ggü. Vorwoche
+                </p>
+              ) : (
+                <p className="text-sm mt-1 text-gray-400">Keine Vorwochendaten</p>
+              )}
+
+              {/* Trennlinie */}
+              <div className="border-t border-gray-100 my-3" />
+
+              {/* 1-Wochen-Prognose */}
+              <p className="text-xs font-medium text-gray-500 mb-1">
+                Prognose nächste Woche
+              </p>
+              {p.prognose1W != null ? (
+                <>
+                  <p className={`text-lg font-semibold tabular-nums ${pColor}`}>
+                    {pArrow}{" "}
+                    ~{p.prognose1W.toLocaleString("de-DE", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{" "}
+                    EUR/t
+                  </p>
+                  {pDiff != null && (
+                    <p className={`text-xs mt-0.5 ${pColor}`}>
+                      {pDiff >= 0 ? "+" : ""}
+                      {pDiff.toLocaleString("de-DE", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}{" "}
+                      EUR/t (lineare Extrapolation)
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-gray-400">
+                  Zu wenig Datenpunkte
+                </p>
+              )}
+
+              {/* Letzter Handelstag */}
+              {p.datum && (
+                <p className="text-xs text-gray-300 mt-2">
+                  Letzter Kurs:{" "}
+                  {new Date(p.datum).toLocaleDateString("de-DE", {
+                    day:   "2-digit",
+                    month: "2-digit",
+                    year:  "numeric",
+                  })}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-gray-300 mt-3">
+        Prognose = lineare Extrapolation der letzten ≤3 Handelswochen ·
+        Keine Anlageberatung · Futures = Terminpreise, nicht Spotpreise
+      </p>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const DEFAULT_SELECTED = new Set(["WH_SOFT", "RYE", "OATS", "MAIZE", "RAPE", "SOY", "SUNFL"]);
@@ -913,6 +1137,9 @@ export default function MarktpreisePage() {
           Erzeugerpreise: werden automatisch von Eurostat geladen (Verfügbarkeit abhängig von API)
         </span>
       </div>
+
+      {/* MATIF Spotpreise + Prognose */}
+      <MatifSpotSection />
 
       {/* 2-column layout */}
       <div className="flex gap-6">
