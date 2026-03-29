@@ -54,19 +54,34 @@ Aktuell existieren Dokumente verstreut auf lokalen Rechnern, per E-Mail oder in 
 
 ## 6. Technische Architektur
 
-### 6.1 Google OAuth & Service Account
+### 6.1 Authentifizierung: OAuth2 mit zentralem Google-Account
 
-**Empfehlung: Google Service Account** (kein OAuth-Flow pro Nutzer)
+**Entscheidung: OAuth2 mit einem zentralen Google-Account** (einmalig autorisiert)
 
 ```
-Google Cloud Project
-  └── Service Account (agraroffice-drive@...)
-        └── Freigabe auf freigegebenes Shared Drive oder Root-Ordner
+Google Cloud Project (OAuth2 App)
+  └── Einmaliger Admin-Login → Refresh Token wird in DB gespeichert
+        └── App nutzt Refresh Token für alle Drive-Operationen
 ```
 
-- Service Account JSON-Key wird in Einstellungen hochgeladen (DB: `system.google.serviceAccountKey`)
-- App authentifiziert sich serverseitig — kein Login pro Nutzer nötig
-- Alternativ: OAuth2 für Einzelnutzer (aufwändiger, flexibler bei Rechten)
+**Flow:**
+1. Admin öffnet `/einstellungen/google-drive`
+2. Klickt „Mit Google verbinden" → OAuth2-Redirect zu Google
+3. Admin meldet sich mit dem zentralen Google-Account an und erteilt Zugriff
+4. Google liefert `access_token` + `refresh_token` zurück
+5. `refresh_token` wird verschlüsselt in `Einstellung` (Key: `system.google.refreshToken`) gespeichert
+6. Ab sofort authentifiziert sich die App serverseitig über diesen Token — kein erneuter Login nötig
+
+**Vorteile gegenüber Service Account:**
+- Kein technischer JSON-Key nötig — normaler Google-Account reicht
+- Drive-Ordner erscheinen in der gewohnten Google Drive Oberfläche des Accounts
+- Einfacher einzurichten (kein Google Cloud IAM-Wissen nötig)
+
+**Google Cloud Konfiguration (einmalig):**
+- OAuth2 Client ID + Secret in Google Cloud Console erstellen
+- Redirect URI: `http://194.164.59.48:8080/api/drive/oauth/callback`
+- Scopes: `https://www.googleapis.com/auth/drive`
+- Client ID + Secret als Umgebungsvariablen: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 
 ### 6.2 Ordnerstruktur in Google Drive
 
@@ -103,7 +118,7 @@ model Artikel {
 }
 
 // In Einstellung (Key/Value):
-// system.google.serviceAccountKey  → JSON-String
+// system.google.refreshToken       → OAuth2 Refresh Token (verschlüsselt)
 // system.google.rootOrdnerId       → ID des Root-Ordners "AgrarOffice"
 // system.google.kundenOrdnerId     → ID des Ordners "Kunden"
 // system.google.artikelOrdnerId    → ID des Ordners "Artikel"
@@ -113,6 +128,8 @@ model Artikel {
 ### 6.4 API-Routen (neu)
 
 ```
+/api/drive/oauth/login              GET — Redirect zu Google OAuth2
+/api/drive/oauth/callback           GET — OAuth2 Callback, speichert Refresh Token
 /api/drive/status                   GET — Verbindungstest, zeigt ob Drive konfiguriert
 /api/drive/kunden/[id]/dateien      GET — Dateiliste des Kunden-Ordners
 /api/drive/kunden/[id]/upload       POST — Datei-Upload in Kunden-Ordner
@@ -166,7 +183,7 @@ Unterseite `/einstellungen/google-drive/page.tsx`:
 
 | Risiko | Maßnahme |
 |--------|----------|
-| Service Account Key in DB | AES-verschlüsselt in `Einstellung` speichern, nie in API-Antworten zurückgeben |
+| Refresh Token in DB | AES-verschlüsselt in `Einstellung` speichern, nie in API-Antworten zurückgeben |
 | Drive-API-Aufrufe serverseitig | Kein Token gelangt zum Browser |
 | Datei-Upload-Validierung | MIME-Type + Größenlimit (z.B. 25 MB) serverseitig prüfen |
 | Ordner-IDs in API | Nur eigene Entity-IDs akzeptieren (keine fremden Folder-IDs abrufbar) |
@@ -209,8 +226,8 @@ Kein weiteres SDK nötig — `googleapis` deckt Drive v3 vollständig ab.
 
 | Frage | Entscheidung erforderlich von |
 |-------|-------------------------------|
-| Service Account oder OAuth2 pro Nutzer? | Admin/Betreiber |
-| Shared Drive oder normales „Meine Ablage"? | Admin (Shared Drive = kostenpflichtig ab Business Standard) |
+| ~~Service Account oder OAuth2 pro Nutzer?~~ | **Entschieden: OAuth2 mit zentralem Account** |
+| Shared Drive oder normales „Meine Ablage"? | Admin — „Meine Ablage" des zentralen Accounts reicht für Einstieg |
 | Maximale Upload-Dateigröße? | Betreiber |
 | Sollen PDF-Lieferscheine automatisch in den Kunden-Ordner hochgeladen werden (Phase 2)? | Produktentscheidung |
 | Sind Mitarbeiter-Accounts in Google Workspace vorhanden? | Admin — beeinflusst Auth-Modell |
