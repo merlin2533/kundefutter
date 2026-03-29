@@ -84,6 +84,12 @@ export default function EinstellungenPage() {
           title="Agraranträge (AFIG)"
           description="CSV von agrarzahlungen.de importieren"
         />
+        <EinstellungTile
+          href="/einstellungen/google-drive"
+          icon="📂"
+          title="Google Drive"
+          description="Dokumente für Kunden und Artikel in Drive ablegen"
+        />
       </div>
     </div>
   );

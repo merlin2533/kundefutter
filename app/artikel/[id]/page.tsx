@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import DriveOrdner from "@/components/DriveOrdner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -813,6 +814,14 @@ export default function ArtikelDetailPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* ── Tab: Google Drive ────────────────────────────────────────────────── */}
+      {tab === "dokumente" && (
+        <div className="mt-6">
+          <h3 className="font-semibold text-gray-800 mb-3">Google Drive</h3>
+          <DriveOrdner entityType="artikel" entityId={parseInt(id)} />
         </div>
       )}
     </div>
