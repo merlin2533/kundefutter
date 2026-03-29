@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 interface NavGroup {
   label: string;
