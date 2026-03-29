@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { formatDatum } from "@/lib/utils";
+import DriveUploadButton from "@/components/DriveUploadButton";
 
 interface Position {
   id: number;
@@ -22,6 +23,7 @@ interface Kunde {
 
 interface Lieferung {
   id: number;
+  kundeId: number;
   datum: string;
   status: string;
   notiz?: string | null;
@@ -109,10 +111,32 @@ export default function LieferscheinPage() {
         >
           Drucken
         </button>
+        <DriveUploadButton
+          kundeId={lieferung.kundeId}
+          typ="lieferschein"
+          dateiName={`Lieferschein_${lieferung.id}.pdf`}
+          getInhalt={async () => {
+            try {
+              const { default: html2canvas } = await import("html2canvas");
+              const { jsPDF } = await import("jspdf");
+              const element = document.querySelector<HTMLElement>("[data-print-area]");
+              if (!element) return null;
+              const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+              const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+              const imgData = canvas.toDataURL("image/png");
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+              pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+              return pdf.output("datauristring").split(",")[1];
+            } catch {
+              return null;
+            }
+          }}
+        />
       </div>
 
       {/* Lieferschein document */}
-      <div className="max-w-[210mm] mx-auto p-8 bg-white text-black text-sm print:p-0 print:max-w-none">
+      <div data-print-area className="max-w-[210mm] mx-auto p-8 bg-white text-black text-sm print:p-0 print:max-w-none">
 
         {/* Briefkopf */}
         <div className="flex justify-between items-start mb-8">

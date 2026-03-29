@@ -224,6 +224,7 @@ export default function RechnungPrintPage() {
 
       {/* Rechnung document */}
       <div
+        data-print-area
         style={{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: "11pt",

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import DriveUploadButton from "@/components/DriveUploadButton";
 
 interface ArtikelInfo {
   id: number;
@@ -115,7 +116,29 @@ export default function AngebotDruckPage() {
       `}</style>
 
       {/* Print button */}
-      <div className="no-print fixed top-4 right-4 flex gap-2">
+      <div className="no-print fixed top-4 right-4 flex gap-2 items-center">
+        <DriveUploadButton
+          kundeId={angebot.kunde.id}
+          typ="angebot"
+          dateiName={`Angebot_${angebot.nummer}.pdf`}
+          getInhalt={async () => {
+            try {
+              const { default: html2canvas } = await import("html2canvas");
+              const { jsPDF } = await import("jspdf");
+              const element = document.querySelector<HTMLElement>("[data-print-area]");
+              if (!element) return null;
+              const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+              const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+              const imgData = canvas.toDataURL("image/png");
+              const pdfWidth = pdf.internal.pageSize.getWidth();
+              const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+              pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+              return pdf.output("datauristring").split(",")[1];
+            } catch {
+              return null;
+            }
+          }}
+        />
         <button
           onClick={() => window.print()}
           className="px-4 py-2 bg-green-700 text-white text-sm rounded-lg shadow hover:bg-green-800 transition-colors"
