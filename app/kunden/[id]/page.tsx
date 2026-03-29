@@ -1731,6 +1731,73 @@ export default function KundeDetailPage() {
         </div>
       </div>
 
+      {/* Schnellübersicht */}
+      {(() => {
+        const phone = kunde.kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
+        const email = kunde.kontakte.find((k) => k.typ === "email");
+        const geliefert = kunde.lieferungen.filter((l) => l.status === "geliefert");
+        const offen = geliefert.filter((l) => !l.bezahltAm).reduce((s, l) => s + lieferungTotal(l), 0);
+        const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())[0];
+        const offeneLieferungen = kunde.lieferungen.filter((l) => l.status === "geplant").length;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+            {/* Kontakt */}
+            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kontakt</p>
+              {phone ? (
+                <a href={`tel:${phone.wert}`} className="text-sm text-green-700 hover:underline font-medium truncate">📞 {phone.wert}</a>
+              ) : <p className="text-sm text-gray-400">—</p>}
+              {email ? (
+                <a href={`mailto:${email.wert}`} className="text-xs text-blue-600 hover:underline truncate">✉ {email.wert}</a>
+              ) : null}
+            </div>
+            {/* Adresse */}
+            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Adresse</p>
+              {kunde.strasse && <p className="text-sm text-gray-700 truncate">{kunde.strasse}</p>}
+              <p className="text-sm text-gray-700">{[kunde.plz, kunde.ort].filter(Boolean).join(" ") || "—"}</p>
+            </div>
+            {/* Offener Betrag */}
+            <div className={`border rounded-xl p-3 flex flex-col gap-1 ${offen > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
+              <p className={`text-xs font-semibold uppercase tracking-wide ${offen > 0 ? "text-red-400" : "text-gray-400"}`}>Offen</p>
+              <p className={`text-lg font-bold ${offen > 0 ? "text-red-700" : "text-gray-500"}`}>{formatEuro(offen)}</p>
+              {offeneLieferungen > 0 && (
+                <p className="text-xs text-yellow-700">{offeneLieferungen} Lieferschein{offeneLieferungen > 1 ? "e" : ""} geplant</p>
+              )}
+            </div>
+            {/* Letzte Lieferung */}
+            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferung</p>
+              {letzteL ? (
+                <>
+                  <p className="text-sm font-medium text-gray-800">{formatDatum(letzteL.datum)}</p>
+                  <div className="flex items-center gap-1.5">
+                    {statusBadge(letzteL.status)}
+                    {letzteL.rechnungNr && <span className="text-xs text-gray-500 truncate">{letzteL.rechnungNr}</span>}
+                  </div>
+                </>
+              ) : <p className="text-sm text-gray-400">Keine</p>}
+            </div>
+            {/* Schnellaktionen */}
+            <div className="col-span-2 sm:col-span-1 bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Schnellaktionen</p>
+              <Link
+                href={`/lieferungen/neu?kundeId=${kunde.id}`}
+                className="w-full text-center text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              >
+                + Neue Lieferung
+              </Link>
+              <button
+                onClick={() => setActiveTab("CRM")}
+                className="w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-medium transition-colors"
+              >
+                + CRM Aktivität
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex gap-1 -mb-px overflow-x-auto">
