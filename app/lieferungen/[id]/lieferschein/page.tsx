@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { formatDatum } from "@/lib/utils";
 
 interface Position {
@@ -35,6 +36,11 @@ export default function LieferscheinPage() {
   const [firma, setFirma] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -192,16 +198,33 @@ export default function LieferscheinPage() {
           </div>
         )}
 
-        {/* Unterschriftszeile */}
-        <div className="mt-12 flex gap-16 text-sm">
-          <div>
-            <div className="mb-8">Erhalten am: _______________</div>
-            <div className="border-t border-black pt-1 w-48">Datum</div>
+        {/* Unterschriftszeile + QR-Code */}
+        <div className="mt-12 flex justify-between items-end gap-8 text-sm">
+          <div className="flex gap-16">
+            <div>
+              <div className="mb-8">Erhalten am: _______________</div>
+              <div className="border-t border-black pt-1 w-48">Datum</div>
+            </div>
+            <div>
+              <div className="mb-8">&nbsp;</div>
+              <div className="border-t border-black pt-1 w-64">Unterschrift Empfänger</div>
+            </div>
           </div>
-          <div>
-            <div className="mb-8">&nbsp;</div>
-            <div className="border-t border-black pt-1 w-64">Unterschrift Empfänger</div>
-          </div>
+
+          {/* QR-Code für Lieferbestätigung */}
+          {origin && (
+            <div className="flex flex-col items-center text-center text-xs text-gray-500">
+              <Image
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${origin}/qr/${lieferung.id}`)}`}
+                alt="QR-Code Lieferbestätigung"
+                width={120}
+                height={120}
+                className="mb-1"
+                unoptimized
+              />
+              <span>QR-Code scannen für<br />Lieferbestätigung</span>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

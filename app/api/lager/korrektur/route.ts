@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auditLog } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -43,7 +44,17 @@ export async function POST(req: NextRequest) {
         notiz,
       },
     });
-    return { artikel: { ...artikel, aktuellerBestand: neuerBestand }, bewegung };
+    return { artikel: { ...artikel, aktuellerBestand: neuerBestand }, bewegung, altBestand: artikel.aktuellerBestand };
+  });
+
+  void auditLog({
+    entitaet: "Lager",
+    entitaetId: artikelId,
+    aktion: "geaendert",
+    feld: "aktuellerBestand",
+    alterWert: result.altBestand,
+    neuerWert: neuerBestand,
+    beschreibung: `Lagerkorrektur: ${result.altBestand} → ${neuerBestand} (${notiz})`,
   });
 
   return NextResponse.json(result, { status: 201 });

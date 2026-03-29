@@ -6,6 +6,7 @@ import Link from "next/link";
 import DriveOrdner from "@/components/DriveOrdner";
 import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useToast } from "@/components/ToastProvider";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2039,11 +2040,13 @@ interface KundeNotiz {
 }
 
 function NotizenTab({ kundeId }: { kundeId: number }) {
+  const { showToast } = useToast();
   const [notizen, setNotizen] = useState<KundeNotiz[]>([]);
   const [newText, setNewText] = useState("");
   const [newThema, setNewThema] = useState("");
   const [loading, setLoading] = useState(true);
   const [filterThema, setFilterThema] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch(`/api/kunden/${kundeId}/notizen`)
@@ -2057,25 +2060,71 @@ function NotizenTab({ kundeId }: { kundeId: number }) {
 
   async function handleAdd() {
     if (!newText.trim()) return;
-    const res = await fetch(`/api/kunden/${kundeId}/notizen`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newText, thema: newThema || null }),
-    });
-    if (res.ok) {
-      const notiz = await res.json();
-      setNotizen((prev) => [notiz, ...prev]);
-      setNewText("");
-      setNewThema("");
+    // Optimistic update: add a temporary note immediately
+    const tempId = -Date.now();
+    const tempNotiz: KundeNotiz = {
+      id: tempId,
+      kundeId,
+      text: newText,
+      thema: newThema || null,
+      erstellt: new Date().toISOString(),
+    };
+    setNotizen((prev) => [tempNotiz, ...prev]);
+    const savedText = newText;
+    const savedThema = newThema;
+    setNewText("");
+    setNewThema("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/kunden/${kundeId}/notizen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: savedText, thema: savedThema || null }),
+      });
+      if (res.ok) {
+        const notiz = await res.json();
+        // Replace temp note with real one from server
+        setNotizen((prev) => prev.map((n) => (n.id === tempId ? notiz : n)));
+        showToast("Notiz gespeichert", "success");
+      } else {
+        // Revert on error
+        setNotizen((prev) => prev.filter((n) => n.id !== tempId));
+        setNewText(savedText);
+        setNewThema(savedThema);
+        showToast("Fehler beim Speichern", "error");
+      }
+    } catch {
+      // Revert on network error
+      setNotizen((prev) => prev.filter((n) => n.id !== tempId));
+      setNewText(savedText);
+      setNewThema(savedThema);
+      showToast("Fehler beim Speichern", "error");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete(notizId: number) {
-    const res = await fetch(`/api/kunden/${kundeId}/notizen?notizId=${notizId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setNotizen((prev) => prev.filter((n) => n.id !== notizId));
+    // Optimistic delete
+    setNotizen((prev) => prev.filter((n) => n.id !== notizId));
+    try {
+      const res = await fetch(`/api/kunden/${kundeId}/notizen?notizId=${notizId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        // Revert: re-fetch to restore
+        fetch(`/api/kunden/${kundeId}/notizen`)
+          .then((r) => r.json())
+          .then(setNotizen)
+          .catch(() => {});
+        showToast("Fehler beim Löschen", "error");
+      }
+    } catch {
+      fetch(`/api/kunden/${kundeId}/notizen`)
+        .then((r) => r.json())
+        .then(setNotizen)
+        .catch(() => {});
+      showToast("Fehler beim Löschen", "error");
     }
   }
 
@@ -2107,10 +2156,10 @@ function NotizenTab({ kundeId }: { kundeId: number }) {
           </select>
           <button
             onClick={handleAdd}
-            disabled={!newText.trim()}
+            disabled={!newText.trim() || saving}
             className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Notiz hinzufügen
+            {saving ? "Speichern…" : "Notiz hinzufügen"}
           </button>
         </div>
       </div>

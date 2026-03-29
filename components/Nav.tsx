@@ -21,6 +21,7 @@ const groups: NavGroup[] = [
       { href: "/gebietsanalyse", label: "Gebietsanalyse" },
       { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
       { href: "/mailverteiler", label: "Mailverteiler" },
+      { href: "/kunden/bewertung", label: "Kundenbewertung" },
       { href: "/telefonmaske", label: "Telefonmaske" },
       { href: "/preisauskunft", label: "Preisauskunft" },
       { href: "/tagesansicht", label: "Tagesansicht" },
@@ -50,6 +51,7 @@ const groups: NavGroup[] = [
     label: "Finanzen",
     children: [
       { href: "/rechnungen", label: "Rechnungen" },
+      { href: "/gutschriften", label: "Gutschriften" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },
@@ -64,6 +66,7 @@ const groups: NavGroup[] = [
       { href: "/analyse/abc", label: "ABC-Analyse" },
       { href: "/analyse/saisonal", label: "Saisonal" },
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
+      { href: "/audit", label: "Änderungshistorie" },
     ],
   },
   { label: "Einstellungen", href: "/einstellungen" },
@@ -129,7 +132,7 @@ export default function Nav() {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
-    if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte"));
+    if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte") && !pathname.startsWith("/kunden/bewertung"));
     return pathname === href || pathname.startsWith(href + "/");
   }
 
