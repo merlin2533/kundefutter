@@ -45,11 +45,13 @@ model Kunde {
 }
 
 model KundeKontakt {
-  id      Int     @id @default(autoincrement())
-  kundeId Int
-  typ     String  // telefon | mobil | email | fax
-  wert    String
-  label   String? // z.B. "Büro", "Herr Müller"
+  id       Int     @id @default(autoincrement())
+  kundeId  Int
+  typ      String  // telefon | mobil | email | fax
+  wert     String
+  label    String? // z.B. "Büro"
+  vorname  String?
+  nachname String?
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 }
