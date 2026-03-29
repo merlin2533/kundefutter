@@ -153,7 +153,7 @@ export default function AngebotDruckPage() {
         </button>
       </div>
 
-      <div className="max-w-[800px] mx-auto p-10 print:p-0 print:max-w-full">
+      <div data-print-area className="max-w-[800px] mx-auto p-10 print:p-0 print:max-w-full">
         {/* Briefkopf */}
         <div className="flex justify-between items-start mb-10">
           <div>
