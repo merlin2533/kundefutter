@@ -231,6 +231,82 @@ export async function uploadDatei(
   };
 }
 
+// ─── Dokument-Unterordner ─────────────────────────────────────────────────────
+
+export type DokumentTyp = "Rechnungen" | "Lieferscheine" | "Angebote";
+
+/**
+ * Gibt den Unterordner-ID für einen Dokumenttyp im Kunden-Ordner zurück.
+ * Erstellt den Unterordner falls er noch nicht existiert.
+ */
+export async function ensureKundeUnterordner(
+  kundeId: number,
+  kundeName: string,
+  unterordnerName: DokumentTyp
+): Promise<string> {
+  const drive = await getDriveClient();
+  const kundenOrdnerId = await getKundenOrdnerId(kundeId, kundeName);
+  return erstelleOrdner(drive, unterordnerName, kundenOrdnerId);
+}
+
+/**
+ * Lädt eine PDF-Datei in den passenden Unterordner des Kunden-Drive-Ordners.
+ */
+export async function uploadPdfToKundeOrdner(
+  kundeId: number,
+  kundeName: string,
+  unterordnerName: DokumentTyp,
+  fileName: string,
+  pdfBuffer: Buffer
+): Promise<DriveDatei> {
+  const folderId = await ensureKundeUnterordner(kundeId, kundeName, unterordnerName);
+  return uploadDatei(folderId, fileName, "application/pdf", pdfBuffer);
+}
+
+/**
+ * Listet Dateien in einem Kunden-Unterordner.
+ * Gibt leeres Array zurück wenn der Unterordner noch nicht existiert.
+ */
+export async function listeDateienInUnterordner(
+  kundeId: number,
+  kundeName: string,
+  unterordnerName: DokumentTyp
+): Promise<{ dateien: DriveDatei[]; folderId: string | null }> {
+  try {
+    const drive = await getDriveClient();
+    const kundenOrdnerId = await getKundenOrdnerId(kundeId, kundeName);
+
+    // Prüfe ob Unterordner bereits existiert (nicht erstellen)
+    const existing = await drive.files.list({
+      q: `name='${unterordnerName}' and mimeType='application/vnd.google-apps.folder' and '${kundenOrdnerId}' in parents and trashed=false`,
+      fields: "files(id,name)",
+      spaces: "drive",
+    });
+
+    if (!existing.data.files || existing.data.files.length === 0) {
+      return { dateien: [], folderId: null };
+    }
+
+    const folderId = existing.data.files[0].id!;
+    const dateien = await listeDateien(folderId);
+    return { dateien, folderId };
+  } catch {
+    return { dateien: [], folderId: null };
+  }
+}
+
+/**
+ * Prüft ob Google Drive konfiguriert ist (ohne Exception zu werfen).
+ */
+export async function isDriveKonfiguriert(): Promise<boolean> {
+  try {
+    const key = await getServiceAccountKey();
+    return key !== null;
+  } catch {
+    return false;
+  }
+}
+
 // ─── Verbindungstest ──────────────────────────────────────────────────────────
 
 export async function testVerbindung(): Promise<{ ok: boolean; email?: string; fehler?: string }> {

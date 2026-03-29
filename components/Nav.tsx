@@ -250,6 +250,18 @@ export default function Nav() {
               </div>
             )
           )}
+          <div className="border-t border-green-700 mt-1 pt-1">
+            <Link
+              href="/hilfe"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
+                pathname === "/hilfe" ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
+              }`}
+            >
+              <span className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-xs font-bold flex-shrink-0">?</span>
+              Hilfe &amp; Features
+            </Link>
+          </div>
         </nav>
       )}
     </header>

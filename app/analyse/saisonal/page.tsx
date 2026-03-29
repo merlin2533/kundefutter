@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { formatEuro } from "@/lib/utils";
 
 const MONAT_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
@@ -320,10 +320,10 @@ export default function SaisonalPage() {
                     <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
                       <th className="px-4 py-2"></th>
                       {data.jahre.map((j) => (
-                        <>
-                          <th key={`${j}-u`} className="px-3 py-1.5 text-right font-normal">Umsatz</th>
-                          <th key={`${j}-a`} className="px-3 py-1.5 text-right font-normal">Lief.</th>
-                        </>
+                        <React.Fragment key={j}>
+                          <th className="px-3 py-1.5 text-right font-normal">Umsatz</th>
+                          <th className="px-3 py-1.5 text-right font-normal">Lief.</th>
+                        </React.Fragment>
                       ))}
                     </tr>
                   </thead>
@@ -337,14 +337,14 @@ export default function SaisonalPage() {
                         {data.jahre.map((j) => {
                           const entry = (m[String(j)] as JahrEntry | undefined) ?? { umsatz: 0, anzahl: 0 };
                           return (
-                            <>
-                              <td key={`${j}-u`} className="px-3 py-2.5 text-right font-mono text-gray-700">
+                            <React.Fragment key={j}>
+                              <td className="px-3 py-2.5 text-right font-mono text-gray-700">
                                 {entry.umsatz > 0 ? formatEuro(entry.umsatz) : "—"}
                               </td>
-                              <td key={`${j}-a`} className="px-3 py-2.5 text-right text-gray-400">
+                              <td className="px-3 py-2.5 text-right text-gray-400">
                                 {entry.anzahl > 0 ? entry.anzahl : "—"}
                               </td>
-                            </>
+                            </React.Fragment>
                           );
                         })}
                       </tr>
