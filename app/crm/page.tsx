@@ -140,7 +140,7 @@ export default function CrmPage() {
       {/* Schnellerfassung */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Schnellerfassung</h2>
-        <form onSubmit={handleSchnellerfassung} className="flex flex-col sm:flex-row gap-3 items-end">
+        <form onSubmit={handleSchnellerfassung} className="flex flex-col sm:flex-row gap-3 sm:items-end">
           <div className="w-full sm:w-56">
             <label className="block text-xs text-gray-500 mb-1">Kunde</label>
             <SearchableSelect
@@ -180,7 +180,7 @@ export default function CrmPage() {
           <button
             type="submit"
             disabled={schnellSaving || !schnellKundeId || !schnellBetreff.trim()}
-            className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+            className="w-full sm:w-auto px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
           >
             {schnellSaving ? "…" : schnellSuccess ? "✓ Gespeichert" : "Erfassen"}
           </button>

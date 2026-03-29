@@ -129,7 +129,7 @@ export default function RechnungenPage() {
 
   return (
     <main className="max-w-screen-xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rechnungen</h1>
           <p className="text-sm text-gray-500 mt-0.5">Alle erstellten Rechnungen aus Lieferscheinen</p>
@@ -174,9 +174,9 @@ export default function RechnungenPage() {
           placeholder="Suche nach Rechnung-Nr oder Kunde…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-green-600"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-600"
         />
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {(["alle", "offen", "ueberfaellig", "bezahlt"] as FilterStatus[]).map((f) => (
             <button
               key={f}
@@ -206,8 +206,8 @@ export default function RechnungenPage() {
               <tr className="border-b border-gray-200 bg-gray-50">
                 <th className="w-8" />
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Rechnung-Nr</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Datum</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Fällig am</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Datum</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Fällig am</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Kunde</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Betrag</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
@@ -231,8 +231,8 @@ export default function RechnungenPage() {
                         {isExpanded ? "▲" : "▼"}
                       </td>
                       <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.rechnungNr}</td>
-                      <td className="px-4 py-3 text-gray-700">{formatDatum(r.rechnungDatum ?? r.datum)}</td>
-                      <td className={`px-4 py-3 ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
+                      <td className="px-4 py-3 text-gray-700 hidden sm:table-cell">{formatDatum(r.rechnungDatum ?? r.datum)}</td>
+                      <td className={`px-4 py-3 hidden sm:table-cell ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
                         {formatDatum(faelligAm)}
                       </td>
                       <td className="px-4 py-3">

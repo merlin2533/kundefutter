@@ -347,9 +347,17 @@ export default function LieferungenPage() {
                         className="rounded border-gray-300 text-green-700 focus:ring-green-700"
                       />
                     </th>
-                    {["Kunde", "Artikel", "Menge", "Letztes Datum", "Nächstes Datum", "Status", "Aktion"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                        {h}
+                    {[
+                      { label: "Kunde", cls: "" },
+                      { label: "Artikel", cls: "" },
+                      { label: "Menge", cls: "" },
+                      { label: "Letztes Datum", cls: "hidden sm:table-cell" },
+                      { label: "Nächstes Datum", cls: "hidden sm:table-cell" },
+                      { label: "Status", cls: "" },
+                      { label: "Aktion", cls: "" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -367,11 +375,11 @@ export default function LieferungenPage() {
                       </td>
                       <td className="px-4 py-3 font-medium">{w.bedarf.kunde.name}</td>
                       <td className="px-4 py-3">{w.bedarf.artikel.name}</td>
-                      <td className="px-4 py-3">{w.bedarf.menge} {w.bedarf.artikel.einheit}</td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 whitespace-nowrap">{w.bedarf.menge} {w.bedarf.artikel.einheit}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
                         {w.letztesDatum ? formatDatum(w.letztesDatum) : "—"}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
                         {w.naechstesDatum ? formatDatum(w.naechstesDatum) : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -389,7 +397,7 @@ export default function LieferungenPage() {
                         <button
                           onClick={() => handleEinzelnAusloesen(w.bedarf.id)}
                           disabled={wSaving}
-                          className="px-2 py-1 text-xs font-medium bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-200 rounded transition-colors disabled:opacity-50"
+                          className="px-2 py-2 text-xs font-medium bg-orange-100 hover:bg-orange-200 text-orange-800 border border-orange-200 rounded transition-colors disabled:opacity-50 whitespace-nowrap"
                         >
                           Auslösen
                         </button>

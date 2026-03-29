@@ -106,9 +106,19 @@ export default function ArtikelPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Artikelnr.", "Name", "Kategorie", "Einheit", "Standardpreis", "Bestand", "Ampel", "Lagerort", "Lieferant"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    {h}
+                {[
+                  { label: "Artikelnr.", cls: "hidden md:table-cell" },
+                  { label: "Name", cls: "" },
+                  { label: "Kategorie", cls: "hidden sm:table-cell" },
+                  { label: "Einheit", cls: "hidden md:table-cell" },
+                  { label: "Standardpreis", cls: "hidden sm:table-cell" },
+                  { label: "Bestand", cls: "" },
+                  { label: "Ampel", cls: "" },
+                  { label: "Lagerort", cls: "hidden lg:table-cell" },
+                  { label: "Lieferant", cls: "hidden lg:table-cell" },
+                ].map((h) => (
+                  <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                    {h.label}
                   </th>
                 ))}
               </tr>
@@ -122,20 +132,25 @@ export default function ArtikelPage() {
                     className="border-b last:border-0 hover:bg-green-50 cursor-pointer transition-colors"
                     onClick={() => router.push(`/artikel/${a.id}`)}
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{a.artikelnummer}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{a.name}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{a.artikelnummer}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {a.name}
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                        {a.kategorie === "Duenger" ? "Dünger" : a.kategorie} · {formatEuro(a.standardpreis)}
+                      </div>
+                    </td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
                       {a.kategorie === "Duenger" ? "Dünger" : a.kategorie}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{a.einheit}</td>
-                    <td className="px-4 py-3 font-mono">{formatEuro(a.standardpreis)}</td>
-                    <td className="px-4 py-3 font-mono">
+                    <td className="hidden md:table-cell px-4 py-3 text-gray-600">{a.einheit}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(a.standardpreis)}</td>
+                    <td className="px-4 py-3 font-mono whitespace-nowrap">
                       {a.aktuellerBestand} {a.einheit}
                     </td>
                     <td className="px-4 py-3">
                       <LagerBadge status={status} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden lg:table-cell px-4 py-3">
                       {a.lagerort ? (
                         <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
                           {a.lagerort}
@@ -144,7 +159,7 @@ export default function ArtikelPage() {
                         <span className="text-gray-400 text-xs">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{bevorzugterLieferant(a)}</td>
+                    <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{bevorzugterLieferant(a)}</td>
                   </tr>
                 );
               })}

@@ -115,9 +115,9 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between flex-wrap gap-2 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             {getGreeting()} —{" "}
             <span className="text-gray-500 font-normal">{formatHeaderDate()}</span>
           </h1>
@@ -125,7 +125,7 @@ export default function DashboardPage() {
         {lastUpdated && (
           <button
             onClick={loadData}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
             title="Klicken zum sofortigen Neu laden"
           >
             Aktualisiert:{" "}
@@ -261,13 +261,13 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {aktivitaeten.map((a) => (
                 <div key={a.id} className="text-sm border-b last:border-0 pb-2 last:pb-0">
-                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                  <div className="flex items-center justify-between gap-1 flex-wrap mb-0.5">
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded font-medium ${TYP_BADGE[a.typ] ?? "bg-gray-100 text-gray-600"}`}
                     >
                       {TYP_LABEL[a.typ] ?? a.typ}
                     </span>
-                    <span className="text-xs text-gray-400">{formatDatum(a.datum)}</span>
+                    <span className="text-xs text-gray-400 shrink-0">{formatDatum(a.datum)}</span>
                   </div>
                   {a.kunde && (
                     <Link

@@ -240,9 +240,18 @@ export default function LagerPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Artikel", "Kategorie", "Einheit", "Bestand", "Mindestbestand", "Ampel", "Lieferant", ""].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {h}
+                    {[
+                      { label: "Artikel", cls: "" },
+                      { label: "Kategorie", cls: "hidden sm:table-cell" },
+                      { label: "Einheit", cls: "hidden md:table-cell" },
+                      { label: "Bestand", cls: "" },
+                      { label: "Mindestbestand", cls: "hidden sm:table-cell" },
+                      { label: "Ampel", cls: "" },
+                      { label: "Lieferant", cls: "hidden lg:table-cell" },
+                      { label: "", cls: "" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -253,25 +262,30 @@ export default function LagerPage() {
                     const bev = a.lieferanten.find((l) => l.bevorzugt) ?? a.lieferanten[0];
                     return (
                       <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-900">{a.name}</td>
-                        <td className="px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {a.name}
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {a.kategorie === "Duenger" ? "Dünger" : a.kategorie}
+                          </div>
+                        </td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
                           {a.kategorie === "Duenger" ? "Dünger" : a.kategorie}
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{a.einheit}</td>
-                        <td className={`px-4 py-3 font-mono font-medium ${
+                        <td className="hidden md:table-cell px-4 py-3 text-gray-600">{a.einheit}</td>
+                        <td className={`px-4 py-3 font-mono font-medium whitespace-nowrap ${
                           status === "rot" ? "text-red-700" : status === "gelb" ? "text-yellow-700" : "text-gray-900"
                         }`}>
-                          {a.aktuellerBestand}
+                          {a.aktuellerBestand} <span className="text-gray-400 text-xs">{a.einheit}</span>
                         </td>
-                        <td className="px-4 py-3 font-mono text-gray-500">{a.mindestbestand}</td>
+                        <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500">{a.mindestbestand}</td>
                         <td className="px-4 py-3">
                           <LagerBadge status={status} />
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{bev?.lieferant.name ?? "—"}</td>
+                        <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{bev?.lieferant.name ?? "—"}</td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => openKorrektur(a)}
-                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-600 font-medium transition-colors"
+                            className="text-xs px-2.5 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-600 font-medium transition-colors whitespace-nowrap"
                           >
                             Korrektur
                           </button>
@@ -325,9 +339,16 @@ export default function LagerPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Datum", "Artikel", "Typ", "Menge", "Bestand danach", "Notiz"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {h}
+                    {[
+                      { label: "Datum", cls: "" },
+                      { label: "Artikel", cls: "" },
+                      { label: "Typ", cls: "" },
+                      { label: "Menge", cls: "" },
+                      { label: "Bestand danach", cls: "hidden sm:table-cell" },
+                      { label: "Notiz", cls: "hidden md:table-cell" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -340,11 +361,11 @@ export default function LagerPage() {
                       <td className="px-4 py-3">
                         <TypBadge typ={b.typ} />
                       </td>
-                      <td className="px-4 py-3 font-mono">
+                      <td className="px-4 py-3 font-mono whitespace-nowrap">
                         {b.menge} {b.artikel.einheit}
                       </td>
-                      <td className="px-4 py-3 font-mono text-gray-600">{b.bestandNach}</td>
-                      <td className="px-4 py-3 text-gray-500">{b.notiz ?? "—"}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-600">{b.bestandNach}</td>
+                      <td className="hidden md:table-cell px-4 py-3 text-gray-500">{b.notiz ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
