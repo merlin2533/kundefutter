@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
-import { isDriveKonfiguriert, ensureKundeUnterordner } from "@/lib/googleDrive";
+import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
+import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -130,6 +131,24 @@ export async function PUT(req: NextRequest, { params }: Params) {
       beschreibung: `Status geändert: "${altLieferung.status}" → "${result.status}"`,
     });
   }
+
+  // Fire-and-forget: Bei Status-Wechsel nach "geliefert" Lieferschein-PDF hochladen
+  if (altLieferung?.status === "geplant" && result.status === "geliefert") {
+    const lieferungIdNum = Number(id);
+    const datumStr = new Date(result.datum).toISOString().slice(0, 10);
+    isDriveKonfiguriert()
+      .then(async (ok) => {
+        if (!ok) return;
+        const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
+        const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
+        await uploadPdfToKundeOrdner(result.kundeId, result.kunde.name, "Lieferscheine", fileName, pdfBuffer);
+        console.log(`[drive] Lieferschein ${lieferungIdNum} für Kunde ${result.kunde.name} hochgeladen`);
+      })
+      .catch((e: unknown) => {
+        console.warn("[drive] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+      });
+  }
+
   return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Interner Fehler";
@@ -172,6 +191,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: true } } },
         });
       });
+      // Fire-and-forget: Lieferschein-PDF in Google Drive hochladen
+      const lieferungIdNum = Number(id);
+      const kundeId = updated.kundeId;
+      const kundeName = updated.kunde.name;
+      const datumStr = new Date(updated.datum).toISOString().slice(0, 10);
+      isDriveKonfiguriert()
+        .then(async (ok) => {
+          if (!ok) return;
+          const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
+          const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
+          await uploadPdfToKundeOrdner(kundeId, kundeName, "Lieferscheine", fileName, pdfBuffer);
+          console.log(`[drive] Lieferschein ${lieferungIdNum} für Kunde ${kundeName} hochgeladen`);
+        })
+        .catch((e: unknown) => {
+          console.warn("[drive] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+        });
+
       return NextResponse.json(updated);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Interner Fehler";
@@ -206,15 +242,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           },
         });
       });
-      // Fire-and-forget: Kunden-Unterordner "Rechnungen" in Google Drive vorbereiten
-      // Eigentlicher PDF-Upload erfolgt vom Client via /api/drive/dokumente
+      // Fire-and-forget: Rechnungs-PDF generieren und in Google Drive hochladen
       isDriveKonfiguriert()
-        .then((ok) => {
+        .then(async (ok) => {
           if (!ok) return;
-          return ensureKundeUnterordner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen");
+          const pdfBuffer = await generiereRechnungPdf(Number(id));
+          const fileName = `Rechnung-${lieferung.rechnungNr?.replace(/\//g, "-")}.pdf`;
+          await uploadPdfToKundeOrdner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen", fileName, pdfBuffer);
+          console.log(`[drive] Rechnung ${lieferung.rechnungNr} für Kunde ${lieferung.kunde.name} hochgeladen`);
         })
         .catch((e: unknown) => {
-          console.warn("[drive] Kunden-Unterordner Vorbereitung fehlgeschlagen:", e instanceof Error ? e.message : e);
+          console.warn("[drive] Rechnungs-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
         });
 
       return NextResponse.json(lieferung);
