@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 function mahnstufe(tageUeberfaellig: number): 1 | 2 | 3 {
-  if (tageUeberfaellig >= 28) return 3;
-  if (tageUeberfaellig >= 14) return 2;
-  return 1;
+  if (tageUeberfaellig >= 42) return 3;
+  if (tageUeberfaellig >= 28) return 2;
+  return 1; // ab 14 Tagen überfällig
 }
 
 export async function GET() {
@@ -35,7 +35,8 @@ export async function GET() {
 
       const tageUeberfaellig = Math.floor((heute.getTime() - faelligAm.getTime()) / (24 * 60 * 60 * 1000));
 
-      // Mahnstufen: Stufe 1 ab 1 Tag, Stufe 2 ab 14 Tagen, Stufe 3 ab 28 Tagen
+      // Mahnstufen: Stufe 1 ab 14 Tagen, Stufe 2 ab 28 Tagen, Stufe 3 ab 42 Tagen
+      if (tageUeberfaellig < 14) continue; // noch keine Mahnstufe fällig
       const stufe = mahnstufe(tageUeberfaellig);
 
       const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);

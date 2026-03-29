@@ -27,7 +27,7 @@ const STATUS_FARBEN: Record<string, string> = {
   OFFEN: "bg-yellow-100 text-yellow-800",
   ANGENOMMEN: "bg-green-100 text-green-800",
   ABGELEHNT: "bg-red-100 text-red-800",
-  ABGELAUFEN: "bg-red-100 text-red-700",
+  ABGELAUFEN: "bg-red-200 text-red-900 font-semibold",
 };
 
 export default function AngebotePage() {
@@ -144,7 +144,7 @@ export default function AngebotePage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {angebote.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={a.id} className={`transition-colors ${a.status === "ABGELAUFEN" ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}`}>
                     <td className="px-4 py-3 font-mono font-medium text-gray-900">{a.nummer}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDatum(a.datum)}</td>
                     <td className="px-4 py-3 text-gray-600">
