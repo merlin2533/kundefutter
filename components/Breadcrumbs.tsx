@@ -57,93 +57,62 @@ const SEGMENT_LABELS: Record<string, string> = {
   karte: "Karte",
 };
 
-// Routes where we look up names from API
 type EntityRoute = "kunden" | "artikel" | "lieferungen" | "angebote" | "aufgaben" | "lieferanten";
 
-async function fetchEntityName(entity: EntityRoute, id: string): Promise<string> {
-  try {
-    const res = await fetch(`/api/${entity}/${id}`);
-    if (!res.ok) return id;
-    const data = await res.json();
-    switch (entity) {
-      case "kunden":
-        return data.firma ?? data.name ?? id;
-      case "artikel":
-        return data.name ?? id;
-      case "lieferungen":
-        return data.rechnungNr ? `Lieferung ${data.rechnungNr}` : `Lieferung #${id}`;
-      case "angebote":
-        return data.nummer ?? `Angebot #${id}`;
-      case "aufgaben":
-        return data.betreff ?? `Aufgabe #${id}`;
-      case "lieferanten":
-        return data.name ?? id;
-      default:
-        return id;
-    }
-  } catch {
-    return id;
-  }
-}
-
 const ENTITY_ROUTES = new Set<EntityRoute>([
-  "kunden",
-  "artikel",
-  "lieferungen",
-  "angebote",
-  "aufgaben",
-  "lieferanten",
+  "kunden", "artikel", "lieferungen", "angebote", "aufgaben", "lieferanten",
 ]);
 
 function isEntityRoute(s: string): s is EntityRoute {
   return ENTITY_ROUTES.has(s as EntityRoute);
 }
 
-interface Crumb {
-  label: string;
-  href: string;
+async function fetchEntityName(entity: EntityRoute, id: string): Promise<string> {
+  try {
+    const res = await fetch(`/api/${entity}/${id}`);
+    if (!res.ok) return `#${id}`;
+    const data = await res.json();
+    switch (entity) {
+      case "kunden": return data.firma ?? data.name ?? `#${id}`;
+      case "artikel": return data.name ?? `#${id}`;
+      case "lieferungen": return data.rechnungNr ? `Lieferung ${data.rechnungNr}` : `Lieferung #${id}`;
+      case "angebote": return data.nummer ?? `Angebot #${id}`;
+      case "aufgaben": return data.betreff ?? `Aufgabe #${id}`;
+      case "lieferanten": return data.name ?? `#${id}`;
+    }
+  } catch {
+    return `#${id}`;
+  }
 }
+
+interface Crumb { label: string; href: string }
 
 export default function Breadcrumbs() {
   const pathname = usePathname();
   const [dynamicLabels, setDynamicLabels] = useState<Record<string, string>>({});
 
-  // Don't show on dashboard
   if (pathname === "/") return null;
 
   const segments = pathname.split("/").filter(Boolean);
 
-  // Build crumb list
   const crumbs: Crumb[] = [{ label: "Dashboard", href: "/" }];
   let currentPath = "";
   let parentEntity: EntityRoute | null = null;
-  let parentId: string | null = null;
 
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
+  for (const seg of segments) {
     currentPath += `/${seg}`;
-
     const isId = /^\d+$/.test(seg);
 
     if (isId && parentEntity) {
-      // Dynamic entity name
       const key = `${parentEntity}/${seg}`;
-      const label = dynamicLabels[key] ?? `#${seg}`;
-      crumbs.push({ label, href: currentPath });
-      parentId = seg;
+      crumbs.push({ label: dynamicLabels[key] ?? `#${seg}`, href: currentPath });
     } else {
-      const label = SEGMENT_LABELS[seg] ?? seg;
-      crumbs.push({ label, href: currentPath });
-      if (isEntityRoute(seg)) {
-        parentEntity = seg;
-      } else if (!isId) {
-        // Reset parentId for sub-paths like /mappe, /druck unless still under same entity
-        parentId = null;
-      }
+      crumbs.push({ label: SEGMENT_LABELS[seg] ?? seg, href: currentPath });
+      if (isEntityRoute(seg)) parentEntity = seg;
     }
   }
 
-  // Fetch dynamic labels for numeric IDs
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     const toFetch: { entity: EntityRoute; id: string; key: string }[] = [];
     let entity: EntityRoute | null = null;
@@ -153,20 +122,15 @@ export default function Breadcrumbs() {
         entity = seg;
       } else if (/^\d+$/.test(seg) && entity) {
         const key = `${entity}/${seg}`;
-        if (!dynamicLabels[key]) {
-          toFetch.push({ entity, id: seg, key });
-        }
+        if (!dynamicLabels[key]) toFetch.push({ entity, id: seg, key });
       }
     }
 
     if (toFetch.length === 0) return;
-
     let cancelled = false;
+
     Promise.all(
-      toFetch.map(async ({ entity, id, key }) => {
-        const name = await fetchEntityName(entity, id);
-        return { key, name };
-      })
+      toFetch.map(async ({ entity, id, key }) => ({ key, name: await fetchEntityName(entity, id) }))
     ).then((results) => {
       if (cancelled) return;
       setDynamicLabels((prev) => {
@@ -183,27 +147,17 @@ export default function Breadcrumbs() {
   if (crumbs.length <= 1) return null;
 
   return (
-    <nav
-      aria-label="Breadcrumb"
-      className="bg-gray-50 border-b border-gray-200 px-4 md:px-6 py-1.5"
-    >
+    <nav aria-label="Breadcrumb" className="bg-gray-50 border-b border-gray-200 px-4 md:px-6 py-1.5">
       <ol className="flex items-center flex-wrap gap-x-1 gap-y-0.5 max-w-screen-2xl mx-auto text-xs text-gray-500">
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;
           return (
             <li key={crumb.href} className="flex items-center gap-1">
-              {i > 0 && (
-                <span className="text-gray-400 select-none" aria-hidden>
-                  &rsaquo;
-                </span>
-              )}
+              {i > 0 && <span className="text-gray-400 select-none" aria-hidden>&rsaquo;</span>}
               {isLast ? (
                 <span className="font-medium text-gray-700">{crumb.label}</span>
               ) : (
-                <Link
-                  href={crumb.href}
-                  className="hover:text-green-700 hover:underline transition-colors"
-                >
+                <Link href={crumb.href} className="hover:text-green-700 hover:underline transition-colors">
                   {crumb.label}
                 </Link>
               )}

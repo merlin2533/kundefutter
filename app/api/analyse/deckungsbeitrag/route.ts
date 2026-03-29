@@ -31,7 +31,8 @@ function accumulate(map: Map<number, DbEntry>, id: number, name: string, umsatz:
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const typ = searchParams.get("typ") ?? "artikel";
+    // Support both "typ" and "gruppierung" param names
+    const typ = searchParams.get("gruppierung") ?? searchParams.get("typ") ?? "artikel";
     const heute = new Date();
     const von = searchParams.get("von") ?? new Date(heute.getFullYear(), 0, 1).toISOString().slice(0, 10);
     const bis = searchParams.get("bis") ?? heute.toISOString().slice(0, 10);
@@ -39,8 +40,8 @@ export async function GET(request: Request) {
     const lieferungen = await prisma.lieferung.findMany({
       where: { status: "geliefert", datum: { gte: new Date(von), lte: new Date(bis + "T23:59:59") } },
       include: {
-        positionen: { include: { artikel: { select: { id: true, name: true } } } },
-        kunde: { select: { id: true, name: true } },
+        positionen: { include: { artikel: { select: { id: true, name: true, kategorie: true } } } },
+        kunde: { select: { id: true, name: true, firma: true } },
       },
       take: 5000,
     });
@@ -57,7 +58,8 @@ export async function GET(request: Request) {
       for (const l of lieferungen) {
         const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
         const einkauf = l.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
-        accumulate(map, l.kundeId, l.kunde.name, umsatz, einkauf);
+        const displayName = l.kunde.firma ? `${l.kunde.name} (${l.kunde.firma})` : l.kunde.name;
+        accumulate(map, l.kundeId, displayName, umsatz, einkauf);
       }
     }
 

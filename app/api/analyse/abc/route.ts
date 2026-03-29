@@ -14,13 +14,13 @@ export async function GET() {
       },
       include: {
         positionen: true,
-        kunde: { select: { id: true, name: true } },
+        kunde: { select: { id: true, name: true, firma: true } },
       },
       take: 5000,
     });
 
     // Aggregate umsatz per customer
-    const kundeMap = new Map<number, { kundeId: number; name: string; umsatz: number }>();
+    const kundeMap = new Map<number, { kundeId: number; name: string; firma: string | null; umsatz: number }>();
     for (const l of lieferungen) {
       const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
       const existing = kundeMap.get(l.kundeId);
@@ -30,6 +30,7 @@ export async function GET() {
         kundeMap.set(l.kundeId, {
           kundeId: l.kundeId,
           name: l.kunde.name,
+          firma: l.kunde.firma ?? null,
           umsatz,
         });
       }
@@ -40,7 +41,9 @@ export async function GET() {
     const gesamt = sorted.reduce((s, k) => s + k.umsatz, 0);
 
     // Classify A/B/C using cumulative revenue:
-    // A: top 80% of revenue, B: next 15% (to 95%), C: remaining 5%
+    // A: customers accounting for top 80% of revenue
+    // B: next 15% (80–95%)
+    // C: remaining 5%
     let kumuliert = 0;
     const kunden = sorted.map((k) => {
       const anteil = gesamt > 0 ? (k.umsatz / gesamt) * 100 : 0;
@@ -54,8 +57,10 @@ export async function GET() {
         klasse = "C";
       }
       return {
+        id: k.kundeId,
         kundeId: k.kundeId,
         name: k.name,
+        firma: k.firma ?? null,
         umsatz: Math.round(k.umsatz * 100) / 100,
         anteil: Math.round(anteil * 100) / 100,
         klasse,

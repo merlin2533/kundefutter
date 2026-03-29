@@ -170,6 +170,18 @@ export default function Nav() {
               <DropdownItem key={g.label} group={g} isAnyChildActive={isGroupActive(g)} />
             )
           )}
+          <Link
+            href="/hilfe"
+            title="Hilfe & Features"
+            className={`ml-1 w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold transition-colors border ${
+              pathname === "/hilfe"
+                ? "bg-white text-green-800 border-white"
+                : "border-green-600 text-green-200 hover:bg-green-700 hover:border-green-500 hover:text-white"
+            }`}
+            aria-label="Hilfe"
+          >
+            ?
+          </Link>
         </nav>
 
         {/* Mobile hamburger */}
@@ -206,6 +218,7 @@ export default function Nav() {
                 {g.label}
               </Link>
             ) : (
+
               <div key={g.label}>
                 <button
                   onClick={() => setMobileOpen(mobileOpen === g.label ? null : g.label)}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Nav from "@/components/Nav";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import SearchPalette from "@/components/SearchPalette";
 import { ToastProvider } from "@/components/ToastProvider";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorkerRegistration />
         <SearchPalette />
         <Nav />
+        <Breadcrumbs />
         <ToastProvider>
           <main className="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
             {children}

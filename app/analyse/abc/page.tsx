@@ -6,8 +6,10 @@ import { KpiCard } from "@/components/Card";
 import { formatEuro, formatPercent } from "@/lib/utils";
 
 interface KundeABC {
+  id: number;
   kundeId: number;
   name: string;
+  firma: string | null;
   umsatz: number;
   anteil: number;
   klasse: "A" | "B" | "C";
@@ -49,11 +51,12 @@ function rowBg(klasse: "A" | "B" | "C") {
 }
 
 function downloadCSV(kunden: KundeABC[]) {
-  const header = ["Rang", "Klasse", "Kundenname", "Umsatz (EUR)", "Anteil (%)", "Kumuliert (%)"];
+  const header = ["Rang", "Klasse", "Kundenname", "Firma/Betrieb", "Umsatz (EUR)", "Anteil (%)", "Kumuliert (%)"];
   const rows = kunden.map((k, i) => [
     String(i + 1),
     k.klasse,
     `"${k.name.replace(/"/g, '""')}"`,
+    k.firma ? `"${k.firma.replace(/"/g, '""')}"` : "",
     k.umsatz.toFixed(2).replace(".", ","),
     k.anteil.toFixed(2).replace(".", ","),
     k.kumuliert.toFixed(2).replace(".", ","),
@@ -182,6 +185,7 @@ export default function ABCPage() {
               <th className="px-4 py-3 text-left font-semibold text-gray-600 w-12">Rang</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-600 w-16">Klasse</th>
               <th className="px-4 py-3 text-left font-semibold text-gray-600">Kundenname</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-600 hidden lg:table-cell">Firma/Betrieb</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-600">Umsatz</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-600 hidden sm:table-cell">Anteil %</th>
               <th className="px-4 py-3 text-right font-semibold text-gray-600 hidden md:table-cell">Kumuliert %</th>
@@ -201,10 +205,14 @@ export default function ABCPage() {
                   >
                     {k.name}
                   </Link>
+                  {k.firma && (
+                    <div className="lg:hidden text-xs text-gray-400 mt-0.5">{k.firma}</div>
+                  )}
                   <div className="sm:hidden text-xs text-gray-400 mt-0.5">
                     {formatPercent(k.anteil)} — kum. {formatPercent(k.kumuliert)}
                   </div>
                 </td>
+                <td className="px-4 py-2.5 text-gray-500 hidden lg:table-cell">{k.firma ?? "—"}</td>
                 <td className="px-4 py-2.5 text-right font-mono">{formatEuro(k.umsatz)}</td>
                 <td className="px-4 py-2.5 text-right hidden sm:table-cell">{formatPercent(k.anteil)}</td>
                 <td className="px-4 py-2.5 text-right text-gray-500 hidden md:table-cell">{formatPercent(k.kumuliert)}</td>
