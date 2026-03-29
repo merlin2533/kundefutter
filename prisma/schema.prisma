@@ -41,6 +41,7 @@ model Kunde {
   schlaegte        KundeSchlag[]
   aufgaben         Aufgabe[]
   gutschriften     Gutschrift[]
+  driveOrdnerId    String?  // Google Drive Folder ID
 }
 
 model KundeKontakt {
@@ -136,6 +137,7 @@ model Artikel {
   mengenrabatte    Mengenrabatt[]
   inventurPositionen InventurPosition[]
   gutschriftPositionen GutschriftPosition[]
+  driveOrdnerId    String?  // Google Drive Folder ID
 }
 
 model ArtikelDokument {

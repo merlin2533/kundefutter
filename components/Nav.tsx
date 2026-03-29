@@ -22,6 +22,9 @@ const groups: NavGroup[] = [
       { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
       { href: "/mailverteiler", label: "Mailverteiler" },
       { href: "/kunden/bewertung", label: "Kundenbewertung" },
+      { href: "/telefonmaske", label: "Telefonmaske" },
+      { href: "/preisauskunft", label: "Preisauskunft" },
+      { href: "/tagesansicht", label: "Tagesansicht" },
     ],
   },
   {

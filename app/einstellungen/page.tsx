@@ -102,6 +102,12 @@ export default function EinstellungenPage() {
           title="Änderungshistorie"
           description="Alle Änderungen an Stammdaten nachverfolgen"
         />
+        <EinstellungTile
+          href="/einstellungen/google-drive"
+          icon="📂"
+          title="Google Drive"
+          description="Dokumente für Kunden und Artikel in Drive ablegen"
+        />
       </div>
     </div>
   );

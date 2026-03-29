@@ -138,11 +138,15 @@ export default function AngebotDetailPage() {
 
   async function handleDelete() {
     if (!confirm("Angebot unwiderruflich löschen?")) return;
-    const res = await fetch(`/api/angebote/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      router.push("/angebote");
-    } else {
-      setError("Fehler beim Löschen");
+    try {
+      const res = await fetch(`/api/angebote/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/angebote");
+      } else {
+        setError("Fehler beim Löschen");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Löschen");
     }
   }
 

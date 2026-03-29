@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import DriveOrdner from "@/components/DriveOrdner";
 import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
@@ -89,7 +90,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben", "Dokumente"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -198,6 +199,52 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
   const [validMsg, setValidMsg] = useState("");
   const [kategorien, setKategorien] = useState<string[]>(["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"]);
   const [mitarbeiter, setMitarbeiter] = useState<string[]>([]);
+
+  // Wettbewerber-Notizen
+  const [wettbNotizenLoading, setWettbNotizenLoading] = useState(true);
+  const [wettbNotizen, setWettbNotizen] = useState<KundeNotiz[]>([]);
+  const [wettbNewText, setWettbNewText] = useState("");
+  const [wettbSaving, setWettbSaving] = useState(false);
+  const [wettbDeleting, setWettbDeleting] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/kunden/${kunde.id}/notizen`)
+      .then((r) => r.json())
+      .then((data: KundeNotiz[]) => {
+        setWettbNotizen(Array.isArray(data) ? data.filter((n) => n.thema === "Wettbewerber") : []);
+        setWettbNotizenLoading(false);
+      })
+      .catch(() => setWettbNotizenLoading(false));
+  }, [kunde.id]);
+
+  async function handleWettbAdd() {
+    if (!wettbNewText.trim()) return;
+    setWettbSaving(true);
+    try {
+      const res = await fetch(`/api/kunden/${kunde.id}/notizen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: wettbNewText.trim(), thema: "Wettbewerber" }),
+      });
+      if (res.ok) {
+        const notiz: KundeNotiz = await res.json();
+        setWettbNotizen((prev) => [notiz, ...prev]);
+        setWettbNewText("");
+      }
+    } finally {
+      setWettbSaving(false);
+    }
+  }
+
+  async function handleWettbDelete(notizId: number) {
+    setWettbDeleting(notizId);
+    try {
+      const res = await fetch(`/api/kunden/${kunde.id}/notizen?notizId=${notizId}`, { method: "DELETE" });
+      if (res.ok) setWettbNotizen((prev) => prev.filter((n) => n.id !== notizId));
+    } finally {
+      setWettbDeleting(null);
+    }
+  }
   const [form, setForm] = useState({
     name: kunde.name,
     firma: kunde.firma ?? "",
@@ -354,6 +401,51 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           Erstellt: {formatDatum(kunde.createdAt)} · Geändert: {formatDatum(kunde.updatedAt)}
         </p>
         <NaechsterBesuchInfo kundeId={kunde.id} />
+
+        {/* Wettbewerber-Info */}
+        <div className="border border-orange-200 rounded-xl p-4 bg-orange-50 space-y-3">
+          <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">Wettbewerber-Info</p>
+          {wettbNotizenLoading ? (
+            <p className="text-xs text-gray-400">Lade…</p>
+          ) : wettbNotizen.length > 0 ? (
+            <div className="space-y-2">
+              {wettbNotizen.map((n) => (
+                <div key={n.id} className="flex items-start justify-between gap-2 bg-white border border-orange-100 rounded-lg px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{n.text}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{new Date(n.erstellt).toLocaleDateString("de-DE")}</p>
+                  </div>
+                  <button
+                    onClick={() => handleWettbDelete(n.id)}
+                    disabled={wettbDeleting === n.id}
+                    className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50 flex-shrink-0 px-1"
+                    title="Löschen"
+                  >
+                    {wettbDeleting === n.id ? "…" : "✕"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400">Noch keine Wettbewerber-Infos erfasst.</p>
+          )}
+          <div className="space-y-2">
+            <textarea
+              value={wettbNewText}
+              onChange={(e) => setWettbNewText(e.target.value)}
+              placeholder="Wettbewerber-Info hinzufügen…"
+              rows={2}
+              className="w-full border border-orange-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none bg-white"
+            />
+            <button
+              onClick={handleWettbAdd}
+              disabled={!wettbNewText.trim() || wettbSaving}
+              className="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {wettbSaving ? "Speichern…" : "Speichern"}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1667,6 +1759,45 @@ export default function KundeDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
 
+  // Rückruf planen
+  const [showRueckruf, setShowRueckruf] = useState(false);
+  const [rueckrufDatum, setRueckrufDatum] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toISOString().slice(0, 16);
+  });
+  const [rueckrufNotiz, setRueckrufNotiz] = useState("");
+  const [rueckrufSaving, setRueckrufSaving] = useState(false);
+  const [rueckrufSuccess, setRueckrufSuccess] = useState(false);
+
+  async function handleRueckrufEinplanen() {
+    if (!kunde) return;
+    setRueckrufSaving(true);
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          betreff: "Rückruf",
+          typ: "anruf",
+          prioritaet: "hoch",
+          faelligAm: rueckrufDatum ? new Date(rueckrufDatum).toISOString() : null,
+          beschreibung: rueckrufNotiz.trim() || null,
+          kundeId: kunde.id,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setRueckrufSuccess(true);
+      setShowRueckruf(false);
+      setRueckrufNotiz("");
+      setTimeout(() => setRueckrufSuccess(false), 2000);
+    } catch {
+      // ignore
+    } finally {
+      setRueckrufSaving(false);
+    }
+  }
+
   // Support ?tab=CRM URL param for direct navigation
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -1794,6 +1925,56 @@ export default function KundeDetailPage() {
               >
                 + CRM Aktivität
               </button>
+              {rueckrufSuccess ? (
+                <div className="w-full text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium text-center">
+                  ✓ Rückruf eingeplant
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowRueckruf((v) => !v)}
+                  className="w-full text-xs px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg font-medium transition-colors"
+                >
+                  📞 Rückruf planen
+                </button>
+              )}
+              {showRueckruf && !rueckrufSuccess && (
+                <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 space-y-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Termin</label>
+                    <input
+                      type="datetime-local"
+                      value={rueckrufDatum}
+                      onChange={(e) => setRueckrufDatum(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Notiz (optional)</label>
+                    <input
+                      type="text"
+                      value={rueckrufNotiz}
+                      onChange={(e) => setRueckrufNotiz(e.target.value)}
+                      placeholder="z.B. Angebot besprechen"
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={handleRueckrufEinplanen}
+                      disabled={rueckrufSaving || !rueckrufDatum}
+                      className="flex-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {rueckrufSaving ? "…" : "Einplanen"}
+                    </button>
+                    <button
+                      onClick={() => setShowRueckruf(false)}
+                      className="px-2 py-1 border border-gray-300 text-xs rounded hover:bg-gray-50 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1832,6 +2013,7 @@ export default function KundeDetailPage() {
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
+        {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
       </div>
     </div>
   );
@@ -2787,26 +2969,33 @@ function AufgabenTab({ kundeId }: { kundeId: number }) {
     e.preventDefault();
     if (!betreff.trim()) return;
     setSaving(true);
-    await fetch("/api/aufgaben", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ betreff: betreff.trim(), faelligAm: faelligAm || null, prioritaet, typ, kundeId }),
-    });
-    setBetreff(""); setFaelligAm(""); setPrioritaet("normal"); setTyp("aufgabe");
-    setShowForm(false);
-    setSaving(false);
-    fetchAufgaben();
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betreff: betreff.trim(), faelligAm: faelligAm || null, prioritaet, typ, kundeId }),
+      });
+      if (!res.ok) return;
+      setBetreff(""); setFaelligAm(""); setPrioritaet("normal"); setTyp("aufgabe");
+      setShowForm(false);
+      fetchAufgaben();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function toggleErledigt(a: AufgabeItem) {
     setToggling(a.id);
-    await fetch(`/api/aufgaben/${a.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ erledigt: !a.erledigt }),
-    });
-    await fetchAufgaben();
-    setToggling(null);
+    try {
+      const res = await fetch(`/api/aufgaben/${a.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ erledigt: !a.erledigt }),
+      });
+      if (res.ok) await fetchAufgaben();
+    } finally {
+      setToggling(null);
+    }
   }
 
   const offen = aufgaben.filter((a) => !a.erledigt);

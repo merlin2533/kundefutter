@@ -17,6 +17,38 @@ interface Artikel {
   artikelnummer: string;
   einheit: string;
   standardpreis: number;
+  aktuellerBestand: number;
+  mindestbestand: number;
+}
+
+function LagerAmpel({ art }: { art: Artikel | undefined }) {
+  if (!art) return null;
+  if (art.aktuellerBestand <= 0) {
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        <span className="inline-block w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+        <span className="text-xs text-red-600">Kein Lager</span>
+      </div>
+    );
+  }
+  if (art.aktuellerBestand < art.mindestbestand) {
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+        <span className="text-xs text-yellow-700">
+          Gering ({art.aktuellerBestand.toLocaleString("de-DE")} {art.einheit})
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <span className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+      <span className="text-xs text-green-700">
+        Auf Lager ({art.aktuellerBestand.toLocaleString("de-DE")} {art.einheit})
+      </span>
+    </div>
+  );
 }
 
 interface Position {
@@ -51,7 +83,7 @@ function NeuesAngebotForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true")
+    fetch("/api/kunden?aktiv=true&limit=500")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -237,6 +269,7 @@ function NeuesAngebotForm() {
                         onChange={(v) => handleArtikelChange(i, v)}
                         placeholder="Artikel wählen…"
                       />
+                      <LagerAmpel art={artObj} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Menge</label>
