@@ -2092,7 +2092,7 @@ export default function KundeDetailPage() {
         const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())[0];
         const offeneLieferungen = kunde.lieferungen.filter((l) => l.status === "geplant").length;
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             {/* Kontakt */}
             <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kontakt</p>
@@ -2196,6 +2196,8 @@ export default function KundeDetailPage() {
                 </div>
               )}
             </div>
+            {/* Google Drive Dokumente */}
+            <DriveDokumenteBox kundeId={kunde.id} />
           </div>
         );
       })()}
