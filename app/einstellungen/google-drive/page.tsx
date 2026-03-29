@@ -165,24 +165,73 @@ export default function GoogleDriveEinstellungenPage() {
         )}
       </section>
 
-      {/* ── Service Account Key ─────────────────────────────────────────── */}
+      {/* ── Einrichtung ─────────────────────────────────────────────────── */}
       {!status?.verbunden && (
         <section className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
-          <h2 className="font-semibold text-gray-800 mb-2">Service Account Key hinterlegen</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Erstelle in der{" "}
-            <span className="font-medium text-gray-700">Google Cloud Console</span> ein Dienstkonto,
-            lade den JSON-Key herunter und füge ihn hier ein.
-            Aktiviere vorher die <span className="font-medium text-gray-700">Google Drive API</span>.
-          </p>
+          <h2 className="font-semibold text-gray-800 mb-4">Einmalige Einrichtung (ca. 10 Minuten)</h2>
 
-          <ol className="text-sm text-gray-600 space-y-1 mb-5 list-decimal list-inside">
-            <li>cloud.google.com → Projekt auswählen oder neu erstellen</li>
-            <li>APIs &amp; Dienste → Google Drive API aktivieren</li>
-            <li>IAM &amp; Verwaltung → Dienstkonten → Dienstkonto erstellen</li>
-            <li>Schlüssel → Schlüssel hinzufügen → JSON herunterladen</li>
-            <li>Inhalt der JSON-Datei unten einfügen</li>
-          </ol>
+          <div className="space-y-4 mb-6">
+            {/* Schritt 1 */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center">1</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Google Cloud Console öffnen</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Gehe zu{" "}
+                  <span className="font-mono text-xs bg-gray-100 px-1 rounded">console.cloud.google.com</span>
+                  {" "}und wähle ein bestehendes Projekt aus oder erstelle ein neues.
+                </p>
+              </div>
+            </div>
+
+            {/* Schritt 2 */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center">2</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Google Drive API aktivieren</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Im linken Menü: <span className="font-medium text-gray-700">APIs &amp; Dienste → Bibliothek</span> → nach „Google Drive API" suchen → aktivieren.
+                </p>
+              </div>
+            </div>
+
+            {/* Schritt 3 */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center">3</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Dienstkonto erstellen</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  <span className="font-medium text-gray-700">IAM &amp; Verwaltung → Dienstkonten → Dienstkonto erstellen</span>.
+                  Namen vergeben (z.B. „agraroffice-drive"), Rolle kann leer bleiben.
+                </p>
+              </div>
+            </div>
+
+            {/* Schritt 4 */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center">4</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">JSON-Key herunterladen</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Das neu erstellte Dienstkonto anklicken → Reiter <span className="font-medium text-gray-700">Schlüssel</span> → <span className="font-medium text-gray-700">Schlüssel hinzufügen → JSON</span> → herunterladen.
+                  Es wird eine <span className="font-mono text-xs bg-gray-100 px-1 rounded">.json</span>-Datei gespeichert.
+                </p>
+              </div>
+            </div>
+
+            {/* Schritt 5 */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-700 text-white text-xs font-bold flex items-center justify-center">5</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">Key hier einfügen &amp; verbinden</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Die heruntergeladene JSON-Datei in einem Texteditor öffnen, den gesamten Inhalt kopieren und unten einfügen.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-gray-200 mb-5" />
 
           {keyError && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">
