@@ -1292,9 +1292,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
 
   async function rechnungErstellen(l: Lieferung) {
     setActionLoading(l.id);
-    // PDF direkt öffnen — Rechnungsnummer wird serverseitig automatisch vergeben
-    window.open(`/api/exporte/rechnung?lieferungId=${l.id}`, "_blank");
-    // Kurz warten dann refresh damit rechnungNr in UI erscheint
+    window.open(`/lieferungen/${l.id}/rechnung`, "_blank");
     setTimeout(() => { setActionLoading(null); onRefresh(); }, 1500);
   }
 
@@ -1584,13 +1582,13 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                 Abbrechen
               </button>
               <a
-                href={`/api/exporte/lieferschein?lieferungId=${lieferscheinModal.id}`}
+                href={`/lieferungen/${lieferscheinModal.id}/lieferschein`}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setLieferscheinModal(null)}
                 className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
               >
-                📄 PDF herunterladen
+                🖨 Lieferschein drucken
               </a>
             </div>
           </div>
@@ -1720,14 +1718,14 @@ export default function KundeDetailPage() {
           {!kunde.aktiv && (
             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Inaktiv</span>
           )}
-          <a
-            href={`/api/exporte/kundenmappe?kundeId=${kunde.id}`}
+          <Link
+            href={`/kunden/${kunde.id}/mappe`}
             target="_blank"
             rel="noreferrer"
             className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors font-medium"
           >
-            Kundenmappe PDF
-          </a>
+            🖨 Kundenmappe drucken
+          </Link>
         </div>
       </div>
 
