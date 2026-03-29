@@ -247,13 +247,21 @@ export default function AngebotDetailPage() {
 
       {/* Lieferung link if angenommen */}
       {(lieferungId || angebot.status === "ANGENOMMEN") && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
-          Angebot wurde angenommen.{" "}
-          {lieferungId && (
-            <Link href={`/lieferungen/${lieferungId}`} className="font-medium underline hover:no-underline">
-              Zur erstellten Lieferung →
-            </Link>
-          )}
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 flex flex-wrap items-center justify-between gap-3">
+          <span>
+            Angebot wurde angenommen.{" "}
+            {lieferungId && (
+              <Link href={`/lieferungen/${lieferungId}`} className="font-medium underline hover:no-underline">
+                Zur erstellten Lieferung →
+              </Link>
+            )}
+          </span>
+          <Link
+            href={`/lieferungen/neu?ausAngebot=${id}`}
+            className="px-3 py-1.5 bg-green-700 text-white text-xs font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap"
+          >
+            Als Lieferung übernehmen
+          </Link>
         </div>
       )}
 

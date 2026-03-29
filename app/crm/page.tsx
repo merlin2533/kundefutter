@@ -14,6 +14,14 @@ interface Aktivitaet {
   kunde: { id: number; name: string; firma?: string | null };
 }
 
+interface WiedervorlageForm {
+  aktivitaetId: number;
+  kundeId: number;
+  betreff: string;
+  typ: string;
+  faelligAm: string;
+}
+
 interface Kunde {
   id: number;
   name: string;
@@ -37,6 +45,11 @@ export default function CrmPage() {
   const [typFilter, setTypFilter] = useState("alle");
   const [searchText, setSearchText] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Wiedervorlage
+  const [wiedervorlage, setWiedervorlage] = useState<WiedervorlageForm | null>(null);
+  const [wiedervorlageSaving, setWiedervorlageSaving] = useState(false);
+  const [wiedervorlageSuccess, setWiedervorlageSuccess] = useState<number | null>(null);
 
   // Schnellerfassung
   const [kunden, setKunden] = useState<Kunde[]>([]);
@@ -105,6 +118,52 @@ export default function CrmPage() {
       }
     } finally {
       setSchnellSaving(false);
+    }
+  }
+
+  function openWiedervorlage(item: Aktivitaet) {
+    const defaultDatum = new Date();
+    defaultDatum.setDate(defaultDatum.getDate() + 7);
+    const crmTypToAufgabeTyp: Record<string, string> = {
+      anruf: "anruf",
+      besuch: "besuch",
+      email: "email",
+      aufgabe: "aufgabe",
+      notiz: "aufgabe",
+    };
+    setWiedervorlage({
+      aktivitaetId: item.id,
+      kundeId: item.kunde.id,
+      betreff: `Wiedervorlage: ${item.betreff}`,
+      typ: crmTypToAufgabeTyp[item.typ] ?? "aufgabe",
+      faelligAm: defaultDatum.toISOString().split("T")[0],
+    });
+    setWiedervorlageSuccess(null);
+  }
+
+  async function handleWiedervorlageSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!wiedervorlage) return;
+    setWiedervorlageSaving(true);
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          betreff: wiedervorlage.betreff,
+          kundeId: wiedervorlage.kundeId,
+          typ: wiedervorlage.typ,
+          faelligAm: wiedervorlage.faelligAm || null,
+          prioritaet: "normal",
+        }),
+      });
+      if (res.ok) {
+        setWiedervorlageSuccess(wiedervorlage.aktivitaetId);
+        setWiedervorlage(null);
+        setTimeout(() => setWiedervorlageSuccess(null), 3000);
+      }
+    } finally {
+      setWiedervorlageSaving(false);
     }
   }
 

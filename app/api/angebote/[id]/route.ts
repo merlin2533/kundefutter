@@ -5,15 +5,29 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: Params) {
   const { id } = await ctx.params;
-  const angebot = await prisma.angebot.findUnique({
-    where: { id: Number(id) },
-    include: {
-      kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
-    },
-  });
-  if (!angebot) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  return NextResponse.json(angebot);
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+
+  try {
+    // Automatisch abgelaufen setzen wenn nötig
+    await prisma.angebot.updateMany({
+      where: { id: numId, status: "OFFEN", gueltigBis: { lt: new Date() } },
+      data: { status: "ABGELAUFEN" },
+    });
+
+    const angebot = await prisma.angebot.findUnique({
+      where: { id: numId },
+      include: {
+        kunde: { include: { kontakte: true } },
+        positionen: { include: { artikel: true } },
+      },
+    });
+    if (!angebot) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    return NextResponse.json(angebot);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function PUT(req: NextRequest, ctx: Params) {
