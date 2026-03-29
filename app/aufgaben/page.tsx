@@ -69,12 +69,12 @@ export default function AufgabenPage() {
 
   async function toggleErledigt(a: Aufgabe) {
     setToggling(a.id);
-    await fetch(`/api/aufgaben/${a.id}`, {
+    const res = await fetch(`/api/aufgaben/${a.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ erledigt: !a.erledigt }),
     });
-    await fetchAufgaben();
+    if (res.ok) await fetchAufgaben();
     setToggling(null);
   }
 

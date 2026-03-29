@@ -55,7 +55,10 @@ export async function GET() {
       take: 10,
     }),
     prisma.kunde.findMany({
-      where: { aktiv: true },
+      where: {
+        aktiv: true,
+        lieferungen: { some: {} },
+      },
       select: {
         id: true,
         name: true,
@@ -70,6 +73,8 @@ export async function GET() {
           take: 1,
         },
       },
+      orderBy: { name: "asc" },
+      take: 200,
     }),
   ]);
 
@@ -204,7 +209,6 @@ export async function GET() {
 
   // Kein Kontakt (90+ Tage, mindestens 1 Lieferung)
   const keinKontakt = aktivKunden
-    .filter((k) => k.lieferungen.length > 0)
     .map((k) => ({
       id: k.id,
       name: k.name,

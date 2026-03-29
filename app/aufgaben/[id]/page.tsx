@@ -97,11 +97,16 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
   async function toggleErledigt() {
     if (!aufgabe) return;
     setSaving(true);
-    await fetch(`/api/aufgaben/${id}`, {
+    const res = await fetch(`/api/aufgaben/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ erledigt: !aufgabe.erledigt }),
     });
+    if (!res.ok) {
+      setError("Fehler beim Speichern");
+      setSaving(false);
+      return;
+    }
     router.push("/aufgaben");
   }
 

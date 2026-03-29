@@ -79,6 +79,16 @@ export async function POST(req: NextRequest) {
         create: { key: "letzte_angebotsnummer", value: nummer },
       });
 
+      // Validate positions
+      for (const pos of positionen) {
+        const menge = Number(pos.menge);
+        const preis = Number(pos.preis);
+        const rabatt = Number(pos.rabatt ?? 0);
+        if (isNaN(menge) || menge <= 0) throw new Error("Menge muss größer 0 sein");
+        if (isNaN(preis) || preis < 0) throw new Error("Preis darf nicht negativ sein");
+        if (isNaN(rabatt) || rabatt < 0 || rabatt > 100) throw new Error("Rabatt muss zwischen 0 und 100 liegen");
+      }
+
       return tx.angebot.create({
         data: {
           nummer,
@@ -97,7 +107,7 @@ export async function POST(req: NextRequest) {
               artikelId: Number(pos.artikelId),
               menge: Number(pos.menge),
               preis: Number(pos.preis),
-              rabatt: Number(pos.rabatt ?? 0),
+              rabatt: Math.min(100, Math.max(0, Number(pos.rabatt ?? 0))),
               einheit: pos.einheit ?? "kg",
               notiz: pos.notiz ?? null,
             })),

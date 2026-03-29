@@ -1273,8 +1273,10 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
   function zahlungsStatus(l: Lieferung): { label: string; cls: string } {
     if (l.status !== "geliefert") return { label: "—", cls: "text-gray-400" };
     if (l.bezahltAm) return { label: "Bezahlt", cls: "text-green-700 font-medium" };
+    if (!l.rechnungNr) return { label: "Offen", cls: "text-yellow-700 font-medium" };
     const tage = l.zahlungsziel ?? 30;
-    const faellig = new Date(new Date(l.datum).getTime() + tage * 24 * 60 * 60 * 1000);
+    const basisDatum = l.rechnungDatum ?? l.datum;
+    const faellig = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
     if (heute > faellig) return { label: "Überfällig", cls: "text-red-600 font-medium" };
     return { label: "Offen", cls: "text-yellow-700 font-medium" };
   }

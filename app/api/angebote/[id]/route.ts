@@ -66,8 +66,12 @@ export async function PUT(req: NextRequest, ctx: Params) {
     }
 
     // Normales Update
+    const VALID_STATUS = ["OFFEN", "ANGENOMMEN", "ABGELEHNT", "ABGELAUFEN"];
     const updateData: Record<string, unknown> = {};
-    if (status !== undefined) updateData.status = status;
+    if (status !== undefined) {
+      if (!VALID_STATUS.includes(status)) throw new Error(`Ungültiger Status: ${status}`);
+      updateData.status = status;
+    }
     if (notiz !== undefined) updateData.notiz = notiz;
     if (gueltigBis !== undefined) updateData.gueltigBis = gueltigBis ? new Date(gueltigBis) : null;
 

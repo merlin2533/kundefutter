@@ -13,9 +13,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "charge Parameter fehlt" }, { status: 400 });
   }
 
+  if (charge.length < 2) {
+    return NextResponse.json({ error: "Mindestens 2 Zeichen für die Chargensuche erforderlich" }, { status: 400 });
+  }
+
   // Search Lieferposition.chargeNr
   const lieferpositionen = await prisma.lieferposition.findMany({
     where: { chargeNr: { contains: charge } },
+    take: 500,
     include: {
       lieferung: {
         include: {
