@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import DriveOrdner from "@/components/DriveOrdner";
 import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -88,7 +89,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben", "Dokumente"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -1829,6 +1830,7 @@ export default function KundeDetailPage() {
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
+        {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
       </div>
     </div>
   );

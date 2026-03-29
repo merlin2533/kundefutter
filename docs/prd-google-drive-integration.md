@@ -54,34 +54,25 @@ Aktuell existieren Dokumente verstreut auf lokalen Rechnern, per E-Mail oder in 
 
 ## 6. Technische Architektur
 
-### 6.1 Authentifizierung: OAuth2 mit zentralem Google-Account
+### 6.1 Authentifizierung: Google Service Account
 
-**Entscheidung: OAuth2 mit einem zentralen Google-Account** (einmalig autorisiert)
+**Entscheidung: Service Account** (einfachste serverseitige Integration)
 
 ```
-Google Cloud Project (OAuth2 App)
-  └── Einmaliger Admin-Login → Refresh Token wird in DB gespeichert
-        └── App nutzt Refresh Token für alle Drive-Operationen
+Google Cloud Project
+  └── Service Account (agraroffice-drive@projekt.iam.gserviceaccount.com)
+        └── JSON-Key wird einmalig in Einstellungen hochgeladen
 ```
 
-**Flow:**
-1. Admin öffnet `/einstellungen/google-drive`
-2. Klickt „Mit Google verbinden" → OAuth2-Redirect zu Google
-3. Admin meldet sich mit dem zentralen Google-Account an und erteilt Zugriff
-4. Google liefert `access_token` + `refresh_token` zurück
-5. `refresh_token` wird verschlüsselt in `Einstellung` (Key: `system.google.refreshToken`) gespeichert
-6. Ab sofort authentifiziert sich die App serverseitig über diesen Token — kein erneuter Login nötig
+**Setup (einmalig, ~10 Minuten):**
+1. Google Cloud Console → neues Projekt (oder vorhandenes)
+2. Google Drive API aktivieren
+3. „Dienstkonto" erstellen → JSON-Key herunterladen
+4. In App: `/einstellungen/google-drive` → JSON-Key hochladen
+5. Fertig — kein OAuth-Flow, kein Redirect, kein Refresh Token
 
-**Vorteile gegenüber Service Account:**
-- Kein technischer JSON-Key nötig — normaler Google-Account reicht
-- Drive-Ordner erscheinen in der gewohnten Google Drive Oberfläche des Accounts
-- Einfacher einzurichten (kein Google Cloud IAM-Wissen nötig)
-
-**Google Cloud Konfiguration (einmalig):**
-- OAuth2 Client ID + Secret in Google Cloud Console erstellen
-- Redirect URI: `http://194.164.59.48:8080/api/drive/oauth/callback`
-- Scopes: `https://www.googleapis.com/auth/drive`
-- Client ID + Secret als Umgebungsvariablen: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+**Wichtig:** Die Drive-Ordner liegen unter dem Service Account, nicht im persönlichen Drive.
+Um sie im eigenen Drive zu sehen: Root-Ordner einmalig mit dem gewünschten Google-Account teilen.
 
 ### 6.2 Ordnerstruktur in Google Drive
 
@@ -118,7 +109,7 @@ model Artikel {
 }
 
 // In Einstellung (Key/Value):
-// system.google.refreshToken       → OAuth2 Refresh Token (verschlüsselt)
+// system.google.serviceAccountKey  → JSON-Key des Service Accounts (verschlüsselt)
 // system.google.rootOrdnerId       → ID des Root-Ordners "AgrarOffice"
 // system.google.kundenOrdnerId     → ID des Ordners "Kunden"
 // system.google.artikelOrdnerId    → ID des Ordners "Artikel"
@@ -128,8 +119,6 @@ model Artikel {
 ### 6.4 API-Routen (neu)
 
 ```
-/api/drive/oauth/login              GET — Redirect zu Google OAuth2
-/api/drive/oauth/callback           GET — OAuth2 Callback, speichert Refresh Token
 /api/drive/status                   GET — Verbindungstest, zeigt ob Drive konfiguriert
 /api/drive/kunden/[id]/dateien      GET — Dateiliste des Kunden-Ordners
 /api/drive/kunden/[id]/upload       POST — Datei-Upload in Kunden-Ordner
@@ -226,8 +215,8 @@ Kein weiteres SDK nötig — `googleapis` deckt Drive v3 vollständig ab.
 
 | Frage | Entscheidung erforderlich von |
 |-------|-------------------------------|
-| ~~Service Account oder OAuth2 pro Nutzer?~~ | **Entschieden: OAuth2 mit zentralem Account** |
-| Shared Drive oder normales „Meine Ablage"? | Admin — „Meine Ablage" des zentralen Accounts reicht für Einstieg |
+| ~~Service Account oder OAuth2?~~ | **Entschieden: Service Account** |
+| Shared Drive oder normales „Meine Ablage"? | Service Account nutzt eigene Ablage; Root-Ordner kann mit Team-Account geteilt werden |
 | Maximale Upload-Dateigröße? | Betreiber |
 | Sollen PDF-Lieferscheine automatisch in den Kunden-Ordner hochgeladen werden (Phase 2)? | Produktentscheidung |
 | Sind Mitarbeiter-Accounts in Google Workspace vorhanden? | Admin — beeinflusst Auth-Modell |
