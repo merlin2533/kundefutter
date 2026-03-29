@@ -40,6 +40,16 @@ export function naechsteRechnungsnummer(letzte: string | null): string {
   return `RE-${jahr}-${String(num).padStart(4, "0")}`;
 }
 
+export function naechsteGutschriftsnummer(letzte: string | null): string {
+  const jahr = new Date().getFullYear();
+  if (!letzte) return `GS-${jahr}-0001`;
+  const parts = letzte.split("-");
+  const letzteJahr = parts.length >= 3 ? parseInt(parts[1]) : 0;
+  if (letzteJahr !== jahr) return `GS-${jahr}-0001`;
+  const num = parseInt(parts[parts.length - 1] || "0") + 1;
+  return `GS-${jahr}-${String(num).padStart(4, "0")}`;
+}
+
 export function addTage(datum: Date, tage: number): Date {
   const d = new Date(datum);
   d.setDate(d.getDate() + tage);

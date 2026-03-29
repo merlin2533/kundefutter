@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
+import { auditLog } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -21,6 +22,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await req.json();
   const { positionen, ...data } = body;
+
+  // Capture old status for audit log before transaction
+  const altLieferung = data.status !== undefined
+    ? await prisma.lieferung.findUnique({ where: { id: Number(id) }, select: { status: true } })
+    : null;
 
   try {
   const result = await prisma.$transaction(async (tx) => {
@@ -112,6 +118,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
   });
 
+  if (altLieferung && data.status !== undefined && altLieferung.status !== data.status) {
+    void auditLog({
+      entitaet: "Lieferung",
+      entitaetId: Number(id),
+      aktion: "geaendert",
+      feld: "status",
+      alterWert: altLieferung.status,
+      neuerWert: result.status,
+      beschreibung: `Status geändert: "${altLieferung.status}" → "${result.status}"`,
+    });
+  }
   return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Interner Fehler";
@@ -122,7 +139,40 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // Rechnung erstellen
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { aktion } = await req.json();
+  const body = await req.json();
+  const { aktion } = body;
+
+  // QR-Mobilerfassung: Status auf "geliefert" setzen
+  if (body.status === "geliefert") {
+    try {
+      const lieferung = await prisma.lieferung.findUnique({ where: { id: Number(id) } });
+      if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+      if (lieferung.status !== "geplant") {
+        return NextResponse.json({ error: "Status kann nicht geändert werden", currentStatus: lieferung.status }, { status: 400 });
+      }
+      const updated = await prisma.$transaction(async (tx) => {
+        const positionen = await tx.lieferposition.findMany({ where: { lieferungId: Number(id) } });
+        for (const pos of positionen) {
+          const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+          if (!artikel) continue;
+          const neuerBestand = artikel.aktuellerBestand - pos.menge;
+          await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
+          await tx.lagerbewegung.create({
+            data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId: Number(id) },
+          });
+        }
+        return tx.lieferung.update({
+          where: { id: Number(id) },
+          data: { status: "geliefert" },
+          include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: true } } },
+        });
+      });
+      return NextResponse.json(updated);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
 
   if (aktion === "rechnung_erstellen") {
     try {

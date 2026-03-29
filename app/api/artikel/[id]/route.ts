@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auditChanges } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,6 +27,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
 
+  const altArtikel = await prisma.artikel.findUnique({ where: { id: Number(id) } });
   const artikel = await prisma.$transaction(async (tx) => {
     // Preishistorie eintragen wenn Preis geändert wurde
     const alt = await tx.artikel.findUnique({ where: { id: Number(id) } });
@@ -56,6 +58,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
       },
     });
   });
+  if (altArtikel) {
+    await auditChanges(
+      "Artikel",
+      Number(id),
+      altArtikel as Record<string, unknown>,
+      artikel as Record<string, unknown>,
+      ["name", "standardpreis", "mindestbestand"]
+    );
+  }
   return NextResponse.json(artikel);
 }
 

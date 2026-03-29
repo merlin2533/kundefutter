@@ -52,6 +52,12 @@ const EXPORTS: ExportCard[] = [
     typ: "margen",
     hasDateRange: true,
   },
+  {
+    title: "DATEV-Buchhaltung",
+    description: "Rechnungsdaten im DATEV-Format für den Steuerberater. Buchungsstapel als CSV.",
+    typ: "datev",
+    hasDateRange: true,
+  },
 ];
 
 const today = new Date().toISOString().split("T")[0];
@@ -150,15 +156,23 @@ export default function ExportePage() {
     }
   }
 
+  function buildDatevUrl(card: ExportCard): string {
+    const s = states[card.typ];
+    const params = new URLSearchParams();
+    if (s.von) params.set("von", s.von);
+    if (s.bis) params.set("bis", s.bis);
+    return `/api/exporte/datev?${params}`;
+  }
+
   async function handleDownload(card: ExportCard) {
-    const url = buildUrl(card);
+    const url = card.typ === "datev" ? buildDatevUrl(card) : buildUrl(card);
     setDownloading((prev) => ({ ...prev, [card.typ]: true }));
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Download fehlgeschlagen");
       const blob = await res.blob();
       const contentDisposition = res.headers.get("content-disposition");
-      let filename = `${card.typ}-export.csv`;
+      let filename = card.typ === "datev" ? `datev-buchungsstapel.csv` : `${card.typ}-export.csv`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
         if (match?.[1]) filename = match[1].replace(/['"]/g, "");

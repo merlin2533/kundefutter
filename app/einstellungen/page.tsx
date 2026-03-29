@@ -84,6 +84,24 @@ export default function EinstellungenPage() {
           title="Agraranträge (AFIG)"
           description="CSV von agrarzahlungen.de importieren"
         />
+        <EinstellungTile
+          href="/einstellungen/datev"
+          icon="📊"
+          title="DATEV"
+          description="Beraternummer, Mandantennummer und Kontenrahmen"
+        />
+        <EinstellungTile
+          href="/einstellungen/backup"
+          icon="💾"
+          title="Datensicherung"
+          description="Datenbank-Backups erstellen und verwalten"
+        />
+        <EinstellungTile
+          href="/audit"
+          icon="📜"
+          title="Änderungshistorie"
+          description="Alle Änderungen an Stammdaten nachverfolgen"
+        />
       </div>
     </div>
   );

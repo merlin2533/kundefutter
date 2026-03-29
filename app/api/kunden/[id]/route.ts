@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auditChanges } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -61,11 +62,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
+    const altKunde = await prisma.kunde.findUnique({ where: { id: Number(id) } });
     const kunde = await prisma.kunde.update({
       where: { id: Number(id) },
       data: updateData,
       include: { kontakte: true },
     });
+    if (altKunde) {
+      await auditChanges(
+        "Kunde",
+        Number(id),
+        altKunde as Record<string, unknown>,
+        kunde as Record<string, unknown>,
+        ["name", "firma", "kategorie", "plz", "ort"]
+      );
+    }
     return NextResponse.json(kunde);
   } catch {
     return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });

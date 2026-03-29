@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useToast } from "@/components/ToastProvider";
 
 interface Aufgabe {
   id: number;
@@ -42,6 +43,7 @@ function isUeberfaellig(faelligAm: string | null, erledigt: boolean) {
 }
 
 export default function AufgabenPage() {
+  const { showToast } = useToast();
   const [aufgaben, setAufgaben] = useState<Aufgabe[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<"offen" | "erledigt" | "alle">("offen");
@@ -69,12 +71,33 @@ export default function AufgabenPage() {
 
   async function toggleErledigt(a: Aufgabe) {
     setToggling(a.id);
-    const res = await fetch(`/api/aufgaben/${a.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ erledigt: !a.erledigt }),
-    });
-    if (res.ok) await fetchAufgaben();
+    // Optimistic update: flip the flag immediately
+    setAufgaben((prev) =>
+      prev.map((x) => (x.id === a.id ? { ...x, erledigt: !a.erledigt } : x))
+    );
+    try {
+      const res = await fetch(`/api/aufgaben/${a.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ erledigt: !a.erledigt }),
+      });
+      if (res.ok) {
+        showToast(a.erledigt ? "Aufgabe wieder geöffnet" : "Aufgabe erledigt", "success");
+        await fetchAufgaben();
+      } else {
+        // Revert on API error
+        setAufgaben((prev) =>
+          prev.map((x) => (x.id === a.id ? { ...x, erledigt: a.erledigt } : x))
+        );
+        showToast("Fehler beim Speichern", "error");
+      }
+    } catch {
+      // Revert on network error
+      setAufgaben((prev) =>
+        prev.map((x) => (x.id === a.id ? { ...x, erledigt: a.erledigt } : x))
+      );
+      showToast("Fehler beim Speichern", "error");
+    }
     setToggling(null);
   }
 

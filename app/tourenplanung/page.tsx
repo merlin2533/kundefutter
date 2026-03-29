@@ -191,6 +191,10 @@ export default function TourenplanungPage() {
   const [schnellSaving, setSchnellSaving] = useState(false);
   const [schnellSuccess, setSchnellSuccess] = useState(false);
 
+  // Optimierung
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimierungErgebnis, setOptimierungErgebnis] = useState<{ savedDistanceKm: number; savedPercent: number } | null>(null);
+
   // Besuchsplanung
   const [besuchstermine, setBesuchstermine] = useState<Besuchstermin[]>([]);
   const [besuchLoading, setBesuchLoading] = useState(false);
@@ -296,6 +300,63 @@ export default function TourenplanungPage() {
     const legs = await fetchRouteLegs(waypoints);
     setRouteLegs(legs);
     setRouteLoading(false);
+  }
+
+  async function optimiereRoute() {
+    if (!startLat || !startLng) {
+      setFehler("Bitte erst den Startpunkt geocodieren, bevor die Route optimiert werden kann.");
+      return;
+    }
+    const stops = lieferungen
+      .filter((l) => l.kunde.lat && l.kunde.lng)
+      .map((l) => ({ id: l.id, lat: l.kunde.lat as number, lng: l.kunde.lng as number }));
+    if (stops.length === 0) {
+      setFehler("Keine Lieferungen mit Koordinaten für Optimierung verfügbar.");
+      return;
+    }
+    setOptimizing(true);
+    setFehler("");
+    setOptimierungErgebnis(null);
+    try {
+      const res = await fetch("/api/tourenplanung/optimieren", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start: { lat: startLat, lng: startLng }, stops }),
+      });
+      if (!res.ok) {
+        setFehler("Fehler bei der Routenoptimierung.");
+        return;
+      }
+      const data = await res.json();
+      const { optimizedOrder, savedDistanceKm, savedPercent } = data as {
+        optimizedOrder: number[];
+        savedDistanceKm: number;
+        savedPercent: number;
+      };
+      // Reorder lieferungen: optimized first, then any without coords
+      const idToLieferung = new Map(lieferungen.map((l) => [l.id, l]));
+      const optimized = optimizedOrder.map((id) => idToLieferung.get(id)).filter(Boolean) as typeof lieferungen;
+      const rest = lieferungen.filter((l) => !optimizedOrder.includes(l.id));
+      setLieferungen([...optimized, ...rest]);
+      setOptimierungErgebnis({ savedDistanceKm, savedPercent });
+      setRouteLegs([]);
+      // Auto-recalculate OSRM route with new order
+      const waypoints: { lat: number; lng: number }[] = [];
+      waypoints.push({ lat: startLat, lng: startLng });
+      for (const l of [...optimized, ...rest]) {
+        if (l.kunde.lat && l.kunde.lng) {
+          waypoints.push({ lat: l.kunde.lat, lng: l.kunde.lng });
+        }
+      }
+      if (waypoints.length >= 2) {
+        setRouteLoading(true);
+        const legs = await fetchRouteLegs(waypoints);
+        setRouteLegs(legs);
+        setRouteLoading(false);
+      }
+    } finally {
+      setOptimizing(false);
+    }
   }
 
   async function saveTourname() {
@@ -574,6 +635,13 @@ export default function TourenplanungPage() {
           {lieferungen.length > 0 && (
             <>
               <button
+                onClick={optimiereRoute}
+                disabled={optimizing || mitKoords === 0 || !startLat}
+                className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {optimizing ? "Optimiere…" : "Route optimieren"}
+              </button>
+              <button
                 onClick={berechneRoute}
                 disabled={routeLoading || mitKoords === 0}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
@@ -598,6 +666,15 @@ export default function TourenplanungPage() {
       </div>
 
       {fehler && <p className="text-red-600 text-sm mb-4">{fehler}</p>}
+
+      {optimierungErgebnis && (
+        <Card className="mb-5 bg-green-50 border-green-200">
+          <h3 className="font-semibold text-green-800 mb-1">Route optimiert</h3>
+          <p className="text-sm text-green-700">
+            Eingespart: <strong>{optimierungErgebnis.savedDistanceKm.toFixed(1)} km</strong> ({optimierungErgebnis.savedPercent.toFixed(0)}%)
+          </p>
+        </Card>
+      )}
 
       {routeLegs.length > 0 && (
         <Card className="mb-5 bg-blue-50 border-blue-200">
