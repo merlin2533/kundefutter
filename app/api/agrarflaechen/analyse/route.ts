@@ -144,7 +144,9 @@ export async function GET(request: NextRequest) {
     });
 
     // 3. Filter by actual Haversine distance and calculate distance
-    const kundenImRadius = kundenInBox
+    type KundeInBox = { id: number; name: string; firma: string | null; kategorie: string; lat: number | null; lng: number | null; ort: string | null };
+    type KundeMitEntfernung = { id: number; name: string; entfernungKm: number; kategorie: string; ort: string | null; lat: number | null; lng: number | null };
+    const kundenImRadius: KundeMitEntfernung[] = (kundenInBox as unknown as KundeInBox[])
       .filter((k) => k.lat !== null && k.lng !== null)
       .map((k) => {
         const entfernungKm = haversineKm(lat, lng, k.lat!, k.lng!);

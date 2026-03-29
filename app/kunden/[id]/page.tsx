@@ -2196,8 +2196,6 @@ export default function KundeDetailPage() {
                 </div>
               )}
             </div>
-            {/* Google Drive Dokumente */}
-            <DriveDokumenteBox kundeId={kunde.id} />
           </div>
         );
       })()}
