@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { GutschriftStatusBadge } from "@/components/Badge";
 
 interface GutschriftPosition {
   menge: number;
@@ -18,24 +19,6 @@ interface Gutschrift {
   kunde: { id: number; name: string; firma?: string };
   lieferung?: { id: number } | null;
   positionen: GutschriftPosition[];
-}
-
-function GutschriftStatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    OFFEN: "bg-yellow-100 text-yellow-800 border border-yellow-200",
-    VERBUCHT: "bg-green-100 text-green-800 border border-green-200",
-    STORNIERT: "bg-red-100 text-red-600 border border-red-200",
-  };
-  const labels: Record<string, string> = {
-    OFFEN: "Offen",
-    VERBUCHT: "Verbucht",
-    STORNIERT: "Storniert",
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? "bg-gray-100 text-gray-800"}`}>
-      {labels[status] ?? status}
-    </span>
-  );
 }
 
 export default function GutschriftenPage() {

@@ -20,6 +20,37 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export function GutschriftStatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    OFFEN: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+    VERBUCHT: "bg-green-100 text-green-800 border border-green-200",
+    STORNIERT: "bg-red-100 text-red-600 border border-red-200",
+  };
+  const labels: Record<string, string> = {
+    OFFEN: "Offen",
+    VERBUCHT: "Verbucht",
+    STORNIERT: "Storniert",
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? "bg-gray-100 text-gray-800"}`}>
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+export function AuditAktionBadge({ aktion }: { aktion: string }) {
+  const colors: Record<string, string> = {
+    erstellt: "bg-green-100 text-green-800",
+    geaendert: "bg-blue-100 text-blue-800",
+    geloescht: "bg-red-100 text-red-800",
+  };
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${colors[aktion] ?? "bg-gray-100 text-gray-700"}`}>
+      {aktion}
+    </span>
+  );
+}
+
 export function MargeBadge({ pct }: { pct: number }) {
   const cls =
     pct < 0 ? "bg-red-100 text-red-800" : pct < 10 ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800";

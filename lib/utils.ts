@@ -28,27 +28,18 @@ export function lagerStatus(
   return "gruen";
 }
 
-export function naechsteRechnungsnummer(letzte: string | null): string {
+function naechsteNummer(prefix: string, letzte: string | null): string {
   const jahr = new Date().getFullYear();
-  if (!letzte) return `RE-${jahr}-0001`;
+  if (!letzte) return `${prefix}-${jahr}-0001`;
   const parts = letzte.split("-");
-  // Wenn das Jahr der letzten Rechnungsnummer nicht dem aktuellen Jahr entspricht,
-  // beginne neu bei 0001
   const letzteJahr = parts.length >= 3 ? parseInt(parts[1]) : 0;
-  if (letzteJahr !== jahr) return `RE-${jahr}-0001`;
+  if (letzteJahr !== jahr) return `${prefix}-${jahr}-0001`;
   const num = parseInt(parts[parts.length - 1] || "0") + 1;
-  return `RE-${jahr}-${String(num).padStart(4, "0")}`;
+  return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
 }
 
-export function naechsteGutschriftsnummer(letzte: string | null): string {
-  const jahr = new Date().getFullYear();
-  if (!letzte) return `GS-${jahr}-0001`;
-  const parts = letzte.split("-");
-  const letzteJahr = parts.length >= 3 ? parseInt(parts[1]) : 0;
-  if (letzteJahr !== jahr) return `GS-${jahr}-0001`;
-  const num = parseInt(parts[parts.length - 1] || "0") + 1;
-  return `GS-${jahr}-${String(num).padStart(4, "0")}`;
-}
+export const naechsteRechnungsnummer = (letzte: string | null) => naechsteNummer("RE", letzte);
+export const naechsteGutschriftsnummer = (letzte: string | null) => naechsteNummer("GS", letzte);
 
 export function addTage(datum: Date, tage: number): Date {
   const d = new Date(datum);

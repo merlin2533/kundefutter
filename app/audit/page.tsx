@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
+import { AuditAktionBadge } from "@/components/Badge";
 import { formatDatum } from "@/lib/utils";
 
 interface AuditEntry {
@@ -16,32 +17,19 @@ interface AuditEntry {
 }
 
 const ENTITAETEN = ["", "Kunde", "Artikel", "Lieferung", "Lager"];
-
-function AktionBadge({ aktion }: { aktion: string }) {
-  const colors: Record<string, string> = {
-    erstellt: "bg-green-100 text-green-800",
-    geaendert: "bg-blue-100 text-blue-800",
-    geloescht: "bg-red-100 text-red-800",
-  };
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${colors[aktion] ?? "bg-gray-100 text-gray-700"}`}>
-      {aktion}
-    </span>
-  );
-}
+const LIMIT = 50;
 
 export default function AuditPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [entitaet, setEntitaet] = useState("");
-  const [limit] = useState(50);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
   const laden = useCallback(async (reset = false) => {
     setLoading(true);
     const o = reset ? 0 : offset;
-    const params = new URLSearchParams({ limit: String(limit), offset: String(o) });
+    const params = new URLSearchParams({ limit: String(LIMIT), offset: String(o) });
     if (entitaet) params.set("entitaet", entitaet);
     try {
       const res = await fetch(`/api/audit?${params}`);
@@ -54,11 +42,11 @@ export default function AuditPage() {
         setEntries((prev) => [...prev, ...data]);
         setOffset(o + data.length);
       }
-      setHasMore(data.length === limit);
+      setHasMore(data.length === LIMIT);
     } finally {
       setLoading(false);
     }
-  }, [entitaet, offset, limit]);
+  }, [entitaet, offset]);
 
   useEffect(() => {
     setOffset(0);
@@ -107,7 +95,7 @@ export default function AuditPage() {
                     <td className="py-2.5 whitespace-nowrap text-gray-600">{formatDatum(e.zeitpunkt)}</td>
                     <td className="py-2.5 font-medium">{e.entitaet}</td>
                     <td className="py-2.5 hidden sm:table-cell text-gray-500">#{e.entitaetId}</td>
-                    <td className="py-2.5"><AktionBadge aktion={e.aktion} /></td>
+                    <td className="py-2.5"><AuditAktionBadge aktion={e.aktion} /></td>
                     <td className="py-2.5 hidden md:table-cell text-gray-600">{e.feld ?? "–"}</td>
                     <td className="py-2.5 hidden md:table-cell text-red-600 max-w-[150px] truncate">{e.alterWert ?? "–"}</td>
                     <td className="py-2.5 hidden md:table-cell text-green-700 max-w-[150px] truncate">{e.neuerWert ?? "–"}</td>

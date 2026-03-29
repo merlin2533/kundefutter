@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 
 interface Kunde {
@@ -106,8 +107,8 @@ function NeueGutschriftForm() {
   const lieferungOptions = lieferungen.map((l) => ({
     value: String(l.id),
     label: l.rechnungNr
-      ? `${l.rechnungNr} (${new Date(l.datum).toLocaleDateString("de-DE")})`
-      : `Lieferung #${l.id} (${new Date(l.datum).toLocaleDateString("de-DE")})`,
+      ? `${l.rechnungNr} (${formatDatum(l.datum)})`
+      : `Lieferung #${l.id} (${formatDatum(l.datum)})`,
   }));
 
   const artikelOptions = artikel.map((a) => ({
@@ -364,7 +365,7 @@ function NeueGutschriftForm() {
                     <div className="text-right text-sm text-gray-600">
                       Gutschrift:{" "}
                       <span className="font-semibold text-gray-900">
-                        {netto.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                        {formatEuro(netto)}
                       </span>
                     </div>
                   )}
@@ -385,7 +386,7 @@ function NeueGutschriftForm() {
           <div className="border-t border-gray-200 pt-3 text-right">
             <span className="text-sm text-gray-600">Gesamt Gutschrift: </span>
             <span className="text-base font-bold text-gray-900">
-              {gesamtBetrag().toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              {formatEuro(gesamtBetrag())}
             </span>
           </div>
         </div>
