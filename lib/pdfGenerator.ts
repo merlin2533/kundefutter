@@ -84,7 +84,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   if (k.plz || k.ort) doc.text([k.plz, k.ort].filter(Boolean).join(" "), 124, ry);
 
   // ── Positionen ──────────────────────────────────────────────────────────────
-  const mwstSatz = 7;
+  // Verwende den tatsächlichen MwSt-Satz des Artikels (Standard 7 % Agrargüter)
   const rows = lieferung.positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis;
     return [
@@ -113,40 +113,57 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
 
-  // ── Summen ──────────────────────────────────────────────────────────────────
-  const netto = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-  const mwst = netto * (mwstSatz / 100);
-  const brutto = netto + mwst;
+  // ── Summen (nach MwSt-Satz gruppiert) ──────────────────────────────────────
+  const mwstGruppen = new Map<number, number>();
+  let nettoGesamt = 0;
+  for (const p of lieferung.positionen) {
+    const netto = p.menge * p.verkaufspreis;
+    nettoGesamt += netto;
+    const satz = p.artikel.mwstSatz ?? 7;
+    mwstGruppen.set(satz, (mwstGruppen.get(satz) ?? 0) + netto);
+  }
+  let mwstGesamt = 0;
+  for (const [satz, basis] of mwstGruppen) {
+    mwstGesamt += basis * (satz / 100);
+  }
+  const brutto = nettoGesamt + mwstGesamt;
 
   doc.setFontSize(9);
   doc.setTextColor(0);
   const sumX = 140;
-  doc.text("Nettobetrag:", sumX, finalY);
-  doc.text(formatEuro(netto), 196, finalY, { align: "right" });
-  doc.text(`MwSt. ${mwstSatz}%:`, sumX, finalY + 6);
-  doc.text(formatEuro(mwst), 196, finalY + 6, { align: "right" });
+  let sumY = finalY;
+  doc.text("Nettobetrag:", sumX, sumY);
+  doc.text(formatEuro(nettoGesamt), 196, sumY, { align: "right" });
+  sumY += 6;
+
+  for (const [satz, basis] of mwstGruppen) {
+    doc.text(`MwSt. ${satz}%:`, sumX, sumY);
+    doc.text(formatEuro(basis * (satz / 100)), 196, sumY, { align: "right" });
+    sumY += 6;
+  }
 
   doc.setLineWidth(0.4);
-  doc.line(sumX, finalY + 9, 196, finalY + 9);
+  doc.line(sumX, sumY, 196, sumY);
+  sumY += 7;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Gesamtbetrag:", sumX, finalY + 16);
-  doc.text(formatEuro(brutto), 196, finalY + 16, { align: "right" });
+  doc.text("Gesamtbetrag:", sumX, sumY);
+  doc.text(formatEuro(brutto), 196, sumY, { align: "right" });
 
   // ── Zahlungsbedingungen ─────────────────────────────────────────────────────
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(60);
-  doc.text(`Zahlbar bis: ${formatDatum(faelligDatum)} (${zahlungsziel} Tage netto)`, 14, finalY + 28);
+  doc.text(`Zahlbar bis: ${formatDatum(faelligDatum)} (${zahlungsziel} Tage netto)`, 14, sumY + 14);
 
   if (FIRMA.iban) {
-    doc.text(`Bankverbindung: ${FIRMA.bank}  ·  IBAN: ${FIRMA.iban}  ·  BIC: ${FIRMA.bic}`, 14, finalY + 34);
+    doc.text(`Bankverbindung: ${FIRMA.bank}  ·  IBAN: ${FIRMA.iban}  ·  BIC: ${FIRMA.bic}`, 14, sumY + 20);
   }
   if (FIRMA.steuernummer) {
-    doc.text(`Steuernummer: ${FIRMA.steuernummer}`, 14, finalY + 40);
+    doc.text(`Steuernummer: ${FIRMA.steuernummer}`, 14, sumY + 26);
   }
   if (lieferung.notiz) {
-    doc.text(`Hinweis: ${lieferung.notiz}`, 14, finalY + 48);
+    doc.text(`Hinweis: ${lieferung.notiz}`, 14, sumY + 34);
   }
 
   // ── Fußzeile ────────────────────────────────────────────────────────────────
@@ -170,25 +187,27 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   });
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
 
+  const FIRMA = await ladeFirmaDaten();
   const doc = new jsPDF();
-  const heute = formatDatum(new Date());
   const k = lieferung.kunde;
 
   // ── Header ──────────────────────────────────────────────────────────────────
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(22, 101, 52);
   doc.text("Lieferschein", 14, 22);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text("AgrarOffice Röthemeier", 14, 30);
-  doc.text(`Druckdatum: ${heute}`, 14, 35);
+  doc.text(FIRMA.name, 14, 30);
+  doc.text(`Druckdatum: ${formatDatum(new Date())}`, 14, 35);
   doc.text(`Lieferung Nr.: ${lieferung.id}`, 14, 40);
   doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, 14, 45);
 
   // ── Empfänger-Box ───────────────────────────────────────────────────────────
   doc.setDrawColor(200);
+  doc.setLineWidth(0.3);
   doc.rect(120, 20, 78, 40);
   doc.setFontSize(8);
   doc.setTextColor(120);
@@ -229,6 +248,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   doc.setTextColor(100);
   doc.text("Empfangen von:", 14, finalY + 15);
   doc.text("Unterschrift Empfänger:", 110, finalY + 15);
+  doc.setLineWidth(0.3);
   doc.line(14, finalY + 28, 90, finalY + 28);
   doc.line(110, finalY + 28, 196, finalY + 28);
   doc.text("Datum / Unterschrift", 14, finalY + 33);
