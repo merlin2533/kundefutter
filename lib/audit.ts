@@ -29,18 +29,18 @@ export async function auditChanges(
   neuerRecord: Record<string, unknown>,
   felder: string[]
 ) {
-  for (const feld of felder) {
-    const alt = alterRecord[feld];
-    const neu = neuerRecord[feld];
-    if (String(alt ?? "") !== String(neu ?? "")) {
-      await auditLog({
-        entitaet,
-        entitaetId,
-        aktion: "geaendert",
-        feld,
-        alterWert: alt as string,
-        neuerWert: neu as string,
-      });
-    }
+  const rows = felder
+    .filter((feld) => String(alterRecord[feld] ?? "") !== String(neuerRecord[feld] ?? ""))
+    .map((feld) => ({
+      entitaet,
+      entitaetId,
+      aktion: "geaendert",
+      feld,
+      alterWert: alterRecord[feld] != null ? String(alterRecord[feld]) : null,
+      neuerWert: neuerRecord[feld] != null ? String(neuerRecord[feld]) : null,
+      beschreibung: null,
+    }));
+  if (rows.length > 0) {
+    await prisma.auditLog.createMany({ data: rows });
   }
 }

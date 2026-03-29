@@ -62,17 +62,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const altKunde = await prisma.kunde.findUnique({ where: { id: Number(id) } });
-    const kunde = await prisma.kunde.update({
-      where: { id: Number(id) },
-      data: updateData,
-      include: { kontakte: true },
+    let altSnapshot: Record<string, unknown> | null = null;
+    const kunde = await prisma.$transaction(async (tx) => {
+      const alt = await tx.kunde.findUnique({ where: { id: Number(id) } });
+      if (!alt) throw new Error("Nicht gefunden");
+      altSnapshot = alt as Record<string, unknown>;
+      return tx.kunde.update({
+        where: { id: Number(id) },
+        data: updateData,
+        include: { kontakte: true },
+      });
     });
-    if (altKunde) {
-      await auditChanges(
+    if (altSnapshot) {
+      void auditChanges(
         "Kunde",
         Number(id),
-        altKunde as Record<string, unknown>,
+        altSnapshot,
         kunde as Record<string, unknown>,
         ["name", "firma", "kategorie", "plz", "ort"]
       );

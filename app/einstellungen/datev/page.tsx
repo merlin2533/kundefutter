@@ -89,13 +89,15 @@ export default function DatevEinstellungenPage() {
     setSaving("all");
     setError(null);
     try {
-      for (const field of FIELDS) {
-        await fetch("/api/einstellungen", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: field.key, value: form[field.key] }),
-        });
-      }
+      await Promise.all(
+        FIELDS.map((field) =>
+          fetch("/api/einstellungen", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: field.key, value: form[field.key] }),
+          })
+        )
+      );
       setSaved("all");
       setTimeout(() => setSaved(null), 2000);
     } catch {

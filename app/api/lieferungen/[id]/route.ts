@@ -152,10 +152,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       }
       const updated = await prisma.$transaction(async (tx) => {
         const positionen = await tx.lieferposition.findMany({ where: { lieferungId: Number(id) } });
+        const artikelIds = [...new Set(positionen.map((p) => p.artikelId))];
+        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
         for (const pos of positionen) {
-          const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+          const artikel = artikelMap.get(pos.artikelId);
           if (!artikel) continue;
           const neuerBestand = artikel.aktuellerBestand - pos.menge;
+          artikel.aktuellerBestand = neuerBestand;
           await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
           await tx.lagerbewegung.create({
             data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId: Number(id) },

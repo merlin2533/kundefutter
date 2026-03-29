@@ -64,10 +64,15 @@ export async function GET(req: NextRequest) {
       rechnungNr: { not: null },
       datum: { gte: von, lte: bis },
     },
-    include: {
-      kunde: true,
+    select: {
+      id: true,
+      kundeId: true,
+      datum: true,
+      rechnungNr: true,
+      rechnungDatum: true,
+      kunde: { select: { name: true, firma: true } },
       positionen: {
-        include: { artikel: true },
+        select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } },
       },
     },
     orderBy: { datum: "asc" },

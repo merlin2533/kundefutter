@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     return umsatz;
   });
 
-  const maxUmsatz = Math.max(...umsaetze, 0);
+  const maxUmsatz = umsaetze.length > 0 ? umsaetze.reduce((m, v) => (v > m ? v : m), 0) : 0;
 
   // Score each customer
   const scored = kunden.map((k, idx) => {

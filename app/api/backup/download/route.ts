@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
 
 export const dynamic = "force-dynamic";
 
@@ -14,24 +15,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "filename fehlt" }, { status: 400 });
   }
 
-  // Validate: no path traversal
   if (filename.includes("/") || filename.includes("..") || filename.includes("\\")) {
     return NextResponse.json({ error: "Ungültiger Dateiname" }, { status: 400 });
   }
 
   const filePath = path.join(BACKUP_DIR, filename);
 
-  if (!fs.existsSync(filePath)) {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
     return NextResponse.json({ error: "Datei nicht gefunden" }, { status: 404 });
   }
 
-  const fileBuffer = fs.readFileSync(filePath);
+  const nodeStream = fs.createReadStream(filePath);
+  const webStream = Readable.toWeb(nodeStream) as ReadableStream;
 
-  return new NextResponse(fileBuffer, {
+  return new NextResponse(webStream, {
     headers: {
       "Content-Type": "application/octet-stream",
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Content-Length": String(fileBuffer.length),
+      "Content-Length": String(stat.size),
     },
   });
 }

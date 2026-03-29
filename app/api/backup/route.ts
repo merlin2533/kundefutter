@@ -38,7 +38,7 @@ export async function GET() {
 
     const files: { filename: string; size: number; created: string }[] = [];
 
-    if (fs.existsSync(BACKUP_DIR)) {
+    {
       const entries = fs.readdirSync(BACKUP_DIR);
       for (const entry of entries) {
         if (!entry.endsWith(".db")) continue;
