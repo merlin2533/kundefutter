@@ -10,6 +10,22 @@ interface MarktTrend {
   veraenderung: number;
 }
 
+interface Wiedervorlage {
+  id: number;
+  betreff: string;
+  typ: string;
+  faelligAm: string | null;
+  kundeId: number | null;
+  kundeName: string | null;
+}
+
+interface KeinKontaktKunde {
+  id: number;
+  name: string;
+  firma: string | null;
+  letzterKontakt: string | null;
+}
+
 interface DashboardData {
   kundenAktiv: number;
   offeneLieferungen: number;
@@ -23,6 +39,8 @@ interface DashboardData {
   topKunden: { kundeId: number; name: string; umsatz: number }[];
   markttrend: MarktTrend[];
   artikelAlarme: { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string; status: string }[];
+  wiedervorlagen: Wiedervorlage[];
+  keinKontakt: KeinKontaktKunde[];
 }
 
 interface Aktivitaet {
@@ -354,6 +372,105 @@ export default function DashboardPage() {
           </Card>
         </div>
       )}
+
+      {/* Row 5: Wiedervorlagen + Kein Kontakt */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Wiedervorlagen */}
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold">Wiedervorlagen</h2>
+              {data.wiedervorlagen.length > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold">
+                  {data.wiedervorlagen.length}
+                </span>
+              )}
+            </div>
+            <Link href="/crm" className="text-xs text-green-700 hover:underline">
+              → CRM
+            </Link>
+          </div>
+          {data.wiedervorlagen.length === 0 ? (
+            <p className="text-sm text-gray-400">Keine offenen Aufgaben</p>
+          ) : (
+            <div className="space-y-2">
+              {data.wiedervorlagen.map((w) => {
+                const isOverdue = w.faelligAm ? new Date(w.faelligAm) < new Date() : false;
+                return (
+                  <Link
+                    key={w.id}
+                    href={w.kundeId ? `/kunden/${w.kundeId}?tab=CRM` : "/crm"}
+                    className="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
+                  >
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 mt-0.5 ${
+                        TYP_BADGE[w.typ] ?? "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {TYP_LABEL[w.typ] ?? w.typ}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-800 truncate">{w.betreff}</p>
+                      {w.kundeName && (
+                        <p className="text-xs text-gray-500 truncate">{w.kundeName}</p>
+                      )}
+                    </div>
+                    {w.faelligAm && (
+                      <span
+                        className={`text-xs shrink-0 font-medium ${
+                          isOverdue ? "text-red-600" : "text-gray-400"
+                        }`}
+                      >
+                        {new Date(w.faelligAm).toLocaleDateString("de-DE")}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* Kein Kontakt */}
+        {data.keinKontakt.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold">Kein Kontakt (90+ Tage)</h2>
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-orange-400 text-white text-xs font-bold">
+                  {data.keinKontakt.length}
+                </span>
+              </div>
+              <Link href="/kunden" className="text-xs text-green-700 hover:underline">
+                → Kunden
+              </Link>
+            </div>
+            <div className="space-y-1.5">
+              {data.keinKontakt.map((k) => (
+                <Link
+                  key={k.id}
+                  href={`/kunden/${k.id}`}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {k.firma ?? k.name}
+                    </p>
+                    {k.firma && (
+                      <p className="text-xs text-gray-500 truncate">{k.name}</p>
+                    )}
+                  </div>
+                  <span className="text-xs text-orange-600 font-medium shrink-0 ml-2">
+                    {k.letzterKontakt
+                      ? `zuletzt: ${new Date(k.letzterKontakt).toLocaleDateString("de-DE")}`
+                      : "noch nie"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

@@ -39,6 +39,7 @@ model Kunde {
   kundeNotizen     KundeNotiz[]
   angebote         Angebot[]
   schlaegte        KundeSchlag[]
+  aufgaben         Aufgabe[]
 }
 
 model KundeKontakt {
@@ -428,6 +429,29 @@ model AntragEmpfaenger {
   @@index([gemeinde])
   @@index([haushaltsjahr])
   @@index([kundeId])
+}
+
+// ─── AUFGABEN / TODO ──────────────────────────────────────────────────────────
+
+model Aufgabe {
+  id           Int       @id @default(autoincrement())
+  betreff      String
+  beschreibung String?
+  faelligAm    DateTime?
+  erledigt     Boolean   @default(false)
+  erledigtAm   DateTime?
+  prioritaet   String    @default("normal")  // niedrig | normal | hoch | kritisch
+  tags         String    @default("[]")       // JSON array of strings
+  typ          String    @default("aufgabe")  // aufgabe | anruf | besuch | email
+  kundeId      Int?
+  erstellt     DateTime  @default(now())
+  aktualisiert DateTime  @updatedAt
+
+  kunde        Kunde?    @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+
+  @@index([kundeId])
+  @@index([erledigt])
+  @@index([faelligAm])
 }
 
 // ─── ANGEBOTSWESEN ────────────────────────────────────────────────────────────

@@ -3,10 +3,34 @@ import { prisma } from "@/lib/prisma";
 
 // GET /api/kunden/aktivitaeten?kundeId=X  — Liste
 // GET /api/kunden/aktivitaeten?offene=1   — alle offenen Aufgaben/Aktivitäten
+// GET /api/kunden/aktivitaeten?faelligVon=YYYY-MM-DD&faelligBis=YYYY-MM-DD — nach Fälligkeitsdatum filtern
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const kundeId = searchParams.get("kundeId");
   const offene = searchParams.get("offene");
+  const faelligVon = searchParams.get("faelligVon");
+  const faelligBis = searchParams.get("faelligBis");
+
+  if (faelligVon || faelligBis) {
+    const where: Record<string, unknown> = {};
+    if (faelligVon || faelligBis) {
+      const faelligAmFilter: Record<string, Date> = {};
+      if (faelligVon) faelligAmFilter.gte = new Date(faelligVon);
+      if (faelligBis) {
+        // inclusive end: set to end of day
+        const end = new Date(faelligBis);
+        end.setHours(23, 59, 59, 999);
+        faelligAmFilter.lte = end;
+      }
+      where.faelligAm = faelligAmFilter;
+    }
+    const items = await prisma.kundeAktivitaet.findMany({
+      where,
+      include: { kunde: { select: { id: true, name: true, firma: true } } },
+      orderBy: { faelligAm: "asc" },
+    });
+    return NextResponse.json(items);
+  }
 
   if (offene) {
     const items = await prisma.kundeAktivitaet.findMany({

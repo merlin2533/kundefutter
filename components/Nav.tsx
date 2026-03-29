@@ -37,6 +37,8 @@ const groups: NavGroup[] = [
   {
     label: "Lieferungen",
     children: [
+      { href: "/angebote", label: "Angebote" },
+      { href: "/aufgaben", label: "Aufgaben / TODO" },
       { href: "/lieferungen", label: "Lieferungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
     ],

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -31,6 +31,7 @@ const TYP_META: Record<string, { label: string; color: string; icon: string }> =
 const TYPEN_KEYS = Object.keys(TYP_META);
 
 export default function CrmPage() {
+  const [mainTab, setMainTab] = useState<"liste" | "kalender">("liste");
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
   const [typFilter, setTypFilter] = useState("alle");
@@ -136,6 +137,30 @@ export default function CrmPage() {
           )}
         </div>
       </div>
+
+      {/* Main Tab Navigation */}
+      <div className="flex border-b border-gray-200 gap-1">
+        {([
+          { key: "liste", label: "Aktivitätsliste" },
+          { key: "kalender", label: "📅 Kalender" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setMainTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              mainTab === t.key
+                ? "border-green-700 text-green-800"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {mainTab === "kalender" && <KalenderTab />}
+
+      {mainTab === "liste" && (<>
 
       {/* Schnellerfassung */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -277,6 +302,180 @@ export default function CrmPage() {
           })}
         </div>
       )}
+      </>)}
+    </div>
+  );
+}
+
+// ─── KalenderTab ─────────────────────────────────────────────────────────────
+
+const TYP_DOT: Record<string, string> = {
+  besuch:  "bg-green-500",
+  anruf:   "bg-blue-500",
+  email:   "bg-yellow-500",
+  notiz:   "bg-gray-400",
+  aufgabe: "bg-orange-500",
+};
+
+const WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const MONATSNAMEN = [
+  "Januar", "Februar", "März", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember",
+];
+
+interface KalenderAktivitaet {
+  id: number;
+  typ: string;
+  betreff: string;
+  faelligAm: string;
+  erledigt: boolean;
+  kunde: { id: number; name: string; firma?: string | null };
+}
+
+function KalenderTab() {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth()); // 0-based
+  const [aktivitaeten, setAktivitaeten] = useState<KalenderAktivitaet[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchAktivitaeten = useCallback(async (y: number, m: number) => {
+    setLoading(true);
+    const von = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const bis = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    try {
+      const res = await fetch(`/api/kunden/aktivitaeten?faelligVon=${von}&faelligBis=${bis}`);
+      const data = await res.json();
+      setAktivitaeten(Array.isArray(data) ? data : []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchAktivitaeten(year, month); }, [year, month, fetchAktivitaeten]);
+
+  function prevMonth() {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  }
+
+  // Build calendar grid: weeks containing days of this month
+  const calendarDays = useMemo(() => {
+    // First day of month (0=Sun..6=Sat), convert to Mon-based (0=Mon..6=Sun)
+    const firstDow = new Date(year, month, 1).getDay();
+    const mondayOffset = (firstDow + 6) % 7; // days before 1st to reach Mon
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const totalCells = Math.ceil((mondayOffset + daysInMonth) / 7) * 7;
+    return Array.from({ length: totalCells }, (_, i) => {
+      const dayNum = i - mondayOffset + 1;
+      return dayNum >= 1 && dayNum <= daysInMonth ? dayNum : null;
+    });
+  }, [year, month]);
+
+  // Index activities by day
+  const byDay = useMemo(() => {
+    const map: Record<number, KalenderAktivitaet[]> = {};
+    aktivitaeten.forEach((a) => {
+      const d = new Date(a.faelligAm);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const day = d.getDate();
+        if (!map[day]) map[day] = [];
+        map[day].push(a);
+      }
+    });
+    return map;
+  }, [aktivitaeten, year, month]);
+
+  const todayDay = today.getFullYear() === year && today.getMonth() === month ? today.getDate() : null;
+
+  return (
+    <div className="space-y-4">
+      {/* Navigation */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={prevMonth}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          ← Vormonat
+        </button>
+        <h2 className="text-lg font-semibold text-gray-900 flex-1 text-center">
+          {MONATSNAMEN[month]} {year}
+        </h2>
+        <button
+          onClick={nextMonth}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Nächster Monat →
+        </button>
+      </div>
+
+      {loading && <p className="text-sm text-gray-400 text-center">Lade…</p>}
+
+      {/* Calendar grid */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Header row */}
+        <div className="grid grid-cols-7 border-b border-gray-200">
+          {WOCHENTAGE.map((d) => (
+            <div key={d} className="px-2 py-2 text-xs font-semibold text-gray-500 text-center uppercase tracking-wide">
+              {d}
+            </div>
+          ))}
+        </div>
+        {/* Day cells */}
+        <div className="grid grid-cols-7">
+          {calendarDays.map((day, i) => {
+            const acts = day ? (byDay[day] ?? []) : [];
+            const isToday = day === todayDay;
+            return (
+              <div
+                key={i}
+                className={`min-h-[80px] border-b border-r border-gray-100 p-1.5 ${
+                  day ? "bg-white" : "bg-gray-50"
+                } ${isToday ? "ring-2 ring-inset ring-green-400" : ""}`}
+              >
+                {day && (
+                  <>
+                    <span className={`text-xs font-medium block mb-1 ${isToday ? "text-green-700 font-bold" : "text-gray-700"}`}>
+                      {day}
+                    </span>
+                    <div className="space-y-0.5">
+                      {acts.slice(0, 3).map((a) => (
+                        <Link
+                          key={a.id}
+                          href={`/kunden/${a.kunde.id}?tab=CRM`}
+                          className={`flex items-center gap-1 rounded px-1 py-0.5 text-xs leading-tight hover:bg-gray-100 transition-colors ${a.erledigt ? "opacity-50 line-through" : ""}`}
+                          title={`${a.betreff} — ${a.kunde.firma ?? a.kunde.name}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYP_DOT[a.typ] ?? "bg-gray-400"}`} />
+                          <span className="truncate text-gray-700">{a.betreff}</span>
+                        </Link>
+                      ))}
+                      {acts.length > 3 && (
+                        <p className="text-xs text-gray-400 px-1">+{acts.length - 3} weitere</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 flex-wrap text-xs text-gray-600">
+        {Object.entries(TYP_META).map(([key, meta]) => (
+          <span key={key} className="flex items-center gap-1">
+            <span className={`w-2 h-2 rounded-full ${TYP_DOT[key] ?? "bg-gray-400"}`} />
+            {meta.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

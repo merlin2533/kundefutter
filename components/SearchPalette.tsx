@@ -119,12 +119,194 @@ function ResultSecondary({ item }: { item: ResultItem }) {
   );
 }
 
+// ---- Inline CRM Form ----
+
+const TYP_OPTIONS = [
+  { value: "anruf", label: "Anruf" },
+  { value: "besuch", label: "Besuch" },
+  { value: "email", label: "E-Mail" },
+  { value: "notiz", label: "Notiz" },
+  { value: "aufgabe", label: "Aufgabe" },
+];
+
+interface CrmFormProps {
+  initialKunde?: KundeResult | null;
+  onBack: () => void;
+  onClose: () => void;
+}
+
+function CrmInlineForm({ initialKunde, onBack, onClose }: CrmFormProps) {
+  const [kundeQuery, setKundeQuery] = useState(
+    initialKunde ? (initialKunde.firma ?? initialKunde.name) : ""
+  );
+  const [selectedKunde, setSelectedKunde] = useState<KundeResult | null>(initialKunde ?? null);
+  const [kundeSuggestions, setKundeSuggestions] = useState<KundeResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [typ, setTyp] = useState("anruf");
+  const [betreff, setBetreff] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const kundeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const searchKunden = useCallback((q: string) => {
+    if (kundeDebounceRef.current) clearTimeout(kundeDebounceRef.current);
+    if (q.length < 2) {
+      setKundeSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    kundeDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/kunden?search=${encodeURIComponent(q)}&limit=5&page=1`);
+        const data = await res.json();
+        const kunden: KundeResult[] = Array.isArray(data) ? data : (data.kunden ?? []);
+        setKundeSuggestions(kunden);
+        setShowSuggestions(true);
+      } catch {
+        setKundeSuggestions([]);
+      }
+    }, 200);
+  }, []);
+
+  const handleKundeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setKundeQuery(val);
+    setSelectedKunde(null);
+    searchKunden(val);
+  };
+
+  const selectKunde = (k: KundeResult) => {
+    setSelectedKunde(k);
+    setKundeQuery(k.firma ?? k.name);
+    setShowSuggestions(false);
+  };
+
+  const handleSave = async () => {
+    if (!betreff.trim()) {
+      setError("Betreff ist erforderlich.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const body: Record<string, unknown> = {
+        typ,
+        betreff: betreff.trim(),
+        datum: new Date().toISOString(),
+      };
+      if (selectedKunde) body.kundeId = selectedKunde.id;
+      const res = await fetch("/api/kunden/aktivitaeten", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Fehler beim Speichern");
+      setSaved(true);
+      setTimeout(() => onClose(), 900);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="p-4 flex flex-col gap-3">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 self-start"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Zurück
+      </button>
+
+      <h3 className="font-semibold text-gray-800">CRM Aktivität erfassen</h3>
+
+      {/* Kunde */}
+      <div className="relative">
+        <label className="text-xs font-medium text-gray-600 mb-1 block">Kunde</label>
+        <input
+          type="text"
+          value={kundeQuery}
+          onChange={handleKundeInput}
+          onFocus={() => kundeQuery.length >= 2 && setShowSuggestions(true)}
+          placeholder="Kunde suchen…"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400"
+        />
+        {showSuggestions && kundeSuggestions.length > 0 && (
+          <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+            {kundeSuggestions.map((k) => (
+              <button
+                key={k.id}
+                onMouseDown={() => selectKunde(k)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-green-50 flex flex-col"
+              >
+                <span className="font-medium text-gray-800">{k.firma ?? k.name}</span>
+                {k.firma && <span className="text-xs text-gray-500">{k.name}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Typ */}
+      <div>
+        <label className="text-xs font-medium text-gray-600 mb-1 block">Typ</label>
+        <select
+          value={typ}
+          onChange={(e) => setTyp(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400 bg-white"
+        >
+          {TYP_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Betreff */}
+      <div>
+        <label className="text-xs font-medium text-gray-600 mb-1 block">Betreff *</label>
+        <input
+          type="text"
+          value={betreff}
+          onChange={(e) => setBetreff(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          placeholder="Kurzbeschreibung…"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-green-400"
+        />
+      </div>
+
+      {error && <p className="text-xs text-red-600">{error}</p>}
+
+      {saved ? (
+        <p className="text-sm text-green-600 font-medium text-center py-1">Gespeichert!</p>
+      ) : (
+        <button
+          onClick={handleSave}
+          disabled={saving || !betreff.trim()}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors"
+        >
+          {saving ? "Speichern…" : "Speichern"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---- Main SearchPalette ----
+
 export default function SearchPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // "main" | "crm"
+  const [view, setView] = useState<"main" | "crm">("main");
+  const [crmPreselectedKunde, setCrmPreselectedKunde] = useState<KundeResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,6 +333,8 @@ export default function SearchPalette() {
       setQuery("");
       setResults(null);
       setActiveIndex(0);
+      setView("main");
+      setCrmPreselectedKunde(null);
     }
   }, [open]);
 
@@ -186,6 +370,7 @@ export default function SearchPalette() {
   const flatItems = results ? flattenResults(results) : [];
   const hasResults = flatItems.length > 0;
   const showEmpty = query.length >= 2 && !loading && results !== null && !hasResults;
+  const showSchnellaktionen = query.length < 2;
 
   const navigate = useCallback(
     (item: ResultItem) => {
@@ -194,6 +379,11 @@ export default function SearchPalette() {
     },
     [router]
   );
+
+  const openCrmForKunde = useCallback((kunde: KundeResult) => {
+    setCrmPreselectedKunde(kunde);
+    setView("crm");
+  }, []);
 
   // Keyboard navigation inside palette
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -247,101 +437,173 @@ export default function SearchPalette() {
       <div
         className="bg-white rounded-xl shadow-2xl max-w-xl w-full mx-4 overflow-hidden flex flex-col"
         style={{ maxHeight: "70vh" }}
-        onKeyDown={handleKeyDown}
+        onKeyDown={view === "main" ? handleKeyDown : undefined}
       >
-        {/* Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
-          <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={handleQueryChange}
-            placeholder="Suchen…"
-            className="flex-1 outline-none text-gray-900 placeholder-gray-400 text-base bg-transparent"
+        {view === "crm" ? (
+          <CrmInlineForm
+            initialKunde={crmPreselectedKunde}
+            onBack={() => { setView("main"); setCrmPreselectedKunde(null); }}
+            onClose={() => setOpen(false)}
           />
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {loading && (
-              <svg className="w-4 h-4 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+        ) : (
+          <>
+            {/* Input */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            )}
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded">
-              {isMac ? "⌘K" : "Ctrl+K"}
-            </kbd>
-          </div>
-        </div>
-
-        {/* Results */}
-        <div ref={listRef} className="overflow-y-auto flex-1">
-          {query.length < 2 && (
-            <p className="text-center text-gray-400 text-sm py-8">Tippen zum Suchen…</p>
-          )}
-
-          {showEmpty && (
-            <p className="text-center text-gray-500 text-sm py-8">
-              Keine Treffer für &ldquo;{query}&rdquo;
-            </p>
-          )}
-
-          {sections.map((section) => {
-            const sectionStart = runningIndex;
-            runningIndex += section.items.length;
-            return (
-              <div key={section.label}>
-                <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                  <ResultIcon type={section.type} />
-                  {section.label}
-                </div>
-                {section.items.map((item, i) => {
-                  const idx = sectionStart + i;
-                  const isActive = idx === activeIndex;
-                  return (
-                    <button
-                      key={`${item.type}-${item.data.id}`}
-                      data-active={isActive}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      onClick={() => navigate(item)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                        isActive ? "bg-green-50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <ResultIcon type={item.type} />
-                      <div className="flex flex-col min-w-0">
-                        <ResultPrimary item={item} />
-                        <ResultSecondary item={item} />
-                      </div>
-                      {isActive && (
-                        <svg className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      )}
-                    </button>
-                  );
-                })}
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={handleQueryChange}
+                placeholder="Suchen…"
+                className="flex-1 outline-none text-gray-900 placeholder-gray-400 text-base bg-transparent"
+              />
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {loading && (
+                  <svg className="w-4 h-4 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                )}
+                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded">
+                  {isMac ? "⌘K" : "Ctrl+K"}
+                </kbd>
               </div>
-            );
-          })}
-        </div>
+            </div>
 
-        {/* Footer hint */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">↑↓</kbd>
-            Navigieren
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">↵</kbd>
-            Öffnen
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">Esc</kbd>
-            Schließen
-          </span>
-        </div>
+            {/* Results */}
+            <div ref={listRef} className="overflow-y-auto flex-1">
+              {/* Schnellaktionen (shown when query < 2 chars) */}
+              {showSchnellaktionen && (
+                <div className="p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Schnellaktionen
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setView("crm")}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-sm font-medium text-orange-800 transition-colors"
+                    >
+                      <span className="text-base leading-none">💬</span>
+                      <span>+ CRM Aktivität</span>
+                    </button>
+                    <button
+                      onClick={() => { router.push("/lieferungen/neu"); setOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 text-sm font-medium text-green-800 transition-colors"
+                    >
+                      <span className="text-base leading-none">📦</span>
+                      <span>+ Neue Lieferung</span>
+                    </button>
+                    <button
+                      onClick={() => { router.push("/angebote/neu"); setOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-sm font-medium text-blue-800 transition-colors"
+                    >
+                      <span className="text-base leading-none">📝</span>
+                      <span>+ Neues Angebot</span>
+                    </button>
+                    <button
+                      onClick={() => { router.push("/kunden/neu"); setOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 text-sm font-medium text-purple-800 transition-colors"
+                    >
+                      <span className="text-base leading-none">👤</span>
+                      <span>+ Neuer Kunde</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!showSchnellaktionen && showEmpty && (
+                <p className="text-center text-gray-500 text-sm py-8">
+                  Keine Treffer für &ldquo;{query}&rdquo;
+                </p>
+              )}
+
+              {sections.map((section) => {
+                const sectionStart = runningIndex;
+                runningIndex += section.items.length;
+                return (
+                  <div key={section.label}>
+                    <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                      <ResultIcon type={section.type} />
+                      {section.label}
+                    </div>
+                    {section.items.map((item, i) => {
+                      const idx = sectionStart + i;
+                      const isActive = idx === activeIndex;
+                      const isKunde = item.type === "kunde";
+                      return (
+                        <button
+                          key={`${item.type}-${item.data.id}`}
+                          data-active={isActive}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          onClick={() => navigate(item)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                            isActive ? "bg-green-50" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          <ResultIcon type={item.type} />
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <ResultPrimary item={item} />
+                            <ResultSecondary item={item} />
+                          </div>
+                          {isActive && (
+                            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                          {/* Kunde quick-action buttons */}
+                          {isKunde && (
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                title="Neue Lieferung für diesen Kunden"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/lieferungen/neu?kundeId=${(item.data as KundeResult).id}`);
+                                  setOpen(false);
+                                }}
+                                className="text-sm px-1.5 py-0.5 rounded hover:bg-green-100 transition-colors"
+                              >
+                                📦
+                              </button>
+                              <button
+                                title="CRM Aktivität für diesen Kunden"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openCrmForKunde(item.data as KundeResult);
+                                }}
+                                className="text-sm px-1.5 py-0.5 rounded hover:bg-orange-100 transition-colors"
+                              >
+                                📝
+                              </button>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer hint */}
+            <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">↑↓</kbd>
+                Navigieren
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">↵</kbd>
+                Öffnen
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs">Esc</kbd>
+                Schließen
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

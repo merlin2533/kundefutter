@@ -155,6 +155,12 @@ export default function LagerPage() {
         <h1 className="text-2xl font-bold">Lager</h1>
         <div className="flex gap-2 flex-wrap">
           <Link
+            href="/lager/chargen"
+            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Chargensuche →
+          </Link>
+          <Link
             href="/lager/umbuchungen"
             className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >

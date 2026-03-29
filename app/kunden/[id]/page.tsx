@@ -88,7 +88,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag"] as const;
+const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
@@ -1826,6 +1826,9 @@ export default function KundeDetailPage() {
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} />}
         {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
+        {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
+        {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
+        {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
       </div>
     </div>
   );
@@ -2383,6 +2386,474 @@ function AgrarantragTab({ kundeId }: { kundeId: number }) {
             })}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── Schlagkartei Tab ─────────────────────────────────────────────────────────
+
+interface KundeSchlag {
+  id: number;
+  kundeId: number;
+  name: string;
+  flaeche: number;
+  fruchtart?: string | null;
+  sorte?: string | null;
+  vorfrucht?: string | null;
+  aussaatJahr?: number | null;
+  aussaatMenge?: number | null;
+  notiz?: string | null;
+  erstellt: string;
+}
+
+const inputClsSchlag =
+  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";
+
+function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
+  const [schlaegte, setSchlaegte] = useState<KundeSchlag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    flaeche: "",
+    fruchtart: "",
+    sorte: "",
+    vorfrucht: "",
+    aussaatJahr: "",
+    aussaatMenge: "",
+    notiz: "",
+  });
+
+  const fetchSchlaegte = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/kunden/${kundeId}/schlaegte`);
+    const data = await res.json();
+    setSchlaegte(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }, [kundeId]);
+
+  useEffect(() => { fetchSchlaegte(); }, [fetchSchlaegte]);
+
+  function resetForm() {
+    setForm({ name: "", flaeche: "", fruchtart: "", sorte: "", vorfrucht: "", aussaatJahr: "", aussaatMenge: "", notiz: "" });
+    setError("");
+  }
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.flaeche) { setError("Name und Fläche sind erforderlich."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/kunden/${kundeId}/schlaegte`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          flaeche: parseFloat(form.flaeche),
+          fruchtart: form.fruchtart || null,
+          sorte: form.sorte || null,
+          vorfrucht: form.vorfrucht || null,
+          aussaatJahr: form.aussaatJahr ? parseInt(form.aussaatJahr) : null,
+          aussaatMenge: form.aussaatMenge ? parseFloat(form.aussaatMenge) : null,
+          notiz: form.notiz || null,
+        }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Fehler"); return; }
+      resetForm();
+      setShowForm(false);
+      fetchSchlaegte();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(schlagId: number) {
+    setDeleting(schlagId);
+    try {
+      await fetch(`/api/kunden/${kundeId}/schlaegte?schlagId=${schlagId}`, { method: "DELETE" });
+      fetchSchlaegte();
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  const totalFlaeche = schlaegte.reduce((s, sl) => s + sl.flaeche, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
+          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+        >
+          {showForm ? "Abbrechen" : "+ Neuer Schlag"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+          <h3 className="text-sm font-semibold mb-3">Neuer Schlag erfassen</h3>
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">{error}</p>}
+          <form onSubmit={handleAdd} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Name <span className="text-red-500">*</span></label>
+                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClsSchlag} placeholder="z.B. Südfeld" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Fläche (ha) <span className="text-red-500">*</span></label>
+                <input type="number" step="0.01" min="0" value={form.flaeche} onChange={(e) => setForm({ ...form, flaeche: e.target.value })} required className={inputClsSchlag} placeholder="z.B. 5.5" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Fruchtart</label>
+                <input type="text" value={form.fruchtart} onChange={(e) => setForm({ ...form, fruchtart: e.target.value })} className={inputClsSchlag} placeholder="z.B. Winterweizen" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
+                <input type="text" value={form.sorte} onChange={(e) => setForm({ ...form, sorte: e.target.value })} className={inputClsSchlag} placeholder="Sortenname" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vorfrucht</label>
+                <input type="text" value={form.vorfrucht} onChange={(e) => setForm({ ...form, vorfrucht: e.target.value })} className={inputClsSchlag} placeholder="z.B. Raps" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Aussaat-Jahr</label>
+                <input type="number" min="2000" max="2100" value={form.aussaatJahr} onChange={(e) => setForm({ ...form, aussaatJahr: e.target.value })} className={inputClsSchlag} placeholder="z.B. 2024" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Aussaat-Menge (kg/ha)</label>
+                <input type="number" step="0.1" min="0" value={form.aussaatMenge} onChange={(e) => setForm({ ...form, aussaatMenge: e.target.value })} className={inputClsSchlag} placeholder="z.B. 180" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Notiz</label>
+                <input type="text" value={form.notiz} onChange={(e) => setForm({ ...form, notiz: e.target.value })} className={inputClsSchlag} placeholder="Optionale Notiz" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => { setShowForm(false); resetForm(); }} className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
+              <button type="submit" disabled={saving} className="px-4 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-60">{saving ? "…" : "Speichern"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade Schlagkartei…</p>
+      ) : schlaegte.length === 0 ? (
+        <p className="text-sm text-gray-400">Noch keine Schläge erfasst.</p>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-xl border border-gray-200">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {["Name", "Fläche (ha)", "Fruchtart", "Sorte", "Vorfrucht", "Aussaat-Jahr", "kg/ha", "Notiz", ""].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {schlaegte.map((sl) => (
+                <tr key={sl.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2.5 font-medium text-gray-900">{sl.name}</td>
+                  <td className="px-4 py-2.5 font-mono">{sl.flaeche.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{sl.fruchtart ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{sl.sorte ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{sl.vorfrucht ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{sl.aussaatJahr ?? "—"}</td>
+                  <td className="px-4 py-2.5 font-mono text-gray-600">{sl.aussaatMenge != null ? sl.aussaatMenge : "—"}</td>
+                  <td className="px-4 py-2.5 text-gray-500 max-w-[160px] truncate">{sl.notiz ?? "—"}</td>
+                  <td className="px-4 py-2.5">
+                    <button
+                      onClick={() => handleDelete(sl.id)}
+                      disabled={deleting === sl.id}
+                      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors"
+                    >
+                      {deleting === sl.id ? "…" : "Löschen"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 text-sm font-medium text-gray-700">
+            Gesamt: {totalFlaeche.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha ({schlaegte.length} Schlag{schlaegte.length !== 1 ? "schläge" : ""})
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Angebote Tab ─────────────────────────────────────────────────────────────
+
+interface AngebotListItem {
+  id: number;
+  nummer: string;
+  datum: string;
+  gueltigBis: string | null;
+  status: string;
+  gesamtbetrag: number;
+  positionenAnzahl: number;
+}
+
+const ANGEBOT_STATUS_LABELS: Record<string, string> = {
+  OFFEN: "Offen",
+  ANGENOMMEN: "Angenommen",
+  ABGELEHNT: "Abgelehnt",
+  ABGELAUFEN: "Abgelaufen",
+};
+
+const ANGEBOT_STATUS_FARBEN: Record<string, string> = {
+  OFFEN: "bg-yellow-100 text-yellow-800",
+  ANGENOMMEN: "bg-green-100 text-green-800",
+  ABGELEHNT: "bg-red-100 text-red-800",
+  ABGELAUFEN: "bg-gray-100 text-gray-600",
+};
+
+function AngeboteTab({ kundeId }: { kundeId: number }) {
+  const [angebote, setAngebote] = useState<AngebotListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/angebote?kundeId=${kundeId}`)
+      .then((r) => r.json())
+      .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [kundeId]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-gray-900">Angebote</h3>
+        <a
+          href={`/angebote/neu?kundeId=${kundeId}`}
+          className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-700 text-white text-xs font-medium rounded-lg hover:bg-green-800 transition-colors"
+        >
+          + Neues Angebot
+        </a>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade…</p>
+      ) : angebote.length === 0 ? (
+        <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">
+          <p className="text-2xl mb-2">📋</p>
+          <p className="text-sm">Noch keine Angebote für diesen Kunden.</p>
+          <a href={`/angebote/neu?kundeId=${kundeId}`} className="mt-2 inline-block text-green-700 text-sm hover:underline">
+            Erstes Angebot erstellen
+          </a>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nummer</th>
+                <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
+                <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gültig bis</th>
+                <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pos.</th>
+                <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Betrag</th>
+                <th className="text-center py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {angebote.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50">
+                  <td className="py-2 pr-4 font-mono font-medium text-gray-900">{a.nummer}</td>
+                  <td className="py-2 pr-4 text-gray-600">{formatDatum(a.datum)}</td>
+                  <td className="py-2 pr-4 text-gray-600">
+                    {a.gueltigBis ? formatDatum(a.gueltigBis) : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className="py-2 pr-4 text-right text-gray-600">{a.positionenAnzahl}</td>
+                  <td className="py-2 pr-4 text-right font-medium text-gray-900">{formatEuro(a.gesamtbetrag)}</td>
+                  <td className="py-2 pr-4 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ANGEBOT_STATUS_FARBEN[a.status] ?? "bg-gray-100 text-gray-600"}`}>
+                      {ANGEBOT_STATUS_LABELS[a.status] ?? a.status}
+                    </span>
+                  </td>
+                  <td className="py-2 text-right">
+                    <a href={`/angebote/${a.id}`} className="text-xs text-green-700 hover:underline font-medium">
+                      Details →
+                    </a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Aufgaben Tab ─────────────────────────────────────────────────────────────
+interface AufgabeItem {
+  id: number;
+  betreff: string;
+  faelligAm: string | null;
+  erledigt: boolean;
+  prioritaet: string;
+  typ: string;
+  tags: string;
+}
+
+const PRIO_BADGE: Record<string, string> = {
+  kritisch: "bg-red-100 text-red-800",
+  hoch: "bg-orange-100 text-orange-800",
+  normal: "bg-blue-100 text-blue-700",
+  niedrig: "bg-gray-100 text-gray-600",
+};
+
+function AufgabenTab({ kundeId }: { kundeId: number }) {
+  const [aufgaben, setAufgaben] = useState<AufgabeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [betreff, setBetreff] = useState("");
+  const [faelligAm, setFaelligAm] = useState("");
+  const [prioritaet, setPrioritaet] = useState("normal");
+  const [typ, setTyp] = useState("aufgabe");
+  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<number | null>(null);
+
+  const fetchAufgaben = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/aufgaben?kundeId=${kundeId}&status=alle`);
+    const data = await res.json();
+    setAufgaben(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }, [kundeId]);
+
+  useEffect(() => { fetchAufgaben(); }, [fetchAufgaben]);
+
+  async function createAufgabe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!betreff.trim()) return;
+    setSaving(true);
+    await fetch("/api/aufgaben", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ betreff: betreff.trim(), faelligAm: faelligAm || null, prioritaet, typ, kundeId }),
+    });
+    setBetreff(""); setFaelligAm(""); setPrioritaet("normal"); setTyp("aufgabe");
+    setShowForm(false);
+    setSaving(false);
+    fetchAufgaben();
+  }
+
+  async function toggleErledigt(a: AufgabeItem) {
+    setToggling(a.id);
+    await fetch(`/api/aufgaben/${a.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ erledigt: !a.erledigt }),
+    });
+    await fetchAufgaben();
+    setToggling(null);
+  }
+
+  const offen = aufgaben.filter((a) => !a.erledigt);
+  const erledigt = aufgaben.filter((a) => a.erledigt);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold text-gray-900">
+          Aufgaben
+          {offen.length > 0 && (
+            <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">{offen.length} offen</span>
+          )}
+        </h3>
+        <div className="flex gap-2">
+          <a href={`/aufgaben/neu?kundeId=${kundeId}`} className="text-xs text-green-700 hover:underline">
+            Detailformular →
+          </a>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          >
+            + Schnell-Aufgabe
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <form onSubmit={createAufgabe} className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+          <div>
+            <input
+              type="text"
+              value={betreff}
+              onChange={(e) => setBetreff(e.target.value)}
+              placeholder="Betreff *"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              autoFocus
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <select value={typ} onChange={(e) => setTyp(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="aufgabe">Aufgabe</option>
+              <option value="anruf">Anruf</option>
+              <option value="besuch">Besuch</option>
+              <option value="email">E-Mail</option>
+            </select>
+            <select value={prioritaet} onChange={(e) => setPrioritaet(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
+              <option value="niedrig">Niedrig</option>
+              <option value="normal">Normal</option>
+              <option value="hoch">Hoch</option>
+              <option value="kritisch">Kritisch</option>
+            </select>
+            <input type="date" value={faelligAm} onChange={(e) => setFaelligAm(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500" />
+          </div>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving || !betreff.trim()} className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 transition-colors">
+              {saving ? "…" : "Erstellen"}
+            </button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 hover:bg-gray-100 transition-colors">
+              Abbrechen
+            </button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade Aufgaben…</p>
+      ) : aufgaben.length === 0 ? (
+        <p className="text-sm text-gray-400">Noch keine Aufgaben für diesen Kunden.</p>
+      ) : (
+        <div className="space-y-1">
+          {[...offen, ...erledigt].map((a) => {
+            const ueberfaellig = !a.erledigt && a.faelligAm && new Date(a.faelligAm) < new Date();
+            return (
+              <div key={a.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${a.erledigt ? "opacity-50 bg-gray-50 border-gray-100" : "bg-white border-gray-200 hover:border-green-300"}`}>
+                <button
+                  onClick={() => toggleErledigt(a)}
+                  disabled={toggling === a.id}
+                  className={`mt-0.5 w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center transition-colors disabled:opacity-50 ${a.erledigt ? "bg-green-500 border-green-500" : "border-gray-400 hover:border-green-500"}`}
+                >
+                  {a.erledigt && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M2 6l3 3 5-5" /></svg>}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm font-medium ${a.erledigt ? "line-through text-gray-400" : "text-gray-900"}`}>{a.betreff}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    <span className={`px-1.5 py-0.5 rounded text-xs capitalize ${PRIO_BADGE[a.prioritaet] ?? "bg-gray-100 text-gray-600"}`}>{a.prioritaet}</span>
+                    {a.faelligAm && (
+                      <span className={`text-xs ${ueberfaellig ? "text-red-600 font-medium" : "text-gray-500"}`}>
+                        {ueberfaellig ? "⚠ " : ""}Fällig: {new Date(a.faelligAm).toLocaleDateString("de-DE")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <a href={`/aufgaben/${a.id}`} className="text-xs text-green-700 hover:underline flex-shrink-0">Bearb.</a>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

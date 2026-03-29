@@ -6,6 +6,8 @@ export async function GET() {
   const heute = new Date();
   const monatsAnfang = new Date(heute.getFullYear(), heute.getMonth(), 1);
 
+  const vor90Tagen = new Date(heute.getTime() - 90 * 24 * 60 * 60 * 1000);
+
   const [
     kundenAktiv,
     offeneLieferungen,
@@ -15,6 +17,8 @@ export async function GET() {
     faelligNaechste14Tage,
     offeneRechnungenListe,
     alleBedarfe,
+    wiedervorlagenRaw,
+    aktivKunden,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
@@ -43,6 +47,29 @@ export async function GET() {
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
       include: { artikel: true },
+    }),
+    prisma.kundeAktivitaet.findMany({
+      where: { erledigt: false, faelligAm: { lte: heute } },
+      include: { kunde: { select: { id: true, name: true, firma: true } } },
+      orderBy: { faelligAm: "asc" },
+      take: 10,
+    }),
+    prisma.kunde.findMany({
+      where: { aktiv: true },
+      select: {
+        id: true,
+        name: true,
+        firma: true,
+        aktivitaeten: {
+          select: { datum: true },
+          orderBy: { datum: "desc" },
+          take: 1,
+        },
+        lieferungen: {
+          select: { id: true },
+          take: 1,
+        },
+      },
     }),
   ]);
 
@@ -165,6 +192,37 @@ export async function GET() {
     }
   }
 
+  // Wiedervorlagen
+  const wiedervorlagen = wiedervorlagenRaw.map((a) => ({
+    id: a.id,
+    betreff: a.betreff,
+    typ: a.typ,
+    faelligAm: a.faelligAm ? a.faelligAm.toISOString() : null,
+    kundeId: a.kundeId,
+    kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : null,
+  }));
+
+  // Kein Kontakt (90+ Tage, mindestens 1 Lieferung)
+  const keinKontakt = aktivKunden
+    .filter((k) => k.lieferungen.length > 0)
+    .map((k) => ({
+      id: k.id,
+      name: k.name,
+      firma: k.firma,
+      letzterKontakt:
+        k.aktivitaeten.length > 0 ? k.aktivitaeten[0].datum.toISOString() : null,
+    }))
+    .filter((k) => {
+      if (!k.letzterKontakt) return true;
+      return new Date(k.letzterKontakt) < vor90Tagen;
+    })
+    .sort((a, b) => {
+      if (!a.letzterKontakt) return -1;
+      if (!b.letzterKontakt) return 1;
+      return new Date(a.letzterKontakt).getTime() - new Date(b.letzterKontakt).getTime();
+    })
+    .slice(0, 8);
+
   return NextResponse.json({
     kundenAktiv,
     offeneLieferungen,
@@ -178,5 +236,7 @@ export async function GET() {
     wiederkehrendFaellig,
     topKunden: topKundenMitNamen.sort((a, b) => b.umsatz - a.umsatz),
     markttrend,
+    wiedervorlagen,
+    keinKontakt,
   });
 }
