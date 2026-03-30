@@ -108,6 +108,12 @@ export default function EinstellungenPage() {
           title="Google Drive"
           description="Dokumente für Kunden und Artikel in Drive ablegen"
         />
+        <EinstellungTile
+          href="/einstellungen/artikel-import"
+          icon="📥"
+          title="Artikel-Stammdaten"
+          description="marstall & BvG Agrar Artikel manuell importieren"
+        />
       </div>
     </div>
   );
