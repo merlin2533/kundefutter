@@ -313,7 +313,7 @@ function LinienChart({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
-        style={{ minWidth: 500 }}
+        style={{ minWidth: 300 }}
         onMouseLeave={() => setTooltip(null)}
       >
         {/* Y-axis grid lines + labels */}
@@ -632,13 +632,13 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
             <th className="text-right py-2 px-3 font-medium text-gray-600">
               Aktuell
             </th>
-            <th className="text-right py-2 px-3 font-medium text-gray-600">
+            <th className="text-right py-2 px-3 font-medium text-gray-600 hidden sm:table-cell">
               Vorquartal
             </th>
             <th className="text-right py-2 px-3 font-medium text-gray-600">
-              Veraenderung
+              Veränd.
             </th>
-            <th className="text-center py-2 px-3 font-medium text-gray-600">
+            <th className="text-center py-2 px-3 font-medium text-gray-600 hidden sm:table-cell">
               Trend
             </th>
           </tr>
@@ -649,8 +649,14 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
               {/* Group header */}
               <tr className={section.bg}>
                 <td
+                  colSpan={3}
+                  className="py-2 px-3 font-semibold text-gray-700 sm:hidden"
+                >
+                  {section.label}
+                </td>
+                <td
                   colSpan={5}
-                  className="py-2 px-3 font-semibold text-gray-700"
+                  className="py-2 px-3 font-semibold text-gray-700 hidden sm:table-cell"
                 >
                   {section.label}
                 </td>
@@ -682,7 +688,7 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
                     <td className="py-2 px-3 text-right font-mono">
                       {z.aktuell.toFixed(1)}
                     </td>
-                    <td className="py-2 px-3 text-right font-mono text-gray-500">
+                    <td className="py-2 px-3 text-right font-mono text-gray-500 hidden sm:table-cell">
                       {z.vorquartal.toFixed(1)}
                     </td>
                     <td
@@ -691,7 +697,7 @@ function DetailTabelle({ daten }: { daten: MarktpreisEintrag[] }) {
                       {arrow} {z.veraenderung >= 0 ? "+" : ""}
                       {z.veraenderung.toFixed(1)}%
                     </td>
-                    <td className="py-2 px-3 text-center">
+                    <td className="py-2 px-3 text-center hidden sm:table-cell">
                       <Sparkline werte={z.letzte4} farbe={section.farbe} />
                     </td>
                   </tr>
@@ -766,7 +772,7 @@ function KpiKarten({
     .filter((k): k is AktuellKpi => k !== null);
 
   return (
-    <div className="grid sm:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {kpis.map((kpi) => {
         const meta = KPI_META[kpi.produktCode];
         const isStable = Math.abs(kpi.veraenderung) <= 2;
@@ -824,7 +830,10 @@ function MatifSpotSection() {
       const url = force
         ? "/api/marktpreise/spot?force=true"
         : "/api/marktpreise/spot";
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
@@ -841,7 +850,11 @@ function MatifSpotSection() {
         );
       }
     } catch (err) {
-      setFehler(err instanceof Error ? err.message : "Unbekannter Fehler");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setFehler("Zeitüberschreitung beim Laden der MATIF-Daten");
+      } else {
+        setFehler(err instanceof Error ? err.message : "Unbekannter Fehler");
+      }
       setPreise([]);
     }
   }, []);
@@ -910,7 +923,7 @@ function MatifSpotSection() {
       </div>
 
       {/* Karten */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {preise.map((p) => {
           const meta = MATIF_META[p.produktCode] ?? {
             farbeClass:  "text-gray-700",
@@ -1043,7 +1056,10 @@ export default function MarktpreisePage() {
     try {
       setError(null);
       const url = force ? "/api/marktpreise?force=true" : "/api/marktpreise";
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
       if (!res.ok) throw new Error(`Fehler: ${res.status}`);
       const json: MarktpreisData = await res.json();
       setDaten(json.daten);
@@ -1057,7 +1073,11 @@ export default function MarktpreisePage() {
         })
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Zeitüberschreitung beim Laden der Marktpreise");
+      } else {
+        setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      }
     }
   }, []);
 
@@ -1126,14 +1146,14 @@ export default function MarktpreisePage() {
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
         >
           {syncing ? "Aktualisiere…" : "Daten aktualisieren"}
         </button>
         {syncing && (
           <span className="text-sm text-gray-400">Lade neue Daten…</span>
         )}
-        <span className="text-xs text-gray-400 italic">
+        <span className="text-xs text-gray-400 italic hidden sm:inline">
           Erzeugerpreise: werden automatisch von Eurostat geladen (Verfügbarkeit abhängig von API)
         </span>
       </div>
@@ -1142,10 +1162,10 @@ export default function MarktpreisePage() {
       <MatifSpotSection />
 
       {/* 2-column layout */}
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Tree navigator */}
-        <div className="w-60 flex-shrink-0">
-          <div className="sticky top-4">
+        <div className="w-full lg:w-60 lg:flex-shrink-0">
+          <div className="lg:sticky lg:top-4">
             <h3 className="text-sm font-semibold text-gray-600 mb-2">
               Produktauswahl
             </h3>

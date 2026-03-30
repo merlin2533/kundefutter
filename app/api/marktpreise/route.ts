@@ -36,46 +36,16 @@ export async function GET(request: NextRequest) {
 
     // Refresh cache from Eurostat if needed
     if (needsRefresh) {
-      // Fetch input prices
-      const entries = await fetchEurostatQuarterly(2020);
-
-      const inputOps = entries.map((entry) =>
-        prisma.marktpreisCache.upsert({
-          where: {
-            dataset_produktCode_zeitraum_land: {
-              dataset: "apri_pi15_inq",
-              produktCode: entry.produktCode,
-              zeitraum: entry.zeitraum,
-              land: "DE",
-            },
-          },
-          update: {
-            produktName: entry.produktName,
-            indexWert: entry.indexWert,
-            abgerufenAm: new Date(),
-          },
-          create: {
-            dataset: "apri_pi15_inq",
-            produktCode: entry.produktCode,
-            produktName: entry.produktName,
-            zeitraum: entry.zeitraum,
-            indexWert: entry.indexWert,
-            einheit: "I15",
-            land: "DE",
-          },
-        })
-      );
-      await prisma.$transaction(inputOps);
-
-      // Fetch output prices - fail gracefully if unavailable
       try {
-        const outputEntries = await fetchEurostatOutput(2020);
-        if (outputEntries.length > 0) {
-          const outputOps = outputEntries.map((entry) =>
+        // Fetch input prices
+        const entries = await fetchEurostatQuarterly(2020);
+
+        if (entries.length > 0) {
+          const inputOps = entries.map((entry) =>
             prisma.marktpreisCache.upsert({
               where: {
                 dataset_produktCode_zeitraum_land: {
-                  dataset: "apri_pi15_outq",
+                  dataset: "apri_pi15_inq",
                   produktCode: entry.produktCode,
                   zeitraum: entry.zeitraum,
                   land: "DE",
@@ -87,7 +57,7 @@ export async function GET(request: NextRequest) {
                 abgerufenAm: new Date(),
               },
               create: {
-                dataset: "apri_pi15_outq",
+                dataset: "apri_pi15_inq",
                 produktCode: entry.produktCode,
                 produktName: entry.produktName,
                 zeitraum: entry.zeitraum,
@@ -97,10 +67,47 @@ export async function GET(request: NextRequest) {
               },
             })
           );
-          await prisma.$transaction(outputOps);
+          await prisma.$transaction(inputOps);
         }
-      } catch (outputErr) {
-        console.warn("Eurostat Output-Preise nicht verfügbar:", outputErr);
+
+        // Fetch output prices - fail gracefully if unavailable
+        try {
+          const outputEntries = await fetchEurostatOutput(2020);
+          if (outputEntries.length > 0) {
+            const outputOps = outputEntries.map((entry) =>
+              prisma.marktpreisCache.upsert({
+                where: {
+                  dataset_produktCode_zeitraum_land: {
+                    dataset: "apri_pi15_outq",
+                    produktCode: entry.produktCode,
+                    zeitraum: entry.zeitraum,
+                    land: "DE",
+                  },
+                },
+                update: {
+                  produktName: entry.produktName,
+                  indexWert: entry.indexWert,
+                  abgerufenAm: new Date(),
+                },
+                create: {
+                  dataset: "apri_pi15_outq",
+                  produktCode: entry.produktCode,
+                  produktName: entry.produktName,
+                  zeitraum: entry.zeitraum,
+                  indexWert: entry.indexWert,
+                  einheit: "I15",
+                  land: "DE",
+                },
+              })
+            );
+            await prisma.$transaction(outputOps);
+          }
+        } catch (outputErr) {
+          console.warn("Eurostat Output-Preise nicht verfügbar:", outputErr);
+        }
+      } catch (refreshErr) {
+        console.warn("Eurostat-Aktualisierung fehlgeschlagen, nutze Cache:", refreshErr);
+        // Fall through to return cached data
       }
     }
 
