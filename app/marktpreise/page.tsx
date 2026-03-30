@@ -1389,6 +1389,78 @@ function MatifSpotSection() {
   );
 }
 
+// ─── Produkt-Summe (linkes Panel) ────────────────────────────────────────────
+
+function ProduktSumme({
+  daten,
+  selectedCodes,
+}: {
+  daten: MarktpreisEintrag[];
+  selectedCodes: Set<string>;
+}) {
+  // Alle Leaf-Codes (keine Gruppen) die ausgewählt und mit Daten vorhanden sind
+  const aktiveCodes = Array.from(selectedCodes).filter((c) =>
+    daten.some((d) => d.produktCode === c)
+  );
+
+  if (aktiveCodes.length === 0) {
+    return (
+      <p className="text-xs text-gray-400 px-2 py-3 text-center">
+        Keine Produkte ausgewählt
+      </p>
+    );
+  }
+
+  const zeilen = aktiveCodes.map((code, idx) => {
+    const reihe = daten
+      .filter((d) => d.produktCode === code)
+      .sort((a, b) => zeitraumSortKey(a.zeitraum) - zeitraumSortKey(b.zeitraum));
+    const aktuell = reihe[reihe.length - 1]?.indexWert ?? 0;
+    const vorq = reihe.length >= 2 ? reihe[reihe.length - 2].indexWert : aktuell;
+    const delta = vorq !== 0 ? ((aktuell - vorq) / vorq) * 100 : 0;
+    const name = reihe[0]?.produktName ?? code;
+    const farbe = LINE_PALETTE[idx % LINE_PALETTE.length];
+    return { code, name, aktuell, delta, farbe };
+  });
+
+  return (
+    <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        Ausgewählt ({aktiveCodes.length})
+      </div>
+      <div className="divide-y divide-gray-100">
+        {zeilen.map((z) => {
+          const isUp = z.delta > 2;
+          const isDown = z.delta < -2;
+          const deltaColor = isUp ? "text-red-600" : isDown ? "text-green-600" : "text-gray-400";
+          const arrow = isUp ? "▲" : isDown ? "▼" : "–";
+          return (
+            <div key={z.code} className="flex items-center gap-2 px-3 py-2">
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: z.farbe }}
+              />
+              <span className="flex-1 text-xs text-gray-700 truncate">{z.name}</span>
+              <span className="text-xs font-mono font-semibold text-gray-800">
+                {z.aktuell.toFixed(1)}
+              </span>
+              <span className={`text-xs ${deltaColor} w-10 text-right`}>
+                {arrow} {Math.abs(z.delta).toFixed(1)}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-gray-50 px-3 py-2 flex items-center justify-between">
+        <span className="text-xs text-gray-500">Ø Index</span>
+        <span className="text-xs font-mono font-bold text-gray-800">
+          {(zeilen.reduce((s, z) => s + z.aktuell, 0) / zeilen.length).toFixed(1)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const DEFAULT_SELECTED = new Set(["WH_SOFT", "RYE", "OATS", "MAIZE", "RAPE", "SOY", "SUNFL"]);
@@ -1398,8 +1470,8 @@ export default function MarktpreisePage() {
   const [letzteAktualisierung, setLetzteAktualisierung] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCodes, setSelectedCodes] =
-    useState<Set<string>>(DEFAULT_SELECTED);
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(DEFAULT_SELECTED);
+  const [aktiveTab, setAktiveTab] = useState<"verlauf" | "detail">("verlauf");
 
   const loadData = useCallback(async (force = false) => {
     try {
@@ -1430,25 +1502,17 @@ export default function MarktpreisePage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   async function handleSync() {
     setSyncing(true);
-    try {
-      await loadData(true);
-    } finally {
-      setSyncing(false);
-    }
+    try { await loadData(true); } finally { setSyncing(false); }
   }
 
   if (error) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Marktpreise — Agrarpreisindex
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">Marktpreise — Agrarpreisindex</h1>
         <p className="text-red-500 mt-4">Fehler beim Laden: {error}</p>
         <button
           onClick={() => loadData()}
@@ -1462,10 +1526,7 @@ export default function MarktpreisePage() {
 
   if (!daten) return <p className="text-gray-400 mt-8">Lade Marktpreise…</p>;
 
-  // Compute set of codes that have at least one data entry
   const verfuegbareCodes = new Set(daten.map((d) => d.produktCode));
-
-  // Filtered data for selected codes
   const filteredDaten = daten.filter((d) => selectedCodes.has(d.produktCode));
 
   function toggleCode(code: string) {
@@ -1480,76 +1541,100 @@ export default function MarktpreisePage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Marktpreise — Agrarpreisindex
-        </h1>
-        <p className="text-sm text-gray-500">
-          Quelle: Eurostat apri_pi15_inq / apri_pi15_outq · Preisindex 2015 =
-          100
-        </p>
-      </div>
-
-      {/* Sync button */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Marktpreise — Agrarpreisindex</h1>
+          <p className="text-sm text-gray-500">
+            Quelle: Eurostat apri_pi15_inq / apri_pi15_outq · Preisindex 2015 = 100
+            {letzteAktualisierung && (
+              <span className="ml-2 text-gray-400">· Stand: {letzteAktualisierung}</span>
+            )}
+          </p>
+        </div>
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
         >
-          {syncing ? "Aktualisiere…" : "Daten aktualisieren"}
+          {syncing ? "Aktualisiere…" : "↺ Daten aktualisieren"}
         </button>
-        {syncing && (
-          <span className="text-sm text-gray-400">Lade neue Daten…</span>
-        )}
-        <span className="text-xs text-gray-400 italic hidden sm:inline">
-          Erzeugerpreise: werden automatisch von Eurostat geladen (Verfügbarkeit abhängig von API)
-        </span>
       </div>
 
       {/* MATIF Spotpreise + Prognose */}
       <MatifSpotSection />
 
-      {/* 2-column layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left: Tree navigator */}
-        <div className="w-full lg:w-60 lg:flex-shrink-0">
-          <div className="lg:sticky lg:top-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-2">
-              Produktauswahl
-            </h3>
+      {/* Eurostat-Sektion: 2-spaltig */}
+      <div className="flex flex-col lg:flex-row gap-5">
+
+        {/* ── Linke Spalte: Produktbaum + Summe ── */}
+        <div className="w-full lg:w-64 lg:flex-shrink-0">
+          <div className="lg:sticky lg:top-4 space-y-1">
+            <h3 className="text-sm font-semibold text-gray-600">Produktauswahl</h3>
+            <p className="text-xs text-gray-400 mb-2">
+              Eurostat-Preisindex · {verfuegbareCodes.size} Produkte verfügbar
+            </p>
             <ProduktBaumNav
               selectedCodes={selectedCodes}
               onToggle={toggleCode}
               verfuegbareCodes={verfuegbareCodes}
             />
+            <ProduktSumme daten={daten} selectedCodes={selectedCodes} />
           </div>
         </div>
 
-        {/* Right: Charts and table */}
-        <div className="flex-1 space-y-6 min-w-0">
+        {/* ── Rechte Spalte: KPIs + Tabs ── */}
+        <div className="flex-1 min-w-0 space-y-4">
+
+          {/* KPI-Leiste */}
           <KpiKarten daten={filteredDaten} selectedCodes={selectedCodes} />
 
+          {/* Tab-Card */}
           <Card>
-            <h2 className="text-base font-semibold text-gray-800 mb-4">
-              Preisentwicklung (Quartalsindex)
-            </h2>
-            <LinienChart daten={filteredDaten} selectedCodes={selectedCodes} />
-          </Card>
+            {/* Tab-Header */}
+            <div className="flex items-center gap-0 mb-5 border-b border-gray-200 -mt-1">
+              <button
+                onClick={() => setAktiveTab("verlauf")}
+                className={[
+                  "px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  aktiveTab === "verlauf"
+                    ? "border-green-600 text-green-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300",
+                ].join(" ")}
+              >
+                Preisverlauf
+              </button>
+              <button
+                onClick={() => setAktiveTab("detail")}
+                className={[
+                  "px-5 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  aktiveTab === "detail"
+                    ? "border-green-600 text-green-700"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300",
+                ].join(" ")}
+              >
+                Detailtabelle
+              </button>
+            </div>
 
-          <Card>
-            <h2 className="text-base font-semibold text-gray-800 mb-4">
-              Detailansicht nach Unterkategorien
-            </h2>
-            <DetailTabelle daten={filteredDaten} />
+            {/* Tab-Inhalt */}
+            {aktiveTab === "verlauf" ? (
+              <>
+                <p className="text-xs text-gray-400 mb-3">
+                  Quartalsindex (Basis 2015 = 100) · ausgewählte Produkte im Vergleich
+                </p>
+                <LinienChart daten={filteredDaten} selectedCodes={selectedCodes} />
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 mb-3">
+                  Aktuelle Indexwerte, Vorquartal und Trend je Produkt
+                </p>
+                <DetailTabelle daten={filteredDaten} />
+              </>
+            )}
           </Card>
         </div>
       </div>
-
-      {/* Footer */}
-      <p className="text-xs text-gray-400 mt-4">
-        Letzte Aktualisierung: {letzteAktualisierung}
-      </p>
     </div>
   );
 }
