@@ -324,9 +324,13 @@ export async function fetchEurostatQuarterly(
 ): Promise<EurostatEntry[]> {
   const url = buildUrl("apri_pi15_inq", sinceYear);
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   if (!response.ok) {
     throw new Error(
@@ -347,9 +351,13 @@ export async function fetchEurostatAnnual(
 ): Promise<EurostatEntry[]> {
   const url = buildUrl("apri_pi15_ina", sinceYear);
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   if (!response.ok) {
     throw new Error(
@@ -374,7 +382,10 @@ export async function fetchEurostatOutput(
   const discoveryUrl = `${EUROSTAT_BASE}/apri_pi15_outq?format=JSON&geo=DE&unit=I15&p_adj=NI&sinceTimePeriod=${sinceYear}`;
 
   try {
-    const res = await fetch(discoveryUrl, { headers: { Accept: 'application/json' } });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const res = await fetch(discoveryUrl, { headers: { Accept: 'application/json' }, signal: controller.signal });
+    clearTimeout(timeout);
     if (!res.ok) return [];
     const json = await res.json();
 
