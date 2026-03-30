@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
+import { randomUUID } from "crypto";
+
+const buildId = randomUUID();
 
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["leaflet", "react-leaflet"],
+  env: {
+    NEXT_PUBLIC_BUILD_ID: buildId,
+  },
   async headers() {
     return [
       {

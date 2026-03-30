@@ -43,6 +43,7 @@ interface Artikel {
   kategorie: string;
   einheit: string;
   standardpreis: number;
+  preisStand?: string | null;
   mwstSatz: number;
   aktuellerBestand: number;
   mindestbestand: number;
@@ -106,6 +107,10 @@ export default function ArtikelDetailPage() {
   const [savingLief, setSavingLief] = useState(false);
   const [liefError, setLiefError] = useState("");
 
+  // Löschen / Duplizieren
+  const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
   // Dokumente upload
   const [uploadForm, setUploadForm] = useState({ name: "", notiz: "" });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -124,6 +129,7 @@ export default function ArtikelDetailPage() {
       kategorie: data.kategorie,
       einheit: data.einheit,
       standardpreis: data.standardpreis,
+      preisStand: data.preisStand ? data.preisStand.slice(0, 10) : "",
       mwstSatz: data.mwstSatz,
       mindestbestand: data.mindestbestand,
       beschreibung: data.beschreibung ?? "",
@@ -163,6 +169,7 @@ export default function ArtikelDetailPage() {
       body: JSON.stringify({
         ...editForm,
         standardpreis: Number(editForm.standardpreis),
+        preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
         mwstSatz: Number(editForm.mwstSatz) || 19,
         mindestbestand: Number(editForm.mindestbestand),
       }),
@@ -174,6 +181,41 @@ export default function ArtikelDetailPage() {
     } else {
       const d = await res.json().catch(() => ({}));
       setDetailsError(d.error ?? "Fehler beim Speichern.");
+    }
+  }
+
+  // ── Artikel löschen ────────────────────────────────────────────────────────
+  async function deleteArtikel() {
+    if (!confirm("Artikel wirklich löschen? Er wird als inaktiv markiert.")) return;
+    setDeleting(true);
+    const res = await fetch(`/api/artikel/${id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (res.ok) router.push("/artikel");
+  }
+
+  // ── Artikel duplizieren ───────────────────────────────────────────────────
+  async function duplicateArtikel() {
+    if (!artikel) return;
+    setDuplicating(true);
+    const res = await fetch("/api/artikel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${artikel.name} (Kopie)`,
+        kategorie: artikel.kategorie,
+        einheit: artikel.einheit,
+        standardpreis: artikel.standardpreis,
+        preisStand: artikel.preisStand || null,
+        mwstSatz: artikel.mwstSatz,
+        mindestbestand: artikel.mindestbestand,
+        beschreibung: artikel.beschreibung,
+        lagerort: artikel.lagerort,
+      }),
+    });
+    setDuplicating(false);
+    if (res.ok) {
+      const neu = await res.json();
+      router.push(`/artikel/${neu.id}`);
     }
   }
 
@@ -305,6 +347,20 @@ export default function ArtikelDetailPage() {
                 inaktiv
               </span>
             )}
+            <button
+              onClick={duplicateArtikel}
+              disabled={duplicating}
+              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium disabled:opacity-60"
+            >
+              {duplicating ? "Dupliziere…" : "Duplizieren"}
+            </button>
+            <button
+              onClick={deleteArtikel}
+              disabled={deleting}
+              className="px-3 py-1.5 text-sm rounded-lg border border-red-300 hover:bg-red-50 text-red-700 font-medium disabled:opacity-60"
+            >
+              {deleting ? "Lösche…" : "Löschen"}
+            </button>
           </div>
         </div>
       </div>
@@ -428,14 +484,23 @@ export default function ArtikelDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Preis gültig ab</label>
                   <input
-                    type="number" step="0.01" min="0"
-                    value={editForm.mindestbestand ?? 0}
-                    onChange={(e) => setEditForm({ ...editForm, mindestbestand: parseFloat(e.target.value) || 0 })}
+                    type="date"
+                    value={(editForm.preisStand as string) ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, preisStand: e.target.value })}
                     className={inputCls}
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
+                <input
+                  type="number" step="0.01" min="0"
+                  value={editForm.mindestbestand ?? 0}
+                  onChange={(e) => setEditForm({ ...editForm, mindestbestand: parseFloat(e.target.value) || 0 })}
+                  className={inputCls}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">MwSt-Satz</label>
@@ -505,6 +570,7 @@ export default function ArtikelDetailPage() {
                   ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
                   ["Einheit", artikel.einheit],
                   ["Standardpreis", formatEuro(artikel.standardpreis)],
+                  ["Preis gültig ab", artikel.preisStand ? formatDatum(artikel.preisStand) : "—"],
                   ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
                   ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
                   ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],

@@ -22,7 +22,7 @@ export async function GET() {
     // Aggregate umsatz per customer
     const kundeMap = new Map<number, { kundeId: number; name: string; firma: string | null; umsatz: number }>();
     for (const l of lieferungen) {
-      const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      const umsatz = l.positionen.reduce((s: number, p) => s + p.menge * p.verkaufspreis, 0);
       const existing = kundeMap.get(l.kundeId);
       if (existing) {
         existing.umsatz += umsatz;
