@@ -19,16 +19,29 @@ export interface TagespreisPunkt {
   preis: number;  // EUR/t
 }
 
+/** Statistische Prognose: linearer Mittelpunkt + √T-skalierte Volatilitätsbänder */
+export interface StatistischePrognose {
+  mittelwert: number;    // linearer Forecast-Mittelpunkt (EUR/t)
+  sigma: number;         // √horizont-skalierte Tages-Std.abw. (EUR/t)
+  band68Lo: number;      // −1σ
+  band68Hi: number;      // +1σ
+  band95Lo: number;      // −2σ
+  band95Hi: number;      // +2σ
+  horizont: number;      // Handelstage
+  horizonDatum: string;  // Zieldatum YYYY-MM-DD
+}
+
 export interface MatifProdukt {
   symbol: string;
   produktCode: string;   // "WEIZEN" | "RAPS" | "MAIS"
   produktName: string;
   preis: number;         // aktuellster Schlusskurs in EUR/t
   vorwoche: number | null;
-  veraenderung: number | null;  // EUR/t Differenz
-  datum: string;                 // letzter Handelstag
-  verlauf: TagespreisPunkt[];    // letzte ≤20 Handelstage
-  prognose1W: number | null;     // linearer Forecast +5 Handelstage
+  veraenderung: number | null;  // EUR/t Differenz zur Vorwoche
+  datum: string;                // letzter Handelstag
+  verlauf: TagespreisPunkt[];   // alle gespeicherten Handelstage
+  prognose1W: number | null;    // linearer Forecast-Mittelpunkt
+  statPrognose: StatistischePrognose | null;
 }
 
 const MATIF_PRODUKTE = [
@@ -36,6 +49,8 @@ const MATIF_PRODUKTE = [
   { symbol: "ERO.PA", code: "RAPS",   name: "Raps (MATIF)"   },
   { symbol: "EMA.PA", code: "MAIS",   name: "Mais (MATIF)"   },
 ];
+
+// ─── Lineare Regression ───────────────────────────────────────────────────────
 
 /** Lineare Regression → Forecast für +horizont Handelstage */
 export function linearForecast(
@@ -60,6 +75,59 @@ export function linearForecast(
   const intercept = (sumY - slope * sumX) / n;
 
   return Math.round((intercept + slope * (n - 1 + horizont)) * 10) / 10;
+}
+
+// ─── Statistische Prognose ────────────────────────────────────────────────────
+
+/**
+ * Berechnet lineare Prognose + Volatilitätsbänder (±1σ, ±2σ).
+ * Basis: tägliche Preisänderungen der letzten 60 Handelstage,
+ *        skaliert mit √horizont (Random-Walk-Annahme).
+ */
+export function statistischePrognose(
+  verlauf: TagespreisPunkt[],
+  horizont = 5
+): StatistischePrognose | null {
+  if (verlauf.length < 10) return null;
+
+  const mittelwert = linearForecast(verlauf, horizont);
+  if (mittelwert === null) return null;
+
+  // Tagesrenditen (absolute Preisänderungen) — letzte 60 Datenpunkte
+  const data = verlauf.slice(-60);
+  const renditen: number[] = [];
+  for (let i = 1; i < data.length; i++) {
+    renditen.push(data[i].preis - data[i - 1].preis);
+  }
+  if (renditen.length < 5) return null;
+
+  const meanRendite = renditen.reduce((a, b) => a + b, 0) / renditen.length;
+  const variance =
+    renditen.reduce((a, r) => a + (r - meanRendite) ** 2, 0) / renditen.length;
+  const sigmaDaily = Math.sqrt(variance);
+
+  // √T-Skalierung (Random Walk)
+  const sigma = Math.round(sigmaDaily * Math.sqrt(horizont) * 10) / 10;
+
+  // Horizont-Datum: horizont Handelstage ab letztem Datenpunkt vorwärts
+  const lastDate = new Date(verlauf[verlauf.length - 1].datum + "T12:00:00Z");
+  let remaining = horizont;
+  while (remaining > 0) {
+    lastDate.setUTCDate(lastDate.getUTCDate() + 1);
+    const dow = lastDate.getUTCDay();
+    if (dow !== 0 && dow !== 6) remaining--;
+  }
+
+  return {
+    mittelwert: Math.round(mittelwert * 10) / 10,
+    sigma,
+    band68Lo: Math.round((mittelwert - sigma) * 10) / 10,
+    band68Hi: Math.round((mittelwert + sigma) * 10) / 10,
+    band95Lo: Math.round((mittelwert - 2 * sigma) * 10) / 10,
+    band95Hi: Math.round((mittelwert + 2 * sigma) * 10) / 10,
+    horizont,
+    horizonDatum: lastDate.toISOString().slice(0, 10),
+  };
 }
 
 // ─── Yahoo Finance Crumb-Authentifizierung ────────────────────────────────────
@@ -107,7 +175,6 @@ async function getYahooAuth(): Promise<YahooAuth | null> {
         );
         if (!crumbRes.ok) continue;
         const crumb = (await crumbRes.text()).trim();
-        // Plausibilitätsprüfung: Crumb ist kurz und enthält kein "error"
         if (!crumb || crumb.length > 30 || crumb.toLowerCase().includes("error")) continue;
 
         _auth = { crumb, cookie, expiresAt: Date.now() + 55 * 60 * 1_000 };
@@ -117,16 +184,15 @@ async function getYahooAuth(): Promise<YahooAuth | null> {
       }
     }
   } catch {
-    // Auth-Fehler — wird unten ohne Crumb weiterversucht
+    // Auth-Fehler — wird ohne Crumb weiterversucht
   }
 
   return null;
 }
 
-// ─── Daten-Abruf ─────────────────────────────────────────────────────────────
+// ─── Interner Abruf (range-parametrisiert) ────────────────────────────────────
 
-/** Ruft Yahoo Finance ab und gibt MATIF-Futures zurück */
-export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
+async function doFetchMatif(range: string): Promise<MatifProdukt[]> {
   const auth = await getYahooAuth();
 
   const headers: Record<string, string> = {
@@ -149,11 +215,11 @@ export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
       try {
         const url =
           `https://${host}.finance.yahoo.com/v8/finance/chart/` +
-          `${encodeURIComponent(prod.symbol)}?interval=1d&range=1mo${crumbParam}`;
+          `${encodeURIComponent(prod.symbol)}?interval=1d&range=${range}${crumbParam}`;
 
         const res = await fetch(url, {
           headers,
-          signal: AbortSignal.timeout(10_000),
+          signal: AbortSignal.timeout(15_000),
         });
 
         if (!res.ok) continue;
@@ -181,8 +247,7 @@ export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
 
         if (verlauf.length === 0) continue;
 
-        const aktuell = verlauf[verlauf.length - 1];
-        // "Vorwoche" = ~5 Handelstage zurück
+        const aktuell  = verlauf[verlauf.length - 1];
         const vwIdx    = Math.max(0, verlauf.length - 6);
         const vorwoche = verlauf.length >= 2 ? verlauf[vwIdx] : null;
 
@@ -196,9 +261,10 @@ export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
             vorwoche != null
               ? Math.round((aktuell.preis - vorwoche.preis) * 10) / 10
               : null,
-          datum:      aktuell.datum,
-          verlauf:    verlauf.slice(-20),
-          prognose1W: linearForecast(verlauf),
+          datum:       aktuell.datum,
+          verlauf,                          // vollständiger Verlauf
+          prognose1W:  linearForecast(verlauf),
+          statPrognose: statistischePrognose(verlauf),
         });
         parsed = true;
       } catch {
@@ -208,4 +274,16 @@ export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
   }
 
   return results;
+}
+
+// ─── Öffentliche API ─────────────────────────────────────────────────────────
+
+/** Letzter Monat (täglicher Refresh) */
+export async function fetchMatifPreise(): Promise<MatifProdukt[]> {
+  return doFetchMatif("1mo");
+}
+
+/** Letzte 2 Jahre (einmalig bei Erstbefüllung) */
+export async function fetchMatifHistorie(): Promise<MatifProdukt[]> {
+  return doFetchMatif("2y");
 }
