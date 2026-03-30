@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { STAMMDATEN_GRUPPEN } from "@/lib/artikel-stammdaten";
 
@@ -22,9 +22,11 @@ interface ImportStatus {
 export default function ArtikelImportPage() {
   const [status, setStatus] = useState<ImportStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [importing, setImporting] = useState<string | null>(null); // null = idle, "all" | gruppenTitel
-  const [result, setResult] = useState<{ importiert: number; uebersprungen: number } | null>(null);
+  const [importing, setImporting] = useState<string | null>(null);
+  const [result, setResult] = useState<{ importiert: number; uebersprungen: number; fehler?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function ladeStatus() {
     setLoading(true);
@@ -54,11 +56,38 @@ export default function ArtikelImportPage() {
         body: JSON.stringify(gruppenTitel ? { gruppenTitel } : {}),
       });
       if (!res.ok) throw new Error("Import fehlgeschlagen");
-      const data = await res.json();
-      setResult(data);
+      setResult(await res.json());
       await ladeStatus();
     } catch {
       setError("Import fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setImporting(null);
+    }
+  }
+
+  async function uploadExcel(file: File) {
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+      setError("Nur Excel-Dateien (.xlsx / .xls) werden unterstützt.");
+      return;
+    }
+    setImporting("upload");
+    setResult(null);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/einstellungen/artikel-import", {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Upload fehlgeschlagen");
+      }
+      setResult(await res.json());
+      await ladeStatus();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload fehlgeschlagen.");
     } finally {
       setImporting(null);
     }
@@ -77,9 +106,8 @@ export default function ArtikelImportPage() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
-        Hier können Sie vordefinierte Artikel-Stammdaten (marstall Pferdefutter & Stallzubehör,
-        BvG Agrar Schwefelprodukte) in die Datenbank importieren. Bereits vorhandene Artikel
-        (gleiche Artikelnummer) werden dabei nicht überschrieben.
+        Vordefinierte Artikel (marstall & BvG Agrar) per Knopfdruck importieren <em>oder</em> eine
+        eigene Excel-Datei hochladen. Bereits vorhandene Artikelnummern werden übersprungen.
       </div>
 
       {error && (
@@ -90,21 +118,84 @@ export default function ArtikelImportPage() {
 
       {result && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 text-sm text-green-800">
-          Import abgeschlossen: <strong>{result.importiert} Artikel importiert</strong>,{" "}
-          {result.uebersprungen} bereits vorhanden (übersprungen).
+          Import abgeschlossen:{" "}
+          <strong>{result.importiert} Artikel importiert</strong>,{" "}
+          {result.uebersprungen} übersprungen
+          {result.fehler ? `, ${result.fehler} fehlerhaft` : ""}.
         </div>
       )}
 
+      {/* ── Excel-Upload ───────────────────────────────────────────────────── */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+          <div>
+            <h2 className="font-semibold text-gray-800">Excel-Import</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Eigene .xlsx-Datei hochladen oder die Vorlage mit allen Stammdaten herunterladen und
+              anpassen.
+            </p>
+          </div>
+          <a
+            href="/api/einstellungen/artikel-import?action=template"
+            download="artikel-stammdaten.xlsx"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors whitespace-nowrap"
+          >
+            <span>⬇</span> Vorlage herunterladen
+          </a>
+        </div>
+
+        {/* Drop-Zone */}
+        <div
+          className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${
+            dragOver
+              ? "border-green-400 bg-green-50"
+              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+          } ${importing === "upload" ? "opacity-60 pointer-events-none" : ""}`}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) uploadExcel(file);
+          }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadExcel(file);
+              e.target.value = "";
+            }}
+          />
+          {importing === "upload" ? (
+            <p className="text-sm text-gray-500">Wird importiert…</p>
+          ) : (
+            <>
+              <p className="text-2xl mb-2">📂</p>
+              <p className="text-sm font-medium text-gray-700">
+                Excel-Datei hier ablegen oder klicken zum Auswählen
+              </p>
+              <p className="text-xs text-gray-400 mt-1">.xlsx / .xls</p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Stammdaten-Import ──────────────────────────────────────────────── */}
       {loading ? (
         <p className="text-gray-500 text-sm">Lade Status…</p>
       ) : status ? (
         <>
-          {/* Gesamt-Übersicht */}
           <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-sm text-gray-500">Gesamt verfügbar</p>
-                <p className="text-3xl font-bold text-gray-800">{status.gesamt}</p>
+                <h2 className="font-semibold text-gray-800">Vordefinierte Stammdaten</h2>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{status.gesamt}</p>
                 <p className="text-sm text-gray-500 mt-1">
                   <span className="text-green-600 font-medium">{status.neu} neu</span>
                   {status.vorhanden > 0 && (
@@ -121,13 +212,12 @@ export default function ArtikelImportPage() {
                   ? "Importiere…"
                   : alleNeu === 0
                   ? "Alle bereits vorhanden"
-                  : `Alle ${alleNeu} neuen Artikel importieren`}
+                  : `Alle ${alleNeu} neuen importieren`}
               </button>
             </div>
           </div>
 
-          {/* Gruppen-Tabelle */}
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-8">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -169,8 +259,8 @@ export default function ArtikelImportPage() {
             </table>
           </div>
 
-          {/* Artikel-Vorschau je Gruppe */}
-          <div className="mt-8 space-y-6">
+          {/* Artikel-Vorschau */}
+          <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-700">Artikel-Vorschau</h2>
             {STAMMDATEN_GRUPPEN.map((g) => (
               <details key={g.titel} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
