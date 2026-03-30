@@ -5,6 +5,314 @@ import { Card } from "@/components/Card";
 import { PRODUKT_BAUM, type ProduktNode } from "@/lib/eurostat";
 import type { MatifProdukt } from "@/lib/matif";
 
+// ─── MATIF Zeitraumfilter + Chart ─────────────────────────────────────────────
+
+type Zeitraum = "1M" | "3M" | "6M" | "1J" | "Max";
+
+const ZEITRAUM_TAGE: Record<Zeitraum, number> = {
+  "1M": 30, "3M": 90, "6M": 180, "1J": 365, Max: 99999,
+};
+
+const MATIF_CHART_FARBEN: Record<string, string> = {
+  WEIZEN: "#d97706",  // amber-600
+  RAPS:   "#ca8a04",  // yellow-600
+  MAIS:   "#65a30d",  // lime-600
+};
+
+function MatifChart({
+  preise,
+  zeitraum,
+}: {
+  preise: MatifProdukt[];
+  zeitraum: Zeitraum;
+}) {
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Verlauf je Produkt auf Zeitraum begrenzen
+  const cutoffDatum = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - ZEITRAUM_TAGE[zeitraum]);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const filteredPreise = preise.map((p) => ({
+    ...p,
+    filtered: zeitraum === "Max"
+      ? p.verlauf
+      : p.verlauf.filter((d) => d.datum >= cutoffDatum),
+  }));
+
+  // Union aller Daten + Horizont-Daten
+  const dateSet = new Set<string>();
+  filteredPreise.forEach((p) => p.filtered.forEach((d) => dateSet.add(d.datum)));
+  filteredPreise.forEach((p) => {
+    if (p.statPrognose?.horizonDatum) dateSet.add(p.statPrognose.horizonDatum);
+  });
+  const allDates = [...dateSet].sort();
+  const n = allDates.length;
+
+  if (n < 2) {
+    return (
+      <div className="text-sm text-gray-400 py-6 text-center">
+        Nicht genug Daten für den gewählten Zeitraum
+      </div>
+    );
+  }
+
+  // Chart-Dimensionen
+  const W = 800, H = 260;
+  const pL = 52, pR = 20, pT = 16, pB = 36;
+  const cW = W - pL - pR, cH = H - pT - pB;
+
+  const dateIndex = new Map<string, number>(allDates.map((d, i) => [d, i]));
+  const horizonStartIdx = allDates.findIndex((d) => d > today);
+
+  // Y-Achse
+  const allPrices: number[] = [];
+  filteredPreise.forEach((p) => {
+    p.filtered.forEach((d) => allPrices.push(d.preis));
+    if (p.statPrognose) {
+      allPrices.push(p.statPrognose.band95Hi, p.statPrognose.band95Lo);
+    }
+  });
+  if (allPrices.length === 0) return null;
+
+  const rawMin = Math.min(...allPrices);
+  const rawMax = Math.max(...allPrices);
+  const pad    = Math.max((rawMax - rawMin) * 0.08, 5);
+  const minY   = Math.floor((rawMin - pad) / 5) * 5;
+  const maxY   = Math.ceil((rawMax + pad) / 5) * 5;
+  const yRange = maxY - minY || 1;
+
+  const xPos = (i: number) => pL + (i / (n - 1)) * cW;
+  const yPos = (v: number) => pT + (1 - (v - minY) / yRange) * cH;
+
+  // Y-Gitterlinien
+  const yRange_ = maxY - minY;
+  const yStep = yRange_ <= 40 ? 5 : yRange_ <= 100 ? 10 : yRange_ <= 250 ? 20 : 50;
+  const yGridValues: number[] = [];
+  for (let v = Math.ceil(minY / yStep) * yStep; v <= maxY; v += yStep) {
+    yGridValues.push(v);
+  }
+
+  // X-Achsenbeschriftung: max. 7 Labels
+  const xLabelStep = Math.max(1, Math.floor(n / 7));
+
+  return (
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        style={{ height: "260px" }}
+        onMouseLeave={() => setTooltip(null)}
+      >
+        {/* Prognose-Bereich (Hintergrund) */}
+        {horizonStartIdx >= 0 && (
+          <rect
+            x={xPos(horizonStartIdx)}
+            y={pT}
+            width={W - pR - xPos(horizonStartIdx)}
+            height={cH}
+            fill="#fffbeb"
+            opacity={0.7}
+          />
+        )}
+
+        {/* Y-Gitter */}
+        {yGridValues.map((v) => (
+          <g key={v}>
+            <line
+              x1={pL} y1={yPos(v)} x2={W - pR} y2={yPos(v)}
+              stroke="#e5e7eb" strokeWidth={1}
+            />
+            <text
+              x={pL - 5} y={yPos(v) + 4}
+              textAnchor="end" fontSize={9} fill="#6b7280"
+            >
+              {v}
+            </text>
+          </g>
+        ))}
+
+        {/* X-Achse */}
+        {allDates.map((d, i) => {
+          if (i % xLabelStep !== 0) return null;
+          const x = xPos(i);
+          const label = d.slice(5).replace("-", ".");
+          return (
+            <text
+              key={d}
+              x={x}
+              y={pT + cH + 18}
+              textAnchor="middle"
+              fontSize={9}
+              fill={d > today ? "#d97706" : "#6b7280"}
+              transform={`rotate(-30 ${x} ${pT + cH + 18})`}
+            >
+              {label}
+            </text>
+          );
+        })}
+
+        {/* Trennlinie Ist/Prognose */}
+        {horizonStartIdx >= 0 && (
+          <line
+            x1={xPos(horizonStartIdx)} y1={pT}
+            x2={xPos(horizonStartIdx)} y2={pT + cH}
+            stroke="#d97706" strokeWidth={1} strokeDasharray="4 3" opacity={0.6}
+          />
+        )}
+
+        {/* Linien + Prognose-Kegel je Produkt */}
+        {filteredPreise.map((p) => {
+          const farbe = MATIF_CHART_FARBEN[p.produktCode] ?? "#6b7280";
+
+          const points = p.filtered
+            .map((d) => {
+              const i = dateIndex.get(d.datum);
+              if (i == null) return null;
+              return { x: xPos(i), y: yPos(d.preis), datum: d.datum, preis: d.preis };
+            })
+            .filter(
+              (x): x is { x: number; y: number; datum: string; preis: number } =>
+                x !== null
+            );
+
+          if (points.length === 0) return null;
+
+          const pathD = points
+            .map((pt, i) => `${i === 0 ? "M" : "L"} ${pt.x} ${pt.y}`)
+            .join(" ");
+          const last = points[points.length - 1];
+          const sp   = p.statPrognose;
+
+          return (
+            <g key={p.produktCode}>
+              {/* Verlaufslinie */}
+              <path d={pathD} fill="none" stroke={farbe} strokeWidth={2} />
+
+              {/* Prognose-Kegel */}
+              {sp && (() => {
+                const hIdx = dateIndex.get(sp.horizonDatum);
+                if (hIdx == null) return null;
+                const hx = xPos(hIdx);
+                const hy = yPos(sp.mittelwert);
+                return (
+                  <g>
+                    {/* ±2σ Kegel */}
+                    <polygon
+                      points={`${last.x},${last.y} ${hx},${yPos(sp.band95Lo)} ${hx},${yPos(sp.band95Hi)}`}
+                      fill={farbe} fillOpacity={0.07}
+                    />
+                    {/* ±1σ Kegel */}
+                    <polygon
+                      points={`${last.x},${last.y} ${hx},${yPos(sp.band68Lo)} ${hx},${yPos(sp.band68Hi)}`}
+                      fill={farbe} fillOpacity={0.18}
+                    />
+                    {/* Gestrichelte Mittellinie */}
+                    <line
+                      x1={last.x} y1={last.y} x2={hx} y2={hy}
+                      stroke={farbe} strokeWidth={1.5} strokeDasharray="5 3"
+                    />
+                    {/* ±1σ Balken am Zielpunkt */}
+                    <line
+                      x1={hx} y1={yPos(sp.band68Lo)}
+                      x2={hx} y2={yPos(sp.band68Hi)}
+                      stroke={farbe} strokeWidth={3} strokeLinecap="round" opacity={0.45}
+                    />
+                    {/* Prognose-Punkt */}
+                    <circle
+                      cx={hx} cy={hy} r={5}
+                      fill="white" stroke={farbe} strokeWidth={2}
+                    />
+                  </g>
+                );
+              })()}
+
+              {/* Hover-Punkte */}
+              {points.map((pt, i) => (
+                <circle
+                  key={i}
+                  cx={pt.x} cy={pt.y} r={4}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() =>
+                    setTooltip({
+                      x: pt.x,
+                      y: pt.y,
+                      text: `${p.produktName}: ${pt.preis.toLocaleString("de-DE", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })} EUR/t · ${pt.datum.slice(8)}.${pt.datum.slice(5, 7)}.${pt.datum.slice(0, 4)}`,
+                    })
+                  }
+                />
+              ))}
+            </g>
+          );
+        })}
+
+        {/* Tooltip */}
+        {tooltip && (
+          <g>
+            <rect
+              x={Math.max(pL, Math.min(tooltip.x - 110, W - pR - 240))}
+              y={tooltip.y - 34}
+              width={240} height={24} rx={4}
+              fill="#1f2937" opacity={0.92}
+            />
+            <text
+              x={Math.max(pL, Math.min(tooltip.x - 110, W - pR - 240)) + 8}
+              y={tooltip.y - 18}
+              fontSize={10} fill="white"
+            >
+              {tooltip.text}
+            </text>
+          </g>
+        )}
+      </svg>
+
+      {/* Legende */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1 mt-1 justify-center">
+        {filteredPreise.map((p) => {
+          const farbe = MATIF_CHART_FARBEN[p.produktCode] ?? "#6b7280";
+          return (
+            <div key={p.produktCode} className="flex items-center gap-1.5 text-xs text-gray-600">
+              <svg width={20} height={4}>
+                <line x1={0} y1={2} x2={20} y2={2} stroke={farbe} strokeWidth={2} />
+              </svg>
+              {p.produktName}
+              {p.statPrognose && (
+                <span className="text-gray-400 ml-0.5">
+                  → ~{p.statPrognose.mittelwert.toLocaleString("de-DE", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })} ±{p.statPrognose.sigma.toLocaleString("de-DE", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                </span>
+              )}
+            </div>
+          );
+        })}
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <svg width={20} height={4}>
+            <line x1={0} y1={2} x2={20} y2={2} stroke="#9ca3af" strokeWidth={1.5} strokeDasharray="4 2" />
+          </svg>
+          Prognose ±1σ/±2σ (Volatilitätskegel)
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MarktpreisEintrag {
@@ -823,6 +1131,7 @@ function MatifSpotSection() {
   const [letzteAktualisierung, setLetzteAktualisierung] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [zeitraum, setZeitraum] = useState<Zeitraum>("3M");
 
   const laden = useCallback(async (force = false) => {
     try {
@@ -903,24 +1212,47 @@ function MatifSpotSection() {
   return (
     <Card>
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
         <div>
           <h2 className="text-base font-semibold text-gray-800">
             Aktuelle Futurespreise (MATIF) + 1-Wochen-Prognose
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Quelle: Euronext MATIF via Yahoo Finance · Schlusskurse in EUR/t ·{" "}
-            Stand: {letzteAktualisierung || "–"}
+            Stand: {letzteAktualisierung || "–"} · Automatische Aktualisierung alle 6 h
           </p>
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 flex-shrink-0"
-        >
-          {syncing ? "Aktualisiere…" : "Aktualisieren"}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Zeitraumfilter */}
+          <div className="flex gap-1">
+            {(["1M", "3M", "6M", "1J", "Max"] as Zeitraum[]).map((z) => (
+              <button
+                key={z}
+                onClick={() => setZeitraum(z)}
+                className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${
+                  zeitraum === z
+                    ? "bg-amber-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {z}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-3 py-1.5 text-xs bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+          >
+            {syncing ? "Lade…" : "↺"}
+          </button>
+        </div>
       </div>
+
+      {/* Preisverlauf-Chart */}
+      <MatifChart preise={preise} zeitraum={zeitraum} />
+
+      <div className="border-t border-gray-100 my-4" />
 
       {/* Karten */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -938,9 +1270,10 @@ function MatifSpotSection() {
               ? "text-green-600"
               : "text-gray-500";
 
+          const prognosePreis = p.statPrognose?.mittelwert ?? p.prognose1W;
           const pDiff =
-            p.prognose1W != null
-              ? Math.round((p.prognose1W - p.preis) * 10) / 10
+            prognosePreis != null
+              ? Math.round((prognosePreis - p.preis) * 10) / 10
               : null;
           const pUp     = (pDiff ?? 0) > 0.5;
           const pDown   = (pDiff ?? 0) < -0.5;
@@ -989,26 +1322,42 @@ function MatifSpotSection() {
               <p className="text-xs font-medium text-gray-500 mb-1">
                 Prognose nächste Woche
               </p>
-              {p.prognose1W != null ? (
+              {p.statPrognose != null ? (
                 <>
                   <p className={`text-lg font-semibold tabular-nums ${pColor}`}>
                     {pArrow}{" "}
-                    ~{p.prognose1W.toLocaleString("de-DE", {
+                    ~{p.statPrognose.mittelwert.toLocaleString("de-DE", {
                       minimumFractionDigits: 1,
                       maximumFractionDigits: 1,
                     })}{" "}
                     EUR/t
                   </p>
-                  {pDiff != null && (
-                    <p className={`text-xs mt-0.5 ${pColor}`}>
-                      {pDiff >= 0 ? "+" : ""}
-                      {pDiff.toLocaleString("de-DE", {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 1,
-                      })}{" "}
-                      EUR/t (lineare Extrapolation)
-                    </p>
-                  )}
+                  <p className={`text-xs mt-0.5 ${pColor}`}>
+                    {pDiff != null && (pDiff >= 0 ? "+" : "")}
+                    {pDiff != null && pDiff.toLocaleString("de-DE", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })}{" "}
+                    EUR/t
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    ±1σ: {p.statPrognose.band68Lo.toLocaleString("de-DE", { maximumFractionDigits: 0 })}–
+                    {p.statPrognose.band68Hi.toLocaleString("de-DE", { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-xs text-gray-300">
+                    ±2σ: {p.statPrognose.band95Lo.toLocaleString("de-DE", { maximumFractionDigits: 0 })}–
+                    {p.statPrognose.band95Hi.toLocaleString("de-DE", { maximumFractionDigits: 0 })}
+                  </p>
+                </>
+              ) : p.prognose1W != null ? (
+                <>
+                  <p className={`text-lg font-semibold tabular-nums ${pColor}`}>
+                    {pArrow} ~{p.prognose1W.toLocaleString("de-DE", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })} EUR/t
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">lineare Extrapolation</p>
                 </>
               ) : (
                 <p className="text-sm text-gray-400">
@@ -1033,7 +1382,7 @@ function MatifSpotSection() {
       </div>
 
       <p className="text-xs text-gray-300 mt-3">
-        Prognose = lineare Extrapolation der letzten ≤3 Handelswochen ·
+        Prognose = linearer Trend + √T-skalierte historische Volatilität (σ täglicher Preisänderungen) ·
         Keine Anlageberatung · Futures = Terminpreise, nicht Spotpreise
       </p>
     </Card>
