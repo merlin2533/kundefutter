@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { KpiCard } from "@/components/Card";
 
 interface LieferantInfo {
@@ -203,9 +203,8 @@ export default function KalkulationPage() {
               {filtered.map((a) => {
                 const expanded = expandedId === a.id;
                 return (
-                  <>
+                  <React.Fragment key={a.id}>
                     <tr
-                      key={a.id}
                       className={`border-b cursor-pointer transition-colors ${
                         expanded ? "bg-green-50" : "hover:bg-green-50"
                       }`}
@@ -325,7 +324,7 @@ export default function KalkulationPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })}
             </tbody>

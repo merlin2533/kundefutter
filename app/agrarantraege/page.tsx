@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
 interface AntragEmpfaenger {
@@ -279,9 +279,8 @@ export default function AgrarantraegeePage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <>
+                <React.Fragment key={item.id}>
                   <tr
-                    key={item.id}
                     className={`border-b hover:bg-gray-50 transition-colors cursor-pointer ${expanded === item.id ? "bg-green-50" : ""}`}
                     onClick={() => setExpanded(expanded === item.id ? null : item.id)}
                   >
@@ -403,7 +402,7 @@ export default function AgrarantraegeePage() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
