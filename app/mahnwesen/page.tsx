@@ -3,6 +3,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 
+interface FirmaEinstellungen {
+  name: string;
+  adresse: string;
+  plz: string;
+  ort: string;
+  tel: string;
+  email: string;
+  iban: string;
+  bic: string;
+}
+
 interface MahnwesenEintrag {
   lieferung: { id: number; datum: string; notiz: string | null };
   kunde: { id: number; name: string; firma: string | null };
@@ -37,15 +48,34 @@ export default function MahnwesenPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [stufeFilter, setStufeFilter] = useState<number | "alle">("alle");
+  const [firma, setFirma] = useState<FirmaEinstellungen>({
+    name: "", adresse: "", plz: "", ort: "", tel: "", email: "", iban: "", bic: "",
+  });
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/mahnwesen");
-      if (!res.ok) throw new Error("Fehler beim Laden");
-      const data = await res.json();
+      const [mahnRes, firmaRes] = await Promise.all([
+        fetch("/api/mahnwesen"),
+        fetch("/api/einstellungen?prefix=firma."),
+      ]);
+      if (!mahnRes.ok) throw new Error("Fehler beim Laden");
+      const data = await mahnRes.json();
       setEintraege(Array.isArray(data) ? data : []);
+      if (firmaRes.ok) {
+        const firmaData: Record<string, string> = await firmaRes.json();
+        setFirma({
+          name: firmaData["firma.name"] ?? firmaData["firma.firmenname"] ?? "",
+          adresse: firmaData["firma.adresse"] ?? "",
+          plz: firmaData["firma.plz"] ?? "",
+          ort: firmaData["firma.ort"] ?? "",
+          tel: firmaData["firma.tel"] ?? firmaData["firma.telefon"] ?? "",
+          email: firmaData["firma.email"] ?? "",
+          iban: firmaData["firma.iban"] ?? "",
+          bic: firmaData["firma.bic"] ?? "",
+        });
+      }
     } catch {
       setError("Fehler beim Laden der überfälligen Rechnungen.");
     } finally {
@@ -101,6 +131,17 @@ export default function MahnwesenPage() {
         : stufe === 2
         ? `trotz unserer freundlichen Erinnerung haben wir bislang keinen Zahlungseingang feststellen können. Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen.`
         : `leider haben wir auch nach unserer 1. Mahnung keinen Zahlungseingang festgestellt. Wir fordern Sie hiermit letztmalig auf, den Betrag innerhalb von 5 Tagen zu überweisen. Andernfalls behalten wir uns rechtliche Schritte vor.`;
+
+    const absenderzeile = [firma.adresse, `${firma.plz} ${firma.ort}`.trim()]
+      .filter(Boolean).join(", ");
+    const ibanZeile = firma.iban
+      ? `IBAN: ${firma.iban}${firma.bic ? ` · BIC: ${firma.bic}` : ""}`
+      : "";
+    const kontaktZeile = [firma.tel && `Tel: ${firma.tel}`, firma.email].filter(Boolean).join(" · ");
+    const kontoInfo = firma.iban
+      ? `Bitte überweisen Sie den Betrag von <strong>${formatEuro(eintrag.betrag)}</strong> auf folgendes Konto:<br><strong>${ibanZeile}</strong>`
+      : `Bitte überweisen Sie den Betrag von <strong>${formatEuro(eintrag.betrag)}</strong> auf unser bekanntes Konto.`;
+
     win.document.write(`<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -108,17 +149,18 @@ export default function MahnwesenPage() {
 <title>${betreff}</title>
 <style>
   body { font-family: Arial, sans-serif; font-size: 14px; color: #000; margin: 2cm; }
+  .absender { font-size: 11px; color: #888; border-bottom: 1px solid #ccc; padding-bottom: 0.5em; margin-bottom: 1.5em; }
   h2 { font-size: 18px; margin-bottom: 0.5em; }
-  .meta { margin-bottom: 2em; }
   table { width: 100%; border-collapse: collapse; margin: 1.5em 0; }
   th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
   th { background: #f5f5f5; }
   .total { font-weight: bold; font-size: 15px; }
-  .footer { margin-top: 3em; font-size: 12px; color: #555; }
+  .footer { margin-top: 3em; padding-top: 1em; border-top: 1px solid #eee; font-size: 11px; color: #777; text-align: center; }
   @media print { @page { margin: 1.5cm; size: A4; } }
 </style>
 </head>
 <body>
+${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderzeile, kontaktZeile].filter(Boolean).join(" · ")}</div>` : ""}
 <p style="margin-bottom:2em;white-space:pre-line;">${kundenname}</p>
 <p style="text-align:right;">${heute}</p>
 <h2>${betreff}</h2>
@@ -135,9 +177,10 @@ export default function MahnwesenPage() {
     </tr>
   </tbody>
 </table>
-<p>Bitte überweisen Sie den Betrag von <strong>${formatEuro(eintrag.betrag)}</strong> auf unser bekanntes Konto.</p>
+<p>${kontoInfo}</p>
 <p style="margin-top:2em;">Mit freundlichen Grüßen</p>
-<div class="footer">Dieses Dokument wurde automatisch erstellt.</div>
+<p><strong>${firma.name || "AgrarOffice"}</strong></p>
+<div class="footer">${[firma.name, absenderzeile, ibanZeile, kontaktZeile].filter(Boolean).join(" · ")}</div>
 <script>window.onload = function() { window.print(); }</script>
 </body>
 </html>`);

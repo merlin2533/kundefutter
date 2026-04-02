@@ -51,6 +51,7 @@ const groups: NavGroup[] = [
     label: "Finanzen",
     children: [
       { href: "/rechnungen", label: "Rechnungen" },
+      { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
@@ -95,6 +96,8 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/inventur": "Inventur",
   "/statistik": "Statistik",
   "/rechnungen": "Rechnungen",
+  "/sammelrechnungen": "Sammelrechnungen",
+  "/gutschriften": "Gutschriften",
   "/mahnwesen": "Mahnwesen",
 };
 
