@@ -155,7 +155,8 @@ export default function DashboardPage() {
       .then((dashboard) => {
         setData(dashboard);
         setLastUpdated(new Date());
-      });
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
