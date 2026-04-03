@@ -57,6 +57,7 @@ interface Artikel {
   beschreibung?: string | null;
   aktiv: boolean;
   lagerort?: string | null;
+  liefergroesse?: string | null;
   inhaltsstoffe: Inhaltsstoff[];
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
@@ -75,7 +76,7 @@ interface Lieferant {
   name: string;
 }
 
-const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück"];
+const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück", "BigBag"];
 const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
 
 const inputCls =
@@ -151,6 +152,7 @@ export default function ArtikelDetailPage() {
       beschreibung: data.beschreibung ?? "",
       aktiv: data.aktiv,
       lagerort: data.lagerort ?? "",
+      liefergroesse: data.liefergroesse ?? "",
     });
     setLoading(false);
   }, [id]);
@@ -226,6 +228,7 @@ export default function ArtikelDetailPage() {
         mindestbestand: artikel.mindestbestand,
         beschreibung: artikel.beschreibung,
         lagerort: artikel.lagerort,
+        liefergroesse: artikel.liefergroesse,
         inhaltsstoffe: artikel.inhaltsstoffe.map((i) => ({
           name: i.name,
           menge: i.menge,
@@ -628,6 +631,18 @@ export default function ArtikelDetailPage() {
                   className={inputCls}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Liefergröße <span className="text-gray-400 text-xs">(optional, z.B. 25 kg Sack, Big Bag 600 kg)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.liefergroesse ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, liefergroesse: e.target.value })}
+                  placeholder="z.B. 25 kg Sack, Big Bag 600 kg, 1.000 l Gitterbox"
+                  className={inputCls}
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -669,6 +684,7 @@ export default function ArtikelDetailPage() {
                   ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
                   ["Status", null],
                   ["Beschreibung", artikel.beschreibung ?? "—"],
+                  ["Liefergröße", artikel.liefergroesse ?? "—"],
                   ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
                 ] as [string, string | null][]).map(([label, value]) => (
                   <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
