@@ -68,6 +68,8 @@ export default function AngebotDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [lieferungId, setLieferungId] = useState<number | null>(null);
+  const [sammelrechnungId, setSammelrechnungId] = useState<number | null>(null);
+  const [rechnungNr, setRechnungNr] = useState<string | null>(null);
 
   // Editable fields
   const [notiz, setNotiz] = useState("");
@@ -105,6 +107,8 @@ export default function AngebotDetailPage() {
       if (json.angebot) {
         setAngebot(json.angebot);
         if (json.lieferungId) setLieferungId(json.lieferungId);
+        if (json.sammelrechnungId) setSammelrechnungId(json.sammelrechnungId);
+        if (json.rechnungNr) setRechnungNr(json.rechnungNr);
       } else {
         setAngebot(json);
       }
@@ -118,7 +122,7 @@ export default function AngebotDetailPage() {
   }
 
   async function handleAnnehmen() {
-    if (!confirm("Angebot annehmen und Lieferung erstellen?")) return;
+    if (!confirm("Angebot annehmen? Lieferung, Rechnung und Bestellpositionen werden automatisch erstellt.")) return;
     await handleUpdate({ aktion: "annehmen" });
   }
 
@@ -218,7 +222,7 @@ export default function AngebotDetailPage() {
                 disabled={saving}
                 className="w-full sm:w-auto px-3 py-2 sm:py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
               >
-                Als Lieferung übernehmen
+                Annehmen (Lieferung + Rechnung)
               </button>
               <button
                 onClick={handleAblehnen}
@@ -245,23 +249,27 @@ export default function AngebotDetailPage() {
         </div>
       </div>
 
-      {/* Lieferung link if angenommen */}
+      {/* Lieferung + Rechnung links if angenommen */}
       {(lieferungId || angebot.status === "ANGENOMMEN") && (
         <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 flex flex-wrap items-center justify-between gap-3">
           <span>
-            Angebot wurde angenommen.{" "}
+            Angebot wurde angenommen — Lieferung, Rechnung und Bestellpositionen wurden erstellt.
+          </span>
+          <div className="flex gap-2 flex-wrap">
             {lieferungId && (
-              <Link href={`/lieferungen/${lieferungId}`} className="font-medium underline hover:no-underline">
-                Zur erstellten Lieferung →
+              <Link href={`/lieferungen/${lieferungId}`} className="px-3 py-1.5 bg-green-700 text-white text-xs font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap">
+                Lieferung #{lieferungId} →
               </Link>
             )}
-          </span>
-          <Link
-            href={`/lieferungen/neu?ausAngebot=${id}`}
-            className="px-3 py-1.5 bg-green-700 text-white text-xs font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap"
-          >
-            Als Lieferung übernehmen
-          </Link>
+            {sammelrechnungId && (
+              <Link href={`/sammelrechnungen/${sammelrechnungId}`} className="px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-800 transition-colors whitespace-nowrap">
+                Rechnung {rechnungNr} →
+              </Link>
+            )}
+            <Link href="/bestellliste" className="px-3 py-1.5 border border-green-600 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-100 transition-colors whitespace-nowrap">
+              Bestellliste →
+            </Link>
+          </div>
         </div>
       )}
 

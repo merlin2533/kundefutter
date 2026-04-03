@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { naechsteRechnungsnummer } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -42,18 +43,29 @@ export async function PUT(req: NextRequest, ctx: Params) {
   const { aktion, status, notiz, gueltigBis } = body;
 
   try {
-    // Sonderaktion: Angebot annehmen → Lieferung erstellen
+    // Sonderaktion: Angebot annehmen → Lieferung + Sammelrechnung + Bestellpositionen
     if (aktion === "annehmen") {
       const result = await prisma.$transaction(async (tx) => {
         const angebot = await tx.angebot.findUnique({
           where: { id: Number(id) },
-          include: { positionen: true },
+          include: {
+            positionen: {
+              include: {
+                artikel: {
+                  include: {
+                    lieferanten: { orderBy: [{ bevorzugt: "desc" }, { id: "asc" }], take: 1 },
+                  },
+                },
+              },
+            },
+          },
         });
         if (!angebot) throw new Error("Angebot nicht gefunden");
         if (angebot.status !== "OFFEN") {
           throw new Error(`Angebot hat Status "${angebot.status}" und kann nicht angenommen werden`);
         }
 
+        // 1. Lieferung erstellen
         const lieferung = await tx.lieferung.create({
           data: {
             kundeId: angebot.kundeId,
@@ -63,23 +75,64 @@ export async function PUT(req: NextRequest, ctx: Params) {
                 artikelId: pos.artikelId,
                 menge: pos.menge,
                 verkaufspreis: pos.preis * (1 - pos.rabatt / 100),
-                einkaufspreis: 0,
+                einkaufspreis: pos.artikel.lieferanten[0]?.einkaufspreis ?? 0,
                 rabattProzent: pos.rabatt,
               })),
             },
           },
         });
 
+        // 2. Sammelrechnung erstellen und mit Lieferung verknüpfen
+        const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
+        const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
+        await tx.einstellung.upsert({
+          where: { key: "letzte_rechnungsnummer" },
+          update: { value: rechnungNr },
+          create: { key: "letzte_rechnungsnummer", value: rechnungNr },
+        });
+        const sammelrechnung = await tx.sammelrechnung.create({
+          data: {
+            kundeId: angebot.kundeId,
+            rechnungNr,
+            rechnungDatum: new Date(),
+            zahlungsziel: 30,
+          },
+        });
+        await tx.lieferung.update({
+          where: { id: lieferung.id },
+          data: { sammelrechnungId: sammelrechnung.id },
+        });
+
+        // 3. Bestellpositionen für Lieferanten anlegen
+        const bestellpositionen = angebot.positionen
+          .filter((pos) => pos.artikel.lieferanten.length > 0)
+          .map((pos) => {
+            const al = pos.artikel.lieferanten[0];
+            return {
+              lieferantId: al.lieferantId,
+              artikelId: pos.artikelId,
+              kundeId: angebot.kundeId,
+              lieferungId: lieferung.id,
+              angebotId: angebot.id,
+              menge: pos.menge,
+              einheit: pos.einheit,
+              einkaufspreis: al.einkaufspreis,
+            };
+          });
+        if (bestellpositionen.length > 0) {
+          await tx.bestellposition.createMany({ data: bestellpositionen });
+        }
+
         const updated = await tx.angebot.update({
           where: { id: Number(id) },
-          data: { status: "ANGENOMMEN", notiz: `Lieferung ${lieferung.id} erstellt. ${angebot.notiz ?? ""}`.trim() },
+          data: { status: "ANGENOMMEN", notiz: `Lieferung ${lieferung.id} / Rechnung ${rechnungNr}. ${angebot.notiz ?? ""}`.trim() },
           include: {
             kunde: { include: { kontakte: true } },
             positionen: { include: { artikel: true } },
           },
         });
 
-        return { angebot: updated, lieferungId: lieferung.id };
+        return { angebot: updated, lieferungId: lieferung.id, sammelrechnungId: sammelrechnung.id, rechnungNr };
       });
 
       return NextResponse.json(result);

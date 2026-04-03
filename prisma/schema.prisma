@@ -41,6 +41,7 @@ model Kunde {
   schlaegte        KundeSchlag[]
   aufgaben         Aufgabe[]
   gutschriften     Gutschrift[]
+  bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
 }
 
@@ -107,6 +108,7 @@ model Lieferant {
 
   artikelZuordnungen ArtikelLieferant[]
   wareneingaenge     Wareneingang[]
+  bestellpositionen  Bestellposition[]
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
@@ -142,6 +144,7 @@ model Artikel {
   mengenrabatte    Mengenrabatt[]
   inventurPositionen InventurPosition[]
   gutschriftPositionen GutschriftPosition[]
+  bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
 }
 
@@ -261,6 +264,7 @@ model Lieferung {
   sammelrechnung    Sammelrechnung?  @relation(fields: [sammelrechnungId], references: [id])
   sammelrechnungId  Int?
   gutschriften      Gutschrift[]
+  bestellpositionen Bestellposition[]
 
   @@index([kundeId])
   @@index([status])
@@ -356,6 +360,36 @@ model Sammelrechnung {
 
   kunde       Kunde       @relation(fields: [kundeId], references: [id])
   lieferungen Lieferung[]
+}
+
+// ─── BESTELLLISTE (Lieferanten-Bestellungen) ─────────────────────────────────
+
+model Bestellposition {
+  id            Int       @id @default(autoincrement())
+  lieferantId   Int
+  artikelId     Int
+  kundeId       Int?      // Rückverfolgbarkeit: welcher Kunde
+  lieferungId   Int?      // Rückverfolgbarkeit: welche Lieferung
+  angebotId     Int?      // Rückverfolgbarkeit: welches Angebot
+  menge         Float
+  einheit       String    @default("kg")
+  einkaufspreis Float     @default(0)
+  status        String    @default("offen") // offen | bestellt | geliefert | storniert
+  bestelltAm    DateTime?
+  geliefertAm   DateTime?
+  notiz         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lieferant Lieferant  @relation(fields: [lieferantId], references: [id])
+  artikel   Artikel    @relation(fields: [artikelId], references: [id])
+  kunde     Kunde?     @relation(fields: [kundeId], references: [id])
+  lieferung Lieferung? @relation(fields: [lieferungId], references: [id])
+
+  @@index([lieferantId])
+  @@index([artikelId])
+  @@index([status])
+  @@index([lieferungId])
 }
 
 // ─── INVENTUR ────────────────────────────────────────────────────────────────

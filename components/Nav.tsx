@@ -45,6 +45,7 @@ const groups: NavGroup[] = [
       { href: "/angebote", label: "Angebote" },
       { href: "/aufgaben", label: "Aufgaben / TODO" },
       { href: "/lieferungen", label: "Lieferungen" },
+      { href: "/bestellliste", label: "Bestellliste" },
       { href: "/tourenplanung", label: "Tourenplanung" },
     ],
   },

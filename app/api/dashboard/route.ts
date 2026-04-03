@@ -26,6 +26,7 @@ export async function GET() {
     letzteAktivitaetenRaw,
     letzteAngeboteRaw,
     letzteAufgabenErledigtRaw,
+    lieferungenOhneRechnungRaw,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
@@ -130,6 +131,19 @@ export async function GET() {
         kundeId: true,
         kunde: { select: { id: true, name: true, firma: true } },
       },
+    }),
+    // Gelieferte Lieferungen ohne Rechnung
+    prisma.lieferung.findMany({
+      where: { status: "geliefert", sammelrechnungId: null },
+      select: {
+        id: true,
+        datum: true,
+        kundeId: true,
+        kunde: { select: { id: true, name: true, firma: true } },
+        positionen: { select: { menge: true, verkaufspreis: true } },
+      },
+      orderBy: { datum: "asc" },
+      take: 20,
     }),
   ]);
 
@@ -374,6 +388,15 @@ export async function GET() {
     .sort((a, b) => new Date(b.zeitpunkt).getTime() - new Date(a.zeitpunkt).getTime())
     .slice(0, 10);
 
+  const lieferungenOhneRechnung = lieferungenOhneRechnungRaw.map((l) => ({
+    id: l.id,
+    datum: l.datum.toISOString(),
+    kundeId: l.kundeId,
+    kundeName: l.kunde ? (l.kunde.firma ?? l.kunde.name) : "?",
+    betrag: Math.round(l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0) * 100) / 100,
+    tageOhneRechnung: Math.floor((heute.getTime() - new Date(l.datum).getTime()) / (24 * 60 * 60 * 1000)),
+  }));
+
   // Kein Kontakt (90+ Tage, mindestens 1 Lieferung)
   const keinKontakt = aktivKunden
     .map((k) => ({
@@ -414,6 +437,7 @@ export async function GET() {
     wiedervorlagen,
     keinKontakt,
     letzteAktivitaeten,
+    lieferungenOhneRechnung,
   });
   } catch (e) {
     console.error("Dashboard API error:", e);
