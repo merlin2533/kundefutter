@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
       { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
       { href: "/ausgaben", label: "Ausgabenbuch" },
+      { href: "/bankabgleich", label: "Bankabgleich" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },
@@ -110,6 +111,10 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/sammelrechnungen": "Sammelrechnungen",
   "/gutschriften": "Gutschriften",
   "/mahnwesen": "Mahnwesen",
+  "/bankabgleich": "Bankabgleich",
+  "/bankabgleich/import": "Kontoauszug importieren",
+  "/einstellungen/ausgaben": "Ausgaben-Einstellungen",
+  "/einstellungen/bankkonten": "Bankkonten",
 };
 
 function getPageTitle(pathname: string): string {

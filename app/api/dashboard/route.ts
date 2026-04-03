@@ -417,6 +417,15 @@ export async function GET() {
     })
     .slice(0, 8);
 
+  // Offene/unzugeordnete Bankbuchungen (Kontoumsatz-Tabelle kann noch fehlen)
+  let unzugeordneteUmsaetze = 0;
+  try {
+    unzugeordneteUmsaetze = await (prisma as unknown as { kontoumsatz: { count: (args: { where: { zugeordnet: boolean } }) => Promise<number> } }).kontoumsatz.count({ where: { zugeordnet: false } });
+  } catch {
+    // Tabelle existiert noch nicht — ignorieren
+    unzugeordneteUmsaetze = 0;
+  }
+
   return NextResponse.json({
     kundenAktiv,
     offeneLieferungen,
@@ -438,6 +447,7 @@ export async function GET() {
     keinKontakt,
     letzteAktivitaeten,
     lieferungenOhneRechnung,
+    unzugeordneteUmsaetze,
   });
   } catch (e) {
     console.error("Dashboard API error:", e);
