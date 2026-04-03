@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import CameraUpload from "@/components/CameraUpload";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -200,8 +201,6 @@ function KiWareneingangWizard() {
   const [imageBase64, setImageBase64] = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string>("");
   const [vorLieferantId, setVorLieferantId] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
 
   // Step 2
   const [analysing, setAnalysing] = useState(false);
@@ -232,37 +231,6 @@ function KiWareneingangWizard() {
       .then((data) => setLieferanten(Array.isArray(data) ? data : data.lieferanten ?? []))
       .catch(() => {});
   }, []);
-
-  // ---- File handling -------------------------------------------------------
-
-  const handleFile = useCallback((file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setAnalyseError("Maximale Dateigröße: 20 MB");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      setImagePreview(result);
-      // Strip data URL prefix for API
-      const base64 = result.split(",")[1] ?? result;
-      setImageBase64(base64);
-    };
-    reader.readAsDataURL(file);
-  }, []);
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
-  };
 
   // ---- Step 2: KI Analyse --------------------------------------------------
 
@@ -405,69 +373,18 @@ function KiWareneingangWizard() {
         <div className="border border-gray-200 rounded-xl p-6 bg-white space-y-6">
           <h2 className="text-lg font-semibold text-gray-800">Schritt 1: Lieferschein hochladen</h2>
 
-          {/* Drop Zone */}
-          <div
-            className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors ${
-              dragOver
-                ? "border-green-500 bg-green-50"
-                : imagePreview
-                ? "border-green-400 bg-green-50"
-                : "border-gray-300 hover:border-green-400 hover:bg-gray-50"
-            }`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
+          <CameraUpload
+            onImageSelected={(file, preview) => {
+              setImagePreview(preview);
+              setImageBase64(preview.split(",")[1] ?? preview);
             }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onFileChange}
-            />
-            {imagePreview ? (
-              <img
-                src={imagePreview}
-                alt="Vorschau"
-                className="max-h-64 rounded-lg object-contain shadow"
-              />
-            ) : (
-              <>
-                <svg
-                  className="w-12 h-12 text-gray-300 mb-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <p className="text-gray-500 text-sm font-medium">
-                  Bild hier ablegen oder{" "}
-                  <span className="text-green-700 underline">Datei auswählen</span>
-                </p>
-                <p className="text-gray-400 text-xs mt-1">JPG, PNG, WEBP, HEIC</p>
-              </>
-            )}
-          </div>
-
-          {imagePreview && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="text-sm text-green-700 underline"
-            >
-              Anderes Bild wählen
-            </button>
-          )}
+            imagePreview={imagePreview}
+            imageName={"Lieferschein"}
+            onRemove={() => {
+              setImagePreview("");
+              setImageBase64("");
+            }}
+          />
 
           {/* Optional Lieferant pre-selection */}
           <div>

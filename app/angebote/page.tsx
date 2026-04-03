@@ -54,12 +54,12 @@ export default function AngebotePage() {
   }
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-8">
+    <div className="max-w-screen-xl mx-auto px-4 py-6 sm:py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <span className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">Angebote</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Angebote</h1>
             <Link href="/hilfe#lieferungen" title="Hilfe: Lieferungen & Angebote" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </Link>
@@ -68,7 +68,7 @@ export default function AngebotePage() {
         </div>
         <Link
           href="/angebote/neu"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap"
         >
           + Neues Angebot
         </Link>
@@ -94,13 +94,13 @@ export default function AngebotePage() {
         </div>
 
         {/* Search */}
-        <form onSubmit={handleSearch} className="flex gap-2 ml-auto">
+        <form onSubmit={handleSearch} className="flex gap-2 w-full sm:w-auto sm:ml-auto">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Suchen (Nummer, Kunde)…"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 w-56"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 w-full sm:w-56"
           />
           <button
             type="submit"
@@ -137,22 +137,27 @@ export default function AngebotePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nummer</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gültig bis</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kunde</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Positionen</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gesamtbetrag</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nummer</th>
+                  <th className="hidden sm:table-cell text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gültig bis</th>
+                  <th className="hidden sm:table-cell text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kunde</th>
+                  <th className="hidden lg:table-cell text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Positionen</th>
+                  <th className="text-right px-3 sm:px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Betrag</th>
+                  <th className="text-center px-3 sm:px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="px-3 sm:px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {angebote.map((a) => (
                   <tr key={a.id} className={`transition-colors ${a.status === "ABGELAUFEN" ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}`}>
-                    <td className="px-4 py-3 font-mono font-medium text-gray-900">{a.nummer}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDatum(a.datum)}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-3 sm:px-4 py-3">
+                      <span className="font-mono font-medium text-gray-900">{a.nummer}</span>
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                        {a.kunde.name}{a.kunde.firma ? ` · ${a.kunde.firma}` : ""} · {formatDatum(a.datum)}
+                      </div>
+                    </td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{formatDatum(a.datum)}</td>
+                    <td className="hidden md:table-cell px-4 py-3 text-gray-600">
                       {a.gueltigBis ? (
                         <span className={new Date(a.gueltigBis) < new Date() && a.status === "OFFEN" ? "text-red-600 font-medium" : ""}>
                           {formatDatum(a.gueltigBis)}
@@ -161,20 +166,20 @@ export default function AngebotePage() {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden sm:table-cell px-4 py-3">
                       <Link href={`/kunden/${a.kunde.id}`} className="text-green-700 hover:underline font-medium">
                         {a.kunde.name}
                       </Link>
                       {a.kunde.firma && <span className="text-gray-400 text-xs ml-1">{a.kunde.firma}</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">{a.positionenAnzahl}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">{formatEuro(a.gesamtbetrag)}</td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="hidden lg:table-cell px-4 py-3 text-right text-gray-600">{a.positionenAnzahl}</td>
+                    <td className="px-3 sm:px-4 py-3 text-right font-medium text-gray-900">{formatEuro(a.gesamtbetrag)}</td>
+                    <td className="px-3 sm:px-4 py-3 text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_FARBEN[a.status] ?? "bg-gray-100 text-gray-600"}`}>
                         {STATUS_LABELS[a.status] ?? a.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 sm:px-4 py-3 text-right">
                       <Link
                         href={`/angebote/${a.id}`}
                         className="text-xs text-green-700 hover:underline font-medium"

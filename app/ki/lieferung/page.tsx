@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useCallback, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import CameraUpload from "@/components/CameraUpload";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -220,8 +221,6 @@ function KiLieferungWizard() {
   // Step 1
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2
   const [kiErgebnis, setKiErgebnis] = useState<KiErgebnis | null>(null);
@@ -239,27 +238,6 @@ function KiLieferungWizard() {
   // Step 4
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-
-  // ── File handling ──────────────────────────────────────────────────────────
-
-  function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setAnalyzeError("Maximale Dateigröße: 20 MB");
-      return;
-    }
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-  }
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, []);
 
   // ── Step 1 → 2: Analyse ───────────────────────────────────────────────────
 
@@ -420,63 +398,16 @@ function KiLieferungWizard() {
             Notiz hoch. Die KI erkennt Kunde, Artikel und Mengen automatisch.
           </p>
 
-          {/* Drop zone */}
-          <div
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors
-              ${isDragging ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-green-400 hover:bg-gray-50"}
-            `}
-          >
-            {imagePreview ? (
-              <img
-                src={imagePreview}
-                alt="Vorschau"
-                className="max-h-56 max-w-full rounded-lg object-contain mb-3 shadow"
-              />
-            ) : (
-              <svg
-                className="w-14 h-14 text-gray-300 mb-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            )}
-            <p className="text-sm text-gray-500">
-              {imagePreview ? imageFile?.name : "Bild hierher ziehen oder klicken zum Auswählen"}
-            </p>
-            {imagePreview && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setImageFile(null);
-                  setImagePreview("");
-                }}
-                className="mt-2 text-xs text-red-500 hover:text-red-700 underline"
-              >
-                Entfernen
-              </button>
-            )}
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
+          <CameraUpload
+            onImageSelected={(file, preview) => {
+              setImageFile(file);
+              setImagePreview(preview);
+            }}
+            imagePreview={imagePreview}
+            imageName={imageFile?.name ?? "Bestellung"}
+            onRemove={() => {
+              setImageFile(null);
+              setImagePreview("");
             }}
           />
 

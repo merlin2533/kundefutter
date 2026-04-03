@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import CameraUpload from "@/components/CameraUpload";
+import VoiceInput from "@/components/VoiceInput";
 
 interface Kunde {
   id: number;
@@ -86,15 +88,16 @@ function konfidenzBadge(level: "hoch" | "mittel" | "niedrig") {
   return <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 font-medium">Keine Übereinstimmung</span>;
 }
 
+type InputMode = "image" | "voice";
+
 function KiCrmWizard() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
 
   // Step 1
+  const [inputMode, setInputMode] = useState<InputMode>("image");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [dragging, setDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Step 2
   const [kunden, setKunden] = useState<Kunde[]>([]);
@@ -128,39 +131,8 @@ function KiCrmWizard() {
     sub: [k.firma, k.ort].filter(Boolean).join(", "),
   }));
 
-  // File handling
-  function handleFile(file: File) {
-    if (!file.type.startsWith("image/")) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setAnalyzeError("Maximale Dateigröße: 20 MB");
-      return;
-    }
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => setImagePreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setDragging(true);
-  }
-
-  function handleDragLeave() {
-    setDragging(false);
-  }
-
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
-  }
+  // Voice transcript state
+  const [voiceText, setVoiceText] = useState("");
 
   // Match kunde by name or firma (case-insensitive)
   function matchKunde(kiKunde: { name: string; firma?: string }, kundenList: Kunde[]): { id: string; konfidenz: "hoch" | "mittel" | "niedrig" } {
@@ -189,15 +161,48 @@ function KiCrmWizard() {
     return { id: "", konfidenz: "niedrig" };
   }
 
-  // Step 1 -> 2: run KI analysis
+  // Voice: analyze text via KI
+  async function goToStep2Voice() {
+    if (!voiceText.trim()) return;
+    setStep(2);
+    setAnalyzing(true);
+    setAnalyzeError("");
+
+    try {
+      const res = await fetch("/api/ki/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: voiceText, feature: "crm" }),
+      });
+      if (!res.ok) throw new Error(`Fehler ${res.status}`);
+      const data = await res.json();
+      const ergebnis: KiErgebnis = data.ergebnis;
+
+      setBetreff(ergebnis.betreff ?? "");
+      setInhalt(ergebnis.inhalt ?? voiceText);
+      setTyp(TYP_OPTIONS.find((t) => t.value === ergebnis.typ)?.value ?? "notiz");
+
+      const { id, konfidenz: k } = matchKunde(ergebnis.kunde, kunden);
+      setKundeId(id);
+      setKonfidenz(k);
+    } catch (e: unknown) {
+      setAnalyzeError(e instanceof Error ? e.message : "Analyse fehlgeschlagen.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  // Step 1 -> 2: run KI analysis (image)
   async function goToStep2() {
+    if (inputMode === "voice") {
+      return goToStep2Voice();
+    }
     if (!imageFile || !imagePreview) return;
     setStep(2);
     setAnalyzing(true);
     setAnalyzeError("");
 
     try {
-      // Extract base64 (strip data URL prefix)
       const base64 = imagePreview.split(",")[1];
       const res = await fetch("/api/ki/analyze", {
         method: "POST",
@@ -264,80 +269,109 @@ function KiCrmWizard() {
 
       <Stepper step={step} />
 
-      {/* ---- STEP 1: Upload ---- */}
+      {/* ---- STEP 1: Upload / Spracheingabe ---- */}
       {step === 1 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Dokument hochladen</h2>
-
-          {!imagePreview ? (
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
-                dragging ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-green-400 hover:bg-gray-50"
-              }`}
-            >
-              <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 48 48" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 32l8-8 8 8M24 24v16M8 36a8 8 0 010-16c.34 0 .68.02 1.01.06A12 12 0 1136 28.93" />
-              </svg>
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-700">Bild hier ablegen oder klicken zum Auswählen</p>
-                <p className="text-xs text-gray-400 mt-1">PNG, JPG, WEBP, HEIC u.a.</p>
-              </div>
-              <button
-                type="button"
-                className="mt-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
-              >
-                Datei auswählen
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-48">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="Vorschau"
-                  className="max-h-72 max-w-full object-contain"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 truncate flex-1">{imageFile?.name}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageFile(null);
-                    setImagePreview("");
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  className="text-xs text-red-500 hover:underline"
-                >
-                  Entfernen
-                </button>
-              </div>
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleInputChange}
-          />
-
-          <div className="flex justify-end mt-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+          {/* Mode tabs */}
+          <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1">
             <button
               type="button"
-              onClick={goToStep2}
-              disabled={!imagePreview}
-              className="px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium text-sm hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              onClick={() => setInputMode("image")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                inputMode === "image"
+                  ? "bg-white text-green-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
             >
-              Weiter &rarr;
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Bild / Kamera
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode("voice")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                inputMode === "voice"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z" />
+              </svg>
+              Spracheingabe
             </button>
           </div>
+
+          {/* Image mode */}
+          {inputMode === "image" && (
+            <>
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Dokument hochladen</h2>
+              <CameraUpload
+                onImageSelected={(file, preview) => {
+                  setImageFile(file);
+                  setImagePreview(preview);
+                }}
+                imagePreview={imagePreview}
+                imageName={imageFile?.name ?? "Dokument"}
+                onRemove={() => {
+                  setImageFile(null);
+                  setImagePreview("");
+                }}
+              />
+              <div className="flex justify-end mt-6">
+                <button
+                  type="button"
+                  onClick={goToStep2}
+                  disabled={!imagePreview}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium text-sm hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Weiter &rarr;
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* Voice mode */}
+          {inputMode === "voice" && (
+            <>
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Spracheingabe</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Sprechen Sie Ihre Notiz ein (max. 2 Minuten). Die KI erkennt Kunde, Typ und Inhalt automatisch.
+              </p>
+
+              <VoiceInput
+                onTranscript={(text) => setVoiceText(text)}
+                maxDurationSec={120}
+                placeholder="Aufnahme starten (max. 2 Min.)"
+              />
+
+              {voiceText && (
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Erkannter Text</label>
+                  <textarea
+                    value={voiceText}
+                    onChange={(e) => setVoiceText(e.target.value)}
+                    rows={4}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end mt-6">
+                <button
+                  type="button"
+                  onClick={goToStep2}
+                  disabled={!voiceText.trim()}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium text-sm hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Weiter &rarr;
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 

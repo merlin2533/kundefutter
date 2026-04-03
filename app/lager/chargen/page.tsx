@@ -94,7 +94,7 @@ export default function ChargenPage() {
 
       {/* Search */}
       <form onSubmit={handleSearch} className="flex gap-3 items-end flex-wrap">
-        <div className="flex-1 min-w-[260px]">
+        <div className="flex-1 min-w-[200px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">Chargenummer</label>
           <input
             type="text"
@@ -149,18 +149,24 @@ export default function ChargenPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {["Datum", "Artikel", "Menge", "Lieferant"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                      ))}
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artikel</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Menge</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Lieferant</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {result.wareneingaenge.map((w) => (
                       <tr key={w.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2.5 whitespace-nowrap">{new Date(w.datum).toLocaleDateString("de-DE")}</td>
-                        <td className="px-4 py-2.5 font-medium">{w.artikel.name}</td>
-                        <td className="px-4 py-2.5 font-mono">{w.menge} {w.artikel.einheit}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{w.lieferant?.name ?? "—"}</td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {w.artikel.name}
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {w.menge} {w.artikel.einheit} · {w.lieferant?.name ?? "—"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono hidden sm:table-cell">{w.menge} {w.artikel.einheit}</td>
+                        <td className="px-4 py-2.5 text-gray-600 hidden sm:table-cell">{w.lieferant?.name ?? "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -182,22 +188,28 @@ export default function ChargenPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      {["Datum", "Kunde", "Artikel", "Menge", "Status"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
-                      ))}
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Datum</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Kunde</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Artikel</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Menge</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {result.lieferungen.map((l) => (
                       <tr key={l.lieferpositionId} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 whitespace-nowrap">{new Date(l.datum).toLocaleDateString("de-DE")}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap hidden sm:table-cell">{new Date(l.datum).toLocaleDateString("de-DE")}</td>
                         <td className="px-4 py-2.5">
                           <Link href={`/kunden/${l.kunde.id}`} className="font-medium text-green-700 hover:underline">
                             {l.kunde.firma ? `${l.kunde.firma} (${l.kunde.name})` : l.kunde.name}
                           </Link>
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {new Date(l.datum).toLocaleDateString("de-DE")} · {l.menge} {l.artikel.einheit}
+                          </div>
+                          <div className="md:hidden sm:hidden text-xs text-gray-400">{l.artikel.name}</div>
                         </td>
-                        <td className="px-4 py-2.5 font-medium">{l.artikel.name}</td>
-                        <td className="px-4 py-2.5 font-mono whitespace-nowrap">{l.menge} {l.artikel.einheit}</td>
+                        <td className="px-4 py-2.5 font-medium hidden md:table-cell">{l.artikel.name}</td>
+                        <td className="px-4 py-2.5 font-mono whitespace-nowrap hidden sm:table-cell">{l.menge} {l.artikel.einheit}</td>
                         <td className="px-4 py-2.5">{statusBadge(l.status)}</td>
                       </tr>
                     ))}

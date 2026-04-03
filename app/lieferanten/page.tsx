@@ -50,13 +50,13 @@ export default function LieferantenPage() {
       </div>
 
       {/* Search */}
-      <div className="mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <input
           type="text"
           placeholder="Suche nach Name, Ort, Ansprechpartner…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-80 focus:outline-none focus:ring-2 focus:ring-green-700"
+          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-700"
         />
       </div>
 
@@ -70,9 +70,16 @@ export default function LieferantenPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Name", "Ansprechpartner", "Email", "Telefon", "Ort", "Anzahl Artikel"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    {h}
+                {[
+                  { label: "Name", cls: "" },
+                  { label: "Ansprechpartner", cls: "hidden sm:table-cell" },
+                  { label: "Email", cls: "hidden md:table-cell" },
+                  { label: "Telefon", cls: "hidden sm:table-cell" },
+                  { label: "Ort", cls: "hidden md:table-cell" },
+                  { label: "Anzahl Artikel", cls: "hidden lg:table-cell" },
+                ].map((h) => (
+                  <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                    {h.label}
                   </th>
                 ))}
               </tr>
@@ -84,9 +91,14 @@ export default function LieferantenPage() {
                   className="hover:bg-green-50 cursor-pointer transition-colors"
                   onClick={() => router.push(`/lieferanten/${l.id}`)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-900">{l.name}</td>
-                  <td className="px-4 py-3 text-gray-600">{l.ansprechpartner ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {l.name}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                      {l.ansprechpartner ? `${l.ansprechpartner} · ` : ""}{l.telefon ?? ""}{l.ort ? ` · ${l.ort}` : ""}
+                    </div>
+                  </td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{l.ansprechpartner ?? "—"}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-600">
                     {l.email ? (
                       <a
                         href={`mailto:${l.email}`}
@@ -97,11 +109,11 @@ export default function LieferantenPage() {
                       </a>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{l.telefon ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{l.telefon ?? "—"}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-600">
                     {[l.plz, l.ort].filter(Boolean).join(" ") || "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-center">
+                  <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-center">
                     {l._count?.artikelZuordnungen ?? "—"}
                   </td>
                 </tr>

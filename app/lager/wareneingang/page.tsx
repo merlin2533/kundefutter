@@ -147,7 +147,7 @@ function WareneingangInner() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-300 shadow-sm p-6 space-y-6">
+      <div className="bg-white rounded-xl border border-gray-300 shadow-sm p-4 sm:p-6 space-y-6">
         {error && (
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
             {error}
@@ -206,7 +206,7 @@ function WareneingangInner() {
                 key={idx}
                 className="flex gap-3 items-end flex-wrap bg-gray-50 rounded-lg p-3"
               >
-                <div className="flex-1 min-w-[160px]">
+                <div className="w-full sm:flex-1 sm:min-w-[160px]">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Artikel
                   </label>
@@ -218,7 +218,7 @@ function WareneingangInner() {
                     required
                   />
                 </div>
-                <div className="w-28">
+                <div className="w-full sm:w-28">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Menge
                   </label>
@@ -233,7 +233,7 @@ function WareneingangInner() {
                     className={inputCls}
                   />
                 </div>
-                <div className="w-36">
+                <div className="w-full sm:w-36">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Einkaufspreis (EUR)
                   </label>
@@ -275,17 +275,17 @@ function WareneingangInner() {
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
           <Link
             href="/lager"
-            className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium"
+            className="w-full sm:w-auto text-center px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium"
           >
             Abbrechen
           </Link>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+            className="w-full sm:w-auto px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
           >
             {saving ? "Speichern..." : "Wareneingang buchen"}
           </button>

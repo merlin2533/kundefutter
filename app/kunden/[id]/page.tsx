@@ -459,7 +459,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       )}
       <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required />
       <Field label="Firma" value={form.firma} onChange={(v) => setForm({ ...form, firma: v })} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
           <select
@@ -1790,14 +1790,14 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-3 py-2.5 text-xs font-medium text-gray-500" title="Für Sammelrechnung auswählen">SR</th>
+              <th className="hidden md:table-cell px-3 py-2.5 text-xs font-medium text-gray-500" title="Für Sammelrechnung auswählen">SR</th>
               <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Datum</th>
-              <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Artikel</th>
+              <th className="hidden sm:table-cell text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Artikel</th>
               <th className="text-right px-3 py-2.5 font-medium text-gray-600 text-xs">Betrag</th>
               <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Status</th>
-              <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Lieferschein</th>
-              <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Rechnung</th>
-              <th className="text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Zahlung</th>
+              <th className="hidden lg:table-cell text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Lieferschein</th>
+              <th className="hidden md:table-cell text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Rechnung</th>
+              <th className="hidden sm:table-cell text-left px-3 py-2.5 font-medium text-gray-600 text-xs">Zahlung</th>
               <th className="px-3 py-2.5"></th>
             </tr>
           </thead>
@@ -1820,7 +1820,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
 
               return (
                 <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="px-3 py-2.5 text-center">
+                  <td className="hidden md:table-cell px-3 py-2.5 text-center">
                     {sammelrechnungFaehig(l) ? (
                       <input
                         type="checkbox"
@@ -1831,8 +1831,11 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                       />
                     ) : null}
                   </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap text-xs">{formatDatum(l.datum)}</td>
-                  <td className="px-3 py-2.5 text-gray-600 text-xs max-w-[180px] truncate">
+                  <td className="px-3 py-2.5 whitespace-nowrap text-xs">
+                    {formatDatum(l.datum)}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{posSummary}{more}</div>
+                  </td>
+                  <td className="hidden sm:table-cell px-3 py-2.5 text-gray-600 text-xs max-w-[180px] truncate">
                     {posSummary}{more}
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono font-medium text-xs whitespace-nowrap">
@@ -2082,16 +2085,16 @@ export default function KundeDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Link href="/kunden" className="text-sm text-gray-500 hover:text-gray-700">
               Kunden
             </Link>
             <span className="text-gray-400">/</span>
-            <span className="text-sm text-gray-700">{kunde.name}</span>
+            <span className="text-sm text-gray-700 truncate">{kunde.name}</span>
           </div>
-          <h1 className="text-2xl font-bold">{kunde.name}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{kunde.name}</h1>
           {kunde.firma && <p className="text-gray-500 mt-0.5">{kunde.firma}</p>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -2103,7 +2106,7 @@ export default function KundeDetailPage() {
             href={`/kunden/${kunde.id}/mappe`}
             target="_blank"
             rel="noreferrer"
-            className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors font-medium"
+            className="text-xs px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors font-medium"
           >
             🖨 Kundenmappe drucken
           </Link>
@@ -2234,7 +2237,7 @@ export default function KundeDetailPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab
                   ? "border-green-600 text-green-700"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -2247,7 +2250,7 @@ export default function KundeDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         {activeTab === "Stammdaten" && <StammdatenTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Kontakte" && <KontakteTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Bedarfe" && <BedarfeTab kunde={kunde} onRefresh={fetchKunde} />}

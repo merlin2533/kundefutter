@@ -52,11 +52,11 @@ export default function MengenrabattePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Mengenrabatte</h1>
         <Link
           href="/mengenrabatte/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="w-full sm:w-auto text-center bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Rabatt hinzufügen
         </Link>
@@ -72,24 +72,27 @@ export default function MengenrabattePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Artikel / Kategorie", "Kunde", "Ab Menge", "Rabatt %", "Status", ""].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
-                  >
-                    {h}
-                  </th>
-                ))}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Artikel / Kategorie</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Kunde</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Ab Menge</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Rabatt %</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody>
               {rabatte.map((r) => (
                 <tr key={r.id} className="border-b last:border-0 hover:bg-green-50 transition-colors">
-                  <td className="px-4 py-3 font-medium">{beschreibung(r)}</td>
-                  <td className="px-4 py-3 text-gray-600">{kundeLabel(r)}</td>
-                  <td className="px-4 py-3 font-mono">{r.vonMenge}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {beschreibung(r)}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                      {kundeLabel(r)} · ab {r.vonMenge}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{kundeLabel(r)}</td>
+                  <td className="px-4 py-3 font-mono hidden md:table-cell">{r.vonMenge}</td>
                   <td className="px-4 py-3 font-mono font-semibold text-green-700">{r.rabattProzent}%</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     {r.aktiv ? (
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Aktiv</span>
                     ) : (

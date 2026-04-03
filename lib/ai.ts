@@ -185,6 +185,97 @@ async function analyzeWithAnthropic(
   }
 }
 
+// ─── Text analysieren (Spracheingabe) ────────────────────────────────────────
+
+export async function analyzeText(
+  text: string,
+  systemPrompt: string,
+  feature: string,
+  config?: AiConfig
+): Promise<AiAnalyzeResult> {
+  const cfg = config || (await getAiConfig());
+
+  if (cfg.provider === "anthropic") {
+    return analyzeTextWithAnthropic(text, systemPrompt, feature, cfg);
+  }
+  return analyzeTextWithOpenAI(text, systemPrompt, feature, cfg);
+}
+
+async function analyzeTextWithOpenAI(
+  text: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.openaiKey) throw new Error("OpenAI API-Key nicht konfiguriert");
+
+  const client = new OpenAI({ apiKey: cfg.openaiKey });
+
+  try {
+    const response = await client.chat.completions.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Analysiere den folgenden Text (von einer Spracheingabe) und extrahiere die relevanten Informationen als JSON:\n\n${text}`,
+        },
+      ],
+    });
+
+    const responseText = response.choices[0]?.message?.content || "{}";
+    const tokensIn = response.usage?.prompt_tokens || 0;
+    const tokensOut = response.usage?.completion_tokens || 0;
+
+    const parsed = parseJsonFromText(responseText);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+
+    return { raw: responseText, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "OpenAI Fehler");
+    throw err;
+  }
+}
+
+async function analyzeTextWithAnthropic(
+  text: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
+
+  const client = new Anthropic({ apiKey: cfg.anthropicKey });
+
+  try {
+    const response = await client.messages.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: `Analysiere den folgenden Text (von einer Spracheingabe) und extrahiere die relevanten Informationen als JSON:\n\n${text}`,
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const responseText = textBlock && "text" in textBlock ? textBlock.text : "{}";
+    const tokensIn = response.usage?.input_tokens || 0;
+    const tokensOut = response.usage?.output_tokens || 0;
+
+    const parsed = parseJsonFromText(responseText);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+
+    return { raw: responseText, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic Fehler");
+    throw err;
+  }
+}
+
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
 function detectMediaType(base64: string): string {
@@ -335,7 +426,7 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 Wenn ein Feld nicht erkennbar ist, setze null.`,
 
   crm: `Du bist ein CRM-Assistent für ein Agrarunternehmen.
-Analysiere das Bild und extrahiere Kundeninformationen und relevante Notizen.
+Analysiere den Input (Bild oder Text/Spracheingabe) und extrahiere Kundeninformationen und relevante Notizen.
 Optimiere den Text für eine professionelle CRM-Aktivität.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
