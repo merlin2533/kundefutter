@@ -92,7 +92,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Kontakte", "Bedarfe", "Sonderpreise", "Statistik", "Lieferhistorie", "CRM", "Notizen", "Agrarantrag", "Schlagkartei", "Angebote", "Aufgaben", "Dokumente", "Vorgangskette"] as const;
+const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Agrarantrag", "Dokumente", "Vorgangskette"] as const;
 type Tab = (typeof TABS)[number];
 
 const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];

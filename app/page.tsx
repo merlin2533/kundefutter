@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { KpiCard, Card } from "@/components/Card";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface MarktTrend {
   kategorie: string;
@@ -100,6 +101,7 @@ interface DashboardData {
   wiedervorlagen: Wiedervorlage[];
   keinKontakt: KeinKontaktKunde[];
   letzteAktivitaeten: TimelineEntry[];
+  lieferungenOhneRechnung: { id: number; datum: string; kundeId: number; kundeName: string; betrag: number; tageOhneRechnung: number }[];
 }
 
 const SCHNELLZUGRIFF = [
@@ -142,6 +144,129 @@ const TIMELINE_TYP_LABEL: Record<string, string> = {
   angebot: "Angebot",
   aufgabe: "Aufgabe",
 };
+
+// ─── CRM Schnellerfassung Widget ─────────────────────────────────────────────
+
+const CRM_DEFAULT = { kundeId: "", typ: "anruf", betreff: "", inhalt: "" };
+
+function CrmSchnellWidget() {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(CRM_DEFAULT);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [kunden, setKunden] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/kunden?limit=200&aktiv=true")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d)) {
+          setKunden(d.map((k: { id: number; name: string; firma?: string | null }) => ({
+            value: String(k.id),
+            label: k.firma ? `${k.firma} (${k.name})` : k.name,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.kundeId) { setError("Bitte einen Kunden wählen."); return; }
+    if (!form.betreff.trim()) { setError("Betreff ist Pflichtfeld."); return; }
+    setSaving(true);
+    setError("");
+    const res = await fetch("/api/kunden/aktivitaeten", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kundeId: Number(form.kundeId), typ: form.typ, betreff: form.betreff.trim(), inhalt: form.inhalt.trim() || undefined }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setForm(CRM_DEFAULT);
+      setSaved(true);
+      setOpen(false);
+      setTimeout(() => setSaved(false), 2000);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Fehler beim Speichern.");
+    }
+  }
+
+  return (
+    <div className="mb-5 bg-white border border-blue-200 rounded-xl overflow-hidden shadow-sm">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-blue-600 font-medium text-sm">📞 CRM Schnellerfassung</span>
+          {saved && <span className="text-xs text-green-600 font-medium">Gespeichert ✓</span>}
+        </div>
+        <span className="text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <form onSubmit={handleSave} className="border-t border-blue-100 px-4 py-3 space-y-3 bg-blue-50">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Kunde</label>
+              <SearchableSelect
+                options={kunden}
+                value={form.kundeId}
+                onChange={(v) => setForm({ ...form, kundeId: v })}
+                placeholder="Kunde suchen…"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
+              <select
+                value={form.typ}
+                onChange={(e) => setForm({ ...form, typ: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="anruf">📞 Anruf</option>
+                <option value="besuch">🏠 Besuch</option>
+                <option value="email">✉️ E-Mail</option>
+                <option value="notiz">📝 Notiz</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Betreff *</label>
+              <input
+                type="text"
+                value={form.betreff}
+                onChange={(e) => setForm({ ...form, betreff: e.target.value })}
+                placeholder="z.B. Rückruf wegen Lieferung"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Notiz (optional)</label>
+              <input
+                type="text"
+                value={form.inhalt}
+                onChange={(e) => setForm({ ...form, inhalt: e.target.value })}
+                placeholder="Kurze Zusammenfassung…"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {error && <p className="text-xs text-red-600 shrink-0">{error}</p>}
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-60 shrink-0"
+            >
+              {saving ? "…" : "Speichern"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -251,6 +376,34 @@ export default function DashboardPage() {
           </button>
         )}
       </div>
+
+      {/* CRM Schnellerfassung + Lieferungen ohne Rechnung */}
+      <CrmSchnellWidget />
+      {(data.lieferungenOhneRechnung ?? []).length > 0 && (
+        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-orange-600 font-semibold text-sm">⚠ Lieferungen ohne Rechnung</span>
+              <span className="bg-orange-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full">{data.lieferungenOhneRechnung.length}</span>
+            </div>
+            <Link href="/lieferungen" className="text-xs text-orange-700 hover:underline font-medium">Alle anzeigen →</Link>
+          </div>
+          <div className="space-y-1.5">
+            {data.lieferungenOhneRechnung.slice(0, 5).map((l) => (
+              <div key={l.id} className="flex items-center justify-between gap-3 bg-white rounded-lg border border-orange-100 px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-gray-900 truncate block">{l.kundeName}</span>
+                  <span className="text-xs text-orange-600">{l.tageOhneRechnung} Tag{l.tageOhneRechnung !== 1 ? "e" : ""} ohne Rechnung · {new Date(l.datum).toLocaleDateString("de-DE")}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-bold text-gray-800">{formatEuro(l.betrag)}</span>
+                  <Link href={`/lieferungen/${l.id}`} className="text-xs px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors">→</Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Obere Reihe: KPI-Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
