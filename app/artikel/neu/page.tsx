@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
-const EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette"];
+const EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag"];
 
 const defaultForm = {
   name: "",
@@ -15,6 +15,7 @@ const defaultForm = {
   mindestbestand: "0",
   mwstSatz: "19",
   lagerort: "",
+  liefergroesse: "",
 };
 
 export default function NeuerArtikelPage() {
@@ -27,11 +28,13 @@ export default function NeuerArtikelPage() {
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
   const [kiSearching, setKiSearching] = useState(false);
   const [kiHinweis, setKiHinweis] = useState<string | null>(null);
+  const [kiAehnliche, setKiAehnliche] = useState<string[]>([]);
 
   async function kiSuche() {
     if (!form.name.trim()) return;
     setKiSearching(true);
     setKiHinweis(null);
+    setKiAehnliche([]);
     try {
       const res = await fetch("/api/ki/inhaltsstoffe", {
         method: "POST",
@@ -49,6 +52,7 @@ export default function NeuerArtikelPage() {
           }))
         );
       }
+      if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
     } catch {
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
@@ -251,6 +255,14 @@ export default function NeuerArtikelPage() {
               {kiHinweis}
             </div>
           )}
+          {kiAehnliche.length > 0 && (
+            <div className="text-xs bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+              <p className="font-medium text-blue-800 mb-0.5">Ähnliche Produkte:</p>
+              <ul className="list-disc list-inside text-blue-700">
+                {kiAehnliche.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </div>
+          )}
           {inhaltsstoffe.map((item, idx) => (
             <div key={idx} className="flex gap-2 items-start">
               <input
@@ -305,18 +317,33 @@ export default function NeuerArtikelPage() {
           </button>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lagerort{" "}
-            <span className="text-gray-400 text-xs">(optional, z.B. Halle 1)</span>
-          </label>
-          <input
-            type="text"
-            value={form.lagerort}
-            onChange={(e) => setForm({ ...form, lagerort: e.target.value })}
-            placeholder="z.B. Halle 1, Außenlager, Silo A"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Lagerort{" "}
+              <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.lagerort}
+              onChange={(e) => setForm({ ...form, lagerort: e.target.value })}
+              placeholder="z.B. Halle 1, Silo A"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Liefergröße{" "}
+              <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.liefergroesse}
+              onChange={(e) => setForm({ ...form, liefergroesse: e.target.value })}
+              placeholder="z.B. 25 kg Sack, Big Bag 600 kg"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

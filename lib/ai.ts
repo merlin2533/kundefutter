@@ -461,5 +461,14 @@ Regeln:
 - Bei Pflanzenhilfsmitteln: Wirkstoffe und deren Konzentrationen
 - "menge" kann null sein wenn der Wert unbekannt ist
 - "einheit" ist typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l"
-- Wenn du das Produkt nicht kennst, gib ein leeres Array und einen Hinweis zurück`,
+- WICHTIG: Wenn du das exakte Produkt nicht kennst, versuche es anhand des Namens einem ähnlichen/verwandten Produkt zuzuordnen. Landwirtschaftliche Produkte haben oft Markennamen (z.B. "Olmix PRIMEO S12" → Schwefel-Bentonit-Produkt von Olmix). Schlage dann die Inhaltsstoffe des ähnlichsten bekannten Produkts vor.
+- Wenn du ähnliche Produkte findest, fülle "aehnlicheProdukte" mit bis zu 3 Vorschlägen und gib die Inhaltsstoffe des wahrscheinlichsten Treffers zurück.
+- Nur wenn du gar keine Zuordnung machen kannst, gib ein leeres Array und einen Hinweis zurück.
+
+Erweitertes Antwortformat:
+{
+  "inhaltsstoffe": [...],
+  "aehnlicheProdukte": ["Produktname 1 (Hersteller)", "Produktname 2"],
+  "hinweis": "Optionaler Hinweis"
+}`,
 };

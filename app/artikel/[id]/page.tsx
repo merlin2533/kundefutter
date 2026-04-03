@@ -11,10 +11,10 @@ import DriveOrdner from "@/components/DriveOrdner";
 interface ArtikelLieferant {
   id: number;
   lieferantId: number;
-  artikelNrBeiLieferant?: string | null;
+  lieferantenArtNr?: string | null;
   einkaufspreis: number;
   mindestbestellmenge?: number | null;
-  lieferzeit?: number | null;
+  lieferzeitTage?: number | null;
   bevorzugt: boolean;
   lieferant: { id: number; name: string };
 }
@@ -57,6 +57,7 @@ interface Artikel {
   beschreibung?: string | null;
   aktiv: boolean;
   lagerort?: string | null;
+  liefergroesse?: string | null;
   inhaltsstoffe: Inhaltsstoff[];
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
@@ -75,7 +76,7 @@ interface Lieferant {
   name: string;
 }
 
-const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück"];
+const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück", "BigBag"];
 const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
 
 const inputCls =
@@ -121,6 +122,7 @@ export default function ArtikelDetailPage() {
   const [savingInhaltsstoffe, setSavingInhaltsstoffe] = useState(false);
   const [kiSearching, setKiSearching] = useState(false);
   const [kiHinweis, setKiHinweis] = useState<string | null>(null);
+  const [kiAehnliche, setKiAehnliche] = useState<string[]>([]);
 
   // Löschen / Duplizieren
   const [deleting, setDeleting] = useState(false);
@@ -150,6 +152,7 @@ export default function ArtikelDetailPage() {
       beschreibung: data.beschreibung ?? "",
       aktiv: data.aktiv,
       lagerort: data.lagerort ?? "",
+      liefergroesse: data.liefergroesse ?? "",
     });
     setLoading(false);
   }, [id]);
@@ -225,6 +228,7 @@ export default function ArtikelDetailPage() {
         mindestbestand: artikel.mindestbestand,
         beschreibung: artikel.beschreibung,
         lagerort: artikel.lagerort,
+        liefergroesse: artikel.liefergroesse,
         inhaltsstoffe: artikel.inhaltsstoffe.map((i) => ({
           name: i.name,
           menge: i.menge,
@@ -252,14 +256,16 @@ export default function ArtikelDetailPage() {
       lieferzeitTage: lievForm.lieferzeit ? Number(lievForm.lieferzeit) : undefined,
       bevorzugt: lievForm.bevorzugt,
     };
-    const existing = (artikel?.lieferanten ?? []).map((l) => ({
-      lieferantId: l.lieferantId,
-      lieferantenArtNr: l.artikelNrBeiLieferant,
-      einkaufspreis: l.einkaufspreis,
-      mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeitTage: l.lieferzeit,
-      bevorzugt: l.bevorzugt,
-    }));
+    const existing = (artikel?.lieferanten ?? [])
+      .filter((l) => l.lieferantId !== Number(lievForm.lieferantId))
+      .map((l) => ({
+        lieferantId: l.lieferantId,
+        lieferantenArtNr: l.lieferantenArtNr,
+        einkaufspreis: l.einkaufspreis,
+        mindestbestellmenge: l.mindestbestellmenge,
+        lieferzeitTage: l.lieferzeitTage,
+        bevorzugt: l.bevorzugt,
+      }));
     const res = await fetch(`/api/artikel/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -280,10 +286,10 @@ export default function ArtikelDetailPage() {
     if (!artikel) return;
     const updated = artikel.lieferanten.map((l) => ({
       lieferantId: l.lieferantId,
-      lieferantenArtNr: l.artikelNrBeiLieferant,
+      lieferantenArtNr: l.lieferantenArtNr,
       einkaufspreis: l.einkaufspreis,
       mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeitTage: l.lieferzeit,
+      lieferzeitTage: l.lieferzeitTage,
       bevorzugt: l.lieferantId === lieferantId ? !l.bevorzugt : l.bevorzugt,
     }));
     await fetch(`/api/artikel/${id}`, {
@@ -355,6 +361,7 @@ export default function ArtikelDetailPage() {
     if (!artikel) return;
     setKiSearching(true);
     setKiHinweis(null);
+    setKiAehnliche([]);
     try {
       const res = await fetch("/api/ki/inhaltsstoffe", {
         method: "POST",
@@ -376,6 +383,7 @@ export default function ArtikelDetailPage() {
         );
         if (!editingInhaltsstoffe) setEditingInhaltsstoffe(true);
       }
+      if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
     } catch {
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
@@ -625,6 +633,18 @@ export default function ArtikelDetailPage() {
                   className={inputCls}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Liefergröße <span className="text-gray-400 text-xs">(optional, z.B. 25 kg Sack, Big Bag 600 kg)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.liefergroesse ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, liefergroesse: e.target.value })}
+                  placeholder="z.B. 25 kg Sack, Big Bag 600 kg, 1.000 l Gitterbox"
+                  className={inputCls}
+                />
+              </div>
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -666,6 +686,7 @@ export default function ArtikelDetailPage() {
                   ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
                   ["Status", null],
                   ["Beschreibung", artikel.beschreibung ?? "—"],
+                  ["Liefergröße", artikel.liefergroesse ?? "—"],
                   ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
                 ] as [string, string | null][]).map(([label, value]) => (
                   <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
@@ -741,6 +762,15 @@ export default function ArtikelDetailPage() {
           {kiHinweis && (
             <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               {kiHinweis}
+            </div>
+          )}
+
+          {kiAehnliche.length > 0 && (
+            <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <p className="font-medium text-blue-800 mb-1">Ähnliche Produkte gefunden:</p>
+              <ul className="list-disc list-inside text-blue-700 space-y-0.5">
+                {kiAehnliche.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
             </div>
           )}
 
@@ -884,12 +914,12 @@ export default function ArtikelDetailPage() {
                     <tr key={l.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">
                         {l.lieferant.name}
-                        <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.artikelNrBeiLieferant ?? ""}</div>
+                        <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.lieferantenArtNr ?? ""}</div>
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.artikelNrBeiLieferant ?? "—"}</td>
+                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.lieferantenArtNr ?? "—"}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(l.einkaufspreis)}</td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeit ?? "—"}</td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeitTage ?? "—"}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => toggleBevorzugt(l.lieferantId)}

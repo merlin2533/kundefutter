@@ -109,6 +109,12 @@ export default function EinstellungenPage() {
           description="Dokumente für Kunden und Artikel in Drive ablegen"
         />
         <EinstellungTile
+          href="/einstellungen/nummernkreis"
+          icon="🔢"
+          title="Artikelnummer"
+          description="Präfix, Stellenanzahl und nächste Nummer konfigurieren"
+        />
+        <EinstellungTile
           href="/einstellungen/artikel-import"
           icon="📥"
           title="Artikel-Stammdaten"

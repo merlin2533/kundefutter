@@ -125,6 +125,7 @@ model Artikel {
   aktuellerBestand Float    @default(0)
   aktiv            Boolean  @default(true)
   lagerort         String?  // optional: storage location label
+  liefergroesse    String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

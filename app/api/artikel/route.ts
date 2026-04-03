@@ -51,8 +51,19 @@ export async function POST(req: NextRequest) {
   try {
     // Auto-Artikelnummer wenn nicht gesetzt
     if (!data.artikelnummer) {
-      const count = await prisma.artikel.count();
-      data.artikelnummer = `ART-${String(count + 1).padStart(5, "0")}`;
+      const nummernkreisRaw = await prisma.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
+      const nk = nummernkreisRaw?.value
+        ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+        : null;
+      const prefix = nk?.prefix ?? "ART-";
+      const laenge = Number(nk?.laenge) || 5;
+      const naechste = Number(nk?.naechste) || 1;
+      data.artikelnummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
+      await prisma.einstellung.upsert({
+        where: { key: "artikel.nummernkreis" },
+        update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+        create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+      });
     }
 
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
