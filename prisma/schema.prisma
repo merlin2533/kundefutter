@@ -580,4 +580,6 @@ model KiNutzung {
   kostenCent  Int      @default(0)
   erfolgreich Boolean  @default(true)
   fehler      String?
+
+  @@index([zeitpunkt, feature])
 }

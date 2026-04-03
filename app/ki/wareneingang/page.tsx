@@ -237,6 +237,10 @@ function KiWareneingangWizard() {
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setAnalyseError("Maximale Dateigröße: 20 MB");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const result = e.target?.result as string;
@@ -313,17 +317,12 @@ function KiWareneingangWizard() {
     }
   }, [imageBase64, vorLieferantId, lieferanten, artikel]);
 
-  // Trigger analyse when entering step 1 → step 2
+  // Trigger analyse directly (no useEffect race condition)
   const goToAnalyse = () => {
+    setKiErgebnis(null);
     setStep(1);
+    runAnalyse();
   };
-
-  useEffect(() => {
-    if (step === 1 && !kiErgebnis && !analysing) {
-      runAnalyse();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
 
   // ---- Step 3: position update helpers ------------------------------------
 

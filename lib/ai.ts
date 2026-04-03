@@ -42,12 +42,16 @@ function berechneKosten(modell: string, tokensIn: number, tokensOut: number): nu
 export async function getAiConfig(): Promise<AiConfig> {
   const rows = await prisma.einstellung.findMany({
     where: { key: { startsWith: "ki." } },
+    take: 50,
   });
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
 
+  const raw = map["ki.provider"];
+  const provider = (raw === "openai" || raw === "anthropic") ? raw : "openai";
+
   return {
-    provider: (map["ki.provider"] as "openai" | "anthropic") || "openai",
+    provider,
     modell: map["ki.modell"] || "gpt-4o",
     openaiKey: map["ki.openai_key"],
     anthropicKey: map["ki.anthropic_key"],
@@ -87,36 +91,41 @@ async function analyzeWithOpenAI(
     ? base64Image
     : `data:${mediaType};base64,${base64Image}`;
 
-  const response = await client.chat.completions.create({
-    model: cfg.modell,
-    max_tokens: 4096,
-    messages: [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: [
-          {
-            type: "image_url",
-            image_url: { url: imageUrl, detail: "high" },
-          },
-          {
-            type: "text",
-            text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
-          },
-        ],
-      },
-    ],
-  });
+  try {
+    const response = await client.chat.completions.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageUrl, detail: "high" },
+            },
+            {
+              type: "text",
+              text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
+            },
+          ],
+        },
+      ],
+    });
 
-  const text = response.choices[0]?.message?.content || "{}";
-  const tokensIn = response.usage?.prompt_tokens || 0;
-  const tokensOut = response.usage?.completion_tokens || 0;
+    const text = response.choices[0]?.message?.content || "{}";
+    const tokensIn = response.usage?.prompt_tokens || 0;
+    const tokensOut = response.usage?.completion_tokens || 0;
 
-  const parsed = parseJsonFromText(text);
+    const parsed = parseJsonFromText(text);
 
-  await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
 
-  return { raw: text, parsed, tokensIn, tokensOut };
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "OpenAI Fehler");
+    throw err;
+  }
 }
 
 // ─── Anthropic ───────────────────────────────────────────────────────────────
@@ -132,42 +141,48 @@ async function analyzeWithAnthropic(
   const client = new Anthropic({ apiKey: cfg.anthropicKey });
 
   const cleanBase64 = base64Image.startsWith("data:")
-    ? base64Image.split(",")[1]
+    ? (base64Image.split(",")[1] ?? "")
     : base64Image;
+  if (!cleanBase64) throw new Error("Ungültiges Bildformat");
 
   const mediaType = detectMediaType(base64Image) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
-  const response = await client.messages.create({
-    model: cfg.modell,
-    max_tokens: 4096,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: cleanBase64 },
-          },
-          {
-            type: "text",
-            text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
-          },
-        ],
-      },
-    ],
-  });
+  try {
+    const response = await client.messages.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: { type: "base64", media_type: mediaType, data: cleanBase64 },
+            },
+            {
+              type: "text",
+              text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
+            },
+          ],
+        },
+      ],
+    });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
-  const tokensIn = response.usage?.input_tokens || 0;
-  const tokensOut = response.usage?.output_tokens || 0;
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
+    const tokensIn = response.usage?.input_tokens || 0;
+    const tokensOut = response.usage?.output_tokens || 0;
 
-  const parsed = parseJsonFromText(text);
+    const parsed = parseJsonFromText(text);
 
-  await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
 
-  return { raw: text, parsed, tokensIn, tokensOut };
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic Fehler");
+    throw err;
+  }
 }
 
 // ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
@@ -176,6 +191,11 @@ function detectMediaType(base64: string): string {
   if (base64.startsWith("data:image/png")) return "image/png";
   if (base64.startsWith("data:image/webp")) return "image/webp";
   if (base64.startsWith("data:image/gif")) return "image/gif";
+  if (base64.startsWith("data:")) return "image/jpeg";
+  // Raw Base64: Magic Bytes prüfen
+  if (base64.startsWith("iVBOR")) return "image/png";
+  if (base64.startsWith("R0lGO")) return "image/gif";
+  if (base64.startsWith("UklGR")) return "image/webp";
   return "image/jpeg";
 }
 
@@ -234,8 +254,12 @@ async function logUsage(
 }
 
 export async function logError(feature: string, error: string) {
-  const cfg = await getAiConfig();
-  await logUsage(cfg, feature, 0, 0, false, error);
+  try {
+    const cfg = await getAiConfig();
+    await logUsage(cfg, feature, 0, 0, false, error);
+  } catch {
+    console.error("logError fehlgeschlagen:", error);
+  }
 }
 
 // ─── Verbindungstest ─────────────────────────────────────────────────────────
@@ -245,7 +269,7 @@ export async function testConnection(cfg: AiConfig): Promise<{ ok: boolean; erro
     if (cfg.provider === "openai") {
       if (!cfg.openaiKey) return { ok: false, error: "Kein API-Key" };
       const client = new OpenAI({ apiKey: cfg.openaiKey });
-      await client.models.list();
+      await client.models.retrieve(cfg.modell || "gpt-4o");
       return { ok: true };
     } else {
       if (!cfg.anthropicKey) return { ok: false, error: "Kein API-Key" };

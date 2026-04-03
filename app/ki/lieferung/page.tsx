@@ -82,8 +82,10 @@ function matchArtikel(
 
   const nameLower = kiPos.name.toLowerCase();
 
-  // 2. Name enthält (vollständig)
-  const nameContains = artikel.find((a) => a.name.toLowerCase().includes(nameLower));
+  // 2. Name enthält (bidirektional)
+  const nameContains = artikel.find(
+    (a) => a.name.toLowerCase().includes(nameLower) || nameLower.includes(a.name.toLowerCase())
+  );
   if (nameContains) return { artikel: nameContains, konfidenz: "mittel" };
 
   // 3. Teilwort-Match
@@ -104,15 +106,20 @@ function matchKunde(
 
   const search = (kiKunde.firma || kiKunde.name).toLowerCase();
 
-  // Enthält-Match auf Name oder Firma
-  const match = kunden.find(
+  // Exakter Match
+  const exact = kunden.find(
+    (k) => k.name.toLowerCase() === search || (k.firma && k.firma.toLowerCase() === search)
+  );
+  if (exact) return { kunde: exact, konfidenz: "hoch" };
+
+  // Enthält-Match auf Name oder Firma (bidirektional, min 3 Zeichen)
+  const containsMatch = search.length >= 3 ? kunden.find(
     (k) =>
       k.name.toLowerCase().includes(search) ||
       (k.firma && k.firma.toLowerCase().includes(search)) ||
       search.includes(k.name.toLowerCase())
-  );
-
-  if (match) return { kunde: match, konfidenz: "hoch" };
+  ) : null;
+  if (containsMatch) return { kunde: containsMatch, konfidenz: "mittel" };
 
   // Teilwort
   const words = search.split(/\s+/).filter((w) => w.length > 2);
@@ -237,6 +244,10 @@ function KiLieferungWizard() {
 
   function handleFile(file: File) {
     if (!file.type.startsWith("image/")) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setAnalyzeError("Maximale Dateigröße: 20 MB");
+      return;
+    }
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target?.result as string);
@@ -265,7 +276,7 @@ function KiLieferungWizard() {
         fetch("/api/ki/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: imagePreview, feature: "lieferung" }),
+          body: JSON.stringify({ image: imagePreview.includes(",") ? imagePreview.split(",")[1] : imagePreview, feature: "lieferung" }),
         }),
       ]);
 
@@ -352,7 +363,7 @@ function KiLieferungWizard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kundeId: parseInt(kundeId, 10),
-          datum,
+          datum: datum ? new Date(datum + "T00:00:00").toISOString() : new Date().toISOString(),
           status: "geplant",
           positionen: validPositionen.map((p) => ({
             artikelId: parseInt(p.artikelId, 10),

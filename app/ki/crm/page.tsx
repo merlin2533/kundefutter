@@ -131,6 +131,10 @@ function KiCrmWizard() {
   // File handling
   function handleFile(file: File) {
     if (!file.type.startsWith("image/")) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setAnalyzeError("Maximale Dateigröße: 20 MB");
+      return;
+    }
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target?.result as string);
@@ -171,14 +175,16 @@ function KiCrmWizard() {
     );
     if (match) return { id: String(match.id), konfidenz: "hoch" };
 
-    // Contains match on firma or name
-    match = kundenList.find(
-      (k) =>
-        (k.firma && (k.firma.toLowerCase().includes(needle) || needle.includes(k.firma.toLowerCase()))) ||
-        k.name.toLowerCase().includes(needleName) ||
-        needleName.includes(k.name.toLowerCase())
-    );
-    if (match) return { id: String(match.id), konfidenz: "mittel" };
+    // Contains match on firma or name (min 3 Zeichen)
+    if (needle.length >= 3) {
+      match = kundenList.find(
+        (k) =>
+          (k.firma && (k.firma.toLowerCase().includes(needle) || needle.includes(k.firma.toLowerCase()))) ||
+          k.name.toLowerCase().includes(needleName) ||
+          needleName.includes(k.name.toLowerCase())
+      );
+      if (match) return { id: String(match.id), konfidenz: "mittel" };
+    }
 
     return { id: "", konfidenz: "niedrig" };
   }

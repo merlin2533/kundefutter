@@ -112,7 +112,8 @@ export default function KiEinstellungenPage() {
     if (!currentValid) {
       setModell(models[0].value);
     }
-  }, [provider, modell]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();

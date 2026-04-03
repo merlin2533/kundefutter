@@ -11,8 +11,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { image, feature } = body as { image: string; feature: string };
 
-    if (!image) {
+    if (!image || typeof image !== "string") {
       return NextResponse.json({ error: "Kein Bild übermittelt" }, { status: 400 });
+    }
+    if (image.length > 10_000_000) {
+      return NextResponse.json({ error: "Bild zu groß (max ~7.5MB)" }, { status: 413 });
     }
     if (!feature || !VALID_FEATURES.includes(feature as Feature)) {
       return NextResponse.json(

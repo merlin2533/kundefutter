@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const tage = parseInt(searchParams.get("tage") || "30", 10);
+  const tage = Math.min(Math.max(parseInt(searchParams.get("tage") || "30", 10) || 30, 1), 365);
 
   const seit = new Date();
   seit.setDate(seit.getDate() - tage);
