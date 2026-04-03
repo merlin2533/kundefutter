@@ -28,9 +28,8 @@ export default function VoiceInput({
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setSupported(false);
     }
@@ -54,9 +53,8 @@ export default function VoiceInput({
     finalTranscriptRef.current = "";
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setError("Spracheingabe wird von diesem Browser nicht unterstützt.");
@@ -70,6 +68,7 @@ export default function VoiceInput({
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       let interim = "";
       let final = "";
@@ -85,6 +84,7 @@ export default function VoiceInput({
       setTranscript(final + (interim ? interim : ""));
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onerror = (event: any) => {
       if (event.error === "no-speech") return;
       if (event.error === "aborted") return;
