@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { lagerStatus, addTage } from "@/lib/utils";
 
 export async function GET() {
+  try {
   const heute = new Date();
   const monatsAnfang = new Date(heute.getFullYear(), heute.getMonth(), 1);
   const vorMonatAnfang = new Date(heute.getFullYear(), heute.getMonth() - 1, 1);
@@ -414,4 +415,8 @@ export async function GET() {
     keinKontakt,
     letzteAktivitaeten,
   });
+  } catch (e) {
+    console.error("Dashboard API error:", e);
+    return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 });
+  }
 }

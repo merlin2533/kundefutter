@@ -59,7 +59,7 @@ export default function NeuerArtikelPage() {
   }
 
   return (
-    <div className="max-w-xl mx-auto py-10 px-4">
+    <div className="max-w-xl mx-auto py-6 sm:py-10 px-4">
       <Link
         href="/artikel"
         className="text-green-800 hover:text-green-600 text-sm font-medium"
@@ -99,7 +99,7 @@ export default function NeuerArtikelPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Kategorie
@@ -134,7 +134,7 @@ export default function NeuerArtikelPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Standardpreis (&euro;)
@@ -198,17 +198,17 @@ export default function NeuerArtikelPage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
           <Link
             href="/artikel"
-            className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+            className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 text-center w-full sm:w-auto"
           >
             Abbrechen
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+            className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
           >
             {saving ? "Speichern\u2026" : "Artikel anlegen"}
           </button>

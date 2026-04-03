@@ -9,20 +9,30 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const lieferung = await prisma.lieferung.findUnique({
-    where: { id: Number(id) },
-    include: {
-      kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
-    },
-  });
-  if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  return NextResponse.json(lieferung);
+  try {
+    const lieferung = await prisma.lieferung.findUnique({
+      where: { id: Number(id) },
+      include: {
+        kunde: { include: { kontakte: true } },
+        positionen: { include: { artikel: true } },
+      },
+    });
+    if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    return NextResponse.json(lieferung);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { positionen, ...data } = body;
 
   // Capture old status for audit log before transaction
@@ -53,10 +63,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     // Status: geplant → geliefert: Bestand reduzieren
     if (alt.status === "geplant" && data.status === "geliefert") {
+      const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
+      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
       for (const pos of alt.positionen) {
-        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        const artikel = artikelMap.get(pos.artikelId);
         if (!artikel) continue;
         const neuerBestand = artikel.aktuellerBestand - pos.menge;
+        artikel.aktuellerBestand = neuerBestand;
         await tx.artikel.update({
           where: { id: pos.artikelId },
           data: { aktuellerBestand: neuerBestand },
@@ -78,10 +93,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (!data.stornoBegründung) {
         throw new Error("Stornobegründung ist Pflichtfeld");
       }
+      const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
+      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
       for (const pos of alt.positionen) {
-        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        const artikel = artikelMap.get(pos.artikelId);
         if (!artikel) continue;
         const neuerBestand = artikel.aktuellerBestand + pos.menge;
+        artikel.aktuellerBestand = neuerBestand;
         await tx.artikel.update({
           where: { id: pos.artikelId },
           data: { aktuellerBestand: neuerBestand },
@@ -159,7 +179,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
 // Rechnung erstellen
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { aktion } = body;
 
   // QR-Mobilerfassung: Status auf "geliefert" setzen

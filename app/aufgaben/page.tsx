@@ -113,11 +113,11 @@ export default function AufgabenPage() {
   const ueberfaelligCount = aufgaben.filter((a) => isUeberfaellig(a.faelligAm, a.erledigt)).length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="px-4 sm:px-6 py-4 sm:py-0">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <span className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Aufgaben</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Aufgaben</h1>
             <Link href="/hilfe#crm" title="Hilfe: CRM & Aufgaben" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </Link>
@@ -133,7 +133,7 @@ export default function AufgabenPage() {
         </div>
         <Link
           href="/aufgaben/neu"
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
         >
           + Neue Aufgabe
         </Link>
@@ -184,13 +184,13 @@ export default function AufgabenPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-8"></th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Aufgabe</th>
+                  <th className="text-left px-3 sm:px-4 py-3 font-medium text-gray-600 w-8"></th>
+                  <th className="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Aufgabe</th>
                   <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Typ</th>
                   <th className="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Priorität</th>
                   <th className="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Fällig</th>
                   <th className="hidden lg:table-cell text-left px-4 py-3 font-medium text-gray-600">Kunde</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Aktionen</th>
+                  <th className="text-left px-3 sm:px-4 py-3 font-medium text-gray-600">Aktionen</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -203,12 +203,12 @@ export default function AufgabenPage() {
                       key={a.id}
                       className={`hover:bg-gray-50 transition-colors ${a.erledigt ? "opacity-60" : ""}`}
                     >
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <button
                           onClick={() => toggleErledigt(a)}
                           disabled={toggling === a.id}
                           title={a.erledigt ? "Als offen markieren" : "Als erledigt markieren"}
-                          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors disabled:opacity-50 ${
+                          className={`w-6 h-6 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center transition-colors disabled:opacity-50 ${
                             a.erledigt
                               ? "bg-green-500 border-green-500 text-white"
                               : "border-gray-400 hover:border-green-500"
@@ -221,7 +221,7 @@ export default function AufgabenPage() {
                           )}
                         </button>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <span className={`font-medium ${a.erledigt ? "line-through text-gray-400" : ""}`}>
                           {a.betreff}
                         </span>
@@ -236,12 +236,16 @@ export default function AufgabenPage() {
                           </div>
                         )}
                         {/* Mobile info */}
-                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">
-                          {a.kunde?.name && <span>{a.kunde.name} · </span>}
+                        <div className="sm:hidden text-xs text-gray-500 mt-1 space-y-0.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium capitalize ${TYP_BADGE[a.typ] ?? "bg-gray-100 text-gray-600"}`}>{a.typ}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium capitalize ${PRIORITAET_BADGE[a.prioritaet] ?? "bg-gray-100 text-gray-600"}`}>{a.prioritaet}</span>
+                          </div>
+                          {a.kunde?.name && <div className="text-green-700">{a.kunde.name}</div>}
                           {a.faelligAm && (
-                            <span className={ueberfaellig ? "text-red-600 font-medium" : ""}>
-                              Fällig: {formatDate(a.faelligAm)}
-                            </span>
+                            <div className={ueberfaellig ? "text-red-600 font-medium" : ""}>
+                              {ueberfaellig && "⚠ "}Fällig: {formatDate(a.faelligAm)}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -269,15 +273,15 @@ export default function AufgabenPage() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Link href={`/aufgaben/${a.id}`} className="text-green-700 hover:underline text-xs font-medium">
+                          <Link href={`/aufgaben/${a.id}`} className="text-green-700 hover:underline text-xs font-medium py-1">
                             Bearbeiten
                           </Link>
                           <button
                             onClick={() => deleteAufgabe(a.id, a.betreff)}
                             disabled={deleting === a.id}
-                            className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40"
+                            className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40 p-1"
                             title="Löschen"
                           >
                             {deleting === a.id ? "…" : "✕"}

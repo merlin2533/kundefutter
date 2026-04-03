@@ -32,20 +32,30 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const lieferungen = await prisma.lieferung.findMany({
-    where,
-    include: {
-      kunde: true,
-      positionen: { include: { artikel: true } },
-    },
-    orderBy: { datum: "desc" },
-    take: 200,
-  });
-  return NextResponse.json(lieferungen);
+  try {
+    const lieferungen = await prisma.lieferung.findMany({
+      where,
+      include: {
+        kunde: true,
+        positionen: { include: { artikel: true } },
+      },
+      orderBy: { datum: "desc" },
+      take: 200,
+    });
+    return NextResponse.json(lieferungen);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler beim Laden der Lieferungen" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { kundeId, datum, notiz, wiederkehrend } = body;
   const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = body.positionen;
 

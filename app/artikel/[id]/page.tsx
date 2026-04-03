@@ -395,7 +395,7 @@ export default function ArtikelDetailPage() {
               </div>
               <a
                 href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLief ? `&lieferantId=${bevorzugterLief.lieferantId}` : ""}`}
-                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap"
+                className="px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap w-full sm:w-auto text-center"
               >
                 Wareneingang erfassen
               </a>
@@ -405,7 +405,7 @@ export default function ArtikelDetailPage() {
       })()}
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap">
+      <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -423,7 +423,7 @@ export default function ArtikelDetailPage() {
 
       {/* ── Tab: Details ─────────────────────────────────────────────────────── */}
       {tab === "details" && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-2xl">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 max-w-2xl">
           {detailsError && (
             <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {detailsError}
@@ -451,7 +451,7 @@ export default function ArtikelDetailPage() {
                   className={inputCls}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
                   <select
@@ -475,7 +475,7 @@ export default function ArtikelDetailPage() {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>
                   <input
@@ -547,18 +547,18 @@ export default function ArtikelDetailPage() {
                 />
                 <label htmlFor="aktiv" className="text-sm text-gray-700">Aktiv</label>
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => { setEditing(false); setDetailsError(""); }}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                  className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={saveDetails}
                   disabled={savingDetails}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                 >
                   {savingDetails ? "Speichern…" : "Speichern"}
                 </button>
@@ -580,14 +580,14 @@ export default function ArtikelDetailPage() {
                   ["Beschreibung", artikel.beschreibung ?? "—"],
                   ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
                 ] as [string, string | null][]).map(([label, value]) => (
-                  <div key={label} className="py-3 flex gap-4">
+                  <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                     <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">{label}</dt>
                     <dd className="text-sm text-gray-900">
                       {label === "Status" ? <LagerBadge status={status} /> : value}
                     </dd>
                   </div>
                 ))}
-                <div className="py-3 flex gap-4">
+                <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                   <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
                   <dd className="text-sm text-gray-900">
                     {artikel.lagerort ? (
@@ -600,7 +600,7 @@ export default function ArtikelDetailPage() {
                   </dd>
                 </div>
                 {marge !== null && (
-                  <div className="py-3 flex gap-4">
+                  <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                     <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Marge</dt>
                     <dd><MargeBadge pct={Math.round(marge * 10) / 10} /></dd>
                   </div>
@@ -609,7 +609,7 @@ export default function ArtikelDetailPage() {
               <div className="mt-5 flex justify-end">
                 <button
                   onClick={() => setEditing(true)}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium w-full sm:w-auto"
                 >
                   Bearbeiten
                 </button>
@@ -637,9 +637,16 @@ export default function ArtikelDetailPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Lieferant", "ArtNr beim Lieferant", "Einkaufspreis", "Mindestbestellmenge", "Lieferzeit (Tage)", "Bevorzugt"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {h}
+                    {[
+                      { label: "Lieferant", cls: "" },
+                      { label: "ArtNr beim Lieferant", cls: "hidden md:table-cell" },
+                      { label: "Einkaufspreis", cls: "" },
+                      { label: "Mindestbestellmenge", cls: "hidden lg:table-cell" },
+                      { label: "Lieferzeit (Tage)", cls: "hidden lg:table-cell" },
+                      { label: "Bevorzugt", cls: "" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -647,11 +654,14 @@ export default function ArtikelDetailPage() {
                 <tbody className="divide-y divide-gray-100">
                   {artikel.lieferanten.map((l) => (
                     <tr key={l.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">{l.lieferant.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{l.artikelNrBeiLieferant ?? "—"}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {l.lieferant.name}
+                        <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.artikelNrBeiLieferant ?? ""}</div>
+                      </td>
+                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.artikelNrBeiLieferant ?? "—"}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(l.einkaufspreis)}</td>
-                      <td className="px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{l.lieferzeit ?? "—"}</td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeit ?? "—"}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => toggleBevorzugt(l.lieferantId)}
@@ -701,7 +711,7 @@ export default function ArtikelDetailPage() {
                       className={inputCls}
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Einkaufspreis (€)</label>
                       <input
@@ -740,17 +750,17 @@ export default function ArtikelDetailPage() {
                     />
                     <label htmlFor="bev" className="text-sm text-gray-700">Bevorzugter Lieferant</label>
                   </div>
-                  <div className="flex justify-end gap-3 pt-2">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                     <button
                       onClick={() => setShowLiefModal(false)}
-                      className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                      className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
                     >
                       Abbrechen
                     </button>
                     <button
                       onClick={addLieferant}
                       disabled={savingLief}
-                      className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+                      className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                     >
                       {savingLief ? "Speichern…" : "Hinzufügen"}
                     </button>
@@ -773,9 +783,14 @@ export default function ArtikelDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {["Datum", "Alter Preis", "Neuer Preis", "Differenz"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      {h}
+                  {[
+                    { label: "Datum", cls: "" },
+                    { label: "Alter Preis", cls: "hidden sm:table-cell" },
+                    { label: "Neuer Preis", cls: "" },
+                    { label: "Differenz", cls: "" },
+                  ].map((h) => (
+                    <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -786,8 +801,11 @@ export default function ArtikelDetailPage() {
                   const diffCls = diff > 0 ? "text-red-600" : diff < 0 ? "text-green-700" : "text-gray-500";
                   return (
                     <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">{formatDatum(p.geaendertAm)}</td>
-                      <td className="px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
+                      <td className="px-4 py-3">
+                        {formatDatum(p.geaendertAm)}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">vorher: {formatEuro(p.alterPreis)}</div>
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(p.neuerPreis)}</td>
                       <td className={`px-4 py-3 font-mono font-medium ${diffCls}`}>
                         {diff > 0 ? "+" : ""}{formatEuro(diff)}
@@ -811,9 +829,14 @@ export default function ArtikelDetailPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {["Name", "Notiz", "Datum", "Download"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                        {h}
+                    {[
+                      { label: "Name", cls: "" },
+                      { label: "Notiz", cls: "hidden sm:table-cell" },
+                      { label: "Datum", cls: "hidden sm:table-cell" },
+                      { label: "Download", cls: "" },
+                    ].map((h) => (
+                      <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                        {h.label}
                       </th>
                     ))}
                   </tr>
@@ -821,9 +844,12 @@ export default function ArtikelDetailPage() {
                 <tbody className="divide-y divide-gray-100">
                   {artikel.dokumente.map((d) => (
                     <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">{d.name}</td>
-                      <td className="px-4 py-3 text-gray-500">{d.notiz ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{formatDatum(d.createdAt)}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {d.name}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">{formatDatum(d.createdAt)}{d.notiz ? ` · ${d.notiz}` : ""}</div>
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{d.notiz ?? "—"}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{formatDatum(d.createdAt)}</td>
                       <td className="px-4 py-3">
                         <a
                           href={d.pfad}
@@ -841,7 +867,7 @@ export default function ArtikelDetailPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-lg">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 max-w-lg">
             <h3 className="font-semibold text-gray-800 mb-4">Dokument hochladen</h3>
             <form onSubmit={uploadDokument} className="space-y-4">
               {uploadError && (
@@ -881,7 +907,7 @@ export default function ArtikelDetailPage() {
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                 >
                   {uploading ? "Hochladen…" : "Hochladen"}
                 </button>
@@ -900,9 +926,14 @@ export default function ArtikelDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {["Kunde", "Menge", "Einheit", "Intervall"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      {h}
+                  {[
+                    { label: "Kunde", cls: "" },
+                    { label: "Menge", cls: "" },
+                    { label: "Einheit", cls: "hidden sm:table-cell" },
+                    { label: "Intervall", cls: "hidden sm:table-cell" },
+                  ].map((h) => (
+                    <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                      {h.label}
                     </th>
                   ))}
                 </tr>
@@ -910,10 +941,13 @@ export default function ArtikelDetailPage() {
               <tbody className="divide-y divide-gray-100">
                 {artikel.bedarfe.map((b) => (
                   <tr key={b.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{b.kunde.name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {b.kunde.name}
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">{b.einheit} · {b.intervall}</div>
+                    </td>
                     <td className="px-4 py-3 font-mono">{b.menge}</td>
-                    <td className="px-4 py-3 text-gray-600">{b.einheit}</td>
-                    <td className="px-4 py-3 text-gray-600">{b.intervall}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{b.einheit}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{b.intervall}</td>
                   </tr>
                 ))}
               </tbody>

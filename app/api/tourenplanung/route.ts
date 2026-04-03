@@ -14,24 +14,28 @@ export async function GET(req: NextRequest) {
   const bis = new Date(datum);
   bis.setHours(23, 59, 59, 999);
 
-  const lieferungen = await prisma.lieferung.findMany({
-    where: {
-      status: "geplant",
-      datum: { gte: von, lte: bis },
-    },
-    include: {
-      kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
-    },
-    orderBy: { datum: "asc" },
-  });
+  try {
+    const lieferungen = await prisma.lieferung.findMany({
+      where: {
+        status: "geplant",
+        datum: { gte: von, lte: bis },
+      },
+      include: {
+        kunde: { include: { kontakte: true } },
+        positionen: { include: { artikel: true } },
+      },
+      orderBy: { datum: "asc" },
+    });
 
-  // Sortierung nach PLZ des Kunden (aufsteigend)
-  lieferungen.sort((a, b) => {
-    const plzA = a.kunde.plz ?? "";
-    const plzB = b.kunde.plz ?? "";
-    return plzA.localeCompare(plzB);
-  });
+    // Sortierung nach PLZ des Kunden (aufsteigend)
+    lieferungen.sort((a, b) => {
+      const plzA = a.kunde.plz ?? "";
+      const plzB = b.kunde.plz ?? "";
+      return plzA.localeCompare(plzB);
+    });
 
-  return NextResponse.json(lieferungen);
+    return NextResponse.json(lieferungen);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

@@ -7,25 +7,34 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const gutschrift = await prisma.gutschrift.findUnique({
-    where: { id: Number(id) },
-    include: {
-      kunde: true,
-      lieferung: {
-        include: { positionen: { include: { artikel: true } } },
+  try {
+    const gutschrift = await prisma.gutschrift.findUnique({
+      where: { id: Number(id) },
+      include: {
+        kunde: true,
+        lieferung: {
+          include: { positionen: { include: { artikel: true } } },
+        },
+        positionen: { include: { artikel: true } },
       },
-      positionen: { include: { artikel: true } },
-    },
-  });
-  if (!gutschrift) {
-    return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    });
+    if (!gutschrift) {
+      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    }
+    return NextResponse.json(gutschrift);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
-  return NextResponse.json(gutschrift);
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
 
   try {
     const existing = await prisma.gutschrift.findUnique({

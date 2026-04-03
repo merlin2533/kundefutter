@@ -76,14 +76,14 @@ function NeueAufgabeForm() {
   }));
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-4 sm:px-0">
       <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
         <Link href="/aufgaben" className="hover:text-green-700">Aufgaben</Link>
         <span>›</span>
         <span className="text-gray-800 font-medium">Neue Aufgabe</span>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h1 className="text-xl font-bold mb-6">Neue Aufgabe</h1>
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
@@ -173,20 +173,20 @@ function NeueAufgabeForm() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-            >
-              {saving ? "Speichern…" : "Aufgabe erstellen"}
-            </button>
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
             <Link
               href="/aufgaben"
-              className="w-full sm:w-auto text-center px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto text-center px-6 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
               Abbrechen
             </Link>
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 sm:py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {saving ? "Speichern…" : "Aufgabe erstellen"}
+            </button>
           </div>
         </form>
       </div>

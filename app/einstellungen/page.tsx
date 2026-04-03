@@ -9,9 +9,9 @@ function EinstellungTile({ href, icon, title, description }: {
   return (
     <Link
       href={href}
-      className="block p-5 bg-white border border-gray-200 rounded-xl hover:border-green-400 hover:shadow-md transition-all group"
+      className="block p-4 sm:p-5 bg-white border border-gray-200 rounded-xl hover:border-green-400 hover:shadow-md transition-all group active:bg-green-50"
     >
-      <div className="text-3xl mb-3">{icon}</div>
+      <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">{icon}</div>
       <h3 className="font-semibold text-gray-800 group-hover:text-green-700">{title}</h3>
       <p className="text-sm text-gray-500 mt-1">{description}</p>
     </Link>
@@ -21,9 +21,9 @@ function EinstellungTile({ href, icon, title, description }: {
 export default function EinstellungenPage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-8">Einstellungen</h1>
+      <h1 className="text-2xl font-bold mb-6 sm:mb-8">Einstellungen</h1>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <EinstellungTile
           href="/einstellungen/firma"
           icon="🏢"
@@ -113,6 +113,12 @@ export default function EinstellungenPage() {
           icon="📥"
           title="Artikel-Stammdaten"
           description="marstall & BvG Agrar Artikel manuell importieren"
+        />
+        <EinstellungTile
+          href="/einstellungen/ki"
+          icon="🤖"
+          title="KI / AI"
+          description="API-Keys, Modellauswahl und Nutzungsstatistik"
         />
       </div>
     </div>

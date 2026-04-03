@@ -152,9 +152,9 @@ export default function TagesansichtPage() {
   });
 
   return (
-    <div>
+    <div className="px-4 sm:px-6 py-4 sm:py-0">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Tages-Übersicht</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Tages-Übersicht</h1>
         <p className="text-sm text-gray-500 mt-0.5">{today}</p>
       </div>
 
@@ -174,23 +174,23 @@ export default function TagesansichtPage() {
         </span>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {/* Card 1: Offene Aufgaben */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-gray-800">Offene Aufgaben</h2>
             <Link href="/aufgaben" className="text-xs text-green-700 hover:underline">Alle &rarr;</Link>
           </div>
           {data.offeneAufgaben.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400">Keine offenen Aufgaben.</p>
+            <p className="px-4 sm:px-5 py-6 text-sm text-gray-400">Keine offenen Aufgaben.</p>
           ) : (
             <ul className="divide-y divide-gray-50">
               {data.offeneAufgaben.map((a) => (
-                <li key={a.id} className="px-5 py-3 flex items-start gap-3">
+                <li key={a.id} className="px-4 sm:px-5 py-3 flex items-start gap-3">
                   <button
                     onClick={() => toggleAufgabe(a)}
                     disabled={toggling === a.id}
-                    className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 ${
+                    className={`mt-0.5 w-6 h-6 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors disabled:opacity-40 ${
                       a.erledigt ? "bg-green-500 border-green-500" : "border-gray-400 hover:border-green-500"
                     }`}
                   >
@@ -228,16 +228,16 @@ export default function TagesansichtPage() {
 
         {/* Card 2: Fällige Anrufe */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-gray-800">Fällige Anrufe</h2>
             <Link href="/crm" className="text-xs text-green-700 hover:underline">CRM &rarr;</Link>
           </div>
           {data.faelligeAnrufe.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400">Keine fälligen Anrufe.</p>
+            <p className="px-4 sm:px-5 py-6 text-sm text-gray-400">Keine fälligen Anrufe.</p>
           ) : (
             <ul className="divide-y divide-gray-50">
               {data.faelligeAnrufe.map((ak) => (
-                <li key={ak.id} className="px-5 py-3 flex items-start gap-3">
+                <li key={ak.id} className="px-4 sm:px-5 py-3 flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800">{ak.betreff}</div>
                     <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-2">
@@ -255,7 +255,7 @@ export default function TagesansichtPage() {
                   </div>
                   <button
                     onClick={() => erledigeAnruf(ak.id)}
-                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0"
+                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0"
                   >
                     Erledigt
                   </button>
@@ -267,16 +267,16 @@ export default function TagesansichtPage() {
 
         {/* Card 3: Kein Kontakt 30 Tage */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-800">Kein Kontakt (30 Tage)</h2>
             <p className="text-xs text-gray-500 mt-0.5">Aktive Kunden ohne Aktivität seit 30 Tagen</p>
           </div>
           {data.keinKontakt30.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400">Alle Kunden wurden zuletzt kontaktiert.</p>
+            <p className="px-4 sm:px-5 py-6 text-sm text-gray-400">Alle Kunden wurden zuletzt kontaktiert.</p>
           ) : (
             <ul className="divide-y divide-gray-50">
               {data.keinKontakt30.map((k) => (
-                <li key={k.id} className="px-5 py-3 flex items-center gap-3">
+                <li key={k.id} className="px-4 sm:px-5 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <Link href={`/kunden/${k.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
                       {k.name}
@@ -295,7 +295,7 @@ export default function TagesansichtPage() {
                   ) : (
                     <button
                       onClick={() => erfasseAnruf(k.id)}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0"
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0"
                     >
                       Anruf erfassen
                     </button>
@@ -308,16 +308,16 @@ export default function TagesansichtPage() {
 
         {/* Card 4: Heutige Touren */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-semibold text-gray-800">Heutige Touren</h2>
             <Link href="/lieferungen" className="text-xs text-green-700 hover:underline">Alle &rarr;</Link>
           </div>
           {data.heutigeTouren.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400">Keine Touren für heute geplant.</p>
+            <p className="px-4 sm:px-5 py-6 text-sm text-gray-400">Keine Touren für heute geplant.</p>
           ) : (
             <ul className="divide-y divide-gray-50">
               {data.heutigeTouren.map((t) => (
-                <li key={t.id} className="px-5 py-3 flex items-center gap-3">
+                <li key={t.id} className="px-4 sm:px-5 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <Link href={`/lieferungen/${t.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
                       {t.kunde?.name ?? `Lieferung #${t.id}`}

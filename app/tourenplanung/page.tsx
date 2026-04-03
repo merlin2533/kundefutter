@@ -629,7 +629,7 @@ export default function TourenplanungPage() {
       </Card>
 
       <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
-        <h2 className="font-semibold text-lg">
+        <h2 className="font-semibold text-base sm:text-lg">
           {loading
             ? "Lade…"
             : `${lieferungen.length} Lieferung${lieferungen.length !== 1 ? "en" : ""} am ${formatDatum(datum)}`}
@@ -637,32 +637,32 @@ export default function TourenplanungPage() {
             <span className="ml-2 text-xs text-yellow-600 font-normal">{mitKoords}/{lieferungen.length} mit Koordinaten</span>
           )}
         </h2>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap w-full sm:w-auto">
           {lieferungen.length > 0 && (
             <>
               <button
                 onClick={optimiereRoute}
                 disabled={optimizing || mitKoords === 0 || !startLat}
-                className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {optimizing ? "Optimiere…" : "Route optimieren"}
               </button>
               <button
                 onClick={berechneRoute}
                 disabled={routeLoading || mitKoords === 0}
-                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {routeLoading ? "Berechne…" : "Route berechnen (OSRM)"}
               </button>
               <button
                 onClick={() => window.open(pdfUrl, "_blank")}
-                className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
+                className="w-full sm:w-auto px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
               >
                 Touren-PDF
               </button>
               <button
                 onClick={() => window.print()}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5"
+                className="w-full sm:w-auto px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-1.5"
               >
                 🖨 Ausdruck / Handzettel
               </button>
@@ -705,12 +705,12 @@ export default function TourenplanungPage() {
               <thead>
                 <tr className="text-left text-gray-500 border-b text-xs uppercase">
                   <th className="pb-2 w-8">Nr.</th>
-                  <th className="pb-2">PLZ</th>
-                  <th className="pb-2">Ort</th>
+                  <th className="pb-2 hidden sm:table-cell">PLZ</th>
+                  <th className="pb-2 hidden sm:table-cell">Ort</th>
                   <th className="pb-2">Kunde</th>
-                  <th className="pb-2">Artikel</th>
-                  <th className="pb-2 text-right">Km</th>
-                  <th className="pb-2 text-right">Fahrzeit</th>
+                  <th className="pb-2 hidden md:table-cell">Artikel</th>
+                  <th className="pb-2 text-right hidden sm:table-cell">Km</th>
+                  <th className="pb-2 text-right hidden sm:table-cell">Fahrzeit</th>
                 </tr>
               </thead>
               <tbody>
@@ -721,8 +721,8 @@ export default function TourenplanungPage() {
                   return (
                     <tr key={l.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="py-2.5 text-gray-400">{i + 1}</td>
-                      <td className="py-2.5 font-mono text-xs">{l.kunde.plz ?? "–"}</td>
-                      <td className="py-2.5">{l.kunde.ort ?? "–"}</td>
+                      <td className="py-2.5 font-mono text-xs hidden sm:table-cell">{l.kunde.plz ?? "–"}</td>
+                      <td className="py-2.5 hidden sm:table-cell">{l.kunde.ort ?? "–"}</td>
                       <td className="py-2.5">
                         <div className="font-medium flex items-center gap-1.5">
                           {l.kunde.firma ?? l.kunde.name}
@@ -735,15 +735,22 @@ export default function TourenplanungPage() {
                         {!hatKoords && (
                           <span className="text-xs text-yellow-600">⚠ Keine Koordinaten</span>
                         )}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                          {[l.kunde.plz, l.kunde.ort].filter(Boolean).join(" ") || "–"}
+                          {leg ? ` · ${leg.distanceKm.toFixed(1)} km` : ""}
+                        </div>
+                        <div className="md:hidden text-xs text-gray-400 mt-0.5 truncate">
+                          {artikelZusammenfassung(l.positionen)}
+                        </div>
                       </td>
-                      <td className="py-2.5 text-gray-600 max-w-[220px]">
+                      <td className="py-2.5 text-gray-600 max-w-[220px] hidden md:table-cell">
                         <div className="truncate">{artikelZusammenfassung(l.positionen)}</div>
                         {l.notiz && <div className="text-xs text-gray-400 mt-0.5">{l.notiz}</div>}
                       </td>
-                      <td className="py-2.5 text-right text-blue-700 font-medium whitespace-nowrap">
+                      <td className="py-2.5 text-right text-blue-700 font-medium whitespace-nowrap hidden sm:table-cell">
                         {leg ? `${leg.distanceKm.toFixed(1)} km` : "—"}
                       </td>
-                      <td className="py-2.5 text-right text-blue-600 whitespace-nowrap">
+                      <td className="py-2.5 text-right text-blue-600 whitespace-nowrap hidden sm:table-cell">
                         {leg ? formatMin(leg.durationMin) : "—"}
                       </td>
                     </tr>
@@ -753,9 +760,13 @@ export default function TourenplanungPage() {
               {routeLegs.length > 0 && (
                 <tfoot>
                   <tr className="border-t-2 border-gray-300 font-semibold">
-                    <td colSpan={5} className="pt-2 text-right text-sm text-gray-600">Gesamt:</td>
-                    <td className="pt-2 text-right text-blue-700">{gesamtKm.toFixed(1)} km</td>
-                    <td className="pt-2 text-right text-blue-600">{formatMin(gesamtMin)}</td>
+                    <td colSpan={2} className="pt-2 text-right text-sm text-gray-600 sm:hidden">Gesamt:</td>
+                    <td colSpan={5} className="pt-2 text-right text-sm text-gray-600 hidden sm:table-cell">Gesamt:</td>
+                    <td className="pt-2 text-right text-blue-700 hidden sm:table-cell">{gesamtKm.toFixed(1)} km</td>
+                    <td className="pt-2 text-right text-blue-600 hidden sm:table-cell">{formatMin(gesamtMin)}</td>
+                    <td className="pt-2 text-right text-blue-700 text-xs sm:hidden">
+                      {gesamtKm.toFixed(1)} km · {formatMin(gesamtMin)}
+                    </td>
                   </tr>
                 </tfoot>
               )}
@@ -874,8 +885,8 @@ export default function TourenplanungPage() {
                 <tr className="text-left text-gray-500 border-b text-xs uppercase">
                   <th className="pb-2">Datum</th>
                   <th className="pb-2">Kundenname</th>
-                  <th className="pb-2">Adresse</th>
-                  <th className="pb-2">Betreff</th>
+                  <th className="pb-2 hidden sm:table-cell">Adresse</th>
+                  <th className="pb-2 hidden md:table-cell">Betreff</th>
                   <th className="pb-2 text-right">Aktionen</th>
                 </tr>
               </thead>
@@ -888,12 +899,16 @@ export default function TourenplanungPage() {
                     <td className="py-2.5">
                       <div className="font-medium">{b.kunde.firma ?? b.kunde.name}</div>
                       {b.kunde.firma && <div className="text-xs text-gray-500">{b.kunde.name}</div>}
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                        {[b.kunde.plz, b.kunde.ort].filter(Boolean).join(" ") || "–"}
+                      </div>
+                      <div className="md:hidden text-xs text-gray-400 mt-0.5">{b.betreff}</div>
                     </td>
-                    <td className="py-2.5 text-gray-600">
+                    <td className="py-2.5 text-gray-600 hidden sm:table-cell">
                       {[b.kunde.plz, b.kunde.ort].filter(Boolean).join(" ") || "–"}
                       {b.kunde.strasse && <div className="text-xs text-gray-400">{b.kunde.strasse}</div>}
                     </td>
-                    <td className="py-2.5 text-gray-700">
+                    <td className="py-2.5 text-gray-700 hidden md:table-cell">
                       {b.betreff}
                       {b.inhalt && <div className="text-xs text-gray-400 mt-0.5">{b.inhalt}</div>}
                     </td>

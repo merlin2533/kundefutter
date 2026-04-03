@@ -18,6 +18,7 @@ const groups: NavGroup[] = [
       { href: "/kunden/karte", label: "Karte" },
       { href: "/kundenimport", label: "Import" },
       { href: "/crm", label: "CRM / Aktivitäten" },
+      { href: "/besuchstermine", label: "Besuchstermine" },
       { href: "/gebietsanalyse", label: "Gebietsanalyse" },
       { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
       { href: "/mailverteiler", label: "Mailverteiler" },
@@ -51,6 +52,7 @@ const groups: NavGroup[] = [
     label: "Finanzen",
     children: [
       { href: "/rechnungen", label: "Rechnungen" },
+      { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
@@ -67,6 +69,14 @@ const groups: NavGroup[] = [
       { href: "/analyse/saisonal", label: "Saisonal" },
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
+    ],
+  },
+  {
+    label: "KI",
+    children: [
+      { href: "/ki/wareneingang", label: "KI-Wareneingang" },
+      { href: "/ki/lieferung", label: "KI-Lieferung" },
+      { href: "/ki/crm", label: "KI-CRM Notiz" },
     ],
   },
   { label: "Einstellungen", href: "/einstellungen" },
@@ -95,6 +105,8 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/inventur": "Inventur",
   "/statistik": "Statistik",
   "/rechnungen": "Rechnungen",
+  "/sammelrechnungen": "Sammelrechnungen",
+  "/gutschriften": "Gutschriften",
   "/mahnwesen": "Mahnwesen",
 };
 
