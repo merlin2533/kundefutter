@@ -71,6 +71,14 @@ const groups: NavGroup[] = [
       { href: "/audit", label: "Änderungshistorie" },
     ],
   },
+  {
+    label: "KI",
+    children: [
+      { href: "/ki/wareneingang", label: "KI-Wareneingang" },
+      { href: "/ki/lieferung", label: "KI-Lieferung" },
+      { href: "/ki/crm", label: "KI-CRM Notiz" },
+    ],
+  },
   { label: "Einstellungen", href: "/einstellungen" },
 ];
 
