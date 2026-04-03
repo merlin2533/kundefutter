@@ -22,6 +22,7 @@ KundeNotiz          — 1:N Notizen mit thema (Wichtig/Info/Offener Punkt/Wettbe
 KundeAktivitaet     — CRM-Aktivitäten (typ, betreff, inhalt, datum, faelligAm, erledigt)
 Lieferant           — Lieferantenstamm
 Artikel             — Lagerartikel mit Preis, Mindestbestand
+ArtikelInhaltsstoff — 1:N Inhaltsstoffe je Artikel (name, menge Float?, einheit String?)
 ArtikelDokument     — Dateianlagen an Artikel
 ArtikelLieferant    — Einkaufspreise je Lieferant
 ArtikelPreisHistorie— Preishistorie
@@ -160,7 +161,11 @@ app/
 /api/telefonmaske               GET?q=X (max 5 Kunden mit Kontakten, Bedarfen, offenen Rechnungen)
 /api/einstellungen              GET(?prefix=), PUT({key,value})
 /api/exporte/tour               GET(?tourname=)
-/api/suche                      GET(?q=) — Kunden/Artikel/Lieferungen, min 2 Zeichen
+/api/suche                      GET(?q=) — Kunden/Artikel/Lieferungen/Inhaltsstoffe, min 2 Zeichen
+/api/ki/analyze                 POST({image?,text?,feature}) — Bild-/Text-Analyse (wareneingang|lieferung|crm)
+/api/ki/inhaltsstoffe           POST({name,kategorie?}) — KI-Recherche Produktzusammensetzung
+/api/ki/test                    POST — Verbindungstest API-Key
+/api/ki/statistik               GET(?tage=30) — Nutzungsstatistik
 ```
 
 ---
@@ -231,6 +236,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Stammdaten | /einstellungen/stammdaten | Kategorien, Mitarbeiter, Einheiten |
 | Lieferanten | /einstellungen/lieferanten | Zahlungskonditionen, MwSt |
 | Agraranträge (AFIG) | /einstellungen/agrarantraege | CSV-Import UI |
+| KI / AI | /einstellungen/ki | API-Keys, Modell, Prompt-Verwaltung, Statistik |
 
 ---
 
@@ -255,6 +261,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 
 - `Artikel.mwstSatz Float @default(19)` — 0 | 7 | 19
 - `Artikel.aktuellerBestand Float` + `Artikel.mindestbestand Float`
+- `ArtikelInhaltsstoff.name String` + `menge Float?` + `einheit String?` — 1:N pro Artikel
 - `AntragEmpfaenger.steuerNr String?`
 - `Lieferung.rechnungNr String?` + `rechnungDatum DateTime?`
 - `Lieferposition.chargeNr String?`
@@ -277,6 +284,37 @@ function lagerAmpel(artikel: {aktuellerBestand: number; mindestbestand: number; 
 }
 ```
 Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
+
+## Artikel-Inhaltsstoffe
+
+- **Modell:** `ArtikelInhaltsstoff` — 1:N pro Artikel (name, menge Float?, einheit String?)
+- **Tab:** Eigener Tab "Inhaltsstoffe" auf der Artikel-Detailseite
+- **KI-Button:** "🤖 KI-Suche" auf Artikel-Detail + Artikel-Neu Seite
+  - Ruft `POST /api/ki/inhaltsstoffe` mit Artikelname + Kategorie
+  - Nutzt `analyzeText()` aus `lib/ai.ts` mit Prompt `PROMPTS.inhaltsstoffe`
+  - Ergebnis: Array von `{name, menge, einheit}` → wird ins Formular eingefügt
+- **Suche:** Inhaltsstoffe durchsuchbar via:
+  - Artikelliste: `GET /api/artikel?search=Schwefel` (Prisma `inhaltsstoffe.some.name.contains`)
+  - Globale Suche (Cmd+K): FTS5 + Fallback `contains`
+  - FTS5 `artikel_fts` hat Spalte `inhaltsstoffe` (group_concat der Namen)
+  - Trigger auf `ArtikelInhaltsstoff` INSERT/DELETE halten FTS aktuell
+- **Stammdaten:** BvG-Produkte in `lib/artikel-stammdaten.ts` haben strukturierte Inhaltsstoffe
+
+## KI-Integration
+
+- **Provider:** OpenAI oder Anthropic, konfigurierbar unter `/einstellungen/ki`
+- **Modelle:** GPT-4o/4.1 (OpenAI), Claude Sonnet/Haiku/Opus 4 (Anthropic)
+- **Lib:** `lib/ai.ts` — `analyzeImage()`, `analyzeText()`, `getAiConfig()`, `PROMPTS`
+- **DB-Keys:** `ki.provider`, `ki.modell`, `ki.openai_key`, `ki.anthropic_key`
+- **Prompt-Verwaltung:** Benutzerdefinierte Prompts in `ki.prompt.<feature>` (Einstellung)
+  - Features: wareneingang, lieferung, crm, inhaltsstoffe
+  - Leerer Wert → Standard-Prompt aus `PROMPTS` in `lib/ai.ts`
+  - UI: Akkordeon-Layout in `/einstellungen/ki` (Prompt pro Feature editierbar)
+- **Kostentracking:** `KiNutzung`-Tabelle (provider, modell, feature, tokens, kostenCent)
+- **KI-Seiten:**
+  - `/ki/wareneingang` — Lieferschein-Erkennung per Foto
+  - `/ki/lieferung` — Bestellungs-Erkennung
+  - `/ki/crm` — CRM-Notizen aus Bild/Sprache
 
 ## Wettbewerber-Notizen
 
