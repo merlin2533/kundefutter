@@ -12,6 +12,13 @@ export NO_UPDATE_NOTIFIER=1
 
 log "=== KundeFutter startet ==="
 
+# Next.js Cache invalidieren (verhindert stale Seiten nach Neustart/Update)
+if [ -d ".next/cache" ]; then
+  log "Next.js Cache invalidieren..."
+  rm -rf .next/cache
+  ok "Cache gelöscht"
+fi
+
 # Netzwerkverbindung prüfen
 log "Netzwerkverbindung prüfen (google.de)..."
 if ping -c 1 -W 3 google.de > /dev/null 2>&1; then
