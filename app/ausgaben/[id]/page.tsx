@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import CameraUpload from "@/components/CameraUpload";
 
 const KATEGORIEN = [
   "Wareneinkauf",
@@ -36,6 +37,16 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [bezahltAm, setBezahltAm] = useState("");
   const [notiz, setNotiz] = useState("");
 
+  // Beleg state
+  const [belegPfad, setBelegPfad] = useState<string>("");
+  const [belegDateiname, setBelegDateiname] = useState<string>("");
+  const [belegFile, setBelegFile] = useState<File | null>(null);
+  const [belegPreview, setBelegPreview] = useState<string>("");
+  const [belegName, setBelegName] = useState<string>("");
+  const [kiLaeding, setKiLaeding] = useState(false);
+  const [kiHinweis, setKiHinweis] = useState("");
+  const [belegUploading, setBelegUploading] = useState(false);
+
   useEffect(() => {
     params.then(p => {
       const numId = parseInt(p.id, 10);
@@ -50,6 +61,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         setLieferantId(a.lieferantId ? String(a.lieferantId) : "");
         setBezahltAm(a.bezahltAm?.slice(0, 10) ?? "");
         setNotiz(a.notiz ?? "");
+        setBelegPfad(a.belegPfad ?? "");
+        setBelegDateiname(a.belegDateiname ?? "");
         setLaden(false);
       });
     });
@@ -60,6 +73,79 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const mwstBetrag = netto * (parseFloat(mwstSatz) / 100);
   const brutto = netto + mwstBetrag;
 
+  function handleBelegSelected(file: File, preview: string) {
+    setBelegFile(file);
+    setBelegPreview(preview);
+    setBelegName(file.name);
+    setKiHinweis("");
+  }
+
+  async function kiAnalyse() {
+    const imgSrc = belegPreview || (belegPfad ? belegPfad : null);
+    if (!imgSrc) return;
+    setKiLaeding(true);
+    setKiHinweis("");
+    try {
+      // If we have a stored beleg (not a new preview), fetch it as base64
+      let imageData = belegPreview;
+      if (!imageData && belegPfad) {
+        const r = await fetch(belegPfad);
+        const blob = await r.blob();
+        imageData = await new Promise<string>((res) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result as string);
+          fr.readAsDataURL(blob);
+        });
+      }
+      const res = await fetch("/api/ki/beleg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setKiHinweis("KI-Fehler: " + (d.error ?? "Unbekannt"));
+        return;
+      }
+      const d = await res.json();
+      if (d.datum) setDatum(d.datum);
+      if (d.belegNr) setBelegNr(d.belegNr);
+      if (d.beschreibung) setBeschreibung(d.beschreibung);
+      if (d.betragNetto !== null && d.betragNetto !== undefined) setBetragNetto(String(d.betragNetto));
+      if (d.mwstSatz !== undefined) setMwstSatz(String(d.mwstSatz));
+      if (d.kategorie) setKategorie(d.kategorie);
+      setKiHinweis("Felder wurden automatisch ausgefüllt – bitte prüfen.");
+    } catch {
+      setKiHinweis("KI-Analyse fehlgeschlagen.");
+    } finally {
+      setKiLaeding(false);
+    }
+  }
+
+  async function belegUploadSofort() {
+    if (!belegFile || !id) return;
+    setBelegUploading(true);
+    const fd = new FormData();
+    fd.append("file", belegFile);
+    const res = await fetch(`/api/ausgaben/${id}/beleg`, { method: "POST", body: fd });
+    if (res.ok) {
+      const d = await res.json();
+      setBelegPfad(d.belegPfad);
+      setBelegDateiname(d.belegDateiname ?? belegFile.name);
+      setBelegFile(null);
+      setBelegPreview("");
+      setBelegName("");
+    }
+    setBelegUploading(false);
+  }
+
+  async function belegLoeschen() {
+    if (!id) return;
+    await fetch(`/api/ausgaben/${id}/beleg`, { method: "DELETE" });
+    setBelegPfad("");
+    setBelegDateiname("");
+  }
+
   async function speichern(e: React.FormEvent) {
     e.preventDefault();
     if (!beschreibung.trim() || !betragNetto) {
@@ -68,6 +154,21 @@ export default function AusgabeDetailPage({ params }: Ctx) {
     }
     setSaving(true);
     setFehler("");
+
+    // Upload pending beleg first if any
+    if (belegFile && id) {
+      const fd = new FormData();
+      fd.append("file", belegFile);
+      const ur = await fetch(`/api/ausgaben/${id}/beleg`, { method: "POST", body: fd });
+      if (ur.ok) {
+        const d = await ur.json();
+        setBelegPfad(d.belegPfad);
+        setBelegFile(null);
+        setBelegPreview("");
+        setBelegName("");
+      }
+    }
+
     const res = await fetch(`/api/ausgaben/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -103,6 +204,85 @@ export default function AusgabeDetailPage({ params }: Ctx) {
 
       <form onSubmit={speichern} className="bg-white border rounded p-5 space-y-4">
         {fehler && <div className="bg-red-50 text-red-700 px-3 py-2 rounded text-sm">{fehler}</div>}
+
+        {/* ── Beleg ── */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Beleg (Foto / Upload)</label>
+
+          {/* Bereits gespeicherter Beleg */}
+          {belegPfad && !belegPreview && (
+            <div className="space-y-2">
+              <div className="border rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center min-h-48">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={belegPfad} alt="Beleg" className="max-h-72 max-w-full object-contain" />
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-gray-500 flex-1 truncate">{belegDateiname || belegPfad.split("/").pop()}</span>
+                <button type="button" onClick={() => setBelegPreview("__replace__")}
+                  className="text-xs text-blue-600 hover:underline shrink-0">Ersetzen</button>
+                <button type="button" onClick={belegLoeschen}
+                  className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
+              </div>
+              <button
+                type="button"
+                onClick={kiAnalyse}
+                disabled={kiLaeding}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+              >
+                {kiLaeding ? (
+                  <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
+                ) : <span>🤖</span>}
+                {kiLaeding ? "KI analysiert…" : "KI: Felder automatisch ausfüllen"}
+              </button>
+            </div>
+          )}
+
+          {/* Neues Bild auswählen / hochladen */}
+          {(!belegPfad || belegPreview) && (
+            <>
+              <CameraUpload
+                onImageSelected={handleBelegSelected}
+                imagePreview={belegPreview === "__replace__" ? "" : belegPreview}
+                imageName={belegName}
+                onRemove={() => {
+                  setBelegFile(null);
+                  setBelegPreview(belegPfad ? "" : "");
+                  setBelegName("");
+                  setKiHinweis("");
+                  if (belegPfad) setBelegPreview("");
+                }}
+                maxResolution={1200}
+              />
+              {belegPreview && belegPreview !== "__replace__" && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={kiAnalyse}
+                    disabled={kiLaeding}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+                  >
+                    {kiLaeding ? (
+                      <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
+                    ) : <span>🤖</span>}
+                    {kiLaeding ? "Analysiert…" : "KI-Analyse"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={belegUploadSofort}
+                    disabled={belegUploading}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded border border-green-300 bg-green-50 text-green-700 text-sm font-medium hover:bg-green-100 disabled:opacity-50"
+                  >
+                    {belegUploading ? "Hochladen…" : "Beleg speichern"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {kiHinweis && (
+            <p className="mt-1 text-xs text-purple-700 bg-purple-50 rounded px-2 py-1">{kiHinweis}</p>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>

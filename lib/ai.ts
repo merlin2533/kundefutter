@@ -442,6 +442,28 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 
 Wenn ein Feld nicht erkennbar ist, setze null.`,
 
+  beleg: `Du bist ein Buchhalter-Assistent für ein Agrarunternehmen.
+Analysiere das Foto einer Eingangsrechnung / eines Kassenbelegs und extrahiere alle buchungsrelevanten Daten.
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
+{
+  "datum": "Rechnungsdatum im Format YYYY-MM-DD (falls erkennbar, sonst null)",
+  "belegNr": "Rechnungsnummer / Belegnummer des Lieferanten (falls erkennbar, sonst null)",
+  "beschreibung": "Kurze, prägnante Beschreibung des Kaufgegenstands (max. 80 Zeichen)",
+  "betragNetto": 123.45,
+  "mwstSatz": 19,
+  "betragBrutto": 146.91,
+  "lieferant": "Name des Rechnungsstellers (falls erkennbar, sonst null)",
+  "kategorie": "Eine der folgenden Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf | Telefon/Internet | Versicherung | Miete | Sonstige"
+}
+
+Regeln:
+- "mwstSatz" muss 0, 7 oder 19 sein. Wenn mehrere Sätze auf dem Beleg, wähle den dominanten.
+- "betragNetto" und "betragBrutto" als Dezimalzahl mit Punkt (kein €-Zeichen).
+- Wenn Netto nicht direkt angegeben: berechne aus Brutto und MwSt.
+- "kategorie" anhand des Inhalts einordnen (z.B. Dünger/Futter → Wareneinkauf, Reparatur → Betriebsbedarf).
+- Fehlende Felder auf null setzen, niemals erfinden.`,
+
   inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Ergänzungsfutter, Mineralfutter, Düngemittel, Saatgut, Pflanzenhilfsmittel).
 Recherchiere die Inhaltsstoffe / Zusammensetzung des genannten Produkts anhand seines Namens.
 

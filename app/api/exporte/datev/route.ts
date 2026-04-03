@@ -120,6 +120,7 @@ export async function GET(req: NextRequest) {
         mwstSatz: true,
         kategorie: true,
         lieferantId: true,
+        belegPfad: true,
       },
       orderBy: { datum: "asc" },
     }),
@@ -136,7 +137,13 @@ export async function GET(req: NextRequest) {
     belegdatum: string;
     belegfeld1: string;
     buchungstext: string;
+    beleglink: string;   // URL zum Belegscan (DATEV Beleglink Feld)
   }
+
+  // Base URL for Beleglink (e.g. http://194.164.59.48:8080)
+  const proto = req.headers.get("x-forwarded-proto") ?? "http";
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+  const baseUrl = host ? `${proto}://${host}` : "";
 
   const rows: DatevRow[] = [];
 
@@ -167,6 +174,7 @@ export async function GET(req: NextRequest) {
         belegdatum: belegdatum(rechnungDatum),
         belegfeld1: lief.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60),
+        beleglink: "",
       });
     }
   }
@@ -174,6 +182,7 @@ export async function GET(req: NextRequest) {
   // ── Ausgaben (Betriebsausgaben / Eingangsrechnungen) ─────────────────────
   for (const ausg of ausgaben) {
     const brutto = ausg.betragNetto * (1 + ausg.mwstSatz / 100);
+    const beleglink = ausg.belegPfad && baseUrl ? `${baseUrl}${ausg.belegPfad}` : "";
     rows.push({
       umsatz: Math.round(brutto * 100) / 100,
       sollHaben: "H",
@@ -184,6 +193,7 @@ export async function GET(req: NextRequest) {
       belegdatum: belegdatum(ausg.datum),
       belegfeld1: (ausg.belegNr ?? "").substring(0, 36),
       buchungstext: ausg.beschreibung.substring(0, 60),
+      beleglink,
     });
   }
 
@@ -298,23 +308,31 @@ export async function GET(req: NextRequest) {
   // Data rows
   const dataLines = rows.map((r) => {
     const umsatzStr = r.umsatz.toFixed(2).replace(".", ",");
+    // Positions 14-18 are empty (Postensperre, Diverse Adressnummer, Geschäftspartnerbank, Sachverhalt, Zinssperre)
+    // Position 19 = Beleglink
+    // Positions 20-63 are empty (remaining 44 fields)
     return [
-      umsatzStr,
-      r.sollHaben,
-      r.wkz,
-      "", // Kurs
-      "", // Basis-Umsatz
-      "", // WKZ Basis-Umsatz
-      r.konto,
-      r.gegenkonto,
-      r.buSchluessel,
-      r.belegdatum,
-      q(r.belegfeld1),
-      "", // Belegfeld 2
-      "", // Skonto
-      q(r.buchungstext),
-      // remaining 50 empty fields
-      ...Array(50).fill(""),
+      umsatzStr,       // 0  Umsatz
+      r.sollHaben,     // 1  Soll/Haben-Kennzeichen
+      r.wkz,           // 2  WKZ Umsatz
+      "",              // 3  Kurs
+      "",              // 4  Basis-Umsatz
+      "",              // 5  WKZ Basis-Umsatz
+      r.konto,         // 6  Konto
+      r.gegenkonto,    // 7  Gegenkonto
+      r.buSchluessel,  // 8  BU-Schlüssel
+      r.belegdatum,    // 9  Belegdatum
+      q(r.belegfeld1), // 10 Belegfeld 1
+      "",              // 11 Belegfeld 2
+      "",              // 12 Skonto
+      q(r.buchungstext), // 13 Buchungstext
+      "",              // 14 Postensperre
+      "",              // 15 Diverse Adressnummer
+      "",              // 16 Geschäftspartnerbank
+      "",              // 17 Sachverhalt
+      "",              // 18 Zinssperre
+      r.beleglink ? q(r.beleglink) : "", // 19 Beleglink
+      ...Array(44).fill(""), // 20-63 remaining empty fields
     ].join(";");
   });
 
