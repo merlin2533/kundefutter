@@ -12,6 +12,7 @@ interface FirmaSettings {
   "firma.telefon": string;
   "firma.email": string;
   "firma.steuernummer": string;
+  "firma.ustIdNr": string;
   "firma.iban": string;
   "firma.bic": string;
   "firma.bank": string;
@@ -19,7 +20,7 @@ interface FirmaSettings {
   "firma.zahlungszielStandard": string;
 }
 
-const FIELDS: { key: keyof FirmaSettings; label: string; type?: string }[] = [
+const FIELDS: { key: keyof FirmaSettings; label: string; type?: string; placeholder?: string }[] = [
   { key: "firma.name", label: "Firmenname" },
   { key: "firma.zusatz", label: "Zusatz" },
   { key: "firma.strasse", label: "Straße" },
@@ -28,6 +29,7 @@ const FIELDS: { key: keyof FirmaSettings; label: string; type?: string }[] = [
   { key: "firma.telefon", label: "Telefon", type: "tel" },
   { key: "firma.email", label: "E-Mail", type: "email" },
   { key: "firma.steuernummer", label: "Steuernummer / UID" },
+  { key: "firma.ustIdNr", label: "USt-IdNr.", placeholder: "DE123456789" },
   { key: "firma.iban", label: "IBAN" },
   { key: "firma.bic", label: "BIC" },
   { key: "firma.bank", label: "Bank" },
@@ -44,6 +46,7 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.telefon": "",
   "firma.email": "",
   "firma.steuernummer": "",
+  "firma.ustIdNr": "",
   "firma.iban": "",
   "firma.bic": "",
   "firma.bank": "",
@@ -149,6 +152,7 @@ export default function FirmaPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, [field.key]: e.target.value }))
                   }
+                  placeholder={field.placeholder}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
                 <button

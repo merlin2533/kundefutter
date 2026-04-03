@@ -193,6 +193,16 @@ export default function RechnungPrintPage() {
         >
           Drucken
         </button>
+        {lieferung?.rechnungNr && (
+          <a
+            href={`/api/exporte/zugferd?lieferungId=${id}`}
+            download
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 font-medium transition-colors"
+            title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
+          >
+            ⬇ ZUGFeRD XML
+          </a>
+        )}
         {lieferung && (
           <DriveUploadButton
             kundeId={lieferung.kunde ? (lieferung as unknown as { kundeId: number }).kundeId ?? 0 : 0}

@@ -80,6 +80,7 @@ interface Kunde {
   lng?: number;
   notizen?: string;
   tags?: string;
+  ustIdNr?: string;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -257,6 +258,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
     ort: kunde.ort ?? "",
     land: kunde.land,
     notizen: kunde.notizen ?? "",
+    ustIdNr: kunde.ustIdNr ?? "",
   });
 
   useEffect(() => {
@@ -300,6 +302,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       ort: kunde.ort ?? "",
       land: kunde.land,
       notizen: kunde.notizen ?? "",
+      ustIdNr: kunde.ustIdNr ?? "",
     });
     setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
     setError("");
@@ -326,6 +329,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           land: form.land || "Deutschland",
           notizen: form.notizen || null,
           tags,
+          ustIdNr: form.ustIdNr || null,
         }),
       });
       if (!res.ok) throw new Error();

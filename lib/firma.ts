@@ -8,6 +8,7 @@ export interface FirmaDaten {
   telefon: string;
   email: string;
   steuernummer: string;
+  ustIdNr?: string;
   iban: string;
   bic: string;
   bank: string;
@@ -42,6 +43,7 @@ export async function ladeFirmaDaten(): Promise<FirmaDaten> {
     telefon: map.telefon ?? FIRMA_DEFAULTS.telefon,
     email: map.email ?? FIRMA_DEFAULTS.email,
     steuernummer: map.steuernummer ?? FIRMA_DEFAULTS.steuernummer,
+    ustIdNr: map.ustIdNr ?? "",
     iban: map.iban ?? FIRMA_DEFAULTS.iban,
     bic: map.bic ?? FIRMA_DEFAULTS.bic,
     bank: map.bank ?? FIRMA_DEFAULTS.bank,
