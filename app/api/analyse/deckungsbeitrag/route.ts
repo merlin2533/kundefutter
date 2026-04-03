@@ -56,8 +56,8 @@ export async function GET(request: Request) {
       }
     } else {
       for (const l of lieferungen) {
-        const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-        const einkauf = l.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
+        const umsatz = l.positionen.reduce((s: number, p: { menge: number; verkaufspreis: number }) => s + p.menge * p.verkaufspreis, 0);
+        const einkauf = l.positionen.reduce((s: number, p: { menge: number; einkaufspreis: number }) => s + p.menge * p.einkaufspreis, 0);
         const displayName = l.kunde.firma ? `${l.kunde.name} (${l.kunde.firma})` : l.kunde.name;
         accumulate(map, l.kundeId, displayName, umsatz, einkauf);
       }

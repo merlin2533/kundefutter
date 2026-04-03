@@ -38,35 +38,45 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const angebote = await prisma.angebot.findMany({
-    where,
-    include: {
-      kunde: { select: { id: true, name: true, firma: true } },
-      positionen: {
-        include: { artikel: { select: { name: true, einheit: true, mwstSatz: true } } },
+  try {
+    const angebote = await prisma.angebot.findMany({
+      where,
+      include: {
+        kunde: { select: { id: true, name: true, firma: true } },
+        positionen: {
+          include: { artikel: { select: { name: true, einheit: true, mwstSatz: true } } },
+        },
       },
-    },
-    orderBy: { datum: "desc" },
-    take: 200,
-  });
+      orderBy: { datum: "desc" },
+      take: 200,
+    });
 
-  const result = angebote.map((a) => {
-    const gesamtbetrag = a.positionen.reduce((sum, pos) => {
-      const netto = pos.menge * pos.preis * (1 - pos.rabatt / 100);
-      return sum + netto;
-    }, 0);
-    return {
-      ...a,
-      gesamtbetrag: Math.round(gesamtbetrag * 100) / 100,
-      positionenAnzahl: a.positionen.length,
-    };
-  });
+    const result = angebote.map((a) => {
+      const gesamtbetrag = a.positionen.reduce((sum, pos) => {
+        const netto = pos.menge * pos.preis * (1 - pos.rabatt / 100);
+        return sum + netto;
+      }, 0);
+      return {
+        ...a,
+        gesamtbetrag: Math.round(gesamtbetrag * 100) / 100,
+        positionenAnzahl: a.positionen.length,
+      };
+    });
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler beim Laden der Angebote" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { kundeId, gueltigBis, notiz, positionen } = body;
 
   if (!kundeId) {

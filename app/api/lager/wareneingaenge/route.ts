@@ -5,20 +5,30 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const lieferantId = searchParams.get("lieferantId");
 
-  const wareneingaenge = await prisma.wareneingang.findMany({
-    where: lieferantId ? { lieferantId: Number(lieferantId) } : undefined,
-    include: {
-      lieferant: true,
-      positionen: { include: { artikel: true } },
-    },
-    orderBy: { datum: "desc" },
-    take: 100,
-  });
-  return NextResponse.json(wareneingaenge);
+  try {
+    const wareneingaenge = await prisma.wareneingang.findMany({
+      where: lieferantId ? { lieferantId: Number(lieferantId) } : undefined,
+      include: {
+        lieferant: true,
+        positionen: { include: { artikel: true } },
+      },
+      orderBy: { datum: "desc" },
+      take: 100,
+    });
+    return NextResponse.json(wareneingaenge);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { lieferantId, datum, notiz } = body;
 
   if (!body.lieferantId || !Array.isArray(body.positionen) || body.positionen.length === 0) {
@@ -48,11 +58,23 @@ export async function POST(req: NextRequest) {
       include: { positionen: { include: { artikel: true } } },
     });
 
+    // Bulk-Fetch aller betroffenen Artikel (statt N+1 findUnique im Loop)
+    const artikelIds = [...new Set(we.positionen.map((p) => p.artikelId))];
+    const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+    const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
+    // Bulk-Fetch aller betroffenen ArtikelLieferant-Zuordnungen
+    const artLiefList = await tx.artikelLieferant.findMany({
+      where: { artikelId: { in: artikelIds }, lieferantId },
+    });
+    const artLiefMap = new Map(artLiefList.map((al) => [al.artikelId, al]));
+
     // Bestand erhöhen + Lagerbewegung anlegen
     for (const pos of we.positionen) {
-      const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+      const artikel = artikelMap.get(pos.artikelId);
       if (!artikel) continue;
       const neuerBestand = artikel.aktuellerBestand + pos.menge;
+      artikel.aktuellerBestand = neuerBestand;
       await tx.artikel.update({
         where: { id: pos.artikelId },
         data: { aktuellerBestand: neuerBestand },
@@ -68,9 +90,7 @@ export async function POST(req: NextRequest) {
         },
       });
       // Einkaufspreis beim Lieferanten aktualisieren + Preishistorie
-      const artLief = await tx.artikelLieferant.findFirst({
-        where: { artikelId: pos.artikelId, lieferantId },
-      });
+      const artLief = artLiefMap.get(pos.artikelId);
       if (artLief && artLief.einkaufspreis !== pos.einkaufspreis) {
         await tx.artikelPreisHistorie.create({
           data: {

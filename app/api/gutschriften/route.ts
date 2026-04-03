@@ -21,22 +21,32 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const gutschriften = await prisma.gutschrift.findMany({
-    where,
-    include: {
-      kunde: true,
-      lieferung: true,
-      positionen: { include: { artikel: true } },
-    },
-    orderBy: { datum: "desc" },
-    take: 200,
-  });
+  try {
+    const gutschriften = await prisma.gutschrift.findMany({
+      where,
+      include: {
+        kunde: true,
+        lieferung: true,
+        positionen: { include: { artikel: true } },
+      },
+      orderBy: { datum: "desc" },
+      take: 200,
+    });
 
-  return NextResponse.json(gutschriften);
+    return NextResponse.json(gutschriften);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { kundeId, lieferungId, datum, grund, notiz } = body;
   const positionen: { artikelId: number; menge: number; preis: number; ruecknahme?: boolean }[] =
     body.positionen;

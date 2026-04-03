@@ -6,26 +6,36 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const kunde = await prisma.kunde.findUnique({
-    where: { id: Number(id) },
-    include: {
-      kontakte: true,
-      bedarfe: { include: { artikel: true } },
-      artikelPreise: { include: { artikel: true } },
-      lieferungen: {
-        include: { positionen: { include: { artikel: true } } },
-        orderBy: { datum: "desc" },
-        take: 500,
+  try {
+    const kunde = await prisma.kunde.findUnique({
+      where: { id: Number(id) },
+      include: {
+        kontakte: true,
+        bedarfe: { include: { artikel: true } },
+        artikelPreise: { include: { artikel: true } },
+        lieferungen: {
+          include: { positionen: { include: { artikel: true } } },
+          orderBy: { datum: "desc" },
+          take: 500,
+        },
       },
-    },
-  });
-  if (!kunde) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  return NextResponse.json(kunde);
+    });
+    if (!kunde) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    return NextResponse.json(kunde);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv } = body;
 
   // Nur erlaubte Felder uebernehmen
@@ -85,8 +95,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
     return NextResponse.json(kunde);
-  } catch {
-    return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    if (message === "Nicht gefunden") {
+      return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

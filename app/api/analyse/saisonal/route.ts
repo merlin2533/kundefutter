@@ -63,7 +63,7 @@ export async function GET(request: Request) {
 
       if (!jahre.includes(jahr)) continue;
 
-      const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      const umsatz = l.positionen.reduce((s: number, p: { menge: number; verkaufspreis: number }) => s + p.menge * p.verkaufspreis, 0);
       matrix[monat][jahr].umsatz += umsatz;
       matrix[monat][jahr].anzahl += 1;
 
