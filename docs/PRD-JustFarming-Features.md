@@ -1,473 +1,372 @@
 # PRD: JustFarming-Wettbewerbsfeatures
 
-> **Status:** Planung  
+> **Status:** In Umsetzung  
 > **Erstellt:** 2026-04-03  
+> **Aktualisiert:** 2026-04-03 (nach Merge von `main`)  
 > **Branch:** `claude/justfarming-comparison-uj6K2`  
 > **Ziel:** Integration der fehlenden JustFarming-Kernfeatures in AgrarOffice
 
 ---
 
-## 1. Zusammenfassung
+## 1. Zusammenfassung & Ist-Stand
 
-JustFarming (LAND-DATA GmbH) bietet Landwirten digitale Vorbereitende Buchhaltung. AgrarOffice ist ein Agrarhandel-ERP. Es fehlen vier Features, die AgrarOffice als Komplettlösung positionieren:
+JustFarming (LAND-DATA GmbH) bietet Landwirten digitale Vorbereitende Buchhaltung. AgrarOffice ist ein Agrarhandel-ERP.
 
-| # | Feature | Priorität | Aufwand |
-|---|---------|-----------|---------|
-| F1 | ZUGFeRD E-Rechnung (GoBD-konform) | Hoch | Mittel |
-| F2 | Belegdigitalisierung & Dokumentenarchiv | Mittel | Mittel |
-| F3 | Bankkonten-Abgleich (Zahlungszuordnung) | Mittel | Hoch |
-| F4 | Steuerberater-Export (DATEV/CSV) | Hoch | Niedrig |
+| # | Feature | Status | Priorität |
+|---|---------|--------|-----------|
+| F1 | ZUGFeRD E-Rechnung (GoBD-konform) | ❌ Fehlt | Hoch |
+| F2 | Belegdigitalisierung & Dokumentenarchiv | ✅ Implementiert als Ausgabenbuch | — |
+| F3 | Bankkonten-Abgleich (Zahlungszuordnung) | ❌ Fehlt | Mittel |
+| F4 | Steuerberater-Export (DATEV) | ✅ Implementiert | — |
+
+### Was bereits existiert (nach main-Merge)
+
+| Feature | Dateien |
+|---------|---------|
+| **Ausgabenbuch** (Belege, KI-OCR) | `app/ausgaben/`, `app/api/ausgaben/`, `app/api/ki/beleg/` |
+| **DATEV-Export** | `app/api/exporte/datev/route.ts`, `app/einstellungen/datev/` |
+| **Rechnungen** (Einzel + Sammel) | `app/rechnungen/`, `app/sammelrechnungen/`, `app/api/exporte/rechnung/` |
+| **Mahnwesen** | `app/mahnwesen/` |
 
 ---
 
 ## 2. Feature F1: ZUGFeRD E-Rechnung
 
 ### 2.1 Problemstellung
-Ab 2025 besteht in Deutschland E-Rechnungspflicht für B2B-Transaktionen. AgrarOffice erzeugt aktuell nur einfache HTML/PDF-Rechnungen ohne maschinenlesbares XML.
+Ab 2025 besteht E-Rechnungspflicht für B2B-Transaktionen in Deutschland. AgrarOffice erzeugt aktuell nur einfache jsPDF-Rechnungen ohne maschinenlesbares XML. Kunden und Steuerberater können Rechnungen nicht automatisch einlesen.
 
 ### 2.2 Anforderungen
 
-**Muss (MVP):**
-- ZUGFeRD 2.1.1 / Factur-X PDF/A-3 Erzeugung für Einzel- und Sammelrechnungen
-- Einbettung der XML-Datei (`factur-x.xml`) in bestehende PDF-Rechnung
-- GoBD-Pflichtfelder: Rechnungsnr, Datum, Verkäufer/Käufer mit USt-IdNr, Positionen mit MwSt, Zahlungsbedingungen
-- Neues Feld `Einstellung`: `firma.ustIdNr` (USt-Identifikationsnummer)
-- Neues Feld `Kunde`: `ustIdNr` (optional)
-- Download als ZUGFeRD-PDF auf Rechnungsseiten
-- Profil: ZUGFeRD BASIC (ausreichend für Agrarbereich)
+**Muss:**
+- ZUGFeRD BASIC-WL XML (Factur-X) erzeugen für Einzel- und Sammelrechnungen  
+- XML-Download-Button auf allen Rechnungsseiten  
+- GoBD-Pflichtfelder vollständig: Rechnungsnr, Datum, Verkäufer/Käufer (USt-IdNr), Positionen mit MwSt, Zahlungsbedingungen  
+- `firma.ustIdNr` als neues Einstellungsfeld (Pflichtfeld für ZUGFeRD)  
+- `Kunde.ustIdNr` als optionales Feld (für B2B-Pflicht)  
 
 **Soll:**
-- XRechnung-Export (XML-only) für öffentliche Auftraggeber
-- ZUGFeRD COMFORT Profil (mit Skonto-Informationen)
-- Validierung gegen ZUGFeRD-Schema vor Ausgabe
+- XRechnung-Export (reines XML) als zweite Option  
+- ZIP-Download (PDF + XML) für Archivierung  
 
 **Kann:**
-- Eingangsrechnungen: ZUGFeRD-Import & XML-Parsing
-- Leitweg-ID Feld für öffentliche Auftraggeber
+- Eingehende ZUGFeRD-XMLs parsen (Eingangsrechnungen)  
 
 ### 2.3 Technisches Design
 
 **Neue Dateien:**
 ```
-lib/zugferd.ts                              — XML-Generator & PDF-Einbettung
-lib/zugferd-xml.ts                          — Factur-X XML Template Engine
-app/api/exporte/zugferd/route.ts            — API: GET ?lieferungId= oder ?sammelrechnungId=
+lib/zugferd-xml.ts              — Factur-X XML-Generator (reine Strings, keine externen Deps)
+app/api/exporte/zugferd/route.ts — GET ?lieferungId= oder ?sammelrechnungId= → XML-Download
 ```
 
 **Geänderte Dateien:**
 ```
-prisma/schema.prisma                        — Kunde.ustIdNr, Einstellung (firma.ustIdNr)
-app/lieferungen/[id]/rechnung/page.tsx      — ZUGFeRD-Download-Button
-app/sammelrechnungen/page.tsx               — ZUGFeRD-Download je Rechnung
-app/einstellungen/firma/page.tsx            — Feld: USt-IdNr
-lib/firma.ts                                — ustIdNr in FirmaDaten
+prisma/schema.prisma            — Kunde.ustIdNr String? hinzufügen
+lib/firma.ts                    — ustIdNr in FirmaDaten Interface
+app/einstellungen/firma/page.tsx — Feld USt-IdNr ergänzen
+app/api/einstellungen/route.ts  — Prefix "firma." erlaubt (bereits ok)
+app/lieferungen/[id]/rechnung/page.tsx — ZUGFeRD XML-Button
+app/sammelrechnungen/page.tsx   — ZUGFeRD XML-Button je Rechnung
+app/rechnungen/page.tsx         — ZUGFeRD XML-Button je Rechnung
+app/kunden/[id]/page.tsx        — Feld ustIdNr im Stammdaten-Tab
+app/api/kunden/[id]/route.ts    — ustIdNr im PUT speichern
 ```
 
-**Abhängigkeiten (npm):**
-```
-pdflib           — PDF/A-3 Erzeugung + XML-Einbettung (statt jsPDF)
-```
+**Implementierungsdetail (kein pdf-lib nötig):**
+- XML wird als separater Download angeboten (`.xml`-Datei)
+- Kein PDF/A-3 Embedding (würde `pdf-lib` erfordern) — marktübliche Alternative
+- Steuerberater importieren XML direkt in DATEV
 
-**Datenmodell-Erweiterung:**
-```prisma
-// Kunde — neues Feld
-ustIdNr     String?
-
-// Einstellung — neuer Key
-// firma.ustIdNr = "DE123456789"
-```
-
-**XML-Struktur (Factur-X BASIC):**
+**Factur-X BASIC-WL XML-Struktur:**
 ```xml
-<rsm:CrossIndustryInvoice>
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
     <ram:GuidelineSpecifiedDocumentContextParameter>
-      <ram:ID>urn:factur-x.eu:1p0:basic</ram:ID>
+      <ram:ID>urn:factur-x.eu:1p0:basicwl</ram:ID>
     </ram:GuidelineSpecifiedDocumentContextParameter>
   </rsm:ExchangedDocumentContext>
   <rsm:ExchangedDocument>
     <ram:ID>{rechnungNr}</ram:ID>
     <ram:TypeCode>380</ram:TypeCode>
-    <ram:IssueDateTime>...</ram:IssueDateTime>
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">{YYYYMMDD}</udt:DateTimeString>
+    </ram:IssueDateTime>
   </rsm:ExchangedDocument>
   <rsm:SupplyChainTradeTransaction>
-    <!-- Verkäufer, Käufer, Positionen, MwSt, Summen, Zahlungsbedingungen -->
+    <!-- SellerTradeParty: firma.name, firma.strasse, firma.plz/ort, firma.ustIdNr -->
+    <!-- BuyerTradeParty:  kunde.name, kunde.strasse, kunde.ustIdNr -->
+    <!-- IncludedSupplyChainTradeLineItem: je Lieferposition -->
+    <!-- ApplicableTradeTax: je MwSt-Satz (0/7/19%) -->
+    <!-- SpecifiedTradeSettlementHeaderMonetarySummation: Netto, MwSt, Brutto -->
+    <!-- PaymentTerms: zahlungsziel -->
+    <!-- IBAN, BIC -->
   </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>
 ```
 
-### 2.4 API-Design
-
+### 2.4 API
 ```
-GET /api/exporte/zugferd?lieferungId=N
-GET /api/exporte/zugferd?sammelrechnungId=N
-→ Response: application/pdf (PDF/A-3 mit eingebettetem XML)
-→ Filename: RE-2026-0042_zugferd.pdf
+GET /api/exporte/zugferd?lieferungId=N      → application/xml, RE-2026-0042.xml
+GET /api/exporte/zugferd?sammelrechnungId=N → application/xml, RE-2026-0042.xml
 ```
 
 ### 2.5 UI-Integration
-
-Bestehende Rechnungsseiten bekommen einen zusätzlichen Button:
+Auf jeder Rechnungszeile/-seite:
 ```
-[📄 PDF]  [📧 ZUGFeRD-PDF]  [📤 XML Export]
+[📄 PDF]  [⬇ ZUGFeRD XML]
 ```
 
 ---
 
-## 3. Feature F2: Belegdigitalisierung & Dokumentenarchiv
+## 3. Feature F2: Belegdigitalisierung (✅ IMPLEMENTIERT)
 
-### 3.1 Problemstellung
-Eingangsbelege (Lieferantenrechnungen, Quittungen) werden nicht digital erfasst. Kein zentrales Belegarchiv.
+### Ist-Stand
 
-### 3.2 Anforderungen
+Vollständig implementiert als **Ausgabenbuch** (`/ausgaben`):
 
-**Muss (MVP):**
-- Upload-Seite für Belege (Foto/PDF/Scan)
-- Belegtypen: Eingangsrechnung, Quittung, Gutschrift, Sonstiges
-- Metadaten: Datum, Betrag, Lieferant (optional zuordnen), Notiz
-- Belegliste mit Filtern (Typ, Zeitraum, Lieferant, Betrag)
-- Volltextsuche über Belegnotizen
-- Dateispeicherung im Dateisystem (`/data/belege/YYYY/MM/`)
-- GoBD-konform: keine Löschung, nur Storno-Markierung
+| Komponente | Status |
+|-----------|--------|
+| CRUD (Erstellen, Bearbeiten, Löschen) | ✅ |
+| KI-OCR (Foto → Felder) | ✅ via `POST /api/ki/beleg` |
+| Datei-Upload (Bild-Anhang) | ✅ `/public/uploads/belege/YYYY/` |
+| Lieferant-Zuordnung | ✅ |
+| Kategorie-Filter | ✅ 8 Kategorien |
+| Bezahlt-Status | ✅ |
+| DATEV-Export inklusive | ✅ Ausgaben erscheinen im DATEV-Export |
 
-**Soll:**
-- KI-Texterkennung (OCR) über bestehende `lib/ai.ts` Integration
-  - Automatische Extraktion: Datum, Betrag, Lieferant, Positionen
-- Duplikaterkennung (Betrag + Datum + Lieferant)
-- Zuordnung zu Wareneingang
+### Noch fehlend (Delta)
 
-**Kann:**
-- Barcode/QR-Code-Erkennung auf Belegen
-- E-Mail-Import (IMAP-Abruf von Rechnungsmails)
-
-### 3.3 Technisches Design
-
-**Neue Dateien:**
-```
-prisma: Modell Beleg                        — Belegstamm
-app/belege/page.tsx                         — Belegliste
-app/belege/neu/page.tsx                     — Beleg-Upload (kein Modal!)
-app/belege/[id]/page.tsx                    — Belegdetail + Vorschau
-app/api/belege/route.ts                     — GET (Liste), POST (Upload multipart)
-app/api/belege/[id]/route.ts                — GET, PUT, DELETE (Storno)
-app/api/belege/[id]/datei/route.ts          — GET (Datei-Download/Vorschau)
-```
-
-**Geänderte Dateien:**
-```
-prisma/schema.prisma                        — Modell Beleg
-components/Nav.tsx                          — Menüpunkt "Belege" unter Finanzen
-app/einstellungen/page.tsx                  — Kachel "Belege" (Aufbewahrungsfrist)
-```
-
-**Datenmodell:**
-```prisma
-model Beleg {
-  id            Int       @id @default(autoincrement())
-  typ           String    // eingangsrechnung | quittung | gutschrift | sonstiges
-  nummer        String?   // Externe Belegnummer
-  datum         DateTime
-  betrag        Float?
-  mwstBetrag    Float?
-  mwstSatz      Float?
-  lieferantId   Int?
-  lieferant     Lieferant? @relation(fields: [lieferantId], references: [id])
-  wareneingangId Int?
-  dateiname     String    // Original-Dateiname
-  dateipfad     String    // Serverpfad /data/belege/...
-  dateigroesse  Int
-  mimeType      String    // application/pdf, image/jpeg, etc.
-  notiz         String?
-  ocrText       String?   // Extrahierter Text (KI)
-  ocrVerarbeitet Boolean  @default(false)
-  storniert     Boolean   @default(false)
-  stornoGrund   String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([lieferantId])
-  @@index([datum])
-  @@index([typ])
-}
-```
-
-### 3.4 Datei-Storage
-
-```
-/data/belege/
-  2026/
-    04/
-      beleg-0001-rechnung-mueller.pdf
-      beleg-0002-quittung-scan.jpg
-```
-
-- Dateiname: `beleg-{id}-{typ}-{kurzname}.{ext}`
-- Max. Dateigröße: 20 MB
-- Erlaubte Typen: PDF, JPEG, PNG, TIFF
-- Kein Löschen (GoBD) — nur `storniert=true`
+| Was | Wo | Prio |
+|-----|----|------|
+| Kategorien konfigurierbar machen | `/einstellungen/ausgaben/` | Mittel |
+| Einstellungen-Kachel | `/einstellungen/page.tsx` | Niedrig |
+| Aufbewahrungsfrist-Hinweis (GoBD 10 Jahre) | `/einstellungen/ausgaben/` | Niedrig |
 
 ---
 
 ## 4. Feature F3: Bankkonten-Abgleich
 
 ### 4.1 Problemstellung
-Zahlungseingänge werden manuell auf Rechnungen zugeordnet. JustFarming bietet automatischen Abgleich.
+Zahlungseingänge werden in AgrarOffice heute manuell gebucht (Datum-Picker in Rechnungsliste). Es gibt keinen Import von Kontoauszügen und keine automatische Zuordnung von Bankbuchungen zu Rechnungen.
 
 ### 4.2 Anforderungen
 
-**Muss (MVP):**
-- CSV/MT940-Import von Kontoauszügen (alle deutschen Banken exportieren CSV)
-- Kontoumsatz-Liste mit Filter (Zeitraum, Betrag, Zuordnungsstatus)
-- Manuelle Zuordnung: Umsatz → Rechnung (Lieferung/Sammelrechnung)
-- Bei Zuordnung: automatisch `bezahltAm` setzen
-- Matching-Vorschläge: Betrag + Kundenname im Verwendungszweck
+**Muss:**
+- CSV-Import von Kontoauszügen (Sparkasse, Volksbank, DKB, generic)
+- Kontoumsatz-Liste mit Filter (Zeitraum, Betrag, zugeordnet/offen)
+- Manuelle Zuordnung: Umsatz → Rechnung (Lieferung oder Sammelrechnung)
+- Bei Zuordnung: `bezahltAm` automatisch setzen
+- Matching-Vorschläge basierend auf Betrag + Rechnungsnummer im Verwendungszweck
 
 **Soll:**
-- Automatisches Matching (Rechnungsnummer im Verwendungszweck)
-- Teilzahlungen erkennen
-- CAMT.053 XML-Import (ISO 20022 Standard)
+- Automatisches Matching wenn Rechnungsnr. (`RE-YYYY-NNNN`) im Verwendungszweck
+- Mehrere Bankkonten konfigurierbar (Einstellungen)
 
 **Kann:**
-- FinTS/HBCI-Anbindung (direkte Bankverbindung)
-- Mehrere Bankkonten verwalten
+- MT940-Import (SWIFT-Bankformat)
+- Ausgaben (Eingangsrechnungen) über Bankabgleich als bezahlt markieren
 
 ### 4.3 Technisches Design
 
 **Neue Dateien:**
 ```
-prisma: Modell Kontoumsatz                  — Importierte Bankbuchungen
-app/bankabgleich/page.tsx                   — Hauptseite: Import + Zuordnung
-app/bankabgleich/import/page.tsx            — CSV/MT940 Upload
-app/api/bankabgleich/route.ts               — GET (Umsätze), POST (Import)
-app/api/bankabgleich/[id]/route.ts          — PUT (Zuordnung), DELETE
-app/api/bankabgleich/vorschlaege/route.ts   — GET ?umsatzId= (Matching)
-lib/bankimport.ts                           — CSV/MT940 Parser
+lib/bankimport.ts                       — CSV/MT940 Parser (Auto-Detection)
+app/bankabgleich/page.tsx               — Hauptseite: Umsatzliste + Zuordnung
+app/bankabgleich/import/page.tsx        — CSV-Upload
+app/api/bankabgleich/route.ts           — GET (Liste), POST (Import)
+app/api/bankabgleich/[id]/route.ts      — PUT (Zuordnung), DELETE
+app/api/bankabgleich/vorschlaege/route.ts — GET ?umsatzId= (Matching-Vorschläge)
+app/einstellungen/bankkonten/page.tsx   — Bankkonten konfigurieren
 ```
 
 **Geänderte Dateien:**
 ```
-prisma/schema.prisma                        — Modell Kontoumsatz
-components/Nav.tsx                          — Menüpunkt unter Finanzen
-app/rechnungen/page.tsx                     — Hinweis auf unzugeordnete Umsätze
+prisma/schema.prisma                    — Modell Kontoumsatz
+components/Nav.tsx                      — "Bankabgleich" unter Finanzen
+app/einstellungen/page.tsx              — Kachel "Bankkonten"
+app/api/einstellungen/route.ts          — Prefix "bankabgleich." erlauben
+app/rechnungen/page.tsx                 — Badge: offene Umsätze
+app/api/dashboard/route.ts             — KPI: unzugeordnete Umsätze
 ```
 
 **Datenmodell:**
 ```prisma
 model Kontoumsatz {
-  id              Int       @id @default(autoincrement())
-  kontoBezeichnung String?  // z.B. "Geschäftskonto Sparkasse"
-  buchungsdatum   DateTime
-  wertstellung    DateTime?
-  betrag          Float     // positiv = Eingang, negativ = Ausgang
-  waehrung        String    @default("EUR")
-  verwendungszweck String
-  gegenkonto      String?   // IBAN des Gegenkontos
-  gegenkontoName  String?   // Name des Kontoinhabers
-  saldo           Float?
-  zugeordnet      Boolean   @default(false)
-  lieferungId     Int?
-  sammelrechnungId Int?
-  importDatum     DateTime  @default(now())
-  importDatei     String?   // Name der Importdatei
-  
+  id                Int       @id @default(autoincrement())
+  kontoBezeichnung  String?   // "Geschäftskonto Sparkasse"
+  buchungsdatum     DateTime
+  wertstellung      DateTime?
+  betrag            Float     // + = Eingang, - = Ausgang
+  waehrung          String    @default("EUR")
+  verwendungszweck  String
+  gegenkonto        String?   // IBAN Gegenpartei
+  gegenkontoName    String?   // Name Gegenpartei
+  saldo             Float?
+  zugeordnet        Boolean   @default(false)
+  lieferungId       Int?
+  sammelrechnungId  Int?
+  ausgabeId         Int?      // für Ausgaben-Zuordnung
+  importDatum       DateTime  @default(now())
+  importDatei       String?
+
   @@index([buchungsdatum])
   @@index([zugeordnet])
   @@index([betrag])
 }
 ```
 
-### 4.4 CSV-Import-Format
+### 4.4 CSV-Format Auto-Detection
 
-Unterstützte Spaltenformate (Auto-Detection):
 ```
-Sparkasse:  "Buchungstag";"Wertstellung";"Buchungstext";"Verwendungszweck";
-            "Begünstigter/Zahlungspflichtiger";"Kontonummer";"BLZ";"Betrag";"Währung"
-Volksbank:  Buchungstag;Valuta;Textschlüssel;Primanota;Zahlungsempfänger;
-            IBAN;BIC;Verwendungszweck;Betrag;Währung
-Generic:    Datum;Betrag;Verwendungszweck;Gegenkonto
+Sparkasse:   "Buchungstag";"Wertstellung";"Buchungstext";"Verwendungszweck";"Betrag";"Währung"
+Volksbank:   Buchungstag;Valuta;Verwendungszweck;Betrag;Währung
+DKB:         Buchungsdatum;Glaeubiger-ID;Betrag (EUR);Glaeubiger/Zahlungsempfaenger;Verwendungszweck
+Generic:     Datum;Betrag;Verwendungszweck
 ```
 
-### 4.5 Matching-Algorithmus
+### 4.5 Matching-Logik
 
 ```typescript
-function findeZuordnung(umsatz: Kontoumsatz): Vorschlag[] {
-  // 1. Rechnungsnummer im Verwendungszweck suchen (RE-YYYY-NNNN)
-  const reMatch = umsatz.verwendungszweck.match(/RE-\d{4}-\d{4}/);
-  if (reMatch) → Exakter Match
+// Stufe 1 — Rechnungsnummer exakt (höchste Konfidenz)
+/RE-\d{4}-\d{4}/.exec(verwendungszweck)
 
-  // 2. Betrag + Kundenname
-  const offeneRechnungen = findMany({ bezahltAm: null });
-  → Betrag-Match (±0.01€) + Levenshtein(gegenkontoName, kunde.name) < 3
+// Stufe 2 — Betrag + Kundenname (mittlere Konfidenz)
+Math.abs(betrag - rechnungsBrutto) < 0.01
+  && levenshtein(gegenkontoName, kunde.name) <= 3
 
-  // 3. Betrag allein (niedrigste Konfidenz)
-  → Alle offenen Rechnungen mit gleichem Betrag
-}
+// Stufe 3 — Betrag allein (niedrige Konfidenz)
+Math.abs(betrag - rechnungsBrutto) < 0.01
+```
+
+### 4.6 Einstellungen: Bankkonten
+
+Konfigurierbar in `/einstellungen/bankkonten/` (Einstellungs-Keys: `bankabgleich.*`):
+- Liste der Bankkonten (Name, IBAN, BIC, Bank)
+- Standard-Konto für Import-Vorauswahl
+
+---
+
+## 5. Feature F4: DATEV-Export (✅ IMPLEMENTIERT)
+
+### Ist-Stand
+
+Vollständig implementiert:
+
+| Komponente | Status |
+|-----------|--------|
+| API `GET /api/exporte/datev` | ✅ |
+| Einstellungen `/einstellungen/datev/` | ✅ (Beraternr, Mandantennr, SKR03/04, WJ-Beginn) |
+| Export-Kachel in `/exporte/` | ✅ |
+| Einnahmen (Rechnungen nach MwSt) | ✅ |
+| Ausgaben (Betriebsausgaben) | ✅ |
+| UTF-8 BOM CSV mit DATEV-Header | ✅ |
+
+### Noch fehlend (Delta)
+
+| Was | Wo | Prio |
+|-----|----|------|
+| Bankabgleich-Buchungen im Export | nach F3-Implementierung | Mittel |
+| Erlöskonten konfigurierbar | `/einstellungen/datev/` erweitern | Niedrig |
+
+---
+
+## 6. Einstellungen-Integration (Querschnitt)
+
+Alle neuen Features brauchen Einstellungs-Kacheln und -Seiten:
+
+| Kachel | Seite | Inhalt | Status |
+|--------|-------|--------|--------|
+| 🏦 Bankkonten | `/einstellungen/bankkonten/` | Konten verwalten (Name, IBAN, BIC) | ❌ fehlt |
+| 🧾 Ausgaben | `/einstellungen/ausgaben/` | Kategorien konfigurieren, GoBD-Hinweis | ❌ fehlt |
+| 🏢 Firma (Erweiterung) | `/einstellungen/firma/` | USt-IdNr ergänzen | ❌ fehlt |
+
+Settings-API erweitern: `ALLOWED_PREFIXES` um `"bankabgleich."` ergänzen.
+
+---
+
+## 7. Dashboard & Navigation
+
+### Dashboard-KPIs (neu)
+```
+app/api/dashboard/route.ts:
+- unzugeordneteUmsaetze: Kontoumsatz.count({ zugeordnet: false })
+```
+
+### Navigation (Finanzen-Gruppe erweitern)
+```
+components/Nav.tsx:
+Finanzen:
+  + { href: "/bankabgleich", label: "Bankabgleich" }     ← neu
 ```
 
 ---
 
-## 5. Feature F4: Steuerberater-Export (DATEV)
+## 8. Implementierungsplan (aktuell)
 
-### 5.1 Problemstellung
-Steuerberater benötigen strukturierte Daten. Aktuell kein Export für Buchhaltungssoftware.
+### Phase 1 — Schema & Grundlagen (sequenziell, sofort)
 
-### 5.2 Anforderungen
+| # | Task | Datei |
+|---|------|-------|
+| 1 | `Kunde.ustIdNr String?` hinzufügen | `prisma/schema.prisma` |
+| 2 | `Kontoumsatz` Modell hinzufügen | `prisma/schema.prisma` |
+| 3 | Migration ausführen | `npx prisma migrate dev` |
 
-**Muss (MVP):**
-- DATEV-CSV-Export (Buchungsstapel) für Ausgangsrechnungen
-- Zeitraum-Filter (Monat/Quartal/Jahr)
-- Felder: Umsatz, Soll/Haben-Kz, BU-Schlüssel, Gegenkonto, Belegdatum, Belegnummer, Buchungstext
-- DATEV-Kontenrahmen SKR03/SKR04 Zuordnung (konfigurierbar)
-- Export-Seite unter `/exporte/datev`
+### Phase 2 — Parallelimplementierung (4 unabhängige Stränge)
 
-**Soll:**
-- Eingangsrechnungen (Belege) im Export
-- DATEV-Format "Buchungsstapel" (Header + Datenzeilen)
-- Erlöskonten je MwSt-Satz konfigurierbar (Einstellungen)
-
-**Kann:**
-- DATEV XML-Online Export
-- GDPdU/GoBD-Datenträgerüberlassung (XML + Daten)
-
-### 5.3 Technisches Design
-
-**Neue Dateien:**
 ```
-app/exporte/datev/page.tsx                  — Export-UI mit Zeitraum + Kontenrahmen
-app/api/exporte/datev/route.ts              — GET ?von=&bis=&kontenrahmen=
-lib/datev.ts                                — DATEV-CSV-Generator
-```
+Strang A:  ZUGFeRD XML (F1)
+  A1. lib/zugferd-xml.ts
+  A2. app/api/exporte/zugferd/route.ts
+  A3. UI: Buttons auf Rechnungsseiten + Kunden-Stammdaten-Tab
 
-**Geänderte Dateien:**
-```
-app/exporte/page.tsx                        — Kachel "DATEV-Export"
-app/einstellungen/page.tsx                  — Kachel "Steuerberater / DATEV"
-app/einstellungen/datev/page.tsx            — Kontenrahmen-Konfiguration
+Strang B:  Bankabgleich (F3)
+  B1. lib/bankimport.ts
+  B2. app/api/bankabgleich/route.ts + [id]/route.ts + vorschlaege/route.ts
+  B3. app/bankabgleich/page.tsx
+  B4. app/bankabgleich/import/page.tsx
+
+Strang C:  Einstellungen & Integration
+  C1. app/einstellungen/firma/page.tsx — USt-IdNr
+  C2. app/einstellungen/ausgaben/page.tsx — Kategorien
+  C3. app/einstellungen/bankkonten/page.tsx — Bankkonten
+  C4. app/einstellungen/page.tsx — neue Kacheln
+  C5. app/api/einstellungen/route.ts — Prefix "bankabgleich."
+
+Strang D:  Nav + Dashboard
+  D1. components/Nav.tsx — Bankabgleich-Eintrag
+  D2. app/api/dashboard/route.ts — unzugeordneteUmsaetze KPI
+  D3. app/page.tsx (Dashboard) — neues KPI-Widget
 ```
 
-**DATEV-CSV-Format:**
-```csv
-Umsatz;Soll/Haben;BU-Schlüssel;Gegenkonto;Belegdatum;Belegnummer;Buchungstext
-1190,00;S;3;10000;0104;RE-2026-0042;Lieferung Müller GmbH
-```
+### Phase 3 — Integration & Review
+- Kunden-Stammdaten Tab: `ustIdNr` Feld + `api/kunden/[id]` PUT
+- Build-Test
+- Commit & Push
 
-**Kontenrahmen-Mapping (Einstellung):**
-```json
-{
-  "kontenrahmen": "SKR03",
-  "erloes_19": "8400",
-  "erloes_7": "8300",
-  "erloes_0": "8100",
-  "forderungen": "10000",
-  "bank": "1200"
-}
+---
+
+## 9. Parallelisierungs-Matrix
+
+```
+Phase 1 (seq.)         Phase 2 (parallel)              Phase 3
+┌─────────────┐   ┌──── A: ZUGFeRD ─────────────┐
+│  Schema-    │   │                               │   Integration
+│  Migration  │──►├──── B: Bankabgleich ──────────┤──► & Build-Test
+│  + Prisma   │   │                               │   & Push
+│  generate   │   ├──── C: Einstellungen ─────────┤
+└─────────────┘   │                               │
+                  └──── D: Nav + Dashboard ────────┘
 ```
 
 ---
 
-## 6. Implementierungsplan
+## 10. Nicht-Ziele
 
-### Phase 1: Grundlagen (parallel ausführbar)
-
-| Task | Datei(en) | Abhängigkeit |
-|------|-----------|-------------|
-| 1a. Schema-Migration: Kunde.ustIdNr | schema.prisma | — |
-| 1b. Schema-Migration: Beleg-Modell | schema.prisma | — |
-| 1c. Schema-Migration: Kontoumsatz-Modell | schema.prisma | — |
-| 1d. firma.ustIdNr Einstellung + UI | einstellungen/firma | — |
-
-> **Hinweis:** 1a–1c müssen in EINER Migration zusammengefasst werden (Prisma).
-
-### Phase 2: Feature-Entwicklung (parallel pro Feature)
-
-**Strang A — ZUGFeRD (F1):**
-| Step | Task |
-|------|------|
-| A1 | `lib/zugferd-xml.ts` — Factur-X XML-Template |
-| A2 | `lib/zugferd.ts` — PDF/A-3 mit XML-Einbettung |
-| A3 | `app/api/exporte/zugferd/route.ts` — API-Route |
-| A4 | UI: ZUGFeRD-Buttons auf Rechnungsseiten |
-
-**Strang B — Belegdigitalisierung (F2):**
-| Step | Task |
-|------|------|
-| B1 | `app/api/belege/route.ts` + `[id]/route.ts` — CRUD |
-| B2 | `app/api/belege/[id]/datei/route.ts` — Datei-Serving |
-| B3 | `app/belege/page.tsx` — Liste mit Filtern |
-| B4 | `app/belege/neu/page.tsx` — Upload-Formular |
-| B5 | `app/belege/[id]/page.tsx` — Detailansicht |
-| B6 | KI-OCR Integration (optional, via `lib/ai.ts`) |
-
-**Strang C — Bankabgleich (F3):**
-| Step | Task |
-|------|------|
-| C1 | `lib/bankimport.ts` — CSV/MT940 Parser |
-| C2 | `app/api/bankabgleich/route.ts` — Import + Liste |
-| C3 | `app/api/bankabgleich/vorschlaege/route.ts` — Matching |
-| C4 | `app/bankabgleich/page.tsx` — Hauptseite |
-| C5 | `app/bankabgleich/import/page.tsx` — Upload |
-
-**Strang D — DATEV-Export (F4):**
-| Step | Task |
-|------|------|
-| D1 | `lib/datev.ts` — CSV-Generator |
-| D2 | `app/api/exporte/datev/route.ts` — API |
-| D3 | `app/exporte/datev/page.tsx` — UI |
-| D4 | `app/einstellungen/datev/page.tsx` — Konfiguration |
-
-### Phase 3: Integration & Navigation
-
-| Task | Datei(en) |
-|------|-----------|
-| 3a. Nav-Einträge für alle Features | components/Nav.tsx |
-| 3b. Einstellungen-Kacheln | app/einstellungen/page.tsx |
-| 3c. Dashboard-KPIs (offene Belege, unzugeordnete Umsätze) | app/api/dashboard/route.ts |
-| 3d. Exporte-Seite: DATEV-Kachel | app/exporte/page.tsx |
-
-### Phase 4: Test & Review
-
-| Task |
-|------|
-| Build-Test (`npm run build`) |
-| Manuelle Feature-Tests |
-| GoBD-Compliance-Review (ZUGFeRD Schema-Validierung) |
-| Mobile-Responsive-Check |
-
----
-
-## 7. Parallelisierungs-Matrix
-
-```
-         Phase 1          Phase 2                    Phase 3    Phase 4
-         ┌──────┐    ┌─── Strang A (ZUGFeRD) ──────┐
-         │Schema│    │                               │
-         │Migra-│───►├─── Strang B (Belege) ────────┤───► Nav ───► Test
-         │tion  │    │                               │    Einst.
-         │      │    ├─── Strang C (Bankabgleich) ──┤    Dashb.
-         │      │    │                               │
-         └──────┘    └─── Strang D (DATEV) ─────────┘
-```
-
-Stränge A–D sind **vollständig unabhängig** und können parallel von separaten Agents bearbeitet werden.
-
----
-
-## 8. Risiken & Entscheidungen
-
-| Risiko | Mitigation |
-|--------|-----------|
-| pdf-lib vs. jsPDF Inkonsistenz | ZUGFeRD nutzt pdf-lib, bestehende PDFs bleiben bei jsPDF |
-| ZUGFeRD-Schema komplex | Nur BASIC-Profil, handgeschriebenes XML-Template |
-| GoBD bei Belegen | Keine echte Löschung, nur Storno-Flag |
-| CSV-Bankformate variieren | Auto-Detection mit Fallback auf manuelle Spaltenzuordnung |
-| DATEV-Kontenrahmen | Default SKR03, konfigurierbar in Einstellungen |
-
----
-
-## 9. Nicht-Ziele (explizit ausgeschlossen)
-
-- FinTS/HBCI Live-Bankverbindung (zu komplex, Sicherheitsrisiko)
-- Vollständige Finanzbuchhaltung (Soll/Haben, Kontenplan, Bilanz)
-- ELSTER-Schnittstelle (Finanzamt-Meldung)
-- Steuerberater-Login (Portal)
-- Automatische Umsatzsteuervoranmeldung
+- FinTS/HBCI Live-Bankverbindung
+- Vollständige Finanzbuchhaltung (Bilanz, GuV)
+- ELSTER-Schnittstelle
+- Steuerberater-Login-Portal
+- PDF/A-3 ZUGFeRD-Embedding (XML-Download ist Standard-Alternative)

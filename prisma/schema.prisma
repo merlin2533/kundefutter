@@ -24,6 +24,7 @@ model Kunde {
   lng              Float?
   notizen          String?
   tags             String   @default("[]")  // JSON array of tag strings
+  ustIdNr          String?  // USt-Identifikationsnummer (für ZUGFeRD E-Rechnung)
   aktiv            Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -641,6 +642,31 @@ model Ausgabe {
   @@index([datum])
   @@index([lieferantId])
   @@index([kategorie])
+}
+
+// ─── BANKABGLEICH (Kontoauszug-Import & Zahlungszuordnung) ───────────────────
+
+model Kontoumsatz {
+  id               Int       @id @default(autoincrement())
+  kontoBezeichnung String?   // z.B. "Geschäftskonto Sparkasse"
+  buchungsdatum    DateTime
+  wertstellung     DateTime?
+  betrag           Float     // positiv = Eingang, negativ = Ausgang
+  waehrung         String    @default("EUR")
+  verwendungszweck String
+  gegenkonto       String?   // IBAN der Gegenpartei
+  gegenkontoName   String?   // Name der Gegenpartei
+  saldo            Float?
+  zugeordnet       Boolean   @default(false)
+  lieferungId      Int?
+  sammelrechnungId Int?
+  ausgabeId        Int?      // Zuordnung zu Betriebsausgabe
+  importDatum      DateTime  @default(now())
+  importDatei      String?   // Name der Importdatei (für Rückverfolgung)
+
+  @@index([buchungsdatum])
+  @@index([zugeordnet])
+  @@index([betrag])
 }
 
 // ─── KI-NUTZUNG (AI Usage Statistics) ────────────────────────────────────────
