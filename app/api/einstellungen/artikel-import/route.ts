@@ -3,10 +3,67 @@ import { prisma } from "@/lib/prisma";
 import { STAMMDATEN_GRUPPEN, ALLE_STAMMDATEN_ARTIKEL } from "@/lib/artikel-stammdaten";
 import * as XLSX from "xlsx";
 
-/** GET ?action=template  → Excel-Datei mit allen Stammdaten zum Download
- *  GET (kein action)     → JSON-Statusübersicht */
+/** GET ?action=template            → Excel-Datei mit allen Stammdaten zum Download
+ *  GET ?action=sync-inhaltsstoffe  → Inhaltsstoffe aus Stammdaten auf vorhandene Artikel übertragen
+ *  GET (kein action)               → JSON-Statusübersicht */
 export async function GET(req: NextRequest) {
   const action = new URL(req.url).searchParams.get("action");
+
+  // ── Inhaltsstoffe synchronisieren ─────────────────────────────────────────
+  if (action === "sync-inhaltsstoffe") {
+    try {
+      // Alle Stammdaten-Artikel MIT definierten Inhaltsstoffen
+      const stammdatenMitInhaltsstoffen = ALLE_STAMMDATEN_ARTIKEL.filter(
+        (a) => a.inhaltsstoffe && a.inhaltsstoffe.length > 0,
+      );
+      const nummern = stammdatenMitInhaltsstoffen.map((a) => a.artikelnummer);
+
+      // Vorhandene Artikel in DB prüfen — nur die ohne Inhaltsstoffe
+      const dbArtikel = await prisma.artikel.findMany({
+        where: { artikelnummer: { in: nummern } },
+        select: {
+          id: true,
+          artikelnummer: true,
+          _count: { select: { inhaltsstoffe: true } },
+        },
+      });
+
+      let synced = 0;
+      let uebersprungen = 0;
+
+      for (const dbA of dbArtikel) {
+        if (dbA._count.inhaltsstoffe > 0) {
+          uebersprungen++;
+          continue;
+        }
+        const stammdaten = stammdatenMitInhaltsstoffen.find(
+          (a) => a.artikelnummer === dbA.artikelnummer,
+        );
+        if (!stammdaten?.inhaltsstoffe?.length) continue;
+
+        await prisma.artikelInhaltsstoff.createMany({
+          data: stammdaten.inhaltsstoffe.map((i) => ({
+            artikelId: dbA.id,
+            name: i.name,
+            menge: i.menge ?? null,
+            einheit: i.einheit ?? null,
+          })),
+        });
+        synced++;
+      }
+
+      return NextResponse.json({
+        synced,
+        uebersprungen,
+        gesamt: stammdatenMitInhaltsstoffen.length,
+        inDb: dbArtikel.length,
+      });
+    } catch (e) {
+      console.error(e);
+      return NextResponse.json({ error: "Synchronisation fehlgeschlagen" }, { status: 500 });
+    }
+  }
+
 
   // ── Template-Download ──────────────────────────────────────────────────────
   if (action === "template") {

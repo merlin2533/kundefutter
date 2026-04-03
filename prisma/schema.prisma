@@ -109,6 +109,7 @@ model Lieferant {
   artikelZuordnungen ArtikelLieferant[]
   wareneingaenge     Wareneingang[]
   bestellpositionen  Bestellposition[]
+  ausgaben           Ausgabe[]
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
@@ -614,6 +615,32 @@ model KundeSchlag {
   kunde      Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
   @@index([kundeId])
+}
+
+// ─── AUSGABENBUCH (Betriebsausgaben / Eingangsrechnungen) ─────────────────────
+
+model Ausgabe {
+  id           Int       @id @default(autoincrement())
+  datum        DateTime  @default(now())
+  belegNr      String?   // Eingangsrechnungsnummer des Lieferanten
+  beschreibung String
+  betragNetto  Float
+  mwstSatz     Float     @default(19) // 0 | 7 | 19
+  kategorie    String    @default("Sonstige")
+  // Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf |
+  //             Telefon/Internet | Versicherung | Miete | Sonstige
+  lieferantId  Int?
+  lieferant    Lieferant? @relation(fields: [lieferantId], references: [id], onDelete: SetNull)
+  bezahltAm      DateTime?
+  notiz          String?
+  belegPfad      String?   // Relativer Pfad zur hochgeladenen Belegdatei (z.B. /uploads/belege/2026/20260403_42_RE-2026-1234.jpg)
+  belegDateiname String?   // Originaler Dateiname des Belegs
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([datum])
+  @@index([lieferantId])
+  @@index([kategorie])
 }
 
 // ─── KI-NUTZUNG (AI Usage Statistics) ────────────────────────────────────────

@@ -54,7 +54,7 @@ const EXPORTS: ExportCard[] = [
   },
   {
     title: "DATEV-Buchhaltung",
-    description: "Rechnungsdaten im DATEV-Format für den Steuerberater. Buchungsstapel als CSV.",
+    description: "Einnahmen (Rechnungen) und Ausgaben (Ausgabenbuch) im DATEV-Format für den Steuerberater. Buchungsstapel als CSV.",
     typ: "datev",
     hasDateRange: true,
   },

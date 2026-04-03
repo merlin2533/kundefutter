@@ -17,9 +17,8 @@ function q(val: string): string {
   return `"${val.replace(/"/g, '""')}"`;
 }
 
-/** Revenue account by VAT rate (SKR03) */
-function gegenkonto(mwstSatz: number, kontenrahmen: string): string {
-  // SKR03 defaults; SKR04 uses different accounts
+/** Revenue account by VAT rate */
+function erloeseKonto(mwstSatz: number, kontenrahmen: string): string {
   if (kontenrahmen === "SKR04") {
     if (mwstSatz === 19) return "4400";
     if (mwstSatz === 7) return "4300";
@@ -29,6 +28,38 @@ function gegenkonto(mwstSatz: number, kontenrahmen: string): string {
   if (mwstSatz === 19) return "8400";
   if (mwstSatz === 7) return "8300";
   return "8000";
+}
+
+/** Expense account by category */
+function aufwandsKonto(kategorie: string, kontenrahmen: string): string {
+  if (kontenrahmen === "SKR04") {
+    switch (kategorie) {
+      case "Wareneinkauf":     return "5200";
+      case "Betriebsbedarf":   return "6300";
+      case "Fahrtkosten":      return "6520";
+      case "Bürobedarf":       return "6815";
+      case "Telefon/Internet": return "6805";
+      case "Versicherung":     return "6310";
+      case "Miete":            return "6130";
+      default:                 return "6800";
+    }
+  }
+  // SKR03
+  switch (kategorie) {
+    case "Wareneinkauf":     return "3200";
+    case "Betriebsbedarf":   return "4200";
+    case "Fahrtkosten":      return "4530";
+    case "Bürobedarf":       return "4930";
+    case "Telefon/Internet": return "4920";
+    case "Versicherung":     return "4360";
+    case "Miete":            return "4210";
+    default:                 return "4900";
+  }
+}
+
+/** Creditor account: 70000 + lieferantId, or fixed 70000 for unknown */
+function kreditorenKonto(lieferantId: number | null): string {
+  return String(70000 + (lieferantId ?? 0));
 }
 
 export async function GET(req: NextRequest) {
@@ -57,43 +88,66 @@ export async function GET(req: NextRequest) {
   const wjJahr = von.getFullYear();
   const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
 
-  // Query invoiced deliveries in range
-  const lieferungen = await prisma.lieferung.findMany({
-    where: {
-      status: "geliefert",
-      rechnungNr: { not: null },
-      datum: { gte: von, lte: bis },
-    },
-    select: {
-      id: true,
-      kundeId: true,
-      datum: true,
-      rechnungNr: true,
-      rechnungDatum: true,
-      kunde: { select: { name: true, firma: true } },
-      positionen: {
-        select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } },
+  // Query invoiced deliveries and expenses in range
+  const [lieferungen, ausgaben] = await Promise.all([
+    prisma.lieferung.findMany({
+      where: {
+        status: "geliefert",
+        rechnungNr: { not: null },
+        datum: { gte: von, lte: bis },
       },
-    },
-    orderBy: { datum: "asc" },
-  });
+      select: {
+        id: true,
+        kundeId: true,
+        datum: true,
+        rechnungNr: true,
+        rechnungDatum: true,
+        kunde: { select: { name: true, firma: true } },
+        positionen: {
+          select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } },
+        },
+      },
+      orderBy: { datum: "asc" },
+    }),
+    prisma.ausgabe.findMany({
+      where: { datum: { gte: von, lte: bis } },
+      select: {
+        id: true,
+        datum: true,
+        belegNr: true,
+        beschreibung: true,
+        betragNetto: true,
+        mwstSatz: true,
+        kategorie: true,
+        lieferantId: true,
+        belegPfad: true,
+      },
+      orderBy: { datum: "asc" },
+    }),
+  ]);
 
   // Build DATEV data rows
-  // Group invoice positions by VAT rate per invoice
   interface DatevRow {
-    umsatz: number;      // Brutto
-    sollHaben: string;   // S
-    wkz: string;         // EUR
-    konto: string;       // debtor: 10000 + kundeId
-    gegenkonto: string;  // revenue account
+    umsatz: number;
+    sollHaben: string;   // S = Soll (Einnahmen), H = Haben (Ausgaben)
+    wkz: string;
+    konto: string;
+    gegenkonto: string;
     buSchluessel: string;
-    belegdatum: string;  // DDMM
-    belegfeld1: string;  // rechnungNr
-    buchungstext: string; // Kundenname
+    belegdatum: string;
+    belegfeld1: string;
+    buchungstext: string;
+    beleglink: string;   // URL zum Belegscan (DATEV Beleglink Feld)
   }
+
+  // Base URL for Beleglink (e.g. http://194.164.59.48:8080)
+  const proto = req.headers.get("x-forwarded-proto") ?? "http";
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
+  const baseUrl = host ? `${proto}://${host}` : "";
 
   const rows: DatevRow[] = [];
 
+  // ── Einnahmen (Lieferungen) ──────────────────────────────────────────────
   for (const lief of lieferungen) {
     const rechnungDatum = lief.rechnungDatum ?? lief.datum;
     const kundeName = lief.kunde.firma
@@ -115,13 +169,32 @@ export async function GET(req: NextRequest) {
         sollHaben: "S",
         wkz: "EUR",
         konto,
-        gegenkonto: gegenkonto(satz, kontenrahmen),
+        gegenkonto: erloeseKonto(satz, kontenrahmen),
         buSchluessel: "",
         belegdatum: belegdatum(rechnungDatum),
         belegfeld1: lief.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60),
+        beleglink: "",
       });
     }
+  }
+
+  // ── Ausgaben (Betriebsausgaben / Eingangsrechnungen) ─────────────────────
+  for (const ausg of ausgaben) {
+    const brutto = ausg.betragNetto * (1 + ausg.mwstSatz / 100);
+    const beleglink = ausg.belegPfad && baseUrl ? `${baseUrl}${ausg.belegPfad}` : "";
+    rows.push({
+      umsatz: Math.round(brutto * 100) / 100,
+      sollHaben: "H",
+      wkz: "EUR",
+      konto: aufwandsKonto(ausg.kategorie, kontenrahmen),
+      gegenkonto: kreditorenKonto(ausg.lieferantId),
+      buSchluessel: "",
+      belegdatum: belegdatum(ausg.datum),
+      belegfeld1: (ausg.belegNr ?? "").substring(0, 36),
+      buchungstext: ausg.beschreibung.substring(0, 60),
+      beleglink,
+    });
   }
 
   // Build DATEV CSV
@@ -235,23 +308,31 @@ export async function GET(req: NextRequest) {
   // Data rows
   const dataLines = rows.map((r) => {
     const umsatzStr = r.umsatz.toFixed(2).replace(".", ",");
+    // Positions 14-18 are empty (Postensperre, Diverse Adressnummer, Geschäftspartnerbank, Sachverhalt, Zinssperre)
+    // Position 19 = Beleglink
+    // Positions 20-63 are empty (remaining 44 fields)
     return [
-      umsatzStr,
-      r.sollHaben,
-      r.wkz,
-      "", // Kurs
-      "", // Basis-Umsatz
-      "", // WKZ Basis-Umsatz
-      r.konto,
-      r.gegenkonto,
-      r.buSchluessel,
-      r.belegdatum,
-      q(r.belegfeld1),
-      "", // Belegfeld 2
-      "", // Skonto
-      q(r.buchungstext),
-      // remaining 50 empty fields
-      ...Array(50).fill(""),
+      umsatzStr,       // 0  Umsatz
+      r.sollHaben,     // 1  Soll/Haben-Kennzeichen
+      r.wkz,           // 2  WKZ Umsatz
+      "",              // 3  Kurs
+      "",              // 4  Basis-Umsatz
+      "",              // 5  WKZ Basis-Umsatz
+      r.konto,         // 6  Konto
+      r.gegenkonto,    // 7  Gegenkonto
+      r.buSchluessel,  // 8  BU-Schlüssel
+      r.belegdatum,    // 9  Belegdatum
+      q(r.belegfeld1), // 10 Belegfeld 1
+      "",              // 11 Belegfeld 2
+      "",              // 12 Skonto
+      q(r.buchungstext), // 13 Buchungstext
+      "",              // 14 Postensperre
+      "",              // 15 Diverse Adressnummer
+      "",              // 16 Geschäftspartnerbank
+      "",              // 17 Sachverhalt
+      "",              // 18 Zinssperre
+      r.beleglink ? q(r.beleglink) : "", // 19 Beleglink
+      ...Array(44).fill(""), // 20-63 remaining empty fields
     ].join(";");
   });
 

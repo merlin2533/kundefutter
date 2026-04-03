@@ -55,6 +55,7 @@ const groups: NavGroup[] = [
       { href: "/rechnungen", label: "Rechnungen" },
       { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
+      { href: "/ausgaben", label: "Ausgabenbuch" },
       { href: "/mahnwesen", label: "Mahnwesen" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },
