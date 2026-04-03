@@ -32,7 +32,13 @@ export async function GET(_req: NextRequest, ctx: Params) {
 
 export async function PUT(req: NextRequest, ctx: Params) {
   const { id } = await ctx.params;
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { aktion, status, notiz, gueltigBis } = body;
 
   try {
