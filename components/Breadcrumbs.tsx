@@ -91,29 +91,11 @@ export default function Breadcrumbs() {
   const pathname = usePathname();
   const [dynamicLabels, setDynamicLabels] = useState<Record<string, string>>({});
 
-  if (pathname === "/") return null;
+  const segments = pathname === "/" ? [] : pathname.split("/").filter(Boolean);
 
-  const segments = pathname.split("/").filter(Boolean);
-
-  const crumbs: Crumb[] = [{ label: "Dashboard", href: "/" }];
-  let currentPath = "";
-  let parentEntity: EntityRoute | null = null;
-
-  for (const seg of segments) {
-    currentPath += `/${seg}`;
-    const isId = /^\d+$/.test(seg);
-
-    if (isId && parentEntity) {
-      const key = `${parentEntity}/${seg}`;
-      crumbs.push({ label: dynamicLabels[key] ?? `#${seg}`, href: currentPath });
-    } else {
-      crumbs.push({ label: SEGMENT_LABELS[seg] ?? seg, href: currentPath });
-      if (isEntityRoute(seg)) parentEntity = seg;
-    }
-  }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (segments.length === 0) return;
+
     const toFetch: { entity: EntityRoute; id: string; key: string }[] = [];
     let entity: EntityRoute | null = null;
 
@@ -143,6 +125,25 @@ export default function Breadcrumbs() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  if (pathname === "/") return null;
+
+  const crumbs: Crumb[] = [{ label: "Dashboard", href: "/" }];
+  let currentPath = "";
+  let parentEntity: EntityRoute | null = null;
+
+  for (const seg of segments) {
+    currentPath += `/${seg}`;
+    const isId = /^\d+$/.test(seg);
+
+    if (isId && parentEntity) {
+      const key = `${parentEntity}/${seg}`;
+      crumbs.push({ label: dynamicLabels[key] ?? `#${seg}`, href: currentPath });
+    } else {
+      crumbs.push({ label: SEGMENT_LABELS[seg] ?? seg, href: currentPath });
+      if (isEntityRoute(seg)) parentEntity = seg;
+    }
+  }
 
   if (crumbs.length <= 1) return null;
 
