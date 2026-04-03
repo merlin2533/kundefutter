@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import CameraUpload from "@/components/CameraUpload";
 
 const KATEGORIEN = [
   "Wareneinkauf",
@@ -36,6 +37,13 @@ export default function NeueAusgabePage() {
   const [bezahltHeute, setBezahltHeute] = useState(false);
   const [notiz, setNotiz] = useState("");
 
+  // Beleg upload state
+  const [belegFile, setBelegFile] = useState<File | null>(null);
+  const [belegPreview, setBelegPreview] = useState<string>("");
+  const [belegName, setBelegName] = useState<string>("");
+  const [kiLaeding, setKiLaeding] = useState(false);
+  const [kiHinweis, setKiHinweis] = useState("");
+
   useEffect(() => {
     fetch("/api/lieferanten").then(r => r.json()).then(setLieferanten);
   }, []);
@@ -43,6 +51,43 @@ export default function NeueAusgabePage() {
   const netto = parseFloat(betragNetto) || 0;
   const mwstBetrag = netto * (parseFloat(mwstSatz) / 100);
   const brutto = netto + mwstBetrag;
+
+  function handleBelegSelected(file: File, preview: string) {
+    setBelegFile(file);
+    setBelegPreview(preview);
+    setBelegName(file.name);
+    setKiHinweis("");
+  }
+
+  async function kiAnalyse() {
+    if (!belegPreview) return;
+    setKiLaeding(true);
+    setKiHinweis("");
+    try {
+      const res = await fetch("/api/ki/beleg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: belegPreview }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setKiHinweis("KI-Fehler: " + (d.error ?? "Unbekannt"));
+        return;
+      }
+      const d = await res.json();
+      if (d.datum) setDatum(d.datum);
+      if (d.belegNr) setBelegNr(d.belegNr);
+      if (d.beschreibung) setBeschreibung(d.beschreibung);
+      if (d.betragNetto !== null && d.betragNetto !== undefined) setBetragNetto(String(d.betragNetto));
+      if (d.mwstSatz !== undefined) setMwstSatz(String(d.mwstSatz));
+      if (d.kategorie) setKategorie(d.kategorie);
+      setKiHinweis("Felder wurden automatisch ausgefüllt – bitte prüfen.");
+    } catch {
+      setKiHinweis("KI-Analyse fehlgeschlagen.");
+    } finally {
+      setKiLaeding(false);
+    }
+  }
 
   async function speichern(e: React.FormEvent) {
     e.preventDefault();
@@ -52,6 +97,8 @@ export default function NeueAusgabePage() {
     }
     setSaving(true);
     setFehler("");
+
+    // 1) Ausgabe speichern
     const res = await fetch("/api/ausgaben", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -67,13 +114,25 @@ export default function NeueAusgabePage() {
         notiz: notiz || null,
       }),
     });
-    setSaving(false);
-    if (res.ok) {
-      router.push("/ausgaben");
-    } else {
+
+    if (!res.ok) {
       const data = await res.json();
       setFehler(data.error ?? "Fehler beim Speichern");
+      setSaving(false);
+      return;
     }
+
+    const ausgabe = await res.json();
+
+    // 2) Beleg hochladen falls vorhanden
+    if (belegFile && ausgabe.id) {
+      const fd = new FormData();
+      fd.append("file", belegFile);
+      await fetch(`/api/ausgaben/${ausgabe.id}/beleg`, { method: "POST", body: fd });
+    }
+
+    setSaving(false);
+    router.push("/ausgaben");
   }
 
   return (
@@ -85,6 +144,38 @@ export default function NeueAusgabePage() {
 
       <form onSubmit={speichern} className="bg-white border rounded p-5 space-y-4">
         {fehler && <div className="bg-red-50 text-red-700 px-3 py-2 rounded text-sm">{fehler}</div>}
+
+        {/* ── Beleg hochladen ── */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Beleg (Foto / Upload)</label>
+          <CameraUpload
+            onImageSelected={handleBelegSelected}
+            imagePreview={belegPreview}
+            imageName={belegName}
+            onRemove={() => { setBelegFile(null); setBelegPreview(""); setBelegName(""); setKiHinweis(""); }}
+            maxResolution={1200}
+          />
+
+          {belegPreview && (
+            <button
+              type="button"
+              onClick={kiAnalyse}
+              disabled={kiLaeding}
+              className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+            >
+              {kiLaeding ? (
+                <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
+              ) : (
+                <span>🤖</span>
+              )}
+              {kiLaeding ? "KI analysiert…" : "KI: Felder automatisch ausfüllen"}
+            </button>
+          )}
+
+          {kiHinweis && (
+            <p className="mt-1 text-xs text-purple-700 bg-purple-50 rounded px-2 py-1">{kiHinweis}</p>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -143,7 +234,6 @@ export default function NeueAusgabePage() {
           </div>
         </div>
 
-        {/* Vorschau Brutto */}
         {netto > 0 && (
           <div className="bg-gray-50 border rounded p-3 text-sm grid grid-cols-3 gap-2 text-center">
             <div>
