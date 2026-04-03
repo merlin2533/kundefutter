@@ -33,7 +33,15 @@ const FEATURE_LABELS: Record<string, string> = {
   wareneingang: "Wareneingang",
   lieferung: "Lieferung",
   crm: "CRM Notiz",
+  inhaltsstoffe: "Inhaltsstoffe",
 };
+
+const PROMPT_FEATURES = [
+  { key: "wareneingang", label: "Wareneingang", desc: "Analyse von Lieferschein-Bildern" },
+  { key: "lieferung", label: "Lieferung", desc: "Analyse von Bestellungen/Aufträgen" },
+  { key: "crm", label: "CRM Notiz", desc: "CRM-Aktivitäten aus Text/Bild" },
+  { key: "inhaltsstoffe", label: "Inhaltsstoffe", desc: "Produktzusammensetzung recherchieren" },
+];
 
 const OPENAI_MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },
@@ -61,6 +69,12 @@ export default function KiEinstellungenPage() {
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
 
+  // Prompt-Verwaltung
+  const [prompts, setPrompts] = useState<Record<string, string>>({});
+  const [promptsExpanded, setPromptsExpanded] = useState<string | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState<string | null>(null);
+  const [promptSaved, setPromptSaved] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -78,6 +92,13 @@ export default function KiEinstellungenPage() {
       if (data["ki.modell"]) setModell(data["ki.modell"]);
       if (data["ki.openai_key"]) setOpenaiKey(data["ki.openai_key"]);
       if (data["ki.anthropic_key"]) setAnthropicKey(data["ki.anthropic_key"]);
+      // Prompts laden
+      const loadedPrompts: Record<string, string> = {};
+      for (const f of PROMPT_FEATURES) {
+        const val = data[`ki.prompt.${f.key}`];
+        if (val) loadedPrompts[f.key] = val;
+      }
+      setPrompts(loadedPrompts);
     } catch {
       setError("Fehler beim Laden der KI-Einstellungen.");
     } finally {
@@ -163,6 +184,41 @@ export default function KiEinstellungenPage() {
       setTestResult({ ok: false, error: "Netzwerkfehler" });
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function savePrompt(featureKey: string) {
+    setSavingPrompt(featureKey);
+    try {
+      const value = prompts[featureKey] ?? "";
+      const res = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: `ki.prompt.${featureKey}`, value }),
+      });
+      if (!res.ok) throw new Error();
+      setPromptSaved(featureKey);
+      setTimeout(() => setPromptSaved(null), 2000);
+    } catch {
+      setError(`Fehler beim Speichern des ${featureKey}-Prompts.`);
+    } finally {
+      setSavingPrompt(null);
+    }
+  }
+
+  async function resetPrompt(featureKey: string) {
+    // Leeren Wert speichern → API nutzt dann den Standardprompt aus lib/ai.ts
+    setPrompts((p) => { const n = { ...p }; delete n[featureKey]; return n; });
+    try {
+      await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: `ki.prompt.${featureKey}`, value: "" }),
+      });
+      setPromptSaved(featureKey);
+      setTimeout(() => setPromptSaved(null), 2000);
+    } catch {
+      setError(`Fehler beim Zurücksetzen des ${featureKey}-Prompts.`);
     }
   }
 
@@ -323,6 +379,63 @@ export default function KiEinstellungenPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Prompt-Verwaltung */}
+      <div className="mt-10">
+        <h2 className="text-xl font-bold text-gray-800 mb-5">Prompt-Verwaltung</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Hier können die System-Prompts für jede KI-Funktion angepasst werden.
+          Leere Felder verwenden den Standard-Prompt.
+        </p>
+        <div className="space-y-3">
+          {PROMPT_FEATURES.map((f) => (
+            <div key={f.key} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setPromptsExpanded(promptsExpanded === f.key ? null : f.key)}
+                className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+              >
+                <div className="text-left">
+                  <span className="font-medium text-gray-800">{f.label}</span>
+                  <span className="text-xs text-gray-400 ml-2">{f.desc}</span>
+                  {prompts[f.key] && (
+                    <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Angepasst</span>
+                  )}
+                </div>
+                <span className="text-gray-400 text-sm">{promptsExpanded === f.key ? "▲" : "▼"}</span>
+              </button>
+              {promptsExpanded === f.key && (
+                <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+                  <textarea
+                    rows={8}
+                    value={prompts[f.key] ?? ""}
+                    onChange={(e) => setPrompts({ ...prompts, [f.key]: e.target.value })}
+                    placeholder="Leer = Standard-Prompt wird verwendet"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500 resize-y"
+                  />
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => savePrompt(f.key)}
+                      disabled={savingPrompt === f.key}
+                      className="px-4 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                    >
+                      {savingPrompt === f.key ? "Speichern..." : promptSaved === f.key ? "Gespeichert!" : "Prompt speichern"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetPrompt(f.key)}
+                      className="px-4 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-600"
+                    >
+                      Zurücksetzen
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Nutzungsstatistik */}

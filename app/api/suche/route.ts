@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
             { name: { contains: q } },
             { artikelnummer: { contains: q } },
             { kategorie: { contains: q } },
+            { inhaltsstoffe: { some: { name: { contains: q } } } },
           ],
         },
         select: { id: true, name: true, artikelnummer: true, kategorie: true },

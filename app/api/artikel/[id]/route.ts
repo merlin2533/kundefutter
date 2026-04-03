@@ -10,6 +10,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const artikel = await prisma.artikel.findUnique({
       where: { id: Number(id) },
       include: {
+        inhaltsstoffe: true,
         lieferanten: { include: { lieferant: true } },
         kundePreise: { include: { kunde: true } },
         preisHistorie: { orderBy: { geaendertAm: "desc" }, take: 20 },
@@ -33,7 +34,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, ...data } = body;
+  const { lieferanten, inhaltsstoffe, ...data } = body;
 
   if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
 
@@ -64,8 +65,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
               create: lieferanten,
             },
           }),
+          ...(inhaltsstoffe !== undefined && {
+            inhaltsstoffe: {
+              deleteMany: {},
+              create: (inhaltsstoffe as { name: string; menge?: number | null; einheit?: string | null }[]).map((i) => ({
+                name: i.name,
+                menge: i.menge ?? null,
+                einheit: i.einheit ?? null,
+              })),
+            },
+          }),
         },
         include: {
+          inhaltsstoffe: true,
           lieferanten: { include: { lieferant: true } },
           dokumente: true,
         },

@@ -36,6 +36,13 @@ interface Bedarf {
   kunde: { id: number; name: string };
 }
 
+interface Inhaltsstoff {
+  id: number;
+  name: string;
+  menge: number | null;
+  einheit: string | null;
+}
+
 interface Artikel {
   id: number;
   artikelnummer: string;
@@ -50,6 +57,7 @@ interface Artikel {
   beschreibung?: string | null;
   aktiv: boolean;
   lagerort?: string | null;
+  inhaltsstoffe: Inhaltsstoff[];
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
   bedarfe: Bedarf[];
@@ -81,7 +89,7 @@ export default function ArtikelDetailPage() {
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"details" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
+  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
 
   // Details edit state
   const [editing, setEditing] = useState(false);
@@ -106,6 +114,13 @@ export default function ArtikelDetailPage() {
   });
   const [savingLief, setSavingLief] = useState(false);
   const [liefError, setLiefError] = useState("");
+
+  // Inhaltsstoffe
+  const [editInhaltsstoffe, setEditInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
+  const [editingInhaltsstoffe, setEditingInhaltsstoffe] = useState(false);
+  const [savingInhaltsstoffe, setSavingInhaltsstoffe] = useState(false);
+  const [kiSearching, setKiSearching] = useState(false);
+  const [kiHinweis, setKiHinweis] = useState<string | null>(null);
 
   // Löschen / Duplizieren
   const [deleting, setDeleting] = useState(false);
@@ -210,6 +225,11 @@ export default function ArtikelDetailPage() {
         mindestbestand: artikel.mindestbestand,
         beschreibung: artikel.beschreibung,
         lagerort: artikel.lagerort,
+        inhaltsstoffe: artikel.inhaltsstoffe.map((i) => ({
+          name: i.name,
+          menge: i.menge,
+          einheit: i.einheit,
+        })),
       }),
     });
     setDuplicating(false);
@@ -297,6 +317,73 @@ export default function ArtikelDetailPage() {
     }
   }
 
+  // ── Inhaltsstoffe ────────────────────────────────────────────────────────
+  function startEditInhaltsstoffe() {
+    setEditInhaltsstoffe(
+      (artikel?.inhaltsstoffe ?? []).map((i) => ({
+        name: i.name,
+        menge: i.menge !== null ? String(i.menge) : "",
+        einheit: i.einheit ?? "",
+      }))
+    );
+    setEditingInhaltsstoffe(true);
+    setKiHinweis(null);
+  }
+
+  async function saveInhaltsstoffe() {
+    setSavingInhaltsstoffe(true);
+    const payload = editInhaltsstoffe
+      .filter((i) => i.name.trim())
+      .map((i) => ({
+        name: i.name.trim(),
+        menge: i.menge ? parseFloat(i.menge) || null : null,
+        einheit: i.einheit.trim() || null,
+      }));
+    const res = await fetch(`/api/artikel/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inhaltsstoffe: payload }),
+    });
+    setSavingInhaltsstoffe(false);
+    if (res.ok) {
+      setEditingInhaltsstoffe(false);
+      fetchArtikel();
+    }
+  }
+
+  async function kiInhaltsstoffeSuche() {
+    if (!artikel) return;
+    setKiSearching(true);
+    setKiHinweis(null);
+    try {
+      const res = await fetch("/api/ki/inhaltsstoffe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: artikel.name, kategorie: artikel.kategorie }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setKiHinweis(data.error ?? "KI-Fehler");
+        return;
+      }
+      if (data.inhaltsstoffe?.length) {
+        setEditInhaltsstoffe(
+          data.inhaltsstoffe.map((i: { name: string; menge?: number | null; einheit?: string | null }) => ({
+            name: i.name,
+            menge: i.menge !== null && i.menge !== undefined ? String(i.menge) : "",
+            einheit: i.einheit ?? "",
+          }))
+        );
+        if (!editingInhaltsstoffe) setEditingInhaltsstoffe(true);
+      }
+      if (data.hinweis) setKiHinweis(data.hinweis);
+    } catch {
+      setKiHinweis("Netzwerkfehler bei KI-Suche.");
+    } finally {
+      setKiSearching(false);
+    }
+  }
+
   // ── Derived ───────────────────────────────────────────────────────────────
   function getMarge(): number | null {
     if (!artikel) return null;
@@ -318,6 +405,7 @@ export default function ArtikelDetailPage() {
 
   const TABS = [
     { key: "details", label: "Details" },
+    { key: "inhaltsstoffe", label: `Inhaltsstoffe${artikel.inhaltsstoffe.length ? ` (${artikel.inhaltsstoffe.length})` : ""}` },
     { key: "lieferanten", label: "Lieferanten" },
     { key: "preishistorie", label: "Preishistorie" },
     { key: "dokumente", label: "Dokumente" },
@@ -615,6 +703,146 @@ export default function ArtikelDetailPage() {
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Inhaltsstoffe ─────────────────────────────────────────────── */}
+      {tab === "inhaltsstoffe" && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 max-w-2xl">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="text-lg font-semibold text-gray-800">Inhaltsstoffe / Zusammensetzung</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={kiInhaltsstoffeSuche}
+                disabled={kiSearching}
+                className="px-3 py-1.5 text-sm border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg font-medium transition-colors disabled:opacity-60 flex items-center gap-1.5"
+              >
+                {kiSearching ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    KI sucht…
+                  </>
+                ) : (
+                  <>🤖 KI-Suche</>
+                )}
+              </button>
+              {!editingInhaltsstoffe && (
+                <button
+                  onClick={startEditInhaltsstoffe}
+                  className="px-3 py-1.5 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium"
+                >
+                  Bearbeiten
+                </button>
+              )}
+            </div>
+          </div>
+
+          {kiHinweis && (
+            <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              {kiHinweis}
+            </div>
+          )}
+
+          {editingInhaltsstoffe ? (
+            <div className="space-y-3">
+              {editInhaltsstoffe.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    placeholder="Name (z.B. Schwefel)"
+                    value={item.name}
+                    onChange={(e) => {
+                      const arr = [...editInhaltsstoffe];
+                      arr[idx] = { ...arr[idx], name: e.target.value };
+                      setEditInhaltsstoffe(arr);
+                    }}
+                    className={`${inputCls} flex-1`}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Menge"
+                    value={item.menge}
+                    onChange={(e) => {
+                      const arr = [...editInhaltsstoffe];
+                      arr[idx] = { ...arr[idx], menge: e.target.value };
+                      setEditInhaltsstoffe(arr);
+                    }}
+                    className={`${inputCls} w-24`}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Einheit"
+                    value={item.einheit}
+                    onChange={(e) => {
+                      const arr = [...editInhaltsstoffe];
+                      arr[idx] = { ...arr[idx], einheit: e.target.value };
+                      setEditInhaltsstoffe(arr);
+                    }}
+                    className={`${inputCls} w-20`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEditInhaltsstoffe(editInhaltsstoffe.filter((_, i) => i !== idx))}
+                    className="p-2 text-red-400 hover:text-red-600"
+                    title="Entfernen"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setEditInhaltsstoffe([...editInhaltsstoffe, { name: "", menge: "", einheit: "%" }])}
+                className="text-sm text-green-700 hover:text-green-900 font-medium"
+              >
+                + Inhaltsstoff hinzufügen
+              </button>
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setEditingInhaltsstoffe(false); setKiHinweis(null); }}
+                  className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
+                >
+                  Abbrechen
+                </button>
+                <button
+                  onClick={saveInhaltsstoffe}
+                  disabled={savingInhaltsstoffe}
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
+                >
+                  {savingInhaltsstoffe ? "Speichern…" : "Speichern"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {artikel.inhaltsstoffe.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b border-gray-200">
+                      <th className="pb-2 font-medium">Inhaltsstoff</th>
+                      <th className="pb-2 font-medium text-right">Menge</th>
+                      <th className="pb-2 font-medium pl-2">Einheit</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {artikel.inhaltsstoffe.map((i) => (
+                      <tr key={i.id}>
+                        <td className="py-2 text-gray-900">{i.name}</td>
+                        <td className="py-2 text-gray-700 text-right">{i.menge !== null ? i.menge : "—"}</td>
+                        <td className="py-2 text-gray-500 pl-2">{i.einheit ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-400 italic">
+                  Keine Inhaltsstoffe hinterlegt. Nutze &quot;Bearbeiten&quot; oder &quot;KI-Suche&quot; um Inhaltsstoffe hinzuzufügen.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

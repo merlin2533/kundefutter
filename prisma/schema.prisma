@@ -128,6 +128,7 @@ model Artikel {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  inhaltsstoffe    ArtikelInhaltsstoff[]
   lieferanten      ArtikelLieferant[]
   kundePreise      KundeArtikelPreis[]
   preisHistorie    ArtikelPreisHistorie[]
@@ -141,6 +142,19 @@ model Artikel {
   inventurPositionen InventurPosition[]
   gutschriftPositionen GutschriftPosition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+}
+
+model ArtikelInhaltsstoff {
+  id        Int    @id @default(autoincrement())
+  artikelId Int
+  name      String   // z.B. "Schwefel", "Rohprotein", "Bor"
+  menge     Float?   // z.B. 90
+  einheit   String?  // z.B. "%", "mg/kg", "g/l"
+
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@index([artikelId])
+  @@index([name])
 }
 
 model ArtikelDokument {

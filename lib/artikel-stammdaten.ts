@@ -1,5 +1,11 @@
 // Vordefinierte Artikel-Stammdaten für den manuellen Import über Einstellungen
 
+export interface StammdatenInhaltsstoff {
+  name: string;
+  menge?: number | null;
+  einheit?: string | null;
+}
+
 export interface StammdatenArtikel {
   artikelnummer: string;
   name: string;
@@ -10,6 +16,7 @@ export interface StammdatenArtikel {
   einkaufspreis: number;
   mindestbestand: number;
   beschreibung?: string;
+  inhaltsstoffe?: StammdatenInhaltsstoff[];
   lieferantName: string;
 }
 
@@ -78,6 +85,7 @@ function bvg(
   name: string,
   einheit: string,
   standardpreis: number,
+  inhaltsstoffe?: StammdatenInhaltsstoff[],
 ): StammdatenArtikel {
   return {
     artikelnummer,
@@ -89,6 +97,7 @@ function bvg(
     einkaufspreis: Math.round(standardpreis * 0.72 * 100) / 100,
     mindestbestand: 5,
     beschreibung: "FiBL-gelistet",
+    inhaltsstoffe,
     lieferantName: BVG_LIEFERANT.name,
   };
 }
@@ -226,33 +235,60 @@ export const STAMMDATEN_GRUPPEN: StammdatenGruppe[] = [
     lieferantName: BVG_LIEFERANT.name,
     lieferantInfo: BVG_LIEFERANT,
     artikel: [
-      bvg("SUL-001", "Sulfomix® plus – 90 % S Schwefel + 9 % Geruchs-/Stickstoffbindemittel (25 kg Sack)",    "Sack",    31.25),
-      bvg("SUL-002", "Sulfomix® plus (600 kg Big Bag)",                                                         "Stück",  720.00),
-      bvg("SUL-003", "Sulfomix® plus (1.000 kg Big Bag)",                                                       "Stück", 1200.00),
-      bvg("SUL-004", "SulfoLins® 90 – Schwefellinsen zum Streuen, 90 % S, 10 % Bentonit (25 kg Sack)",         "Sack",    23.50),
-      bvg("SUL-005", "SulfoLins® 90 (600 kg Big Bag)",                                                          "Stück",  534.00),
-      bvg("SUL-006", "SulfoLins® 90 (1.000 kg Big Bag)",                                                        "Stück",  890.00),
-      bvg("SUL-007", "SulfoLins® S+Selen – 90 % S Schwefel, 0,02 % Selen, 10 % Bentonit (25 kg Sack)",        "Sack",    27.75),
-      bvg("SUL-008", "SulfoLins® S+Selen (600 kg Big Bag)",                                                     "Stück",  636.00),
-      bvg("SUL-009", "SulfoLins® S+Selen (1.000 kg Big Bag)",                                                   "Stück", 1060.00),
-      bvg("SUL-010", "SulfoLins® S+B – 77 % S Schwefel, 2 % Bor, 10 % Bentonit (25 kg Sack)",                 "Sack",    28.50),
-      bvg("SUL-011", "SulfoLins® S+B (600 kg Big Bag)",                                                         "Stück",  654.00),
-      bvg("SUL-012", "SulfoLins® S+B (1.000 kg Big Bag)",                                                       "Stück", 1090.00),
-      bvg("SUL-013", "SulfoLins® S+B+S – 77 % S Schwefel, 2 % Bor, 0,02 % Selen, 10 % Bentonit (25 kg Sack)", "Sack",   30.50),
-      bvg("SUL-014", "SulfoLins® S+B+S (600 kg Big Bag)",                                                       "Stück",  702.00),
-      bvg("SUL-015", "SulfoLins® S+B+S (1.000 kg Big Bag)",                                                     "Stück", 1170.00),
-      bvg("SUL-016", "Sulfogran® S+B – Granulat zum Streuen, 77 % S, 2 % Bor, 10 % Bentonit (25 kg Sack)",    "Sack",    28.50),
-      bvg("SUL-017", "Sulfogran® S+B (600 kg Big Bag)",                                                         "Stück",  654.00),
-      bvg("SUL-018", "Sulfogran® S+B (1.000 kg Big Bag)",                                                       "Stück", 1090.00),
-      bvg("SUL-019", "Sulfogran® – Granulat zum Streuen, 90 % S, 10 % Bentonit (25 kg Sack)",                  "Sack",    23.50),
-      bvg("SUL-020", "Sulfogran® (500 kg Big Bag)",                                                             "Stück",  445.00),
-      bvg("SUL-021", "Sulfogran® (1.000 kg Big Bag)",                                                           "Stück",  890.00),
-      bvg("SUL-022", "SCHWEDOKAL® 80 flüssig – 56,9 % S Schwefel, 800 g/l (10 l Kanister)",                   "Stück",   44.75),
-      bvg("SUL-023", "SCHWEDOKAL® 80 flüssig (600 l Gitterbox)",                                               "Stück", 2100.00),
-      bvg("SUL-024", "SCHWEDOKAL® 80 flüssig (1.000 l Gitterbox)",                                             "Stück", 2900.00),
-      bvg("SUL-025", "BvG Boden aktiv – Effektive Mikroorganismen, Bodenverbesserung (500 l Box)",             "Stück",  575.00),
-      bvg("SUL-026", "BvG Boden aktiv (1.000 l Box)",                                                          "Stück",  910.00),
-      bvg("SUL-027", "BvG-Bor 17,4 G – 17,4 % Bor, wasserlösliches Bor, Borsäure (25 kg Sack)",              "Sack",    60.00),
+      bvg("SUL-001", "Sulfomix® plus – 90 % S Schwefel + 9 % Geruchs-/Stickstoffbindemittel (25 kg Sack)",    "Sack",    31.25,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Geruchs-/Stickstoffbindemittel", menge: 9, einheit: "%" }]),
+      bvg("SUL-002", "Sulfomix® plus (600 kg Big Bag)",                                                         "Stück",  720.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Geruchs-/Stickstoffbindemittel", menge: 9, einheit: "%" }]),
+      bvg("SUL-003", "Sulfomix® plus (1.000 kg Big Bag)",                                                       "Stück", 1200.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Geruchs-/Stickstoffbindemittel", menge: 9, einheit: "%" }]),
+      bvg("SUL-004", "SulfoLins® 90 – Schwefellinsen zum Streuen, 90 % S, 10 % Bentonit (25 kg Sack)",         "Sack",    23.50,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-005", "SulfoLins® 90 (600 kg Big Bag)",                                                          "Stück",  534.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-006", "SulfoLins® 90 (1.000 kg Big Bag)",                                                        "Stück",  890.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-007", "SulfoLins® S+Selen – 90 % S Schwefel, 0,02 % Selen, 10 % Bentonit (25 kg Sack)",        "Sack",    27.75,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-008", "SulfoLins® S+Selen (600 kg Big Bag)",                                                     "Stück",  636.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-009", "SulfoLins® S+Selen (1.000 kg Big Bag)",                                                   "Stück", 1060.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-010", "SulfoLins® S+B – 77 % S Schwefel, 2 % Bor, 10 % Bentonit (25 kg Sack)",                 "Sack",    28.50,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-011", "SulfoLins® S+B (600 kg Big Bag)",                                                         "Stück",  654.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-012", "SulfoLins® S+B (1.000 kg Big Bag)",                                                       "Stück", 1090.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-013", "SulfoLins® S+B+S – 77 % S Schwefel, 2 % Bor, 0,02 % Selen, 10 % Bentonit (25 kg Sack)", "Sack",   30.50,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-014", "SulfoLins® S+B+S (600 kg Big Bag)",                                                       "Stück",  702.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-015", "SulfoLins® S+B+S (1.000 kg Big Bag)",                                                     "Stück", 1170.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Selen (Se)", menge: 0.02, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-016", "Sulfogran® S+B – Granulat zum Streuen, 77 % S, 2 % Bor, 10 % Bentonit (25 kg Sack)",    "Sack",    28.50,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-017", "Sulfogran® S+B (600 kg Big Bag)",                                                         "Stück",  654.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-018", "Sulfogran® S+B (1.000 kg Big Bag)",                                                       "Stück", 1090.00,
+        [{ name: "Schwefel (S)", menge: 77, einheit: "%" }, { name: "Bor (B)", menge: 2, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-019", "Sulfogran® – Granulat zum Streuen, 90 % S, 10 % Bentonit (25 kg Sack)",                  "Sack",    23.50,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-020", "Sulfogran® (500 kg Big Bag)",                                                             "Stück",  445.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-021", "Sulfogran® (1.000 kg Big Bag)",                                                           "Stück",  890.00,
+        [{ name: "Schwefel (S)", menge: 90, einheit: "%" }, { name: "Bentonit", menge: 10, einheit: "%" }]),
+      bvg("SUL-022", "SCHWEDOKAL® 80 flüssig – 56,9 % S Schwefel, 800 g/l (10 l Kanister)",                   "Stück",   44.75,
+        [{ name: "Schwefel (S)", menge: 56.9, einheit: "%" }, { name: "Dichte", menge: 800, einheit: "g/l" }]),
+      bvg("SUL-023", "SCHWEDOKAL® 80 flüssig (600 l Gitterbox)",                                               "Stück", 2100.00,
+        [{ name: "Schwefel (S)", menge: 56.9, einheit: "%" }, { name: "Dichte", menge: 800, einheit: "g/l" }]),
+      bvg("SUL-024", "SCHWEDOKAL® 80 flüssig (1.000 l Gitterbox)",                                             "Stück", 2900.00,
+        [{ name: "Schwefel (S)", menge: 56.9, einheit: "%" }, { name: "Dichte", menge: 800, einheit: "g/l" }]),
+      bvg("SUL-025", "BvG Boden aktiv – Effektive Mikroorganismen, Bodenverbesserung (500 l Box)",             "Stück",  575.00,
+        [{ name: "Effektive Mikroorganismen", menge: null, einheit: null }]),
+      bvg("SUL-026", "BvG Boden aktiv (1.000 l Box)",                                                          "Stück",  910.00,
+        [{ name: "Effektive Mikroorganismen", menge: null, einheit: null }]),
+      bvg("SUL-027", "BvG-Bor 17,4 G – 17,4 % Bor, wasserlösliches Bor, Borsäure (25 kg Sack)",              "Sack",    60.00,
+        [{ name: "Bor (B)", menge: 17.4, einheit: "%" }]),
     ],
   },
 ];

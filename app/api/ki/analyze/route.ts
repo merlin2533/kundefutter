@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImage, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Anthropic API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
     }
 
-    const prompt = PROMPTS[feature as Feature];
+    // Lade ggf. benutzerdefinierten Prompt aus Einstellungen
+    const customPrompt = await prisma.einstellung.findUnique({
+      where: { key: `ki.prompt.${feature}` },
+    });
+    const prompt = (customPrompt?.value?.trim()) || PROMPTS[feature as Feature];
 
     // Text analysis (voice input) or image analysis
     const result = text
