@@ -27,11 +27,13 @@ export default function NeuerArtikelPage() {
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
   const [kiSearching, setKiSearching] = useState(false);
   const [kiHinweis, setKiHinweis] = useState<string | null>(null);
+  const [kiAehnliche, setKiAehnliche] = useState<string[]>([]);
 
   async function kiSuche() {
     if (!form.name.trim()) return;
     setKiSearching(true);
     setKiHinweis(null);
+    setKiAehnliche([]);
     try {
       const res = await fetch("/api/ki/inhaltsstoffe", {
         method: "POST",
@@ -49,6 +51,7 @@ export default function NeuerArtikelPage() {
           }))
         );
       }
+      if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
     } catch {
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
@@ -249,6 +252,14 @@ export default function NeuerArtikelPage() {
           {kiHinweis && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
               {kiHinweis}
+            </div>
+          )}
+          {kiAehnliche.length > 0 && (
+            <div className="text-xs bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+              <p className="font-medium text-blue-800 mb-0.5">Ähnliche Produkte:</p>
+              <ul className="list-disc list-inside text-blue-700">
+                {kiAehnliche.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
             </div>
           )}
           {inhaltsstoffe.map((item, idx) => (

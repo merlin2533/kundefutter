@@ -121,6 +121,7 @@ export default function ArtikelDetailPage() {
   const [savingInhaltsstoffe, setSavingInhaltsstoffe] = useState(false);
   const [kiSearching, setKiSearching] = useState(false);
   const [kiHinweis, setKiHinweis] = useState<string | null>(null);
+  const [kiAehnliche, setKiAehnliche] = useState<string[]>([]);
 
   // Löschen / Duplizieren
   const [deleting, setDeleting] = useState(false);
@@ -355,6 +356,7 @@ export default function ArtikelDetailPage() {
     if (!artikel) return;
     setKiSearching(true);
     setKiHinweis(null);
+    setKiAehnliche([]);
     try {
       const res = await fetch("/api/ki/inhaltsstoffe", {
         method: "POST",
@@ -376,6 +378,7 @@ export default function ArtikelDetailPage() {
         );
         if (!editingInhaltsstoffe) setEditingInhaltsstoffe(true);
       }
+      if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
     } catch {
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
@@ -741,6 +744,15 @@ export default function ArtikelDetailPage() {
           {kiHinweis && (
             <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               {kiHinweis}
+            </div>
+          )}
+
+          {kiAehnliche.length > 0 && (
+            <div className="mb-4 text-sm bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <p className="font-medium text-blue-800 mb-1">Ähnliche Produkte gefunden:</p>
+              <ul className="list-disc list-inside text-blue-700 space-y-0.5">
+                {kiAehnliche.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
             </div>
           )}
 

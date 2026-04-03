@@ -30,11 +30,13 @@ export async function POST(req: NextRequest) {
 
     const parsed = result.parsed as {
       inhaltsstoffe?: { name: string; menge?: number | null; einheit?: string | null }[];
+      aehnlicheProdukte?: string[];
       hinweis?: string;
     };
 
     return NextResponse.json({
       inhaltsstoffe: parsed.inhaltsstoffe ?? [],
+      aehnlicheProdukte: parsed.aehnlicheProdukte ?? [],
       hinweis: parsed.hinweis ?? null,
       tokensIn: result.tokensIn,
       tokensOut: result.tokensOut,
