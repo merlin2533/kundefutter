@@ -11,10 +11,10 @@ import DriveOrdner from "@/components/DriveOrdner";
 interface ArtikelLieferant {
   id: number;
   lieferantId: number;
-  artikelNrBeiLieferant?: string | null;
+  lieferantenArtNr?: string | null;
   einkaufspreis: number;
   mindestbestellmenge?: number | null;
-  lieferzeit?: number | null;
+  lieferzeitTage?: number | null;
   bevorzugt: boolean;
   lieferant: { id: number; name: string };
 }
@@ -256,14 +256,16 @@ export default function ArtikelDetailPage() {
       lieferzeitTage: lievForm.lieferzeit ? Number(lievForm.lieferzeit) : undefined,
       bevorzugt: lievForm.bevorzugt,
     };
-    const existing = (artikel?.lieferanten ?? []).map((l) => ({
-      lieferantId: l.lieferantId,
-      lieferantenArtNr: l.artikelNrBeiLieferant,
-      einkaufspreis: l.einkaufspreis,
-      mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeitTage: l.lieferzeit,
-      bevorzugt: l.bevorzugt,
-    }));
+    const existing = (artikel?.lieferanten ?? [])
+      .filter((l) => l.lieferantId !== Number(lievForm.lieferantId))
+      .map((l) => ({
+        lieferantId: l.lieferantId,
+        lieferantenArtNr: l.lieferantenArtNr,
+        einkaufspreis: l.einkaufspreis,
+        mindestbestellmenge: l.mindestbestellmenge,
+        lieferzeitTage: l.lieferzeitTage,
+        bevorzugt: l.bevorzugt,
+      }));
     const res = await fetch(`/api/artikel/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -284,10 +286,10 @@ export default function ArtikelDetailPage() {
     if (!artikel) return;
     const updated = artikel.lieferanten.map((l) => ({
       lieferantId: l.lieferantId,
-      lieferantenArtNr: l.artikelNrBeiLieferant,
+      lieferantenArtNr: l.lieferantenArtNr,
       einkaufspreis: l.einkaufspreis,
       mindestbestellmenge: l.mindestbestellmenge,
-      lieferzeitTage: l.lieferzeit,
+      lieferzeitTage: l.lieferzeitTage,
       bevorzugt: l.lieferantId === lieferantId ? !l.bevorzugt : l.bevorzugt,
     }));
     await fetch(`/api/artikel/${id}`, {
@@ -912,12 +914,12 @@ export default function ArtikelDetailPage() {
                     <tr key={l.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">
                         {l.lieferant.name}
-                        <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.artikelNrBeiLieferant ?? ""}</div>
+                        <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.lieferantenArtNr ?? ""}</div>
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.artikelNrBeiLieferant ?? "—"}</td>
+                      <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.lieferantenArtNr ?? "—"}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(l.einkaufspreis)}</td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeit ?? "—"}</td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeitTage ?? "—"}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => toggleBevorzugt(l.lieferantId)}

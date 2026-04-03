@@ -2013,6 +2013,7 @@ export default function KundeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
+  const [crmAutoOpen, setCrmAutoOpen] = useState(false);
 
   // Rückruf planen
   const [showRueckruf, setShowRueckruf] = useState(false);
@@ -2175,7 +2176,7 @@ export default function KundeDetailPage() {
                 + Neue Lieferung
               </Link>
               <button
-                onClick={() => setActiveTab("CRM")}
+                onClick={() => { setActiveTab("CRM"); setCrmAutoOpen(true); }}
                 className="w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-medium transition-colors"
               >
                 + CRM Aktivität
@@ -2262,7 +2263,7 @@ export default function KundeDetailPage() {
         {activeTab === "Sonderpreise" && <SonderpreiseTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Statistik" && <StatistikTab kunde={kunde} />}
         {activeTab === "Lieferhistorie" && <LieferhistorieTab kunde={kunde} onRefresh={fetchKunde} />}
-        {activeTab === "CRM" && <CrmTab kundeId={kunde.id} />}
+        {activeTab === "CRM" && <CrmTab kundeId={kunde.id} autoOpen={crmAutoOpen} />}
         {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
@@ -2518,11 +2519,17 @@ const TYP_LABELS: Record<string, { label: string; color: string; icon: string }>
   aufgabe: { label: "Aufgabe", color: "bg-orange-100 text-orange-800", icon: "✅" },
 };
 
-function CrmTab({ kundeId }: { kundeId: number }) {
+const QUICK_FORM_DEFAULT = { typ: "anruf", betreff: "", inhalt: "" };
+
+function CrmTab({ kundeId, autoOpen }: { kundeId: number; autoOpen?: boolean }) {
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [filter, setFilter] = useState<"alle" | "offen">("alle");
+  const [showForm, setShowForm] = useState(autoOpen ?? false);
+  const [form, setForm] = useState(QUICK_FORM_DEFAULT);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   async function fetch_() {
     setLoading(true);
@@ -2553,6 +2560,27 @@ function CrmTab({ kundeId }: { kundeId: number }) {
     }
   }
 
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.betreff.trim()) { setSaveError("Betreff ist Pflichtfeld."); return; }
+    setSaving(true);
+    setSaveError("");
+    const res = await fetch("/api/kunden/aktivitaeten", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kundeId, typ: form.typ, betreff: form.betreff.trim(), inhalt: form.inhalt.trim() || undefined }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      setForm(QUICK_FORM_DEFAULT);
+      setShowForm(false);
+      fetch_();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setSaveError(d.error ?? "Fehler beim Speichern.");
+    }
+  }
+
   const displayed = filter === "offen" ? items.filter((i) => !i.erledigt) : items;
 
   return (
@@ -2569,13 +2597,71 @@ function CrmTab({ kundeId }: { kundeId: number }) {
             </button>
           ))}
         </div>
-        <Link
-          href={`/kunden/${kundeId}/aktivitaet`}
-          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors inline-block"
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
         >
-          + Aktivität erfassen
-        </Link>
+          {showForm ? "Abbrechen" : "+ Aktivität erfassen"}
+        </button>
       </div>
+
+      {showForm && (
+        <form onSubmit={handleSave} className="border border-green-200 bg-green-50 rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
+              <select
+                value={form.typ}
+                onChange={(e) => setForm({ ...form, typ: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+              >
+                <option value="anruf">📞 Anruf</option>
+                <option value="besuch">🏠 Besuch</option>
+                <option value="email">✉️ E-Mail</option>
+                <option value="notiz">📝 Notiz</option>
+                <option value="aufgabe">✅ Aufgabe</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Betreff <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={form.betreff}
+                onChange={(e) => setForm({ ...form, betreff: e.target.value })}
+                placeholder="z.B. Anruf wegen Lieferung"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Notiz (optional)</label>
+            <textarea
+              value={form.inhalt}
+              onChange={(e) => setForm({ ...form, inhalt: e.target.value })}
+              rows={2}
+              placeholder="Kurze Zusammenfassung…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white resize-none"
+            />
+          </div>
+          {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setForm(QUICK_FORM_DEFAULT); setSaveError(""); }}
+              className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 text-sm rounded-lg bg-green-700 hover:bg-green-600 text-white font-medium disabled:opacity-60"
+            >
+              {saving ? "Speichern…" : "Speichern"}
+            </button>
+          </div>
+        </form>
+      )}
 
       {loading ? (
         <p className="text-sm text-gray-400">Lade…</p>
