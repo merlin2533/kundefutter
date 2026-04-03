@@ -45,9 +45,12 @@ export interface MatifProdukt {
 }
 
 const MATIF_PRODUKTE = [
-  { symbol: "EBM.PA", code: "WEIZEN", name: "Weizen (MATIF)" },
-  { symbol: "ERO.PA", code: "RAPS",   name: "Raps (MATIF)"   },
-  { symbol: "EMA.PA", code: "MAIS",   name: "Mais (MATIF)"   },
+  { symbol: "EBM.PA", code: "WEIZEN",      name: "Weizen (MATIF)"      },
+  { symbol: "ERO.PA", code: "RAPS",        name: "Raps (MATIF)"        },
+  { symbol: "EMA.PA", code: "MAIS",        name: "Mais (MATIF)"        },
+  { symbol: "EBD.PA", code: "DURUM",       name: "Durumweizen (MATIF)" },
+  { symbol: "ZO=F",   code: "HAFER",       name: "Hafer (CBOT)"        },
+  { symbol: "ZW=F",   code: "FUTTERWEIZEN", name: "Futterweizen (CBOT)" },
 ];
 
 // ─── Lineare Regression ───────────────────────────────────────────────────────
