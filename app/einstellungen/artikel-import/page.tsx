@@ -26,6 +26,8 @@ export default function ArtikelImportPage() {
   const [result, setResult] = useState<{ importiert: number; uebersprungen: number; fehler?: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{ synced: number; uebersprungen: number; inDb: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function ladeStatus() {
@@ -62,6 +64,21 @@ export default function ArtikelImportPage() {
       setError("Import fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setImporting(null);
+    }
+  }
+
+  async function syncInhaltsstoffe() {
+    setSyncing(true);
+    setSyncResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/einstellungen/artikel-import?action=sync-inhaltsstoffe");
+      if (!res.ok) throw new Error("Synchronisation fehlgeschlagen");
+      setSyncResult(await res.json());
+    } catch {
+      setError("Synchronisation fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -124,6 +141,38 @@ export default function ArtikelImportPage() {
           {result.fehler ? `, ${result.fehler} fehlerhaft` : ""}.
         </div>
       )}
+
+      {syncResult && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800">
+          Inhaltsstoffe synchronisiert:{" "}
+          <strong>{syncResult.synced} Artikel aktualisiert</strong>,{" "}
+          {syncResult.uebersprungen} bereits vorhanden
+          {syncResult.inDb < syncResult.synced + syncResult.uebersprungen
+            ? ` (${syncResult.inDb} Stammdaten-Artikel in DB gefunden)`
+            : ""}.
+        </div>
+      )}
+
+      {/* ── Inhaltsstoffe aus Stammdaten synchronisieren ──────────────────── */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-gray-800">Inhaltsstoffe synchronisieren</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Überträgt die in den Stammdaten hinterlegten Inhaltsstoffe auf bereits importierte
+              Artikel (z.&nbsp;B. BvG-Artikel mit Schwefel- und Borwerten). Artikel die bereits
+              Inhaltsstoffe haben, werden übersprungen.
+            </p>
+          </div>
+          <button
+            onClick={syncInhaltsstoffe}
+            disabled={syncing}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          >
+            {syncing ? "Synchronisiere…" : "Inhaltsstoffe synchronisieren"}
+          </button>
+        </div>
+      </div>
 
       {/* ── Excel-Upload ───────────────────────────────────────────────────── */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">

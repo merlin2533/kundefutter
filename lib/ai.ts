@@ -442,8 +442,8 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 
 Wenn ein Feld nicht erkennbar ist, setze null.`,
 
-  inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Düngemittel, Saatgut, Pflanzenhilfsmittel).
-Recherchiere die Inhaltsstoffe / Zusammensetzung des genannten Produkts.
+  inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Ergänzungsfutter, Mineralfutter, Düngemittel, Saatgut, Pflanzenhilfsmittel).
+Recherchiere die Inhaltsstoffe / Zusammensetzung des genannten Produkts anhand seines Namens.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 {
@@ -455,14 +455,49 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 }
 
 Regeln:
-- Gib nur Inhaltsstoffe an, die du sicher kennst. Erfinde KEINE Werte.
-- Bei Futtermitteln: Rohprotein, Rohfett, Rohfaser, Rohasche, Calcium, Phosphor, Natrium, Lysin, Methionin, Energie (MJ/kg) etc.
-- Bei Düngemitteln: N, P2O5, K2O, S, MgO, CaO, B, Se, Zn, Fe etc.
-- Bei Pflanzenhilfsmitteln: Wirkstoffe und deren Konzentrationen
-- "menge" kann null sein wenn der Wert unbekannt ist
-- "einheit" ist typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l"
-- WICHTIG: Wenn du das exakte Produkt nicht kennst, versuche es anhand des Namens einem ähnlichen/verwandten Produkt zuzuordnen. Landwirtschaftliche Produkte haben oft Markennamen (z.B. "Olmix PRIMEO S12" → Schwefel-Bentonit-Produkt von Olmix). Schlage dann die Inhaltsstoffe des ähnlichsten bekannten Produkts vor.
-- Wenn du ähnliche Produkte findest, fülle "aehnlicheProdukte" mit bis zu 3 Vorschlägen und gib die Inhaltsstoffe des wahrscheinlichsten Treffers zurück.
+- Gib nur Inhaltsstoffe an, die du sicher kennst oder die sich aus dem Produktnamen eindeutig ableiten lassen. Erfinde KEINE Werte.
+- "menge" kann null sein wenn der Wert unbekannt ist; "einheit" leer lassen wenn nicht anwendbar.
+- Einheiten: typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l", "IE/kg"
+
+Produkttypen und relevante Inhaltsstoffe:
+
+PFERDEFUTTER / ERGÄNZUNGSFUTTER (z.B. marstall, Agrobs, Pavo):
+  Grundfutter/Müsli: Rohprotein, Rohfett, Rohfaser, Rohasche, Stärke, Zucker, Calcium, Phosphor, Natrium, Magnesium, Energie (MJ DE/kg)
+  Mineralfutter/Ergänzung: je nach Produkt die deklarierten Spurenelemente (Zn, Cu, Mn, Fe, I, Se, Co), Vitamine (A, D3, E, B1, B2, Biotin), Aminosäuren (Lysin, Methionin)
+  Produkt-Hinweise marstall:
+    - "Magnesium" → Hauptwirkstoff Magnesium (Mg), Angabe in % oder mg/kg
+    - "Biotin & Zink" → Biotin (μg/kg), Zink (Zn, mg/kg)
+    - "Elektrolyte" → Na, K, Cl, Mg
+    - "Vitamin E & Selen" → Vitamin E (mg/kg oder IE/kg), Selen (Se, mg/kg)
+    - "Force" / Mineralfutter → Rohprotein, Rohasche, Ca, P, Na, Mg + Spurenelemente
+    - "FlexoFit" → Glucosamin, Chondroitin, MSM, Teufelskralle
+    - "ProAir" → Menthol, ätherische Öle, Eukalyptus
+    - "ProGastro" → Pektin, Leinsamen, Bentonit, MOS
+    - "Huf-Regulator" → Biotin, Zink, Methionin, Kieselsäure
+    - "Darm-Regulator" → Probiotika, Präbiotika (FOS/MOS), Bentonit
+    - "Kollagen" → Kollagenhydrolysat, Aminosäurenprofil
+    - "Leinöl" → Omega-3 (ALA), Omega-6, Rohfett
+    - "Mash" → Weizenkleie, Leinsamen, Rohfaser, Rohprotein
+    - "Granutop" → Flohsamenschalen, Leinsamen, Inulin (FOS)
+    - "Amino-Muskel" → Rohprotein, Lysin, Methionin, BCAA
+    - "MineralOrganic+" → organisch gebundene Spurenelemente (Zn, Cu, Mn, Se)
+    - Wiesen-Cobs/Fasern/Chips → Rohfaser, Rohprotein, Stärke, Energie
+
+DÜNGEMITTEL / SCHWEFELPRODUKTE (z.B. BvG, Compo, SKW):
+  S-Produkte: Schwefel (S, %), Bentonit (%), ggf. Bor (B, %), Selen (Se, %), Stickstoff (N, %)
+  Flüssigschwefel: S (%), Dichte (g/l)
+  N-Dünger: N gesamt, davon NO3-N, NH4-N, Harnstoff-N; ggf. S, MgO, CaO
+  P/K-Dünger: P2O5, K2O; ggf. S, Na, Cl
+  Spurennährstoffe: B, Cu, Fe, Mn, Mo, Zn, Se – jeweils in %
+
+PFLANZENHILFSMITTEL / EFFEKTIVE MIKROORGANISMEN:
+  Wirkstoff und Konzentration, pH-Wert, ggf. Zuckergehalt
+
+SAATGUT:
+  Sortenname, Keimfähigkeit (%), TKG (g), Tausendkorngewicht
+
+- WICHTIG: Wenn du das exakte Produkt nicht kennst, ordne es anhand des Namens einem ähnlichen/verwandten Produkt zu und gib dessen Werte als Näherung zurück.
+- Wenn du ähnliche Produkte findest, fülle "aehnlicheProdukte" mit bis zu 3 Vorschlägen.
 - Nur wenn du gar keine Zuordnung machen kannst, gib ein leeres Array und einen Hinweis zurück.
 
 Erweitertes Antwortformat:
