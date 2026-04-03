@@ -323,6 +323,157 @@ export default function KiEinstellungenPage() {
           </div>
         </form>
       </div>
+
+      {/* Nutzungsstatistik */}
+      <div className="mt-10">
+        <h2 className="text-xl font-bold text-gray-800 mb-5">Nutzungsstatistik (letzte 30 Tage)</h2>
+
+        {statistikLoading && (
+          <p className="text-sm text-gray-400">Lade Statistik...</p>
+        )}
+
+        {statistikError && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {statistikError}
+          </div>
+        )}
+
+        {statistik && (
+          <div className="space-y-8">
+            {/* KPI-Karten */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-sm text-gray-500">Requests gesamt</div>
+                <div className="text-2xl font-bold text-gray-800">{statistik.gesamt.requests}</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-sm text-gray-500">Tokens gesamt</div>
+                <div className="text-2xl font-bold text-gray-800">
+                  {(statistik.gesamt.tokensIn + statistik.gesamt.tokensOut).toLocaleString("de-DE")}
+                </div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-sm text-gray-500">Geschätzte Kosten</div>
+                <div className="text-2xl font-bold text-gray-800">
+                  {(statistik.gesamt.kostenCent / 100).toLocaleString("de-DE", {
+                    style: "currency",
+                    currency: "EUR",
+                  })}
+                </div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <div className="text-sm text-gray-500">Fehlerrate</div>
+                <div className="text-2xl font-bold text-gray-800">
+                  {statistik.gesamt.requests > 0
+                    ? ((statistik.gesamt.fehler / statistik.gesamt.requests) * 100).toFixed(1)
+                    : "0,0"}{" "}
+                  %
+                </div>
+              </div>
+            </div>
+
+            {/* Pro-Feature-Tabelle */}
+            {Object.keys(statistik.proFeature).length > 0 && (
+              <div>
+                <h3 className="text-base font-semibold text-gray-700 mb-3">Nach Feature</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <thead>
+                      <tr className="bg-gray-50 text-left text-gray-600">
+                        <th className="px-4 py-2 font-medium">Feature</th>
+                        <th className="px-4 py-2 font-medium text-right">Requests</th>
+                        <th className="px-4 py-2 font-medium text-right">Tokens</th>
+                        <th className="px-4 py-2 font-medium text-right">Kosten</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {Object.entries(statistik.proFeature).map(([feature, data]) => (
+                        <tr key={feature} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-gray-800">
+                            {FEATURE_LABELS[feature] ?? feature}
+                          </td>
+                          <td className="px-4 py-2 text-right text-gray-700">{data.requests}</td>
+                          <td className="px-4 py-2 text-right text-gray-700">
+                            {(data.tokensIn + data.tokensOut).toLocaleString("de-DE")}
+                          </td>
+                          <td className="px-4 py-2 text-right text-gray-700">
+                            {(data.kostenCent / 100).toLocaleString("de-DE", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Letzte Requests */}
+            {statistik.letzteRequests.length > 0 && (
+              <div>
+                <h3 className="text-base font-semibold text-gray-700 mb-3">Letzte Anfragen</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
+                    <thead>
+                      <tr className="bg-gray-50 text-left text-gray-600">
+                        <th className="px-4 py-2 font-medium">Zeitpunkt</th>
+                        <th className="px-4 py-2 font-medium">Feature</th>
+                        <th className="hidden sm:table-cell px-4 py-2 font-medium">Provider</th>
+                        <th className="hidden sm:table-cell px-4 py-2 font-medium">Modell</th>
+                        <th className="hidden sm:table-cell px-4 py-2 font-medium text-right">Tokens</th>
+                        <th className="hidden sm:table-cell px-4 py-2 font-medium text-right">Kosten</th>
+                        <th className="px-4 py-2 font-medium text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {statistik.letzteRequests.slice(0, 20).map((req) => (
+                        <tr key={req.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-gray-700 whitespace-nowrap">
+                            {new Date(req.zeitpunkt).toLocaleString("de-DE", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-4 py-2 text-gray-800">
+                            {FEATURE_LABELS[req.feature] ?? req.feature}
+                          </td>
+                          <td className="hidden sm:table-cell px-4 py-2 text-gray-600 capitalize">
+                            {req.provider}
+                          </td>
+                          <td className="hidden sm:table-cell px-4 py-2 text-gray-600">
+                            {req.modell}
+                          </td>
+                          <td className="hidden sm:table-cell px-4 py-2 text-right text-gray-600">
+                            {(req.tokensIn + req.tokensOut).toLocaleString("de-DE")}
+                          </td>
+                          <td className="hidden sm:table-cell px-4 py-2 text-right text-gray-600">
+                            {(req.kostenCent / 100).toLocaleString("de-DE", {
+                              style: "currency",
+                              currency: "EUR",
+                            })}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            {req.erfolgreich ? (
+                              <span className="text-green-600 font-bold">&#10003;</span>
+                            ) : (
+                              <span className="text-red-500 font-bold" title={req.fehler ?? undefined}>&#10007;</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
