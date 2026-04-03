@@ -58,59 +58,74 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  if (usePagination) {
-    const [kunden, total] = await Promise.all([
-      prisma.kunde.findMany({
-        where,
-        select,
-        orderBy: { name: "asc" },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.kunde.count({ where }),
-    ]);
-    return NextResponse.json({ data: kunden, total, page, limit });
-  }
+  try {
+    if (usePagination) {
+      const [kunden, total] = await Promise.all([
+        prisma.kunde.findMany({
+          where,
+          select,
+          orderBy: { name: "asc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.kunde.count({ where }),
+      ]);
+      return NextResponse.json({ data: kunden, total, page, limit });
+    }
 
-  const kunden = await prisma.kunde.findMany({
-    where,
-    select,
-    orderBy: { name: "asc" },
-    take: limit,
-  });
-  return NextResponse.json(kunden);
+    const kunden = await prisma.kunde.findMany({
+      where,
+      select,
+      orderBy: { name: "asc" },
+      take: limit,
+    });
+    return NextResponse.json(kunden);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler beim Laden der Kunden" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const { kontakte, name, firma, kategorie, verantwortlicher, strasse, plz, ort, land, lat, lng, notizen } = body;
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   }
 
-  const kunde = await prisma.kunde.create({
-    data: {
-      name: name.trim(),
-      firma: firma || null,
-      kategorie: kategorie || "Sonstige",
-      verantwortlicher: verantwortlicher || null,
-      strasse: strasse || null,
-      plz: plz || null,
-      ort: ort || null,
-      land: land || "Deutschland",
-      lat: lat != null ? Number(lat) : null,
-      lng: lng != null ? Number(lng) : null,
-      notizen: notizen || null,
-      kontakte: Array.isArray(kontakte) && kontakte.length
-        ? { create: kontakte.map((k: { typ: string; wert: string; label?: string }) => ({
-            typ: k.typ,
-            wert: k.wert,
-            label: k.label || null,
-          })) }
-        : undefined,
-    },
-    include: { kontakte: true },
-  });
-  return NextResponse.json(kunde, { status: 201 });
+  try {
+    const kunde = await prisma.kunde.create({
+      data: {
+        name: name.trim(),
+        firma: firma || null,
+        kategorie: kategorie || "Sonstige",
+        verantwortlicher: verantwortlicher || null,
+        strasse: strasse || null,
+        plz: plz || null,
+        ort: ort || null,
+        land: land || "Deutschland",
+        lat: lat != null ? Number(lat) : null,
+        lng: lng != null ? Number(lng) : null,
+        notizen: notizen || null,
+        kontakte: Array.isArray(kontakte) && kontakte.length
+          ? { create: kontakte.map((k: { typ: string; wert: string; label?: string }) => ({
+              typ: k.typ,
+              wert: k.wert,
+              label: k.label || null,
+            })) }
+          : undefined,
+      },
+      include: { kontakte: true },
+    });
+    return NextResponse.json(kunde, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -3,7 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
   const artikelId = Number(body.artikelId);
   const neuerBestand = Number(body.neuerBestand);
   const { notiz } = body;
@@ -58,7 +64,11 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json(result, { status: 201 });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    if (message === "Artikel nicht gefunden") {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
     return NextResponse.json({ error: "Fehler beim Buchen der Korrektur" }, { status: 500 });
   }
 }
