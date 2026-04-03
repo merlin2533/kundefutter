@@ -56,6 +56,30 @@ interface TimelineEntry {
   link?: string;
 }
 
+interface MatifProdukt {
+  symbol: string;
+  produktCode: string;
+  produktName: string;
+  preis: number;
+  vorwoche: number | null;
+  veraenderung: number | null;
+  datum: string;
+  prognose1W: number | null;
+  statPrognose: {
+    mittelwert: number;
+    sigma: number;
+    band68Lo: number;
+    band68Hi: number;
+    horizonDatum: string;
+  } | null;
+}
+
+interface MatifData {
+  preise: MatifProdukt[];
+  letzteAktualisierung: string;
+  quelle: string;
+}
+
 interface DashboardData {
   kundenAktiv: number;
   offeneLieferungen: number;
@@ -148,6 +172,7 @@ function zeitVorText(iso: string): string {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [matif, setMatif] = useState<MatifData | null>(null);
 
   const loadData = () => {
     fetch("/api/dashboard")
@@ -159,10 +184,19 @@ export default function DashboardPage() {
       .catch(() => {});
   };
 
+  const loadMatif = () => {
+    fetch("/api/marktpreise/spot")
+      .then((r) => r.json())
+      .then((d) => { if (d.preise) setMatif(d); })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     loadData();
+    loadMatif();
     const interval = setInterval(loadData, 60_000);
-    return () => clearInterval(interval);
+    const matifInterval = setInterval(loadMatif, 6 * 60 * 60_000); // 6h
+    return () => { clearInterval(interval); clearInterval(matifInterval); };
   }, []);
 
   if (!data) return <p className="text-gray-400 mt-8">Lade Dashboard…</p>;
@@ -604,42 +638,70 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Markttrend */}
-        {data.markttrend.length > 0 ? (
-          <Card>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Markttrend (Eurostat)</h2>
-              <Link href="/marktpreise" className="text-xs text-green-700 hover:underline">
-                Details →
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {data.markttrend.map((t) => {
-                const isUp = t.veraenderung > 2;
-                const isDown = t.veraenderung < -2;
+        {/* MATIF Futures */}
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">Futurespreise (MATIF)</h2>
+            <Link href="/marktpreise" className="text-xs text-green-700 hover:underline">
+              Details →
+            </Link>
+          </div>
+          {!matif || matif.preise.length === 0 ? (
+            <p className="text-sm text-gray-400">Lade MATIF-Kurse…</p>
+          ) : (
+            <div className="space-y-2.5">
+              {matif.preise.map((p) => {
+                const isUp = (p.veraenderung ?? 0) > 0;
+                const isDown = (p.veraenderung ?? 0) < 0;
                 const color = isUp ? "text-red-600" : isDown ? "text-green-600" : "text-gray-500";
                 const arrow = isUp ? "▲" : isDown ? "▼" : "●";
+                const progDiff = p.prognose1W != null ? p.prognose1W - p.preis : null;
+                const progUp = (progDiff ?? 0) > 0;
+                const progDown = (progDiff ?? 0) < 0;
+                const progColor = progUp ? "text-red-500" : progDown ? "text-green-500" : "text-gray-400";
+                const kurzName = p.produktName.replace(/ \(.*\)$/, "");
                 return (
-                  <div key={t.kategorie} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">{t.kategorie}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-medium">{t.aktuell}</span>
-                      <span className={`text-xs font-medium ${color}`}>
-                        {arrow} {t.veraenderung > 0 ? "+" : ""}{t.veraenderung}%
-                      </span>
+                  <div key={p.produktCode} className="border-b border-gray-50 last:border-0 pb-2 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700 font-medium">{kurzName}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-semibold text-sm">{p.preis.toLocaleString("de-DE")} €/t</span>
+                        {p.veraenderung != null && (
+                          <span className={`text-xs font-medium ${color}`}>
+                            {arrow} {p.veraenderung > 0 ? "+" : ""}{p.veraenderung.toLocaleString("de-DE")}
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {p.prognose1W != null && (
+                      <div className="flex items-center justify-between mt-0.5">
+                        <span className="text-xs text-gray-400">1W-Prognose</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-mono font-medium ${progColor}`}>
+                            {p.prognose1W.toLocaleString("de-DE")} €/t
+                          </span>
+                          {p.statPrognose && (
+                            <span className="text-xs text-gray-300">
+                              ({p.statPrognose.band68Lo.toLocaleString("de-DE")}–{p.statPrognose.band68Hi.toLocaleString("de-DE")})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-            <p className="text-xs text-gray-400 mt-2">Index 2015 = 100</p>
-          </Card>
-        ) : (
-          <Card>
-            <h2 className="font-semibold mb-3">Markttrend</h2>
-            <p className="text-sm text-gray-400">Keine Marktdaten verfügbar</p>
-          </Card>
-        )}
+          )}
+          <div className="flex items-center justify-between mt-2 pt-1 border-t border-gray-100">
+            <p className="text-xs text-gray-400">Euronext MATIF via Yahoo Finance</p>
+            {matif?.letzteAktualisierung && (
+              <p className="text-xs text-gray-300">
+                {new Date(matif.letzteAktualisierung).toLocaleDateString("de-DE")}
+              </p>
+            )}
+          </div>
+        </Card>
       </div>
 
       {/* Wiederkehrend fällig (wenn vorhanden) */}
