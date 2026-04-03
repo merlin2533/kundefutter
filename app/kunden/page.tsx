@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 
 interface KundeKontakt {
@@ -37,6 +37,9 @@ export default function KundenPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
 
   const fetchKunden = useCallback(async (currentPage: number) => {
     setLoading(true);
@@ -85,6 +88,27 @@ export default function KundenPage() {
     }
   }
 
+  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/kunden/import", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setImportResult({ created: 0, skipped: 0, errors: [data.error ?? "Fehler"] }); return; }
+      setImportResult(data);
+      if (data.created > 0) { setPage(1); fetchKunden(1); }
+    } catch {
+      setImportResult({ created: 0, skipped: 0, errors: ["Netzwerkfehler"] });
+    } finally {
+      setImporting(false);
+      if (importRef.current) importRef.current.value = "";
+    }
+  }
+
   function getKontaktInfo(kontakte: KundeKontakt[]) {
     const phone = kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
     const email = kontakte.find((k) => k.typ === "email");
@@ -100,13 +124,42 @@ export default function KundenPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </Link>
         </span>
-        <Link
-          href="/kunden/neu"
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
-        >
-          + Neuer Kunde
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <a
+            href="/api/exporte?typ=kunden"
+            download
+            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            Exportieren
+          </a>
+          <button
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+          >
+            {importing ? "Importiert…" : "Importieren"}
+          </button>
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+          <Link
+            href="/kunden/neu"
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            + Neuer Kunde
+          </Link>
+        </div>
       </div>
+
+      {importResult && (
+        <div className={`mb-4 px-4 py-3 rounded-lg text-sm border ${importResult.errors.length && !importResult.created ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-800"}`}>
+          <div className="font-medium">{importResult.created} Kunden importiert{importResult.skipped > 0 ? `, ${importResult.skipped} übersprungen` : ""}.</div>
+          {importResult.errors.length > 0 && (
+            <ul className="mt-1 list-disc list-inside text-xs text-red-600 space-y-0.5">
+              {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
+          <button onClick={() => setImportResult(null)} className="mt-1 text-xs underline opacity-70 hover:opacity-100">Schließen</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
