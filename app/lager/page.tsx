@@ -158,22 +158,22 @@ export default function LagerPage() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </Link>
         </span>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap w-full sm:w-auto">
           <Link
             href="/lager/chargen"
-            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 sm:flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Chargensuche →
           </Link>
           <Link
             href="/lager/umbuchungen"
-            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex-1 sm:flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             Umbuchungen
           </Link>
           <Link
             href="/lager/wareneingang"
-            className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="w-full sm:w-auto text-center bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             + Wareneingang
           </Link>
@@ -181,7 +181,7 @@ export default function LagerPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {(
           [
             { key: "gruen", label: "OK", color: "bg-green-50 border-green-200 text-green-800" },
@@ -277,6 +277,7 @@ export default function LagerPage() {
                           {a.name}
                           <div className="sm:hidden text-xs text-gray-500 mt-0.5">
                             {a.kategorie === "Duenger" ? "Dünger" : a.kategorie}
+                            {" · "}{a.mindestbestand} Min.
                           </div>
                         </td>
                         <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
@@ -352,7 +353,7 @@ export default function LagerPage() {
                   <tr>
                     {[
                       { label: "Datum", cls: "" },
-                      { label: "Artikel", cls: "" },
+                      { label: "Artikel", cls: "hidden sm:table-cell" },
                       { label: "Typ", cls: "" },
                       { label: "Menge", cls: "" },
                       { label: "Bestand danach", cls: "hidden sm:table-cell" },
@@ -367,8 +368,13 @@ export default function LagerPage() {
                 <tbody className="divide-y divide-gray-100">
                   {bewegungen.map((b) => (
                     <tr key={b.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">{formatDatum(b.datum)}</td>
-                      <td className="px-4 py-3 font-medium">{b.artikel.name}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {formatDatum(b.datum)}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                          {b.artikel.name}
+                        </div>
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3 font-medium">{b.artikel.name}</td>
                       <td className="px-4 py-3">
                         <TypBadge typ={b.typ} />
                       </td>

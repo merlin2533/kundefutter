@@ -93,9 +93,9 @@ export default function TelefonmaskePage() {
     kontakte.filter((k) => k.typ === "telefon" || k.typ === "mobil");
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4 sm:px-0">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-1">Telefonmaske</h1>
+        <h1 className="text-xl sm:text-2xl font-bold mb-1">Telefonmaske</h1>
         <p className="text-sm text-gray-500">Wer ruft an? Namen, Firma, Ort oder Telefonnummer eingeben.</p>
       </div>
 
@@ -138,29 +138,29 @@ export default function TelefonmaskePage() {
         {results.map((k) => {
           const tel = telefonKontakte(k.kontakte);
           return (
-            <div key={k.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div key={k.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
               {/* Header */}
-              <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                 <div>
-                  <div className="text-xl font-bold text-gray-900">{k.name}</div>
+                  <div className="text-lg sm:text-xl font-bold text-gray-900">{k.name}</div>
                   {k.firma && <div className="text-sm text-gray-500">{k.firma}</div>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {erfasst[k.id] ? (
-                    <span className="text-green-600 font-medium text-sm bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+                    <span className="text-green-600 font-medium text-sm bg-green-50 px-3 py-2 sm:py-1.5 rounded-lg border border-green-200">
                       Erfasst
                     </span>
                   ) : (
                     <button
                       onClick={() => erfasseAnruf(k.id)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 sm:py-1.5 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none"
                     >
                       Anruf erfassen
                     </button>
                   )}
                   <Link
                     href={`/kunden/${k.id}`}
-                    className="text-green-700 hover:text-green-900 text-sm font-medium border border-green-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors"
+                    className="text-green-700 hover:text-green-900 text-sm font-medium border border-green-200 hover:border-green-400 px-3 py-2 sm:py-1.5 rounded-lg transition-colors flex-1 sm:flex-none text-center"
                   >
                     Vollprofil &rarr;
                   </Link>

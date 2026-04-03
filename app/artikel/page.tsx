@@ -69,7 +69,7 @@ export default function ArtikelPage() {
         </span>
         <Link
           href="/artikel/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
         >
           + Neuer Artikel
         </Link>
@@ -82,7 +82,7 @@ export default function ArtikelPage() {
           placeholder="Suche nach Name oder Artikelnr…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-green-700"
+          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-700"
         />
         <div className="flex gap-1">
           {["alle", ...KATEGORIEN].map((k) => (

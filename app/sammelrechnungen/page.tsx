@@ -128,7 +128,7 @@ export default function SammelrechnungenPage() {
   const anzahlUeberfaellig = items.filter((sr) => getStatus(sr) === "ueberfaellig").length;
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-8">
+    <div className="max-w-screen-xl mx-auto px-4 py-4 sm:py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
@@ -137,7 +137,7 @@ export default function SammelrechnungenPage() {
         </div>
         <Link
           href="/sammelrechnungen/neu"
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+          className="w-full sm:w-auto text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
         >
           + Neue Sammelrechnung
         </Link>
@@ -222,6 +222,9 @@ export default function SammelrechnungenPage() {
                     <tr key={sr.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-mono text-sm">
                         {sr.rechnungNr ?? <span className="text-gray-400">—</span>}
+                        <div className="sm:hidden font-sans mt-0.5">
+                          <StatusBadge status={status} />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <Link

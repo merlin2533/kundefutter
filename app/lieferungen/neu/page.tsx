@@ -277,7 +277,7 @@ function NeueLieferungInner() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5">
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
@@ -509,17 +509,17 @@ function NeueLieferungInner() {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
             <Link
               href="/lieferungen"
-              className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-4 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-center w-full sm:w-auto"
             >
               Abbrechen
             </Link>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+              className="px-4 py-2.5 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60 w-full sm:w-auto"
             >
               {saving ? "Speichern..." : "Lieferung erstellen"}
             </button>

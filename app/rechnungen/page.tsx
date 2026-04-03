@@ -128,7 +128,7 @@ export default function RechnungenPage() {
     .reduce((s, r) => s + berechneBetrag(r.positionen), 0);
 
   return (
-    <main className="max-w-screen-xl mx-auto px-4 py-8">
+    <main className="max-w-screen-xl mx-auto px-4 py-4 sm:py-8">
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Rechnungen</h1>
@@ -136,7 +136,7 @@ export default function RechnungenPage() {
         </div>
         <Link
           href="/rechnungen/neu"
-          className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="w-full sm:w-auto text-center bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           + Neue Rechnung
         </Link>
@@ -207,11 +207,11 @@ export default function RechnungenPage() {
                 <th className="w-8" />
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Rechnung-Nr</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Datum</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Fällig am</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Kunde</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Fällig am</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Kunde</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Betrag</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Aktionen</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Aktionen</th>
               </tr>
             </thead>
             <tbody>
@@ -230,12 +230,17 @@ export default function RechnungenPage() {
                       <td className="px-3 py-3 text-gray-400 text-xs text-center">
                         {isExpanded ? "▲" : "▼"}
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-gray-900">{r.rechnungNr}</td>
+                      <td className="px-4 py-3 font-mono font-medium text-gray-900">
+                        {r.rechnungNr}
+                        <div className="sm:hidden text-xs text-gray-500 font-sans font-normal mt-0.5">
+                          {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-gray-700 hidden sm:table-cell">{formatDatum(r.rechnungDatum ?? r.datum)}</td>
-                      <td className={`px-4 py-3 hidden sm:table-cell ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
+                      <td className={`px-4 py-3 hidden md:table-cell ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
                         {formatDatum(faelligAm)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden sm:table-cell">
                         <Link
                           href={`/kunden/${r.kunde.id}`}
                           onClick={(e) => e.stopPropagation()}
@@ -254,7 +259,7 @@ export default function RechnungenPage() {
                           <span className="text-xs text-gray-400 block mt-0.5">{formatDatum(r.bezahltAm)}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2 flex-wrap">
                           <Link
                             href={`/lieferungen/${r.id}`}

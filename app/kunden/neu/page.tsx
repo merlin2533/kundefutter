@@ -131,7 +131,7 @@ export default function NeuerKundePage() {
         </div>
 
         {/* Kategorie + Verantwortlicher */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Kategorie</label>
             <select
@@ -229,7 +229,7 @@ export default function NeuerKundePage() {
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-green-700 hover:bg-green-800 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50 transition-colors"
+          className="w-full bg-green-700 hover:bg-green-800 text-white font-medium py-2.5 px-4 rounded-lg disabled:opacity-50 transition-colors"
         >
           {saving ? "Speichern..." : "Kunden anlegen"}
         </button>

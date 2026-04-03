@@ -236,7 +236,7 @@ function NeuesAngebotForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/angebote" className="hover:text-green-700">Angebote</Link>
@@ -248,7 +248,7 @@ function NeuesAngebotForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Stammdaten */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
           <h2 className="text-base font-semibold text-gray-900">Angebotsdaten</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -303,7 +303,7 @@ function NeuesAngebotForm() {
         </div>
 
         {/* Positionen */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
           <h2 className="text-base font-semibold text-gray-900">Positionen</h2>
 
           <div className="space-y-3">
@@ -431,17 +431,17 @@ function NeuesAngebotForm() {
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
           <Link
             href="/angebote"
-            className="px-5 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+            className="w-full sm:w-auto text-center px-5 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
           >
             Abbrechen
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="px-5 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full sm:w-auto px-5 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving ? "Speichere…" : "Angebot speichern"}
           </button>

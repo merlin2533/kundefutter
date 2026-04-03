@@ -291,7 +291,7 @@ export default function ExportePage() {
       </div>
 
       {/* ── Massenexport ───────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6">
         <h2 className="text-lg font-bold mb-1">Massenexport PDF</h2>
         <p className="text-sm text-gray-500 mb-5">Mehrere Rechnungen oder Lieferscheine als ZIP-Archiv herunterladen.</p>
 
@@ -387,7 +387,7 @@ export default function ExportePage() {
         <button
           onClick={handleBulkDownload}
           disabled={bulkLoading}
-          className="mt-5 px-6 py-2.5 text-sm font-medium bg-green-800 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-60 flex items-center gap-2"
+          className="mt-5 w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-green-800 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {bulkLoading ? (
             <>

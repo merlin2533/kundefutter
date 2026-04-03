@@ -173,7 +173,7 @@ export default function LieferungenPage() {
         </span>
         <Link
           href="/lieferungen/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
         >
           + Neue Lieferung
         </Link>
@@ -304,14 +304,14 @@ export default function LieferungenPage() {
       {tab === "wiederkehrend" && (
         <div>
           {faelligeAnzahl > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center justify-between mb-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <span className="text-orange-800 font-medium">
                 {faelligeAnzahl} wiederkehrende Lieferung(en) fällig
               </span>
               <button
                 onClick={handleAlleAusloesen}
                 disabled={wSaving}
-                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-3 py-2.5 sm:py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 w-full sm:w-auto"
               >
                 {wSaving ? "Auslösen…" : "Alle jetzt auslösen"}
               </button>
@@ -324,12 +324,12 @@ export default function LieferungenPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <p className="text-sm text-gray-500">Regelmäßige Bedarfe der nächsten 30 Tage</p>
             <button
               onClick={handleWiederkehrendAnlegen}
               disabled={selected.size === 0 || wSaving}
-              className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
               {wSaving ? "Anlegen…" : `Lieferungen anlegen (${selected.size})`}
             </button>
@@ -354,10 +354,10 @@ export default function LieferungenPage() {
                     </th>
                     {[
                       { label: "Kunde", cls: "" },
-                      { label: "Artikel", cls: "" },
-                      { label: "Menge", cls: "" },
-                      { label: "Letztes Datum", cls: "hidden sm:table-cell" },
-                      { label: "Nächstes Datum", cls: "hidden sm:table-cell" },
+                      { label: "Artikel", cls: "hidden sm:table-cell" },
+                      { label: "Menge", cls: "hidden sm:table-cell" },
+                      { label: "Letztes Datum", cls: "hidden md:table-cell" },
+                      { label: "Nächstes Datum", cls: "hidden md:table-cell" },
                       { label: "Status", cls: "" },
                       { label: "Aktion", cls: "" },
                     ].map((h) => (
@@ -378,13 +378,18 @@ export default function LieferungenPage() {
                           className="rounded border-gray-300 text-green-700 focus:ring-green-700"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium">{w.bedarf.kunde.name}</td>
-                      <td className="px-4 py-3">{w.bedarf.artikel.name}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{w.bedarf.menge} {w.bedarf.artikel.einheit}</td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
+                      <td className="px-4 py-3 font-medium">
+                        {w.bedarf.kunde.name}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                          {w.bedarf.artikel.name} · {w.bedarf.menge} {w.bedarf.artikel.einheit}
+                        </div>
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3">{w.bedarf.artikel.name}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 whitespace-nowrap">{w.bedarf.menge} {w.bedarf.artikel.einheit}</td>
+                      <td className="hidden md:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
                         {w.letztesDatum ? formatDatum(w.letztesDatum) : "—"}
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
+                      <td className="hidden md:table-cell px-4 py-3 text-gray-600 whitespace-nowrap">
                         {w.naechstesDatum ? formatDatum(w.naechstesDatum) : "—"}
                       </td>
                       <td className="px-4 py-3">

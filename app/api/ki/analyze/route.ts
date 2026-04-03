@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImage, getAiConfig, logError, PROMPTS } from "@/lib/ai";
+import { analyzeImage, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +9,12 @@ type Feature = (typeof VALID_FEATURES)[number];
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { image, feature } = body as { image: string; feature: string };
+    const { image, text, feature } = body as { image?: string; text?: string; feature: string };
 
-    if (!image || typeof image !== "string") {
-      return NextResponse.json({ error: "Kein Bild übermittelt" }, { status: 400 });
+    if (!image && !text) {
+      return NextResponse.json({ error: "Kein Bild oder Text übermittelt" }, { status: 400 });
     }
-    if (image.length > 10_000_000) {
+    if (image && image.length > 10_000_000) {
       return NextResponse.json({ error: "Bild zu groß (max ~7.5MB)" }, { status: 413 });
     }
     if (!feature || !VALID_FEATURES.includes(feature as Feature)) {
@@ -34,7 +34,11 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = PROMPTS[feature as Feature];
-    const result = await analyzeImage(image, prompt, feature, cfg);
+
+    // Text analysis (voice input) or image analysis
+    const result = text
+      ? await analyzeText(text, prompt, feature, cfg)
+      : await analyzeImage(image!, prompt, feature, cfg);
 
     return NextResponse.json({
       provider: cfg.provider,
