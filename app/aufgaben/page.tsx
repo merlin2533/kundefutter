@@ -221,7 +221,7 @@ export default function AufgabenPage() {
                           )}
                         </button>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <span className={`font-medium ${a.erledigt ? "line-through text-gray-400" : ""}`}>
                           {a.betreff}
                         </span>
@@ -236,12 +236,16 @@ export default function AufgabenPage() {
                           </div>
                         )}
                         {/* Mobile info */}
-                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">
-                          {a.kunde?.name && <span>{a.kunde.name} · </span>}
+                        <div className="sm:hidden text-xs text-gray-500 mt-1 space-y-0.5">
+                          <div className="flex flex-wrap gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium capitalize ${TYP_BADGE[a.typ] ?? "bg-gray-100 text-gray-600"}`}>{a.typ}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium capitalize ${PRIORITAET_BADGE[a.prioritaet] ?? "bg-gray-100 text-gray-600"}`}>{a.prioritaet}</span>
+                          </div>
+                          {a.kunde?.name && <div className="text-green-700">{a.kunde.name}</div>}
                           {a.faelligAm && (
-                            <span className={ueberfaellig ? "text-red-600 font-medium" : ""}>
-                              Fällig: {formatDate(a.faelligAm)}
-                            </span>
+                            <div className={ueberfaellig ? "text-red-600 font-medium" : ""}>
+                              {ueberfaellig && "⚠ "}Fällig: {formatDate(a.faelligAm)}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -269,15 +273,15 @@ export default function AufgabenPage() {
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Link href={`/aufgaben/${a.id}`} className="text-green-700 hover:underline text-xs font-medium">
+                          <Link href={`/aufgaben/${a.id}`} className="text-green-700 hover:underline text-xs font-medium py-1">
                             Bearbeiten
                           </Link>
                           <button
                             onClick={() => deleteAufgabe(a.id, a.betreff)}
                             disabled={deleting === a.id}
-                            className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40"
+                            className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40 p-1"
                             title="Löschen"
                           >
                             {deleting === a.id ? "…" : "✕"}

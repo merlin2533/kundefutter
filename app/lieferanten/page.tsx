@@ -43,7 +43,7 @@ export default function LieferantenPage() {
         <h1 className="text-2xl font-bold">Lieferanten</h1>
         <Link
           href="/lieferanten/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
         >
           + Neuer Lieferant
         </Link>

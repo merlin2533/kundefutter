@@ -173,7 +173,7 @@ export default function LieferungenPage() {
         </span>
         <Link
           href="/lieferungen/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
         >
           + Neue Lieferung
         </Link>
@@ -304,14 +304,14 @@ export default function LieferungenPage() {
       {tab === "wiederkehrend" && (
         <div>
           {faelligeAnzahl > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center justify-between mb-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <span className="text-orange-800 font-medium">
                 {faelligeAnzahl} wiederkehrende Lieferung(en) fällig
               </span>
               <button
                 onClick={handleAlleAusloesen}
                 disabled={wSaving}
-                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-3 py-2.5 sm:py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-sm font-medium transition-colors disabled:opacity-50 w-full sm:w-auto"
               >
                 {wSaving ? "Auslösen…" : "Alle jetzt auslösen"}
               </button>
@@ -324,12 +324,12 @@ export default function LieferungenPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <p className="text-sm text-gray-500">Regelmäßige Bedarfe der nächsten 30 Tage</p>
             <button
               onClick={handleWiederkehrendAnlegen}
               disabled={selected.size === 0 || wSaving}
-              className="bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 w-full sm:w-auto"
             >
               {wSaving ? "Anlegen…" : `Lieferungen anlegen (${selected.size})`}
             </button>

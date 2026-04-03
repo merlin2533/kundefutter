@@ -548,7 +548,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Reihe: Top Kunden + Schnellzugriff + Markttrend */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Top Kunden */}
         <Card>
           <div className="flex items-center justify-between mb-3">

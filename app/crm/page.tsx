@@ -186,11 +186,11 @@ export default function CrmPage() {
   const overdueCount = items.filter((i) => i.faelligAm && !i.erledigt && new Date(i.faelligAm) < new Date()).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 py-4 sm:py-0">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <span className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">CRM – Aktivitäten &amp; Aufgaben</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">CRM – Aktivitäten</h1>
             <Link href="/hilfe#crm" title="Hilfe: CRM & Aufgaben" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </Link>
@@ -227,7 +227,7 @@ export default function CrmPage() {
       {mainTab === "liste" && (<>
 
       {/* Schnellerfassung */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Schnellerfassung</h2>
         <form onSubmit={handleSchnellerfassung} className="flex flex-col sm:flex-row gap-3 sm:items-end">
           <div className="w-full sm:w-56">
@@ -313,7 +313,7 @@ export default function CrmPage() {
             return (
               <div key={item.id} className="space-y-0">
                 <div
-                  className={`flex gap-3 p-4 rounded-xl border bg-white transition-colors ${isOverdue ? "border-red-200" : "border-gray-200"} ${wiedervorlage?.aktivitaetId === item.id ? "rounded-b-none border-b-0" : ""}`}
+                  className={`flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border bg-white transition-colors ${isOverdue ? "border-red-200" : "border-gray-200"} ${wiedervorlage?.aktivitaetId === item.id ? "rounded-b-none border-b-0" : ""}`}
                 >
                   <div className="text-xl leading-none mt-0.5 shrink-0">{meta.icon}</div>
                   <div className="flex-1 min-w-0">
@@ -338,11 +338,11 @@ export default function CrmPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 items-end shrink-0">
+                  <div className="flex sm:flex-col gap-2 sm:gap-1 items-start sm:items-end shrink-0 mt-2 sm:mt-0 flex-wrap">
                     {item.typ === "aufgabe" && (
                       <button
                         onClick={() => toggleErledigt(item)}
-                        className="text-xs px-2 py-1 rounded border border-green-500 text-green-700 hover:bg-green-50 transition-colors"
+                        className="text-xs px-2.5 py-1.5 sm:py-1 rounded border border-green-500 text-green-700 hover:bg-green-50 transition-colors"
                       >
                         Erledigen
                       </button>
@@ -352,21 +352,21 @@ export default function CrmPage() {
                     ) : (
                       <button
                         onClick={() => wiedervorlage?.aktivitaetId === item.id ? setWiedervorlage(null) : openWiedervorlage(item)}
-                        className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors whitespace-nowrap"
+                        className="text-xs px-2.5 py-1.5 sm:py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 transition-colors whitespace-nowrap"
                       >
                         {wiedervorlage?.aktivitaetId === item.id ? "Abbrechen" : "Wiedervorlage"}
                       </button>
                     )}
                     <Link
                       href={`/kunden/${item.kunde.id}?tab=CRM`}
-                      className="text-xs text-gray-400 hover:text-gray-600"
+                      className="text-xs text-gray-400 hover:text-gray-600 py-1"
                     >
                       Zum Kunden →
                     </Link>
                     <button
                       onClick={() => handleDelete(item.id)}
                       disabled={deleting === item.id}
-                      className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                      className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 py-1"
                     >
                       {deleting === item.id ? "…" : "Löschen"}
                     </button>
@@ -521,21 +521,23 @@ function KalenderTab() {
   return (
     <div className="space-y-4">
       {/* Navigation */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button
           onClick={prevMonth}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-2 sm:px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
-          ← Vormonat
+          <span className="hidden sm:inline">← Vormonat</span>
+          <span className="sm:hidden">←</span>
         </button>
-        <h2 className="text-lg font-semibold text-gray-900 flex-1 text-center">
+        <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex-1 text-center">
           {MONATSNAMEN[month]} {year}
         </h2>
         <button
           onClick={nextMonth}
-          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-2 sm:px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         >
-          Nächster Monat →
+          <span className="hidden sm:inline">Nächster Monat →</span>
+          <span className="sm:hidden">→</span>
         </button>
       </div>
 
@@ -559,7 +561,7 @@ function KalenderTab() {
             return (
               <div
                 key={i}
-                className={`min-h-[80px] border-b border-r border-gray-100 p-1.5 ${
+                className={`min-h-[48px] sm:min-h-[80px] border-b border-r border-gray-100 p-1 sm:p-1.5 ${
                   day ? "bg-white" : "bg-gray-50"
                 } ${isToday ? "ring-2 ring-inset ring-green-400" : ""}`}
               >
@@ -569,19 +571,28 @@ function KalenderTab() {
                       {day}
                     </span>
                     <div className="space-y-0.5">
-                      {acts.slice(0, 3).map((a) => (
+                      {acts.slice(0, 2).map((a) => (
                         <Link
                           key={a.id}
                           href={`/kunden/${a.kunde.id}?tab=CRM`}
-                          className={`flex items-center gap-1 rounded px-1 py-0.5 text-xs leading-tight hover:bg-gray-100 transition-colors ${a.erledigt ? "opacity-50 line-through" : ""}`}
+                          className={`hidden sm:flex items-center gap-1 rounded px-1 py-0.5 text-xs leading-tight hover:bg-gray-100 transition-colors ${a.erledigt ? "opacity-50 line-through" : ""}`}
                           title={`${a.betreff} — ${a.kunde.firma ?? a.kunde.name}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${TYP_DOT[a.typ] ?? "bg-gray-400"}`} />
                           <span className="truncate text-gray-700">{a.betreff}</span>
                         </Link>
                       ))}
-                      {acts.length > 3 && (
-                        <p className="text-xs text-gray-400 px-1">+{acts.length - 3} weitere</p>
+                      {/* Mobile: just show dots */}
+                      {acts.length > 0 && (
+                        <div className="sm:hidden flex gap-0.5 flex-wrap">
+                          {acts.slice(0, 4).map((a) => (
+                            <span key={a.id} className={`w-1.5 h-1.5 rounded-full ${TYP_DOT[a.typ] ?? "bg-gray-400"}`} />
+                          ))}
+                          {acts.length > 4 && <span className="text-[10px] text-gray-400">+{acts.length - 4}</span>}
+                        </div>
+                      )}
+                      {acts.length > 2 && (
+                        <p className="hidden sm:block text-xs text-gray-400 px-1">+{acts.length - 2} weitere</p>
                       )}
                     </div>
                   </>

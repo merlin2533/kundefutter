@@ -15,7 +15,7 @@ const defaultForm = {
 };
 
 const inputCls =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600";
+  "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600";
 
 export default function NeuerLieferantPage() {
   const router = useRouter();

@@ -94,7 +94,7 @@ export default function ChargenPage() {
 
       {/* Search */}
       <form onSubmit={handleSearch} className="flex gap-3 items-end flex-wrap">
-        <div className="flex-1 min-w-[200px]">
+        <div className="w-full sm:flex-1 sm:min-w-[200px]">
           <label className="block text-sm font-medium text-gray-700 mb-1">Chargenummer</label>
           <input
             type="text"
@@ -108,7 +108,7 @@ export default function ChargenPage() {
         <button
           type="submit"
           disabled={searching || !query.trim()}
-          className="px-5 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+          className="w-full sm:w-auto px-5 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
         >
           {searching ? "Suche…" : "Suchen"}
         </button>

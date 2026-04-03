@@ -650,7 +650,7 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <h3 className="text-sm font-semibold mb-3">Neuer Kontakt</h3>
           <form onSubmit={handleAdd} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vorname</label>
                 <input
@@ -672,7 +672,7 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
                 <select
@@ -933,7 +933,7 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
                   <thead className="bg-blue-100 text-blue-800">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">Schlag</th>
-                      <th className="text-left px-3 py-2 font-medium">Fruchtart</th>
+                      <th className="hidden sm:table-cell text-left px-3 py-2 font-medium">Fruchtart</th>
                       <th className="text-right px-3 py-2 font-medium">Fläche (ha)</th>
                       <th className="text-right px-3 py-2 font-medium">N-Bedarf (kg)</th>
                       <th className="text-right px-3 py-2 font-medium hidden sm:table-cell">P-Bedarf (kg)</th>
@@ -942,8 +942,11 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
                   <tbody className="divide-y divide-blue-50">
                     {abgeleiteteBedarfe.map((b, i) => (
                       <tr key={i} className="hover:bg-blue-50">
-                        <td className="px-3 py-2 font-medium">{b.schlagName}</td>
-                        <td className="px-3 py-2 text-gray-600">{b.fruchtart}</td>
+                        <td className="px-3 py-2 font-medium">
+                          {b.schlagName}
+                          <div className="sm:hidden text-xs text-gray-500">{b.fruchtart}</div>
+                        </td>
+                        <td className="hidden sm:table-cell px-3 py-2 text-gray-600">{b.fruchtart}</td>
                         <td className="px-3 py-2 text-right">{b.flaeche.toLocaleString("de-DE")}</td>
                         <td className="px-3 py-2 text-right font-medium">{b.nBedarf.toLocaleString("de-DE")}</td>
                         <td className="px-3 py-2 text-right hidden sm:table-cell">{b.pBedarf > 0 ? b.pBedarf.toLocaleString("de-DE") : "—"}</td>
@@ -1026,8 +1029,8 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Artikel</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Menge</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Intervall</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-600">Notiz</th>
+                <th className="hidden sm:table-cell text-left px-4 py-2 font-medium text-gray-600">Intervall</th>
+                <th className="hidden md:table-cell text-left px-4 py-2 font-medium text-gray-600">Notiz</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -1037,10 +1040,11 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
                   <td className="px-4 py-2.5">
                     <p className="font-medium">{b.artikel.name}</p>
                     <p className="text-xs text-gray-400">{b.artikel.artikelnummer}</p>
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">alle {b.intervallTage} Tage</div>
                   </td>
                   <td className="px-4 py-2.5">{b.menge} {b.artikel.einheit}</td>
-                  <td className="px-4 py-2.5">alle {b.intervallTage} Tage</td>
-                  <td className="px-4 py-2.5 text-gray-500">{b.notiz ?? "—"}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5">alle {b.intervallTage} Tage</td>
+                  <td className="hidden md:table-cell px-4 py-2.5 text-gray-500">{b.notiz ?? "—"}</td>
                   <td className="px-4 py-2.5 text-right">
                     <button
                       onClick={() => handleDelete(b.artikelId)}
@@ -1213,11 +1217,11 @@ function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => 
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-600">Artikel</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600">Listenpreis</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600">Sonderpreis</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600">Rabatt</th>
+                <th className="hidden md:table-cell text-right px-4 py-2 font-medium text-gray-600">Listenpreis</th>
+                <th className="hidden sm:table-cell text-right px-4 py-2 font-medium text-gray-600">Sonderpreis</th>
+                <th className="hidden lg:table-cell text-right px-4 py-2 font-medium text-gray-600">Rabatt</th>
                 <th className="text-right px-4 py-2 font-medium text-gray-600">Effektiv</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-600">Marge vs. Standard</th>
+                <th className="hidden md:table-cell text-right px-4 py-2 font-medium text-gray-600">Marge vs. Standard</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -1230,14 +1234,15 @@ function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => 
                     <td className="px-4 py-2.5">
                       <p className="font-medium">{p.artikel.name}</p>
                       <p className="text-xs text-gray-400">{p.artikel.artikelnummer}</p>
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">{formatEuro(p.preis)}{p.rabatt > 0 ? ` · ${p.rabatt}% Rabatt` : ""}</div>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-gray-500">
+                    <td className="hidden md:table-cell px-4 py-2.5 text-right font-mono text-gray-500">
                       {formatEuro(p.artikel.standardpreis)}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono">{formatEuro(p.preis)}</td>
-                    <td className="px-4 py-2.5 text-right">{p.rabatt > 0 ? `${p.rabatt}%` : "—"}</td>
+                    <td className="hidden sm:table-cell px-4 py-2.5 text-right font-mono">{formatEuro(p.preis)}</td>
+                    <td className="hidden lg:table-cell px-4 py-2.5 text-right">{p.rabatt > 0 ? `${p.rabatt}%` : "—"}</td>
                     <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatEuro(eff)}</td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="hidden md:table-cell px-4 py-2.5 text-right">
                       {m !== null ? (
                         <span className={Number(m) >= 0 ? "text-green-700" : "text-red-600"}>
                           {Number(m) >= 0 ? "+" : ""}{m}%
@@ -1844,7 +1849,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                   <td className="px-3 py-2.5">{statusBadge(l.status)}</td>
 
                   {/* Lieferschein */}
-                  <td className="px-3 py-2.5">
+                  <td className="hidden lg:table-cell px-3 py-2.5">
                     <button
                       onClick={() => setLieferscheinModal(l)}
                       className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
@@ -1854,7 +1859,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                   </td>
 
                   {/* Rechnung */}
-                  <td className="px-3 py-2.5">
+                  <td className="hidden md:table-cell px-3 py-2.5">
                     {l.rechnungNr ? (
                       <button
                         onClick={() => setRechnungModal(l)}
@@ -1876,7 +1881,7 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                   </td>
 
                   {/* Zahlung */}
-                  <td className="px-3 py-2.5">
+                  <td className="hidden sm:table-cell px-3 py-2.5">
                     {l.status === "geliefert" ? (
                       <label className="flex items-center gap-1.5 cursor-pointer group">
                         <input
@@ -2984,7 +2989,7 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
           <h3 className="text-sm font-semibold mb-3">Neuer Schlag erfassen</h3>
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">{error}</p>}
           <form onSubmit={handleAdd} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Name <span className="text-red-500">*</span></label>
                 <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inputClsSchlag} placeholder="z.B. Südfeld" />
@@ -3035,22 +3040,31 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Name", "Fläche (ha)", "Fruchtart", "Sorte", "Vorfrucht", "Aussaat-Jahr", "kg/ha", "Notiz", ""].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Fläche (ha)</th>
+                <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Fruchtart</th>
+                <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Sorte</th>
+                <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Vorfrucht</th>
+                <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Aussaat-Jahr</th>
+                <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">kg/ha</th>
+                <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Notiz</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {schlaegte.map((sl) => (
                 <tr key={sl.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{sl.name}</td>
+                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                    {sl.name}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{sl.fruchtart ?? "—"}{sl.sorte ? ` · ${sl.sorte}` : ""}</div>
+                  </td>
                   <td className="px-4 py-2.5 font-mono">{sl.flaeche.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{sl.fruchtart ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{sl.sorte ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{sl.vorfrucht ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{sl.aussaatJahr ?? "—"}</td>
-                  <td className="px-4 py-2.5 font-mono text-gray-600">{sl.aussaatMenge != null ? sl.aussaatMenge : "—"}</td>
-                  <td className="px-4 py-2.5 text-gray-500 max-w-[160px] truncate">{sl.notiz ?? "—"}</td>
+                  <td className="hidden sm:table-cell px-4 py-2.5 text-gray-600">{sl.fruchtart ?? "—"}</td>
+                  <td className="hidden md:table-cell px-4 py-2.5 text-gray-600">{sl.sorte ?? "—"}</td>
+                  <td className="hidden lg:table-cell px-4 py-2.5 text-gray-600">{sl.vorfrucht ?? "—"}</td>
+                  <td className="hidden md:table-cell px-4 py-2.5 text-gray-600">{sl.aussaatJahr ?? "—"}</td>
+                  <td className="hidden lg:table-cell px-4 py-2.5 font-mono text-gray-600">{sl.aussaatMenge != null ? sl.aussaatMenge : "—"}</td>
+                  <td className="hidden lg:table-cell px-4 py-2.5 text-gray-500 max-w-[160px] truncate">{sl.notiz ?? "—"}</td>
                   <td className="px-4 py-2.5">
                     <button
                       onClick={() => handleDelete(sl.id)}
@@ -3139,9 +3153,9 @@ function AngeboteTab({ kundeId }: { kundeId: number }) {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nummer</th>
-                <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
-                <th className="text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gültig bis</th>
-                <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pos.</th>
+                <th className="hidden sm:table-cell text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
+                <th className="hidden md:table-cell text-left py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Gültig bis</th>
+                <th className="hidden md:table-cell text-right py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pos.</th>
                 <th className="text-right py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Betrag</th>
                 <th className="text-center py-2 pr-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                 <th className="py-2"></th>
@@ -3150,12 +3164,15 @@ function AngeboteTab({ kundeId }: { kundeId: number }) {
             <tbody className="divide-y divide-gray-100">
               {angebote.map((a) => (
                 <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="py-2 pr-4 font-mono font-medium text-gray-900">{a.nummer}</td>
-                  <td className="py-2 pr-4 text-gray-600">{formatDatum(a.datum)}</td>
-                  <td className="py-2 pr-4 text-gray-600">
+                  <td className="py-2 pr-4 font-mono font-medium text-gray-900">
+                    {a.nummer}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{formatDatum(a.datum)}</div>
+                  </td>
+                  <td className="hidden sm:table-cell py-2 pr-4 text-gray-600">{formatDatum(a.datum)}</td>
+                  <td className="hidden md:table-cell py-2 pr-4 text-gray-600">
                     {a.gueltigBis ? formatDatum(a.gueltigBis) : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="py-2 pr-4 text-right text-gray-600">{a.positionenAnzahl}</td>
+                  <td className="hidden md:table-cell py-2 pr-4 text-right text-gray-600">{a.positionenAnzahl}</td>
                   <td className="py-2 pr-4 text-right font-medium text-gray-900">{formatEuro(a.gesamtbetrag)}</td>
                   <td className="py-2 pr-4 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${ANGEBOT_STATUS_FARBEN[a.status] ?? "bg-gray-100 text-gray-600"}`}>
@@ -3286,7 +3303,7 @@ function AufgabenTab({ kundeId }: { kundeId: number }) {
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <select value={typ} onChange={(e) => setTyp(e.target.value)} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-green-500">
               <option value="aufgabe">Aufgabe</option>
               <option value="anruf">Anruf</option>

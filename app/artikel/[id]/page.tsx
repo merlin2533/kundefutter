@@ -393,7 +393,7 @@ export default function ArtikelDetailPage() {
               </div>
               <a
                 href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLief ? `&lieferantId=${bevorzugterLief.lieferantId}` : ""}`}
-                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap"
+                className="px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap w-full sm:w-auto text-center"
               >
                 Wareneingang erfassen
               </a>
@@ -403,7 +403,7 @@ export default function ArtikelDetailPage() {
       })()}
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap">
+      <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -607,7 +607,7 @@ export default function ArtikelDetailPage() {
               <div className="mt-5 flex justify-end">
                 <button
                   onClick={() => setEditing(true)}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium w-full sm:w-auto"
                 >
                   Bearbeiten
                 </button>
@@ -748,17 +748,17 @@ export default function ArtikelDetailPage() {
                     />
                     <label htmlFor="bev" className="text-sm text-gray-700">Bevorzugter Lieferant</label>
                   </div>
-                  <div className="flex justify-end gap-3 pt-2">
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                     <button
                       onClick={() => setShowLiefModal(false)}
-                      className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                      className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
                     >
                       Abbrechen
                     </button>
                     <button
                       onClick={addLieferant}
                       disabled={savingLief}
-                      className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+                      className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                     >
                       {savingLief ? "Speichern…" : "Hinzufügen"}
                     </button>
@@ -905,7 +905,7 @@ export default function ArtikelDetailPage() {
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                 >
                   {uploading ? "Hochladen…" : "Hochladen"}
                 </button>
