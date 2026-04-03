@@ -566,3 +566,18 @@ model KundeSchlag {
 
   @@index([kundeId])
 }
+
+// ─── KI-NUTZUNG (AI Usage Statistics) ────────────────────────────────────────
+
+model KiNutzung {
+  id          Int      @id @default(autoincrement())
+  zeitpunkt   DateTime @default(now())
+  provider    String                           // "openai" | "anthropic"
+  modell      String                           // "gpt-4o" | "claude-sonnet-4-20250514" etc.
+  feature     String                           // "wareneingang" | "lieferung" | "crm"
+  tokensIn    Int
+  tokensOut   Int
+  kostenCent  Int      @default(0)
+  erfolgreich Boolean  @default(true)
+  fehler      String?
+}
