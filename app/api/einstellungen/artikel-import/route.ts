@@ -270,6 +270,15 @@ export async function POST(req: NextRequest) {
               bevorzugt: true,
             }],
           },
+          ...(a.inhaltsstoffe?.length && {
+            inhaltsstoffe: {
+              create: a.inhaltsstoffe.map((i: { name: string; menge?: number | null; einheit?: string | null }) => ({
+                name: i.name,
+                menge: i.menge ?? null,
+                einheit: i.einheit ?? null,
+              })),
+            },
+          }),
         },
       });
       importiert++;

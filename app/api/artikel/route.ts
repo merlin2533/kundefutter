@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     where.OR = [
       { name: { contains: search } },
       { artikelnummer: { contains: search } },
+      { inhaltsstoffe: { some: { name: { contains: search } } } },
     ];
   }
 
@@ -21,6 +22,7 @@ export async function GET(req: NextRequest) {
     const artikel = await prisma.artikel.findMany({
       where,
       include: {
+        inhaltsstoffe: true,
         lieferanten: { include: { lieferant: true } },
         dokumente: true,
       },
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, ...data } = body;
+  const { lieferanten, inhaltsstoffe, ...data } = body;
 
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
@@ -62,8 +64,16 @@ export async function POST(req: NextRequest) {
         lieferanten: lieferanten?.length
           ? { create: lieferanten }
           : undefined,
+        inhaltsstoffe: inhaltsstoffe?.length
+          ? { create: (inhaltsstoffe as { name: string; menge?: number | null; einheit?: string | null }[]).map((i) => ({
+              name: i.name,
+              menge: i.menge ?? null,
+              einheit: i.einheit ?? null,
+            })) }
+          : undefined,
       },
       include: {
+        inhaltsstoffe: true,
         lieferanten: { include: { lieferant: true } },
         dokumente: true,
       },

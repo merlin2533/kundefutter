@@ -441,4 +441,25 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 }
 
 Wenn ein Feld nicht erkennbar ist, setze null.`,
+
+  inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Düngemittel, Saatgut, Pflanzenhilfsmittel).
+Recherchiere die Inhaltsstoffe / Zusammensetzung des genannten Produkts.
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
+{
+  "inhaltsstoffe": [
+    { "name": "Rohprotein", "menge": 12.5, "einheit": "%" },
+    { "name": "Schwefel", "menge": 90, "einheit": "%" }
+  ],
+  "hinweis": "Optionaler Hinweis falls das Produkt nicht eindeutig identifiziert werden konnte"
+}
+
+Regeln:
+- Gib nur Inhaltsstoffe an, die du sicher kennst. Erfinde KEINE Werte.
+- Bei Futtermitteln: Rohprotein, Rohfett, Rohfaser, Rohasche, Calcium, Phosphor, Natrium, Lysin, Methionin, Energie (MJ/kg) etc.
+- Bei Düngemitteln: N, P2O5, K2O, S, MgO, CaO, B, Se, Zn, Fe etc.
+- Bei Pflanzenhilfsmitteln: Wirkstoffe und deren Konzentrationen
+- "menge" kann null sein wenn der Wert unbekannt ist
+- "einheit" ist typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l"
+- Wenn du das Produkt nicht kennst, gib ein leeres Array und einen Hinweis zurück`,
 };
