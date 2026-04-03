@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-const ALLOWED_PREFIXES = ["firma.", "system."];
+const ALLOWED_PREFIXES = ["firma.", "system.", "ki."];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

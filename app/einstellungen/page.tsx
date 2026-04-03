@@ -114,6 +114,12 @@ export default function EinstellungenPage() {
           title="Artikel-Stammdaten"
           description="marstall & BvG Agrar Artikel manuell importieren"
         />
+        <EinstellungTile
+          href="/einstellungen/ki"
+          icon="🤖"
+          title="KI / AI"
+          description="API-Keys, Modellauswahl und Nutzungsstatistik"
+        />
       </div>
     </div>
   );
