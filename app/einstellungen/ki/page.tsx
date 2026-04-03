@@ -3,6 +3,38 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 
+type KiStatistik = {
+  gesamt: {
+    requests: number;
+    tokensIn: number;
+    tokensOut: number;
+    kostenCent: number;
+    fehler: number;
+  };
+  proFeature: Record<
+    string,
+    { requests: number; tokensIn: number; tokensOut: number; kostenCent: number }
+  >;
+  letzteRequests: {
+    id: number;
+    zeitpunkt: string;
+    provider: string;
+    modell: string;
+    feature: string;
+    tokensIn: number;
+    tokensOut: number;
+    kostenCent: number;
+    erfolgreich: boolean;
+    fehler: string | null;
+  }[];
+};
+
+const FEATURE_LABELS: Record<string, string> = {
+  wareneingang: "Wareneingang",
+  lieferung: "Lieferung",
+  crm: "CRM Notiz",
+};
+
 const OPENAI_MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },
   { value: "gpt-4o-mini", label: "GPT-4o Mini" },
@@ -18,6 +50,10 @@ const ANTHROPIC_MODELS = [
 ];
 
 export default function KiEinstellungenPage() {
+  const [statistik, setStatistik] = useState<KiStatistik | null>(null);
+  const [statistikLoading, setStatistikLoading] = useState(true);
+  const [statistikError, setStatistikError] = useState<string | null>(null);
+
   const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
   const [modell, setModell] = useState("gpt-4o");
   const [openaiKey, setOpenaiKey] = useState("");
@@ -52,6 +88,22 @@ export default function KiEinstellungenPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  useEffect(() => {
+    async function fetchStatistik() {
+      try {
+        const res = await fetch("/api/ki/statistik?tage=30");
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setStatistik(data);
+      } catch {
+        setStatistikError("Statistik konnte nicht geladen werden.");
+      } finally {
+        setStatistikLoading(false);
+      }
+    }
+    fetchStatistik();
+  }, []);
 
   // Wenn Provider wechselt, erstes Modell des Providers setzen
   useEffect(() => {
