@@ -20,15 +20,16 @@ export default function VoiceInput({
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [supported, setSupported] = useState(true);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const finalTranscriptRef = useRef("");
 
   useEffect(() => {
-    const SpeechRecognition =
-      (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setSupported(false);
     }
@@ -51,9 +52,9 @@ export default function VoiceInput({
     setTranscript("");
     finalTranscriptRef.current = "";
 
-    const SpeechRecognition =
-      (window as unknown as { SpeechRecognition?: typeof window.SpeechRecognition }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: typeof window.SpeechRecognition }).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setError("Spracheingabe wird von diesem Browser nicht unterstützt.");
@@ -67,7 +68,8 @@ export default function VoiceInput({
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
       let interim = "";
       let final = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -82,7 +84,8 @@ export default function VoiceInput({
       setTranscript(final + (interim ? interim : ""));
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onerror = (event: any) => {
       if (event.error === "no-speech") return;
       if (event.error === "aborted") return;
       setError(

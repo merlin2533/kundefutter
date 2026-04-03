@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -45,7 +44,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
   try {
     // Sonderaktion: Angebot annehmen → Lieferung erstellen
     if (aktion === "annehmen") {
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const result = await prisma.$transaction(async (tx) => {
         const angebot = await tx.angebot.findUnique({
           where: { id: Number(id) },
           include: { positionen: true },
