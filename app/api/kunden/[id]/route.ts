@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv, ustIdNr } = body;
 
   // Nur erlaubte Felder uebernehmen
   const updateData: Record<string, unknown> = {};
@@ -54,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (lng !== undefined) updateData.lng = lng != null ? Number(lng) : null;
   if (notizen !== undefined) updateData.notizen = notizen || null;
   if (aktiv !== undefined) updateData.aktiv = Boolean(aktiv);
+  if (ustIdNr !== undefined) updateData.ustIdNr = ustIdNr || null;
   if (body.tags !== undefined) {
     updateData.tags = JSON.stringify(Array.isArray(body.tags) ? body.tags : []);
   }

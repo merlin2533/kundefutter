@@ -80,6 +80,7 @@ interface Kunde {
   lng?: number;
   notizen?: string;
   tags?: string;
+  ustIdNr?: string;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -257,6 +258,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
     ort: kunde.ort ?? "",
     land: kunde.land,
     notizen: kunde.notizen ?? "",
+    ustIdNr: kunde.ustIdNr ?? "",
   });
 
   useEffect(() => {
@@ -300,6 +302,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       ort: kunde.ort ?? "",
       land: kunde.land,
       notizen: kunde.notizen ?? "",
+      ustIdNr: kunde.ustIdNr ?? "",
     });
     setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
     setError("");
@@ -326,6 +329,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           land: form.land || "Deutschland",
           notizen: form.notizen || null,
           tags,
+          ustIdNr: form.ustIdNr || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -379,6 +383,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           <InfoRow label="Straße" value={kunde.strasse} />
           <InfoRow label="PLZ / Ort" value={[kunde.plz, kunde.ort].filter(Boolean).join(" ")} />
           <InfoRow label="Land" value={kunde.land} />
+          <InfoRow label="USt-IdNr." value={kunde.ustIdNr} />
           {kunde.lat !== undefined && kunde.lat !== null && (
             <InfoRow label="Koordinaten" value={`${kunde.lat?.toFixed(4)}, ${kunde.lng?.toFixed(4)}`} />
           )}
@@ -490,6 +495,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
         </div>
       </div>
       <Field label="Land" value={form.land} onChange={(v) => setForm({ ...form, land: v })} />
+      <Field label="USt-IdNr." value={form.ustIdNr} onChange={(v) => setForm({ ...form, ustIdNr: v })} />
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
         <textarea

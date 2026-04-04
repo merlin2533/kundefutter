@@ -267,6 +267,16 @@ export default function RechnungenPage() {
                           >
                             Lieferschein
                           </Link>
+                          {r.rechnungNr && (
+                            <a
+                              href={`/api/exporte/zugferd?lieferungId=${r.id}`}
+                              download
+                              className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
+                              title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
+                            >
+                              ⬇ XML
+                            </a>
+                          )}
                           {st !== "bezahlt" ? (
                             <button
                               onClick={() => {

@@ -256,6 +256,16 @@ export default function SammelrechnungenPage() {
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
+                          {sr.rechnungNr && (
+                            <a
+                              href={`/api/exporte/zugferd?sammelrechnungId=${sr.id}`}
+                              download
+                              className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
+                              title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
+                            >
+                              ⬇ XML
+                            </a>
+                          )}
                           {status !== "bezahlt" && (
                             <button
                               onClick={() => markiereBezahlt(sr.id)}

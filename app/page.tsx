@@ -102,6 +102,7 @@ interface DashboardData {
   keinKontakt: KeinKontaktKunde[];
   letzteAktivitaeten: TimelineEntry[];
   lieferungenOhneRechnung: { id: number; datum: string; kundeId: number; kundeName: string; betrag: number; tageOhneRechnung: number }[];
+  unzugeordneteUmsaetze?: number;
 }
 
 const SCHNELLZUGRIFF = [
@@ -453,6 +454,17 @@ export default function DashboardPage() {
           sub={`${data.offeneLieferungen} offene Lieferung${data.offeneLieferungen !== 1 ? "en" : ""}`}
           color="blue"
         />
+
+        {/* Offene Bankbuchungen — nur anzeigen wenn vorhanden */}
+        {(data.unzugeordneteUmsaetze ?? 0) > 0 && (
+          <Link href="/bankabgleich" className="block">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-amber-500 h-full hover:shadow-md transition-shadow">
+              <p className="text-sm text-gray-500">Offene Bankbuchungen</p>
+              <p className="text-2xl font-bold mt-1">{data.unzugeordneteUmsaetze}</p>
+              <p className="text-xs text-amber-600 font-medium mt-1">Nicht zugeordnet → Bankabgleich</p>
+            </div>
+          </Link>
+        )}
       </div>
 
       {/* Mittlere Reihe: Fällige Rechnungen + Lager-Ampel */}

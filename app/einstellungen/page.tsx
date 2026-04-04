@@ -126,6 +126,18 @@ export default function EinstellungenPage() {
           title="KI / AI"
           description="API-Keys, Modellauswahl und Nutzungsstatistik"
         />
+        <EinstellungTile
+          href="/einstellungen/ausgaben"
+          icon="🧾"
+          title="Ausgaben"
+          description="Kategorien für Betriebsausgaben konfigurieren"
+        />
+        <EinstellungTile
+          href="/einstellungen/bankkonten"
+          icon="🏦"
+          title="Bankkonten"
+          description="Konten für den Bankabgleich hinterlegen"
+        />
       </div>
     </div>
   );
