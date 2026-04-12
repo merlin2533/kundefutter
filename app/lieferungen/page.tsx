@@ -44,6 +44,7 @@ export default function LieferungenPage() {
   const [vonFilter, setVonFilter] = useState("");
   const [bisFilter, setBisFilter] = useState("");
   const [kundeSearch, setKundeSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   // Wiederkehrend state
   const [wiederkehrend, setWiederkehrend] = useState<WiederkehrendBedarf[]>([]);
@@ -152,6 +153,17 @@ export default function LieferungenPage() {
       await fetchWiederkehrend();
     } finally {
       setWSaving(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Lieferung wirklich löschen?")) return;
+    setDeletingId(id);
+    try {
+      await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
+      await fetchLieferungen();
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -284,12 +296,24 @@ export default function LieferungenPage() {
                           <StatusBadge status={l.status} />
                         </td>
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/lieferungen/${l.id}`}
-                            className="text-green-700 hover:text-green-900 hover:underline font-medium"
-                          >
-                            Details →
-                          </Link>
+                          <div className="flex items-center gap-3">
+                            <Link
+                              href={`/lieferungen/${l.id}`}
+                              className="text-green-700 hover:text-green-900 hover:underline font-medium whitespace-nowrap"
+                            >
+                              Details →
+                            </Link>
+                            {l.status !== "geliefert" && (
+                              <button
+                                onClick={() => handleDelete(l.id)}
+                                disabled={deletingId === l.id}
+                                className="text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                title="Lieferung löschen"
+                              >
+                                {deletingId === l.id ? "…" : "Löschen"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
