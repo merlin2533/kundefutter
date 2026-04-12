@@ -121,6 +121,12 @@ export default function EinstellungenPage() {
           description="marstall & BvG Agrar Artikel manuell importieren"
         />
         <EinstellungTile
+          href="/einstellungen/email"
+          icon="✉️"
+          title="E-Mail / SMTP"
+          description="Rechnungsversand per E-Mail konfigurieren (PDF + ZUGFeRD)"
+        />
+        <EinstellungTile
           href="/einstellungen/ki"
           icon="🤖"
           title="KI / AI"

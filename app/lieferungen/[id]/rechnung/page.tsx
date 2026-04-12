@@ -53,6 +53,8 @@ export default function RechnungPrintPage() {
   const [giroCode, setGiroCode] = useState<string>("");
   const [canShare, setCanShare] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [mailSending, setMailSending] = useState(false);
+  const [mailMsg, setMailMsg] = useState("");
 
   async function loadLieferung(): Promise<Lieferung | null> {
     const res = await fetch(`/api/lieferungen/${id}`);
@@ -160,6 +162,29 @@ export default function RechnungPrintPage() {
       }
     } catch {
       // Benutzer hat Dialog abgebrochen – ignorieren
+    }
+  }
+
+  async function handleMailSenden() {
+    if (!lieferung) return;
+    setMailSending(true);
+    setMailMsg("");
+    try {
+      const res = await fetch("/api/exporte/rechnung/mail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferungId: Number(id) }),
+      });
+      const data = await res.json() as { ok?: boolean; empfaenger?: string; error?: string };
+      if (data.ok) {
+        setMailMsg(`Rechnung an ${data.empfaenger} gesendet.`);
+      } else {
+        setMailMsg(data.error ?? "Fehler beim Versand.");
+      }
+    } catch {
+      setMailMsg("Netzwerkfehler beim E-Mail-Versand.");
+    } finally {
+      setMailSending(false);
     }
   }
 
@@ -281,11 +306,28 @@ export default function RechnungPrintPage() {
           <a
             href={`/api/exporte/zugferd?lieferungId=${id}`}
             download
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 font-medium transition-colors"
             title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
           >
             ⬇ ZUGFeRD XML
           </a>
+        )}
+        {lieferung?.rechnungNr && (
+          <button
+            onClick={handleMailSenden}
+            disabled={mailSending}
+            className="px-3 py-2 text-sm bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+            title="Rechnung (PDF + ZUGFeRD XML) per E-Mail an Kunde senden"
+          >
+            <span aria-hidden>✉</span> {mailSending ? "Sende…" : "Per Mail"}
+          </button>
+        )}
+        {mailMsg && (
+          <span className={`text-xs font-medium ${mailMsg.includes("gesendet") ? "text-green-700" : "text-red-600"}`}>
+            {mailMsg}
+          </span>
         )}
         {lieferung && (
           <DriveUploadButton
