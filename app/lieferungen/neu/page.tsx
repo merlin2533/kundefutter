@@ -52,9 +52,9 @@ function LagerAmpel({ art }: { art: Artikel | undefined }) {
 
 interface NewPosition {
   artikelId: number | "";
-  menge: number;
-  verkaufspreis: number;
-  einkaufspreis: number;
+  menge: string;
+  verkaufspreis: string;
+  einkaufspreis: string;
   chargeNr: string;
 }
 
@@ -62,9 +62,9 @@ const today = new Date().toISOString().split("T")[0];
 
 const emptyPosition = (): NewPosition => ({
   artikelId: "",
-  menge: 1,
-  verkaufspreis: 0,
-  einkaufspreis: 0,
+  menge: "1",
+  verkaufspreis: "",
+  einkaufspreis: "",
   chargeNr: "",
 });
 
@@ -143,9 +143,9 @@ function NeueLieferungInner() {
                   const vkPreis = pos.preis * (1 - pos.rabatt / 100);
                   return {
                     artikelId: pos.artikelId,
-                    menge: pos.menge,
-                    verkaufspreis: Math.round(vkPreis * 100) / 100,
-                    einkaufspreis: art?.einkaufspreis ?? 0,
+                    menge: String(pos.menge),
+                    verkaufspreis: String(Math.round(vkPreis * 100) / 100),
+                    einkaufspreis: String(art?.einkaufspreis ?? 0),
                     chargeNr: "",
                   };
                 }));
@@ -170,16 +170,20 @@ function NeueLieferungInner() {
     setPositionen((prev) =>
       prev.map((p, i) => {
         if (i !== idx) return p;
-        const next = { ...p, [field]: value };
+        const next = { ...p };
         if (field === "artikelId") {
-          const art = artikel.find((a) => a.id === Number(value));
+          const num = value === "" ? "" : Number(value);
+          next.artikelId = num === "" || isNaN(num as number) ? "" : (num as number);
+          const art = artikel.find((a) => a.id === next.artikelId);
           if (art) {
-            next.verkaufspreis = art.standardpreis;
-            next.einkaufspreis = art.einkaufspreis ?? 0;
+            next.verkaufspreis = String(art.standardpreis);
+            next.einkaufspreis = String(art.einkaufspreis ?? 0);
           } else {
-            next.verkaufspreis = 0;
-            next.einkaufspreis = 0;
+            next.verkaufspreis = "";
+            next.einkaufspreis = "";
           }
+        } else {
+          (next as unknown as Record<string, string>)[field] = String(value);
         }
         return next;
       })
@@ -195,13 +199,17 @@ function NeueLieferungInner() {
     setPositionen((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  // Live summary
+  // Live summary (parse string-state to numbers)
+  const num = (s: string) => {
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  };
   const nettoSumme = positionen.reduce(
-    (sum, p) => sum + p.menge * p.verkaufspreis,
+    (sum, p) => sum + num(p.menge) * num(p.verkaufspreis),
     0
   );
   const ekSumme = positionen.reduce(
-    (sum, p) => sum + p.menge * p.einkaufspreis,
+    (sum, p) => sum + num(p.menge) * num(p.einkaufspreis),
     0
   );
   const deckungsbeitrag = nettoSumme - ekSumme;
@@ -224,15 +232,15 @@ function NeueLieferungInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kundeId,
+          kundeId: Number(kundeId),
           datum,
           status,
           notiz: notiz || undefined,
           positionen: positionen.map((p) => ({
-            artikelId: p.artikelId,
-            menge: Number(p.menge),
-            verkaufspreis: Number(p.verkaufspreis),
-            einkaufspreis: Number(p.einkaufspreis),
+            artikelId: Number(p.artikelId),
+            menge: parseFloat(p.menge) || 0,
+            verkaufspreis: parseFloat(p.verkaufspreis) || 0,
+            einkaufspreis: parseFloat(p.einkaufspreis) || 0,
             chargeNr: p.chargeNr || undefined,
           })),
         }),
@@ -341,10 +349,9 @@ function NeueLieferungInner() {
                 </thead>
                 <tbody>
                   {positionen.map((pos, idx) => {
-                    const margePct =
-                      pos.verkaufspreis > 0
-                        ? ((pos.verkaufspreis - pos.einkaufspreis) / pos.verkaufspreis) * 100
-                        : 0;
+                    const vk = num(pos.verkaufspreis);
+                    const ek = num(pos.einkaufspreis);
+                    const margePct = vk > 0 ? ((vk - ek) / vk) * 100 : 0;
                     const selectedArtikel = artikel.find((a) => a.id === Number(pos.artikelId));
 
                     return (
@@ -385,9 +392,7 @@ function NeueLieferungInner() {
                             step="0.01"
                             min="0"
                             value={pos.menge}
-                            onChange={(e) =>
-                              updatePosition(idx, "menge", parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updatePosition(idx, "menge", e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-700"
                           />
                           {selectedArtikel && (
@@ -404,13 +409,11 @@ function NeueLieferungInner() {
                             step="0.01"
                             min="0"
                             value={pos.einkaufspreis}
-                            onChange={(e) =>
-                              updatePosition(idx, "einkaufspreis", parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updatePosition(idx, "einkaufspreis", e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-700"
                           />
                           <div className="text-xs text-gray-400 text-right mt-0.5">
-                            {formatEuro(pos.menge * pos.einkaufspreis)}
+                            {formatEuro(num(pos.menge) * num(pos.einkaufspreis))}
                           </div>
                         </td>
 
@@ -421,13 +424,11 @@ function NeueLieferungInner() {
                             step="0.01"
                             min="0"
                             value={pos.verkaufspreis}
-                            onChange={(e) =>
-                              updatePosition(idx, "verkaufspreis", parseFloat(e.target.value) || 0)
-                            }
+                            onChange={(e) => updatePosition(idx, "verkaufspreis", e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-700"
                           />
                           <div className="text-xs text-gray-400 text-right mt-0.5">
-                            {formatEuro(pos.menge * pos.verkaufspreis)}
+                            {formatEuro(num(pos.menge) * num(pos.verkaufspreis))}
                           </div>
                         </td>
 
@@ -435,7 +436,7 @@ function NeueLieferungInner() {
                         <td className="px-3 py-2 text-right">
                           <MargeBadge pct={margePct} />
                           <div className="text-xs text-gray-400 mt-0.5 text-right">
-                            {formatEuro(pos.menge * (pos.verkaufspreis - pos.einkaufspreis))}
+                            {formatEuro(num(pos.menge) * (num(pos.verkaufspreis) - num(pos.einkaufspreis)))}
                           </div>
                         </td>
 

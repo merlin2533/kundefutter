@@ -104,10 +104,36 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const artikelId = Number(id);
+  if (!artikelId || isNaN(artikelId)) {
+    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+  }
   try {
-    await prisma.artikel.update({ where: { id: Number(id) }, data: { aktiv: false } });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
+    // Prüfen ob Artikel in anderen Entitäten referenziert wird → dann nur soft-delete
+    const [lieferposCount, wareneingangCount, bewegungCount, bedarfCount, inventurCount, angebotPosCount, rabattCount, kundePreisCount] = await Promise.all([
+      prisma.lieferposition.count({ where: { artikelId } }),
+      prisma.wareineingangPosition.count({ where: { artikelId } }),
+      prisma.lagerbewegung.count({ where: { artikelId } }),
+      prisma.kundeBedarf.count({ where: { artikelId } }),
+      prisma.inventurPosition.count({ where: { artikelId } }),
+      prisma.angebotPosition.count({ where: { artikelId } }),
+      prisma.mengenrabatt.count({ where: { artikelId } }),
+      prisma.kundeArtikelPreis.count({ where: { artikelId } }),
+    ]);
+    const referenziert = lieferposCount + wareneingangCount + bewegungCount + bedarfCount + inventurCount + angebotPosCount + rabattCount + kundePreisCount > 0;
+    if (referenziert) {
+      // Soft-delete: nur deaktivieren, damit historische Daten erhalten bleiben
+      await prisma.artikel.update({ where: { id: artikelId }, data: { aktiv: false } });
+      return NextResponse.json({ ok: true, soft: true });
+    }
+    // Hard-delete: keine Referenzen vorhanden, Artikel kann komplett entfernt werden
+    await prisma.artikel.delete({ where: { id: artikelId } });
+    return NextResponse.json({ ok: true, soft: false });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Interner Fehler";
+    if (message.includes("P2025")) {
+      return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

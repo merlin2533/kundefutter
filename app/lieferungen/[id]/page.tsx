@@ -42,6 +42,9 @@ export default function LieferungDetailPage() {
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
   const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
+  const [rechnungNrEdit, setRechnungNrEdit] = useState<string>("");
+  const [rechnungNrEditing, setRechnungNrEditing] = useState(false);
+  const [rechnungNrError, setRechnungNrError] = useState("");
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
 
@@ -52,7 +55,37 @@ export default function LieferungDetailPage() {
     const data = await res.json();
     setLieferung(data);
     setZahlungszielEdit(String(data.zahlungsziel ?? 30));
+    setRechnungNrEdit(data.rechnungNr ?? "");
+    setRechnungNrEditing(false);
+    setRechnungNrError("");
     setLoading(false);
+  }
+
+  async function speichereRechnungNr() {
+    const neu = rechnungNrEdit.trim();
+    if (!neu) { setRechnungNrError("Rechnungsnummer darf nicht leer sein."); return; }
+    setActionLoading(true);
+    setRechnungNrError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rechnungNr: neu,
+          // rechnungDatum nur setzen wenn noch keins existierte (Übergangs-Rechnungen)
+          ...(lieferung?.rechnungDatum ? {} : { rechnungDatum: new Date().toISOString() }),
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Fehler beim Speichern");
+      }
+      await load();
+    } catch (e) {
+      setRechnungNrError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -377,9 +410,48 @@ export default function LieferungDetailPage() {
               <p className="mt-2 text-sm text-gray-500 italic">{lieferung.notiz}</p>
             )}
             {lieferung.rechnungNr && (
-              <p className="mt-2 text-sm text-gray-700">
-                Rechnung: <span className="font-mono font-medium">{lieferung.rechnungNr}</span>
-              </p>
+              <div className="mt-2 text-sm text-gray-700 print:hidden">
+                {rechnungNrEditing ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>Rechnung:</span>
+                    <input
+                      type="text"
+                      value={rechnungNrEdit}
+                      onChange={(e) => setRechnungNrEdit(e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-0.5 text-sm font-mono w-40 focus:outline-none focus:ring-1 focus:ring-green-700"
+                      placeholder="RE-2026-0001"
+                      autoFocus
+                    />
+                    <button
+                      onClick={speichereRechnungNr}
+                      disabled={actionLoading}
+                      className="px-2 py-0.5 text-xs bg-green-700 hover:bg-green-800 text-white rounded transition-colors disabled:opacity-60"
+                    >
+                      Speichern
+                    </button>
+                    <button
+                      onClick={() => { setRechnungNrEditing(false); setRechnungNrEdit(lieferung.rechnungNr ?? ""); setRechnungNrError(""); }}
+                      className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                    {rechnungNrError && (
+                      <span className="text-xs text-red-600 w-full">{rechnungNrError}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Rechnung: <span className="font-mono font-medium">{lieferung.rechnungNr}</span></span>
+                    <button
+                      onClick={() => { setRechnungNrEditing(true); setRechnungNrEdit(lieferung.rechnungNr ?? ""); setRechnungNrError(""); }}
+                      className="text-xs text-green-700 hover:text-green-900 underline"
+                      title="Rechnungsnummer bearbeiten"
+                    >
+                      bearbeiten
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             {istGeliefert && (
               <div className="mt-3 flex flex-wrap items-center gap-3">

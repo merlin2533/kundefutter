@@ -108,9 +108,9 @@ export default function ArtikelDetailPage() {
   const [lievForm, setLievForm] = useState({
     lieferantId: "",
     artikelNrBeiLieferant: "",
-    einkaufspreis: 0,
-    mindestbestellmenge: 0,
-    lieferzeit: 0,
+    einkaufspreis: "",
+    mindestbestellmenge: "",
+    lieferzeit: "",
     bevorzugt: false,
   });
   const [savingLief, setSavingLief] = useState(false);
@@ -251,9 +251,9 @@ export default function ArtikelDetailPage() {
     const newEntry = {
       lieferantId: Number(lievForm.lieferantId),
       lieferantenArtNr: lievForm.artikelNrBeiLieferant || undefined,
-      einkaufspreis: Number(lievForm.einkaufspreis),
-      mindestbestellmenge: lievForm.mindestbestellmenge ? Number(lievForm.mindestbestellmenge) : undefined,
-      lieferzeitTage: lievForm.lieferzeit ? Number(lievForm.lieferzeit) : undefined,
+      einkaufspreis: parseFloat(lievForm.einkaufspreis) || 0,
+      mindestbestellmenge: lievForm.mindestbestellmenge ? parseFloat(lievForm.mindestbestellmenge) : undefined,
+      lieferzeitTage: lievForm.lieferzeit ? parseInt(lievForm.lieferzeit, 10) : undefined,
       bevorzugt: lievForm.bevorzugt,
     };
     const existing = (artikel?.lieferanten ?? [])
@@ -274,7 +274,7 @@ export default function ArtikelDetailPage() {
     setSavingLief(false);
     if (res.ok) {
       setShowLiefModal(false);
-      setLievForm({ lieferantId: "", artikelNrBeiLieferant: "", einkaufspreis: 0, mindestbestellmenge: 0, lieferzeit: 0, bevorzugt: false });
+      setLievForm({ lieferantId: "", artikelNrBeiLieferant: "", einkaufspreis: "", mindestbestellmenge: "", lieferzeit: "", bevorzugt: false });
       fetchArtikel();
     } else {
       const d = await res.json().catch(() => ({}));
@@ -975,7 +975,7 @@ export default function ArtikelDetailPage() {
                       <input
                         type="number" step="0.01" min="0"
                         value={lievForm.einkaufspreis}
-                        onChange={(e) => setLievForm({ ...lievForm, einkaufspreis: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setLievForm({ ...lievForm, einkaufspreis: e.target.value })}
                         className={inputCls}
                       />
                     </div>
@@ -984,7 +984,7 @@ export default function ArtikelDetailPage() {
                       <input
                         type="number" min="0"
                         value={lievForm.mindestbestellmenge}
-                        onChange={(e) => setLievForm({ ...lievForm, mindestbestellmenge: parseInt(e.target.value) || 0 })}
+                        onChange={(e) => setLievForm({ ...lievForm, mindestbestellmenge: e.target.value })}
                         className={inputCls}
                       />
                     </div>
@@ -993,7 +993,7 @@ export default function ArtikelDetailPage() {
                       <input
                         type="number" min="0"
                         value={lievForm.lieferzeit}
-                        onChange={(e) => setLievForm({ ...lievForm, lieferzeit: parseInt(e.target.value) || 0 })}
+                        onChange={(e) => setLievForm({ ...lievForm, lieferzeit: e.target.value })}
                         className={inputCls}
                       />
                     </div>
@@ -1100,26 +1100,44 @@ export default function ArtikelDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {artikel.dokumente.map((d) => (
-                    <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium">
-                        {d.name}
-                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">{formatDatum(d.createdAt)}{d.notiz ? ` · ${d.notiz}` : ""}</div>
-                      </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{d.notiz ?? "—"}</td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{formatDatum(d.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        <a
-                          href={d.pfad}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-green-700 hover:text-green-900 hover:underline text-sm font-medium"
-                        >
-                          Download
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
+                  {artikel.dokumente.map((d) => {
+                    // Alte Pfade wurden direkt statisch serviert (/uploads/...).
+                    // Neue Pfade gehen über den API-Download-Endpoint.
+                    const href = d.pfad.startsWith("/uploads/")
+                      ? d.pfad
+                      : `/api/artikel/${id}/dokumente/${d.id}`;
+                    return (
+                      <tr key={d.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium">
+                          {d.name}
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">{formatDatum(d.createdAt)}{d.notiz ? ` · ${d.notiz}` : ""}</div>
+                        </td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{d.notiz ?? "—"}</td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{formatDatum(d.createdAt)}</td>
+                        <td className="px-4 py-3 flex items-center gap-3">
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-green-700 hover:text-green-900 hover:underline text-sm font-medium"
+                          >
+                            Download
+                          </a>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Dokument "${d.name}" wirklich löschen?`)) return;
+                              const res = await fetch(`/api/artikel/${id}/dokumente/${d.id}`, { method: "DELETE" });
+                              if (res.ok) fetchArtikel();
+                            }}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                            title="Löschen"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
