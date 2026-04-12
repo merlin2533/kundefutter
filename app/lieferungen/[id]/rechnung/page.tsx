@@ -237,16 +237,16 @@ export default function RechnungPrintPage() {
     ? formatDatum(lieferung.rechnungDatum)
     : formatDatum(lieferung.datum);
 
-  const firmenname = firmaData["firma.firmenname"] ?? "";
-  const firmaAdresse = firmaData["firma.adresse"] ?? "";
+  const firmenname = firmaData["firma.name"] ?? firmaData["firma.firmenname"] ?? "";
+  const firmaAdresse = firmaData["firma.strasse"] ?? firmaData["firma.adresse"] ?? "";
   const firmaPlz = firmaData["firma.plz"] ?? "";
   const firmaOrt = firmaData["firma.ort"] ?? "";
-  const firmaTel = firmaData["firma.tel"] ?? "";
+  const firmaTel = firmaData["firma.telefon"] ?? firmaData["firma.tel"] ?? "";
   const firmaEmail = firmaData["firma.email"] ?? "";
-  const firmaSteuernr = firmaData["firma.steuernr"] ?? "";
+  const firmaSteuernr = firmaData["firma.steuernummer"] ?? firmaData["firma.steuernr"] ?? "";
   const firmaIban = firmaData["firma.iban"] ?? "";
   const firmaBic = firmaData["firma.bic"] ?? "";
-  const firmaBankname = firmaData["firma.bankname"] ?? "";
+  const firmaBankname = firmaData["firma.bank"] ?? firmaData["firma.bankname"] ?? "";
 
   return (
     <>
@@ -366,9 +366,12 @@ export default function RechnungPrintPage() {
           fontSize: "11pt",
           color: "#000",
           maxWidth: "210mm",
+          minHeight: "277mm",
           margin: "0 auto",
           padding: "1.5cm 1cm",
           background: "#fff",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         {/* Briefkopf */}
@@ -586,7 +589,7 @@ export default function RechnungPrintPage() {
         </div>
 
         {/* Footer */}
-        <hr style={{ borderTop: "1px solid #ccc", marginBottom: "10px" }} />
+        <hr style={{ borderTop: "1px solid #ccc", marginTop: "auto", marginBottom: "10px" }} />
         <div
           style={{
             fontSize: "8.5pt",

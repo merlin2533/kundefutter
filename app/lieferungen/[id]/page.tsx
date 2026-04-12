@@ -263,14 +263,18 @@ export default function LieferungDetailPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
           <div>
             {logo && <img src={logo} style={{ height: "60px", marginBottom: "8px" }} alt="Logo" />}
-            {firmaData["firma.firmenname"] && (
-              <div style={{ fontWeight: "bold", fontSize: "13pt" }}>{firmaData["firma.firmenname"]}</div>
+            {(firmaData["firma.name"] || firmaData["firma.firmenname"]) && (
+              <div style={{ fontWeight: "bold", fontSize: "13pt" }}>{firmaData["firma.name"] ?? firmaData["firma.firmenname"]}</div>
             )}
-            {firmaData["firma.adresse"] && <div>{firmaData["firma.adresse"]}</div>}
+            {(firmaData["firma.strasse"] || firmaData["firma.adresse"]) && (
+              <div>{firmaData["firma.strasse"] ?? firmaData["firma.adresse"]}</div>
+            )}
             {(firmaData["firma.plz"] || firmaData["firma.ort"]) && (
               <div>{[firmaData["firma.plz"], firmaData["firma.ort"]].filter(Boolean).join(" ")}</div>
             )}
-            {firmaData["firma.tel"] && <div>Tel: {firmaData["firma.tel"]}</div>}
+            {(firmaData["firma.telefon"] || firmaData["firma.tel"]) && (
+              <div>Tel: {firmaData["firma.telefon"] ?? firmaData["firma.tel"]}</div>
+            )}
             {firmaData["firma.email"] && <div>E-Mail: {firmaData["firma.email"]}</div>}
           </div>
           <div style={{ textAlign: "right" }}>
@@ -370,10 +374,10 @@ export default function LieferungDetailPage() {
         {/* Footer */}
         <hr style={{ borderTop: "1px solid #ccc", marginTop: "32px", marginBottom: "8px" }} />
         <div style={{ fontSize: "9pt", color: "#555", display: "flex", flexWrap: "wrap", gap: "16px" }}>
-          {firmaData["firma.bankname"] && <span>Bank: {firmaData["firma.bankname"]}</span>}
+          {(firmaData["firma.bank"] || firmaData["firma.bankname"]) && <span>Bank: {firmaData["firma.bank"] ?? firmaData["firma.bankname"]}</span>}
           {firmaData["firma.iban"] && <span>IBAN: {firmaData["firma.iban"]}</span>}
           {firmaData["firma.bic"] && <span>BIC: {firmaData["firma.bic"]}</span>}
-          {firmaData["firma.steuernr"] && <span>Steuernr.: {firmaData["firma.steuernr"]}</span>}
+          {(firmaData["firma.steuernummer"] || firmaData["firma.steuernr"]) && <span>Steuernr.: {firmaData["firma.steuernummer"] ?? firmaData["firma.steuernr"]}</span>}
         </div>
       </div>
 
