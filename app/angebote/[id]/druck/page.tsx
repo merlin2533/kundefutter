@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import DriveUploadButton from "@/components/DriveUploadButton";
+import DokumentFooter from "@/components/DokumentFooter";
 
 interface ArtikelInfo {
   id: number;
@@ -142,23 +143,7 @@ export default function AngebotDruckPage() {
     .filter(Boolean)
     .join(", ");
 
-  const plzOrt = [firmaPlz, firmaOrt].filter(Boolean).join(" ");
-  const footerLinks = footerData["dokument.footer.links"] ||
-    [firmaName, firmaStrasse, plzOrt].filter(Boolean).join("\n");
-  const footerMitte = footerData["dokument.footer.mitte"] ||
-    [
-      firmaTel ? `Tel: ${firmaTel}` : "",
-      firmaEmail,
-      firmaSteuernr ? `Steuernr.: ${firmaSteuernr}` : "",
-      firmaUstId ? `USt-IdNr.: ${firmaUstId}` : "",
-      firmaOeko ? `Öko-Nr.: ${firmaOeko}` : "",
-    ].filter(Boolean).join("\n");
-  const footerRechts = footerData["dokument.footer.rechts"] ||
-    [
-      firmaBankname,
-      firmaIban ? `IBAN: ${firmaIban}` : "",
-      firmaBic ? `BIC: ${firmaBic}` : "",
-    ].filter(Boolean).join("\n");
+
 
   return (
     <>
@@ -410,21 +395,7 @@ export default function AngebotDruckPage() {
         </div>
 
         {/* Footer – 3 Spalten */}
-        <hr style={{ borderTop: "1px solid #bbb", marginTop: "16px", marginBottom: "8px" }} />
-        <div
-          style={{
-            fontSize: "7.5pt",
-            color: "#666",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "12px",
-            lineHeight: "1.6",
-          }}
-        >
-          <div style={{ whiteSpace: "pre-line" }}>{footerLinks}</div>
-          <div style={{ whiteSpace: "pre-line", textAlign: "center" }}>{footerMitte}</div>
-          <div style={{ whiteSpace: "pre-line", textAlign: "right" }}>{footerRechts}</div>
-        </div>
+        <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="16px" />
       </div>
     </>
   );

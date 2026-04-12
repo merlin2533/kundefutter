@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
+import DokumentFooter from "@/components/DokumentFooter";
 
 interface ArtikelInfo {
   name: string;
@@ -270,24 +271,6 @@ export default function RechnungPrintPage() {
   const firmaBic = firmaData["firma.bic"] ?? "";
   const firmaBankname = firmaData["firma.bank"] ?? firmaData["firma.bankname"] ?? "";
 
-  // 3-spaltiger Footer – konfigurierbar oder automatisch aus Firmadaten
-  const plzOrt = [firmaPlz, firmaOrt].filter(Boolean).join(" ");
-  const footerLinks = footerData["dokument.footer.links"] ||
-    [firmenname, firmaAdresse, plzOrt].filter(Boolean).join("\n");
-  const footerMitte = footerData["dokument.footer.mitte"] ||
-    [
-      firmaTel ? `Tel: ${firmaTel}` : "",
-      firmaEmail,
-      firmaSteuernr ? `Steuernr.: ${firmaSteuernr}` : "",
-      firmaUstId ? `USt-IdNr.: ${firmaUstId}` : "",
-      firmaOeko ? `Öko-Nr.: ${firmaOeko}` : "",
-    ].filter(Boolean).join("\n");
-  const footerRechts = footerData["dokument.footer.rechts"] ||
-    [
-      firmaBankname,
-      firmaIban ? `IBAN: ${firmaIban}` : "",
-      firmaBic ? `BIC: ${firmaBic}` : "",
-    ].filter(Boolean).join("\n");
 
   return (
     <>
@@ -614,21 +597,7 @@ export default function RechnungPrintPage() {
         </div>
 
         {/* Footer – 3 Spalten */}
-        <hr style={{ borderTop: "1px solid #bbb", marginTop: "auto", marginBottom: "8px" }} />
-        <div
-          style={{
-            fontSize: "7.5pt",
-            color: "#666",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "12px",
-            lineHeight: "1.6",
-          }}
-        >
-          <div style={{ whiteSpace: "pre-line" }}>{footerLinks}</div>
-          <div style={{ whiteSpace: "pre-line", textAlign: "center" }}>{footerMitte}</div>
-          <div style={{ whiteSpace: "pre-line", textAlign: "right" }}>{footerRechts}</div>
-        </div>
+        <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="auto" />
       </div>
     </>
   );

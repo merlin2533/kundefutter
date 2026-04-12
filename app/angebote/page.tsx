@@ -182,9 +182,10 @@ export default function AngebotePage() {
                     <td className="px-3 sm:px-4 py-3 text-right">
                       <Link
                         href={`/angebote/${a.id}`}
-                        className="text-xs text-green-700 hover:underline font-medium"
+                        className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors inline-flex"
+                        title="Details"
                       >
-                        Details →
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </Link>
                     </td>
                   </tr>

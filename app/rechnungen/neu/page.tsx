@@ -42,11 +42,18 @@ export default function NeueRechnungPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Kunden laden
+  // Kunden + Standard-Zahlungsziel laden
   useEffect(() => {
     fetch("/api/kunden?aktiv=true")
       .then((r) => r.json())
       .then(setKunden)
+      .catch(() => {});
+    fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
+      .then((r) => r.json())
+      .then((d) => {
+        const val = parseInt(d["firma.zahlungszielStandard"] ?? "30", 10);
+        if (!isNaN(val) && val >= 0) setZahlungsziel(val);
+      })
       .catch(() => {});
   }, []);
 

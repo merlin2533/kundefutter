@@ -224,15 +224,24 @@ export default function RechnungenPage() {
                 return (
                   <React.Fragment key={r.id}>
                     <tr
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
-                      onClick={() => setExpanded(isExpanded ? null : r.id)}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isExpanded ? "bg-green-50" : ""}`}
                     >
-                      <td className="px-3 py-3 text-gray-400 text-xs text-center">
+                      <td
+                        className="px-3 py-3 text-gray-400 text-xs text-center cursor-pointer hover:text-gray-700"
+                        onClick={() => setExpanded(isExpanded ? null : r.id)}
+                        title="Positionen anzeigen"
+                      >
                         {isExpanded ? "▲" : "▼"}
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-gray-900">
-                        {r.rechnungNr}
-                        <div className="sm:hidden text-xs text-gray-500 font-sans font-normal mt-0.5">
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/lieferungen/${r.id}/rechnung`}
+                          className="font-mono font-semibold text-green-800 hover:text-green-600 hover:underline"
+                          title="Rechnung öffnen"
+                        >
+                          {r.rechnungNr}
+                        </Link>
+                        <div className="sm:hidden text-xs text-gray-500 font-normal mt-0.5">
                           {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}
                         </div>
                       </td>
