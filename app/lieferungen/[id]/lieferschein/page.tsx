@@ -116,15 +116,6 @@ export default function LieferscheinPage() {
   const firmaOrt = firma["firma.ort"] ?? "";
   const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
   const firmaEmail = firma["firma.email"] ?? "";
-  const firmaSteuernr = firma["firma.steuernummer"] ?? firma["firma.steuernr"] ?? "";
-  const firmaUstId = firma["firma.ustIdNr"] ?? "";
-  const firmaOeko = firma["firma.oekoNummer"] ?? "";
-  const firmaIban = firma["firma.iban"] ?? "";
-  const firmaBic = firma["firma.bic"] ?? "";
-  const firmaBankname = firma["firma.bank"] ?? "";
-
-
-
   return (
     <>
       <style>{`

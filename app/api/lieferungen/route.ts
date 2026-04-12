@@ -12,6 +12,11 @@ export async function GET(req: NextRequest) {
   const hatRechnung = searchParams.get("hatRechnung");
   const ohneRechnung = searchParams.get("ohneRechnung");
 
+  const GUELTIGE_STATUS = ["geplant", "geliefert", "storniert"];
+  if (status && !GUELTIGE_STATUS.includes(status)) {
+    return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 });
+  }
+
   const where: Record<string, unknown> = {};
   if (kundeId) where.kundeId = Number(kundeId);
   if (status) where.status = status;
@@ -86,59 +91,61 @@ export async function POST(req: NextRequest) {
 
   try {
   const lieferung = await prisma.$transaction(async (tx) => {
+    // Batch-load all needed data upfront to avoid N+1 queries
+    const artikelIds = positionen.map((p) => p.artikelId);
+
+    const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte] = await Promise.all([
+      tx.artikel.findMany({ where: { id: { in: artikelIds } } }),
+      tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
+      tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
+      tx.mengenrabatt.findMany({
+        where: {
+          aktiv: true,
+          OR: [{ kundeId }, { kundeId: null }],
+        },
+      }),
+    ]);
+
+    const artikelMap = new Map(alleArtikel.map((a) => [a.id, a]));
+    const kundePreisMap = new Map(alleKundePreise.map((kp) => [kp.artikelId, kp]));
+    const bevorzugterLieferantMap = new Map(alleBevorzugteLieferanten.map((al) => [al.artikelId, al]));
+
     // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
-    const angereichert = await Promise.all(
-      positionen.map(async (pos) => {
-        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
-        if (!artikel) throw new Error(`Artikel mit ID ${pos.artikelId} nicht gefunden`);
-        const kundePreis = await tx.kundeArtikelPreis.findUnique({
-          where: { kundeId_artikelId: { kundeId, artikelId: pos.artikelId } },
-        });
-        const bevorzugterLieferant = await tx.artikelLieferant.findFirst({
-          where: { artikelId: pos.artikelId, bevorzugt: true },
-        });
+    const angereichert = positionen.map((pos) => {
+      const artikel = artikelMap.get(pos.artikelId);
+      if (!artikel) throw new Error(`Artikel mit ID ${pos.artikelId} nicht gefunden`);
+      const kundePreis = kundePreisMap.get(pos.artikelId) ?? null;
+      const bevorzugterLieferant = bevorzugterLieferantMap.get(pos.artikelId);
 
-        let basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel, kundePreis);
+      const basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel, kundePreis);
 
-        // Mengenrabatt suchen: Priorität kundenspezifisch > allgemein; höchster Rabatt gewinnt
-        const alleRabatte = await tx.mengenrabatt.findMany({
-          where: {
-            aktiv: true,
-            vonMenge: { lte: pos.menge },
-            OR: [
-              { kundeId: kundeId },
-              { kundeId: null },
-            ],
-          },
-        });
+      // Mengenrabatt: filter in JS (vonMenge per position, then artikel/kategorie match)
+      const passende = alleMengenrabatte.filter((r) => {
+        if (r.vonMenge > pos.menge) return false;
+        if (r.artikelId !== null) return r.artikelId === pos.artikelId;
+        if (r.kategorie !== null) return r.kategorie === artikel.kategorie;
+        return false;
+      });
 
-        // Filtere passende Rabatte (Artikel-ID oder Kategorie)
-        const passende = alleRabatte.filter((r) => {
-          if (r.artikelId !== null) return r.artikelId === pos.artikelId;
-          if (r.kategorie !== null) return r.kategorie === artikel.kategorie;
-          return false;
-        });
+      // Wähle den höchsten Rabatt
+      let bestRabatt = 0;
+      for (const r of passende) {
+        if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
+      }
 
-        // Wähle den höchsten Rabatt
-        let bestRabatt = 0;
-        for (const r of passende) {
-          if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
-        }
+      const rabattVerkaufspreis = bestRabatt > 0
+        ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
+        : basisVerkaufspreis;
 
-        const rabattVerkaufspreis = bestRabatt > 0
-          ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
-          : basisVerkaufspreis;
-
-        return {
-          artikelId: pos.artikelId,
-          menge: pos.menge,
-          verkaufspreis: rabattVerkaufspreis,
-          einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
-          chargeNr: pos.chargeNr ?? null,
-          rabattProzent: bestRabatt,
-        };
-      })
-    );
+      return {
+        artikelId: pos.artikelId,
+        menge: pos.menge,
+        verkaufspreis: rabattVerkaufspreis,
+        einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
+        chargeNr: pos.chargeNr ?? null,
+        rabattProzent: bestRabatt,
+      };
+    });
 
     return tx.lieferung.create({
       data: {
