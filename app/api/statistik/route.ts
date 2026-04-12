@@ -2,148 +2,143 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const von = searchParams.get("von"); // YYYY-MM
-  const bis = searchParams.get("bis"); // YYYY-MM
+  try {
+    const { searchParams } = new URL(req.url);
+    const von = searchParams.get("von"); // YYYY-MM
+    const bis = searchParams.get("bis"); // YYYY-MM
 
-  // Build date range
-  const vonDate = von ? new Date(`${von}-01T00:00:00.000Z`) : new Date("2024-01-01T00:00:00.000Z");
-  const bisDate = bis
-    ? (() => {
-        const [y, m] = bis.split("-").map(Number);
-        return new Date(y, m, 1); // first day of next month (exclusive upper bound)
-      })()
-    : new Date();
+    // Build and validate date range
+    const vonDate = von
+      ? (() => { const d = new Date(`${von}-01T00:00:00.000Z`); return isNaN(d.getTime()) ? new Date("2024-01-01T00:00:00.000Z") : d; })()
+      : new Date("2024-01-01T00:00:00.000Z");
+    const bisDate = bis
+      ? (() => {
+          const parts = bis.split("-").map(Number);
+          if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return new Date();
+          return new Date(parts[0], parts[1], 1);
+        })()
+      : new Date();
 
-  // Fetch all delivered lieferungen in range, including positionen and artikel
-  const lieferungen = await prisma.lieferung.findMany({
-    where: {
-      status: "geliefert",
-      datum: {
-        gte: vonDate,
-        lt: bisDate,
-      },
-    },
-    include: {
-      positionen: {
-        include: { artikel: true },
-      },
-      kunde: true,
-    },
-    orderBy: { datum: "asc" },
-  });
+    const vonIso = vonDate.toISOString();
+    const bisIso = bisDate.toISOString();
 
-  // ── Umsatz nach Monat ──────────────────────────────────────────────────────
-  const monatMap = new Map<string, { umsatz: number; anzahl: number }>();
-  for (const l of lieferungen) {
-    const d = new Date(l.datum);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-    const existing = monatMap.get(key) ?? { umsatz: 0, anzahl: 0 };
-    monatMap.set(key, {
-      umsatz: existing.umsatz + total,
-      anzahl: existing.anzahl + 1,
+    // All aggregations run in the DB — no full-table load into Node.js
+    type MonatRow    = { monat: string; umsatz: number; anzahl: number };
+    type ArtikelRow  = { artikelId: number; name: string; menge: number; umsatz: number };
+    type KundeRow    = { kundeId: number; name: string; umsatz: number; anzahl: number };
+    type KatRow      = { kategorie: string; umsatz: number; menge: number };
+    type SaisonRow   = { monat: number; umsatz: number };
+
+    const [umsatzNachMonatRaw, topArtikelRaw, topKundenRaw, umsatzNachKategorieRaw, saisonRaw] =
+      await Promise.all([
+        // Umsatz nach Monat (YYYY-MM)
+        prisma.$queryRawUnsafe<MonatRow[]>(
+          `SELECT
+            strftime('%Y-%m', l.datum) as monat,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            COUNT(DISTINCT l.id) as anzahl
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY monat
+          ORDER BY monat`,
+          vonIso, bisIso
+        ),
+        // Top 5 Artikel by Umsatz
+        prisma.$queryRawUnsafe<ArtikelRow[]>(
+          `SELECT
+            lp.artikelId,
+            a.name,
+            CAST(SUM(lp.menge) AS REAL) as menge,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          FROM Lieferposition lp
+          JOIN Lieferung l ON l.id = lp.lieferungId
+          JOIN Artikel a ON a.id = lp.artikelId
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY lp.artikelId, a.name
+          ORDER BY umsatz DESC
+          LIMIT 5`,
+          vonIso, bisIso
+        ),
+        // Top 5 Kunden by Umsatz
+        prisma.$queryRawUnsafe<KundeRow[]>(
+          `SELECT
+            l.kundeId,
+            k.name,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            COUNT(DISTINCT l.id) as anzahl
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          JOIN Kunde k ON k.id = l.kundeId
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY l.kundeId, k.name
+          ORDER BY umsatz DESC
+          LIMIT 5`,
+          vonIso, bisIso
+        ),
+        // Umsatz nach Kategorie
+        prisma.$queryRawUnsafe<KatRow[]>(
+          `SELECT
+            COALESCE(a.kategorie, 'Sonstige') as kategorie,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            CAST(SUM(lp.menge) AS REAL) as menge
+          FROM Lieferposition lp
+          JOIN Lieferung l ON l.id = lp.lieferungId
+          JOIN Artikel a ON a.id = lp.artikelId
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY kategorie
+          ORDER BY umsatz DESC`,
+          vonIso, bisIso
+        ),
+        // Saisonale Verteilung (Monat 1–12, alle Jahre summiert)
+        prisma.$queryRawUnsafe<SaisonRow[]>(
+          `SELECT
+            CAST(strftime('%m', l.datum) AS INTEGER) as monat,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY monat
+          ORDER BY monat`,
+          vonIso, bisIso
+        ),
+      ]);
+
+    // Fill missing months 1–12 with 0 for saisonaleVerteilung
+    const saisonMap = new Map<number, number>();
+    for (let i = 1; i <= 12; i++) saisonMap.set(i, 0);
+    for (const row of saisonRaw) saisonMap.set(row.monat, row.umsatz);
+    const saisonaleVerteilung = Array.from(saisonMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([monat, umsatz]) => ({ monat, umsatz: Math.round(umsatz * 100) / 100 }));
+
+    return NextResponse.json({
+      umsatzNachMonat: umsatzNachMonatRaw.map((r) => ({
+        monat: r.monat,
+        umsatz: Math.round(r.umsatz * 100) / 100,
+        anzahl: r.anzahl,
+      })),
+      topArtikel: topArtikelRaw.map((r) => ({
+        artikelId: r.artikelId,
+        name: r.name,
+        menge: Math.round(r.menge * 100) / 100,
+        umsatz: Math.round(r.umsatz * 100) / 100,
+      })),
+      topKunden: topKundenRaw.map((r) => ({
+        kundeId: r.kundeId,
+        name: r.name,
+        umsatz: Math.round(r.umsatz * 100) / 100,
+        anzahl: r.anzahl,
+      })),
+      umsatzNachKategorie: umsatzNachKategorieRaw.map((r) => ({
+        kategorie: r.kategorie,
+        umsatz: Math.round(r.umsatz * 100) / 100,
+        menge: Math.round(r.menge * 100) / 100,
+      })),
+      saisonaleVerteilung,
     });
+  } catch (e) {
+    console.error("Statistik API Fehler:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
-  const umsatzNachMonat = Array.from(monatMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([monat, v]) => ({
-      monat,
-      umsatz: Math.round(v.umsatz * 100) / 100,
-      anzahl: v.anzahl,
-    }));
-
-  // ── Top Artikel ────────────────────────────────────────────────────────────
-  const artikelMap = new Map<number, { name: string; menge: number; umsatz: number }>();
-  for (const l of lieferungen) {
-    for (const p of l.positionen) {
-      const existing = artikelMap.get(p.artikelId) ?? {
-        name: p.artikel.name,
-        menge: 0,
-        umsatz: 0,
-      };
-      artikelMap.set(p.artikelId, {
-        name: p.artikel.name,
-        menge: existing.menge + p.menge,
-        umsatz: existing.umsatz + p.menge * p.verkaufspreis,
-      });
-    }
-  }
-  const topArtikel = Array.from(artikelMap.entries())
-    .map(([artikelId, v]) => ({
-      artikelId,
-      name: v.name,
-      menge: Math.round(v.menge * 100) / 100,
-      umsatz: Math.round(v.umsatz * 100) / 100,
-    }))
-    .sort((a, b) => b.umsatz - a.umsatz)
-    .slice(0, 5);
-
-  // ── Top Kunden ─────────────────────────────────────────────────────────────
-  const kundeMap = new Map<number, { name: string; umsatz: number; anzahl: number }>();
-  for (const l of lieferungen) {
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-    const existing = kundeMap.get(l.kundeId) ?? {
-      name: l.kunde.name,
-      umsatz: 0,
-      anzahl: 0,
-    };
-    kundeMap.set(l.kundeId, {
-      name: l.kunde.name,
-      umsatz: existing.umsatz + total,
-      anzahl: existing.anzahl + 1,
-    });
-  }
-  const topKunden = Array.from(kundeMap.entries())
-    .map(([kundeId, v]) => ({
-      kundeId,
-      name: v.name,
-      umsatz: Math.round(v.umsatz * 100) / 100,
-      anzahl: v.anzahl,
-    }))
-    .sort((a, b) => b.umsatz - a.umsatz)
-    .slice(0, 5);
-
-  // ── Umsatz nach Kategorie ──────────────────────────────────────────────────
-  const kategorieMap = new Map<string, { umsatz: number; menge: number }>();
-  for (const l of lieferungen) {
-    for (const p of l.positionen) {
-      const kat = p.artikel.kategorie;
-      const existing = kategorieMap.get(kat) ?? { umsatz: 0, menge: 0 };
-      kategorieMap.set(kat, {
-        umsatz: existing.umsatz + p.menge * p.verkaufspreis,
-        menge: existing.menge + p.menge,
-      });
-    }
-  }
-  const umsatzNachKategorie = Array.from(kategorieMap.entries())
-    .map(([kategorie, v]) => ({
-      kategorie,
-      umsatz: Math.round(v.umsatz * 100) / 100,
-      menge: Math.round(v.menge * 100) / 100,
-    }))
-    .sort((a, b) => b.umsatz - a.umsatz);
-
-  // ── Saisonale Verteilung ───────────────────────────────────────────────────
-  const saisonMap = new Map<number, number>();
-  for (let i = 1; i <= 12; i++) saisonMap.set(i, 0);
-  for (const l of lieferungen) {
-    const monat = new Date(l.datum).getMonth() + 1;
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-    saisonMap.set(monat, (saisonMap.get(monat) ?? 0) + total);
-  }
-  const saisonaleVerteilung = Array.from(saisonMap.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([monat, umsatz]) => ({
-      monat,
-      umsatz: Math.round(umsatz * 100) / 100,
-    }));
-
-  return NextResponse.json({
-    umsatzNachMonat,
-    topArtikel,
-    topKunden,
-    umsatzNachKategorie,
-    saisonaleVerteilung,
-  });
 }
