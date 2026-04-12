@@ -33,8 +33,12 @@ export async function GET(req: NextRequest) {
   const pageParam = searchParams.get("page");
   const limitParam = searchParams.get("limit");
   const usePagination = pageParam !== null;
-  const limit = limitParam !== null ? Math.max(1, parseInt(limitParam, 10) || 100) : 100;
+  const limit = limitParam !== null ? Math.min(1000, Math.max(1, parseInt(limitParam, 10) || 100)) : 100;
   const page = pageParam !== null ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  // Kontakte nur laden wenn explizit angefragt (vermeidet N+1 Join bei Listenansichten).
+  // Default: mitladen (Abwärtskompatibilität), für Listen ?kontakte=false setzen.
+  const withKontakte = searchParams.get("kontakte") !== "false";
 
   const select = {
     id: true,
@@ -48,14 +52,18 @@ export async function GET(req: NextRequest) {
     lng: true,
     aktiv: true,
     tags: true,
-    kontakte: {
-      select: {
-        id: true,
-        typ: true,
-        wert: true,
-        label: true,
-      },
-    },
+    ...(withKontakte
+      ? {
+          kontakte: {
+            select: {
+              id: true,
+              typ: true,
+              wert: true,
+              label: true,
+            },
+          },
+        }
+      : {}),
   };
 
   try {
@@ -80,7 +88,8 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
     return NextResponse.json(kunden);
-  } catch {
+  } catch (e) {
+    console.error("Kunden GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Kunden" }, { status: 500 });
   }
 }
@@ -125,7 +134,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(kunde, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Kunden POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Kunde konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

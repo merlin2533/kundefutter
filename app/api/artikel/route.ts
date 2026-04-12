@@ -20,19 +20,28 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // Paginierung + optionale Relations (spart Joins bei Listenansichten)
+  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const withRelations = searchParams.get("relations") !== "false";
+
   try {
     const artikel = await prisma.artikel.findMany({
       where,
-      include: {
-        inhaltsstoffe: true,
-        lieferanten: { include: { lieferant: true } },
-        dokumente: true,
-      },
+      include: withRelations
+        ? {
+            inhaltsstoffe: true,
+            lieferanten: { include: { lieferant: true } },
+            dokumente: true,
+          }
+        : undefined,
       orderBy: { name: "asc" },
-      take: 200,
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return NextResponse.json(artikel);
-  } catch {
+  } catch (e) {
+    console.error("Artikel GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Artikel" }, { status: 500 });
   }
 }
@@ -94,7 +103,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(artikel, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Artikel POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Artikel konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

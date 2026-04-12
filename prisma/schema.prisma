@@ -44,6 +44,10 @@ model Kunde {
   gutschriften     Gutschrift[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+
+  @@index([aktiv])
+  @@index([kategorie])
+  @@index([name])
 }
 
 model KundeKontakt {
@@ -148,6 +152,10 @@ model Artikel {
   gutschriftPositionen GutschriftPosition[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+
+  @@index([aktiv])
+  @@index([kategorie])
+  @@index([name])
 }
 
 model ArtikelInhaltsstoff {
@@ -286,6 +294,9 @@ model Lieferposition {
 
   lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
   artikel   Artikel   @relation(fields: [artikelId], references: [id])
+
+  @@index([lieferungId])
+  @@index([artikelId])
 }
 
 // ─── WARENEINGANG ─────────────────────────────────────────────────────────────
@@ -311,6 +322,9 @@ model WareineingangPosition {
 
   wareneingang Wareneingang @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
   artikel      Artikel      @relation(fields: [artikelId], references: [id])
+
+  @@index([wareneingangId])
+  @@index([artikelId])
 }
 
 // ─── LAGERBEWEGUNG ────────────────────────────────────────────────────────────
@@ -331,6 +345,10 @@ model Lagerbewegung {
   artikel      Artikel       @relation(fields: [artikelId], references: [id])
   lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
   wareneingang Wareneingang? @relation(fields: [wareneingangId], references: [id])
+
+  @@index([artikelId])
+  @@index([datum])
+  @@index([artikelId, datum])
 }
 
 // ─── MENGENRABATTE ────────────────────────────────────────────────────────────
@@ -512,6 +530,8 @@ model Aufgabe {
   @@index([kundeId])
   @@index([erledigt])
   @@index([faelligAm])
+  @@index([erledigt, faelligAm])
+  @@index([kundeId, erledigt])
 }
 
 // ─── ANGEBOTSWESEN ────────────────────────────────────────────────────────────
@@ -547,6 +567,9 @@ model AngebotPosition {
 
   angebot    Angebot @relation(fields: [angebotId], references: [id], onDelete: Cascade)
   artikel    Artikel @relation(fields: [artikelId], references: [id])
+
+  @@index([angebotId])
+  @@index([artikelId])
 }
 
 // ─── GUTSCHRIFTEN / RETOUREN ──────────────────────────────────────────────────

@@ -18,7 +18,11 @@ export async function GET(req: NextRequest) {
   }
 
   const where: Record<string, unknown> = {};
-  if (kundeId) where.kundeId = Number(kundeId);
+  if (kundeId) {
+    const kid = parseInt(kundeId, 10);
+    if (isNaN(kid)) return NextResponse.json({ error: "Ungültige kundeId" }, { status: 400 });
+    where.kundeId = kid;
+  }
   if (status) where.status = status;
   if (hatRechnung === "true") where.rechnungNr = { not: null };
   if (ohneRechnung === "true") where.rechnungNr = null;
@@ -31,11 +35,20 @@ export async function GET(req: NextRequest) {
     };
   }
   if (von || bis) {
-    where.datum = {
-      ...(von && { gte: new Date(von) }),
-      ...(bis && { lte: new Date(bis) }),
-    };
+    const datum: Record<string, Date> = {};
+    if (von) {
+      const d = new Date(von);
+      if (!isNaN(d.getTime())) datum.gte = d;
+    }
+    if (bis) {
+      const d = new Date(bis);
+      if (!isNaN(d.getTime())) datum.lte = d;
+    }
+    if (Object.keys(datum).length > 0) where.datum = datum;
   }
+
+  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   try {
     const lieferungen = await prisma.lieferung.findMany({
@@ -45,10 +58,12 @@ export async function GET(req: NextRequest) {
         positionen: { include: { artikel: true } },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return NextResponse.json(lieferungen);
-  } catch {
+  } catch (e) {
+    console.error("Lieferungen GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Lieferungen" }, { status: 500 });
   }
 }
