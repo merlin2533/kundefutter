@@ -96,8 +96,6 @@ const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler",
 const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Agrarantrag", "Dokumente", "Vorgangskette"] as const;
 type Tab = (typeof TABS)[number];
 
-const KONTAKT_TYPEN = ["telefon", "mobil", "fax", "email"];
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function kontaktIcon(typ: string) {
@@ -566,18 +564,45 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ typ: "telefon", wert: "", label: "", vorname: "", nachname: "" });
+  const [form, setForm] = useState({
+    vorname: "",
+    nachname: "",
+    label: "",
+    telefon: "",
+    mobil: "",
+    email: "",
+    fax: "",
+  });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.wert.trim()) return;
+    const telefon = form.telefon.trim();
+    const mobil = form.mobil.trim();
+    const email = form.email.trim();
+    const fax = form.fax.trim();
+    const vorname = form.vorname.trim();
+    const nachname = form.nachname.trim();
+    const label = form.label.trim();
+    // Mindestens ein Kommunikationskanal muss gesetzt sein
+    if (!telefon && !mobil && !email && !fax) return;
     setSaving(true);
     try {
+      const zusatz: { typ: string; wert: string; label?: string; vorname?: string; nachname?: string }[] = [];
+      const gemeinsam = {
+        label: label || undefined,
+        vorname: vorname || undefined,
+        nachname: nachname || undefined,
+      };
+      if (telefon) zusatz.push({ typ: "telefon", wert: telefon, ...gemeinsam });
+      if (mobil) zusatz.push({ typ: "mobil", wert: mobil, ...gemeinsam });
+      if (email) zusatz.push({ typ: "email", wert: email, ...gemeinsam });
+      if (fax) zusatz.push({ typ: "fax", wert: fax, ...gemeinsam });
+
       const newKontakte = [
         ...kunde.kontakte.map(({ typ, wert, label, vorname, nachname }) => ({ typ, wert, label, vorname, nachname })),
-        { typ: form.typ, wert: form.wert.trim(), label: form.label || undefined, vorname: form.vorname.trim() || undefined, nachname: form.nachname.trim() || undefined },
+        ...zusatz,
       ];
       const res = await fetch(`/api/kunden/${kunde.id}`, {
         method: "PUT",
@@ -586,7 +611,7 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
       });
       if (!res.ok) throw new Error();
       setShowAdd(false);
-      setForm({ typ: "telefon", wert: "", label: "", vorname: "", nachname: "" });
+      setForm({ vorname: "", nachname: "", label: "", telefon: "", mobil: "", email: "", fax: "" });
       onRefresh();
     } catch {
       // ignore
@@ -659,7 +684,10 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
 
       {showAdd && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-          <h3 className="text-sm font-semibold mb-3">Neuer Kontakt</h3>
+          <h3 className="text-sm font-semibold mb-1">Neuer Kontakt</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Person einmal erfassen — Telefon, Mobil und E-Mail gemeinsam angeben. Leere Felder werden ignoriert.
+          </p>
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -683,40 +711,59 @@ function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void
                 />
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Label (optional)</label>
+              <input
+                type="text"
+                placeholder="z.B. Büro, Privat, Buchhaltung"
+                value={form.label}
+                onChange={(e) => setForm({ ...form, label: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Typ</label>
-                <select
-                  value={form.typ}
-                  onChange={(e) => setForm({ ...form, typ: e.target.value })}
+                <label className="block text-xs font-medium text-gray-600 mb-1">📞 Telefon</label>
+                <input
+                  type="tel"
+                  placeholder="05734 / 959 83 377"
+                  value={form.telefon}
+                  onChange={(e) => setForm({ ...form, telefon: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {KONTAKT_TYPEN.map((t) => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Label (optional)</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">📱 Mobil</label>
                 <input
-                  type="text"
-                  placeholder="z.B. Büro"
-                  value={form.label}
-                  onChange={(e) => setForm({ ...form, label: e.target.value })}
+                  type="tel"
+                  placeholder="0175 / 56 400 53"
+                  value={form.mobil}
+                  onChange={(e) => setForm({ ...form, mobil: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Wert <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                placeholder={form.typ === "email" ? "email@beispiel.de" : "0123 456789"}
-                value={form.wert}
-                onChange={(e) => setForm({ ...form, wert: e.target.value })}
-                required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">✉️ E-Mail</label>
+                <input
+                  type="email"
+                  placeholder="kontakt@beispiel.de"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">📠 Fax (optional)</label>
+                <input
+                  type="tel"
+                  placeholder="05734 / 959 83 378"
+                  value={form.fax}
+                  onChange={(e) => setForm({ ...form, fax: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <button

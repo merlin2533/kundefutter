@@ -11,6 +11,30 @@ import autoTable from "jspdf-autotable";
 
 type JsPDFWithAutoTable = jsPDF & { lastAutoTable: { finalY: number } };
 
+interface LogoDaten {
+  dataUrl: string;
+  format: string;
+}
+
+/**
+ * Lädt das Firmenlogo aus den Einstellungen (Key: system.logo).
+ * Erwartet eine Base64-DataURL im Format data:image/<format>;base64,...
+ */
+async function ladeLogo(): Promise<LogoDaten | null> {
+  const eintrag = await prisma.einstellung.findUnique({
+    where: { key: "system.logo" },
+  });
+  const value = eintrag?.value;
+  if (!value || !value.startsWith("data:image")) return null;
+  const match = /^data:image\/([a-zA-Z0-9+.-]+);base64,/.exec(value);
+  if (!match) return null;
+  let format = match[1].toLowerCase();
+  if (format === "jpeg") format = "jpg";
+  if (format === "svg+xml") return null; // jsPDF unterstützt kein SVG
+  if (!["png", "jpg", "webp"].includes(format)) return null;
+  return { dataUrl: value, format };
+}
+
 /**
  * Generiert eine Rechnung als PDF-Buffer für die angegebene Lieferung.
  * Die Lieferung muss bereits eine Rechnungsnummer besitzen.
@@ -26,6 +50,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
 
   const FIRMA = await ladeFirmaDaten();
+  const logo = await ladeLogo();
   const doc = new jsPDF();
   const k = lieferung.kunde;
   const zahlungsziel = lieferung.zahlungsziel ?? 30;
@@ -33,55 +58,75 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const faelligDatum = new Date(lieferDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
   const rechnungDatum = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : new Date();
 
-  // ── Absender-Kopfzeile ──────────────────────────────────────────────────────
-  doc.setFontSize(16);
+  // ── Briefkopf mit Logo links, Firma + Kontakt rechts ────────────────────────
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      // Logo oben links, max. 45 mm breit, max. 22 mm hoch
+      doc.addImage(logo.dataUrl, format, 14, 12, 45, 22, undefined, "FAST");
+      logoBreiteMm = 45;
+    } catch {
+      // Ungültiges Bildformat - ignorieren
+    }
+  }
+
+  // Firmenzeile rechts neben dem Logo
+  const firmaX = logoBreiteMm > 0 ? 65 : 14;
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(22, 101, 52);
-  doc.text(FIRMA.name, 14, 18);
+  doc.text(FIRMA.name, firmaX, 18);
 
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80);
-  if (FIRMA.zusatz) doc.text(FIRMA.zusatz, 14, 24);
+  let kopfY = 24;
+  if (FIRMA.zusatz) { doc.text(FIRMA.zusatz, firmaX, kopfY); kopfY += 4; }
   const adressTeile = [FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
-  if (adressTeile.length) doc.text(adressTeile.join(" · "), 14, 29);
+  if (adressTeile.length) { doc.text(adressTeile.join(" · "), firmaX, kopfY); kopfY += 4; }
   const kontaktTeile = [FIRMA.telefon && `Tel: ${FIRMA.telefon}`, FIRMA.email].filter(Boolean) as string[];
-  if (kontaktTeile.length) doc.text(kontaktTeile.join(" · "), 14, 34);
+  if (kontaktTeile.length) { doc.text(kontaktTeile.join(" · "), firmaX, kopfY); kopfY += 4; }
+  if (FIRMA.iban) {
+    const bankZeile = [FIRMA.bank && FIRMA.bank, FIRMA.iban && `IBAN: ${FIRMA.iban}`, FIRMA.bic && `BIC: ${FIRMA.bic}`]
+      .filter(Boolean).join(" · ");
+    doc.text(bankZeile, firmaX, kopfY); kopfY += 4;
+  }
 
   doc.setDrawColor(22, 101, 52);
   doc.setLineWidth(0.5);
-  doc.line(14, 38, 196, 38);
+  doc.line(14, 40, 196, 40);
 
-  // ── Rechnungstitel ──────────────────────────────────────────────────────────
-  doc.setFontSize(18);
+  // ── Absender-Kleingedrucktes über Empfänger-Adresse ────────────────────────
+  doc.setFontSize(7);
+  doc.setTextColor(120);
+  const absenderZeile = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean).join(" · ");
+  if (absenderZeile) doc.text(absenderZeile, 14, 50);
+
+  // ── Empfänger-Adressfeld (links, Fensterumschlag-Position) ─────────────────
+  doc.setFontSize(10);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "bold");
+  doc.text(k.firma ?? k.name, 14, 58);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  let ey = 63;
+  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); }
+
+  // ── Rechnungs-Meta-Block rechts ─────────────────────────────────────────────
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
-  doc.text("RECHNUNG", 14, 50);
+  doc.text("RECHNUNG", 196, 55, { align: "right" });
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(60);
-  doc.text(`Rechnungsnummer: ${lieferung.rechnungNr}`, 14, 57);
-  doc.text(`Rechnungsdatum: ${formatDatum(rechnungDatum)}`, 14, 62);
-  doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, 14, 67);
-
-  // ── Empfänger-Box ───────────────────────────────────────────────────────────
-  doc.setDrawColor(200);
-  doc.setLineWidth(0.3);
-  doc.rect(120, 44, 78, 36);
-  doc.setFontSize(7);
-  doc.setTextColor(130);
-  doc.text("Rechnungsempfänger", 124, 50);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0);
-  doc.text(k.firma ?? k.name, 124, 56);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  if (k.firma) { doc.text(k.name, 124, 61); }
-  let ry = k.firma ? 66 : 62;
-  if (k.strasse) { doc.text(k.strasse, 124, ry); ry += 5; }
-  if (k.plz || k.ort) doc.text([k.plz, k.ort].filter(Boolean).join(" "), 124, ry);
+  doc.text(`Rechnungsnummer: ${lieferung.rechnungNr}`, 196, 63, { align: "right" });
+  doc.text(`Rechnungsdatum: ${formatDatum(rechnungDatum)}`, 196, 68, { align: "right" });
+  doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, 196, 73, { align: "right" });
 
   // ── Positionen ──────────────────────────────────────────────────────────────
   // Verwende den tatsächlichen MwSt-Satz des Artikels (Standard 7 % Agrargüter)
@@ -98,7 +143,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   });
 
   autoTable(doc, {
-    startY: 82,
+    startY: 95,
     head: [["Pos.", "Art.-Nr.", "Bezeichnung", "Menge", "Einzel (€)", "Gesamt (€)"]],
     body: rows,
     headStyles: { fillColor: [22, 101, 52] },
@@ -157,7 +202,12 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.text(`Zahlbar bis: ${formatDatum(faelligDatum)} (${zahlungsziel} Tage netto)`, 14, sumY + 14);
 
   if (FIRMA.iban) {
-    doc.text(`Bankverbindung: ${FIRMA.bank}  ·  IBAN: ${FIRMA.iban}  ·  BIC: ${FIRMA.bic}`, 14, sumY + 20);
+    const bankZeile = [
+      FIRMA.bank && `Bank: ${FIRMA.bank}`,
+      FIRMA.iban && `IBAN: ${FIRMA.iban}`,
+      FIRMA.bic && `BIC: ${FIRMA.bic}`,
+    ].filter(Boolean).join("  ·  ");
+    doc.text(bankZeile, 14, sumY + 20);
   }
   if (FIRMA.steuernummer) {
     doc.text(`Steuernummer: ${FIRMA.steuernummer}`, 14, sumY + 26);
@@ -166,10 +216,27 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.text(`Hinweis: ${lieferung.notiz}`, 14, sumY + 34);
   }
 
-  // ── Fußzeile ────────────────────────────────────────────────────────────────
-  doc.setFontSize(8);
-  doc.setTextColor(150);
-  doc.text(`${FIRMA.name} – Alle Preise gemäß aktueller Preisliste. Irrtümer vorbehalten.`, 105, 285, { align: "center" });
+  // ── Fußzeile: Kontakt + Bankverbindung ─────────────────────────────────────
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.2);
+  doc.line(14, 278, 196, 278);
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(120);
+  const footerFirma = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean).join(" · ");
+  if (footerFirma) doc.text(footerFirma, 14, 283);
+  const footerKontakt = [
+    FIRMA.telefon && `Tel: ${FIRMA.telefon}`,
+    FIRMA.email,
+    FIRMA.steuernummer && `St.-Nr.: ${FIRMA.steuernummer}`,
+  ].filter(Boolean).join(" · ");
+  if (footerKontakt) doc.text(footerKontakt, 14, 287);
+  const footerBank = [
+    FIRMA.bank && FIRMA.bank,
+    FIRMA.iban && `IBAN: ${FIRMA.iban}`,
+    FIRMA.bic && `BIC: ${FIRMA.bic}`,
+  ].filter(Boolean).join(" · ");
+  if (footerBank) doc.text(footerBank, 14, 291);
 
   return Buffer.from(doc.output("arraybuffer"));
 }
@@ -188,22 +255,36 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
 
   const FIRMA = await ladeFirmaDaten();
+  const logo = await ladeLogo();
   const doc = new jsPDF();
   const k = lieferung.kunde;
 
+  // ── Logo oben links ─────────────────────────────────────────────────────────
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 12, 45, 22, undefined, "FAST");
+      logoBreiteMm = 45;
+    } catch {
+      // ignore
+    }
+  }
+
   // ── Header ──────────────────────────────────────────────────────────────────
-  doc.setFontSize(20);
+  const headerX = logoBreiteMm > 0 ? 65 : 14;
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(22, 101, 52);
-  doc.text("Lieferschein", 14, 22);
+  doc.text("Lieferschein", headerX, 22);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text(FIRMA.name, 14, 30);
-  doc.text(`Druckdatum: ${formatDatum(new Date())}`, 14, 35);
-  doc.text(`Lieferung Nr.: ${lieferung.id}`, 14, 40);
-  doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, 14, 45);
+  doc.text(FIRMA.name, headerX, 30);
+  doc.text(`Druckdatum: ${formatDatum(new Date())}`, headerX, 35);
+  doc.text(`Lieferung Nr.: ${lieferung.id}`, headerX, 40);
+  doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, headerX, 45);
 
   // ── Empfänger-Box ───────────────────────────────────────────────────────────
   doc.setDrawColor(200);

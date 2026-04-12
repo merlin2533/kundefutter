@@ -16,7 +16,7 @@ export interface FirmaDaten {
 
 const FIRMA_DEFAULTS: FirmaDaten = {
   name: "Landhandel Röthemeier",
-  zusatz: "AgrarOffice",
+  zusatz: "",
   strasse: "",
   plzOrt: "",
   telefon: "",
