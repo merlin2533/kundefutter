@@ -499,13 +499,22 @@ export default function LieferungDetailPage() {
               🖨 Drucken
             </button>
             {lieferung.status === "geplant" && (
-              <button
-                onClick={markiereGeliefert}
-                disabled={actionLoading}
-                className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
-              >
-                {actionLoading ? "…" : "Als geliefert markieren"}
-              </button>
+              <>
+                <button
+                  onClick={markiereGeliefert}
+                  disabled={actionLoading}
+                  className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                >
+                  {actionLoading ? "…" : "Als geliefert markieren"}
+                </button>
+                <button
+                  onClick={() => { setShowStornoModal(true); setStornoBegrundung(""); setStornoError(""); }}
+                  disabled={actionLoading}
+                  className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors disabled:opacity-60"
+                >
+                  Stornieren
+                </button>
+              </>
             )}
 
             {lieferung.status === "geliefert" && (

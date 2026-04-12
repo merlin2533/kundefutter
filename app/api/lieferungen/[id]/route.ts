@@ -176,6 +176,33 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 }
 
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { id } = await params;
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+  try {
+    const lieferung = await prisma.lieferung.findUnique({
+      where: { id: numId },
+      select: { status: true },
+    });
+    if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    if (lieferung.status === "geliefert") {
+      return NextResponse.json(
+        { error: "Gelieferte Lieferungen können nicht gelöscht werden." },
+        { status: 400 },
+      );
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.lagerbewegung.deleteMany({ where: { lieferungId: numId } });
+      await tx.lieferposition.deleteMany({ where: { lieferungId: numId } });
+      await tx.lieferung.delete({ where: { id: numId } });
+    });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
+}
+
 // Rechnung erstellen
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
