@@ -36,7 +36,7 @@ export async function GET() {
     }),
     prisma.lieferung.findMany({
       where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
-      include: { positionen: { select: { menge: true, verkaufspreis: true } } },
+      include: { positionen: { select: { menge: true, verkaufspreis: true, einkaufspreis: true } } },
     }),
     prisma.artikel.findMany({ where: { aktiv: true } }),
     prisma.lieferung.groupBy({
@@ -267,9 +267,13 @@ export async function GET() {
     kundeName: a.kunde ? (a.kunde.firma ?? a.kunde.name) : null,
   }));
 
-  // Umsatz Vormonat
+  // Umsatz + Deckungsbeitrag Vormonat
   const umsatzVormonat = geliefertVormonat.reduce((sum, l) => {
     return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+  }, 0);
+
+  const deckungsbeitragVormonat = geliefertVormonat.reduce((sum, l) => {
+    return sum + l.positionen.reduce((s, p) => s + p.menge * (p.verkaufspreis - p.einkaufspreis), 0);
   }, 0);
 
   // Fällige Rechnungen: berechne Betrag und Überfälligkeit je Rechnung
@@ -432,6 +436,7 @@ export async function GET() {
     umsatzMonat: Math.round(umsatzMonat * 100) / 100,
     umsatzVormonat: Math.round(umsatzVormonat * 100) / 100,
     deckungsbeitragMonat: Math.round(deckungsbeitragMonat * 100) / 100,
+    deckungsbeitragVormonat: Math.round(deckungsbeitragVormonat * 100) / 100,
     lagerAlarme,
     artikelAlarme: lagerAlarmArtikel,
     lagerKritisch,

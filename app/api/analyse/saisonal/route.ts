@@ -19,76 +19,94 @@ export async function GET(request: Request) {
     }
 
     const minJahr = Math.min(...jahre);
-    const vonDate = new Date(minJahr, 0, 1);
+    const vonDate = new Date(minJahr, 0, 1).toISOString();
 
-    // Fetch all delivered Lieferungen with positionen in range
-    const lieferungen = await prisma.lieferung.findMany({
-      where: {
-        status: "geliefert",
-        datum: { gte: vonDate },
-      },
-      include: {
-        positionen: {
-          include: { artikel: { select: { id: true, name: true, kategorie: true } } },
-        },
-      },
-      take: 10000,
-    });
+    type AggRow = {
+      monat: number;
+      jahr: number;
+      kategorie: string | null;
+      artikelId: number;
+      artikelName: string;
+      umsatz: number;
+    };
 
-    // Build monat x jahr matrix (umsatz + count)
+    type CountRow = { monat: number; jahr: number; anzahl: number };
+
+    // Two focused queries instead of loading 10 000 full records
+    const [aggRows, countRows] = await Promise.all([
+      prisma.$queryRawUnsafe<AggRow[]>(
+        `SELECT
+          CAST(strftime('%m', l.datum) AS INTEGER) as monat,
+          CAST(strftime('%Y', l.datum) AS INTEGER) as jahr,
+          COALESCE(a.kategorie, 'Sonstige') as kategorie,
+          a.id as artikelId,
+          a.name as artikelName,
+          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+        FROM Lieferung l
+        JOIN Lieferposition lp ON lp.lieferungId = l.id
+        JOIN Artikel a ON a.id = lp.artikelId
+        WHERE l.status = 'geliefert' AND l.datum >= ?
+        GROUP BY monat, jahr, a.kategorie, a.id
+        ORDER BY jahr, monat`,
+        vonDate
+      ),
+      prisma.$queryRawUnsafe<CountRow[]>(
+        `SELECT
+          CAST(strftime('%m', l.datum) AS INTEGER) as monat,
+          CAST(strftime('%Y', l.datum) AS INTEGER) as jahr,
+          COUNT(*) as anzahl
+        FROM Lieferung l
+        WHERE l.status = 'geliefert' AND l.datum >= ?
+        GROUP BY monat, jahr`,
+        vonDate
+      ),
+    ]);
+
+    // Build monat × jahr umsatz matrix
     type JahrDaten = { umsatz: number; anzahl: number };
     const matrix: Record<number, Record<number, JahrDaten>> = {};
     for (let m = 1; m <= 12; m++) {
       matrix[m] = {};
-      for (const j of jahre) {
-        matrix[m][j] = { umsatz: 0, anzahl: 0 };
+      for (const j of jahre) matrix[m][j] = { umsatz: 0, anzahl: 0 };
+    }
+
+    // Fill counts
+    for (const row of countRows) {
+      if (jahre.includes(row.jahr) && matrix[row.monat]?.[row.jahr]) {
+        matrix[row.monat][row.jahr].anzahl = row.anzahl;
       }
     }
 
-    // Kategorie x monat matrix (all years combined)
+    // Kategorie × monat matrix + Artikel map
     const kategorien = new Set<string>();
-    // kategorieMatrix[monat-1][kategorie] = umsatz
     const kategorieMatrix: Record<number, Record<string, number>> = {};
-    for (let m = 0; m < 12; m++) {
-      kategorieMatrix[m] = {};
-    }
+    for (let m = 0; m < 12; m++) kategorieMatrix[m] = {};
 
-    // artikelUmsatz per monat (all years combined) for top 5
     const artikelMonatMap = new Map<number, { name: string; umsatz: number[] }>();
 
-    for (const l of lieferungen) {
-      const datum = new Date(l.datum);
-      const jahr = datum.getFullYear();
-      const monat = datum.getMonth() + 1;
+    for (const row of aggRows) {
+      if (!jahre.includes(row.jahr)) continue;
 
-      if (!jahre.includes(jahr)) continue;
+      const kat = row.kategorie ?? "Sonstige";
+      kategorien.add(kat);
 
-      const umsatz = l.positionen.reduce((s: number, p: { menge: number; verkaufspreis: number }) => s + p.menge * p.verkaufspreis, 0);
-      matrix[monat][jahr].umsatz += umsatz;
-      matrix[monat][jahr].anzahl += 1;
+      // Accumulate umsatz in month×year matrix (sum over all articles/categories)
+      matrix[row.monat][row.jahr].umsatz += row.umsatz;
 
-      for (const pos of l.positionen) {
-        const posUmsatz = pos.menge * pos.verkaufspreis;
-        const kat = pos.artikel.kategorie || "Sonstige";
-        kategorien.add(kat);
-        kategorieMatrix[monat - 1][kat] = (kategorieMatrix[monat - 1][kat] ?? 0) + posUmsatz;
+      // Kategorie breakdown (all years combined)
+      kategorieMatrix[row.monat - 1][kat] = (kategorieMatrix[row.monat - 1][kat] ?? 0) + row.umsatz;
 
-        const key = pos.artikelId;
-        if (!artikelMonatMap.has(key)) {
-          artikelMonatMap.set(key, { name: pos.artikel.name, umsatz: Array(12).fill(0) });
-        }
-        const entry = artikelMonatMap.get(key)!;
-        entry.umsatz[monat - 1] += posUmsatz;
+      // Artikel breakdown
+      if (!artikelMonatMap.has(row.artikelId)) {
+        artikelMonatMap.set(row.artikelId, { name: row.artikelName, umsatz: Array(12).fill(0) });
       }
+      artikelMonatMap.get(row.artikelId)!.umsatz[row.monat - 1] += row.umsatz;
     }
 
     // Build monatsData response
     const monatsData = Array.from({ length: 12 }, (_, i) => {
       const monat = i + 1;
-      const entry: Record<string, unknown> = {
-        monat,
-        label: MONAT_LABELS[i],
-      };
+      const entry: Record<string, unknown> = { monat, label: MONAT_LABELS[i] };
       for (const j of jahre) {
         const d = matrix[monat][j];
         entry[String(j)] = {
@@ -96,7 +114,6 @@ export async function GET(request: Request) {
           anzahl: d.anzahl,
         };
       }
-      // Kategorie-Aufschlüsselung für diesen Monat
       const katEntry: Record<string, number> = {};
       for (const kat of kategorien) {
         katEntry[kat] = Math.round((kategorieMatrix[i][kat] ?? 0) * 100) / 100;
@@ -112,14 +129,9 @@ export async function GET(request: Request) {
       let maxMonat = "";
       for (let i = 0; i < 12; i++) {
         const u = kategorieMatrix[i][kat] ?? 0;
-        if (u > maxUmsatz) {
-          maxUmsatz = u;
-          maxMonat = MONAT_LABELS[i];
-        }
+        if (u > maxUmsatz) { maxUmsatz = u; maxMonat = MONAT_LABELS[i]; }
       }
-      if (maxUmsatz > 0) {
-        staerksterMonat[kat] = { monat: maxMonat, umsatz: Math.round(maxUmsatz * 100) / 100 };
-      }
+      if (maxUmsatz > 0) staerksterMonat[kat] = { monat: maxMonat, umsatz: Math.round(maxUmsatz * 100) / 100 };
     }
 
     // Top 5 Artikel by total umsatz

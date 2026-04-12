@@ -10,7 +10,11 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status"); // offen | bezahlt | alle
 
   const where: Record<string, unknown> = {};
-  if (kundeId) where.kundeId = parseInt(kundeId, 10);
+  if (kundeId) {
+    const id = parseInt(kundeId, 10);
+    if (isNaN(id)) return NextResponse.json({ error: "Ungültige kundeId" }, { status: 400 });
+    where.kundeId = id;
+  }
   if (status === "bezahlt") where.bezahltAm = { not: null };
   if (status === "offen") where.bezahltAm = null;
 

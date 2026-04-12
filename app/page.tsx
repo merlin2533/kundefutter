@@ -87,6 +87,7 @@ interface DashboardData {
   umsatzMonat: number;
   umsatzVormonat: number;
   deckungsbeitragMonat: number;
+  deckungsbeitragVormonat: number;
   lagerAlarme: number;
   faelligNaechste14Tage: number;
   offeneRechnungen: number;
@@ -332,6 +333,15 @@ export default function DashboardPage() {
       ? ((data.deckungsbeitragMonat / data.umsatzMonat) * 100).toFixed(1)
       : "0.0";
 
+  const dbVormonat = data.deckungsbeitragVormonat ?? 0;
+  const dbDiff =
+    dbVormonat > 0
+      ? ((data.deckungsbeitragMonat - dbVormonat) / dbVormonat) * 100
+      : null;
+  const dbPfeil = dbDiff === null ? "" : dbDiff > 0 ? "▲" : dbDiff < 0 ? "▼" : "●";
+  const dbDiffColor =
+    dbDiff === null ? "" : dbDiff > 0 ? "text-green-600" : dbDiff < 0 ? "text-red-600" : "text-gray-400";
+
   const umsatzDiff =
     data.umsatzVormonat > 0
       ? ((data.umsatzMonat - data.umsatzVormonat) / data.umsatzVormonat) * 100
@@ -423,6 +433,22 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Deckungsbeitrag */}
+        <Link href="/analyse/deckungsbeitrag" className="block">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-emerald-500 h-full hover:shadow-md transition-shadow">
+            <p className="text-sm text-gray-500">Deckungsbeitrag (Monat)</p>
+            <p className="text-2xl font-bold mt-1">{formatEuro(data.deckungsbeitragMonat)}</p>
+            {dbDiff !== null ? (
+              <p className={`text-xs mt-1 font-medium ${dbDiffColor}`}>
+                {dbPfeil} {Math.abs(dbDiff).toFixed(1)} % vs. Vormonat
+                <span className="text-gray-400 font-normal ml-1">· {marge} % Marge</span>
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 mt-1">{marge} % Marge</p>
+            )}
+          </div>
+        </Link>
 
         {/* Offene Rechnungen */}
         <Link href="/lieferungen" className="block">

@@ -5,9 +5,9 @@ function naechsteAngebotsnummer(letzte: string | null): string {
   const jahr = new Date().getFullYear();
   if (!letzte) return `AN-${jahr}-0001`;
   const parts = letzte.split("-");
-  const letzteJahr = parts.length >= 3 ? parseInt(parts[1]) : 0;
+  const letzteJahr = parts.length >= 3 ? parseInt(parts[1], 10) : 0;
   if (letzteJahr !== jahr) return `AN-${jahr}-0001`;
-  const num = parseInt(parts[parts.length - 1] || "0") + 1;
+  const num = parseInt(parts[parts.length - 1] || "0", 10) + 1;
   return `AN-${jahr}-${String(num).padStart(4, "0")}`;
 }
 

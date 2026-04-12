@@ -6,56 +6,33 @@ export async function GET() {
     const heute = new Date();
     const vor12Monaten = new Date(heute.getFullYear(), heute.getMonth() - 12, heute.getDate());
 
-    // Fetch all delivered Lieferungen with positionen and kunde in last 12 months
-    const lieferungen = await prisma.lieferung.findMany({
-      where: {
-        status: "geliefert",
-        datum: { gte: vor12Monaten },
-      },
-      include: {
-        positionen: true,
-        kunde: { select: { id: true, name: true, firma: true } },
-      },
-      take: 5000,
-    });
+    type Row = { kundeId: number; name: string; firma: string | null; umsatz: number };
 
-    // Aggregate umsatz per customer
-    const kundeMap = new Map<number, { kundeId: number; name: string; firma: string | null; umsatz: number }>();
-    for (const l of lieferungen) {
-      const umsatz = l.positionen.reduce((s: number, p: { menge: number; verkaufspreis: number }) => s + p.menge * p.verkaufspreis, 0);
-      const existing = kundeMap.get(l.kundeId);
-      if (existing) {
-        existing.umsatz += umsatz;
-      } else {
-        kundeMap.set(l.kundeId, {
-          kundeId: l.kundeId,
-          name: l.kunde.name,
-          firma: l.kunde.firma ?? null,
-          umsatz,
-        });
-      }
-    }
+    const rows = await prisma.$queryRawUnsafe<Row[]>(
+      `SELECT
+        l.kundeId,
+        k.name,
+        k.firma,
+        CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+      FROM Lieferung l
+      JOIN Lieferposition lp ON lp.lieferungId = l.id
+      JOIN Kunde k ON k.id = l.kundeId
+      WHERE l.status = 'geliefert' AND l.datum >= ?
+      GROUP BY l.kundeId, k.name, k.firma
+      ORDER BY umsatz DESC`,
+      vor12Monaten.toISOString()
+    );
 
-    // Sort descending by umsatz
-    const sorted = Array.from(kundeMap.values()).sort((a, b) => b.umsatz - a.umsatz);
-    const gesamt = sorted.reduce((s, k) => s + k.umsatz, 0);
+    const gesamt = rows.reduce((s, k) => s + k.umsatz, 0);
 
-    // Classify A/B/C using cumulative revenue:
-    // A: customers accounting for top 80% of revenue
-    // B: next 15% (80–95%)
-    // C: remaining 5%
     let kumuliert = 0;
-    const kunden = sorted.map((k) => {
+    const kunden = rows.map((k) => {
       const anteil = gesamt > 0 ? (k.umsatz / gesamt) * 100 : 0;
       kumuliert += anteil;
       let klasse: "A" | "B" | "C";
-      if (kumuliert - anteil < 80) {
-        klasse = "A";
-      } else if (kumuliert - anteil < 95) {
-        klasse = "B";
-      } else {
-        klasse = "C";
-      }
+      if (kumuliert - anteil < 80) klasse = "A";
+      else if (kumuliert - anteil < 95) klasse = "B";
+      else klasse = "C";
       return {
         id: k.kundeId,
         kundeId: k.kundeId,
