@@ -7,6 +7,7 @@ import DriveUploadButton from "@/components/DriveUploadButton";
 interface Position {
   id: number;
   menge: number;
+  chargeNr?: string | null;
   artikel: { name: string; einheit: string };
 }
 
@@ -26,6 +27,7 @@ interface Lieferung {
   status: string;
   notiz?: string | null;
   lieferadresse?: string | null;
+  angebotId?: number | null;
   positionen: Position[];
   kunde: Kunde;
 }
@@ -266,35 +268,55 @@ export default function LieferscheinPage() {
           </div>
         )}
 
+        {/* Angebot-Referenz */}
+        {lieferung.angebotId && (
+          <div style={{ marginBottom: "16px", fontSize: "10pt", color: "#555" }}>
+            Bezug: Angebot Nr. {lieferung.angebotId}
+          </div>
+        )}
+
         {/* Positionen-Tabelle */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "32px", fontSize: "10pt" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lieferung.positionen.map((pos, idx) => (
-              <tr
-                key={pos.id}
-                style={{
-                  borderBottom: "1px solid #ddd",
-                  backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
-                }}
-              >
-                <td style={{ padding: "6px 8px" }}>{idx + 1}</td>
-                <td style={{ padding: "6px 8px" }}>{pos.artikel.name}</td>
-                <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                  {pos.menge.toLocaleString("de-DE")}
-                </td>
-                <td style={{ padding: "6px 8px" }}>{pos.artikel.einheit}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {(() => {
+          const hasCharge = lieferung.positionen.some((p) => p.chargeNr);
+          return (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "32px", fontSize: "10pt" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
+                  <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
+                  <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
+                  {hasCharge && (
+                    <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>
+                  )}
+                  <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
+                  <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lieferung.positionen.map((pos, idx) => (
+                  <tr
+                    key={pos.id}
+                    style={{
+                      borderBottom: "1px solid #ddd",
+                      backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
+                    }}
+                  >
+                    <td style={{ padding: "6px 8px" }}>{idx + 1}</td>
+                    <td style={{ padding: "6px 8px" }}>{pos.artikel.name}</td>
+                    {hasCharge && (
+                      <td style={{ padding: "6px 8px", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
+                        {pos.chargeNr ?? "—"}
+                      </td>
+                    )}
+                    <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                      {pos.menge.toLocaleString("de-DE")}
+                    </td>
+                    <td style={{ padding: "6px 8px" }}>{pos.artikel.einheit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
 
         {/* Bemerkung / Notiz */}
         {lieferung.notiz && (

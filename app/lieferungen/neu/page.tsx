@@ -249,7 +249,8 @@ function NeueLieferungInner() {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? "Fehler beim Speichern");
       }
-      router.push("/lieferungen");
+      const neu = await res.json();
+      router.push(`/lieferungen/${neu.id}/lieferschein`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
     } finally {

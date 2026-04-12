@@ -547,6 +547,15 @@ export default function LieferungDetailPage() {
               </>
             )}
 
+            {lieferung.status !== "storniert" && (
+              <button
+                onClick={() => router.push(`/lieferungen/${id}/lieferschein`)}
+                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors"
+                title="Lieferschein anzeigen, drucken oder teilen"
+              >
+                Lieferschein
+              </button>
+            )}
             {lieferung.rechnungNr && (
               <button
                 onClick={() => router.push(`/lieferungen/${id}/rechnung`)}
