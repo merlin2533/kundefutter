@@ -271,6 +271,7 @@ model Lieferung {
   @@index([kundeId])
   @@index([status])
   @@index([datum])
+  @@index([status, datum])
 }
 
 model Lieferposition {

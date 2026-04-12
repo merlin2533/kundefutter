@@ -90,6 +90,7 @@ export default function RechnungenPage() {
   }
 
   async function zahlungLoesen(id: number) {
+    if (!window.confirm("Zahlung wirklich als nicht bezahlt markieren?")) return;
     try {
       await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",

@@ -241,6 +241,8 @@ export default function RechnungPrintPage() {
     netto: p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100),
   }));
 
+  const hatRabatt = positionenMitNetto.some((p) => (p.rabattProzent ?? 0) > 0);
+
   const nettobetrag = positionenMitNetto.reduce((s, p) => s + p.netto, 0);
 
   // MwSt grouping
@@ -383,7 +385,7 @@ export default function RechnungPrintPage() {
         }}
       >
         {/* Briefkopf */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>
             {logo && (
               <img
@@ -435,9 +437,9 @@ export default function RechnungPrintPage() {
               </tbody>
             </table>
           </div>
+          {/* Trennlinie nach beiden Spalten */}
+          <div style={{ flex: "0 0 100%", borderTop: "2px solid #222", marginTop: "20px", marginBottom: "24px" }} />
         </div>
-
-        <hr style={{ borderTop: "2px solid #222", marginBottom: "24px" }} />
 
         {/* Empfänger */}
         <div style={{ marginBottom: "32px" }}>
@@ -476,7 +478,7 @@ export default function RechnungPrintPage() {
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>
+              {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
             </tr>
           </thead>
@@ -503,11 +505,11 @@ export default function RechnungPrintPage() {
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
                   {formatEuro(p.verkaufspreis)}
                 </td>
-                <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
-                  {(p.rabattProzent ?? 0) > 0
-                    ? `${p.rabattProzent} %`
-                    : "—"}
-                </td>
+                {hatRabatt && (
+                  <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
+                    {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "—"}
+                  </td>
+                )}
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
                   {formatEuro(p.netto)}
                 </td>

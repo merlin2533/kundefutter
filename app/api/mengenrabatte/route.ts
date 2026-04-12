@@ -9,6 +9,7 @@ export async function GET() {
         kunde: { select: { id: true, name: true, firma: true } },
       },
       orderBy: { id: "desc" },
+      take: 200,
     });
     return NextResponse.json(rabatte);
   } catch {
