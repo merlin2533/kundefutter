@@ -56,11 +56,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kundeId, datum, notiz, wiederkehrend } = body;
-  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = body.positionen;
+  const { datum, notiz, wiederkehrend } = body;
+  const kundeId = Number(body.kundeId);
+  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; einkaufspreis?: unknown; chargeNr?: unknown }[] = body.positionen;
 
-  if (!kundeId || !Array.isArray(positionen) || positionen.length === 0) {
+  if (!kundeId || isNaN(kundeId) || !Array.isArray(positionenRaw) || positionenRaw.length === 0) {
     return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
+  }
+
+  // Numerische Felder robust parsen (Frontend kann Strings senden)
+  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = [];
+  for (const p of positionenRaw) {
+    const artikelId = Number(p.artikelId);
+    const menge = Number(p.menge);
+    if (!artikelId || isNaN(artikelId)) {
+      return NextResponse.json({ error: "Ungültige artikelId in Position" }, { status: 400 });
+    }
+    if (isNaN(menge) || menge <= 0) {
+      return NextResponse.json({ error: "Menge muss > 0 sein" }, { status: 400 });
+    }
+    positionen.push({
+      artikelId,
+      menge,
+      verkaufspreis: p.verkaufspreis !== undefined && p.verkaufspreis !== null && p.verkaufspreis !== "" ? Number(p.verkaufspreis) : undefined,
+      einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
+      chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
+    });
   }
 
   try {

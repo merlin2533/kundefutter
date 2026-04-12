@@ -477,14 +477,19 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Verantwortlicher</label>
-          <select
+          <input
+            type="text"
             value={form.verantwortlicher}
             onChange={(e) => setForm({ ...form, verantwortlicher: e.target.value })}
+            list="mitarbeiter-liste"
+            placeholder={mitarbeiter.length ? "Auswählen oder eingeben…" : "Name eingeben…"}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            <option value="">— Kein Verantwortlicher —</option>
-            {mitarbeiter.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+          />
+          {mitarbeiter.length > 0 && (
+            <datalist id="mitarbeiter-liste">
+              {mitarbeiter.map((m) => <option key={m} value={m} />)}
+            </datalist>
+          )}
         </div>
       </div>
       <Field label="Straße" value={form.strasse} onChange={(v) => setForm({ ...form, strasse: v })} />

@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
-  if (aktiv !== null) where.aktiv = aktiv === "true";
+  // Standardmäßig nur aktive Artikel anzeigen; explizit ?aktiv=false für inaktive, ?aktiv=alle für alle
+  if (aktiv === null) where.aktiv = true;
+  else if (aktiv !== "alle") where.aktiv = aktiv === "true";
   if (search) {
     where.OR = [
       { name: { contains: search } },

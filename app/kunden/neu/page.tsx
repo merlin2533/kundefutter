@@ -18,6 +18,9 @@ export default function NeuerKundePage() {
     firma: "",
     kategorie: "",
     verantwortlicher: "",
+    telefon: "",
+    mobil: "",
+    email: "",
     strasse: "",
     plz: "",
     ort: "",
@@ -58,13 +61,24 @@ export default function NeuerKundePage() {
     setSaving(true);
 
     try {
+      const kontakte: { typ: string; wert: string }[] = [];
+      if (form.telefon.trim()) kontakte.push({ typ: "telefon", wert: form.telefon.trim() });
+      if (form.mobil.trim()) kontakte.push({ typ: "mobil", wert: form.mobil.trim() });
+      if (form.email.trim()) kontakte.push({ typ: "email", wert: form.email.trim() });
       const res = await fetch("/api/kunden", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...form,
+          name: form.name,
+          firma: form.firma,
           kategorie: form.kategorie || kategorien[0] || "Sonstige",
           verantwortlicher: form.verantwortlicher || null,
+          strasse: form.strasse,
+          plz: form.plz,
+          ort: form.ort,
+          land: form.land,
+          notizen: form.notizen,
+          kontakte: kontakte.length ? kontakte : undefined,
         }),
       });
 
@@ -149,20 +163,62 @@ export default function NeuerKundePage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Verantwortlicher</label>
-            <select
+            <input
+              type="text"
               name="verantwortlicher"
               value={form.verantwortlicher}
               onChange={handleChange}
+              list="mitarbeiter-liste"
+              placeholder={mitarbeiter.length ? "Auswählen oder eingeben…" : "Name eingeben…"}
               className={inputClass}
-            >
-              <option value="">— Kein Verantwortlicher —</option>
-              {mitarbeiter.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+            />
+            {mitarbeiter.length > 0 && (
+              <datalist id="mitarbeiter-liste">
+                {mitarbeiter.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            )}
           </div>
+        </div>
+
+        {/* Telefon + Mobil */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Telefon</label>
+            <input
+              type="tel"
+              name="telefon"
+              value={form.telefon}
+              onChange={handleChange}
+              placeholder="05721 123456"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Mobil</label>
+            <input
+              type="tel"
+              name="mobil"
+              value={form.mobil}
+              onChange={handleChange}
+              placeholder="0151 12345678"
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* E-Mail */}
+        <div>
+          <label className="block text-sm font-medium mb-1">E-Mail</label>
+          <input
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="kunde@example.de"
+            className={inputClass}
+          />
         </div>
 
         {/* Straße */}
