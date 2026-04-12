@@ -260,40 +260,62 @@ export default function RechnungenPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-0.5">
+                          {/* Rechnung öffnen */}
                           <Link
-                            href={`/lieferungen/${r.id}`}
-                            className="text-xs text-blue-600 hover:underline"
+                            href={`/lieferungen/${r.id}/rechnung`}
+                            className="p-1.5 text-green-800 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                            title="Rechnung öffnen"
                           >
-                            Lieferschein
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                           </Link>
+                          {/* Lieferschein */}
+                          <Link
+                            href={`/lieferungen/${r.id}/lieferschein`}
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
+                            title="Lieferschein"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                          </Link>
+                          {/* PDF herunterladen */}
+                          <a
+                            href={`/api/exporte/rechnung?lieferungId=${r.id}`}
+                            download
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
+                            title="PDF herunterladen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          </a>
+                          {/* ZUGFeRD XML */}
                           {r.rechnungNr && (
                             <a
                               href={`/api/exporte/zugferd?lieferungId=${r.id}`}
                               download
-                              className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
-                              title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
+                              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded transition-colors"
+                              title="ZUGFeRD / Factur-X XML herunterladen"
                             >
-                              ⬇ XML
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
                             </a>
                           )}
+                          {/* Zahlung buchen / Rückgängig */}
                           {st !== "bezahlt" ? (
                             <button
                               onClick={() => {
                                 setBuchungId(r.id);
                                 setBuchungDatum(new Date().toISOString().slice(0, 10));
                               }}
-                              className="text-xs text-green-700 hover:underline font-medium"
+                              className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                              title="Zahlung buchen"
                             >
-                              Zahlung buchen
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </button>
                           ) : (
                             <button
                               onClick={() => zahlungLoesen(r.id)}
-                              className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                              className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
                               title="Zahlung rückgängig"
                             >
-                              Rückgängig
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                             </button>
                           )}
                         </div>
