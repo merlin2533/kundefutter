@@ -47,6 +47,7 @@ export default function RechnungPrintPage() {
 
   const [lieferung, setLieferung] = useState<Lieferung | null>(null);
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
+  const [footerData, setFooterData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,15 +123,15 @@ export default function RechnungPrintPage() {
 
     init(); // eslint-disable-line react-hooks/exhaustive-deps
 
-    fetch("/api/einstellungen?prefix=firma.")
-      .then((r) => r.json())
-      .then((d) => setFirmaData(d))
-      .catch(() => {});
-
-    fetch("/api/einstellungen?prefix=system.logo")
-      .then((r) => r.json())
-      .then((d) => { if (d["system.logo"]) setLogo(d["system.logo"]); })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
+    ]).then(([fd, ld, ftr]) => {
+      setFirmaData(fd);
+      if (ld["system.logo"]) setLogo(ld["system.logo"]);
+      setFooterData(ftr);
+    }).catch(() => {});
 
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       setCanShare(true);
@@ -263,9 +264,30 @@ export default function RechnungPrintPage() {
   const firmaTel = firmaData["firma.telefon"] ?? firmaData["firma.tel"] ?? "";
   const firmaEmail = firmaData["firma.email"] ?? "";
   const firmaSteuernr = firmaData["firma.steuernummer"] ?? firmaData["firma.steuernr"] ?? "";
+  const firmaUstId = firmaData["firma.ustIdNr"] ?? "";
+  const firmaOeko = firmaData["firma.oekoNummer"] ?? "";
   const firmaIban = firmaData["firma.iban"] ?? "";
   const firmaBic = firmaData["firma.bic"] ?? "";
   const firmaBankname = firmaData["firma.bank"] ?? firmaData["firma.bankname"] ?? "";
+
+  // 3-spaltiger Footer – konfigurierbar oder automatisch aus Firmadaten
+  const plzOrt = [firmaPlz, firmaOrt].filter(Boolean).join(" ");
+  const footerLinks = footerData["dokument.footer.links"] ||
+    [firmenname, firmaAdresse, plzOrt].filter(Boolean).join("\n");
+  const footerMitte = footerData["dokument.footer.mitte"] ||
+    [
+      firmaTel ? `Tel: ${firmaTel}` : "",
+      firmaEmail,
+      firmaSteuernr ? `Steuernr.: ${firmaSteuernr}` : "",
+      firmaUstId ? `USt-IdNr.: ${firmaUstId}` : "",
+      firmaOeko ? `Öko-Nr.: ${firmaOeko}` : "",
+    ].filter(Boolean).join("\n");
+  const footerRechts = footerData["dokument.footer.rechts"] ||
+    [
+      firmaBankname,
+      firmaIban ? `IBAN: ${firmaIban}` : "",
+      firmaBic ? `BIC: ${firmaBic}` : "",
+    ].filter(Boolean).join("\n");
 
   return (
     <>
@@ -591,28 +613,21 @@ export default function RechnungPrintPage() {
           )}
         </div>
 
-        {/* Footer */}
-        <hr style={{ borderTop: "1px solid #ccc", marginTop: "auto", marginBottom: "10px" }} />
+        {/* Footer – 3 Spalten */}
+        <hr style={{ borderTop: "1px solid #bbb", marginTop: "auto", marginBottom: "8px" }} />
         <div
           style={{
-            fontSize: "8.5pt",
+            fontSize: "7.5pt",
             color: "#666",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "16px",
-            justifyContent: "space-between",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "12px",
+            lineHeight: "1.6",
           }}
         >
-          <span>
-            {[firmenname, firmaAdresse, [firmaPlz, firmaOrt].filter(Boolean).join(" ")]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-          <span style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {firmaTel && <span>Tel: {firmaTel}</span>}
-            {firmaEmail && <span>{firmaEmail}</span>}
-            {firmaSteuernr && <span>Steuernr.: {firmaSteuernr}</span>}
-          </span>
+          <div style={{ whiteSpace: "pre-line" }}>{footerLinks}</div>
+          <div style={{ whiteSpace: "pre-line", textAlign: "center" }}>{footerMitte}</div>
+          <div style={{ whiteSpace: "pre-line", textAlign: "right" }}>{footerRechts}</div>
         </div>
       </div>
     </>

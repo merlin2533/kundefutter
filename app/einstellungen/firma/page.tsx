@@ -13,11 +13,15 @@ interface FirmaSettings {
   "firma.email": string;
   "firma.steuernummer": string;
   "firma.ustIdNr": string;
+  "firma.oekoNummer": string;
   "firma.iban": string;
   "firma.bic": string;
   "firma.bank": string;
   "firma.mwstSatz": string;
   "firma.zahlungszielStandard": string;
+  "dokument.footer.links": string;
+  "dokument.footer.mitte": string;
+  "dokument.footer.rechts": string;
 }
 
 const DEFAULT_VALUES: FirmaSettings = {
@@ -30,11 +34,15 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.email": "",
   "firma.steuernummer": "",
   "firma.ustIdNr": "",
+  "firma.oekoNummer": "",
   "firma.iban": "",
   "firma.bic": "",
   "firma.bank": "",
   "firma.mwstSatz": "19",
   "firma.zahlungszielStandard": "30",
+  "dokument.footer.links": "",
+  "dokument.footer.mitte": "",
+  "dokument.footer.rechts": "",
 };
 
 const SECTIONS = [
@@ -48,7 +56,7 @@ const SECTIONS = [
   {
     title: "Adresse",
     fields: [
-      { key: "firma.strasse" as keyof FirmaSettings, label: "Straße & Hausnummer", placeholder: "Musterstraße 1" },
+      { key: "firma.strasse" as keyof FirmaSettings, label: "Straße & Hausnr.", placeholder: "Musterstraße 1" },
       { key: "firma.plz" as keyof FirmaSettings, label: "PLZ", placeholder: "12345" },
       { key: "firma.ort" as keyof FirmaSettings, label: "Ort", placeholder: "Musterstadt" },
     ],
@@ -61,16 +69,16 @@ const SECTIONS = [
     ],
   },
   {
-    title: "Steuer",
+    title: "Steuer & Registrierung",
     fields: [
       { key: "firma.steuernummer" as keyof FirmaSettings, label: "Steuernummer", placeholder: "123/456/78901" },
       { key: "firma.ustIdNr" as keyof FirmaSettings, label: "USt-IdNr.", placeholder: "DE123456789" },
-      { key: "firma.mwstSatz" as keyof FirmaSettings, label: "Standard-MwSt-Satz (%)", type: "number", placeholder: "19" },
+      { key: "firma.oekoNummer" as keyof FirmaSettings, label: "Öko-Kontrollnummer", placeholder: "DE-ÖKO-006-12345" },
+      { key: "firma.mwstSatz" as keyof FirmaSettings, label: "Standard-MwSt (%)", type: "number", placeholder: "19" },
     ],
   },
   {
     title: "Bankverbindung",
-    badge: "Rechnungs-Footer",
     fields: [
       { key: "firma.bank" as keyof FirmaSettings, label: "Bank", placeholder: "Volksbank Musterstadt" },
       { key: "firma.iban" as keyof FirmaSettings, label: "IBAN", placeholder: "DE12 3456 7890 1234 5678 90" },
@@ -85,6 +93,34 @@ const SECTIONS = [
   },
 ];
 
+function buildDefaultFooter(form: FirmaSettings) {
+  const adresse = [
+    form["firma.strasse"],
+    [form["firma.plz"], form["firma.ort"]].filter(Boolean).join(" "),
+  ].filter(Boolean).join(", ");
+
+  const links = [form["firma.name"], form["firma.zusatz"], adresse]
+    .filter(Boolean).join("\n");
+
+  const mitteLines = [
+    form["firma.telefon"] ? `Tel: ${form["firma.telefon"]}` : "",
+    form["firma.email"],
+    form["firma.steuernummer"] ? `Steuernr.: ${form["firma.steuernummer"]}` : "",
+    form["firma.ustIdNr"] ? `USt-IdNr.: ${form["firma.ustIdNr"]}` : "",
+    form["firma.oekoNummer"] ? `Öko-Nr.: ${form["firma.oekoNummer"]}` : "",
+  ].filter(Boolean);
+  const mitte = mitteLines.join("\n");
+
+  const rechtsLines = [
+    form["firma.bank"],
+    form["firma.iban"] ? `IBAN: ${form["firma.iban"]}` : "",
+    form["firma.bic"] ? `BIC: ${form["firma.bic"]}` : "",
+  ].filter(Boolean);
+  const rechts = rechtsLines.join("\n");
+
+  return { links, mitte, rechts };
+}
+
 export default function FirmaPage() {
   const [form, setForm] = useState<FirmaSettings>(DEFAULT_VALUES);
   const [loading, setLoading] = useState(true);
@@ -94,10 +130,13 @@ export default function FirmaPage() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/einstellungen");
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setForm((prev) => ({ ...prev, ...data }));
+      const [r1, r2] = await Promise.all([
+        fetch("/api/einstellungen"),
+        fetch("/api/einstellungen?prefix=dokument.footer"),
+      ]);
+      const d1 = await r1.json();
+      const d2 = await r2.json();
+      setForm((prev) => ({ ...prev, ...d1, ...d2 }));
     } catch {
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
@@ -105,9 +144,17 @@ export default function FirmaPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+
+  function befuelleStandardFooter() {
+    const { links, mitte, rechts } = buildDefaultFooter(form);
+    setForm((prev) => ({
+      ...prev,
+      "dokument.footer.links": links,
+      "dokument.footer.mitte": mitte,
+      "dokument.footer.rechts": rechts,
+    }));
+  }
 
   async function handleSaveAll(e: React.FormEvent) {
     e.preventDefault();
@@ -115,15 +162,21 @@ export default function FirmaPage() {
     setSaved(false);
     setError(null);
     try {
-      for (const section of SECTIONS) {
-        for (const field of section.fields) {
-          await fetch("/api/einstellungen", {
+      const allKeys: (keyof FirmaSettings)[] = [
+        ...SECTIONS.flatMap((s) => s.fields.map((f) => f.key)),
+        "dokument.footer.links",
+        "dokument.footer.mitte",
+        "dokument.footer.rechts",
+      ];
+      await Promise.all(
+        allKeys.map((key) =>
+          fetch("/api/einstellungen", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: field.key, value: form[field.key] }),
-          });
-        }
-      }
+            body: JSON.stringify({ key, value: form[key] }),
+          })
+        )
+      );
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
@@ -137,19 +190,9 @@ export default function FirmaPage() {
     return <p className="text-gray-400 mt-8 text-sm">Lade Einstellungen…</p>;
   }
 
-  const footerParts = [
-    form["firma.name"],
-    [form["firma.strasse"], [form["firma.plz"], form["firma.ort"]].filter(Boolean).join(" ")].filter(Boolean).join(", "),
-    form["firma.telefon"] ? `Tel: ${form["firma.telefon"]}` : "",
-    form["firma.email"],
-    form["firma.steuernummer"] ? `Steuernr.: ${form["firma.steuernummer"]}` : (form["firma.ustIdNr"] ? `USt-IdNr.: ${form["firma.ustIdNr"]}` : ""),
-  ].filter(Boolean);
-
-  const bankParts = [
-    form["firma.bank"],
-    form["firma.iban"] ? `IBAN: ${form["firma.iban"]}` : "",
-    form["firma.bic"] ? `BIC: ${form["firma.bic"]}` : "",
-  ].filter(Boolean);
+  const footerLinks = form["dokument.footer.links"] || buildDefaultFooter(form).links;
+  const footerMitte = form["dokument.footer.mitte"] || buildDefaultFooter(form).mitte;
+  const footerRechts = form["dokument.footer.rechts"] || buildDefaultFooter(form).rechts;
 
   return (
     <div className="max-w-3xl">
@@ -171,26 +214,19 @@ export default function FirmaPage() {
       <form onSubmit={handleSaveAll} className="space-y-5">
         {SECTIONS.map((section) => (
           <div key={section.title} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-700">{section.title}</h2>
-              {section.badge && (
-                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-medium">
-                  {section.badge}
-                </span>
-              )}
             </div>
             <div className="p-5 space-y-3">
               {section.fields.map((field) => (
-                <div key={field.key} className="grid grid-cols-[160px_1fr] items-center gap-3">
+                <div key={field.key} className="grid grid-cols-[180px_1fr] items-center gap-3">
                   <label className="text-sm font-medium text-gray-600 text-right">
                     {field.label}
                   </label>
                   <input
                     type={field.type ?? "text"}
                     value={form[field.key]}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     placeholder={field.placeholder}
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
                   />
@@ -200,36 +236,62 @@ export default function FirmaPage() {
           </div>
         ))}
 
-        {/* Rechnungs-Footer Vorschau */}
+        {/* Dokument-Footer Konfiguration */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-sm font-semibold text-gray-700">Vorschau – Rechnungs-Footer</h2>
-            <span className="text-xs text-gray-400">So erscheint die Fußzeile auf Ihren Rechnungen</span>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Dokument-Footer</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Erscheint auf Rechnungen und Lieferscheinen. Leer lassen = automatisch aus Firmadaten.</p>
+            </div>
+            <button
+              type="button"
+              onClick={befuelleStandardFooter}
+              className="text-xs px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors whitespace-nowrap"
+            >
+              Standard befüllen
+            </button>
           </div>
-          <div className="p-5">
+          <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { key: "dokument.footer.links" as keyof FirmaSettings, label: "Links", hint: "Name, Adresse" },
+              { key: "dokument.footer.mitte" as keyof FirmaSettings, label: "Mitte", hint: "Tel, E-Mail, Steuernr., Öko-Nr." },
+              { key: "dokument.footer.rechts" as keyof FirmaSettings, label: "Rechts", hint: "Bank, IBAN, BIC" },
+            ].map(({ key, label, hint }) => (
+              <div key={key}>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  {label} <span className="font-normal text-gray-400">({hint})</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={form[key]}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={`Leer = automatisch`}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Live-Vorschau */}
+          <div className="px-5 pb-5">
+            <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Vorschau Footer</p>
             <div
               style={{
                 fontFamily: "Arial, Helvetica, sans-serif",
-                fontSize: "9pt",
-                color: "#444",
+                fontSize: "8pt",
+                color: "#555",
                 borderTop: "1px solid #ccc",
-                paddingTop: "10px",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "16px",
-                justifyContent: "space-between",
+                paddingTop: "8px",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: "12px",
               }}
             >
-              <span style={{ color: "#666" }}>
-                {footerParts.length > 0
-                  ? footerParts.join(" · ")
-                  : <span style={{ color: "#bbb" }}>Firmenname · Adresse · Telefon · E-Mail · Steuernummer</span>}
-              </span>
-              {bankParts.length > 0 && (
-                <span style={{ color: "#666", display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  {bankParts.map((p, i) => <span key={i}>{p}</span>)}
-                </span>
-              )}
+              {[footerLinks, footerMitte, footerRechts].map((text, i) => (
+                <div key={i} style={{ whiteSpace: "pre-line", lineHeight: "1.5" }}>
+                  {text || <span style={{ color: "#bbb" }}>leer</span>}
+                </div>
+              ))}
             </div>
           </div>
         </div>

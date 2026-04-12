@@ -37,6 +37,7 @@ export default function LieferscheinPage() {
   const router = useRouter();
   const [lieferung, setLieferung] = useState<Lieferung | null>(null);
   const [firma, setFirma] = useState<Record<string, string>>({});
+  const [footerData, setFooterData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,17 +55,20 @@ export default function LieferscheinPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [lRes, eRes, logoRes] = await Promise.all([
+        const [lRes, eRes, logoRes, ftrRes] = await Promise.all([
           fetch(`/api/lieferungen/${id}`),
           fetch("/api/einstellungen?prefix=firma."),
           fetch("/api/einstellungen?prefix=system.logo"),
+          fetch("/api/einstellungen?prefix=dokument.footer"),
         ]);
         if (!lRes.ok) throw new Error("Lieferung nicht gefunden");
         const lData: Lieferung = await lRes.json();
         const firmaData: Record<string, string> = await eRes.json();
         const logoData: Record<string, string> = await logoRes.json();
+        const ftrData: Record<string, string> = await ftrRes.json();
         setLieferung(lData);
         setFirma(firmaData);
+        setFooterData(ftrData);
         if (logoData["system.logo"]) setLogo(logoData["system.logo"]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Fehler beim Laden");
@@ -111,6 +115,30 @@ export default function LieferscheinPage() {
   const firmaOrt = firma["firma.ort"] ?? "";
   const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
   const firmaEmail = firma["firma.email"] ?? "";
+  const firmaSteuernr = firma["firma.steuernummer"] ?? firma["firma.steuernr"] ?? "";
+  const firmaUstId = firma["firma.ustIdNr"] ?? "";
+  const firmaOeko = firma["firma.oekoNummer"] ?? "";
+  const firmaIban = firma["firma.iban"] ?? "";
+  const firmaBic = firma["firma.bic"] ?? "";
+  const firmaBankname = firma["firma.bank"] ?? "";
+
+  const plzOrt = [firmaPlz, firmaOrt].filter(Boolean).join(" ");
+  const footerLinks = footerData["dokument.footer.links"] ||
+    [firmaName, firmaStrasse, plzOrt].filter(Boolean).join("\n");
+  const footerMitte = footerData["dokument.footer.mitte"] ||
+    [
+      firmaTel ? `Tel: ${firmaTel}` : "",
+      firmaEmail,
+      firmaSteuernr ? `Steuernr.: ${firmaSteuernr}` : "",
+      firmaUstId ? `USt-IdNr.: ${firmaUstId}` : "",
+      firmaOeko ? `Öko-Nr.: ${firmaOeko}` : "",
+    ].filter(Boolean).join("\n");
+  const footerRechts = footerData["dokument.footer.rechts"] ||
+    [
+      firmaBankname,
+      firmaIban ? `IBAN: ${firmaIban}` : "",
+      firmaBic ? `BIC: ${firmaBic}` : "",
+    ].filter(Boolean).join("\n");
 
   return (
     <>
@@ -122,38 +150,39 @@ export default function LieferscheinPage() {
       `}</style>
 
       {/* Sticky controls – hidden when printing */}
-      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-3 p-3 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
+      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-1.5 p-2.5 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
         <button
           onClick={() => router.push(`/lieferungen/${id}`)}
-          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-          title="Lieferschein schließen und zurück zur Lieferung"
+          className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors"
+          title="Schließen – zurück zur Lieferung"
         >
-          <span aria-hidden>✕</span> Schließen
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors"
+          className="p-2 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
+          title="Drucken"
         >
-          Drucken
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
         </button>
-        <button
-          onClick={handleTeilen}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-          title={canShare ? "Lieferschein teilen" : "Link in Zwischenablage kopieren"}
-        >
-          <span aria-hidden>↗</span> Teilen
-        </button>
-        {shareMsg && (
-          <span className="text-xs text-green-700 font-medium">{shareMsg}</span>
-        )}
         <a
           href={`/api/exporte/lieferschein?lieferungId=${id}`}
           download
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
-          title="Lieferschein als PDF herunterladen"
+          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors block"
+          title="PDF herunterladen"
         >
-          ⬇ PDF
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
         </a>
+        <button
+          onClick={handleTeilen}
+          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          title={canShare ? "Lieferschein teilen" : "Link kopieren"}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+        </button>
+        {shareMsg && (
+          <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
+        )}
         <DriveUploadButton
           kundeId={lieferung.kundeId}
           typ="lieferschein"
@@ -356,27 +385,21 @@ export default function LieferscheinPage() {
           )}
         </div>
 
-        {/* Footer */}
-        <hr style={{ borderTop: "1px solid #ccc", marginTop: "64px", marginBottom: "10px" }} />
+        {/* Footer – 3 Spalten */}
+        <hr style={{ borderTop: "1px solid #bbb", marginTop: "64px", marginBottom: "8px" }} />
         <div
           style={{
-            fontSize: "8.5pt",
+            fontSize: "7.5pt",
             color: "#666",
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "16px",
-            justifyContent: "space-between",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "12px",
+            lineHeight: "1.6",
           }}
         >
-          <span>
-            {[firmaName, firmaStrasse, [firmaPlz, firmaOrt].filter(Boolean).join(" ")]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-          <span style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            {firmaTel && <span>Tel.: {firmaTel}</span>}
-            {firmaEmail && <span>{firmaEmail}</span>}
-          </span>
+          <div style={{ whiteSpace: "pre-line" }}>{footerLinks}</div>
+          <div style={{ whiteSpace: "pre-line", textAlign: "center" }}>{footerMitte}</div>
+          <div style={{ whiteSpace: "pre-line", textAlign: "right" }}>{footerRechts}</div>
         </div>
       </div>
     </>
