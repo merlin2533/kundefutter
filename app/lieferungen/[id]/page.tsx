@@ -495,28 +495,31 @@ export default function LieferungDetailPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors print:hidden"
+              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors print:hidden text-gray-600"
+              title="Drucken"
             >
-              🖨 Drucken
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             </button>
             {lieferung.status === "geplant" && (
               <>
                 <button
                   onClick={markiereGeliefert}
                   disabled={actionLoading}
-                  className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                  className="p-2 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors disabled:opacity-60"
+                  title="Als geliefert markieren"
                 >
-                  {actionLoading ? "…" : "Als geliefert markieren"}
+                  {actionLoading ? <span className="w-5 h-5 flex items-center justify-center text-xs">…</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
                 </button>
                 <button
                   onClick={() => { setShowStornoModal(true); setStornoBegrundung(""); setStornoError(""); }}
                   disabled={actionLoading}
-                  className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors disabled:opacity-60"
+                  className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors disabled:opacity-60"
+                  title="Stornieren"
                 >
-                  Stornieren
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </>
             )}
@@ -527,25 +530,28 @@ export default function LieferungDetailPage() {
                   <button
                     onClick={markiereBezahlt}
                     disabled={actionLoading}
-                    className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                    className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-60"
+                    title="Als bezahlt markieren"
                   >
-                    {actionLoading ? "…" : "Als bezahlt markieren"}
+                    {actionLoading ? <span className="w-5 h-5 flex items-center justify-center text-xs">…</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                   </button>
                 )}
                 <button
                   onClick={() => { setShowStornoModal(true); setStornoBegrundung(""); setStornoError(""); }}
                   disabled={actionLoading}
-                  className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors disabled:opacity-60"
+                  className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors disabled:opacity-60"
+                  title="Stornieren"
                 >
-                  Stornieren
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
                 {!lieferung.rechnungNr && (
                   <button
                     onClick={rechnungErstellen}
                     disabled={actionLoading}
-                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                    className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60"
+                    title="Rechnung erstellen"
                   >
-                    {actionLoading ? "…" : "Rechnung erstellen"}
+                    {actionLoading ? <span className="w-5 h-5 flex items-center justify-center text-xs">…</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
                   </button>
                 )}
               </>
@@ -554,19 +560,19 @@ export default function LieferungDetailPage() {
             {lieferung.status !== "storniert" && (
               <button
                 onClick={() => router.push(`/lieferungen/${id}/lieferschein`)}
-                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors"
-                title="Lieferschein anzeigen, drucken oder teilen"
+                className="p-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors"
+                title="Lieferschein"
               >
-                Lieferschein
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
               </button>
             )}
             {lieferung.rechnungNr && (
               <button
                 onClick={() => router.push(`/lieferungen/${id}/rechnung`)}
-                className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                title="Rechnung anzeigen, drucken oder teilen"
+                className="p-2 bg-green-800 hover:bg-green-700 text-white rounded-lg transition-colors"
+                title="Rechnung öffnen"
               >
-                Rechnung öffnen
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
               </button>
             )}
           </div>

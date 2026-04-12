@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import DriveUploadButton from "@/components/DriveUploadButton";
+import DokumentFooter from "@/components/DokumentFooter";
 
 interface ArtikelInfo {
   id: number;
@@ -57,6 +58,7 @@ export default function AngebotDruckPage() {
 
   const [angebot, setAngebot] = useState<Angebot | null>(null);
   const [firma, setFirma] = useState<Record<string, string>>({});
+  const [footerData, setFooterData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [canShare, setCanShare] = useState(false);
@@ -73,10 +75,12 @@ export default function AngebotDruckPage() {
       fetch(`/api/angebote/${id}`).then((r) => r.json()),
       fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
       fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
     ])
-      .then(([ang, firmaData, logoData]) => {
+      .then(([ang, firmaData, logoData, ftrData]) => {
         setAngebot(ang);
         setFirma(firmaData ?? {});
+        setFooterData(ftrData ?? {});
         if (logoData?.["system.logo"]) setLogo(logoData["system.logo"]);
         setLoading(false);
       })
@@ -129,9 +133,17 @@ export default function AngebotDruckPage() {
   const firmaOrt = firma["firma.ort"] ?? "";
   const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
   const firmaEmail = firma["firma.email"] ?? "";
+  const firmaSteuernr = firma["firma.steuernummer"] ?? "";
+  const firmaUstId = firma["firma.ustIdNr"] ?? "";
+  const firmaOeko = firma["firma.oekoNummer"] ?? "";
+  const firmaIban = firma["firma.iban"] ?? "";
+  const firmaBic = firma["firma.bic"] ?? "";
+  const firmaBankname = firma["firma.bank"] ?? "";
   const firmaAdresse = [firmaStrasse, [firmaPlz, firmaOrt].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
+
+
 
   return (
     <>
@@ -144,29 +156,30 @@ export default function AngebotDruckPage() {
       `}</style>
 
       {/* Sticky controls – hidden when printing */}
-      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-3 p-3 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
+      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-1.5 p-2.5 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
         <button
           onClick={() => router.push(`/angebote/${id}`)}
-          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-          title="Angebot schließen und zurück"
+          className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors"
+          title="Schließen – zurück zum Angebot"
         >
-          <span aria-hidden>✕</span> Schließen
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
         <button
           onClick={() => window.print()}
-          className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors"
+          className="p-2 bg-green-700 hover:bg-green-800 text-white rounded-lg transition-colors"
+          title="Drucken"
         >
-          Drucken
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
         </button>
         <button
           onClick={handleTeilen}
-          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-          title={canShare ? "Angebot teilen" : "Link in Zwischenablage kopieren"}
+          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          title={canShare ? "Angebot teilen" : "Link kopieren"}
         >
-          <span aria-hidden>↗</span> Teilen
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
         </button>
         {shareMsg && (
-          <span className="text-xs text-green-700 font-medium">{shareMsg}</span>
+          <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
         <DriveUploadButton
           kundeId={angebot.kunde.id}
@@ -369,9 +382,8 @@ export default function AngebotDruckPage() {
           </div>
         )}
 
-        {/* Footer */}
-        <hr style={{ borderTop: "1px solid #ccc", marginTop: "32px", marginBottom: "10px" }} />
-        <div style={{ fontSize: "9pt", color: "#555" }}>
+        {/* Hinweistext */}
+        <div style={{ fontSize: "9pt", color: "#555", marginTop: "32px", marginBottom: "12px" }}>
           <p style={{ marginBottom: "4px" }}>
             Dieses Angebot ist gültig bis {fmtDatum(angebot.gueltigBis)}.
           </p>
@@ -381,6 +393,9 @@ export default function AngebotDruckPage() {
           <p style={{ marginTop: "16px", marginBottom: "4px" }}>Mit freundlichen Grüßen</p>
           <p style={{ fontWeight: "bold" }}>{firmaName}</p>
         </div>
+
+        {/* Footer – 3 Spalten */}
+        <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="16px" />
       </div>
     </>
   );

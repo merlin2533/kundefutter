@@ -8,7 +8,11 @@ export async function GET(req: NextRequest) {
   const lieferantId = searchParams.get("lieferantId");
 
   const where: Record<string, unknown> = {};
-  if (lieferantId) where.lieferantId = parseInt(lieferantId, 10);
+  if (lieferantId) {
+    const id = parseInt(lieferantId, 10);
+    if (isNaN(id)) return NextResponse.json({ error: "Ungültige lieferantId" }, { status: 400 });
+    where.lieferantId = id;
+  }
   if (status && status !== "alle") where.status = status;
   else if (!status) where.status = { in: ["offen", "bestellt"] }; // default: aktive
 

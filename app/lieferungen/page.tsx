@@ -10,6 +10,7 @@ interface Lieferung {
   kunde: { id: number; name: string; firma?: string };
   status: string;
   notiz?: string;
+  rechnungNr?: string | null;
   positionen: {
     id: number;
     menge: number;
@@ -296,21 +297,40 @@ export default function LieferungenPage() {
                           <StatusBadge status={l.status} />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-0.5">
                             <Link
                               href={`/lieferungen/${l.id}`}
-                              className="text-green-700 hover:text-green-900 hover:underline font-medium whitespace-nowrap"
+                              className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                              title="Details"
                             >
-                              Details →
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </Link>
+                            {l.status !== "storniert" && (
+                              <Link
+                                href={`/lieferungen/${l.id}/lieferschein`}
+                                className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
+                                title="Lieferschein"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                              </Link>
+                            )}
+                            {l.rechnungNr && (
+                              <Link
+                                href={`/lieferungen/${l.id}/rechnung`}
+                                className="p-1.5 text-green-800 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                                title="Rechnung öffnen"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                              </Link>
+                            )}
                             {l.status !== "geliefert" && (
                               <button
                                 onClick={() => handleDelete(l.id)}
                                 disabled={deletingId === l.id}
-                                className="text-xs text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors disabled:opacity-50 whitespace-nowrap"
+                                className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-800 rounded transition-colors disabled:opacity-50"
                                 title="Lieferung löschen"
                               >
-                                {deletingId === l.id ? "…" : "Löschen"}
+                                {deletingId === l.id ? <span className="w-4 h-4 flex items-center justify-center text-xs">…</span> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
                               </button>
                             )}
                           </div>

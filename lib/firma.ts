@@ -9,6 +9,7 @@ export interface FirmaDaten {
   email: string;
   steuernummer: string;
   ustIdNr?: string;
+  oekoNummer?: string;
   iban: string;
   bic: string;
   bank: string;
@@ -22,6 +23,7 @@ const FIRMA_DEFAULTS: FirmaDaten = {
   telefon: "",
   email: "",
   steuernummer: "",
+  oekoNummer: "",
   iban: "",
   bic: "",
   bank: "",
@@ -47,6 +49,7 @@ export async function ladeFirmaDaten(): Promise<FirmaDaten> {
     email: map.email ?? FIRMA_DEFAULTS.email,
     steuernummer: map.steuernummer ?? FIRMA_DEFAULTS.steuernummer,
     ustIdNr: map.ustIdNr ?? "",
+    oekoNummer: map.oekoNummer ?? "",
     iban: map.iban ?? FIRMA_DEFAULTS.iban,
     bic: map.bic ?? FIRMA_DEFAULTS.bic,
     bank: map.bank ?? FIRMA_DEFAULTS.bank,

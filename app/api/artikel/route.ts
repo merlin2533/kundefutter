@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
         dokumente: true,
       },
       orderBy: { name: "asc" },
+      take: 200,
     });
     return NextResponse.json(artikel);
   } catch {

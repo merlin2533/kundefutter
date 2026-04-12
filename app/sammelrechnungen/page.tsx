@@ -255,32 +255,37 @@ export default function SammelrechnungenPage() {
                         <StatusBadge status={status} />
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-0.5">
                           {sr.rechnungNr && (
                             <a
                               href={`/api/exporte/zugferd?sammelrechnungId=${sr.id}`}
                               download
-                              className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
-                              title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
+                              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded transition-colors"
+                              title="ZUGFeRD / Factur-X XML herunterladen"
                             >
-                              ⬇ XML
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                             </a>
                           )}
                           {status !== "bezahlt" && (
                             <button
                               onClick={() => markiereBezahlt(sr.id)}
                               disabled={actionLoading === sr.id}
-                              className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
+                              className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors disabled:opacity-60"
+                              title="Als bezahlt markieren"
                             >
-                              {actionLoading === sr.id ? "…" : "Bezahlt"}
+                              {actionLoading === sr.id
+                                ? <span className="w-4 h-4 flex items-center justify-center text-xs">…</span>
+                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                              }
                             </button>
                           )}
                           <button
                             onClick={() => loeschen(sr.id)}
                             disabled={actionLoading === sr.id}
-                            className="px-2 py-1 text-xs bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-lg font-medium transition-colors disabled:opacity-60"
+                            className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-800 rounded transition-colors disabled:opacity-60"
+                            title="Löschen"
                           >
-                            Löschen
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
                       </td>

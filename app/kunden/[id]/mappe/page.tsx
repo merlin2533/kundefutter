@@ -66,14 +66,17 @@ export default function KundenmappePage() {
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white">
       {/* Drucken-Button */}
-      <div className="print:hidden sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4 shadow-sm">
-        <Link href={`/kunden/${id}`} className="text-sm text-gray-500 hover:text-gray-700">← Zurück</Link>
-        <span className="text-sm font-medium text-gray-700">Kundenmappe: {kunde.firma ?? kunde.name}</span>
+      <div className="print:hidden sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-2.5 flex items-center gap-2 shadow-sm">
+        <Link href={`/kunden/${id}`} className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors" title="Zurück zur Kundenansicht">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </Link>
+        <span className="text-sm font-medium text-gray-700 ml-1">Kundenmappe: {kunde.firma ?? kunde.name}</span>
         <button
           onClick={() => window.print()}
-          className="ml-auto px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+          className="ml-auto p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          title="Drucken / Als PDF speichern"
         >
-          🖨 Drucken / Als PDF speichern
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
         </button>
       </div>
 

@@ -224,15 +224,24 @@ export default function RechnungenPage() {
                 return (
                   <React.Fragment key={r.id}>
                     <tr
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
-                      onClick={() => setExpanded(isExpanded ? null : r.id)}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isExpanded ? "bg-green-50" : ""}`}
                     >
-                      <td className="px-3 py-3 text-gray-400 text-xs text-center">
+                      <td
+                        className="px-3 py-3 text-gray-400 text-xs text-center cursor-pointer hover:text-gray-700"
+                        onClick={() => setExpanded(isExpanded ? null : r.id)}
+                        title="Positionen anzeigen"
+                      >
                         {isExpanded ? "▲" : "▼"}
                       </td>
-                      <td className="px-4 py-3 font-mono font-medium text-gray-900">
-                        {r.rechnungNr}
-                        <div className="sm:hidden text-xs text-gray-500 font-sans font-normal mt-0.5">
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/lieferungen/${r.id}/rechnung`}
+                          className="font-mono font-semibold text-green-800 hover:text-green-600 hover:underline"
+                          title="Rechnung öffnen"
+                        >
+                          {r.rechnungNr}
+                        </Link>
+                        <div className="sm:hidden text-xs text-gray-500 font-normal mt-0.5">
                           {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}
                         </div>
                       </td>
@@ -260,40 +269,68 @@ export default function RechnungenPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-0.5">
+                          {/* Rechnung öffnen */}
                           <Link
-                            href={`/lieferungen/${r.id}`}
-                            className="text-xs text-blue-600 hover:underline"
+                            href={`/lieferungen/${r.id}/rechnung`}
+                            className="p-1.5 text-green-800 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                            title="Rechnung öffnen"
                           >
-                            Lieferschein
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                           </Link>
-                          {r.rechnungNr && (
-                            <a
-                              href={`/api/exporte/zugferd?lieferungId=${r.id}`}
-                              download
-                              className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 text-gray-600"
-                              title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
-                            >
-                              ⬇ XML
-                            </a>
-                          )}
+                          {/* Lieferschein */}
+                          <Link
+                            href={`/lieferungen/${r.id}/lieferschein`}
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
+                            title="Lieferschein"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                          </Link>
+                          {/* PDF + ZUGFeRD herunterladen */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const a = document.createElement("a");
+                              a.href = `/api/exporte/rechnung?lieferungId=${r.id}`;
+                              a.download = "";
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              if (r.rechnungNr) {
+                                setTimeout(() => {
+                                  const b = document.createElement("a");
+                                  b.href = `/api/exporte/zugferd?lieferungId=${r.id}`;
+                                  b.download = "";
+                                  document.body.appendChild(b);
+                                  b.click();
+                                  document.body.removeChild(b);
+                                }, 600);
+                              }
+                            }}
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
+                            title="PDF + ZUGFeRD XML herunterladen"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          </button>
+                          {/* Zahlung buchen / Rückgängig */}
                           {st !== "bezahlt" ? (
                             <button
                               onClick={() => {
                                 setBuchungId(r.id);
                                 setBuchungDatum(new Date().toISOString().slice(0, 10));
                               }}
-                              className="text-xs text-green-700 hover:underline font-medium"
+                              className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
+                              title="Zahlung buchen"
                             >
-                              Zahlung buchen
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </button>
                           ) : (
                             <button
                               onClick={() => zahlungLoesen(r.id)}
-                              className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                              className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded transition-colors"
                               title="Zahlung rückgängig"
                             >
-                              Rückgängig
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                             </button>
                           )}
                         </div>
