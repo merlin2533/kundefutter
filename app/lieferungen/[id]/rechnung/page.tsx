@@ -56,6 +56,25 @@ export default function RechnungPrintPage() {
   const [mailSending, setMailSending] = useState(false);
   const [mailMsg, setMailMsg] = useState("");
 
+  function downloadMitZugferd() {
+    // PDF herunterladen
+    const a = document.createElement("a");
+    a.href = `/api/exporte/rechnung?lieferungId=${id}`;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // ZUGFeRD XML kurz verzögert herunterladen
+    setTimeout(() => {
+      const b = document.createElement("a");
+      b.href = `/api/exporte/zugferd?lieferungId=${id}`;
+      b.download = "";
+      document.body.appendChild(b);
+      b.click();
+      document.body.removeChild(b);
+    }, 600);
+  }
+
   async function loadLieferung(): Promise<Lieferung | null> {
     const res = await fetch(`/api/lieferungen/${id}`);
     if (!res.ok) {
@@ -277,24 +296,13 @@ export default function RechnungPrintPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
         </button>
         {lieferung?.rechnungNr && (
-          <a
-            href={`/api/exporte/rechnung?lieferungId=${id}`}
-            download
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors block"
-            title="PDF herunterladen"
+          <button
+            onClick={downloadMitZugferd}
+            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+            title="PDF + ZUGFeRD XML herunterladen"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-          </a>
-        )}
-        {lieferung?.rechnungNr && (
-          <a
-            href={`/api/exporte/zugferd?lieferungId=${id}`}
-            download
-            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors block"
-            title="ZUGFeRD / Factur-X XML herunterladen"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-          </a>
+          </button>
         )}
         <button
           onClick={handleTeilen}

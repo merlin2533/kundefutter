@@ -277,26 +277,32 @@ export default function RechnungenPage() {
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                           </Link>
-                          {/* PDF herunterladen */}
-                          <a
-                            href={`/api/exporte/rechnung?lieferungId=${r.id}`}
-                            download
+                          {/* PDF + ZUGFeRD herunterladen */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const a = document.createElement("a");
+                              a.href = `/api/exporte/rechnung?lieferungId=${r.id}`;
+                              a.download = "";
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              if (r.rechnungNr) {
+                                setTimeout(() => {
+                                  const b = document.createElement("a");
+                                  b.href = `/api/exporte/zugferd?lieferungId=${r.id}`;
+                                  b.download = "";
+                                  document.body.appendChild(b);
+                                  b.click();
+                                  document.body.removeChild(b);
+                                }, 600);
+                              }
+                            }}
                             className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
-                            title="PDF herunterladen"
+                            title="PDF + ZUGFeRD XML herunterladen"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                          </a>
-                          {/* ZUGFeRD XML */}
-                          {r.rechnungNr && (
-                            <a
-                              href={`/api/exporte/zugferd?lieferungId=${r.id}`}
-                              download
-                              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded transition-colors"
-                              title="ZUGFeRD / Factur-X XML herunterladen"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-                            </a>
-                          )}
+                          </button>
                           {/* Zahlung buchen / Rückgängig */}
                           {st !== "bezahlt" ? (
                             <button
