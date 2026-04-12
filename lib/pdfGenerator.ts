@@ -374,21 +374,26 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   }
 
   // ── Positionen ──────────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionen = lieferung.positionen as any[];
+  const hasCharge = positionen.some((p) => p.chargeNr);
+  const lsHead = hasCharge
+    ? [["Pos.", "Bezeichnung", "Charge", "Menge", "Einheit"]]
+    : [["Pos.", "Bezeichnung", "Menge", "Einheit"]];
+  const lsBody = positionen.map((p, i) =>
+    hasCharge
+      ? [String(i + 1), p.artikel.name, p.chargeNr ?? "—", p.menge.toLocaleString("de-DE"), p.artikel.einheit]
+      : [String(i + 1), p.artikel.name, p.menge.toLocaleString("de-DE"), p.artikel.einheit],
+  );
   autoTable(doc, {
     startY: tabelleStart,
-    head: [["Pos.", "Bezeichnung", "Menge", "Einheit"]],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    body: (lieferung.positionen as any[]).map((p, i) => [
-      String(i + 1),
-      p.artikel.name,
-      p.menge.toLocaleString("de-DE"),
-      p.artikel.einheit,
-    ]),
+    head: lsHead,
+    body: lsBody,
     headStyles: { fillColor: [22, 101, 52] },
     styles: { fontSize: 9 },
     columnStyles: {
       0: { cellWidth: 12 },
-      2: { halign: "right" },
+      [hasCharge ? 3 : 2]: { halign: "right" },
     },
   });
 

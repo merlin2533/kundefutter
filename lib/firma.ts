@@ -35,11 +35,14 @@ export async function ladeFirmaDaten(): Promise<FirmaDaten> {
   for (const e of einstellungen) {
     map[e.key.replace("firma.", "")] = e.value;
   }
+  const plzOrt = map.plzOrt
+    ?? [map.plz, map.ort].filter(Boolean).join(" ")
+    ?? FIRMA_DEFAULTS.plzOrt;
   return {
     name: map.name ?? FIRMA_DEFAULTS.name,
     zusatz: map.zusatz ?? FIRMA_DEFAULTS.zusatz,
     strasse: map.strasse ?? FIRMA_DEFAULTS.strasse,
-    plzOrt: map.plzOrt ?? FIRMA_DEFAULTS.plzOrt,
+    plzOrt,
     telefon: map.telefon ?? FIRMA_DEFAULTS.telefon,
     email: map.email ?? FIRMA_DEFAULTS.email,
     steuernummer: map.steuernummer ?? FIRMA_DEFAULTS.steuernummer,
