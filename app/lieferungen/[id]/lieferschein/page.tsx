@@ -144,6 +144,15 @@ export default function LieferscheinPage() {
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium">{shareMsg}</span>
         )}
+        <a
+          href={`/api/exporte/lieferschein?lieferungId=${id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+          title="Lieferschein als PDF herunterladen"
+        >
+          ⬇ PDF
+        </a>
         <DriveUploadButton
           kundeId={lieferung.kundeId}
           typ="lieferschein"
