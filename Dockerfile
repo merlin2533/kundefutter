@@ -36,7 +36,7 @@ RUN npm install --ignore-scripts --no-fund --no-audit prisma
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-RUN mkdir -p /data/uploads/artikel && chown -R nextjs:nodejs /data
+RUN mkdir -p /data && chown nextjs:nodejs /data
 RUN mkdir -p public/uploads/artikel && chown -R nextjs:nodejs public/uploads
 
 USER nextjs

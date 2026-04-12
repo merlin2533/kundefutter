@@ -1,5 +1,6 @@
 #!/bin/sh
-set -e
+# Kein `set -e` – sonst schlucken command substitutions stille Fehler
+# und der Container startet endlos neu, ohne Fehlerausgabe.
 
 log()  { echo "[$(date '+%H:%M:%S')] $*"; }
 ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
@@ -11,15 +12,34 @@ export NPM_CONFIG_UPDATE_NOTIFIER=false
 export NO_UPDATE_NOTIFIER=1
 
 log "=== KundeFutter startet ==="
+log "Node:    $(node --version 2>/dev/null || echo '???')"
+log "CWD:     $(pwd)"
+log "User:    $(id -u):$(id -g) ($(whoami 2>/dev/null || echo nobody))"
+log "DB URL:  ${DATABASE_URL:-(nicht gesetzt)}"
 
 # Next.js Cache invalidieren (verhindert stale Seiten nach Neustart/Update)
 if [ -d ".next/cache" ]; then
   log "Next.js Cache invalidieren..."
-  rm -rf .next/cache
-  ok "Cache gelöscht"
+  if rm -rf .next/cache 2>/dev/null; then
+    ok "Cache gelöscht"
+  else
+    warn "Cache konnte nicht gelöscht werden"
+  fi
 fi
 
-# Netzwerkverbindung prüfen
+# Datenverzeichnis sicherstellen
+if [ ! -d "/data" ]; then
+  fail "/data existiert nicht – Volume nicht gemountet?"
+  sleep 5
+  exit 1
+fi
+log "/data:   $(ls -ld /data 2>&1)"
+
+# Upload-Verzeichnisse best effort anlegen
+mkdir -p /data/uploads/artikel 2>/dev/null || warn "/data/uploads/artikel nicht anlegbar"
+mkdir -p public/uploads/artikel 2>/dev/null || warn "public/uploads/artikel nicht anlegbar"
+
+# Netzwerkverbindung optional prüfen
 log "Netzwerkverbindung prüfen (google.de)..."
 if ping -c 1 -W 3 google.de > /dev/null 2>&1; then
   ok "Netzwerkverbindung vorhanden"
@@ -27,21 +47,27 @@ else
   warn "Kein Ping zu google.de – eingeschränkte Internetverbindung"
 fi
 
-# Datenbankmigrationen
+# Datenbankmigrationen – Output in Datei schreiben, dann loggen
 log "Datenbankmigrationen ausführen..."
-MIGRATE_OUT=$(npx --yes prisma migrate deploy 2>&1)
+npx --yes prisma migrate deploy > /tmp/prisma_migrate.log 2>&1
 MIGRATE_EXIT=$?
 
-# Relevante Zeilen ausgeben (Fortschritt + Ergebnis, kein npm-Rauschen)
-echo "$MIGRATE_OUT" | grep -v "^npm " | grep -v "^$" | while IFS= read -r line; do
-  log "  $line"
-done
-
-if [ $MIGRATE_EXIT -ne 0 ]; then
-  fail "Migrationen fehlgeschlagen"
-  exit 1
+if [ -s /tmp/prisma_migrate.log ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    case "$line" in
+      "npm "*|"npx "*) continue ;;
+    esac
+    log "  $line"
+  done < /tmp/prisma_migrate.log
 fi
-ok "Migrationen erfolgreich"
 
-ok "=== Starte Server ==="
+if [ "$MIGRATE_EXIT" -ne 0 ]; then
+  fail "prisma migrate deploy exit=$MIGRATE_EXIT"
+  warn "Server wird trotzdem gestartet – bitte DB-Zustand prüfen"
+else
+  ok "Migrationen abgeschlossen"
+fi
+
+ok "=== Starte Server (node server.js) ==="
 exec node server.js
