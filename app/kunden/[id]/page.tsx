@@ -2044,15 +2044,13 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                   </a>
                 );
               })()}
-              <a
-                href={`/api/exporte/rechnung?lieferungId=${rechnungModal.id}`}
-                target="_blank"
-                rel="noreferrer"
+              <Link
+                href={`/lieferungen/${rechnungModal.id}/rechnung`}
                 onClick={() => setRechnungModal(null)}
                 className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
               >
-                🧾 Rechnung als PDF
-              </a>
+                🧾 Rechnung öffnen
+              </Link>
             </div>
           </div>
         </div>

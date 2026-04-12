@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -214,6 +215,30 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   }
   if (lieferung.notiz) {
     doc.text(`Hinweis: ${lieferung.notiz}`, 14, sumY + 34);
+  }
+
+  // ── GiroCode (EPC-QR-Code) für SEPA-Überweisung ────────────────────────────
+  if (FIRMA.iban) {
+    const giroCode = await erzeugeGiroCodeDataUrl({
+      empfaenger: FIRMA.name,
+      iban: FIRMA.iban,
+      bic: FIRMA.bic,
+      betrag: brutto,
+      verwendungszweck: `Rechnung ${lieferung.rechnungNr ?? ""}`.trim(),
+    });
+    if (giroCode) {
+      try {
+        const qrX = 160;
+        const qrY = sumY + 10;
+        const qrSize = 32;
+        doc.addImage(giroCode, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
+        doc.setFontSize(7);
+        doc.setTextColor(120);
+        doc.text("Scan & Pay", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+      } catch {
+        // Bild-Einbettung fehlgeschlagen – QR einfach weglassen
+      }
+    }
   }
 
   // ── Fußzeile: Kontakt + Bankverbindung ─────────────────────────────────────
