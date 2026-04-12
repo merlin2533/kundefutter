@@ -294,8 +294,7 @@ export default function RechnungPrintPage() {
         {lieferung?.rechnungNr && (
           <a
             href={`/api/exporte/rechnung?lieferungId=${id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            download
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
             title="Rechnung als PDF herunterladen"
           >
@@ -306,8 +305,6 @@ export default function RechnungPrintPage() {
           <a
             href={`/api/exporte/zugferd?lieferungId=${id}`}
             download
-            target="_blank"
-            rel="noopener noreferrer"
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 font-medium transition-colors"
             title="ZUGFeRD / Factur-X E-Rechnung herunterladen"
           >
