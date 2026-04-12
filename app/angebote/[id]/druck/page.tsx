@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import DriveUploadButton from "@/components/DriveUploadButton";
 
 interface ArtikelInfo {
@@ -41,10 +41,6 @@ interface Angebot {
   positionen: AngebotPosition[];
 }
 
-interface Einstellungen {
-  [key: string]: string;
-}
-
 function fmt(n: number): string {
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
@@ -57,23 +53,53 @@ function fmtDatum(d: string | null | undefined): string {
 export default function AngebotDruckPage() {
   const params = useParams();
   const id = params.id as string;
+  const router = useRouter();
 
   const [angebot, setAngebot] = useState<Angebot | null>(null);
-  const [einstellungen, setEinstellungen] = useState<Einstellungen>({});
+  const [firma, setFirma] = useState<Record<string, string>>({});
+  const [logo, setLogo] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [canShare, setCanShare] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      setCanShare(true);
+    }
+  }, []);
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/angebote/${id}`).then((r) => r.json()),
       fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
     ])
-      .then(([ang, eins]) => {
+      .then(([ang, firmaData, logoData]) => {
         setAngebot(ang);
-        setEinstellungen(eins ?? {});
+        setFirma(firmaData ?? {});
+        if (logoData?.["system.logo"]) setLogo(logoData["system.logo"]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [id]);
+
+  async function handleTeilen() {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = `Angebot ${angebot?.nummer ?? ""}`;
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ title, url });
+        return;
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        setShareMsg("Link kopiert");
+        setTimeout(() => setShareMsg(""), 2500);
+      }
+    } catch {
+      // Benutzer hat Dialog abgebrochen
+    }
+  }
 
   if (loading) {
     return <div className="p-8 text-gray-400">Lade…</div>;
@@ -97,26 +123,51 @@ export default function AngebotDruckPage() {
   const gesamtMwst = Object.values(mwstMap).reduce((a, b) => a + b, 0);
   const gesamtBrutto = gesamtNetto + gesamtMwst;
 
-  const firmaName = einstellungen["firma.name"] ?? einstellungen["system.firmenname"] ?? "AgrarOffice";
-  const firmaAdresse = [
-    einstellungen["firma.strasse"],
-    [einstellungen["firma.plz"], einstellungen["firma.ort"]].filter(Boolean).join(" "),
-  ].filter(Boolean).join(", ");
-  const firmaTel = einstellungen["firma.tel"] ?? einstellungen["firma.telefon"];
-  const firmaEmail = einstellungen["firma.email"];
+  const firmaName = firma["firma.firmenname"] ?? firma["firma.name"] ?? "";
+  const firmaStrasse = firma["firma.strasse"] ?? "";
+  const firmaPlz = firma["firma.plz"] ?? "";
+  const firmaOrt = firma["firma.ort"] ?? "";
+  const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
+  const firmaEmail = firma["firma.email"] ?? "";
+  const firmaAdresse = [firmaStrasse, [firmaPlz, firmaOrt].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <>
       <style>{`
         @media print {
-          .no-print { display: none !important; }
-          body { margin: 0; }
+          @page { margin: 2cm; size: A4; }
+          .print-hidden { display: none !important; }
         }
         body { font-family: Arial, sans-serif; }
       `}</style>
 
-      {/* Print button */}
-      <div className="no-print fixed top-4 right-4 flex gap-2 items-center">
+      {/* Sticky controls – hidden when printing */}
+      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-3 p-3 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
+        <button
+          onClick={() => router.push(`/angebote/${id}`)}
+          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+          title="Angebot schließen und zurück"
+        >
+          <span aria-hidden>✕</span> Schließen
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors"
+        >
+          Drucken
+        </button>
+        <button
+          onClick={handleTeilen}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+          title={canShare ? "Angebot teilen" : "Link in Zwischenablage kopieren"}
+        >
+          <span aria-hidden>↗</span> Teilen
+        </button>
+        {shareMsg && (
+          <span className="text-xs text-green-700 font-medium">{shareMsg}</span>
+        )}
         <DriveUploadButton
           kundeId={angebot.kunde.id}
           typ="angebot"
@@ -139,104 +190,130 @@ export default function AngebotDruckPage() {
             }
           }}
         />
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-2 bg-green-700 text-white text-sm rounded-lg shadow hover:bg-green-800 transition-colors"
-        >
-          Drucken
-        </button>
-        <button
-          onClick={() => window.close()}
-          className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg shadow hover:bg-gray-200 transition-colors"
-        >
-          Schließen
-        </button>
       </div>
 
-      <div data-print-area className="max-w-[800px] mx-auto p-10 print:p-0 print:max-w-full">
+      <div
+        data-print-area
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          fontSize: "11pt",
+          color: "#000",
+          maxWidth: "210mm",
+          margin: "0 auto",
+          padding: "1.5cm 1cm",
+          background: "#fff",
+        }}
+      >
         {/* Briefkopf */}
-        <div className="flex justify-between items-start mb-10">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
-            <div className="text-xl font-bold text-gray-900">{firmaName}</div>
-            {firmaAdresse && <div className="text-sm text-gray-600 mt-0.5">{firmaAdresse}</div>}
-            {firmaTel && <div className="text-sm text-gray-600">Tel: {firmaTel}</div>}
-            {firmaEmail && <div className="text-sm text-gray-600">{firmaEmail}</div>}
+            {logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logo}
+                alt="Logo"
+                style={{ height: "64px", marginBottom: "8px", display: "block" }}
+              />
+            )}
+            {firmaName && (
+              <div style={{ fontWeight: "bold", fontSize: "13pt", marginBottom: "2px" }}>
+                {firmaName}
+              </div>
+            )}
+            {firmaAdresse && <div style={{ fontSize: "10pt" }}>{firmaAdresse}</div>}
+            {firmaTel && <div style={{ fontSize: "10pt" }}>Tel: {firmaTel}</div>}
+            {firmaEmail && <div style={{ fontSize: "10pt" }}>{firmaEmail}</div>}
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">ANGEBOT</div>
-            <div className="text-sm text-gray-500 mt-1">{angebot.nummer}</div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: "20pt", fontWeight: "bold", marginBottom: "6px" }}>
+              ANGEBOT
+            </div>
+            <table style={{ fontSize: "10pt", borderCollapse: "collapse", marginLeft: "auto" }}>
+              <tbody>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Angebotsnr.:</td>
+                  <td style={{ fontWeight: "bold", fontFamily: "monospace" }}>{angebot.nummer}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Datum:</td>
+                  <td>{fmtDatum(angebot.datum)}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Gültig bis:</td>
+                  <td style={{ fontWeight: "bold" }}>{fmtDatum(angebot.gueltigBis)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
+        <hr style={{ borderTop: "2px solid #222", marginBottom: "24px" }} />
+
         {/* Empfängeranschrift */}
-        <div className="mb-8">
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">{firmaAdresse}</div>
-          <div className="font-semibold text-gray-900">{angebot.kunde.name}</div>
-          {angebot.kunde.firma && <div className="text-gray-700">{angebot.kunde.firma}</div>}
-          {angebot.kunde.strasse && <div className="text-gray-700">{angebot.kunde.strasse}</div>}
+        <div style={{ marginBottom: "32px" }}>
+          <div style={{ fontSize: "8pt", color: "#888", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {firmaAdresse}
+          </div>
+          <div style={{ fontWeight: "bold", fontSize: "12pt" }}>{angebot.kunde.name}</div>
+          {angebot.kunde.firma && <div style={{ fontSize: "10pt" }}>{angebot.kunde.firma}</div>}
+          {angebot.kunde.strasse && <div style={{ fontSize: "10pt" }}>{angebot.kunde.strasse}</div>}
           {(angebot.kunde.plz || angebot.kunde.ort) && (
-            <div className="text-gray-700">
+            <div style={{ fontSize: "10pt" }}>
               {[angebot.kunde.plz, angebot.kunde.ort].filter(Boolean).join(" ")}
             </div>
           )}
           {angebot.kunde.land && angebot.kunde.land !== "Deutschland" && (
-            <div className="text-gray-700">{angebot.kunde.land}</div>
+            <div style={{ fontSize: "10pt" }}>{angebot.kunde.land}</div>
           )}
         </div>
 
-        {/* Angebotsinformationen */}
-        <div className="grid grid-cols-2 gap-4 mb-8 text-sm">
-          <div className="space-y-1">
-            <div className="flex gap-2">
-              <span className="text-gray-500 w-28">Angebotsnr.:</span>
-              <span className="font-medium">{angebot.nummer}</span>
-            </div>
-            <div className="flex gap-2">
-              <span className="text-gray-500 w-28">Datum:</span>
-              <span>{fmtDatum(angebot.datum)}</span>
-            </div>
-            <div className="flex gap-2">
-              <span className="text-gray-500 w-28">Gültig bis:</span>
-              <span>{fmtDatum(angebot.gueltigBis)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="text-sm text-gray-700 mb-6">
+        <div style={{ fontSize: "10pt", marginBottom: "24px" }}>
           Sehr geehrte Damen und Herren,<br />
           wir unterbreiten Ihnen folgendes Angebot:
         </div>
 
         {/* Positionen */}
-        <table className="w-full text-sm border-collapse mb-6">
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "10pt" }}>
           <thead>
-            <tr className="border-b-2 border-gray-900">
-              <th className="text-left py-2 pr-3 font-semibold text-gray-900">Artikel</th>
-              <th className="text-right py-2 px-2 font-semibold text-gray-900 w-20">Menge</th>
-              <th className="text-left py-2 px-2 font-semibold text-gray-900 w-16">Einheit</th>
-              <th className="text-right py-2 px-2 font-semibold text-gray-900 w-24">Einzelpreis</th>
-              <th className="text-right py-2 px-2 font-semibold text-gray-900 w-20">Rabatt</th>
-              <th className="text-right py-2 pl-2 font-semibold text-gray-900 w-28">Gesamt</th>
+            <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
+              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
+              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
             </tr>
           </thead>
           <tbody>
             {angebot.positionen.map((pos, i) => {
               const netto = pos.menge * pos.preis * (1 - pos.rabatt / 100);
               return (
-                <tr key={pos.id} className={`border-b border-gray-200 ${i % 2 === 0 ? "" : "bg-gray-50"}`}>
-                  <td className="py-2 pr-3 text-gray-900">
+                <tr
+                  key={pos.id}
+                  style={{
+                    borderBottom: "1px solid #ddd",
+                    backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa",
+                  }}
+                >
+                  <td style={{ padding: "6px 8px" }}>
                     {pos.artikel.name}
-                    {pos.notiz && <span className="block text-xs text-gray-400">{pos.notiz}</span>}
+                    {pos.notiz && (
+                      <div style={{ fontSize: "9pt", color: "#666" }}>{pos.notiz}</div>
+                    )}
                   </td>
-                  <td className="py-2 px-2 text-right text-gray-700">
+                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
                     {pos.menge.toLocaleString("de-DE")}
                   </td>
-                  <td className="py-2 px-2 text-gray-600">{pos.einheit}</td>
-                  <td className="py-2 px-2 text-right text-gray-700">{fmt(pos.preis)}</td>
-                  <td className="py-2 px-2 text-right text-gray-600">
+                  <td style={{ padding: "6px 8px" }}>{pos.einheit}</td>
+                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                    {fmt(pos.preis)}
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
                     {pos.rabatt > 0 ? `${pos.rabatt.toLocaleString("de-DE")} %` : "—"}
                   </td>
-                  <td className="py-2 pl-2 text-right font-medium text-gray-900">{fmt(netto)}</td>
+                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "500" }}>
+                    {fmt(netto)}
+                  </td>
                 </tr>
               );
             })}
@@ -244,39 +321,65 @@ export default function AngebotDruckPage() {
         </table>
 
         {/* Summen */}
-        <div className="flex justify-end mb-8">
-          <div className="w-64 text-sm space-y-1.5">
-            <div className="flex justify-between text-gray-600">
-              <span>Netto</span>
-              <span>{fmt(gesamtNetto)}</span>
-            </div>
-            {Object.entries(mwstMap).map(([satz, betrag]) => (
-              <div key={satz} className="flex justify-between text-gray-600">
-                <span>MwSt. {satz} %</span>
-                <span>{fmt(betrag)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between font-bold text-gray-900 text-base border-t border-gray-900 pt-2 mt-2">
-              <span>Brutto gesamt</span>
-              <span>{fmt(gesamtBrutto)}</span>
-            </div>
-          </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "32px" }}>
+          <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "240px" }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: "4px 10px", color: "#444" }}>Netto:</td>
+                <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
+                  {fmt(gesamtNetto)}
+                </td>
+              </tr>
+              {Object.entries(mwstMap)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([satz, betrag]) => (
+                  <tr key={satz}>
+                    <td style={{ padding: "4px 10px", color: "#444" }}>MwSt. {satz} %:</td>
+                    <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
+                      {fmt(betrag)}
+                    </td>
+                  </tr>
+                ))}
+              <tr style={{ borderTop: "2px solid #333" }}>
+                <td style={{ padding: "6px 10px", fontWeight: "bold", fontSize: "12pt" }}>
+                  Brutto gesamt:
+                </td>
+                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold", fontSize: "12pt" }}>
+                  {fmt(gesamtBrutto)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* Notiz */}
         {angebot.notiz && (
-          <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700">
-            <div className="font-semibold mb-1 text-gray-800">Hinweis:</div>
+          <div
+            style={{
+              marginBottom: "32px",
+              padding: "12px 16px",
+              backgroundColor: "#f9f9f9",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              fontSize: "10pt",
+            }}
+          >
+            <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Hinweis:</div>
             {angebot.notiz}
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-sm text-gray-600 border-t border-gray-200 pt-6 space-y-1">
-          <p>Dieses Angebot ist gültig bis {fmtDatum(angebot.gueltigBis)}.</p>
-          <p>Alle Preise verstehen sich netto zuzüglich der gesetzlichen Mehrwertsteuer.</p>
-          <p className="mt-4">Mit freundlichen Grüßen</p>
-          <p className="font-semibold">{firmaName}</p>
+        <hr style={{ borderTop: "1px solid #ccc", marginTop: "32px", marginBottom: "10px" }} />
+        <div style={{ fontSize: "9pt", color: "#555" }}>
+          <p style={{ marginBottom: "4px" }}>
+            Dieses Angebot ist gültig bis {fmtDatum(angebot.gueltigBis)}.
+          </p>
+          <p style={{ marginBottom: "4px" }}>
+            Alle Preise verstehen sich netto zuzüglich der gesetzlichen Mehrwertsteuer.
+          </p>
+          <p style={{ marginTop: "16px", marginBottom: "4px" }}>Mit freundlichen Grüßen</p>
+          <p style={{ fontWeight: "bold" }}>{firmaName}</p>
         </div>
       </div>
     </>
