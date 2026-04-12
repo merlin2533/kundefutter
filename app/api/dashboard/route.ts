@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { lagerStatus, addTage } from "@/lib/utils";
 
 export async function GET() {
@@ -38,7 +39,20 @@ export async function GET() {
       where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
       include: { positionen: { select: { menge: true, verkaufspreis: true, einkaufspreis: true } } },
     }),
-    prisma.artikel.findMany({ where: { aktiv: true } }),
+    // Nur kritische Artikel laden (Bestand <= Mindestbestand ODER <= 0),
+    // nicht alle aktiven Artikel. Spart RAM + Query-Zeit bei großem Katalog.
+    prisma.$queryRaw<
+      { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string }[]
+    >(Prisma.sql`
+      SELECT "id", "name", "aktuellerBestand", "mindestbestand", "einheit"
+      FROM "Artikel"
+      WHERE "aktiv" = 1
+        AND ("aktuellerBestand" <= 0 OR "aktuellerBestand" < "mindestbestand")
+      ORDER BY
+        CASE WHEN "aktuellerBestand" <= 0 THEN 0 ELSE 1 END,
+        "aktuellerBestand" ASC
+      LIMIT 20
+    `),
     prisma.lieferung.groupBy({
       by: ["kundeId"],
       where: { status: "geliefert", datum: { gte: monatsAnfang } },
@@ -161,8 +175,8 @@ export async function GET() {
     );
   }, 0);
 
+  // lagerArtikel enthält bereits nur kritische Artikel (DB-seitig gefiltert + sortiert).
   const lagerAlarmArtikel = lagerArtikel
-    .filter((a) => lagerStatus(a.aktuellerBestand, a.mindestbestand) !== "gruen")
     .map((a) => ({
       id: a.id,
       name: a.name,
@@ -171,10 +185,6 @@ export async function GET() {
       einheit: a.einheit,
       status: lagerStatus(a.aktuellerBestand, a.mindestbestand) as "rot" | "gelb",
     }))
-    .sort((a, b) => {
-      if (a.status === b.status) return 0;
-      return a.status === "rot" ? -1 : 1;
-    })
     .slice(0, 10);
 
   const lagerAlarme = lagerAlarmArtikel.length;
