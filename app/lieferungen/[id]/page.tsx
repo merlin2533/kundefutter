@@ -540,10 +540,11 @@ export default function LieferungDetailPage() {
 
             {lieferung.rechnungNr && (
               <button
-                onClick={() => window.open(`/api/exporte/rechnung?lieferungId=${id}`, "_blank")}
+                onClick={() => router.push(`/lieferungen/${id}/rechnung`)}
                 className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                title="Rechnung anzeigen, drucken oder teilen"
               >
-                Rechnung als PDF
+                Rechnung öffnen
               </button>
             )}
           </div>

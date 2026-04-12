@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
+import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 
 interface ArtikelInfo {
   name: string;
@@ -42,12 +43,16 @@ interface Lieferung {
 
 export default function RechnungPrintPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
 
   const [lieferung, setLieferung] = useState<Lieferung | null>(null);
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [giroCode, setGiroCode] = useState<string>("");
+  const [canShare, setCanShare] = useState(false);
+  const [shareMsg, setShareMsg] = useState("");
 
   async function loadLieferung(): Promise<Lieferung | null> {
     const res = await fetch(`/api/lieferungen/${id}`);
@@ -105,7 +110,58 @@ export default function RechnungPrintPage() {
       .then((r) => r.json())
       .then((d) => { if (d["system.logo"]) setLogo(d["system.logo"]); })
       .catch(() => {});
+
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      setCanShare(true);
+    }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // GiroCode erzeugen, sobald Firmen- und Rechnungsdaten vorliegen
+  useEffect(() => {
+    if (!lieferung) { setGiroCode(""); return; }
+    const iban = firmaData["firma.iban"] ?? "";
+    const bic = firmaData["firma.bic"] ?? "";
+    const empfaenger =
+      firmaData["firma.firmenname"] ?? firmaData["firma.name"] ?? "";
+    if (!iban || !empfaenger) { setGiroCode(""); return; }
+
+    const netto = lieferung.positionen.reduce(
+      (s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100),
+      0,
+    );
+    const mwst = lieferung.positionen.reduce(
+      (s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * ((p.artikel.mwstSatz ?? 19) / 100),
+      0,
+    );
+    const brutto = netto + mwst;
+    const verwendung = `Rechnung ${lieferung.rechnungNr ?? `LS-${lieferung.id}`}`;
+
+    let cancelled = false;
+    erzeugeGiroCodeDataUrl({ empfaenger, iban, bic, betrag: brutto, verwendungszweck: verwendung })
+      .then((url) => { if (!cancelled && url) setGiroCode(url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [lieferung, firmaData]);
+
+  async function handleTeilen() {
+    if (!lieferung) return;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    const title = `Rechnung ${lieferung.rechnungNr ?? `LS-${lieferung.id}`}`;
+    const text = `Rechnung ${lieferung.rechnungNr ?? ""} – ${lieferung.kunde.firma ?? lieferung.kunde.name}`;
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ title, text, url });
+        return;
+      }
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(url);
+        setShareMsg("Link kopiert");
+        setTimeout(() => setShareMsg(""), 2500);
+      }
+    } catch {
+      // Benutzer hat Dialog abgebrochen – ignorieren
+    }
+  }
 
   if (loading) {
     return (
@@ -179,8 +235,15 @@ export default function RechnungPrintPage() {
         }
       `}</style>
 
-      {/* Screen-only controls */}
-      <div className="print-hidden flex items-center flex-wrap gap-4 p-4 bg-gray-50 border-b border-gray-200 no-print">
+      {/* Screen-only controls – sticky so user always has a way out */}
+      <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-3 p-3 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm no-print">
+        <button
+          onClick={() => router.push(`/lieferungen/${id}`)}
+          className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+          title="Rechnung schließen und zurück zur Lieferung"
+        >
+          <span aria-hidden>✕</span> Schließen
+        </button>
         <Link
           href={`/lieferungen/${id}`}
           className="text-sm text-green-700 hover:text-green-900 hover:underline"
@@ -193,6 +256,27 @@ export default function RechnungPrintPage() {
         >
           Drucken
         </button>
+        <button
+          onClick={handleTeilen}
+          className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+          title={canShare ? "Rechnung teilen" : "Link in Zwischenablage kopieren"}
+        >
+          <span aria-hidden>↗</span> Teilen
+        </button>
+        {shareMsg && (
+          <span className="text-xs text-green-700 font-medium">{shareMsg}</span>
+        )}
+        {lieferung?.rechnungNr && (
+          <a
+            href={`/api/exporte/rechnung?lieferungId=${id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition-colors"
+            title="Rechnung als PDF herunterladen"
+          >
+            ⬇ PDF
+          </a>
+        )}
         {lieferung?.rechnungNr && (
           <a
             href={`/api/exporte/zugferd?lieferungId=${id}`}
@@ -422,20 +506,39 @@ export default function RechnungPrintPage() {
             padding: "12px 16px",
             marginBottom: "32px",
             fontSize: "10pt",
+            display: "flex",
+            gap: "16px",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
           }}
         >
-          <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
-          <div style={{ marginBottom: "4px" }}>
-            Bitte überweisen Sie den Betrag von{" "}
-            <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
-            <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
-            Rechnungsnummer <strong>{rechnungNr}</strong>.
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
+            <div style={{ marginBottom: "4px" }}>
+              Bitte überweisen Sie den Betrag von{" "}
+              <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
+              <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
+              Rechnungsnummer <strong>{rechnungNr}</strong>.
+            </div>
+            {(firmaIban || firmaBic || firmaBankname) && (
+              <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "16px", color: "#333" }}>
+                {firmaBankname && <span>Bank: {firmaBankname}</span>}
+                {firmaIban && <span>IBAN: {firmaIban}</span>}
+                {firmaBic && <span>BIC: {firmaBic}</span>}
+              </div>
+            )}
           </div>
-          {(firmaIban || firmaBic || firmaBankname) && (
-            <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "16px", color: "#333" }}>
-              {firmaBankname && <span>Bank: {firmaBankname}</span>}
-              {firmaIban && <span>IBAN: {firmaIban}</span>}
-              {firmaBic && <span>BIC: {firmaBic}</span>}
+          {giroCode && (
+            <div style={{ textAlign: "center", flexShrink: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={giroCode}
+                alt="GiroCode – per Banking-App scannen"
+                style={{ width: "110px", height: "110px", display: "block" }}
+              />
+              <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
+                Scan &amp; Pay
+              </div>
             </div>
           )}
         </div>
