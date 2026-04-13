@@ -11,10 +11,27 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Alle HTML-Seiten und RSC-Daten: niemals cachen
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
+          { key: "Pragma", value: "no-cache" },
+          { key: "Expires", value: "0" },
+        ],
+      },
+      // Next.js statische Assets: ebenfalls kein Cache (Build-ID ändert sich bei jedem Deploy)
+      {
+        source: "/_next/static/(.*)",
+        headers: [
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
+        ],
+      },
+      // Service Worker: immer neu laden
       {
         source: "/sw.js",
         headers: [
-          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
           { key: "Service-Worker-Allowed", value: "/" },
         ],
       },
