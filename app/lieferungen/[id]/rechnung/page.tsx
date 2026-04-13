@@ -405,7 +405,7 @@ export default function RechnungPrintPage() {
                 {[firmaPlz, firmaOrt].filter(Boolean).join(" ")}
               </div>
             )}
-            {firmaTel && <div style={{ fontSize: "10pt" }}>Tel: {firmaTel}</div>}
+            {firmaTel && <div style={{ fontSize: "10pt", marginBottom: "8px" }}>Tel: {firmaTel}</div>}
             {firmaEmail && <div style={{ fontSize: "10pt" }}>E-Mail: {firmaEmail}</div>}
             {firmaSteuernr && (
               <div style={{ fontSize: "10pt" }}>Steuernr.: {firmaSteuernr}</div>
@@ -427,10 +427,6 @@ export default function RechnungPrintPage() {
                   <td>{rechnungsDatumStr}</td>
                 </tr>
                 <tr>
-                  <td style={{ paddingRight: "8px", color: "#555" }}>Zahlungsziel:</td>
-                  <td>{zahlungszielTage} Tage</td>
-                </tr>
-                <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Fällig am:</td>
                   <td style={{ fontWeight: "bold" }}>{formatDatum(faelligkeitsDatum)}</td>
                 </tr>
@@ -442,7 +438,7 @@ export default function RechnungPrintPage() {
         </div>
 
         {/* Empfänger */}
-        <div style={{ marginBottom: "32px" }}>
+        <div style={{ marginBottom: "48px" }}>
           <div style={{ fontSize: "8pt", color: "#888", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Rechnungsempfänger
           </div>
@@ -507,7 +503,7 @@ export default function RechnungPrintPage() {
                 </td>
                 {hatRabatt && (
                   <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
-                    {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "—"}
+                    {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : ""}
                   </td>
                 )}
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
@@ -576,10 +572,12 @@ export default function RechnungPrintPage() {
               Rechnungsnummer <strong>{rechnungNr}</strong>.
             </div>
             {(firmaIban || firmaBic || firmaBankname) && (
-              <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "16px", color: "#333" }}>
-                {firmaBankname && <span>Bank: {firmaBankname}</span>}
-                {firmaIban && <span>IBAN: {firmaIban}</span>}
-                {firmaBic && <span>BIC: {firmaBic}</span>}
+              <div style={{ marginTop: "8px", color: "#333" }}>
+                {firmaBankname && <div>Bank: {firmaBankname}</div>}
+                <div style={{ marginTop: "4px" }}>
+                  {firmaIban && <span>IBAN: {firmaIban}</span>}
+                  {firmaBic && <span style={{ marginLeft: "16px" }}>BIC: {firmaBic}</span>}
+                </div>
               </div>
             )}
           </div>
