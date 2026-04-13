@@ -35,12 +35,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "lieferantId und positionen erforderlich" }, { status: 400 });
   }
   // Sanitise positionen — only allow known fields
-  const positionen = body.positionen.map((p: { artikelId: unknown; menge: unknown; einkaufspreis: unknown; chargeNr?: unknown }) => ({
+  const positionen = body.positionen.map((p: { artikelId: unknown; menge: unknown; einkaufspreis: unknown }) => ({
     artikelId: Number(p.artikelId),
     menge: Number(p.menge),
     einkaufspreis: Number(p.einkaufspreis ?? 0),
-    chargeNr: typeof p.chargeNr === "string" ? p.chargeNr : null,
-  })).filter((p: { artikelId: number; menge: number; einkaufspreis: number; chargeNr: string | null }) => Number.isInteger(p.artikelId) && p.artikelId > 0 && Number.isFinite(p.menge) && p.menge > 0);
+  })).filter((p: { artikelId: number; menge: number; einkaufspreis: number }) => Number.isInteger(p.artikelId) && p.artikelId > 0 && Number.isFinite(p.menge) && p.menge > 0);
 
   if (positionen.length === 0) {
     return NextResponse.json({ error: "Keine gültigen Positionen" }, { status: 400 });

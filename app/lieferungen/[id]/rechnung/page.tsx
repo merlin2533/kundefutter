@@ -395,20 +395,9 @@ export default function RechnungPrintPage() {
               />
             )}
             {firmenname && (
-              <div style={{ fontWeight: "bold", fontSize: "13pt", marginBottom: "2px" }}>
+              <div style={{ fontWeight: "bold", fontSize: "13pt" }}>
                 {firmenname}
               </div>
-            )}
-            {firmaAdresse && <div style={{ fontSize: "10pt" }}>{firmaAdresse}</div>}
-            {(firmaPlz || firmaOrt) && (
-              <div style={{ fontSize: "10pt" }}>
-                {[firmaPlz, firmaOrt].filter(Boolean).join(" ")}
-              </div>
-            )}
-            {firmaTel && <div style={{ fontSize: "10pt", marginBottom: "8px" }}>Tel: {firmaTel}</div>}
-            {firmaEmail && <div style={{ fontSize: "10pt" }}>E-Mail: {firmaEmail}</div>}
-            {firmaSteuernr && (
-              <div style={{ fontSize: "10pt" }}>Steuernr.: {firmaSteuernr}</div>
             )}
           </div>
 
