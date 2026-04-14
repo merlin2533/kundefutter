@@ -120,15 +120,33 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
 
     // Nur erlaubte Felder übergeben
+    // Hinweis: rechnungNr / rechnungDatum werden bewusst NICHT erlaubt. Sie dürfen
+    // nur über die dedizierte PATCH-Aktion "rechnung_erstellen" gesetzt werden,
+    // damit der Audit-Trail konsistent bleibt.
+    const toValidDate = (v: unknown): Date | null => {
+      if (!v) return null;
+      const d = new Date(v as string);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
     const updateData: Record<string, unknown> = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notiz !== undefined) updateData.notiz = data.notiz;
     if (data.stornoBegründung !== undefined) updateData.stornoBegründung = data.stornoBegründung;
-    if (data.datum !== undefined) updateData.datum = new Date(data.datum);
-    if (data.bezahltAm !== undefined) updateData.bezahltAm = data.bezahltAm ? new Date(data.bezahltAm) : null;
+    if (data.datum !== undefined) {
+      const d = toValidDate(data.datum);
+      if (!d) throw new Error("Ungültiges Datum");
+      updateData.datum = d;
+    }
+    if (data.bezahltAm !== undefined) {
+      if (data.bezahltAm === null || data.bezahltAm === "") {
+        updateData.bezahltAm = null;
+      } else {
+        const d = toValidDate(data.bezahltAm);
+        if (!d) throw new Error("Ungültiges bezahltAm-Datum");
+        updateData.bezahltAm = d;
+      }
+    }
     if (data.zahlungsziel !== undefined) updateData.zahlungsziel = data.zahlungsziel;
-    if (data.rechnungNr !== undefined) updateData.rechnungNr = data.rechnungNr;
-    if (data.rechnungDatum !== undefined) updateData.rechnungDatum = data.rechnungDatum ? new Date(data.rechnungDatum) : null;
 
     return tx.lieferung.update({
       where: { id: Number(id) },

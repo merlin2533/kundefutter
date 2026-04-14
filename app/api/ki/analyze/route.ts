@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
     } catch {
       // ignore logging errors
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Stack-/Detailtexte aus Provider-Fehlern nicht an den Client leaken.
+    const clientMessage = /API[-\s]?Key|api_key|401|403|authentication/i.test(message)
+      ? "KI-Konfiguration ungültig"
+      : "KI-Analyse fehlgeschlagen";
+    return NextResponse.json({ error: clientMessage }, { status: 500 });
   }
 }

@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("KI Beleg-Analyse Fehler:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "KI-Analyse fehlgeschlagen" },
+      { error: "KI-Analyse fehlgeschlagen" },
       { status: 500 }
     );
   }
