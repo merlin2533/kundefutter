@@ -61,45 +61,48 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Auto-Artikelnummer wenn nicht gesetzt
-    if (!data.artikelnummer) {
-      const nummernkreisRaw = await prisma.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
-      const nk = nummernkreisRaw?.value
-        ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
-        : null;
-      const prefix = nk?.prefix ?? "ART-";
-      const laenge = Number(nk?.laenge) || 5;
-      const naechste = Number(nk?.naechste) || 1;
-      data.artikelnummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
-      await prisma.einstellung.upsert({
-        where: { key: "artikel.nummernkreis" },
-        update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-        create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-      });
-    }
-
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
     else data.mwstSatz = 19;
 
-    const artikel = await prisma.artikel.create({
-      data: {
-        ...data,
-        lieferanten: lieferanten?.length
-          ? { create: lieferanten }
-          : undefined,
-        inhaltsstoffe: inhaltsstoffe?.length
-          ? { create: (inhaltsstoffe as { name: string; menge?: number | null; einheit?: string | null }[]).map((i) => ({
-              name: i.name,
-              menge: i.menge ?? null,
-              einheit: i.einheit ?? null,
-            })) }
-          : undefined,
-      },
-      include: {
-        inhaltsstoffe: true,
-        lieferanten: { include: { lieferant: true } },
-        dokumente: true,
-      },
+    // Nummer-Vergabe und Create in einer Transaktion, damit parallele POSTs
+    // keine doppelten Artikelnummern erzeugen.
+    const artikel = await prisma.$transaction(async (tx) => {
+      if (!data.artikelnummer) {
+        const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
+        const nk = nummernkreisRaw?.value
+          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+          : null;
+        const prefix = nk?.prefix ?? "ART-";
+        const laenge = Number(nk?.laenge) || 5;
+        const naechste = Number(nk?.naechste) || 1;
+        data.artikelnummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
+        await tx.einstellung.upsert({
+          where: { key: "artikel.nummernkreis" },
+          update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+          create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+        });
+      }
+
+      return tx.artikel.create({
+        data: {
+          ...data,
+          lieferanten: lieferanten?.length
+            ? { create: lieferanten }
+            : undefined,
+          inhaltsstoffe: inhaltsstoffe?.length
+            ? { create: (inhaltsstoffe as { name: string; menge?: number | null; einheit?: string | null }[]).map((i) => ({
+                name: i.name,
+                menge: i.menge ?? null,
+                einheit: i.einheit ?? null,
+              })) }
+            : undefined,
+        },
+        include: {
+          inhaltsstoffe: true,
+          lieferanten: { include: { lieferant: true } },
+          dokumente: true,
+        },
+      });
     });
     return NextResponse.json(artikel, { status: 201 });
   } catch (err) {

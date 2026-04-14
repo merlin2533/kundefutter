@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
       "EK (Einkaufspreis)": a.einkaufspreis,
       "MwSt %": a.mwstSatz,
       Mindestbestand: a.mindestbestand,
+      "Verpackungsgröße": "",
       Beschreibung: a.beschreibung ?? "",
       Lieferant: a.lieferantName,
     }));
@@ -93,6 +94,7 @@ export async function GET(req: NextRequest) {
       { wch: 16 }, // EK
       { wch: 8  }, // MwSt
       { wch: 14 }, // Mindestbestand
+      { wch: 22 }, // Verpackungsgröße
       { wch: 40 }, // Beschreibung
       { wch: 30 }, // Lieferant
     ];
@@ -101,14 +103,15 @@ export async function GET(req: NextRequest) {
 
     // Hinweis-Sheet mit Spalten-Erklärung
     const hinweise = [
-      { Spalte: "Artikelnummer", Pflicht: "Ja", Hinweis: "Eindeutige Artikelnummer. Bestehende werden beim Import übersprungen." },
-      { Spalte: "Name",          Pflicht: "Ja", Hinweis: "Artikelbezeichnung" },
-      { Spalte: "Kategorie",     Pflicht: "Ja", Hinweis: "z.B. Pferdefutter, Stallzubehoer, Pflanzenhilfsmittel, Futter, Duenger, Saatgut" },
-      { Spalte: "Einheit",       Pflicht: "Ja", Hinweis: "kg, t, Sack, Stück, Liter, …" },
-      { Spalte: "VK (Standardpreis)", Pflicht: "Ja", Hinweis: "Verkaufspreis inkl. MwSt (Zahl)" },
+      { Spalte: "Artikelnummer", Pflicht: "Nein", Hinweis: "Eindeutige Artikelnummer. Leer = automatisch vergeben. Bestehende Nummern werden übersprungen." },
+      { Spalte: "Name",          Pflicht: "Ja", Hinweis: "Artikelbezeichnung (auch als Produktname akzeptiert)" },
+      { Spalte: "Kategorie",     Pflicht: "Nein", Hinweis: "z.B. Pferdefutter, Futter, Duenger, Saatgut. Standard: Sonstiges" },
+      { Spalte: "Einheit",       Pflicht: "Nein", Hinweis: "kg, t, Sack, Stück, Liter, … Standard: Stück" },
+      { Spalte: "VK (Standardpreis)", Pflicht: "Ja", Hinweis: "Verkaufspreis inkl. MwSt (Zahl). Alternativ: Preis" },
       { Spalte: "EK (Einkaufspreis)", Pflicht: "Nein", Hinweis: "Einkaufspreis netto (Zahl, leer = 0)" },
       { Spalte: "MwSt %",        Pflicht: "Nein", Hinweis: "0, 7 oder 19 (Standard: 19)" },
       { Spalte: "Mindestbestand", Pflicht: "Nein", Hinweis: "Meldebestand (Zahl, Standard: 0)" },
+      { Spalte: "Verpackungsgröße", Pflicht: "Nein", Hinweis: "Freitext, z.B. \"25 kg Sack\" oder \"Big Bag 600 kg\". Alternativ: Liefergröße" },
       { Spalte: "Beschreibung",  Pflicht: "Nein", Hinweis: "Freitext" },
       { Spalte: "Lieferant",     Pflicht: "Nein", Hinweis: "Name des Lieferanten – wird automatisch angelegt falls nicht vorhanden" },
     ];
@@ -175,29 +178,81 @@ async function lieferantIdFuerName(name: string): Promise<number> {
   return neu.id;
 }
 
+// ── Spalten-Helper: flexible Aliasse für häufige Varianten ───────────────────
+function pickCol(row: Record<string, unknown>, ...keys: string[]): string {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-()]/g, "");
+  const lookup: Record<string, unknown> = {};
+  for (const k of Object.keys(row)) lookup[norm(k)] = row[k];
+  for (const key of keys) {
+    const v = lookup[norm(key)];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
+  }
+  return "";
+}
+
+function parseNumber(s: string): number {
+  if (!s) return 0;
+  // Deutsche Notation: "1.234,56" → 1234.56 ; Punkt als Tausender nur, wenn Komma vorhanden
+  const cleaned = s.includes(",")
+    ? s.replace(/\./g, "").replace(",", ".")
+    : s.replace(/[^0-9.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// ── Hilfsfunktion: Artikelnummer automatisch vergeben ────────────────────────
+async function naechsteArtikelnummer(): Promise<string> {
+  const nummernkreisRaw = await prisma.einstellung.findUnique({
+    where: { key: "artikel.nummernkreis" },
+  });
+  const nk = nummernkreisRaw?.value
+    ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+    : null;
+  const prefix = nk?.prefix ?? "ART-";
+  const laenge = Number(nk?.laenge) || 5;
+  const naechste = Number(nk?.naechste) || 1;
+  const nummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
+  await prisma.einstellung.upsert({
+    where: { key: "artikel.nummernkreis" },
+    update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+    create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+  });
+  return nummer;
+}
+
 // ── Hilfsfunktion: Zeile importieren ─────────────────────────────────────────
 async function importZeile(
   row: Record<string, unknown>,
 ): Promise<"importiert" | "uebersprungen" | "fehler"> {
-  const artikelnummer = String(row["Artikelnummer"] ?? "").trim();
-  const name = String(row["Name"] ?? "").trim();
-  if (!artikelnummer || !name) return "fehler";
+  const name = pickCol(row, "Name", "Produktname", "Artikel", "Bezeichnung");
+  if (!name) return "fehler";
 
-  const bestehend = await prisma.artikel.findUnique({
-    where: { artikelnummer },
-    select: { id: true },
-  });
-  if (bestehend) return "uebersprungen";
+  let artikelnummer = pickCol(row, "Artikelnummer", "Nummer", "ArtNr", "Art-Nr", "SKU");
+  if (artikelnummer) {
+    const bestehend = await prisma.artikel.findUnique({
+      where: { artikelnummer },
+      select: { id: true },
+    });
+    if (bestehend) return "uebersprungen";
+  } else {
+    artikelnummer = await naechsteArtikelnummer();
+  }
 
-  const standardpreis = parseFloat(String(row["VK (Standardpreis)"] ?? "0")) || 0;
-  const einkaufspreis = parseFloat(String(row["EK (Einkaufspreis)"] ?? "0")) || 0;
-  const mwstRaw = parseFloat(String(row["MwSt %"] ?? "19"));
+  const standardpreis = parseNumber(
+    pickCol(row, "VK (Standardpreis)", "Standardpreis", "Preis", "VK", "Verkaufspreis"),
+  );
+  const einkaufspreis = parseNumber(
+    pickCol(row, "EK (Einkaufspreis)", "Einkaufspreis", "EK"),
+  );
+  const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz", "Mehrwertsteuer"));
   const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
-  const mindestbestand = parseFloat(String(row["Mindestbestand"] ?? "0")) || 0;
-  const kategorie = String(row["Kategorie"] ?? "Sonstiges").trim() || "Sonstiges";
-  const einheit = String(row["Einheit"] ?? "Stück").trim() || "Stück";
-  const beschreibung = String(row["Beschreibung"] ?? "").trim() || null;
-  const lieferantName = String(row["Lieferant"] ?? "").trim();
+  const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand"));
+  const kategorie = pickCol(row, "Kategorie", "Gruppe") || "Sonstiges";
+  const einheit = pickCol(row, "Einheit", "Einh") || "Stück";
+  const liefergroesse =
+    pickCol(row, "Verpackungsgröße", "Verpackungsgroesse", "Verpackung", "Liefergröße", "Liefergroesse", "Gebinde") || null;
+  const beschreibung = pickCol(row, "Beschreibung", "Bemerkung", "Notiz") || null;
+  const lieferantName = pickCol(row, "Lieferant", "Hersteller");
 
   const lieferantCreate = lieferantName
     ? [{
@@ -220,6 +275,7 @@ async function importZeile(
       mwstSatz,
       mindestbestand,
       aktuellerBestand: 0,
+      liefergroesse,
       beschreibung,
       lieferanten: lieferantCreate.length ? { create: lieferantCreate } : undefined,
     },

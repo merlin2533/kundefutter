@@ -27,10 +27,12 @@ export async function GET(req: NextRequest) {
   if (hatRechnung === "true") where.rechnungNr = { not: null };
   if (ohneRechnung === "true") where.rechnungNr = null;
   if (search) {
+    // Suche auf eine sinnvolle Länge begrenzen (verhindert pathologische LIKE-Queries)
+    const cleanSearch = search.slice(0, 80);
     where.kunde = {
       OR: [
-        { name: { contains: search } },
-        { firma: { contains: search } },
+        { name: { contains: cleanSearch } },
+        { firma: { contains: cleanSearch } },
       ],
     };
   }
@@ -47,7 +49,7 @@ export async function GET(req: NextRequest) {
     if (Object.keys(datum).length > 0) where.datum = datum;
   }
 
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   try {

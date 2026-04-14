@@ -15,11 +15,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "filename fehlt" }, { status: 400 });
   }
 
-  if (filename.includes("/") || filename.includes("..") || filename.includes("\\")) {
+  // Dateinamen müssen ein striktes Format haben: Buchstaben/Ziffern, Unter-/
+  // Bindestriche, Punkt. Keine URL-Encodings, Slashes, relativen Pfade.
+  if (!/^[A-Za-z0-9._-]+$/.test(filename)) {
     return NextResponse.json({ error: "Ungültiger Dateiname" }, { status: 400 });
   }
 
-  const filePath = path.join(BACKUP_DIR, filename);
+  const filePath = path.resolve(BACKUP_DIR, filename);
+  // Zusätzliche Absicherung: resolved Pfad muss innerhalb BACKUP_DIR liegen.
+  if (!filePath.startsWith(path.resolve(BACKUP_DIR) + path.sep)) {
+    return NextResponse.json({ error: "Ungültiger Dateiname" }, { status: 400 });
+  }
 
   let stat: fs.Stats;
   try {
