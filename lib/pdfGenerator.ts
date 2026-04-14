@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { formatDatum, formatEuro } from "@/lib/utils";
-import { ladeFirmaDaten } from "@/lib/firma";
+import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -37,7 +37,86 @@ async function ladeLogo(): Promise<LogoDaten | null> {
 }
 
 /**
+ * Lädt die dokument.footer.* Einstellungen oder fällt auf Firmendaten zurück.
+ * Spiegelt die Logik von components/DokumentFooter.tsx – buildFooterColumns().
+ */
+async function ladeFooterSpalten(firma: FirmaDaten): Promise<{ links: string; mitte: string; rechts: string }> {
+  const rows = await prisma.einstellung.findMany({
+    where: { key: { startsWith: "dokument.footer." } },
+  });
+  const cfg: Record<string, string> = {};
+  for (const r of rows) cfg[r.key] = r.value;
+
+  const links = cfg["dokument.footer.links"] ||
+    [firma.name, firma.zusatz, firma.strasse, firma.plzOrt].filter(Boolean).join("\n");
+
+  const mitte = cfg["dokument.footer.mitte"] ||
+    [
+      firma.telefon ? `Tel: ${firma.telefon}` : "",
+      firma.email,
+      firma.steuernummer ? `Steuernr.: ${firma.steuernummer}` : "",
+      firma.ustIdNr ? `USt-IdNr.: ${firma.ustIdNr}` : "",
+      firma.oekoNummer ? `Öko-Nr.: ${firma.oekoNummer}` : "",
+    ].filter(Boolean).join("\n");
+
+  const rechts = cfg["dokument.footer.rechts"] ||
+    [
+      firma.bank,
+      firma.iban ? `IBAN: ${firma.iban}` : "",
+      firma.bic ? `BIC: ${firma.bic}` : "",
+    ].filter(Boolean).join("\n");
+
+  return { links, mitte, rechts };
+}
+
+/**
+ * Zeichnet den 3-spaltigen Dokument-Footer am unteren Seitenrand.
+ */
+function zeichneDokumentFooter(
+  doc: jsPDF,
+  spalten: { links: string; mitte: string; rechts: string },
+) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const left = 14;
+  const right = 196;
+  const width = right - left;
+  const colWidth = (width - 8) / 3;
+
+  // Footer ist 6 Zeilen hoch (max), Zeilenhöhe 3.2 mm
+  const zeilenHoehe = 3.2;
+  const maxZeilen = Math.max(
+    spalten.links.split("\n").length,
+    spalten.mitte.split("\n").length,
+    spalten.rechts.split("\n").length,
+    1,
+  );
+  const footerHoehe = maxZeilen * zeilenHoehe + 4;
+  const footerY = pageHeight - footerHoehe - 8;
+
+  // Trennlinie
+  doc.setDrawColor(187);
+  doc.setLineWidth(0.2);
+  doc.line(left, footerY, right, footerY);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(102);
+
+  const startY = footerY + 4;
+  const links = spalten.links.split("\n");
+  const mitte = spalten.mitte.split("\n");
+  const rechts = spalten.rechts.split("\n");
+
+  links.forEach((line, i) => doc.text(line, left, startY + i * zeilenHoehe));
+  mitte.forEach((line, i) =>
+    doc.text(line, left + colWidth + 4 + colWidth / 2, startY + i * zeilenHoehe, { align: "center" }),
+  );
+  rechts.forEach((line, i) => doc.text(line, right, startY + i * zeilenHoehe, { align: "right" }));
+}
+
+/**
  * Generiert eine Rechnung als PDF-Buffer für die angegebene Lieferung.
+ * Layout spiegelt die HTML-Vorschau unter /lieferungen/[id]/rechnung.
  * Die Lieferung muss bereits eine Rechnungsnummer besitzen.
  */
 export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer> {
@@ -51,128 +130,182 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
 
   const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
   const logo = await ladeLogo();
   const doc = new jsPDF();
+
+  // ── Farben (matches HTML-Preview) ────────────────────────────────────────────
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+  const COL_BOX_BG: [number, number, number] = [249, 249, 249];
+  const COL_BOX_BORDER: [number, number, number] = [221, 221, 221];
+
   const k = lieferung.kunde;
   const zahlungsziel = lieferung.zahlungsziel ?? 30;
-  // Rechnungsdatum: gespeichertes Datum oder Lieferdatum (nie "heute")
   const rechnungDatum = lieferung.rechnungDatum
     ? new Date(lieferung.rechnungDatum)
     : new Date(lieferung.datum);
-  // Fälligkeitsdatum basiert auf Rechnungsdatum
   const faelligDatum = new Date(rechnungDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
 
-  // ── Briefkopf mit Logo links, Firma + Kontakt rechts ────────────────────────
+  // ── Kopfbereich: Logo + Firmenname links, Rechnungs-Meta rechts ─────────────
   let logoBreiteMm = 0;
   if (logo) {
     try {
       const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
-      doc.addImage(logo.dataUrl, format, 14, 12, 45, 22, undefined, "FAST");
-      logoBreiteMm = 45;
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
     } catch {
       // Ungültiges Bildformat - ignorieren
     }
   }
 
-  // Firmenzeile rechts neben dem Logo
-  const firmaX = logoBreiteMm > 0 ? 65 : 14;
-  doc.setFontSize(14);
+  // Firmenname unter Logo (fett, 13pt)
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(22, 101, 52);
-  doc.text(FIRMA.name, firmaX, 18);
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
 
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80);
-  let kopfY = 24;
-  if (FIRMA.zusatz) { doc.text(FIRMA.zusatz, firmaX, kopfY); kopfY += 4; }
-  const adressTeile = [FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
-  if (adressTeile.length) { doc.text(adressTeile.join(" · "), firmaX, kopfY); kopfY += 4; }
-  const kontaktTeile = [FIRMA.telefon && `Tel: ${FIRMA.telefon}`, FIRMA.email].filter(Boolean) as string[];
-  if (kontaktTeile.length) { doc.text(kontaktTeile.join(" · "), firmaX, kopfY); kopfY += 4; }
-  if (FIRMA.steuernummer) {
-    doc.text(`Steuernr.: ${FIRMA.steuernummer}`, firmaX, kopfY);
-  }
-
-  doc.setDrawColor(22, 101, 52);
-  doc.setLineWidth(0.5);
-  doc.line(14, 40, 196, 40);
-
-  // ── Rechnungs-Meta-Block oben rechts ────────────────────────────────────────
+  // "Rechnung" Titel oben rechts
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0);
-  doc.text("RECHNUNG", 196, 18, { align: "right" });
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Rechnung", 196, 20, { align: "right" });
 
+  // Meta-Tabelle (Rechnungsnummer, Rechnungsdatum, Fällig am)
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(60);
-  doc.text(`Nr.: ${lieferung.rechnungNr}`, 196, 26, { align: "right" });
-  doc.text(`Datum: ${formatDatum(rechnungDatum)}`, 196, 31, { align: "right" });
-  doc.text(`Zahlungsziel: ${zahlungsziel} Tage`, 196, 36, { align: "right" });
-  doc.text(`Fällig: ${formatDatum(faelligDatum)}`, 196, 41, { align: "right" });
+  let metaY = 27;
+  const metaLabelX = 155;
+  const metaValueX = 196;
+  const drawMetaZeile = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelX, metaY, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueX, metaY, { align: "right" });
+    metaY += 5;
+  };
+  drawMetaZeile("Rechnungsnummer:", lieferung.rechnungNr ?? "—", true);
+  drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
+  drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
-  // ── Absender-Kleingedrucktes über Empfänger-Adresse ────────────────────────
+  // Dicke horizontale Trennlinie unter dem Kopf
+  const sepY = Math.max(metaY + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  // ── Empfänger-Block ─────────────────────────────────────────────────────────
+  let ey = sepY + 10;
   doc.setFontSize(7);
-  doc.setTextColor(120);
-  const absenderZeile = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean).join(" · ");
-  if (absenderZeile) doc.text(absenderZeile, 14, 50);
-
-  // ── Empfänger-Adressfeld (links, Fensterumschlag-Position) ─────────────────
-  doc.setFontSize(10);
-  doc.setTextColor(0);
-  doc.setFont("helvetica", "bold");
-  doc.text(k.firma ?? k.name, 14, 58);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  let ey = 63;
+  doc.setTextColor(...COL_LABEL);
+  doc.text("RECHNUNGSEMPFÄNGER", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_TEXT);
   if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
   if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
-  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+  if (k.plz || k.ort) {
+    doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey);
+    ey += 5;
+  }
 
-  // Betreff
-  doc.setFontSize(10);
+  // ── Betreff ─────────────────────────────────────────────────────────────────
+  ey += 8;
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0);
-  doc.text(`Rechnung ${lieferung.rechnungNr}`, 14, ey + 6);
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Rechnung ${lieferung.rechnungNr ?? ""}`.trim(), 14, ey);
+  ey += 6;
 
-  // ── Positionen mit Rabatt ───────────────────────────────────────────────────
+  // ── Positionen-Tabelle ──────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows = (lieferung.positionen as any[]).map((p, i) => {
+  const positionen = lieferung.positionen as any[];
+  const hatRabatt = positionen.some((p) => (p.rabattProzent ?? 0) > 0);
+
+  const head = hatRabatt
+    ? [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Rabatt %", "Gesamt"]]
+    : [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+
+  const body = positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
-    return [
+    const artikelZelle = `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
+    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+    const base = [
       String(i + 1),
-      p.artikel.name,
-      `${p.menge.toFixed(2)} ${p.artikel.einheit}`,
+      artikelZelle,
+      mengeStr,
+      p.artikel.einheit,
       formatEuro(p.verkaufspreis),
-      (p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "—",
-      formatEuro(netto),
-      `${p.artikel.mwstSatz ?? 19} %`,
     ];
+    if (hatRabatt) {
+      base.push((p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "");
+    }
+    base.push(formatEuro(netto));
+    return base;
   });
 
   autoTable(doc, {
-    startY: ey + 12,
-    head: [["Pos.", "Bezeichnung", "Menge", "Einzel (€)", "Rabatt", "Gesamt (€)", "MwSt"]],
-    body: rows,
-    headStyles: { fillColor: [22, 101, 52] },
-    styles: { fontSize: 9 },
-    columnStyles: {
-      0: { cellWidth: 10 },
-      2: { halign: "right" },
-      3: { halign: "right" },
-      4: { halign: "right" },
-      5: { halign: "right" },
-      6: { halign: "right", cellWidth: 14 },
+    startY: ey + 2,
+    head,
+    body,
+    theme: "plain",
+    headStyles: {
+      fillColor: COL_TABLE_HEAD_BG,
+      textColor: [51, 51, 51],
+      fontStyle: "bold",
+      lineColor: [51, 51, 51],
+      lineWidth: 0.3,
     },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: {
+      fontSize: 9,
+      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 },
+      lineColor: [221, 221, 221],
+      lineWidth: 0.1,
+      textColor: [0, 0, 0],
+      valign: "top",
+    },
+    columnStyles: hatRabatt
+      ? {
+          0: { cellWidth: 12 },
+          1: { cellWidth: "auto" },
+          2: { halign: "right", cellWidth: 18 },
+          3: { cellWidth: 16 },
+          4: { halign: "right", cellWidth: 24 },
+          5: { halign: "right", cellWidth: 18 },
+          6: { halign: "right", cellWidth: 26 },
+        }
+      : {
+          0: { cellWidth: 12 },
+          1: { cellWidth: "auto" },
+          2: { halign: "right", cellWidth: 20 },
+          3: { cellWidth: 18 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "right", cellWidth: 28 },
+        },
   });
 
-  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
 
-  // ── Summen (nach MwSt-Satz gruppiert, mit Rabatt) ──────────────────────────
+  // ── Summenblock rechtsbündig ────────────────────────────────────────────────
   const mwstGruppen = new Map<number, number>();
   let nettoGesamt = 0;
-  for (const p of lieferung.positionen) {
+  for (const p of positionen) {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     nettoGesamt += netto;
     const satz = p.artikel.mwstSatz ?? 19;
@@ -184,49 +317,54 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   }
   const brutto = nettoGesamt + mwstGesamt;
 
-  doc.setFontSize(9);
-  doc.setTextColor(0);
-  const sumX = 140;
-  let sumY = finalY;
-  doc.text("Nettobetrag:", sumX, sumY);
-  doc.text(formatEuro(nettoGesamt), 196, sumY, { align: "right" });
-  sumY += 6;
+  const sumLabelX = 140;
+  const sumValueX = 196;
+  let sumY = finalY + 2;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(68);
+  doc.text("Nettobetrag:", sumLabelX, sumY);
+  doc.setTextColor(...COL_TEXT);
+  doc.text(formatEuro(nettoGesamt), sumValueX, sumY, { align: "right" });
+  sumY += 5.5;
 
   const sortedSaetze = Array.from(mwstGruppen.entries()).sort(([a], [b]) => a - b);
   for (const [satz, basis] of sortedSaetze) {
-    doc.text(`MwSt. ${satz} %:`, sumX, sumY);
-    doc.text(formatEuro(basis * (satz / 100)), 196, sumY, { align: "right" });
-    sumY += 6;
+    doc.setTextColor(68);
+    doc.text(`MwSt ${satz} %:`, sumLabelX, sumY);
+    doc.setTextColor(...COL_TEXT);
+    doc.text(formatEuro(basis * (satz / 100)), sumValueX, sumY, { align: "right" });
+    sumY += 5.5;
   }
 
-  doc.setLineWidth(0.4);
-  doc.line(sumX, sumY, 196, sumY);
-  sumY += 7;
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.5);
+  doc.line(sumLabelX, sumY, sumValueX, sumY);
+  sumY += 6;
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text("Bruttobetrag:", sumX, sumY);
-  doc.text(formatEuro(brutto), 196, sumY, { align: "right" });
+  doc.setFontSize(12);
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Bruttobetrag:", sumLabelX, sumY);
+  doc.text(formatEuro(brutto), sumValueX, sumY, { align: "right" });
+  sumY += 8;
 
-  // ── Zahlungsinformation ─────────────────────────────────────────────────────
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(60);
-  doc.text(
-    `Bitte überweisen Sie ${formatEuro(brutto)} bis ${formatDatum(faelligDatum)} unter Angabe der Rechnungsnummer ${lieferung.rechnungNr}.`,
-    14, sumY + 14,
-    { maxWidth: 120 },
-  );
-  if (FIRMA.iban) {
-    const bankZeile = [
-      FIRMA.bank && `Bank: ${FIRMA.bank}`,
-      `IBAN: ${FIRMA.iban}`,
-      FIRMA.bic && `BIC: ${FIRMA.bic}`,
-    ].filter(Boolean).join("  ·  ");
-    doc.text(bankZeile, 14, sumY + 24);
-  }
+  // ── Zahlungsinformationen Box ───────────────────────────────────────────────
+  const boxX = 14;
+  const boxY = sumY + 4;
+  const boxW = 182;
+  const boxH = 32;
 
-  // ── GiroCode (EPC-QR-Code) für SEPA-Überweisung ────────────────────────────
-  if (FIRMA.iban) {
+  // Hintergrund + Rahmen
+  doc.setDrawColor(...COL_BOX_BORDER);
+  doc.setFillColor(...COL_BOX_BG);
+  doc.setLineWidth(0.2);
+  doc.roundedRect(boxX, boxY, boxW, boxH, 1.5, 1.5, "FD");
+
+  // GiroCode optional rechts in der Box
+  let giroCodeRendered = false;
+  if (FIRMA.iban && FIRMA.name) {
     const giroCode = await erzeugeGiroCodeDataUrl({
       empfaenger: FIRMA.name,
       iban: FIRMA.iban,
@@ -236,40 +374,52 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     });
     if (giroCode) {
       try {
-        const qrX = 165;
-        const qrY = sumY + 8;
-        const qrSize = 28;
+        const qrSize = 26;
+        const qrX = boxX + boxW - qrSize - 4;
+        const qrY = boxY + 3;
         doc.addImage(giroCode, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
-        doc.setFontSize(7);
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(120);
         doc.text("Scan & Pay", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+        giroCodeRendered = true;
       } catch {
-        // Bild-Einbettung fehlgeschlagen – QR einfach weglassen
+        // Bild-Einbettung fehlgeschlagen – ignorieren
       }
     }
   }
 
-  // ── Fußzeile ─────────────────────────────────────────────────────────────────
-  doc.setDrawColor(200);
-  doc.setLineWidth(0.2);
-  doc.line(14, 278, 196, 278);
+  // Text in der Box links
+  const textMaxWidth = giroCodeRendered ? boxW - 40 : boxW - 8;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Zahlungsinformationen", boxX + 4, boxY + 6);
 
-  doc.setFontSize(7.5);
-  doc.setTextColor(120);
-  const footerFirma = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean).join(" · ");
-  if (footerFirma) doc.text(footerFirma, 14, 283);
-  const footerKontakt = [
-    FIRMA.telefon && `Tel: ${FIRMA.telefon}`,
-    FIRMA.email,
-    FIRMA.steuernummer && `St.-Nr.: ${FIRMA.steuernummer}`,
-  ].filter(Boolean).join(" · ");
-  if (footerKontakt) doc.text(footerKontakt, 14, 287);
-  const footerBank = [
-    FIRMA.bank,
-    FIRMA.iban && `IBAN: ${FIRMA.iban}`,
-    FIRMA.bic && `BIC: ${FIRMA.bic}`,
-  ].filter(Boolean).join(" · ");
-  if (footerBank) doc.text(footerBank, 14, 291);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(51);
+  const zahlText =
+    `Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} bis zum ${formatDatum(faelligDatum)} ` +
+    `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}.`;
+  const zahlLines = doc.splitTextToSize(zahlText, textMaxWidth) as string[];
+  zahlLines.forEach((line, i) => doc.text(line, boxX + 4, boxY + 12 + i * 4));
+
+  const bankZeile1 = FIRMA.bank ? `Bank: ${FIRMA.bank}` : "";
+  const bankZeile2 = [
+    FIRMA.iban ? `IBAN: ${FIRMA.iban}` : "",
+    FIRMA.bic ? `BIC: ${FIRMA.bic}` : "",
+  ].filter(Boolean).join("    ");
+  const bankStartY = boxY + 12 + zahlLines.length * 4 + 2;
+  if (bankZeile1) {
+    doc.text(bankZeile1, boxX + 4, bankStartY);
+  }
+  if (bankZeile2) {
+    doc.text(bankZeile2, boxX + 4, bankStartY + (bankZeile1 ? 4 : 0));
+  }
+
+  // ── Dokument-Footer (3-spaltig) ─────────────────────────────────────────────
+  zeichneDokumentFooter(doc, footerSpalten);
 
   return Buffer.from(doc.output("arraybuffer"));
 }
