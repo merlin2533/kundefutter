@@ -301,20 +301,29 @@ function KiWareneingangWizard() {
   // ---- Step 4: Booking -----------------------------------------------------
 
   const handleBook = async () => {
-    setBooking(true);
     setBookError("");
+    if (!lieferantId) {
+      setBookError("Bitte einen Lieferanten auswählen.");
+      return;
+    }
+    const bookPositionen = positionen
+      .filter((p) => p.artikelId)
+      .map((p) => ({
+        artikelId: parseInt(p.artikelId, 10),
+        menge: p.menge,
+        einkaufspreis: p.einkaufspreis,
+      }));
+    if (bookPositionen.length === 0) {
+      setBookError("Keine gültigen Positionen zum Buchen.");
+      return;
+    }
+    setBooking(true);
     try {
       const payload = {
-        lieferantId: lieferantId ? parseInt(lieferantId, 10) : undefined,
+        lieferantId: parseInt(lieferantId, 10),
         datum: datum ? new Date(datum).toISOString() : new Date().toISOString(),
         notiz,
-        positionen: positionen
-          .filter((p) => p.artikelId)
-          .map((p) => ({
-            artikelId: parseInt(p.artikelId, 10),
-            menge: p.menge,
-            einkaufspreis: p.einkaufspreis,
-          })),
+        positionen: bookPositionen,
       };
       const res = await fetch("/api/lager/wareneingaenge", {
         method: "POST",
@@ -679,6 +688,12 @@ function KiWareneingangWizard() {
             )}
           </div>
 
+          {!lieferantId && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+              Bitte wählen Sie einen Lieferanten aus — dieser ist zum Speichern erforderlich.
+            </div>
+          )}
+
           <div className="flex justify-between">
             <button
               onClick={() => setStep(1)}
@@ -688,7 +703,8 @@ function KiWareneingangWizard() {
             </button>
             <button
               onClick={() => setStep(3)}
-              className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-semibold text-sm hover:bg-green-800 transition-colors"
+              disabled={!lieferantId || gueltigePositionen.length === 0}
+              className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-semibold text-sm hover:bg-green-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Weiter →
             </button>
@@ -790,6 +806,12 @@ function KiWareneingangWizard() {
             </div>
           )}
 
+          {!lieferantId && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+              Kein Lieferant ausgewählt — bitte zurück zu Schritt 3 gehen und einen Lieferanten wählen.
+            </div>
+          )}
+
           {bookError && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
               {bookError}
@@ -806,8 +828,8 @@ function KiWareneingangWizard() {
             </button>
             <button
               onClick={handleBook}
-              disabled={booking || gueltigePositionen.length === 0}
-              className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 transition-colors disabled:opacity-40 flex items-center gap-2"
+              disabled={booking || gueltigePositionen.length === 0 || !lieferantId}
+              className="px-6 py-2.5 rounded-lg bg-green-700 text-white font-bold text-sm hover:bg-green-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {booking && <Spinner />}
               {booking ? "Wird gebucht…" : "Wareneingang buchen"}
