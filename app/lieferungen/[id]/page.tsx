@@ -19,6 +19,7 @@ interface Position {
 interface Lieferung {
   id: number;
   datum: string;
+  lieferDatum?: string | null;
   status: string;
   notiz?: string;
   rechnungNr?: string;
@@ -42,6 +43,8 @@ export default function LieferungDetailPage() {
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
   const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
+  const [lieferDatumEdit, setLieferDatumEdit] = useState<string>("");
+  const [lieferDatumSaved, setLieferDatumSaved] = useState(false);
   const [rechnungNrEdit, setRechnungNrEdit] = useState<string>("");
   const [rechnungNrEditing, setRechnungNrEditing] = useState(false);
   const [rechnungNrError, setRechnungNrError] = useState("");
@@ -55,6 +58,10 @@ export default function LieferungDetailPage() {
     const data = await res.json();
     setLieferung(data);
     setZahlungszielEdit(String(data.zahlungsziel ?? 30));
+    // Datepicker-Format (YYYY-MM-DD) – Fallback auf Standard-Lieferdatum
+    const lieferBasis = data.lieferDatum ?? data.datum;
+    setLieferDatumEdit(lieferBasis ? new Date(lieferBasis).toISOString().slice(0, 10) : "");
+    setLieferDatumSaved(false);
     setRechnungNrEdit(data.rechnungNr ?? "");
     setRechnungNrEditing(false);
     setRechnungNrError("");
@@ -192,6 +199,34 @@ export default function LieferungDetailPage() {
       await load();
     } catch {
       setError("Fehler beim Speichern des Zahlungsziels.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function speichereLieferDatum() {
+    setActionLoading(true);
+    setError("");
+    setLieferDatumSaved(false);
+    try {
+      // Leerer String → Lieferdatum zurücksetzen (Fallback auf datum)
+      const payload: { lieferDatum: string | null } = {
+        lieferDatum: lieferDatumEdit.trim() === "" ? null : new Date(lieferDatumEdit).toISOString(),
+      };
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setLieferDatumSaved(true);
+      setTimeout(() => setLieferDatumSaved(false), 2000);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Fehler beim Speichern des Lieferdatums.");
     } finally {
       setActionLoading(false);
     }
@@ -472,6 +507,28 @@ export default function LieferungDetailPage() {
                 )}
               </div>
             )}
+            <div className="mt-2 flex items-center gap-2 text-sm flex-wrap">
+              <label className="text-gray-600 whitespace-nowrap">Lieferdatum:</label>
+              <input
+                type="date"
+                value={lieferDatumEdit}
+                onChange={(e) => setLieferDatumEdit(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+              />
+              <button
+                onClick={speichereLieferDatum}
+                disabled={actionLoading}
+                className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
+              >
+                Speichern
+              </button>
+              {lieferDatumSaved && (
+                <span className="text-xs text-green-700">✓ gespeichert</span>
+              )}
+              {!lieferung.lieferDatum && (
+                <span className="text-xs text-gray-400">(Standard: Erfassungsdatum {formatDatum(lieferung.datum)})</span>
+              )}
+            </div>
             {istGeliefert && (
               <div className="mt-2 flex items-center gap-2 text-sm">
                 <label className="text-gray-600 whitespace-nowrap">Zahlungsziel:</label>

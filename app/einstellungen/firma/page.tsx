@@ -22,7 +22,11 @@ interface FirmaSettings {
   "dokument.footer.links": string;
   "dokument.footer.mitte": string;
   "dokument.footer.rechts": string;
+  "dokument.rechnung.eigentumsvorbehalt": string;
 }
+
+const EIGENTUMSVORBEHALT_DEFAULT =
+  "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
 
 const DEFAULT_VALUES: FirmaSettings = {
   "firma.name": "",
@@ -43,6 +47,7 @@ const DEFAULT_VALUES: FirmaSettings = {
   "dokument.footer.links": "",
   "dokument.footer.mitte": "",
   "dokument.footer.rechts": "",
+  "dokument.rechnung.eigentumsvorbehalt": "",
 };
 
 const SECTIONS = [
@@ -132,7 +137,8 @@ export default function FirmaPage() {
     try {
       const [r1, r2] = await Promise.all([
         fetch("/api/einstellungen"),
-        fetch("/api/einstellungen?prefix=dokument.footer"),
+        // Lädt dokument.footer.* UND dokument.rechnung.eigentumsvorbehalt
+        fetch("/api/einstellungen?prefix=dokument."),
       ]);
       const d1 = await r1.json();
       const d2 = await r2.json();
@@ -167,6 +173,7 @@ export default function FirmaPage() {
         "dokument.footer.links",
         "dokument.footer.mitte",
         "dokument.footer.rechts",
+        "dokument.rechnung.eigentumsvorbehalt",
       ];
       await Promise.all(
         allKeys.map((key) =>
@@ -293,6 +300,48 @@ export default function FirmaPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Rechnungs-Hinweis (Eigentumsvorbehalt o.ä.) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Rechnungs-Hinweis</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Erscheint klein gedruckt am unteren Rand jeder Rechnung (über dem Footer).
+                Leer lassen = Standardtext (Eigentumsvorbehalt).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  "dokument.rechnung.eigentumsvorbehalt": EIGENTUMSVORBEHALT_DEFAULT,
+                }))
+              }
+              className="text-xs px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors whitespace-nowrap"
+            >
+              Standard befüllen
+            </button>
+          </div>
+          <div className="p-5">
+            <textarea
+              rows={3}
+              value={form["dokument.rechnung.eigentumsvorbehalt"]}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  "dokument.rechnung.eigentumsvorbehalt": e.target.value,
+                }))
+              }
+              placeholder={EIGENTUMSVORBEHALT_DEFAULT}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+            />
+            <p className="text-xs text-gray-400 mt-2">
+              Beispiel: {EIGENTUMSVORBEHALT_DEFAULT}
+            </p>
           </div>
         </div>
 

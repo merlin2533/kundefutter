@@ -60,6 +60,9 @@ export async function GET(req: NextRequest) {
       const data: ZugferdData = {
         rechnungNr: lieferung.rechnungNr,
         datum: rechnungDatum,
+        lieferDatum: lieferung.lieferDatum
+          ? new Date(lieferung.lieferDatum)
+          : new Date(lieferung.datum),
         zahlungsziel: lieferung.zahlungsziel ?? 30,
         firma,
         kunde: {

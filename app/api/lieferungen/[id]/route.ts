@@ -137,6 +137,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (!d) throw new Error("Ungültiges Datum");
       updateData.datum = d;
     }
+    if (data.lieferDatum !== undefined) {
+      if (data.lieferDatum === null || data.lieferDatum === "") {
+        updateData.lieferDatum = null;
+      } else {
+        const d = toValidDate(data.lieferDatum);
+        if (!d) throw new Error("Ungültiges Lieferdatum");
+        updateData.lieferDatum = d;
+      }
+    }
     if (data.bezahltAm !== undefined) {
       if (data.bezahltAm === null || data.bezahltAm === "") {
         updateData.bezahltAm = null;
