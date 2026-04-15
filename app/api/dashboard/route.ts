@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { lagerStatus, addTage } from "@/lib/utils";
 
 export async function GET() {
@@ -41,18 +40,18 @@ export async function GET() {
     }),
     // Nur kritische Artikel laden (Bestand <= Mindestbestand ODER <= 0),
     // nicht alle aktiven Artikel. Spart RAM + Query-Zeit bei großem Katalog.
-    prisma.$queryRaw<
+    prisma.$queryRawUnsafe<
       { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string }[]
-    >(Prisma.sql`
-      SELECT "id", "name", "aktuellerBestand", "mindestbestand", "einheit"
+    >(
+      `SELECT "id", "name", "aktuellerBestand", "mindestbestand", "einheit"
       FROM "Artikel"
       WHERE "aktiv" = 1
         AND ("aktuellerBestand" <= 0 OR "aktuellerBestand" < "mindestbestand")
       ORDER BY
         CASE WHEN "aktuellerBestand" <= 0 THEN 0 ELSE 1 END,
         "aktuellerBestand" ASC
-      LIMIT 20
-    `),
+      LIMIT 20`
+    ),
     prisma.lieferung.groupBy({
       by: ["kundeId"],
       where: { status: "geliefert", datum: { gte: monatsAnfang } },
@@ -78,6 +77,7 @@ export async function GET() {
         kunde: { select: { id: true, name: true, firma: true } },
         positionen: { select: { menge: true, verkaufspreis: true } },
       },
+      take: 100,
     }),
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
@@ -146,9 +146,9 @@ export async function GET() {
         kunde: { select: { id: true, name: true, firma: true } },
       },
     }),
-    // Gelieferte Lieferungen ohne Rechnung
+    // Gelieferte Lieferungen ohne Rechnung (weder Sammelrechnung noch eigene Rechnungsnr.)
     prisma.lieferung.findMany({
-      where: { status: "geliefert", sammelrechnungId: null },
+      where: { status: "geliefert", sammelrechnungId: null, rechnungNr: null },
       select: {
         id: true,
         datum: true,
