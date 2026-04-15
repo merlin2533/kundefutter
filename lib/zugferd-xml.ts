@@ -5,6 +5,7 @@
 export interface ZugferdData {
   rechnungNr: string;
   datum: Date;
+  lieferDatum?: Date; // tatsächliches Lieferdatum (optional, sonst = datum)
   zahlungsziel: number; // Tage
   firma: {
     name: string;
@@ -252,7 +253,13 @@ export function generateZugferdXml(data: ZugferdData): string {
       </ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
 
-    <ram:ApplicableHeaderTradeDelivery />
+    <ram:ApplicableHeaderTradeDelivery>
+      <ram:ActualDeliverySupplyChainEvent>
+        <ram:OccurrenceDateTime>
+          <udt:DateTimeString format="102">${fmtDate102(data.lieferDatum ?? data.datum)}</udt:DateTimeString>
+        </ram:OccurrenceDateTime>
+      </ram:ActualDeliverySupplyChainEvent>
+    </ram:ApplicableHeaderTradeDelivery>
 
     <ram:ApplicableHeaderTradeSettlement>
       <ram:PaymentReference>${esc(rechnungNr)}</ram:PaymentReference>

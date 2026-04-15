@@ -257,6 +257,7 @@ model Lieferung {
   id               Int      @id @default(autoincrement())
   kundeId          Int
   datum            DateTime @default(now())
+  lieferDatum      DateTime? // tatsächliches Lieferdatum (falls abweichend von datum) – erscheint auf der Rechnung
   status           String   @default("geplant") // geplant | geliefert | storniert
   stornoBegründung String?
   notiz            String?

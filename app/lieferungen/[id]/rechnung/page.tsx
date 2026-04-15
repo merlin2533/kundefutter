@@ -33,6 +33,7 @@ interface Kunde {
 interface Lieferung {
   id: number;
   datum: string;
+  lieferDatum?: string | null;
   rechnungNr?: string | null;
   rechnungDatum?: string | null;
   zahlungsziel?: number | null;
@@ -127,7 +128,7 @@ export default function RechnungPrintPage() {
     Promise.all([
       fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
       fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=dokument.").then((r) => r.json()),
     ]).then(([fd, ld, ftr]) => {
       setFirmaData(fd);
       if (ld["system.logo"]) setLogo(ld["system.logo"]);
@@ -259,6 +260,12 @@ export default function RechnungPrintPage() {
   const rechnungsDatumStr = lieferung.rechnungDatum
     ? formatDatum(lieferung.rechnungDatum)
     : formatDatum(lieferung.datum);
+  const lieferDatumStr = formatDatum(lieferung.lieferDatum ?? lieferung.datum);
+
+  const EIGENTUMSVORBEHALT_DEFAULT =
+    "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
+  const eigentumsvorbehaltText =
+    footerData["dokument.rechnung.eigentumsvorbehalt"]?.trim() || EIGENTUMSVORBEHALT_DEFAULT;
 
   const firmenname = firmaData["firma.name"] ?? firmaData["firma.firmenname"] ?? "";
   const firmaAdresse = firmaData["firma.strasse"] ?? firmaData["firma.adresse"] ?? "";
@@ -414,6 +421,10 @@ export default function RechnungPrintPage() {
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsdatum:</td>
                   <td>{rechnungsDatumStr}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Lieferdatum:</td>
+                  <td>{lieferDatumStr}</td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Fällig am:</td>
@@ -585,8 +596,22 @@ export default function RechnungPrintPage() {
           )}
         </div>
 
+        {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
+        <div
+          style={{
+            marginTop: "auto",
+            paddingTop: "12px",
+            fontSize: "7.5pt",
+            color: "#666",
+            fontStyle: "italic",
+            whiteSpace: "pre-line",
+          }}
+        >
+          {eigentumsvorbehaltText}
+        </div>
+
         {/* Footer – 3 Spalten */}
-        <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="auto" />
+        <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
       </div>
     </>
   );

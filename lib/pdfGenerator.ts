@@ -36,6 +36,21 @@ async function ladeLogo(): Promise<LogoDaten | null> {
   return { dataUrl: value, format };
 }
 
+const EIGENTUMSVORBEHALT_DEFAULT =
+  "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
+
+/**
+ * Lädt den rechtlichen Hinweis "Eigentumsvorbehalt" aus den Einstellungen.
+ * Fällt auf den Standardtext zurück.
+ */
+async function ladeEigentumsvorbehalt(): Promise<string> {
+  const row = await prisma.einstellung.findUnique({
+    where: { key: "dokument.rechnung.eigentumsvorbehalt" },
+  });
+  const value = row?.value?.trim();
+  return value && value.length > 0 ? value : EIGENTUMSVORBEHALT_DEFAULT;
+}
+
 /**
  * Lädt die dokument.footer.* Einstellungen oder fällt auf Firmendaten zurück.
  * Spiegelt die Logik von components/DokumentFooter.tsx – buildFooterColumns().
@@ -71,10 +86,12 @@ async function ladeFooterSpalten(firma: FirmaDaten): Promise<{ links: string; mi
 
 /**
  * Zeichnet den 3-spaltigen Dokument-Footer am unteren Seitenrand.
+ * Optional: direkt über dem Footer einen kleinen rechtlichen Hinweis (Eigentumsvorbehalt o.ä.).
  */
 function zeichneDokumentFooter(
   doc: jsPDF,
   spalten: { links: string; mitte: string; rechts: string },
+  hinweis?: string,
 ) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const left = 14;
@@ -92,6 +109,17 @@ function zeichneDokumentFooter(
   );
   const footerHoehe = maxZeilen * zeilenHoehe + 4;
   const footerY = pageHeight - footerHoehe - 8;
+
+  // Rechtlicher Hinweis über der Trennlinie (z.B. Eigentumsvorbehalt)
+  if (hinweis && hinweis.trim().length > 0) {
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(102);
+    const hinweisLines = doc.splitTextToSize(hinweis, width) as string[];
+    const hinweisHoehe = hinweisLines.length * 3;
+    const hinweisY = footerY - hinweisHoehe - 1;
+    hinweisLines.forEach((line, i) => doc.text(line, left, hinweisY + i * 3));
+  }
 
   // Trennlinie
   doc.setDrawColor(187);
@@ -131,6 +159,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   const FIRMA = await ladeFirmaDaten();
   const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const eigentumsvorbehalt = await ladeEigentumsvorbehalt();
   const logo = await ladeLogo();
   const doc = new jsPDF();
 
@@ -148,6 +177,9 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const zahlungsziel = lieferung.zahlungsziel ?? 30;
   const rechnungDatum = lieferung.rechnungDatum
     ? new Date(lieferung.rechnungDatum)
+    : new Date(lieferung.datum);
+  const lieferDatum = lieferung.lieferDatum
+    ? new Date(lieferung.lieferDatum)
     : new Date(lieferung.datum);
   const faelligDatum = new Date(rechnungDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
 
@@ -192,6 +224,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   };
   drawMetaZeile("Rechnungsnummer:", lieferung.rechnungNr ?? "—", true);
   drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
+  drawMetaZeile("Lieferdatum:", formatDatum(lieferDatum));
   drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
   // Dicke horizontale Trennlinie unter dem Kopf
@@ -418,8 +451,8 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.text(bankZeile2, boxX + 4, bankStartY + (bankZeile1 ? 4 : 0));
   }
 
-  // ── Dokument-Footer (3-spaltig) ─────────────────────────────────────────────
-  zeichneDokumentFooter(doc, footerSpalten);
+  // ── Dokument-Footer (3-spaltig) mit Eigentumsvorbehalt-Hinweis ───────────────
+  zeichneDokumentFooter(doc, footerSpalten, eigentumsvorbehalt);
 
   return Buffer.from(doc.output("arraybuffer"));
 }
