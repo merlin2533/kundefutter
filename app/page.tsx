@@ -303,10 +303,15 @@ export default function DashboardPage() {
 
   const loadData = () => {
     fetch("/api/dashboard")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((dashboard) => {
-        setData(dashboard);
-        setLastUpdated(new Date());
+        if (dashboard) {
+          setData(dashboard);
+          setLastUpdated(new Date());
+        }
       })
       .catch(() => {});
   };
