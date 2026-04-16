@@ -99,6 +99,13 @@ export default function ArtikelPage() {
     return bev?.lieferant.name ?? "–";
   }
 
+  function bevorzugterEK(a: Artikel): number | null {
+    const bev = a.lieferanten.find((l) => l.bevorzugt);
+    if (bev) return bev.einkaufspreis;
+    if (a.lieferanten.length === 1) return a.lieferanten[0].einkaufspreis;
+    return null;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
@@ -187,6 +194,7 @@ export default function ArtikelPage() {
                   { label: "Kategorie", cls: "hidden sm:table-cell" },
                   { label: "Einheit", cls: "hidden md:table-cell" },
                   { label: "Standardpreis", cls: "hidden sm:table-cell" },
+                  { label: "EK (bev.)", cls: "hidden md:table-cell" },
                   { label: "Bestand", cls: "" },
                   { label: "Ampel", cls: "" },
                   { label: "Lagerort", cls: "hidden lg:table-cell" },
@@ -220,6 +228,12 @@ export default function ArtikelPage() {
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600">{a.einheit}</td>
                     <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(a.standardpreis)}</td>
+                    <td className="hidden md:table-cell px-4 py-3 font-mono">
+                      {(() => {
+                        const ek = bevorzugterEK(a);
+                        return ek !== null ? formatEuro(ek) : <span className="text-gray-400">—</span>;
+                      })()}
+                    </td>
                     <td className="px-4 py-3 font-mono whitespace-nowrap">
                       {a.aktuellerBestand} {a.einheit}
                     </td>
