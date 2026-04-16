@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
-const EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag"];
+const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag", "Stunden"];
 
 const defaultForm = {
   name: "",
@@ -22,6 +22,7 @@ export default function NeuerArtikelPage() {
   const router = useRouter();
   const [form, setForm] = useState(defaultForm);
   const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
+  const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,6 +34,14 @@ export default function NeuerArtikelPage() {
           try {
             const parsed = JSON.parse(d["system.artikelkategorien"]);
             if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
+          } catch {
+            /* ignore */
+          }
+        }
+        if (d["system.einheiten"]) {
+          try {
+            const parsed = JSON.parse(d["system.einheiten"]);
+            if (Array.isArray(parsed) && parsed.length) setEinheiten(parsed);
           } catch {
             /* ignore */
           }
@@ -188,7 +197,7 @@ export default function NeuerArtikelPage() {
               onChange={(e) => setForm({ ...form, einheit: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
-              {EINHEITEN.map((e) => (
+              {einheiten.map((e) => (
                 <option key={e} value={e}>
                   {e}
                 </option>
