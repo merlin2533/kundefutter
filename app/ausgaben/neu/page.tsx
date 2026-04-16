@@ -156,7 +156,7 @@ export default function NeueAusgabePage() {
             maxResolution={1200}
           />
 
-          {belegPreview && (
+          {belegPreview && !belegPreview.startsWith("data:application/pdf") && (
             <button
               type="button"
               onClick={kiAnalyse}

@@ -84,8 +84,20 @@ export default function CameraUpload({
 
   const handleFile = useCallback(
     (file: File) => {
-      if (!file.type.startsWith("image/")) return;
       if (file.size > maxSizeMB * 1024 * 1024) return;
+
+      // PDFs pass through unresized and use a data URL as preview sentinel
+      if (file.type === "application/pdf") {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target?.result as string;
+          onImageSelected(file, dataUrl);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) return;
       const reader = new FileReader();
       reader.onload = async (e) => {
         const rawDataUrl = e.target?.result as string;
@@ -243,15 +255,26 @@ export default function CameraUpload({
 
   // Preview view
   if (imagePreview) {
+    const isPdf = imagePreview.startsWith("data:application/pdf") || /\.pdf$/i.test(imageName || "");
     return (
       <div className="space-y-3">
         <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center min-h-48">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imagePreview}
-            alt="Vorschau"
-            className="max-h-72 max-w-full object-contain"
-          />
+          {isPdf ? (
+            <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+              <svg className="w-16 h-16 text-red-500 mb-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 13h8v1H8v-1zm0 3h8v1H8v-1zm0-6h5v1H8v-1z" />
+              </svg>
+              <p className="text-sm font-medium text-gray-700 break-all">{imageName || "PDF-Dokument"}</p>
+              <p className="text-xs text-gray-400 mt-1">PDF-Datei</p>
+            </div>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={imagePreview}
+              alt="Vorschau"
+              className="max-h-72 max-w-full object-contain"
+            />
+          )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-sm text-gray-600 truncate flex-1 min-w-0">{imageName}</span>
@@ -269,13 +292,13 @@ export default function CameraUpload({
             onClick={() => fileInputRef.current?.click()}
             className="text-xs text-green-700 hover:underline shrink-0"
           >
-            Anderes Bild
+            Andere Datei
           </button>
         </div>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -331,9 +354,9 @@ export default function CameraUpload({
         </svg>
         <div className="text-center">
           <p className="text-sm font-medium text-gray-700">
-            Bild hier ablegen oder <span className="text-green-700 underline">Datei auswählen</span>
+            Datei hier ablegen oder <span className="text-green-700 underline">Datei auswählen</span>
           </p>
-          <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC</p>
+          <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC, PDF</p>
         </div>
       </div>
 
@@ -361,7 +384,7 @@ export default function CameraUpload({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
