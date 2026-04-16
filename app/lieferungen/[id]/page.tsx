@@ -50,6 +50,9 @@ export default function LieferungDetailPage() {
   const [rechnungNrError, setRechnungNrError] = useState("");
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
+  const [rabattEditId, setRabattEditId] = useState<number | null>(null);
+  const [rabattEditValue, setRabattEditValue] = useState<string>("");
+  const [rabattSavingId, setRabattSavingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -66,6 +69,38 @@ export default function LieferungDetailPage() {
     setRechnungNrEditing(false);
     setRechnungNrError("");
     setLoading(false);
+  }
+
+  function startRabattEdit(pos: Position) {
+    if (lieferung && (lieferung.status === "storniert" || lieferung.rechnungNr)) return;
+    setRabattEditId(pos.id);
+    setRabattEditValue(String(pos.rabattProzent ?? 0));
+  }
+
+  async function commitRabattEdit(posId: number) {
+    const raw = rabattEditValue.trim().replace(",", ".");
+    const neu = parseFloat(raw);
+    if (isNaN(neu) || neu < 0 || neu > 100) {
+      alert("Rabatt muss zwischen 0 und 100 liegen");
+      return;
+    }
+    setRabattSavingId(posId);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rabattProzent: neu }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error ?? "Fehler beim Speichern");
+        return;
+      }
+      setRabattEditId(null);
+      await load();
+    } finally {
+      setRabattSavingId(null);
+    }
   }
 
   async function speichereRechnungNr() {
@@ -663,9 +698,61 @@ export default function LieferungDetailPage() {
                   <td className="px-4 py-3 text-gray-600">{pos.artikel.einheit}</td>
                   <td className="px-4 py-3 font-mono">{formatEuro(pos.verkaufspreis)}</td>
                   <td className="px-4 py-3 text-xs">
-                    {pos.rabattProzent && pos.rabattProzent > 0 ? (
-                      <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{pos.rabattProzent}%</span>
-                    ) : "—"}
+                    {rabattEditId === pos.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          autoFocus
+                          value={rabattEditValue}
+                          onChange={(e) => setRabattEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              commitRabattEdit(pos.id);
+                            } else if (e.key === "Escape") {
+                              setRabattEditId(null);
+                            }
+                          }}
+                          className="w-16 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button
+                          onClick={() => commitRabattEdit(pos.id)}
+                          disabled={rabattSavingId === pos.id}
+                          className="text-green-700 hover:text-green-900 text-xs font-medium"
+                        >
+                          {rabattSavingId === pos.id ? "…" : "✓"}
+                        </button>
+                        <button
+                          onClick={() => setRabattEditId(null)}
+                          className="text-gray-400 hover:text-gray-600 text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startRabattEdit(pos)}
+                        disabled={lieferung.status === "storniert" || !!lieferung.rechnungNr}
+                        className="hover:underline disabled:no-underline disabled:cursor-not-allowed"
+                        title={
+                          lieferung.rechnungNr
+                            ? "Rechnung bereits erstellt – Rabatt nicht mehr änderbar"
+                            : lieferung.status === "storniert"
+                            ? "Lieferung storniert"
+                            : "Rabatt bearbeiten"
+                        }
+                      >
+                        {pos.rabattProzent && pos.rabattProzent > 0 ? (
+                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{pos.rabattProzent}%</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>
                   <td className="px-4 py-3 font-mono">{formatEuro(margeEuro)}</td>

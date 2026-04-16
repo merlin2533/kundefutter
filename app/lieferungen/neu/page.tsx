@@ -10,6 +10,11 @@ interface Kunde {
   firma?: string;
 }
 
+interface ArtikelLieferantInfo {
+  einkaufspreis: number;
+  bevorzugt: boolean;
+}
+
 interface Artikel {
   id: number;
   name: string;
@@ -18,6 +23,18 @@ interface Artikel {
   einkaufspreis?: number;
   aktuellerBestand: number;
   mindestbestand: number;
+  lieferanten?: ArtikelLieferantInfo[];
+}
+
+/** EK aus bevorzugtem Lieferanten, sonst einzigem Lieferanten, sonst 0 */
+function resolveEK(art: Artikel | undefined): number {
+  if (!art) return 0;
+  if (art.lieferanten?.length) {
+    const bev = art.lieferanten.find((l) => l.bevorzugt);
+    if (bev) return bev.einkaufspreis;
+    if (art.lieferanten.length === 1) return art.lieferanten[0].einkaufspreis;
+  }
+  return art.einkaufspreis ?? 0;
 }
 
 function LagerAmpel({ art }: { art: Artikel | undefined }) {
@@ -145,7 +162,7 @@ function NeueLieferungInner() {
                     artikelId: pos.artikelId,
                     menge: String(pos.menge),
                     verkaufspreis: String(Math.round(vkPreis * 100) / 100),
-                    einkaufspreis: String(art?.einkaufspreis ?? 0),
+                    einkaufspreis: String(resolveEK(art)),
                     chargeNr: "",
                   };
                 }));
@@ -177,7 +194,7 @@ function NeueLieferungInner() {
           const art = artikel.find((a) => a.id === next.artikelId);
           if (art) {
             next.verkaufspreis = String(art.standardpreis);
-            next.einkaufspreis = String(art.einkaufspreis ?? 0);
+            next.einkaufspreis = String(resolveEK(art));
           } else {
             next.verkaufspreis = "";
             next.einkaufspreis = "";
