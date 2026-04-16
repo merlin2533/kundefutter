@@ -17,17 +17,18 @@ interface Kunde {
   firma?: string;
 }
 
-const ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 export default function NeuerMengenrabattPage() {
   const router = useRouter();
 
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [kunden, setKunden] = useState<Kunde[]>([]);
+  const [artikelKategorien, setArtikelKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
 
   const [formMode, setFormMode] = useState<"artikel" | "kategorie">("artikel");
   const [formArtikelId, setFormArtikelId] = useState("");
-  const [formKategorie, setFormKategorie] = useState(ARTIKEL_KATEGORIEN[0]);
+  const [formKategorie, setFormKategorie] = useState(FALLBACK_KATEGORIEN[0]);
   const [formKundeId, setFormKundeId] = useState("");
   const [formVonMenge, setFormVonMenge] = useState("");
   const [formRabattProzent, setFormRabattProzent] = useState("");
@@ -41,6 +42,22 @@ export default function NeuerMengenrabattPage() {
     fetch("/api/kunden")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []));
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.artikelkategorien"]) {
+          try {
+            const parsed = JSON.parse(d["system.artikelkategorien"]);
+            if (Array.isArray(parsed) && parsed.length) {
+              setArtikelKategorien(parsed);
+              setFormKategorie(parsed[0]);
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -166,7 +183,7 @@ export default function NeuerMengenrabattPage() {
               onChange={(e) => setFormKategorie(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
-              {ARTIKEL_KATEGORIEN.map((k) => (
+              {artikelKategorien.map((k) => (
                 <option key={k} value={k}>
                   {k}
                 </option>
