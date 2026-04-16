@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 const EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag"];
 
 const defaultForm = {
@@ -21,8 +21,25 @@ const defaultForm = {
 export default function NeuerArtikelPage() {
   const router = useRouter();
   const [form, setForm] = useState(defaultForm);
+  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.artikelkategorien"]) {
+          try {
+            const parsed = JSON.parse(d["system.artikelkategorien"]);
+            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Inhaltsstoffe
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
@@ -155,7 +172,7 @@ export default function NeuerArtikelPage() {
               onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
-              {KATEGORIEN.map((k) => (
+              {kategorien.map((k) => (
                 <option key={k} value={k}>
                   {k === "Duenger" ? "D\u00FCnger" : k}
                 </option>

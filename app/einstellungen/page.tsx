@@ -73,6 +73,12 @@ export default function EinstellungenPage() {
           description="Kundenkategorien, Mitarbeiter, Lieferanten-Einstellungen"
         />
         <EinstellungTile
+          href="/einstellungen/artikelkategorien"
+          icon="🏷️"
+          title="Artikelkategorien"
+          description="Artikel-Kategorien anlegen, umbenennen und löschen"
+        />
+        <EinstellungTile
           href="/einstellungen/lieferanten"
           icon="🚚"
           title="Lieferanten"

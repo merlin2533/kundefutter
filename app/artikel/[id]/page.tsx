@@ -77,7 +77,7 @@ interface Lieferant {
 }
 
 const EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück", "BigBag"];
-const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
@@ -89,6 +89,7 @@ export default function ArtikelDetailPage() {
   const router = useRouter();
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
+  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
 
@@ -158,6 +159,22 @@ export default function ArtikelDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchArtikel(); }, [fetchArtikel]);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.artikelkategorien"]) {
+          try {
+            const parsed = JSON.parse(d["system.artikelkategorien"]);
+            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (tab === "preishistorie" && preishistorie.length === 0) {
@@ -555,7 +572,7 @@ export default function ArtikelDetailPage() {
                     onChange={(e) => setEditForm({ ...editForm, kategorie: e.target.value })}
                     className={inputCls}
                   >
-                    {KATEGORIEN.map((k) => (
+                    {kategorien.map((k) => (
                       <option key={k} value={k}>{k === "Duenger" ? "Dünger" : k}</option>
                     ))}
                   </select>

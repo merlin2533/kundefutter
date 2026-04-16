@@ -28,11 +28,12 @@ interface Artikel {
   lieferanten: ArtikelLieferant[];
 }
 
-const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
+  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
@@ -55,6 +56,22 @@ export default function ArtikelPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, kategorie]);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.artikelkategorien"]) {
+          try {
+            const parsed = JSON.parse(d["system.artikelkategorien"]);
+            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -138,7 +155,7 @@ export default function ArtikelPage() {
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-700"
         />
         <div className="flex gap-1">
-          {["alle", ...KATEGORIEN].map((k) => (
+          {["alle", ...kategorien].map((k) => (
             <button
               key={k}
               onClick={() => setKategorie(k)}
