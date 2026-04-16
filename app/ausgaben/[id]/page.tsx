@@ -210,11 +210,30 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           <label className="block text-sm font-medium mb-2">Beleg (Foto / Upload)</label>
 
           {/* Bereits gespeicherter Beleg */}
-          {belegPfad && !belegPreview && (
+          {belegPfad && !belegPreview && (() => {
+            const isPdf = /\.pdf$/i.test(belegPfad);
+            return (
             <div className="space-y-2">
               <div className="border rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center min-h-48">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={belegPfad} alt="Beleg" className="max-h-72 max-w-full object-contain" />
+                {isPdf ? (
+                  <a
+                    href={belegPfad}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center justify-center py-8 px-4 text-center hover:bg-gray-100 w-full"
+                  >
+                    <svg className="w-16 h-16 text-red-500 mb-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 13h8v1H8v-1zm0 3h8v1H8v-1zm0-6h5v1H8v-1z" />
+                    </svg>
+                    <p className="text-sm font-medium text-blue-700 underline break-all">
+                      {belegDateiname || belegPfad.split("/").pop()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">PDF öffnen</p>
+                  </a>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={belegPfad} alt="Beleg" className="max-h-72 max-w-full object-contain" />
+                )}
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-xs text-gray-500 flex-1 truncate">{belegDateiname || belegPfad.split("/").pop()}</span>
@@ -223,19 +242,22 @@ export default function AusgabeDetailPage({ params }: Ctx) {
                 <button type="button" onClick={belegLoeschen}
                   className="text-xs text-red-500 hover:underline shrink-0">Löschen</button>
               </div>
-              <button
-                type="button"
-                onClick={kiAnalyse}
-                disabled={kiLaeding}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
-              >
-                {kiLaeding ? (
-                  <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
-                ) : <span>🤖</span>}
-                {kiLaeding ? "KI analysiert…" : "KI: Felder automatisch ausfüllen"}
-              </button>
+              {!isPdf && (
+                <button
+                  type="button"
+                  onClick={kiAnalyse}
+                  disabled={kiLaeding}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+                >
+                  {kiLaeding ? (
+                    <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
+                  ) : <span>🤖</span>}
+                  {kiLaeding ? "KI analysiert…" : "KI: Felder automatisch ausfüllen"}
+                </button>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* Neues Bild auswählen / hochladen */}
           {(!belegPfad || belegPreview) && (
@@ -255,17 +277,19 @@ export default function AusgabeDetailPage({ params }: Ctx) {
               />
               {belegPreview && belegPreview !== "__replace__" && (
                 <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={kiAnalyse}
-                    disabled={kiLaeding}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
-                  >
-                    {kiLaeding ? (
-                      <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
-                    ) : <span>🤖</span>}
-                    {kiLaeding ? "Analysiert…" : "KI-Analyse"}
-                  </button>
+                  {!belegPreview.startsWith("data:application/pdf") && (
+                    <button
+                      type="button"
+                      onClick={kiAnalyse}
+                      disabled={kiLaeding}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded border border-purple-300 bg-purple-50 text-purple-700 text-sm font-medium hover:bg-purple-100 disabled:opacity-50"
+                    >
+                      {kiLaeding ? (
+                        <span className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full" />
+                      ) : <span>🤖</span>}
+                      {kiLaeding ? "Analysiert…" : "KI-Analyse"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={belegUploadSofort}

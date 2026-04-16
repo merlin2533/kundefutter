@@ -47,8 +47,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (file.size > 20 * 1024 * 1024) {
       return NextResponse.json({ error: "Datei zu groß (max. 20 MB)" }, { status: 413 });
     }
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Nur Bilddateien erlaubt" }, { status: 400 });
+    const isPdf = file.type === "application/pdf";
+    if (!isPdf && !file.type.startsWith("image/")) {
+      return NextResponse.json({ error: "Nur Bild- oder PDF-Dateien erlaubt" }, { status: 400 });
     }
 
     // Build year-based directory and descriptive filename
@@ -56,7 +57,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const year = datum.getFullYear();
     const prefix = datumPrefix(datum);
     const slug = slugify(ausgabe.belegNr || ausgabe.beschreibung || String(id));
-    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const ext = isPdf
+      ? "pdf"
+      : file.type === "image/png"
+      ? "png"
+      : file.type === "image/webp"
+      ? "webp"
+      : "jpg";
     const filename = `${prefix}_${id}_${slug}.${ext}`;
 
     const uploadDir = path.join(process.cwd(), "public", "uploads", "belege", String(year));
