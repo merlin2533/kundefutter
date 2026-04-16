@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten";
 
-const DEFAULT_EINHEITEN = ["kg", "t", "l", "Stk", "Sack", "Palette"];
+const DEFAULT_EINHEITEN = ["kg", "t", "l", "Stk", "Sack", "Palette", "Stunden"];
 
 function EditableList({
   title,
