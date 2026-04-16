@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
+const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 const EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag"];
 
 const defaultForm = {

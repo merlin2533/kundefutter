@@ -17,7 +17,7 @@ interface Kunde {
   firma?: string;
 }
 
-const ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
+const ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 export default function NeuerMengenrabattPage() {
   const router = useRouter();
