@@ -52,9 +52,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (data.status !== undefined && data.status !== alt.status) {
       const erlaubteUebergaenge: Record<string, string[]> = {
         geplant: ["geliefert", "storniert"],
-        geliefert: ["storniert"],
+        geliefert: ["storniert", "geplant"],
         storniert: [],
       };
+      // Zurück zu geplant nur wenn noch keine Rechnung erstellt wurde
+      if (data.status === "geplant" && alt.rechnungNr) {
+        throw new Error("Lieferung hat bereits eine Rechnung und kann nicht wieder geöffnet werden.");
+      }
       const erlaubt = erlaubteUebergaenge[alt.status] ?? [];
       if (!erlaubt.includes(data.status)) {
         throw new Error(`Statuswechsel von "${alt.status}" nach "${data.status}" ist nicht erlaubt`);

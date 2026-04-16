@@ -618,6 +618,32 @@ export default function LieferungDetailPage() {
 
             {lieferung.status === "geliefert" && (
               <>
+                {!lieferung.rechnungNr && (
+                  <button
+                    onClick={async () => {
+                      setActionLoading(true);
+                      setError("");
+                      try {
+                        const res = await fetch(`/api/lieferungen/${id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ status: "geplant" }),
+                        });
+                        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Fehler");
+                        await load();
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : "Fehler beim Zurücksetzen.");
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    className="p-2 bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 rounded-lg transition-colors disabled:opacity-60"
+                    title="Wieder öffnen (zurück zu Geplant)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                  </button>
+                )}
                 {!istBezahlt && (
                   <button
                     onClick={markiereBezahlt}

@@ -68,6 +68,20 @@ export default function EmailEinstellungenPage() {
   async function testConnection() {
     setTesting(true);
     setTestMsg("");
+    // Erst speichern, damit der Test die aktuellen Formulardaten aus der DB liest
+    try {
+      for (const feld of FELDER) {
+        await fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: feld.key, value: values[feld.key] }),
+        });
+      }
+    } catch {
+      setTestMsg("✗ Fehler beim Speichern der Einstellungen vor dem Test");
+      setTesting(false);
+      return;
+    }
     try {
       const res = await fetch("/api/einstellungen/smtp-test", { method: "POST" });
       const data = await res.json() as { ok?: boolean; error?: string };
