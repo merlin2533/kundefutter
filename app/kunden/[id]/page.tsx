@@ -2355,6 +2355,7 @@ interface KundeNotiz {
 function NotizenTab({ kundeId }: { kundeId: number }) {
   const { showToast } = useToast();
   const [notizen, setNotizen] = useState<KundeNotiz[]>([]);
+  const [themen, setThemen] = useState<string[]>(THEMEN);
   const [newText, setNewText] = useState("");
   const [newThema, setNewThema] = useState("");
   const [loading, setLoading] = useState(true);
@@ -2370,6 +2371,20 @@ function NotizenTab({ kundeId }: { kundeId: number }) {
       })
       .catch(() => setLoading(false));
   }, [kundeId]);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.notiz_themen"]) {
+          try {
+            const parsed = JSON.parse(d["system.notiz_themen"]);
+            if (Array.isArray(parsed) && parsed.length) setThemen(parsed);
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleAdd() {
     if (!newText.trim()) return;
@@ -2463,7 +2478,7 @@ function NotizenTab({ kundeId }: { kundeId: number }) {
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             <option value="">Kein Thema</option>
-            {THEMEN.map((t) => (
+            {themen.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
           </select>
@@ -2489,7 +2504,7 @@ function NotizenTab({ kundeId }: { kundeId: number }) {
         >
           Alle ({notizen.length})
         </button>
-        {THEMEN.map((t) => {
+        {themen.map((t) => {
           const count = notizen.filter((n) => n.thema === t).length;
           if (count === 0) return null;
           return (

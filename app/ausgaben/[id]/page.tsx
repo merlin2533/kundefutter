@@ -4,16 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 
-const KATEGORIEN = [
-  "Wareneinkauf",
-  "Betriebsbedarf",
-  "Fahrtkosten",
-  "Bürobedarf",
-  "Telefon/Internet",
-  "Versicherung",
-  "Miete",
-  "Sonstige",
-];
+const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Sonstige"];
 
 interface Lieferant { id: number; name: string }
 
@@ -23,6 +14,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const router = useRouter();
   const [id, setId] = useState<number | null>(null);
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
+  const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
   const [saving, setSaving] = useState(false);
   const [fehler, setFehler] = useState("");
   const [laden, setLaden] = useState(true);
@@ -67,6 +59,17 @@ export default function AusgabeDetailPage({ params }: Ctx) {
       });
     });
     fetch("/api/lieferanten").then(r => r.json()).then(setLieferanten);
+    fetch("/api/einstellungen?prefix=ausgaben.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["ausgaben.kategorien"]) {
+          try {
+            const parsed = JSON.parse(d["ausgaben.kategorien"]);
+            if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const netto = parseFloat(betragNetto) || 0;
@@ -332,7 +335,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           <label className="block text-sm font-medium mb-1">Kategorie</label>
           <select value={kategorie} onChange={e => setKategorie(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm">
-            {KATEGORIEN.map(k => <option key={k}>{k}</option>)}
+            {kategorienList.map(k => <option key={k}>{k}</option>)}
           </select>
         </div>
 
