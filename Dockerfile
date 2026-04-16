@@ -30,7 +30,7 @@ COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
 # Install Prisma CLI with all its dependencies cleanly
 COPY package.json package-lock.json ./
-RUN npm install --ignore-scripts --no-fund --no-audit prisma
+RUN npm install --ignore-scripts --no-fund --no-audit prisma dotenv
 
 # Entrypoint script
 COPY docker-entrypoint.sh ./
