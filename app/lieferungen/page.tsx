@@ -46,6 +46,7 @@ export default function LieferungenPage() {
   const [bisFilter, setBisFilter] = useState("");
   const [kundeSearch, setKundeSearch] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
 
   // Wiederkehrend state
   const [wiederkehrend, setWiederkehrend] = useState<WiederkehrendBedarf[]>([]);
@@ -165,6 +166,26 @@ export default function LieferungenPage() {
       await fetchLieferungen();
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function markiereGeliefert(id: number) {
+    if (!confirm("Lieferung als geliefert markieren? Der Lagerbestand wird gebucht.")) return;
+    setStatusChangingId(id);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "geliefert" }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error ?? "Status konnte nicht geändert werden");
+        return;
+      }
+      await fetchLieferungen();
+    } finally {
+      setStatusChangingId(null);
     }
   }
 
@@ -313,6 +334,20 @@ export default function LieferungenPage() {
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                               </Link>
+                            )}
+                            {l.status === "geplant" && (
+                              <button
+                                onClick={() => markiereGeliefert(l.id)}
+                                disabled={statusChangingId === l.id}
+                                className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors disabled:opacity-50"
+                                title="Als geliefert markieren"
+                              >
+                                {statusChangingId === l.id ? (
+                                  <span className="w-4 h-4 flex items-center justify-center text-xs">…</span>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                )}
+                              </button>
                             )}
                             {l.rechnungNr && (
                               <Link

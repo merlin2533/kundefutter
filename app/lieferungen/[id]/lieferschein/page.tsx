@@ -29,6 +29,7 @@ interface Lieferung {
   notiz?: string | null;
   lieferadresse?: string | null;
   angebotId?: number | null;
+  rechnungNr?: string | null;
   positionen: Position[];
   kunde: Kunde;
 }
@@ -45,6 +46,7 @@ export default function LieferscheinPage() {
   const [origin, setOrigin] = useState("");
   const [canShare, setCanShare] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [rechnungLoading, setRechnungLoading] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -79,6 +81,29 @@ export default function LieferscheinPage() {
     }
     load();
   }, [id]);
+
+  async function inRechnungUmwandeln() {
+    if (!lieferung) return;
+    if (!confirm("Diese Lieferung in eine Rechnung umwandeln?")) return;
+    setRechnungLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error ?? "Fehler beim Erstellen der Rechnung");
+        return;
+      }
+      router.push(`/lieferungen/${id}/rechnung`);
+    } catch {
+      alert("Netzwerkfehler beim Erstellen der Rechnung");
+    } finally {
+      setRechnungLoading(false);
+    }
+  }
 
   async function handleTeilen() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -156,6 +181,18 @@ export default function LieferscheinPage() {
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
         </button>
+        {!lieferung.rechnungNr && (
+          <button
+            onClick={inRechnungUmwandeln}
+            disabled={rechnungLoading}
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5"
+            title="Diese Lieferung in eine Rechnung umwandeln"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">{rechnungLoading ? "Erstelle…" : "In Rechnung umwandeln"}</span>
+            <span className="sm:hidden">{rechnungLoading ? "…" : "Rechnung"}</span>
+          </button>
+        )}
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
