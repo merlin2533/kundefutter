@@ -82,6 +82,8 @@ function NeuesAngebotForm() {
   const preselectedKundeId = searchParams.get("kundeId") ?? "";
   const ausBedarfen = searchParams.get("ausBedarfen") === "true";
 
+  const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag", "Stunden"];
+  const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [kundeId, setKundeId] = useState(preselectedKundeId);
@@ -103,6 +105,17 @@ function NeuesAngebotForm() {
     fetch("/api/artikel?aktiv=true")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
+      .catch(() => {});
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.einheiten"]) {
+          try {
+            const parsed = JSON.parse(d["system.einheiten"]);
+            if (Array.isArray(parsed) && parsed.length) setEinheiten(parsed);
+          } catch { /* ignore */ }
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -347,13 +360,13 @@ function NeuesAngebotForm() {
                           onChange={(e) => updatePosition(i, "menge", e.target.value)}
                           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                         />
-                        <input
-                          type="text"
+                        <select
                           value={pos.einheit}
                           onChange={(e) => updatePosition(i, "einheit", e.target.value)}
-                          placeholder="Einheit"
-                          className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                        />
+                          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                        >
+                          {einheiten.map((e) => <option key={e} value={e}>{e}</option>)}
+                        </select>
                       </div>
                     </div>
                     <div>

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten";
+type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten" | "system.notiz_themen" | "system.gutschrift_gruende";
 
 const DEFAULT_EINHEITEN = ["kg", "t", "l", "Stk", "Sack", "Palette", "Stunden"];
+const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
+const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
 
 function EditableList({
   title,
@@ -155,6 +157,20 @@ export default function StammdatenPage() {
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
+        />
+        <EditableList
+          title="Notiz-Themen"
+          description="Kategorien für Kundennotizen (z.B. Wichtig, Info, Offener Punkt)."
+          storeKey="system.notiz_themen"
+          defaultItems={DEFAULT_NOTIZ_THEMEN}
+          placeholder="z.B. Reklamation"
+        />
+        <EditableList
+          title="Gutschrift-Gründe"
+          description="Gründe für Gutschriften und Retouren."
+          storeKey="system.gutschrift_gruende"
+          defaultItems={DEFAULT_GUTSCHRIFT_GRUENDE}
+          placeholder="z.B. Transportschaden"
         />
 
         {/* Kundenimport */}

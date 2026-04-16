@@ -48,6 +48,8 @@ function NeueGutschriftForm() {
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
 
+  const FALLBACK_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
+  const [gutschriftGruende, setGutschriftGruende] = useState<string[]>(FALLBACK_GRUENDE);
   const [kundeId, setKundeId] = useState(preselectedKundeId);
   const [lieferungId, setLieferungId] = useState("");
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
@@ -67,6 +69,20 @@ function NeueGutschriftForm() {
     fetch("/api/artikel?aktiv=true")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
+      .catch(() => {});
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["system.gutschrift_gruende"]) {
+          try {
+            const parsed = JSON.parse(d["system.gutschrift_gruende"]);
+            if (Array.isArray(parsed) && parsed.length) {
+              setGutschriftGruende(parsed);
+              setGrund(parsed[0]);
+            }
+          } catch { /* ignore */ }
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -251,10 +267,7 @@ function NeueGutschriftForm() {
                 onChange={(e) => setGrund(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
               >
-                <option value="Reklamation">Reklamation</option>
-                <option value="Retoure">Retoure</option>
-                <option value="Preiskorrektur">Preiskorrektur</option>
-                <option value="Sonstiges">Sonstiges</option>
+                {gutschriftGruende.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div>

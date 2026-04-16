@@ -3,17 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const KATEGORIEN = [
-  "Alle",
-  "Wareneinkauf",
-  "Betriebsbedarf",
-  "Fahrtkosten",
-  "Bürobedarf",
-  "Telefon/Internet",
-  "Versicherung",
-  "Miete",
-  "Sonstige",
-];
+const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Sonstige"];
 
 interface Ausgabe {
   id: number;
@@ -51,6 +41,21 @@ function AusgabenContent() {
   const [bis, setBis] = useState(searchParams.get("bis") ?? todayStr);
   const [kategorie, setKategorie] = useState(searchParams.get("kategorie") ?? "Alle");
   const [nurUnbezahlt, setNurUnbezahlt] = useState(false);
+  const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=ausgaben.")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d["ausgaben.kategorien"]) {
+          try {
+            const parsed = JSON.parse(d["ausgaben.kategorien"]);
+            if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function laden() {
     setLoading(true);
@@ -110,7 +115,8 @@ function AusgabenContent() {
           <label className="block text-xs text-gray-500 mb-1">Kategorie</label>
           <select value={kategorie} onChange={e => setKategorie(e.target.value)}
             className="border rounded px-2 py-1 text-sm">
-            {KATEGORIEN.map(k => <option key={k}>{k}</option>)}
+            <option key="Alle">Alle</option>
+            {kategorienList.map(k => <option key={k}>{k}</option>)}
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer pb-1">
