@@ -106,6 +106,7 @@ export default function ArtikelDetailPage() {
 
   // Lieferanten modal
   const [showLiefModal, setShowLiefModal] = useState(false);
+  const [editingLiefId, setEditingLiefId] = useState<number | null>(null);
   const [lieferantenList, setLieferantenList] = useState<Lieferant[]>([]);
   const [lievForm, setLievForm] = useState({
     lieferantId: "",
@@ -269,7 +270,21 @@ export default function ArtikelDetailPage() {
     }
   }
 
-  // ── Lieferant add ─────────────────────────────────────────────────────────
+  // ── Lieferant add / edit ──────────────────────────────────────────────────
+  function openEditLief(l: ArtikelLieferant) {
+    setEditingLiefId(l.id);
+    setLievForm({
+      lieferantId: String(l.lieferantId),
+      artikelNrBeiLieferant: l.lieferantenArtNr ?? "",
+      einkaufspreis: l.einkaufspreis > 0 ? String(l.einkaufspreis) : "",
+      mindestbestellmenge: l.mindestbestellmenge != null ? String(l.mindestbestellmenge) : "",
+      lieferzeit: l.lieferzeitTage != null ? String(l.lieferzeitTage) : "",
+      bevorzugt: l.bevorzugt,
+    });
+    setLiefError("");
+    setShowLiefModal(true);
+  }
+
   async function addLieferant() {
     if (!lievForm.lieferantId) { setLiefError("Bitte einen Lieferanten wählen."); return; }
     setSavingLief(true);
@@ -300,6 +315,7 @@ export default function ArtikelDetailPage() {
     setSavingLief(false);
     if (res.ok) {
       setShowLiefModal(false);
+      setEditingLiefId(null);
       setLievForm({ lieferantId: "", artikelNrBeiLieferant: "", einkaufspreis: "", mindestbestellmenge: "", lieferzeit: "", bevorzugt: false });
       fetchArtikel();
     } else {
@@ -947,17 +963,26 @@ export default function ArtikelDetailPage() {
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeitTage ?? "—"}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => toggleBevorzugt(l.lieferantId)}
-                          title="Bevorzugt umschalten"
-                          className={`w-5 h-5 rounded border flex items-center justify-center text-xs transition-colors ${
-                            l.bevorzugt
-                              ? "bg-green-600 border-green-600 text-white"
-                              : "border-gray-300 hover:border-green-400"
-                          }`}
-                        >
-                          {l.bevorzugt ? "✓" : ""}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleBevorzugt(l.lieferantId)}
+                            title="Bevorzugt umschalten"
+                            className={`w-5 h-5 rounded border flex items-center justify-center text-xs transition-colors ${
+                              l.bevorzugt
+                                ? "bg-green-600 border-green-600 text-white"
+                                : "border-gray-300 hover:border-green-400"
+                            }`}
+                          >
+                            {l.bevorzugt ? "✓" : ""}
+                          </button>
+                          <button
+                            onClick={() => openEditLief(l)}
+                            title="Bearbeiten"
+                            className="text-gray-400 hover:text-green-700 text-sm px-1"
+                          >
+                            ✎
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -969,22 +994,28 @@ export default function ArtikelDetailPage() {
           {showLiefModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
               <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
-                <h2 className="text-lg font-bold mb-5">Lieferant hinzufügen</h2>
+                <h2 className="text-lg font-bold mb-5">{editingLiefId !== null ? "Lieferant bearbeiten" : "Lieferant hinzufügen"}</h2>
                 <div className="space-y-4">
                   {liefError && (
                     <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{liefError}</p>
                   )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Lieferant <span className="text-red-500">*</span>
+                      Lieferant {editingLiefId === null && <span className="text-red-500">*</span>}
                     </label>
-                    <SearchableSelect
-                      options={lieferantenList.map((l) => ({ value: l.id, label: l.name }))}
-                      value={lievForm.lieferantId}
-                      onChange={(v) => setLievForm({ ...lievForm, lieferantId: v })}
-                      placeholder="– Lieferant wählen –"
-                      required
-                    />
+                    {editingLiefId !== null ? (
+                      <p className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700">
+                        {lieferantenList.find((l) => l.id === Number(lievForm.lieferantId))?.name ?? artikel?.lieferanten.find((l) => l.id === editingLiefId)?.lieferant.name ?? "—"}
+                      </p>
+                    ) : (
+                      <SearchableSelect
+                        options={lieferantenList.map((l) => ({ value: l.id, label: l.name }))}
+                        value={lievForm.lieferantId}
+                        onChange={(v) => setLievForm({ ...lievForm, lieferantId: v })}
+                        placeholder="– Lieferant wählen –"
+                        required
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">ArtNr beim Lieferant</label>
@@ -1036,7 +1067,7 @@ export default function ArtikelDetailPage() {
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                     <button
-                      onClick={() => setShowLiefModal(false)}
+                      onClick={() => { setShowLiefModal(false); setEditingLiefId(null); }}
                       className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 w-full sm:w-auto"
                     >
                       Abbrechen
@@ -1046,7 +1077,7 @@ export default function ArtikelDetailPage() {
                       disabled={savingLief}
                       className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60 w-full sm:w-auto"
                     >
-                      {savingLief ? "Speichern…" : "Hinzufügen"}
+                      {savingLief ? "Speichern…" : editingLiefId !== null ? "Speichern" : "Hinzufügen"}
                     </button>
                   </div>
                 </div>
