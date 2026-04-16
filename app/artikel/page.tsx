@@ -28,7 +28,7 @@ interface Artikel {
   lieferanten: ArtikelLieferant[];
 }
 
-const KATEGORIEN = ["Futter", "Duenger", "Saatgut"];
+const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 export default function ArtikelPage() {
   const router = useRouter();
