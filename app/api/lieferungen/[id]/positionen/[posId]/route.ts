@@ -41,6 +41,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     updateData.einkaufspreis = e;
   }
+  if (body.menge !== undefined) {
+    const m = Number(body.menge);
+    if (isNaN(m) || m <= 0) {
+      return NextResponse.json({ error: "Menge muss größer als 0 sein" }, { status: 400 });
+    }
+    updateData.menge = m;
+  }
+  if (body.notiz !== undefined) {
+    updateData.notiz = typeof body.notiz === "string" ? body.notiz.trim() || null : null;
+  }
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });
   }

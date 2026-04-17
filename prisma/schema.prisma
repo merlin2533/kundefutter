@@ -292,6 +292,7 @@ model Lieferposition {
   einkaufspreis Float   @default(0)
   chargeNr      String? // Chargen-/Losnummer (gesetzlich für Saatgut)
   rabattProzent Float   @default(0) // Mengenrabatt der angewendet wurde
+  notiz         String? // Auftragsnummer / interne Notiz zur Position
 
   lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
   artikel   Artikel   @relation(fields: [artikelId], references: [id])
