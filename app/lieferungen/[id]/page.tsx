@@ -16,6 +16,16 @@ interface Position {
   artikel: { id: number; name: string; einheit: string; mwstSatz: number };
 }
 
+interface ArtikelOption {
+  id: number;
+  name: string;
+  verkaufspreis: number;
+  einkaufspreis: number;
+  einheit: string;
+  aktuellerBestand: number;
+  mindestbestand: number;
+}
+
 interface Lieferung {
   id: number;
   datum: string;
@@ -55,7 +65,6 @@ export default function LieferungDetailPage() {
   const [rabattSavingId, setRabattSavingId] = useState<number | null>(null);
 
   // Position hinzufügen (nur geplant)
-  interface ArtikelOption { id: number; name: string; verkaufspreis: number; einkaufspreis: number; einheit: string; aktuellerBestand: number; mindestbestand: number; }
   const [artikelListe, setArtikelListe] = useState<ArtikelOption[]>([]);
   const [showAddPos, setShowAddPos] = useState(false);
   const [addPosArtikelId, setAddPosArtikelId] = useState<string>("");
