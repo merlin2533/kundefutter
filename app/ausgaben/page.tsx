@@ -16,6 +16,8 @@ interface Ausgabe {
   lieferant: { id: number; name: string } | null;
   bezahltAm: string | null;
   notiz: string | null;
+  belegPfad: string | null;
+  belegDateiname: string | null;
 }
 
 function formatEuro(n: number) {
@@ -195,7 +197,13 @@ function AusgabenContent() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-2 justify-end items-center">
+                        {a.belegPfad && (
+                          <a href={a.belegPfad} target="_blank" rel="noreferrer"
+                            className="text-gray-500 hover:text-gray-800 text-xs" title={a.belegDateiname ?? "Beleg öffnen"}>
+                            📎
+                          </a>
+                        )}
                         <Link href={`/ausgaben/${a.id}`} className="text-blue-600 hover:underline text-xs">
                           Bearbeiten
                         </Link>

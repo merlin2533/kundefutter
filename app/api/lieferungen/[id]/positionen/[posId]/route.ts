@@ -3,6 +3,36 @@ import { prisma } from "@/lib/prisma";
 
 type Ctx = { params: Promise<{ id: string; posId: string }> };
 
+export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const { id, posId } = await ctx.params;
+  const lieferungId = parseInt(id, 10);
+  const positionId = parseInt(posId, 10);
+  if (isNaN(lieferungId) || isNaN(positionId)) {
+    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+  }
+  try {
+    const lieferung = await prisma.lieferung.findUnique({
+      where: { id: lieferungId },
+      select: { status: true },
+    });
+    if (!lieferung) return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
+    if (lieferung.status !== "geplant") {
+      return NextResponse.json({ error: "Positionen können nur bei geplanten Lieferungen gelöscht werden" }, { status: 400 });
+    }
+    const pos = await prisma.lieferposition.findUnique({
+      where: { id: positionId },
+      select: { lieferungId: true },
+    });
+    if (!pos || pos.lieferungId !== lieferungId) {
+      return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
+    }
+    await prisma.lieferposition.delete({ where: { id: positionId } });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const { id, posId } = await ctx.params;
   const lieferungId = parseInt(id, 10);

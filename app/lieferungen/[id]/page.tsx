@@ -17,6 +17,16 @@ interface Position {
   artikel: { id: number; name: string; einheit: string; mwstSatz: number };
 }
 
+interface ArtikelOption {
+  id: number;
+  name: string;
+  standardpreis: number;
+  einheit: string;
+  aktuellerBestand: number;
+  mindestbestand: number;
+  lieferanten?: { einkaufspreis: number }[];
+}
+
 interface Lieferung {
   id: number;
   datum: string;
@@ -66,6 +76,17 @@ export default function LieferungDetailPage() {
   const [notizEditId, setNotizEditId] = useState<number | null>(null);
   const [notizEditValue, setNotizEditValue] = useState<string>("");
   const [notizSavingId, setNotizSavingId] = useState<number | null>(null);
+
+  // Position hinzufügen (nur geplant)
+  const [artikelListe, setArtikelListe] = useState<ArtikelOption[]>([]);
+  const [showAddPos, setShowAddPos] = useState(false);
+  const [addPosArtikelId, setAddPosArtikelId] = useState<string>("");
+  const [addPosMenge, setAddPosMenge] = useState<string>("");
+  const [addPosVk, setAddPosVk] = useState<string>("");
+  const [addPosEk, setAddPosEk] = useState<string>("");
+  const [addPosCharge, setAddPosCharge] = useState<string>("");
+  const [addPosSaving, setAddPosSaving] = useState(false);
+  const [addPosError, setAddPosError] = useState<string>("");
 
   async function load() {
     setLoading(true);
@@ -163,6 +184,77 @@ export default function LieferungDetailPage() {
   }
 
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch("/api/artikel?relations=false&limit=500")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
+      .catch(() => {});
+  }, []);
+
+  function openAddPos() {
+    setAddPosArtikelId("");
+    setAddPosMenge("");
+    setAddPosVk("");
+    setAddPosEk("");
+    setAddPosCharge("");
+    setAddPosError("");
+    setShowAddPos(true);
+  }
+
+  function onArtikelSelect(artId: string) {
+    setAddPosArtikelId(artId);
+    const art = artikelListe.find(a => String(a.id) === artId);
+    if (art) {
+      setAddPosVk(String(art.standardpreis));
+      setAddPosEk(String(art.lieferanten?.[0]?.einkaufspreis ?? 0));
+    }
+  }
+
+  async function saveAddPos() {
+    if (!addPosArtikelId) { setAddPosError("Bitte einen Artikel wählen."); return; }
+    const menge = parseFloat(addPosMenge.replace(",", "."));
+    if (isNaN(menge) || menge <= 0) { setAddPosError("Ungültige Menge."); return; }
+    setAddPosSaving(true);
+    setAddPosError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/positionen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artikelId: Number(addPosArtikelId),
+          menge,
+          verkaufspreis: addPosVk ? parseFloat(addPosVk.replace(",", ".")) : undefined,
+          einkaufspreis: addPosEk ? parseFloat(addPosEk.replace(",", ".")) : undefined,
+          chargeNr: addPosCharge.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setAddPosError((d as { error?: string }).error ?? "Fehler beim Hinzufügen.");
+        return;
+      }
+      setShowAddPos(false);
+      await load();
+    } finally {
+      setAddPosSaving(false);
+    }
+  }
+
+  async function deletePos(posId: number) {
+    if (!confirm("Position wirklich löschen?")) return;
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Fehler beim Löschen.");
+        return;
+      }
+      await load();
+    } catch {
+      setError("Fehler beim Löschen der Position.");
+    }
+  }
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
@@ -739,6 +831,7 @@ export default function LieferungDetailPage() {
                   {h}
                 </th>
               ))}
+              {lieferung.status === "geplant" && <th className="px-2 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -889,6 +982,17 @@ export default function LieferungDetailPage() {
                       </button>
                     )}
                   </td>
+                  {lieferung.status === "geplant" && (
+                    <td className="px-2 py-3">
+                      <button
+                        onClick={() => deletePos(pos.id)}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                        title="Position löschen"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -903,9 +1007,106 @@ export default function LieferungDetailPage() {
                 <MargeBadge pct={gesamtMargePct} />
               </td>
               <td className="px-4 py-3" />
+              {lieferung.status === "geplant" && <td />}
             </tr>
           </tfoot>
         </table>
+
+        {/* Artikel hinzufügen (nur geplant) */}
+        {lieferung.status === "geplant" && (
+          <div className="border-t border-gray-200 px-4 py-3">
+            {!showAddPos ? (
+              <button
+                onClick={openAddPos}
+                className="text-sm text-green-700 hover:text-green-900 font-medium flex items-center gap-1"
+              >
+                <span className="text-lg leading-none">+</span> Artikel hinzufügen
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div className="flex-1 min-w-48">
+                    <label className="block text-xs text-gray-500 mb-1">Artikel</label>
+                    <select
+                      value={addPosArtikelId}
+                      onChange={e => onArtikelSelect(e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    >
+                      <option value="">— Artikel wählen —</option>
+                      {artikelListe.map(a => (
+                        <option key={a.id} value={String(a.id)}>{a.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-24">
+                    <label className="block text-xs text-gray-500 mb-1">Menge</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={addPosMenge}
+                      onChange={e => setAddPosMenge(e.target.value)}
+                      placeholder="0"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="block text-xs text-gray-500 mb-1">VK (€)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={addPosVk}
+                      onChange={e => setAddPosVk(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    />
+                  </div>
+                  <div className="w-28">
+                    <label className="block text-xs text-gray-500 mb-1">EK (€)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      value={addPosEk}
+                      onChange={e => setAddPosEk(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-xs text-gray-500 mb-1">Charge (opt.)</label>
+                    <input
+                      type="text"
+                      value={addPosCharge}
+                      onChange={e => setAddPosCharge(e.target.value)}
+                      placeholder="CH-2026-001"
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    />
+                  </div>
+                </div>
+                {addPosError && (
+                  <p className="text-xs text-red-600">{addPosError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveAddPos}
+                    disabled={addPosSaving}
+                    className="px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded text-sm font-medium disabled:opacity-60"
+                  >
+                    {addPosSaving ? "Speichern…" : "Hinzufügen"}
+                  </button>
+                  <button
+                    onClick={() => setShowAddPos(false)}
+                    className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Storno Modal */}
