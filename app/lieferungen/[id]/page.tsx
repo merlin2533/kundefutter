@@ -13,6 +13,7 @@ interface Position {
   einkaufspreis: number;
   chargeNr?: string | null;
   rabattProzent?: number;
+  notiz?: string | null;
   artikel: { id: number; name: string; einheit: string; mwstSatz: number };
 }
 
@@ -53,6 +54,18 @@ export default function LieferungDetailPage() {
   const [rabattEditId, setRabattEditId] = useState<number | null>(null);
   const [rabattEditValue, setRabattEditValue] = useState<string>("");
   const [rabattSavingId, setRabattSavingId] = useState<number | null>(null);
+
+  const [vkEditId, setVkEditId] = useState<number | null>(null);
+  const [vkEditValue, setVkEditValue] = useState<string>("");
+  const [vkSavingId, setVkSavingId] = useState<number | null>(null);
+
+  const [mengeEditId, setMengeEditId] = useState<number | null>(null);
+  const [mengeEditValue, setMengeEditValue] = useState<string>("");
+  const [mengeSavingId, setMengeSavingId] = useState<number | null>(null);
+
+  const [notizEditId, setNotizEditId] = useState<number | null>(null);
+  const [notizEditValue, setNotizEditValue] = useState<string>("");
+  const [notizSavingId, setNotizSavingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -101,6 +114,25 @@ export default function LieferungDetailPage() {
     } finally {
       setRabattSavingId(null);
     }
+  }
+
+  async function commitPosField(posId: number, field: string, value: unknown, onDone: () => void) {
+    const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Fehler beim Speichern");
+      return;
+    }
+    onDone();
+    await load();
+  }
+
+  function canEditPos() {
+    return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungNr;
   }
 
   async function speichereRechnungNr() {
@@ -702,7 +734,7 @@ export default function LieferungDetailPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {["Artikel", "Charge", "Menge", "Einheit", "Verkaufspreis", "Rabatt", "Einkaufspreis", "Marge €", "Marge %"].map((h) => (
+              {["Artikel", "Charge", "Menge", "Einheit", "VK", "Rabatt", "EK", "Marge €", "Marge %", "Notiz / Auftragsnr."].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   {h}
                 </th>
@@ -720,9 +752,57 @@ export default function LieferungDetailPage() {
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium">{pos.artikel.name}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs font-mono">{pos.chargeNr ?? "—"}</td>
-                  <td className="px-4 py-3 font-mono">{pos.menge}</td>
+                  {/* Menge – inline edit */}
+                  <td className="px-4 py-3 font-mono">
+                    {mengeEditId === pos.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0.001}
+                          step="any"
+                          autoFocus
+                          value={mengeEditValue}
+                          onChange={(e) => setMengeEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { alert("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); } else if (e.key === "Escape") setMengeEditId(null);
+                          }}
+                          className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button onClick={() => { const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { alert("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); }} disabled={mengeSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{mengeSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => setMengeEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { if (!canEditPos()) return; setMengeEditId(pos.id); setMengeEditValue(String(pos.menge)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "Menge bearbeiten" : "Nicht bearbeitbar"}>
+                        {pos.menge}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{pos.artikel.einheit}</td>
-                  <td className="px-4 py-3 font-mono">{formatEuro(pos.verkaufspreis)}</td>
+                  {/* VK – inline edit */}
+                  <td className="px-4 py-3 font-mono">
+                    {vkEditId === pos.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          autoFocus
+                          value={vkEditValue}
+                          onChange={(e) => setVkEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { alert("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); } else if (e.key === "Escape") setVkEditId(null);
+                          }}
+                          className="w-24 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button onClick={() => { const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { alert("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); }} disabled={vkSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{vkSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => setVkEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : "Rechnung erstellt – nicht mehr änderbar"}>
+                        {formatEuro(pos.verkaufspreis)}
+                      </button>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs">
                     {rabattEditId === pos.id ? (
                       <div className="flex items-center gap-1">
@@ -785,6 +865,30 @@ export default function LieferungDetailPage() {
                   <td className="px-4 py-3">
                     <MargeBadge pct={margePct} />
                   </td>
+                  {/* Notiz / Auftragsnr. – inline edit */}
+                  <td className="px-4 py-3 text-xs text-gray-600">
+                    {notizEditId === pos.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={notizEditValue}
+                          onChange={(e) => setNotizEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); setNotizSavingId(pos.id); commitPosField(pos.id, "notiz", notizEditValue, () => setNotizEditId(null)).finally(() => setNotizSavingId(null)); } else if (e.key === "Escape") setNotizEditId(null);
+                          }}
+                          placeholder="Auftragsnr. / Notiz…"
+                          className="w-36 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button onClick={() => { setNotizSavingId(pos.id); commitPosField(pos.id, "notiz", notizEditValue, () => setNotizEditId(null)).finally(() => setNotizSavingId(null)); }} disabled={notizSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{notizSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => setNotizEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { setNotizEditId(pos.id); setNotizEditValue(pos.notiz ?? ""); }} className="hover:underline text-left w-full" title="Notiz / Auftragsnummer bearbeiten">
+                        {pos.notiz ? pos.notiz : <span className="text-gray-300">—</span>}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               );
             })}
@@ -798,6 +902,7 @@ export default function LieferungDetailPage() {
               <td className="px-4 py-3">
                 <MargeBadge pct={gesamtMargePct} />
               </td>
+              <td className="px-4 py-3" />
             </tr>
           </tfoot>
         </table>

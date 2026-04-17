@@ -386,6 +386,36 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
             <InfoRow label="Koordinaten" value={`${kunde.lat?.toFixed(4)}, ${kunde.lng?.toFixed(4)}`} />
           )}
         </div>
+        {/* Contact info from KundeKontakt */}
+        {kunde.kontakte.length > 0 && (() => {
+          const telefone = kunde.kontakte.filter((k) => k.typ === "telefon" || k.typ === "mobil");
+          const emails = kunde.kontakte.filter((k) => k.typ === "email");
+          const faxe = kunde.kontakte.filter((k) => k.typ === "fax");
+          return (
+            <div className="col-span-2 space-y-2">
+              {telefone.map((k) => (
+                <div key={k.id} className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide w-28">{k.typ === "mobil" ? "Mobil" : "Telefon"}{k.label ? ` (${k.label})` : ""}</span>
+                  <a href={`tel:${k.wert}`} className="text-sm text-green-700 hover:underline">{k.wert}</a>
+                  {(k.vorname || k.nachname) && <span className="text-xs text-gray-400">— {[k.vorname, k.nachname].filter(Boolean).join(" ")}</span>}
+                </div>
+              ))}
+              {emails.map((k) => (
+                <div key={k.id} className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide w-28">E-Mail{k.label ? ` (${k.label})` : ""}</span>
+                  <a href={`mailto:${k.wert}`} className="text-sm text-green-700 hover:underline">{k.wert}</a>
+                  {(k.vorname || k.nachname) && <span className="text-xs text-gray-400">— {[k.vorname, k.nachname].filter(Boolean).join(" ")}</span>}
+                </div>
+              ))}
+              {faxe.map((k) => (
+                <div key={k.id} className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Fax{k.label ? ` (${k.label})` : ""}</span>
+                  <span className="text-sm text-gray-700">{k.wert}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {kunde.notizen && (
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Notizen</p>
