@@ -49,7 +49,6 @@ export async function POST(req: NextRequest, { params }: Params) {
         lieferungId,
         artikelId,
         menge: mengeNum,
-        einheit: artikel.einheit,
         verkaufspreis: vk,
         einkaufspreis: ek,
         chargeNr: chargeNr ?? null,
