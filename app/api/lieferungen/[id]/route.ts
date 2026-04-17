@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { naechsteRechnungsnummer } from "@/lib/utils";
+import { naechsteRechnungsnummer, istLagerrelevant } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
 import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
@@ -73,7 +73,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
       for (const pos of alt.positionen) {
         const artikel = artikelMap.get(pos.artikelId);
-        if (!artikel) continue;
+        if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
         const neuerBestand = artikel.aktuellerBestand - pos.menge;
         artikel.aktuellerBestand = neuerBestand;
         await tx.artikel.update({
@@ -103,7 +103,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
       for (const pos of alt.positionen) {
         const artikel = artikelMap.get(pos.artikelId);
-        if (!artikel) continue;
+        if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
         const neuerBestand = artikel.aktuellerBestand + pos.menge;
         artikel.aktuellerBestand = neuerBestand;
         await tx.artikel.update({
@@ -261,7 +261,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
         for (const pos of positionen) {
           const artikel = artikelMap.get(pos.artikelId);
-          if (!artikel) continue;
+          if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
           const neuerBestand = artikel.aktuellerBestand - pos.menge;
           artikel.aktuellerBestand = neuerBestand;
           await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });

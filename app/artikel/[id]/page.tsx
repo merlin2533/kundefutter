@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
-import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, istLagerrelevant } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import DriveOrdner from "@/components/DriveOrdner";
 
@@ -450,6 +450,7 @@ export default function ArtikelDetailPage() {
     </div>
   );
 
+  const lagerRelevant = istLagerrelevant(artikel.kategorie);
   const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
   const marge = getMarge();
 
@@ -478,7 +479,7 @@ export default function ArtikelDetailPage() {
             <p className="text-sm text-gray-500 mt-0.5 font-mono">{artikel.artikelnummer}</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <LagerBadge status={status} />
+            {lagerRelevant && <LagerBadge status={status} />}
             {marge !== null && <MargeBadge pct={Math.round(marge * 10) / 10} />}
             {!artikel.aktiv && (
               <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
@@ -505,8 +506,8 @@ export default function ArtikelDetailPage() {
         </div>
       </div>
 
-      {/* Nachbestellung Box — shown when Bestand < Mindestbestand */}
-      {artikel.aktuellerBestand < artikel.mindestbestand && (() => {
+      {/* Nachbestellung Box — shown when Bestand < Mindestbestand (nur für lagerrelevante Artikel) */}
+      {lagerRelevant && artikel.aktuellerBestand < artikel.mindestbestand && (() => {
         const bevorzugterLief = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
         return (
           <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
@@ -724,9 +725,11 @@ export default function ArtikelDetailPage() {
                   ["Standardpreis", formatEuro(artikel.standardpreis)],
                   ["Preisstand", artikel.preisStand ? formatDatum(artikel.preisStand) : "—"],
                   ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
-                  ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
-                  ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
-                  ["Status", null],
+                  ...(lagerRelevant ? [
+                    ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
+                    ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
+                    ["Status", null],
+                  ] as [string, string | null][] : []),
                   ["Beschreibung", artikel.beschreibung ?? "—"],
                   ["Liefergröße", artikel.liefergroesse ?? "—"],
                   ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
@@ -738,18 +741,20 @@ export default function ArtikelDetailPage() {
                     </dd>
                   </div>
                 ))}
-                <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
-                  <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
-                  <dd className="text-sm text-gray-900">
-                    {artikel.lagerort ? (
-                      <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
-                        {artikel.lagerort}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </dd>
-                </div>
+                {lagerRelevant && (
+                  <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
+                    <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
+                    <dd className="text-sm text-gray-900">
+                      {artikel.lagerort ? (
+                        <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
+                          {artikel.lagerort}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </dd>
+                  </div>
+                )}
                 {marge !== null && (
                   <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                     <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Marge</dt>

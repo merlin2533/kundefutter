@@ -28,6 +28,13 @@ export function lagerStatus(
   return "gruen";
 }
 
+// Kategorien, für die kein Lagerbestand geführt wird (Dienstleistungen)
+export const NICHT_LAGER_KATEGORIEN = ["Beratung", "Analysen"];
+
+export function istLagerrelevant(kategorie: string): boolean {
+  return !NICHT_LAGER_KATEGORIEN.includes(kategorie);
+}
+
 function naechsteNummer(prefix: string, letzte: string | null): string {
   const jahr = new Date().getFullYear();
   if (!letzte) return `${prefix}-${jahr}-0001`;

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, istLagerrelevant } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ export default function LagerPage() {
     setLoading(true);
     const res = await fetch("/api/artikel?limit=500");
     const data = await res.json();
-    setArtikel(data);
+    setArtikel((data as LagerArtikel[]).filter((a) => istLagerrelevant(a.kategorie)));
     setLoading(false);
   }, []);
 

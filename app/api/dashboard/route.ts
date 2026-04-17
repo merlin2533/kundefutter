@@ -46,6 +46,7 @@ export async function GET() {
       `SELECT "id", "name", "aktuellerBestand", "mindestbestand", "einheit"
       FROM "Artikel"
       WHERE "aktiv" = 1
+        AND "kategorie" NOT IN ('Beratung', 'Analysen')
         AND ("aktuellerBestand" <= 0 OR "aktuellerBestand" < "mindestbestand")
       ORDER BY
         CASE WHEN "aktuellerBestand" <= 0 THEN 0 ELSE 1 END,
