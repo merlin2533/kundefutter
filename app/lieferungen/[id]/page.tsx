@@ -19,11 +19,11 @@ interface Position {
 interface ArtikelOption {
   id: number;
   name: string;
-  verkaufspreis: number;
-  einkaufspreis: number;
+  standardpreis: number;
   einheit: string;
   aktuellerBestand: number;
   mindestbestand: number;
+  lieferanten?: { einkaufspreis: number }[];
 }
 
 interface Lieferung {
@@ -174,8 +174,8 @@ export default function LieferungDetailPage() {
     setAddPosArtikelId(artId);
     const art = artikelListe.find(a => String(a.id) === artId);
     if (art) {
-      setAddPosVk(String(art.verkaufspreis));
-      setAddPosEk(String(art.einkaufspreis));
+      setAddPosVk(String(art.standardpreis));
+      setAddPosEk(String(art.lieferanten?.[0]?.einkaufspreis ?? 0));
     }
   }
 

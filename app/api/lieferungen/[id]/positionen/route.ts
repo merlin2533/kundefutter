@@ -35,11 +35,14 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Positionen können nur bei geplanten Lieferungen bearbeitet werden" }, { status: 400 });
     }
 
-    const artikel = await prisma.artikel.findUnique({ where: { id: artikelId } });
+    const artikel = await prisma.artikel.findUnique({
+      where: { id: artikelId },
+      include: { lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
+    });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
-    const vk = verkaufspreis !== undefined ? Number(verkaufspreis) : artikel.verkaufspreis ?? 0;
-    const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : artikel.einkaufspreis ?? 0;
+    const vk = verkaufspreis !== undefined ? Number(verkaufspreis) : artikel.standardpreis;
+    const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : (artikel.lieferanten[0]?.einkaufspreis ?? 0);
 
     const pos = await prisma.lieferposition.create({
       data: {
