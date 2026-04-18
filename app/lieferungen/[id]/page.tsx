@@ -106,7 +106,7 @@ export default function LieferungDetailPage() {
   }
 
   function startRabattEdit(pos: Position) {
-    if (lieferung && (lieferung.status === "storniert" || lieferung.rechnungNr)) return;
+    if (lieferung && lieferung.status === "storniert") return;
     setRabattEditId(pos.id);
     setRabattEditValue(String(pos.rabattProzent ?? 0));
   }
@@ -153,7 +153,7 @@ export default function LieferungDetailPage() {
   }
 
   function canEditPos() {
-    return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungNr;
+    return lieferung && lieferung.status !== "storniert";
   }
 
   async function speichereRechnungNr() {
@@ -891,7 +891,7 @@ export default function LieferungDetailPage() {
                         <button onClick={() => setVkEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (
-                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : "Rechnung erstellt – nicht mehr änderbar"}>
+                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : "Lieferung storniert"}>
                         {formatEuro(pos.verkaufspreis)}
                       </button>
                     )}
@@ -935,12 +935,10 @@ export default function LieferungDetailPage() {
                       <button
                         type="button"
                         onClick={() => startRabattEdit(pos)}
-                        disabled={lieferung.status === "storniert" || !!lieferung.rechnungNr}
+                        disabled={lieferung.status === "storniert"}
                         className="hover:underline disabled:no-underline disabled:cursor-not-allowed"
                         title={
-                          lieferung.rechnungNr
-                            ? "Rechnung bereits erstellt – Rabatt nicht mehr änderbar"
-                            : lieferung.status === "storniert"
+                          lieferung.status === "storniert"
                             ? "Lieferung storniert"
                             : "Rabatt bearbeiten"
                         }
