@@ -2210,7 +2210,10 @@ export default function KundeDetailPage() {
         const phone = kunde.kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
         const email = kunde.kontakte.find((k) => k.typ === "email");
         const geliefert = kunde.lieferungen.filter((l) => l.status === "geliefert");
-        const offen = geliefert.filter((l) => !l.bezahltAm).reduce((s, l) => s + lieferungTotal(l), 0);
+        const offeneRechnungen = geliefert
+          .filter((l) => !l.bezahltAm)
+          .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime());
+        const offen = offeneRechnungen.reduce((s, l) => s + lieferungTotal(l), 0);
         const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())[0];
         const offeneLieferungen = kunde.lieferungen.filter((l) => l.status === "geplant").length;
         return (
@@ -2232,13 +2235,40 @@ export default function KundeDetailPage() {
               <p className="text-sm text-gray-700">{[kunde.plz, kunde.ort].filter(Boolean).join(" ") || "—"}</p>
             </div>
             {/* Offener Betrag */}
-            <div className={`border rounded-xl p-3 flex flex-col gap-1 ${offen > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
-              <p className={`text-xs font-semibold uppercase tracking-wide ${offen > 0 ? "text-red-400" : "text-gray-400"}`}>Offen</p>
-              <p className={`text-lg font-bold ${offen > 0 ? "text-red-700" : "text-gray-500"}`}>{formatEuro(offen)}</p>
-              {offeneLieferungen > 0 && (
-                <p className="text-xs text-yellow-700">{offeneLieferungen} Lieferschein{offeneLieferungen > 1 ? "e" : ""} geplant</p>
-              )}
-            </div>
+            {(() => {
+              const cardClass = `border rounded-xl p-3 flex flex-col gap-1 ${offen > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`;
+              const labelClass = `text-xs font-semibold uppercase tracking-wide ${offen > 0 ? "text-red-400" : "text-gray-400"}`;
+              const amountClass = `text-lg font-bold ${offen > 0 ? "text-red-700" : "text-gray-500"}`;
+              const inner = (
+                <>
+                  <p className={labelClass}>Offen</p>
+                  <p className={`${amountClass} ${offeneRechnungen.length > 0 ? "hover:underline" : ""}`}>{formatEuro(offen)}</p>
+                  {offeneRechnungen.length > 1 && (
+                    <p className="text-xs text-red-600">{offeneRechnungen.length} offene Rechnungen →</p>
+                  )}
+                  {offeneRechnungen.length === 1 && (
+                    <p className="text-xs text-red-600">
+                      Rechnung {offeneRechnungen[0].rechnungNr ?? `#${offeneRechnungen[0].id}`} →
+                    </p>
+                  )}
+                  {offeneLieferungen > 0 && (
+                    <p className="text-xs text-yellow-700">{offeneLieferungen} Lieferschein{offeneLieferungen > 1 ? "e" : ""} geplant</p>
+                  )}
+                </>
+              );
+              if (offeneRechnungen.length > 0) {
+                const target = `/lieferungen/${offeneRechnungen[0].id}`;
+                const titleText = offeneRechnungen.length === 1
+                  ? "Rechnung öffnen"
+                  : `Älteste offene Rechnung öffnen (${offeneRechnungen.length} offen)`;
+                return (
+                  <Link href={target} className={`${cardClass} hover:bg-red-100 transition-colors cursor-pointer`} title={titleText}>
+                    {inner}
+                  </Link>
+                );
+              }
+              return <div className={cardClass}>{inner}</div>;
+            })()}
             {/* Letzte Lieferung */}
             <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferung</p>
