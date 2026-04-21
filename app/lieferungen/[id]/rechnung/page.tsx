@@ -38,6 +38,7 @@ interface Lieferung {
   rechnungDatum?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
+  notiz?: string | null;
   kundeId: number;
   kunde: Kunde;
   positionen: Position[];
@@ -595,6 +596,21 @@ export default function RechnungPrintPage() {
             </div>
           )}
         </div>
+
+        {/* Notiz zur Lieferung */}
+        {lieferung.notiz && lieferung.notiz.trim().length > 0 && (
+          <div
+            style={{
+              marginBottom: "16px",
+              fontSize: "9pt",
+              color: "#555",
+              fontStyle: "italic",
+              whiteSpace: "pre-line",
+            }}
+          >
+            Hinweis: {lieferung.notiz}
+          </div>
+        )}
 
         {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
         <div
