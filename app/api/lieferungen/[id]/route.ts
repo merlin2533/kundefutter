@@ -41,7 +41,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     : null;
 
   try {
-  const result = await prisma.$transaction(async (tx) => {
+  const transaction = await prisma.$transaction(async (tx) => {
     const alt = await tx.lieferung.findUnique({
       where: { id: Number(id) },
       include: { positionen: true },
@@ -124,9 +124,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
 
     // Nur erlaubte Felder übergeben
-    // Hinweis: rechnungNr / rechnungDatum werden bewusst NICHT erlaubt. Sie dürfen
-    // nur über die dedizierte PATCH-Aktion "rechnung_erstellen" gesetzt werden,
-    // damit der Audit-Trail konsistent bleibt.
     const toValidDate = (v: unknown): Date | null => {
       if (!v) return null;
       const d = new Date(v as string);
@@ -160,8 +157,23 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
     if (data.zahlungsziel !== undefined) updateData.zahlungsziel = data.zahlungsziel;
+    if (data.rechnungNr !== undefined) {
+      if (typeof data.rechnungNr !== "string" || data.rechnungNr.trim() === "") {
+        throw new Error("Rechnungsnummer darf nicht leer sein");
+      }
+      updateData.rechnungNr = data.rechnungNr.trim();
+    }
+    if (data.rechnungDatum !== undefined) {
+      if (data.rechnungDatum === null || data.rechnungDatum === "") {
+        updateData.rechnungDatum = null;
+      } else {
+        const d = toValidDate(data.rechnungDatum);
+        if (!d) throw new Error("Ungültiges Rechnungsdatum");
+        updateData.rechnungDatum = d;
+      }
+    }
 
-    return tx.lieferung.update({
+    const updated = await tx.lieferung.update({
       where: { id: Number(id) },
       data: updateData,
       include: {
@@ -169,7 +181,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
         positionen: { include: { artikel: true } },
       },
     });
+    return { updated, altRechnungNr: alt.rechnungNr };
   });
+  const result = transaction.updated;
 
   if (altLieferung && data.status !== undefined && altLieferung.status !== data.status) {
     void auditLog({
@@ -180,6 +194,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
       alterWert: altLieferung.status,
       neuerWert: result.status,
       beschreibung: `Status geändert: "${altLieferung.status}" → "${result.status}"`,
+    });
+  }
+
+  if (data.rechnungNr !== undefined && transaction.altRechnungNr !== result.rechnungNr) {
+    void auditLog({
+      entitaet: "Lieferung",
+      entitaetId: Number(id),
+      aktion: "geaendert",
+      feld: "rechnungNr",
+      alterWert: transaction.altRechnungNr,
+      neuerWert: result.rechnungNr,
+      beschreibung: `Rechnungsnummer geändert: "${transaction.altRechnungNr ?? ""}" → "${result.rechnungNr ?? ""}"`,
     });
   }
 
