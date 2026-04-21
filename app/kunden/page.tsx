@@ -233,7 +233,12 @@ export default function KundenPage() {
                   return (
                     <tr key={kunde.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-medium">
-                        {kunde.name}
+                        <Link
+                          href={`/kunden/${kunde.id}`}
+                          className="text-green-700 hover:text-green-900 hover:underline"
+                        >
+                          {kunde.name}
+                        </Link>
                         {!kunde.aktiv && (
                           <span className="ml-2 text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">inaktiv</span>
                         )}
