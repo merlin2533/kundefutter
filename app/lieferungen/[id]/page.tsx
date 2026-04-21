@@ -54,6 +54,8 @@ export default function LieferungDetailPage() {
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
   const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
+  const [zahlungszielSaved, setZahlungszielSaved] = useState(false);
+  const [zahlungszielError, setZahlungszielError] = useState("");
   const [lieferDatumEdit, setLieferDatumEdit] = useState<string>("");
   const [lieferDatumSaved, setLieferDatumSaved] = useState(false);
   const [rechnungNrEdit, setRechnungNrEdit] = useState<string>("");
@@ -90,7 +92,7 @@ export default function LieferungDetailPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/lieferungen/${id}`);
+    const res = await fetch(`/api/lieferungen/${id}`, { cache: "no-store" });
     if (!res.ok) { setLoading(false); setError("Lieferung nicht gefunden."); return; }
     const data = await res.json();
     setLieferung(data);
@@ -345,19 +347,28 @@ export default function LieferungDetailPage() {
 
   async function speichereZahlungsziel() {
     const tage = parseInt(zahlungszielEdit, 10);
-    if (isNaN(tage) || tage < 0) return;
+    if (isNaN(tage) || tage < 0 || tage > 365) {
+      setZahlungszielError("Bitte eine ganze Zahl zwischen 0 und 365 eingeben.");
+      return;
+    }
     setActionLoading(true);
-    setError("");
+    setZahlungszielError("");
+    setZahlungszielSaved(false);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ zahlungsziel: tage }),
       });
-      if (!res.ok) throw new Error("Fehler beim Speichern");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setZahlungszielSaved(true);
+      setTimeout(() => setZahlungszielSaved(false), 2000);
       await load();
-    } catch {
-      setError("Fehler beim Speichern des Zahlungsziels.");
+    } catch (e) {
+      setZahlungszielError(e instanceof Error ? e.message : "Fehler beim Speichern des Zahlungsziels.");
     } finally {
       setActionLoading(false);
     }
@@ -689,13 +700,14 @@ export default function LieferungDetailPage() {
               )}
             </div>
             {istGeliefert && (
-              <div className="mt-2 flex items-center gap-2 text-sm">
+              <div className="mt-2 flex items-center flex-wrap gap-2 text-sm">
                 <label className="text-gray-600 whitespace-nowrap">Zahlungsziel:</label>
                 <input
                   type="number"
                   min={0}
+                  max={365}
                   value={zahlungszielEdit}
-                  onChange={(e) => setZahlungszielEdit(e.target.value)}
+                  onChange={(e) => { setZahlungszielEdit(e.target.value); setZahlungszielError(""); setZahlungszielSaved(false); }}
                   className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-green-700"
                 />
                 <span className="text-gray-500">Tage</span>
@@ -706,6 +718,12 @@ export default function LieferungDetailPage() {
                 >
                   Speichern
                 </button>
+                {zahlungszielSaved && (
+                  <span className="text-xs text-green-700">✓ gespeichert</span>
+                )}
+                {zahlungszielError && (
+                  <span className="text-xs text-red-600">{zahlungszielError}</span>
+                )}
               </div>
             )}
           </div>

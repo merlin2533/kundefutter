@@ -156,7 +156,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
         updateData.bezahltAm = d;
       }
     }
-    if (data.zahlungsziel !== undefined) updateData.zahlungsziel = data.zahlungsziel;
+    if (data.zahlungsziel !== undefined) {
+      if (data.zahlungsziel === null || data.zahlungsziel === "") {
+        throw new Error("Zahlungsziel darf nicht leer sein");
+      }
+      const z = typeof data.zahlungsziel === "number" ? data.zahlungsziel : Number(data.zahlungsziel);
+      if (!Number.isFinite(z) || !Number.isInteger(z) || z < 0 || z > 365) {
+        throw new Error("Zahlungsziel muss eine Ganzzahl zwischen 0 und 365 sein");
+      }
+      updateData.zahlungsziel = z;
+    }
     if (data.rechnungNr !== undefined) {
       if (typeof data.rechnungNr !== "string" || data.rechnungNr.trim() === "") {
         throw new Error("Rechnungsnummer darf nicht leer sein");
@@ -181,7 +190,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         positionen: { include: { artikel: true } },
       },
     });
-    return { updated, altRechnungNr: alt.rechnungNr };
+    return { updated, altRechnungNr: alt.rechnungNr, altZahlungsziel: alt.zahlungsziel };
   });
   const result = transaction.updated;
 
@@ -206,6 +215,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
       alterWert: transaction.altRechnungNr,
       neuerWert: result.rechnungNr,
       beschreibung: `Rechnungsnummer geändert: "${transaction.altRechnungNr ?? ""}" → "${result.rechnungNr ?? ""}"`,
+    });
+  }
+
+  if (data.zahlungsziel !== undefined && transaction.altZahlungsziel !== result.zahlungsziel) {
+    void auditLog({
+      entitaet: "Lieferung",
+      entitaetId: Number(id),
+      aktion: "geaendert",
+      feld: "zahlungsziel",
+      alterWert: transaction.altZahlungsziel,
+      neuerWert: result.zahlungsziel,
+      beschreibung: `Zahlungsziel geändert: ${transaction.altZahlungsziel ?? "—"} → ${result.zahlungsziel ?? "—"} Tage`,
     });
   }
 
