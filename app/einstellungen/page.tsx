@@ -121,8 +121,14 @@ export default function EinstellungenPage() {
           description="Präfix, Stellenanzahl und nächste Nummer konfigurieren"
         />
         <EinstellungTile
-          href="/einstellungen/artikel-import"
+          href="/einstellungen/import"
           icon="📥"
+          title="Import"
+          description="Kunden, Artikel und Stammdaten aus Excel-Dateien importieren"
+        />
+        <EinstellungTile
+          href="/einstellungen/artikel-import"
+          icon="🌿"
           title="Artikel-Stammdaten"
           description="marstall & BvG Agrar Artikel manuell importieren"
         />
