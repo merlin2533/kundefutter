@@ -71,7 +71,7 @@ fi
 
 # Admin-Seed (idempotent – legt admin/MarkusStraub an, falls kein Admin existiert)
 log "Admin-Benutzer prüfen/anlegen..."
-npx --yes ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed-admin.ts > /tmp/prisma_seed_admin.log 2>&1
+node prisma/seed-admin.js > /tmp/prisma_seed_admin.log 2>&1
 SEED_EXIT=$?
 if [ -s /tmp/prisma_seed_admin.log ]; then
   while IFS= read -r line; do
