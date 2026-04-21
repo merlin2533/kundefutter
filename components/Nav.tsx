@@ -604,6 +604,94 @@ function RecentPages() {
   );
 }
 
+interface CurrentUser {
+  id: number;
+  benutzername: string;
+  name: string;
+  email: string | null;
+  rolle: string;
+}
+
+function UserMenu() {
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.user) setUser(d.user); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch { /* ignore */ }
+    window.location.href = "/login";
+  }
+
+  if (!user) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded hover:bg-green-700 transition-colors"
+        title={user.name}
+      >
+        <span className="w-7 h-7 rounded-full bg-green-600 flex items-center justify-center text-xs font-bold">
+          {user.benutzername.slice(0, 2).toUpperCase()}
+        </span>
+        <span className="hidden lg:inline text-sm font-medium truncate max-w-[120px]">
+          {user.benutzername}
+        </span>
+        <svg className={`w-3.5 h-3.5 transition-transform hidden lg:block ${open ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-60 z-[90] py-1">
+          <div className="px-3 py-2 border-b border-gray-100">
+            <div className="text-sm font-semibold text-gray-800 truncate">{user.name}</div>
+            <div className="text-xs text-gray-500 truncate">
+              {user.benutzername}
+              {user.rolle === "admin" && (
+                <span className="ml-1.5 text-purple-700 font-medium">· Admin</span>
+              )}
+            </div>
+            {user.email && (
+              <div className="text-xs text-gray-400 truncate mt-0.5">{user.email}</div>
+            )}
+          </div>
+          <Link
+            href="/einstellungen/benutzer"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800"
+          >
+            Benutzerverwaltung
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="block w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+          >
+            Abmelden
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChildActive: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -653,14 +741,19 @@ export default function Nav() {
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
 
+  const hideNav = pathname === "/login" || pathname.startsWith("/login/");
+
   useEffect(() => {
+    if (hideNav) return;
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
       .then((d) => {
         if (d["system.logo"]) setLogo(d["system.logo"]);
       })
       .catch(() => {});
-  }, []);
+  }, [hideNav]);
+
+  if (hideNav) return null;
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -719,11 +812,12 @@ export default function Nav() {
           </Link>
         </nav>
 
-        {/* Right side actions: search + bell + history */}
+        {/* Right side actions: search + bell + history + user */}
         <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">
           <HeaderSearch />
           <NotificationBell />
           <RecentPages />
+          <UserMenu />
         </div>
 
         {/* Mobile right side */}
@@ -731,6 +825,7 @@ export default function Nav() {
           <HeaderSearch />
           <NotificationBell />
           <RecentPages />
+          <UserMenu />
           <button
             className="p-2 rounded hover:bg-green-700 transition-colors"
             onClick={() => setOpen((v) => !v)}

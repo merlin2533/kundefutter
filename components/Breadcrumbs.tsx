@@ -127,6 +127,7 @@ export default function Breadcrumbs() {
   }, [pathname]);
 
   if (pathname === "/") return null;
+  if (pathname === "/login" || pathname.startsWith("/login/")) return null;
 
   const crumbs: Crumb[] = [{ label: "Dashboard", href: "/" }];
   let currentPath = "";

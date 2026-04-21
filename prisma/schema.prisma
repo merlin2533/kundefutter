@@ -711,3 +711,20 @@ model KiNutzung {
 
   @@index([zeitpunkt, feature])
 }
+
+// ─── BENUTZER ─────────────────────────────────────────────────────────────────
+
+model Benutzer {
+  id           Int       @id @default(autoincrement())
+  benutzername String    @unique
+  passwortHash String
+  name         String
+  email        String?
+  rolle        String    @default("benutzer") // "admin" | "benutzer"
+  aktiv        Boolean   @default(true)
+  letzterLogin DateTime?
+  erstelltAm   DateTime  @default(now())
+  geaendertAm  DateTime  @updatedAt
+
+  @@index([aktiv])
+}

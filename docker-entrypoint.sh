@@ -69,5 +69,19 @@ else
   ok "Migrationen abgeschlossen"
 fi
 
+# Admin-Seed (idempotent – legt admin/MarkusStraub an, falls kein Admin existiert)
+log "Admin-Benutzer prüfen/anlegen..."
+npx --yes ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed-admin.ts > /tmp/prisma_seed_admin.log 2>&1
+SEED_EXIT=$?
+if [ -s /tmp/prisma_seed_admin.log ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    log "  $line"
+  done < /tmp/prisma_seed_admin.log
+fi
+if [ "$SEED_EXIT" -ne 0 ]; then
+  warn "Admin-Seed fehlgeschlagen (exit=$SEED_EXIT) – bitte manuell prüfen"
+fi
+
 ok "=== Starte Server (node server.js) ==="
 exec node server.js

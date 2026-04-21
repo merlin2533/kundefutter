@@ -55,6 +55,12 @@ export default function EinstellungenPage() {
           description="Gespeicherte Tourbezeichnungen"
         />
         <EinstellungTile
+          href="/einstellungen/benutzer"
+          icon="👥"
+          title="Benutzer"
+          description="Benutzerkonten, Rollen und Zugriffsrechte verwalten"
+        />
+        <EinstellungTile
           href="/einstellungen/system"
           icon="⚙️"
           title="System"
