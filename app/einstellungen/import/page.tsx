@@ -19,7 +19,6 @@ function ImportTile({ href, icon, title, description, vorlage }: {
           <a
             href={vorlage}
             download
-            onClick={e => e.stopPropagation()}
             title="Vorlage herunterladen"
             className="shrink-0 mt-1 flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 border border-gray-200 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
           >
