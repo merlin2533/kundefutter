@@ -141,8 +141,8 @@ export default function EinstellungenPage() {
         <EinstellungTile
           href="/einstellungen/email"
           icon="✉️"
-          title="E-Mail / SMTP"
-          description="Rechnungsversand per E-Mail konfigurieren (PDF + ZUGFeRD)"
+          title="E-Mail-Versand"
+          description="SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)"
         />
         <EinstellungTile
           href="/einstellungen/ki"
