@@ -9,6 +9,7 @@ function LoginForm() {
 
   const [benutzername, setBenutzername] = useState("");
   const [passwort, setPasswort] = useState("");
+  const [passwortSichtbar, setPasswortSichtbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -65,14 +66,25 @@ function LoginForm() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Passwort
             </label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={passwort}
-              onChange={(e) => setPasswort(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-              required
-            />
+            <div className="relative">
+              <input
+                type={passwortSichtbar ? "text" : "password"}
+                autoComplete="current-password"
+                value={passwort}
+                onChange={(e) => setPasswort(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-2 pr-12 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setPasswortSichtbar((s) => !s)}
+                aria-label={passwortSichtbar ? "Passwort verbergen" : "Passwort anzeigen"}
+                aria-pressed={passwortSichtbar}
+                className="absolute inset-y-0 right-0 px-3 text-sm text-gray-600 hover:text-green-700 focus:outline-none"
+              >
+                {passwortSichtbar ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           {fehler && (
