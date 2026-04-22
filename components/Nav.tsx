@@ -313,7 +313,7 @@ function HeaderSearch() {
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setOpen(true)}
           placeholder="Suchen…"
-          className="bg-transparent outline-none text-white placeholder-white/60 text-sm px-2.5 py-1.5 w-36 lg:w-52 focus:text-gray-900 focus:placeholder-gray-400 transition-colors"
+          className="bg-transparent outline-none text-white placeholder-white/60 text-sm px-2.5 py-1.5 w-28 lg:w-48 xl:w-52 focus:text-gray-900 focus:placeholder-gray-400 transition-colors"
         />
         {loading && (
           <svg className="w-4 h-4 mr-2 text-white/60 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
@@ -708,7 +708,7 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+        className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-medium transition-colors ${
           isAnyChildActive ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
         }`}
       >
@@ -768,7 +768,7 @@ export default function Nav() {
 
   return (
     <header className="bg-green-800 text-white shadow-md">
-      <div className="max-w-screen-xl mx-auto px-4 py-2.5 flex items-center gap-2">
+      <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
         {/* Logo */}
         <div className="flex-shrink-0">
           {logo ? (
@@ -782,13 +782,13 @@ export default function Nav() {
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0">
+        <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
           {groups.map((g) =>
             g.href ? (
               <Link
                 key={g.href}
                 href={g.href}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
+                className={`px-2.5 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
                   isGroupActive(g) ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
                 }`}
               >
