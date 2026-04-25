@@ -117,6 +117,9 @@ export default function ArtikelDetailPage() {
     bevorzugt: false,
   });
   const [savingLief, setSavingLief] = useState(false);
+  const [editEkLiefId, setEditEkLiefId] = useState<number | null>(null);
+  const [editEkValue, setEditEkValue] = useState("");
+  const [savingEk, setSavingEk] = useState(false);
   const [liefError, setLiefError] = useState("");
 
   // Inhaltsstoffe
@@ -339,6 +342,43 @@ export default function ArtikelDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lieferanten: updated }),
     });
+    fetchArtikel();
+  }
+
+  function startEditEk(l: ArtikelLieferant) {
+    setEditEkLiefId(l.id);
+    setEditEkValue(l.einkaufspreis > 0 ? String(l.einkaufspreis) : "");
+  }
+
+  function cancelEditEk() {
+    setEditEkLiefId(null);
+    setEditEkValue("");
+  }
+
+  async function saveEditEk(zielLief: ArtikelLieferant) {
+    if (!artikel) return;
+    const parsed = parseFloat(editEkValue.replace(",", "."));
+    const neu = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    if (neu === zielLief.einkaufspreis) {
+      cancelEditEk();
+      return;
+    }
+    setSavingEk(true);
+    const updated = artikel.lieferanten.map((l) => ({
+      lieferantId: l.lieferantId,
+      lieferantenArtNr: l.lieferantenArtNr,
+      einkaufspreis: l.id === zielLief.id ? neu : l.einkaufspreis,
+      mindestbestellmenge: l.mindestbestellmenge,
+      lieferzeitTage: l.lieferzeitTage,
+      bevorzugt: l.bevorzugt,
+    }));
+    await fetch(`/api/artikel/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lieferanten: updated }),
+    });
+    setSavingEk(false);
+    cancelEditEk();
     fetchArtikel();
   }
 
@@ -959,7 +999,33 @@ export default function ArtikelDetailPage() {
                         <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.lieferantenArtNr ?? ""}</div>
                       </td>
                       <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.lieferantenArtNr ?? "—"}</td>
-                      <td className="px-4 py-3 font-mono">{formatEuro(l.einkaufspreis)}</td>
+                      <td className="px-4 py-3 font-mono">
+                        {editEkLiefId === l.id ? (
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            autoFocus
+                            disabled={savingEk}
+                            value={editEkValue}
+                            onChange={(e) => setEditEkValue(e.target.value)}
+                            onBlur={() => saveEditEk(l)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") { e.preventDefault(); saveEditEk(l); }
+                              else if (e.key === "Escape") { e.preventDefault(); cancelEditEk(); }
+                            }}
+                            className="w-24 border border-green-400 rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-200"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startEditEk(l)}
+                            title="EK bearbeiten"
+                            className="font-mono hover:bg-green-50 px-2 py-1 -mx-2 -my-1 rounded transition-colors text-left"
+                          >
+                            {formatEuro(l.einkaufspreis)}
+                          </button>
+                        )}
+                      </td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeitTage ?? "—"}</td>
                       <td className="px-4 py-3">
