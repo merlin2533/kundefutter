@@ -58,6 +58,13 @@ export default function ImportPage() {
           description="Artikel-Stammdaten aus Excel laden oder vordefinierte marstall & BvG-Agrar Artikel importieren."
           vorlage="/api/einstellungen/artikel-import?action=template"
         />
+        <ImportTile
+          href="/einstellungen/import/preisliste"
+          icon="💶"
+          title="Preisliste importieren"
+          description="Einfache 2-Spalten-Preisliste je Lieferant: Artikelname (mit Gebindegröße) und EK-Preis."
+          vorlage="/api/einstellungen/preisliste-import?action=template"
+        />
       </div>
     </div>
   );
