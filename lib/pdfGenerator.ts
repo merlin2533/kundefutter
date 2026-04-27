@@ -143,6 +143,84 @@ function zeichneDokumentFooter(
 }
 
 /**
+ * Lädt die dokument.footer.* Einstellungen oder fällt auf Firmendaten zurück.
+ * Spiegelt die Logik von components/DokumentFooter.tsx – buildFooterColumns().
+ */
+async function ladeFooterSpalten(firma: FirmaDaten): Promise<{ links: string; mitte: string; rechts: string }> {
+  const rows = await prisma.einstellung.findMany({
+    where: { key: { startsWith: "dokument.footer." } },
+  });
+  const cfg: Record<string, string> = {};
+  for (const r of rows) cfg[r.key] = r.value;
+
+  const links = cfg["dokument.footer.links"] ||
+    [firma.name, firma.zusatz, firma.strasse, firma.plzOrt].filter(Boolean).join("\n");
+
+  const mitte = cfg["dokument.footer.mitte"] ||
+    [
+      firma.telefon ? `Tel: ${firma.telefon}` : "",
+      firma.email,
+      firma.steuernummer ? `Steuernr.: ${firma.steuernummer}` : "",
+      firma.ustIdNr ? `USt-IdNr.: ${firma.ustIdNr}` : "",
+      firma.oekoNummer ? `Öko-Nr.: ${firma.oekoNummer}` : "",
+    ].filter(Boolean).join("\n");
+
+  const rechts = cfg["dokument.footer.rechts"] ||
+    [
+      firma.bank,
+      firma.iban ? `IBAN: ${firma.iban}` : "",
+      firma.bic ? `BIC: ${firma.bic}` : "",
+    ].filter(Boolean).join("\n");
+
+  return { links, mitte, rechts };
+}
+
+/**
+ * Zeichnet den 3-spaltigen Dokument-Footer am unteren Seitenrand.
+ */
+function zeichneDokumentFooter(
+  doc: jsPDF,
+  spalten: { links: string; mitte: string; rechts: string },
+) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const left = 14;
+  const right = 196;
+  const width = right - left;
+  const colWidth = (width - 8) / 3;
+
+  // Footer ist 6 Zeilen hoch (max), Zeilenhöhe 3.2 mm
+  const zeilenHoehe = 3.2;
+  const maxZeilen = Math.max(
+    spalten.links.split("\n").length,
+    spalten.mitte.split("\n").length,
+    spalten.rechts.split("\n").length,
+    1,
+  );
+  const footerHoehe = maxZeilen * zeilenHoehe + 4;
+  const footerY = pageHeight - footerHoehe - 8;
+
+  // Trennlinie
+  doc.setDrawColor(187);
+  doc.setLineWidth(0.2);
+  doc.line(left, footerY, right, footerY);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(102);
+
+  const startY = footerY + 4;
+  const links = spalten.links.split("\n");
+  const mitte = spalten.mitte.split("\n");
+  const rechts = spalten.rechts.split("\n");
+
+  links.forEach((line, i) => doc.text(line, left, startY + i * zeilenHoehe));
+  mitte.forEach((line, i) =>
+    doc.text(line, left + colWidth + 4 + colWidth / 2, startY + i * zeilenHoehe, { align: "center" }),
+  );
+  rechts.forEach((line, i) => doc.text(line, right, startY + i * zeilenHoehe, { align: "right" }));
+}
+
+/**
  * Generiert eine Rechnung als PDF-Buffer für die angegebene Lieferung.
  * Layout spiegelt die HTML-Vorschau unter /lieferungen/[id]/rechnung.
  * Die Lieferung muss bereits eine Rechnungsnummer besitzen.
