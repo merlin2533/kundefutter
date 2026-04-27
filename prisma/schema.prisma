@@ -124,6 +124,7 @@ model Artikel {
   artikelnummer    String   @unique
   name             String
   kategorie        String   // Futter | Duenger | Saatgut
+  unterkategorie   String?  // optional Subkategorie, z.B. Saatgut → Mais|Raps|Getreide|…
   einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
   beschreibung     String?
   standardpreis    Float    @default(0)
@@ -155,6 +156,7 @@ model Artikel {
 
   @@index([aktiv])
   @@index([kategorie])
+  @@index([unterkategorie])
   @@index([name])
 }
 

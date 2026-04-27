@@ -82,7 +82,7 @@ function NeuesAngebotForm() {
   const preselectedKundeId = searchParams.get("kundeId") ?? "";
   const ausBedarfen = searchParams.get("ausBedarfen") === "true";
 
-  const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag", "Stunden"];
+  const FALLBACK_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Palette", "BigBag", "km", "Stunden"];
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);

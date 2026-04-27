@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
 interface Lieferung {
   id: number;
@@ -73,6 +74,8 @@ export default function LieferungenPage() {
     const t = setTimeout(fetchLieferungen, 300);
     return () => clearTimeout(t);
   }, [fetchLieferungen]);
+
+  useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
 
   async function fetchWiederkehrend() {
     setWLoading(true);

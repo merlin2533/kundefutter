@@ -1,27 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-
-// Flexible Spalten-Aliasse für häufige Varianten.
-function pickCol(row: Record<string, unknown>, ...keys: string[]): string {
-  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-()]/g, "");
-  const lookup: Record<string, unknown> = {};
-  for (const k of Object.keys(row)) lookup[norm(k)] = row[k];
-  for (const key of keys) {
-    const v = lookup[norm(key)];
-    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
-  }
-  return "";
-}
-
-function parseNumber(s: string): number {
-  if (!s) return 0;
-  const cleaned = s.includes(",")
-    ? s.replace(/\./g, "").replace(",", ".")
-    : s.replace(/[^0-9.\-]/g, "");
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : 0;
-}
+import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
 
 export async function POST(req: NextRequest) {
   let formData: FormData;
@@ -60,7 +40,7 @@ export async function POST(req: NextRequest) {
     const row = rows[i];
     const rowNum = i + 2;
 
-    const name = pickCol(row, "Name", "Produktname", "Artikel", "Bezeichnung");
+    const name = pickCol(row, ...ARTIKEL_ALIAS.name);
     if (!name) {
       errors.push(`Zeile ${rowNum}: Name/Produktname fehlt — übersprungen`);
       skipped++;
@@ -70,20 +50,20 @@ export async function POST(req: NextRequest) {
     const aktivRaw = pickCol(row, "Aktiv", "Active").toLowerCase() || "ja";
     const aktiv = aktivRaw !== "nein" && aktivRaw !== "false" && aktivRaw !== "0";
 
-    const standardpreis = parseNumber(
-      pickCol(row, "Standardpreis", "VK (Standardpreis)", "VK", "Preis", "Verkaufspreis"),
-    );
-    const aktuellerBestand = parseNumber(pickCol(row, "Lagerbestand", "Bestand", "Aktueller Bestand"));
-    const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand"));
-    const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz"));
+    const standardpreis = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.standardpreis));
+    const aktuellerBestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.bestand));
+    const mindestbestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestand));
+    const mwstRaw = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mwst));
     const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
-    const kategorie = pickCol(row, "Kategorie", "Gruppe") || "Futter";
-    const einheit = pickCol(row, "Einheit", "Einh") || "kg";
-    const liefergroesse =
-      pickCol(row, "Verpackungsgröße", "Verpackungsgroesse", "Verpackung", "Liefergröße", "Liefergroesse", "Gebinde") || null;
-    const beschreibung = pickCol(row, "Beschreibung", "Bemerkung", "Notiz") || null;
+    const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Futter";
+    const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
+    const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "kg";
+    const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
+    const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
+    const lieferantName = pickCol(row, ...ARTIKEL_ALIAS.lieferant);
+    const einkaufspreis = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.einkaufspreis));
 
-    const artikelnummer = pickCol(row, "Artikelnummer", "Nummer", "ArtNr", "Art-Nr", "SKU") || undefined;
+    const artikelnummer = pickCol(row, ...ARTIKEL_ALIAS.artikelnummer) || undefined;
 
     try {
       // Auto-Artikelnummer bei Bedarf, innerhalb einer Transaktion
@@ -106,11 +86,18 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        let lieferantId: number | null = null;
+        if (lieferantName) {
+          const bestehend = await tx.lieferant.findFirst({ where: { name: lieferantName } });
+          lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
+        }
+
         await tx.artikel.create({
           data: {
             artikelnummer: finalNummer,
             name,
             kategorie,
+            unterkategorie,
             einheit,
             standardpreis,
             mwstSatz,
@@ -119,6 +106,18 @@ export async function POST(req: NextRequest) {
             liefergroesse,
             beschreibung,
             aktiv,
+            ...(lieferantId && {
+              lieferanten: {
+                create: [{
+                  lieferantId,
+                  lieferantenArtNr: finalNummer,
+                  einkaufspreis,
+                  mindestbestellmenge: 1,
+                  lieferzeitTage: 7,
+                  bevorzugt: true,
+                }],
+              },
+            }),
           },
         });
       });

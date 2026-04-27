@@ -2,14 +2,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-
-const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
-const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag", "Stunden"];
+import {
+  DEFAULT_ARTIKEL_KATEGORIEN,
+  DEFAULT_EINHEITEN,
+  DEFAULT_SAATGUT_KULTUREN,
+  parseListSetting,
+} from "@/lib/auswahllisten";
 
 const defaultForm = {
   name: "",
   artikelnummer: "",
   kategorie: "Futter",
+  unterkategorie: "",
   einheit: "kg",
   standardpreis: "",
   mindestbestand: "0",
@@ -21,8 +25,9 @@ const defaultForm = {
 export default function NeuerArtikelPage() {
   const router = useRouter();
   const [form, setForm] = useState(defaultForm);
-  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
-  const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
+  const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
+  const [einheiten, setEinheiten] = useState<string[]>(DEFAULT_EINHEITEN);
+  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -30,22 +35,9 @@ export default function NeuerArtikelPage() {
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
       .then((d) => {
-        if (d["system.artikelkategorien"]) {
-          try {
-            const parsed = JSON.parse(d["system.artikelkategorien"]);
-            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
-          } catch {
-            /* ignore */
-          }
-        }
-        if (d["system.einheiten"]) {
-          try {
-            const parsed = JSON.parse(d["system.einheiten"]);
-            if (Array.isArray(parsed) && parsed.length) setEinheiten(parsed);
-          } catch {
-            /* ignore */
-          }
-        }
+        setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
+        setEinheiten(parseListSetting(d, "system.einheiten", DEFAULT_EINHEITEN));
+        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
       })
       .catch(() => {});
   }, []);
@@ -105,6 +97,7 @@ export default function NeuerArtikelPage() {
     const body = {
       ...form,
       artikelnummer: form.artikelnummer.trim() || undefined,
+      unterkategorie: form.unterkategorie.trim() || null,
       standardpreis: Number(form.standardpreis) || 0,
       mindestbestand: Number(form.mindestbestand) || 0,
       mwstSatz: Number(form.mwstSatz) || 19,
@@ -178,7 +171,7 @@ export default function NeuerArtikelPage() {
             </label>
             <select
               value={form.kategorie}
-              onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
+              onChange={(e) => setForm({ ...form, kategorie: e.target.value, unterkategorie: "" })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
               {kategorien.map((k) => (
@@ -205,6 +198,24 @@ export default function NeuerArtikelPage() {
             </select>
           </div>
         </div>
+
+        {form.kategorie === "Saatgut" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kultur <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <select
+              value={form.unterkategorie}
+              onChange={(e) => setForm({ ...form, unterkategorie: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            >
+              <option value="">&mdash; keine &mdash;</option>
+              {saatgutKulturen.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DEFAULT_SAATGUT_KULTUREN } from "@/lib/auswahllisten";
 
-type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten" | "system.notiz_themen" | "system.gutschrift_gruende";
+type ListKey =
+  | "system.kundenkategorien"
+  | "system.mitarbeiter"
+  | "system.einheiten"
+  | "system.notiz_themen"
+  | "system.gutschrift_gruende"
+  | "system.saatgut_kulturen";
 
-const DEFAULT_EINHEITEN = ["kg", "t", "l", "Stk", "Sack", "Palette", "Stunden"];
+const DEFAULT_EINHEITEN = ["kg", "t", "dt", "l", "Stk", "Sack", "Palette", "km", "Stunden"];
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
 
@@ -153,10 +160,17 @@ export default function StammdatenPage() {
         />
         <EditableList
           title="Einheiten"
-          description="Mengeneinheiten für Artikel (kg, t, l, Stk …)."
+          description="Mengeneinheiten für Artikel (kg, t, dt, l, Stk, km …)."
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
+        />
+        <EditableList
+          title="Saatgut-Kulturen"
+          description="Sub-Kategorien für Saatgut-Artikel (Mais, Raps, Getreide …). Erscheinen als Filter und Dropdown bei Artikeln der Kategorie 'Saatgut'."
+          storeKey="system.saatgut_kulturen"
+          defaultItems={DEFAULT_SAATGUT_KULTUREN}
+          placeholder="z.B. Hirse"
         />
         <EditableList
           title="Notiz-Themen"

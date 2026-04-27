@@ -4,11 +4,13 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const kategorie = searchParams.get("kategorie");
+  const unterkategorie = searchParams.get("unterkategorie");
   const search = searchParams.get("search");
   const aktiv = searchParams.get("aktiv");
 
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
+  if (unterkategorie) where.unterkategorie = unterkategorie;
   // Standardmäßig nur aktive Artikel anzeigen; explizit ?aktiv=false für inaktive, ?aktiv=alle für alle
   if (aktiv === null) where.aktiv = true;
   else if (aktiv !== "alle") where.aktiv = aktiv === "true";
