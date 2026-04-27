@@ -9,6 +9,7 @@ import {
   DEFAULT_SAATGUT_KULTUREN,
   parseListSetting,
 } from "@/lib/auswahllisten";
+import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
 interface ArtikelLieferant {
   id: number;
@@ -67,6 +68,8 @@ export default function ArtikelPage() {
   useEffect(() => {
     if (kategorie !== "Saatgut") setUnterkategorie("alle");
   }, [kategorie]);
+
+  useScrollRestoration(!loading && artikel.length > 0);
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")

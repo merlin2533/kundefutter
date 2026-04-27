@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
 interface KundeKontakt {
   id: number;
@@ -70,6 +71,9 @@ export default function KundenPage() {
     const t = setTimeout(() => fetchKunden(page), 300);
     return () => clearTimeout(t);
   }, [fetchKunden, page]);
+
+  // Scroll-Position über Browser-Back wiederherstellen, sobald Daten gerendert sind
+  useScrollRestoration(!loading && kunden.length > 0);
 
   async function deleteKunde(id: number, name: string) {
     if (!confirm(`Kunde "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
