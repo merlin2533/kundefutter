@@ -343,16 +343,14 @@ export default function RechnungPrintPage() {
           <button
             onClick={handleMailSenden}
             disabled={mailSending}
-            className="px-3 py-2 text-sm bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
-            title="Rechnung (PDF + ZUGFeRD XML) per E-Mail an Kunde senden"
+            className="p-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors"
+            title="Per E-Mail senden"
           >
-            <span aria-hidden>✉</span> {mailSending ? "Sende…" : "Per Mail"}
+            {mailSending
+              ? <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+              : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            }
           </button>
-        )}
-        {mailMsg && (
-          <span className={`text-xs font-medium ${mailMsg.includes("gesendet") ? "text-green-700" : "text-red-600"}`}>
-            {mailMsg}
-          </span>
         )}
         {lieferung && (
           <DriveUploadButton
