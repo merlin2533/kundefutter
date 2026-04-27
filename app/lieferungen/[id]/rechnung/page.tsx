@@ -612,6 +612,21 @@ export default function RechnungPrintPage() {
           )}
         </div>
 
+        {/* Notiz zur Lieferung */}
+        {lieferung.notiz && lieferung.notiz.trim().length > 0 && (
+          <div
+            style={{
+              marginBottom: "16px",
+              fontSize: "9pt",
+              color: "#555",
+              fontStyle: "italic",
+              whiteSpace: "pre-line",
+            }}
+          >
+            Hinweis: {lieferung.notiz}
+          </div>
+        )}
+
         {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
         <div
           style={{
