@@ -131,12 +131,26 @@ function NeueLieferungInner() {
   useEffect(() => {
     async function load() {
       try {
+        // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
+        // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
         const [kr, ar] = await Promise.all([
-          fetch("/api/kunden").then((r) => r.json()),
-          fetch("/api/artikel").then((r) => r.json()),
+          fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()),
+          fetch("/api/artikel?limit=500").then((r) => r.json()),
         ]);
-        const kundenData = Array.isArray(kr) ? kr : [];
-        const artikelData = Array.isArray(ar) ? ar : [];
+        let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
+        const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
+
+        // Wenn ein bestimmter Kunde vorausgewählt werden soll, sicherstellen
+        // dass er in der Liste ist (auch wenn inaktiv oder außerhalb des Limits).
+        const vorauswahlId = kundeIdParam ? parseInt(kundeIdParam, 10) : NaN;
+        if (!isNaN(vorauswahlId) && !kundenData.some((k) => k.id === vorauswahlId)) {
+          try {
+            const k = await fetch(`/api/kunden/${vorauswahlId}`).then((r) => (r.ok ? r.json() : null));
+            if (k && k.id) kundenData = [k, ...kundenData];
+          } catch {
+            /* ignore */
+          }
+        }
         setKunden(kundenData);
         setArtikel(artikelData);
 
@@ -171,9 +185,8 @@ function NeueLieferungInner() {
           } catch {
             // ignore, fallback to empty form
           }
-        } else if (kundeIdParam) {
-          const kid = parseInt(kundeIdParam, 10);
-          if (!isNaN(kid)) setKundeId(kid);
+        } else if (!isNaN(vorauswahlId)) {
+          setKundeId(vorauswahlId);
         }
       } finally {
         setLoading(false);
