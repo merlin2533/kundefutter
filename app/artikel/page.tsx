@@ -7,6 +7,7 @@ import { formatEuro, lagerStatus } from "@/lib/utils";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_SAATGUT_KULTUREN,
+  istAnalyseArtikel,
   parseListSetting,
 } from "@/lib/auswahllisten";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
@@ -236,7 +237,7 @@ export default function ArtikelPage() {
             </thead>
             <tbody>
               {artikel.map((a) => {
-                const istAnalyse = a.kategorie === "Analysen" || a.kategorie === "Analyse";
+                const istAnalyse = istAnalyseArtikel(a.kategorie);
                 const status = lagerStatus(a.aktuellerBestand, a.mindestbestand);
                 const kategorieAnzeige = a.kategorie === "Duenger" ? "Dünger" : a.kategorie;
                 const kategorieMitKultur = a.unterkategorie ? `${kategorieAnzeige} · ${a.unterkategorie}` : kategorieAnzeige;

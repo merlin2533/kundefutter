@@ -39,3 +39,9 @@ export function parseListSetting(
   }
   return fallback;
 }
+
+/** Analyse-Artikel haben keinen physischen Lagerbestand. Sie werden in
+ *  Listen und Detailseiten ohne Bestand/Ampel/Nachbestell-Box angezeigt. */
+export function istAnalyseArtikel(kategorie: string | null | undefined): boolean {
+  return kategorie === "Analysen" || kategorie === "Analyse";
+}

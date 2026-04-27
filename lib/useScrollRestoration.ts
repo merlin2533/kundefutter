@@ -16,7 +16,7 @@ import { usePathname } from "next/navigation";
  */
 export function useScrollRestoration(ready: boolean) {
   const pathname = usePathname();
-  const restored = useRef(false);
+  const restoredFor = useRef<string | null>(null);
 
   // Position fortlaufend speichern (gedrosselt via requestAnimationFrame)
   useEffect(() => {
@@ -40,10 +40,13 @@ export function useScrollRestoration(ready: boolean) {
     };
   }, [pathname]);
 
-  // Position einmalig nach Datenladen wiederherstellen
+  // Position einmalig pro Pfad nach Datenladen wiederherstellen.
+  // restoredFor merkt sich den zuletzt restaurierten Pfad — wechselt der
+  // Pfad (z.B. /kunden → /kunden/123 → zurück), wird wieder restauriert.
   useEffect(() => {
-    if (!ready || restored.current || typeof window === "undefined") return;
-    restored.current = true;
+    if (!ready || typeof window === "undefined") return;
+    if (restoredFor.current === pathname) return;
+    restoredFor.current = pathname;
     try {
       const saved = sessionStorage.getItem(`scroll:${pathname}`);
       if (saved) {

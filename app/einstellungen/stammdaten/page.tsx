@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DEFAULT_SAATGUT_KULTUREN } from "@/lib/auswahllisten";
 
 type ListKey =
   | "system.kundenkategorien"
@@ -14,16 +15,6 @@ type ListKey =
 const DEFAULT_EINHEITEN = ["kg", "t", "dt", "l", "Stk", "Sack", "Palette", "km", "Stunden"];
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
-const DEFAULT_SAATGUT_KULTUREN = [
-  "Mais",
-  "Raps",
-  "Getreide",
-  "Gräser",
-  "Zwischenfrüchte",
-  "Leguminosen",
-  "Sonnenblumen",
-  "Sorghum",
-];
 
 function EditableList({
   title,

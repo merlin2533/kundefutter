@@ -8,6 +8,7 @@ import DriveOrdner from "@/components/DriveOrdner";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_SAATGUT_KULTUREN,
+  istAnalyseArtikel,
   parseListSetting,
 } from "@/lib/auswahllisten";
 
@@ -485,7 +486,7 @@ export default function ArtikelDetailPage() {
     </div>
   );
 
-  const istAnalyseProdukt = artikel.kategorie === "Analysen" || artikel.kategorie === "Analyse";
+  const istAnalyseProdukt = istAnalyseArtikel(artikel.kategorie);
   const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
   const marge = getMarge();
 
@@ -541,8 +542,8 @@ export default function ArtikelDetailPage() {
         </div>
       </div>
 
-      {/* Nachbestellung Box — shown when Bestand < Mindestbestand (außer für Analyse-Produkte) */}
-      {artikel.kategorie !== "Analysen" && artikel.kategorie !== "Analyse" && artikel.aktuellerBestand < artikel.mindestbestand && (() => {
+      {/* Nachbestellung Box — Analyse-Produkte haben keinen Bestand und werden ausgeblendet */}
+      {!istAnalyseProdukt && artikel.aktuellerBestand < artikel.mindestbestand && (() => {
         const bevorzugterLief = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
         return (
           <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
@@ -771,7 +772,7 @@ export default function ArtikelDetailPage() {
             <div>
               <dl className="divide-y divide-gray-100">
                 {(() => {
-                  const istAnalyse = artikel.kategorie === "Analysen" || artikel.kategorie === "Analyse";
+                  const istAnalyse = istAnalyseArtikel(artikel.kategorie);
                   const rows: [string, string | null][] = [
                     ["Artikelnummer", artikel.artikelnummer],
                     ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
