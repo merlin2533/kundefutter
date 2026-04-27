@@ -71,17 +71,42 @@ export async function POST(req: NextRequest) {
     const aktiv = aktivRaw !== "nein" && aktivRaw !== "false" && aktivRaw !== "0";
 
     const standardpreis = parseNumber(
-      pickCol(row, "Standardpreis", "VK (Standardpreis)", "VK", "Preis", "Verkaufspreis"),
+      pickCol(
+        row,
+        "Standardpreis",
+        "VK (Standardpreis)",
+        "Verkaufspreis",
+        "VK-Preis",
+        "VKP",
+        "VK",
+        "Listenpreis",
+        "Stückpreis",
+        "Stueckpreis",
+        "Nettopreis",
+        "Netto-Preis",
+        "Netto",
+        "Preis netto",
+        "Bruttopreis",
+        "Preis",
+      ),
     );
     const aktuellerBestand = parseNumber(pickCol(row, "Lagerbestand", "Bestand", "Aktueller Bestand"));
-    const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand"));
-    const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz"));
+    const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand", "Min-Bestand"));
+    const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz", "Mehrwertsteuer", "USt"));
     const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
-    const kategorie = pickCol(row, "Kategorie", "Gruppe") || "Futter";
-    const einheit = pickCol(row, "Einheit", "Einh") || "kg";
+    const kategorie =
+      pickCol(row, "Kategorie", "Artikelkategorie", "Produktkategorie", "Produktgruppe", "Warengruppe", "Gruppe") ||
+      "Futter";
+    const unterkategorie =
+      pickCol(row, "Unterkategorie", "Subkategorie", "Kultur", "Fruchtart") || null;
+    const einheit = pickCol(row, "Einheit", "Mengeneinheit", "ME", "Einh") || "kg";
     const liefergroesse =
       pickCol(row, "Verpackungsgröße", "Verpackungsgroesse", "Verpackung", "Liefergröße", "Liefergroesse", "Gebinde") || null;
     const beschreibung = pickCol(row, "Beschreibung", "Bemerkung", "Notiz") || null;
+    const lieferantName = pickCol(row, "Lieferant", "Lieferantenname", "Hersteller");
+    const einkaufspreis = parseNumber(
+      pickCol(row, "EK (Einkaufspreis)", "Einkaufspreis", "EK-Preis", "EK", "Einstandspreis"),
+    );
 
     const artikelnummer = pickCol(row, "Artikelnummer", "Nummer", "ArtNr", "Art-Nr", "SKU") || undefined;
 
@@ -106,11 +131,18 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        let lieferantId: number | null = null;
+        if (lieferantName) {
+          const bestehend = await tx.lieferant.findFirst({ where: { name: lieferantName } });
+          lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
+        }
+
         await tx.artikel.create({
           data: {
             artikelnummer: finalNummer,
             name,
             kategorie,
+            unterkategorie,
             einheit,
             standardpreis,
             mwstSatz,
@@ -119,6 +151,18 @@ export async function POST(req: NextRequest) {
             liefergroesse,
             beschreibung,
             aktiv,
+            ...(lieferantId && {
+              lieferanten: {
+                create: [{
+                  lieferantId,
+                  lieferantenArtNr: finalNummer,
+                  einkaufspreis,
+                  mindestbestellmenge: 1,
+                  lieferzeitTage: 7,
+                  bevorzugt: true,
+                }],
+              },
+            }),
           },
         });
       });

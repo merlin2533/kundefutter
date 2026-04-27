@@ -383,6 +383,16 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.text(formatEuro(brutto), sumValueX, sumY, { align: "right" });
   sumY += 8;
 
+  // ── Notiz / Hinweis zur Lieferung (vor der Zahlungsbox, damit immer sichtbar) ──
+  if (lieferung.notiz && lieferung.notiz.trim().length > 0) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Hinweis: ${lieferung.notiz.trim()}`, 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
+    sumY += notizLines.length * 4 + 2;
+  }
+
   // ── Zahlungsinformationen Box ───────────────────────────────────────────────
   const boxX = 14;
   const boxY = sumY + 4;
@@ -449,16 +459,6 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   }
   if (bankZeile2) {
     doc.text(bankZeile2, boxX + 4, bankStartY + (bankZeile1 ? 4 : 0));
-  }
-
-  // ── Notiz / Hinweis zur Lieferung ───────────────────────────────────────────
-  if (lieferung.notiz && lieferung.notiz.trim().length > 0) {
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(...COL_MUTED);
-    const notizLines = doc.splitTextToSize(`Hinweis: ${lieferung.notiz.trim()}`, 182) as string[];
-    const notizY = boxY + boxH + 6;
-    notizLines.forEach((line, i) => doc.text(line, 14, notizY + i * 4));
   }
 
   // ── Dokument-Footer (3-spaltig) mit Eigentumsvorbehalt-Hinweis ───────────────

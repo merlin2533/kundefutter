@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten" | "system.notiz_themen" | "system.gutschrift_gruende";
 
-const DEFAULT_EINHEITEN = ["kg", "t", "l", "Stk", "Sack", "Palette", "Stunden"];
+const DEFAULT_EINHEITEN = ["kg", "t", "dt", "l", "Stk", "Sack", "Palette", "km", "Stunden"];
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
 
@@ -153,7 +153,7 @@ export default function StammdatenPage() {
         />
         <EditableList
           title="Einheiten"
-          description="Mengeneinheiten für Artikel (kg, t, l, Stk …)."
+          description="Mengeneinheiten für Artikel (kg, t, dt, l, Stk, km …)."
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"

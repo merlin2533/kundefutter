@@ -18,6 +18,7 @@ interface Artikel {
   artikelnummer: string;
   name: string;
   kategorie: string;
+  unterkategorie?: string | null;
   einheit: string;
   standardpreis: number;
   aktuellerBestand: number;
@@ -29,6 +30,16 @@ interface Artikel {
 }
 
 const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+const SAATGUT_UNTERKATEGORIEN = [
+  "Mais",
+  "Raps",
+  "Getreide",
+  "Gräser",
+  "Zwischenfrüchte",
+  "Leguminosen",
+  "Sonnenblumen",
+  "Sorghum",
+];
 
 export default function ArtikelPage() {
   const router = useRouter();
@@ -37,6 +48,7 @@ export default function ArtikelPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
+  const [unterkategorie, setUnterkategorie] = useState("alle");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
@@ -46,6 +58,7 @@ export default function ArtikelPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
+    if (kategorie === "Saatgut" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
     const res = await fetch(`/api/artikel?${params}`);
     const data = await res.json();
     setArtikel(data);
@@ -55,7 +68,11 @@ export default function ArtikelPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, kategorie]);
+  }, [search, kategorie, unterkategorie]);
+
+  useEffect(() => {
+    if (kategorie !== "Saatgut") setUnterkategorie("alle");
+  }, [kategorie]);
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
@@ -161,7 +178,7 @@ export default function ArtikelPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-700"
         />
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {["alle", ...kategorien].map((k) => (
             <button
               key={k}
@@ -177,6 +194,25 @@ export default function ArtikelPage() {
           ))}
         </div>
       </div>
+
+      {kategorie === "Saatgut" && (
+        <div className="flex gap-1 flex-wrap mb-5 -mt-2">
+          <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Kultur:</span>
+          {["alle", ...SAATGUT_UNTERKATEGORIEN].map((u) => (
+            <button
+              key={u}
+              onClick={() => setUnterkategorie(u)}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                unterkategorie === u
+                  ? "bg-green-700 text-white border-green-700"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              {u === "alle" ? "Alle" : u}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
@@ -209,7 +245,10 @@ export default function ArtikelPage() {
             </thead>
             <tbody>
               {artikel.map((a) => {
+                const istAnalyse = a.kategorie === "Analysen" || a.kategorie === "Analyse";
                 const status = lagerStatus(a.aktuellerBestand, a.mindestbestand);
+                const kategorieAnzeige = a.kategorie === "Duenger" ? "Dünger" : a.kategorie;
+                const kategorieMitKultur = a.unterkategorie ? `${kategorieAnzeige} · ${a.unterkategorie}` : kategorieAnzeige;
                 return (
                   <tr
                     key={a.id}
@@ -220,11 +259,11 @@ export default function ArtikelPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {a.name}
                       <div className="sm:hidden text-xs text-gray-500 mt-0.5">
-                        {a.kategorie === "Duenger" ? "Dünger" : a.kategorie} · {formatEuro(a.standardpreis)}
+                        {kategorieMitKultur} · {formatEuro(a.standardpreis)}
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
-                      {a.kategorie === "Duenger" ? "Dünger" : a.kategorie}
+                      {kategorieMitKultur}
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600">{a.einheit}</td>
                     <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(a.standardpreis)}</td>
@@ -235,10 +274,10 @@ export default function ArtikelPage() {
                       })()}
                     </td>
                     <td className="px-4 py-3 font-mono whitespace-nowrap">
-                      {a.aktuellerBestand} {a.einheit}
+                      {istAnalyse ? <span className="text-gray-400">—</span> : <>{a.aktuellerBestand} {a.einheit}</>}
                     </td>
                     <td className="px-4 py-3">
-                      <LagerBadge status={status} />
+                      {istAnalyse ? <span className="text-gray-300 text-xs">—</span> : <LagerBadge status={status} />}
                     </td>
                     <td className="hidden lg:table-cell px-4 py-3">
                       {a.lagerort ? (

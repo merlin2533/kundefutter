@@ -48,6 +48,7 @@ interface Artikel {
   artikelnummer: string;
   name: string;
   kategorie: string;
+  unterkategorie?: string | null;
   einheit: string;
   standardpreis: number;
   preisStand?: string | null;
@@ -64,6 +65,17 @@ interface Artikel {
   bedarfe: Bedarf[];
 }
 
+const SAATGUT_UNTERKATEGORIEN = [
+  "Mais",
+  "Raps",
+  "Getreide",
+  "Gräser",
+  "Zwischenfrüchte",
+  "Leguminosen",
+  "Sonnenblumen",
+  "Sorghum",
+];
+
 interface PreishistorieEntry {
   id: number;
   geaendertAm: string;
@@ -76,7 +88,7 @@ interface Lieferant {
   name: string;
 }
 
-const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Liter", "Stück", "BigBag", "Stunden"];
+const FALLBACK_EINHEITEN = ["kg", "t", "dt", "Sack", "Liter", "Stück", "BigBag", "km", "Stunden"];
 const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 const inputCls =
@@ -150,6 +162,7 @@ export default function ArtikelDetailPage() {
       name: data.name,
       artikelnummer: data.artikelnummer,
       kategorie: data.kategorie,
+      unterkategorie: data.unterkategorie ?? "",
       einheit: data.einheit,
       standardpreis: data.standardpreis,
       preisStand: data.preisStand ? data.preisStand.slice(0, 10) : "",
@@ -216,6 +229,7 @@ export default function ArtikelDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...editForm,
+        unterkategorie: (editForm.unterkategorie as string | null | undefined)?.toString().trim() || null,
         standardpreis: Number(editForm.standardpreis),
         preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
         mwstSatz: Number(editForm.mwstSatz) || 19,
@@ -490,6 +504,7 @@ export default function ArtikelDetailPage() {
     </div>
   );
 
+  const istAnalyseProdukt = artikel.kategorie === "Analysen" || artikel.kategorie === "Analyse";
   const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
   const marge = getMarge();
 
@@ -518,7 +533,7 @@ export default function ArtikelDetailPage() {
             <p className="text-sm text-gray-500 mt-0.5 font-mono">{artikel.artikelnummer}</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <LagerBadge status={status} />
+            {!istAnalyseProdukt && <LagerBadge status={status} />}
             {marge !== null && <MargeBadge pct={Math.round(marge * 10) / 10} />}
             {!artikel.aktiv && (
               <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
@@ -545,8 +560,8 @@ export default function ArtikelDetailPage() {
         </div>
       </div>
 
-      {/* Nachbestellung Box — shown when Bestand < Mindestbestand */}
-      {artikel.aktuellerBestand < artikel.mindestbestand && (() => {
+      {/* Nachbestellung Box — shown when Bestand < Mindestbestand (außer für Analyse-Produkte) */}
+      {artikel.kategorie !== "Analysen" && artikel.kategorie !== "Analyse" && artikel.aktuellerBestand < artikel.mindestbestand && (() => {
         const bevorzugterLief = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
         return (
           <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
@@ -634,7 +649,7 @@ export default function ArtikelDetailPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
                   <select
                     value={editForm.kategorie ?? "Futter"}
-                    onChange={(e) => setEditForm({ ...editForm, kategorie: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, kategorie: e.target.value, unterkategorie: "" })}
                     className={inputCls}
                   >
                     {kategorien.map((k) => (
@@ -653,6 +668,23 @@ export default function ArtikelDetailPage() {
                   </select>
                 </div>
               </div>
+              {editForm.kategorie === "Saatgut" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Kultur <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <select
+                    value={(editForm.unterkategorie as string) ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, unterkategorie: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">&mdash; keine &mdash;</option>
+                    {SAATGUT_UNTERKATEGORIEN.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>
@@ -757,27 +789,40 @@ export default function ArtikelDetailPage() {
           ) : (
             <div>
               <dl className="divide-y divide-gray-100">
-                {([
-                  ["Artikelnummer", artikel.artikelnummer],
-                  ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
-                  ["Einheit", artikel.einheit],
-                  ["Standardpreis", formatEuro(artikel.standardpreis)],
-                  ["Preisstand", artikel.preisStand ? formatDatum(artikel.preisStand) : "—"],
-                  ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
-                  ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
-                  ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
-                  ["Status", null],
-                  ["Beschreibung", artikel.beschreibung ?? "—"],
-                  ["Liefergröße", artikel.liefergroesse ?? "—"],
-                  ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
-                ] as [string, string | null][]).map(([label, value]) => (
-                  <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
-                    <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">{label}</dt>
-                    <dd className="text-sm text-gray-900">
-                      {label === "Status" ? <LagerBadge status={status} /> : value}
-                    </dd>
-                  </div>
-                ))}
+                {(() => {
+                  const istAnalyse = artikel.kategorie === "Analysen" || artikel.kategorie === "Analyse";
+                  const rows: [string, string | null][] = [
+                    ["Artikelnummer", artikel.artikelnummer],
+                    ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
+                  ];
+                  if (artikel.unterkategorie) rows.push(["Kultur", artikel.unterkategorie]);
+                  rows.push(
+                    ["Einheit", artikel.einheit],
+                    ["Standardpreis", formatEuro(artikel.standardpreis)],
+                    ["Preisstand", artikel.preisStand ? formatDatum(artikel.preisStand) : "—"],
+                    ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
+                  );
+                  if (!istAnalyse) {
+                    rows.push(
+                      ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
+                      ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
+                      ["Status", null],
+                    );
+                  }
+                  rows.push(
+                    ["Beschreibung", artikel.beschreibung ?? "—"],
+                    ["Liefergröße", artikel.liefergroesse ?? "—"],
+                    ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
+                  );
+                  return rows.map(([label, value]) => (
+                    <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
+                      <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">{label}</dt>
+                      <dd className="text-sm text-gray-900">
+                        {label === "Status" ? <LagerBadge status={status} /> : value}
+                      </dd>
+                    </div>
+                  ));
+                })()}
                 <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                   <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
                   <dd className="text-sm text-gray-900">

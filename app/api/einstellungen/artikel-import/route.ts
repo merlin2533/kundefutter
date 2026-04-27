@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       Artikelnummer: a.artikelnummer,
       Name: a.name,
       Kategorie: a.kategorie,
+      Unterkategorie: "",
       Einheit: a.einheit,
       "VK (Standardpreis)": a.standardpreis,
       "EK (Einkaufspreis)": a.einkaufspreis,
@@ -89,6 +90,7 @@ export async function GET(req: NextRequest) {
       { wch: 20 }, // Artikelnummer
       { wch: 60 }, // Name
       { wch: 18 }, // Kategorie
+      { wch: 18 }, // Unterkategorie
       { wch: 10 }, // Einheit
       { wch: 16 }, // VK
       { wch: 16 }, // EK
@@ -103,17 +105,18 @@ export async function GET(req: NextRequest) {
 
     // Hinweis-Sheet mit Spalten-Erklärung
     const hinweise = [
-      { Spalte: "Artikelnummer", Pflicht: "Nein", Hinweis: "Eindeutige Artikelnummer. Leer = automatisch vergeben. Bestehende Nummern werden übersprungen." },
-      { Spalte: "Name",          Pflicht: "Ja", Hinweis: "Artikelbezeichnung (auch als Produktname akzeptiert)" },
-      { Spalte: "Kategorie",     Pflicht: "Nein", Hinweis: "z.B. Pferdefutter, Futter, Duenger, Saatgut. Standard: Sonstiges" },
-      { Spalte: "Einheit",       Pflicht: "Nein", Hinweis: "kg, t, Sack, Stück, Liter, … Standard: Stück" },
-      { Spalte: "VK (Standardpreis)", Pflicht: "Ja", Hinweis: "Verkaufspreis inkl. MwSt (Zahl). Alternativ: Preis" },
-      { Spalte: "EK (Einkaufspreis)", Pflicht: "Nein", Hinweis: "Einkaufspreis netto (Zahl, leer = 0)" },
-      { Spalte: "MwSt %",        Pflicht: "Nein", Hinweis: "0, 7 oder 19 (Standard: 19)" },
-      { Spalte: "Mindestbestand", Pflicht: "Nein", Hinweis: "Meldebestand (Zahl, Standard: 0)" },
-      { Spalte: "Verpackungsgröße", Pflicht: "Nein", Hinweis: "Freitext, z.B. \"25 kg Sack\" oder \"Big Bag 600 kg\". Alternativ: Liefergröße" },
-      { Spalte: "Beschreibung",  Pflicht: "Nein", Hinweis: "Freitext" },
-      { Spalte: "Lieferant",     Pflicht: "Nein", Hinweis: "Name des Lieferanten – wird automatisch angelegt falls nicht vorhanden" },
+      { Spalte: "Artikelnummer", Pflicht: "Nein", Hinweis: "Eindeutige Artikelnummer. Leer = automatisch vergeben. Bestehende Nummern werden übersprungen. Alternativen: Nummer, ArtNr, SKU" },
+      { Spalte: "Name",          Pflicht: "Ja", Hinweis: "Artikelbezeichnung. Alternativen: Produktname, Artikel, Bezeichnung" },
+      { Spalte: "Kategorie",     Pflicht: "Nein", Hinweis: "z.B. Futter, Duenger, Saatgut, Analysen. Standard: Sonstiges. Alternativen: Artikelkategorie, Produktkategorie, Produktgruppe, Warengruppe, Gruppe" },
+      { Spalte: "Unterkategorie", Pflicht: "Nein", Hinweis: "Optionale Subkategorie, z.B. bei Saatgut: Mais, Raps, Getreide, Gräser, Zwischenfrüchte, Leguminosen, Sonnenblumen, Sorghum. Alternativen: Subkategorie, Kultur, Fruchtart" },
+      { Spalte: "Einheit",       Pflicht: "Nein", Hinweis: "kg, t, dt, Sack, Stück, Liter, km, … Standard: Stück. Alternativen: Mengeneinheit, ME" },
+      { Spalte: "VK (Standardpreis)", Pflicht: "Ja", Hinweis: "Verkaufspreis (Zahl). Alternativen: Standardpreis, Verkaufspreis, VK-Preis, VKP, VK, Listenpreis, Stückpreis, Nettopreis, Preis" },
+      { Spalte: "EK (Einkaufspreis)", Pflicht: "Nein", Hinweis: "Einkaufspreis netto (Zahl, leer = 0). Alternativen: Einkaufspreis, EK-Preis, EK, Einstandspreis" },
+      { Spalte: "MwSt %",        Pflicht: "Nein", Hinweis: "0, 7 oder 19 (Standard: 19). Alternativen: MwSt, MwSt-Satz, Mehrwertsteuer, USt" },
+      { Spalte: "Mindestbestand", Pflicht: "Nein", Hinweis: "Meldebestand (Zahl, Standard: 0). Alternativen: Meldebestand, Min-Bestand" },
+      { Spalte: "Verpackungsgröße", Pflicht: "Nein", Hinweis: "Freitext, z.B. \"25 kg Sack\" oder \"Big Bag 600 kg\". Alternativen: Verpackung, Liefergröße, Gebinde" },
+      { Spalte: "Beschreibung",  Pflicht: "Nein", Hinweis: "Freitext. Alternativen: Bemerkung, Notiz" },
+      { Spalte: "Lieferant",     Pflicht: "Nein", Hinweis: "Name des Lieferanten – wird automatisch angelegt falls nicht vorhanden. Alternativen: Lieferantenname, Hersteller" },
     ];
     const wsInfo = XLSX.utils.json_to_sheet(hinweise);
     wsInfo["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 70 }];
@@ -239,20 +242,41 @@ async function importZeile(
   }
 
   const standardpreis = parseNumber(
-    pickCol(row, "VK (Standardpreis)", "Standardpreis", "Preis", "VK", "Verkaufspreis"),
+    pickCol(
+      row,
+      "VK (Standardpreis)",
+      "Standardpreis",
+      "Verkaufspreis",
+      "VK-Preis",
+      "VKP",
+      "VK",
+      "Listenpreis",
+      "Stückpreis",
+      "Stueckpreis",
+      "Nettopreis",
+      "Netto-Preis",
+      "Netto",
+      "Preis netto",
+      "Bruttopreis",
+      "Preis",
+    ),
   );
   const einkaufspreis = parseNumber(
-    pickCol(row, "EK (Einkaufspreis)", "Einkaufspreis", "EK"),
+    pickCol(row, "EK (Einkaufspreis)", "Einkaufspreis", "EK-Preis", "EK", "Einstandspreis"),
   );
-  const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz", "Mehrwertsteuer"));
+  const mwstRaw = parseNumber(pickCol(row, "MwSt %", "MwSt", "MwSt-Satz", "Mehrwertsteuer", "USt", "Steuer"));
   const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
-  const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand"));
-  const kategorie = pickCol(row, "Kategorie", "Gruppe") || "Sonstiges";
-  const einheit = pickCol(row, "Einheit", "Einh") || "Stück";
+  const mindestbestand = parseNumber(pickCol(row, "Mindestbestand", "Meldebestand", "Min-Bestand"));
+  const kategorie =
+    pickCol(row, "Kategorie", "Artikelkategorie", "Produktkategorie", "Produktgruppe", "Warengruppe", "Gruppe") ||
+    "Sonstiges";
+  const unterkategorie =
+    pickCol(row, "Unterkategorie", "Subkategorie", "Kultur", "Fruchtart") || null;
+  const einheit = pickCol(row, "Einheit", "Mengeneinheit", "ME", "Einh") || "Stück";
   const liefergroesse =
     pickCol(row, "Verpackungsgröße", "Verpackungsgroesse", "Verpackung", "Liefergröße", "Liefergroesse", "Gebinde") || null;
   const beschreibung = pickCol(row, "Beschreibung", "Bemerkung", "Notiz") || null;
-  const lieferantName = pickCol(row, "Lieferant", "Hersteller");
+  const lieferantName = pickCol(row, "Lieferant", "Lieferantenname", "Hersteller");
 
   const lieferantCreate = lieferantName
     ? [{
@@ -270,6 +294,7 @@ async function importZeile(
       artikelnummer,
       name,
       kategorie,
+      unterkategorie,
       einheit,
       standardpreis,
       mwstSatz,

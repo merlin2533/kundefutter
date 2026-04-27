@@ -4,12 +4,23 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
-const FALLBACK_EINHEITEN = ["kg", "t", "Sack", "Stk", "Liter", "Palette", "BigBag", "Stunden"];
+const FALLBACK_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Palette", "BigBag", "km", "Stunden"];
+const SAATGUT_UNTERKATEGORIEN = [
+  "Mais",
+  "Raps",
+  "Getreide",
+  "Gräser",
+  "Zwischenfrüchte",
+  "Leguminosen",
+  "Sonnenblumen",
+  "Sorghum",
+];
 
 const defaultForm = {
   name: "",
   artikelnummer: "",
   kategorie: "Futter",
+  unterkategorie: "",
   einheit: "kg",
   standardpreis: "",
   mindestbestand: "0",
@@ -105,6 +116,7 @@ export default function NeuerArtikelPage() {
     const body = {
       ...form,
       artikelnummer: form.artikelnummer.trim() || undefined,
+      unterkategorie: form.unterkategorie.trim() || null,
       standardpreis: Number(form.standardpreis) || 0,
       mindestbestand: Number(form.mindestbestand) || 0,
       mwstSatz: Number(form.mwstSatz) || 19,
@@ -178,7 +190,7 @@ export default function NeuerArtikelPage() {
             </label>
             <select
               value={form.kategorie}
-              onChange={(e) => setForm({ ...form, kategorie: e.target.value })}
+              onChange={(e) => setForm({ ...form, kategorie: e.target.value, unterkategorie: "" })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
               {kategorien.map((k) => (
@@ -205,6 +217,24 @@ export default function NeuerArtikelPage() {
             </select>
           </div>
         </div>
+
+        {form.kategorie === "Saatgut" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kultur <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <select
+              value={form.unterkategorie}
+              onChange={(e) => setForm({ ...form, unterkategorie: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            >
+              <option value="">&mdash; keine &mdash;</option>
+              {SAATGUT_UNTERKATEGORIEN.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
