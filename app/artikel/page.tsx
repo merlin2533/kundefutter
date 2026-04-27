@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
 import { formatEuro, lagerStatus } from "@/lib/utils";
+import {
+  DEFAULT_ARTIKEL_KATEGORIEN,
+  DEFAULT_SAATGUT_KULTUREN,
+  parseListSetting,
+} from "@/lib/auswahllisten";
 
 interface ArtikelLieferant {
   id: number;
@@ -29,22 +34,11 @@ interface Artikel {
   lieferanten: ArtikelLieferant[];
 }
 
-const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
-const SAATGUT_UNTERKATEGORIEN = [
-  "Mais",
-  "Raps",
-  "Getreide",
-  "Gräser",
-  "Zwischenfrüchte",
-  "Leguminosen",
-  "Sonnenblumen",
-  "Sorghum",
-];
-
 export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
-  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
+  const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
+  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
@@ -78,14 +72,8 @@ export default function ArtikelPage() {
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
       .then((d) => {
-        if (d["system.artikelkategorien"]) {
-          try {
-            const parsed = JSON.parse(d["system.artikelkategorien"]);
-            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
-          } catch {
-            /* ignore */
-          }
-        }
+        setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
+        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
       })
       .catch(() => {});
   }, []);
@@ -198,7 +186,7 @@ export default function ArtikelPage() {
       {kategorie === "Saatgut" && (
         <div className="flex gap-1 flex-wrap mb-5 -mt-2">
           <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Kultur:</span>
-          {["alle", ...SAATGUT_UNTERKATEGORIEN].map((u) => (
+          {["alle", ...saatgutKulturen].map((u) => (
             <button
               key={u}
               onClick={() => setUnterkategorie(u)}

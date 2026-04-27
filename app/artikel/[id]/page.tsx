@@ -5,6 +5,11 @@ import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import DriveOrdner from "@/components/DriveOrdner";
+import {
+  DEFAULT_ARTIKEL_KATEGORIEN,
+  DEFAULT_SAATGUT_KULTUREN,
+  parseListSetting,
+} from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,17 +70,6 @@ interface Artikel {
   bedarfe: Bedarf[];
 }
 
-const SAATGUT_UNTERKATEGORIEN = [
-  "Mais",
-  "Raps",
-  "Getreide",
-  "Gräser",
-  "Zwischenfrüchte",
-  "Leguminosen",
-  "Sonnenblumen",
-  "Sorghum",
-];
-
 interface PreishistorieEntry {
   id: number;
   geaendertAm: string;
@@ -89,7 +83,6 @@ interface Lieferant {
 }
 
 const FALLBACK_EINHEITEN = ["kg", "t", "dt", "Sack", "Liter", "Stück", "BigBag", "km", "Stunden"];
-const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
@@ -101,8 +94,9 @@ export default function ArtikelDetailPage() {
   const router = useRouter();
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
-  const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
+  const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
+  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
 
@@ -182,22 +176,9 @@ export default function ArtikelDetailPage() {
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
       .then((d) => {
-        if (d["system.artikelkategorien"]) {
-          try {
-            const parsed = JSON.parse(d["system.artikelkategorien"]);
-            if (Array.isArray(parsed) && parsed.length) setKategorien(parsed);
-          } catch {
-            /* ignore */
-          }
-        }
-        if (d["system.einheiten"]) {
-          try {
-            const parsed = JSON.parse(d["system.einheiten"]);
-            if (Array.isArray(parsed) && parsed.length) setEinheiten(parsed);
-          } catch {
-            /* ignore */
-          }
-        }
+        setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
+        setEinheiten(parseListSetting(d, "system.einheiten", FALLBACK_EINHEITEN));
+        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
       })
       .catch(() => {});
   }, []);
@@ -679,7 +660,7 @@ export default function ArtikelDetailPage() {
                     className={inputCls}
                   >
                     <option value="">&mdash; keine &mdash;</option>
-                    {SAATGUT_UNTERKATEGORIEN.map((u) => (
+                    {saatgutKulturen.map((u) => (
                       <option key={u} value={u}>{u}</option>
                     ))}
                   </select>

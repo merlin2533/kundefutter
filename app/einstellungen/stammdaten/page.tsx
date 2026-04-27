@@ -3,11 +3,27 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type ListKey = "system.kundenkategorien" | "system.mitarbeiter" | "system.einheiten" | "system.notiz_themen" | "system.gutschrift_gruende";
+type ListKey =
+  | "system.kundenkategorien"
+  | "system.mitarbeiter"
+  | "system.einheiten"
+  | "system.notiz_themen"
+  | "system.gutschrift_gruende"
+  | "system.saatgut_kulturen";
 
 const DEFAULT_EINHEITEN = ["kg", "t", "dt", "l", "Stk", "Sack", "Palette", "km", "Stunden"];
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
+const DEFAULT_SAATGUT_KULTUREN = [
+  "Mais",
+  "Raps",
+  "Getreide",
+  "Gräser",
+  "Zwischenfrüchte",
+  "Leguminosen",
+  "Sonnenblumen",
+  "Sorghum",
+];
 
 function EditableList({
   title,
@@ -157,6 +173,13 @@ export default function StammdatenPage() {
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
+        />
+        <EditableList
+          title="Saatgut-Kulturen"
+          description="Sub-Kategorien für Saatgut-Artikel (Mais, Raps, Getreide …). Erscheinen als Filter und Dropdown bei Artikeln der Kategorie 'Saatgut'."
+          storeKey="system.saatgut_kulturen"
+          defaultItems={DEFAULT_SAATGUT_KULTUREN}
+          placeholder="z.B. Hirse"
         />
         <EditableList
           title="Notiz-Themen"
