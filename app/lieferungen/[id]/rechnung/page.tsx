@@ -339,6 +339,21 @@ export default function RechnungPrintPage() {
             }
           </button>
         )}
+        {lieferung?.rechnungNr && (
+          <button
+            onClick={handleMailSenden}
+            disabled={mailSending}
+            className="px-3 py-2 text-sm bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors inline-flex items-center gap-1"
+            title="Rechnung (PDF + ZUGFeRD XML) per E-Mail an Kunde senden"
+          >
+            <span aria-hidden>✉</span> {mailSending ? "Sende…" : "Per Mail"}
+          </button>
+        )}
+        {mailMsg && (
+          <span className={`text-xs font-medium ${mailMsg.includes("gesendet") ? "text-green-700" : "text-red-600"}`}>
+            {mailMsg}
+          </span>
+        )}
         {lieferung && (
           <DriveUploadButton
             kundeId={lieferung.kunde ? (lieferung as unknown as { kundeId: number }).kundeId ?? 0 : 0}
