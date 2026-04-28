@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis } from "@/lib/utils";
+import { artikelSafeSelect } from "@/lib/artikel-select";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         kunde: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: artikelSafeSelect } } },
       },
       orderBy: { datum: "desc" },
       skip: (page - 1) * limit,
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
     const artikelIds = positionen.map((p) => p.artikelId);
 
     const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte] = await Promise.all([
-      tx.artikel.findMany({ where: { id: { in: artikelIds } } }),
+      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true } }),
       tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
       tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
       tx.mengenrabatt.findMany({
@@ -174,7 +175,7 @@ export async function POST(req: NextRequest) {
       },
       include: {
         kunde: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: artikelSafeSelect } } },
       },
     });
   });

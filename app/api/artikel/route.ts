@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { artikelSafeSelect } from "@/lib/artikel-select";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -27,16 +28,21 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const withRelations = searchParams.get("relations") !== "false";
 
+  // Explizite select-Liste statt findMany ohne select — sonst lädt Prisma alle
+  // Spalten inkl. `unterkategorie`, was vor Migrations-Deploy zu 500 führt.
+  const select = withRelations
+    ? {
+        ...artikelSafeSelect,
+        inhaltsstoffe: true as const,
+        lieferanten: { include: { lieferant: true } },
+        dokumente: true as const,
+      }
+    : artikelSafeSelect;
+
   try {
     const artikel = await prisma.artikel.findMany({
       where,
-      include: withRelations
-        ? {
-            inhaltsstoffe: true,
-            lieferanten: { include: { lieferant: true } },
-            dokumente: true,
-          }
-        : undefined,
+      select,
       orderBy: { name: "asc" },
       skip: (page - 1) * limit,
       take: limit,
@@ -99,7 +105,8 @@ export async function POST(req: NextRequest) {
               })) }
             : undefined,
         },
-        include: {
+        select: {
+          ...artikelSafeSelect,
           inhaltsstoffe: true,
           lieferanten: { include: { lieferant: true } },
           dokumente: true,
