@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
+import { artikelSafeSelect } from "@/lib/artikel-select";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -9,18 +10,20 @@ export async function GET(_req: NextRequest, { params }: Params) {
   try {
     const artikel = await prisma.artikel.findUnique({
       where: { id: Number(id) },
-      include: {
+      select: {
+        ...artikelSafeSelect,
         inhaltsstoffe: true,
         lieferanten: { include: { lieferant: true } },
         kundePreise: { include: { kunde: true } },
-        preisHistorie: { orderBy: { geaendertAm: "desc" }, take: 20 },
+        preisHistorie: { orderBy: { geaendertAm: "desc" as const }, take: 20 },
         bedarfe: { include: { kunde: true } },
         dokumente: true,
       },
     });
     if (!artikel) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(artikel);
-  } catch {
+  } catch (e) {
+    console.error("Artikel [id] GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -76,7 +79,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
             },
           }),
         },
-        include: {
+        select: {
+          ...artikelSafeSelect,
           inhaltsstoffe: true,
           lieferanten: { include: { lieferant: true } },
           dokumente: true,
