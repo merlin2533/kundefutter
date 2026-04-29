@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DEFAULT_SAATGUT_KULTUREN } from "@/lib/auswahllisten";
+import { DEFAULT_SAATGUT_KULTUREN, DEFAULT_EINHEITEN } from "@/lib/auswahllisten";
 
 type ListKey =
   | "system.kundenkategorien"
@@ -11,8 +11,6 @@ type ListKey =
   | "system.notiz_themen"
   | "system.gutschrift_gruende"
   | "system.saatgut_kulturen";
-
-const DEFAULT_EINHEITEN = ["kg", "t", "dt", "l", "Stk", "Sack", "Palette", "km", "Stunden"];
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
 

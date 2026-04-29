@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     const kunden = await prisma.kunde.findMany({
       include: { kontakte: true },
       orderBy: { name: "asc" },
+      take: 5000,
     });
     rows = kunden.map((k) => ({
       ID: k.id,
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
     const artikel = await prisma.artikel.findMany({
       include: { lieferanten: { include: { lieferant: true }, where: { bevorzugt: true } } },
       orderBy: { name: "asc" },
+      take: 5000,
     });
     rows = artikel.map((a) => {
       const l = a.lieferanten[0];
@@ -64,7 +66,7 @@ export async function GET(req: NextRequest) {
 
   if (typ === "lieferanten") {
     sheetName = "Lieferanten";
-    const ls = await prisma.lieferant.findMany({ orderBy: { name: "asc" } });
+    const ls = await prisma.lieferant.findMany({ orderBy: { name: "asc" }, take: 2000 });
     rows = ls.map((l) => ({
       ID: l.id,
       Name: l.name,
@@ -116,6 +118,7 @@ export async function GET(req: NextRequest) {
     const artikel = await prisma.artikel.findMany({
       where: { aktiv: true },
       orderBy: { name: "asc" },
+      take: 5000,
     });
     rows = artikel.map((a) => ({
       Artikelnummer: a.artikelnummer,
@@ -142,6 +145,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { artikel: { select: liefposArtikelSelect } },
       orderBy: { datum: "desc" },
+      take: 10000,
     });
     rows = bewegungen.map((b) => ({
       Datum: formatDatum(b.datum),
