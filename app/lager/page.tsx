@@ -80,8 +80,9 @@ export default function LagerPage() {
     if (datumVon) params.set("von", datumVon);
     if (datumBis) params.set("bis", datumBis);
     const res = await fetch(`/api/lager/bewegungen?${params}`);
+    if (!res.ok) { setLoadingBew(false); return; }
     const data = await res.json();
-    setBewegungen(data);
+    setBewegungen(Array.isArray(data) ? data : []);
     setLoadingBew(false);
   }, [datumVon, datumBis]);
 

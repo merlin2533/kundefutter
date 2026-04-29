@@ -97,11 +97,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
     return NextResponse.json(kunde);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    const message = err instanceof Error ? err.message : String(err);
     if (message === "Nicht gefunden") {
       return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Kunde PUT error:", err);
+    return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
 }
 

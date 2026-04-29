@@ -251,7 +251,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   return NextResponse.json(result);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Lieferung PATCH error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -343,7 +345,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
       return NextResponse.json(updated);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Interner Fehler";
+      console.error("Lieferung aktion error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
       return NextResponse.json({ error: message }, { status: 400 });
     }
   }
@@ -390,7 +394,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
       return NextResponse.json(lieferung);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Interner Fehler";
+      console.error("Lieferung aktion error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
       return NextResponse.json({ error: message }, { status: 400 });
     }
   }
