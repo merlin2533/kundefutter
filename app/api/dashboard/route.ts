@@ -82,6 +82,7 @@ export async function GET() {
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
       select: { artikelId: true, kundeId: true, intervallTage: true },
+      take: 1000,
     }),
     prisma.kundeAktivitaet.findMany({
       where: { erledigt: false, faelligAm: { lte: heute } },

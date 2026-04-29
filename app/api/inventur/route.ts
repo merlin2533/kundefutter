@@ -8,6 +8,7 @@ export async function GET() {
       include: {
         _count: { select: { positionen: true } },
       },
+      take: 100,
     });
     return NextResponse.json(inventuren);
   } catch {
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     const aktivArtikel = await prisma.artikel.findMany({
       where: { aktiv: true },
       orderBy: { name: "asc" },
+      take: 5000,
     });
 
     const inventur = await prisma.inventur.create({
@@ -48,7 +50,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(inventur, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Inventur POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Inventur konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
