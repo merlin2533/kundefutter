@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     },
     include: {
       kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
+      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
     },
     orderBy: { datum: "asc" },
   });

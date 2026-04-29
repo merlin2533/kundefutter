@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import jsPDF from "jspdf";
@@ -22,11 +23,11 @@ export async function GET(req: NextRequest) {
     where: { id: kundeId },
     include: {
       kontakte: true,
-      bedarfe: { include: { artikel: true } },
-      artikelPreise: { include: { artikel: true }, take: 20 },
+      bedarfe: { include: { artikel: { select: liefposArtikelSelect } } },
+      artikelPreise: { include: { artikel: { select: liefposArtikelSelect } }, take: 20 },
       lieferungen: {
         where: { status: { not: "storniert" } },
-        include: { positionen: { include: { artikel: true } } },
+        include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
         orderBy: { datum: "desc" },
         take: 10,
       },

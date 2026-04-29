@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
+import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -152,7 +153,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     where: { id: lieferungId },
     include: {
       kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
+      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
     },
   });
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
@@ -485,7 +486,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     where: { id: lieferungId },
     include: {
       kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: true } },
+      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
     },
   });
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
