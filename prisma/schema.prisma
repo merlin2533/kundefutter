@@ -318,11 +318,12 @@ model Wareneingang {
 }
 
 model WareineingangPosition {
-  id             Int   @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   wareneingangId Int
   artikelId      Int
   menge          Float
   einkaufspreis  Float
+  chargeNr       String? // Chargen-/Losnummer (gesetzlich für Saatgut)
 
   wareneingang Wareneingang @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
   artikel      Artikel      @relation(fields: [artikelId], references: [id])

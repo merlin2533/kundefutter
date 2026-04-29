@@ -20,6 +20,7 @@ type WEPosition = {
   artikelId: string;
   menge: number;
   einkaufspreis: number;
+  chargeNr: string;
 };
 
 const inputCls =
@@ -38,7 +39,7 @@ function WareneingangInner() {
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<WEPosition[]>([
-    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0 },
+    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0, chargeNr: "" },
   ]);
   const [vorbefuelltHinweis, setVorbefuelltHinweis] = useState<string | null>(null);
 
@@ -69,7 +70,7 @@ function WareneingangInner() {
   }, []);
 
   function addPosition() {
-    setPositionen([...positionen, { artikelId: "", menge: 0, einkaufspreis: 0 }]);
+    setPositionen([...positionen, { artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "" }]);
   }
 
   function removePosition(idx: number) {
@@ -117,6 +118,7 @@ function WareneingangInner() {
             artikelId: Number(p.artikelId),
             menge: Number(p.menge),
             einkaufspreis: Number(p.einkaufspreis),
+            chargeNr: p.chargeNr.trim() || undefined,
           })),
       }),
     });
@@ -249,6 +251,18 @@ function WareneingangInner() {
                         parseFloat(e.target.value) || 0
                       )
                     }
+                    className={inputCls}
+                  />
+                </div>
+                <div className="w-full sm:w-36">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Chargennummer
+                  </label>
+                  <input
+                    type="text"
+                    value={pos.chargeNr}
+                    onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
+                    placeholder="Optional"
                     className={inputCls}
                   />
                 </div>

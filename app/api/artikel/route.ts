@@ -62,7 +62,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, inhaltsstoffe, ...data } = body;
+  // unterkategorie excluded from INSERT until the DB migration adds the column.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { lieferanten, inhaltsstoffe, unterkategorie: _uk, ...data } = body;
 
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
