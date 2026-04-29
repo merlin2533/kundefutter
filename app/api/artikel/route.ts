@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
-  if (unterkategorie) where.unterkategorie = unterkategorie;
+  // unterkategorie filter disabled until DB migration adds the column
   // Standardmäßig nur aktive Artikel anzeigen; explizit ?aktiv=false für inaktive, ?aktiv=alle für alle
   if (aktiv === null) where.aktiv = true;
   else if (aktiv !== "alle") where.aktiv = aktiv === "true";

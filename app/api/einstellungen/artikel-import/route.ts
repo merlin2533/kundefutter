@@ -226,7 +226,6 @@ async function importZeile(
   const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
   const mindestbestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestand));
   const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Sonstiges";
-  const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
   const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "Stück";
   const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
   const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
@@ -248,7 +247,6 @@ async function importZeile(
       artikelnummer,
       name,
       kategorie,
-      unterkategorie,
       einheit,
       standardpreis,
       mwstSatz,
