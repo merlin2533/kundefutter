@@ -101,11 +101,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
     return NextResponse.json(artikel);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    const message = err instanceof Error ? err.message : String(err);
     if (message === "Nicht gefunden") {
-      return NextResponse.json({ error: message }, { status: 404 });
+      return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Artikel PUT error:", err);
+    return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
 }
 
@@ -137,10 +138,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.artikel.delete({ where: { id: artikelId } });
     return NextResponse.json({ ok: true, soft: false });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    const message = err instanceof Error ? err.message : String(err);
     if (message.includes("P2025")) {
       return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Artikel DELETE error:", err);
+    return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
 }
