@@ -138,7 +138,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Inventur PATCH error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
