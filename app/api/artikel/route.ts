@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Scalar fields explicitly listed to avoid querying unterkategorie until migration is applied.
+const ARTIKEL_SELECT = {
+  id: true,
+  artikelnummer: true,
+  name: true,
+  kategorie: true,
+  einheit: true,
+  beschreibung: true,
+  standardpreis: true,
+  preisStand: true,
+  mwstSatz: true,
+  mindestbestand: true,
+  aktuellerBestand: true,
+  aktiv: true,
+  lagerort: true,
+  liefergroesse: true,
+  createdAt: true,
+  updatedAt: true,
+  driveOrdnerId: true,
+};
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const kategorie = searchParams.get("kategorie");
@@ -28,19 +49,26 @@ export async function GET(req: NextRequest) {
   const withRelations = searchParams.get("relations") !== "false";
 
   try {
-    const artikel = await prisma.artikel.findMany({
-      where,
-      include: withRelations
-        ? {
+    const artikel = withRelations
+      ? await prisma.artikel.findMany({
+          where,
+          select: {
+            ...ARTIKEL_SELECT,
             inhaltsstoffe: true,
             lieferanten: { include: { lieferant: true } },
             dokumente: true,
-          }
-        : undefined,
-      orderBy: { name: "asc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+          },
+          orderBy: { name: "asc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        })
+      : await prisma.artikel.findMany({
+          where,
+          select: ARTIKEL_SELECT,
+          orderBy: { name: "asc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        });
     return NextResponse.json(artikel);
   } catch (e) {
     console.error("Artikel GET error:", e);
@@ -56,7 +84,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, inhaltsstoffe, ...data } = body;
+  // unterkategorie excluded from INSERT until the DB migration adds the column.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { lieferanten, inhaltsstoffe, unterkategorie: _uk, ...data } = body;
 
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
@@ -99,11 +129,7 @@ export async function POST(req: NextRequest) {
               })) }
             : undefined,
         },
-        include: {
-          inhaltsstoffe: true,
-          lieferanten: { include: { lieferant: true } },
-          dokumente: true,
-        },
+        select: { id: true },
       });
     });
     return NextResponse.json(artikel, { status: 201 });
