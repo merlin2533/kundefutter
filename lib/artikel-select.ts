@@ -1,12 +1,9 @@
-// Safe select for Artikel that omits `unterkategorie` so API routes keep working
-// even before the `20260427000000_add_artikel_unterkategorie` migration is applied
-// in environments that lag behind the codebase. Use this everywhere artikel data
-// is loaded for read-only display in lists/details.
 export const artikelSafeSelect = {
   id: true,
   artikelnummer: true,
   name: true,
   kategorie: true,
+  unterkategorie: true,
   einheit: true,
   beschreibung: true,
   standardpreis: true,

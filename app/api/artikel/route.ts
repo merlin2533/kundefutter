@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
-  // unterkategorie filter disabled until DB migration adds the column
+  if (unterkategorie) where.unterkategorie = unterkategorie;
   // Standardmäßig nur aktive Artikel anzeigen; explizit ?aktiv=false für inaktive, ?aktiv=alle für alle
   if (aktiv === null) where.aktiv = true;
   else if (aktiv !== "alle") where.aktiv = aktiv === "true";
@@ -28,8 +28,6 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const withRelations = searchParams.get("relations") !== "false";
 
-  // Explizite select-Liste statt findMany ohne select — sonst lädt Prisma alle
-  // Spalten inkl. `unterkategorie`, was vor Migrations-Deploy zu 500 führt.
   const select = withRelations
     ? {
         ...artikelSafeSelect,
@@ -62,9 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  // unterkategorie excluded from INSERT until the DB migration adds the column.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { lieferanten, inhaltsstoffe, unterkategorie: _uk, ...data } = body;
+  const { lieferanten, inhaltsstoffe, ...data } = body;
 
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });

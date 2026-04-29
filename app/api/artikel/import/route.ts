@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     const mwstRaw = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mwst));
     const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
     const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Futter";
+    const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
     const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "kg";
     const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
     const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
             artikelnummer: finalNummer,
             name,
             kategorie,
+            unterkategorie,
             einheit,
             standardpreis,
             mwstSatz,

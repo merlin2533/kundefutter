@@ -37,8 +37,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { lieferanten, inhaltsstoffe, unterkategorie: _uk, ...data } = body;
+  const { lieferanten, inhaltsstoffe, ...data } = body;
 
   if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
 

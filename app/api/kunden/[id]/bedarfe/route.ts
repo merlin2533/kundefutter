@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { artikelSafeSelect } from "@/lib/artikel-select";
 
 type Params = { params: Promise<{ id: string }> };
 
