@@ -42,10 +42,23 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const lieferant = await prisma.lieferant.create({ data: body });
+    const lieferant = await prisma.lieferant.create({
+      data: {
+        name: body.name.trim(),
+        ansprechpartner: body.ansprechpartner ?? null,
+        email: body.email ?? null,
+        telefon: body.telefon ?? null,
+        strasse: body.strasse ?? null,
+        plz: body.plz ?? null,
+        ort: body.ort ?? null,
+        notizen: body.notizen ?? null,
+      },
+    });
     return NextResponse.json(lieferant, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Lieferant POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Lieferant konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

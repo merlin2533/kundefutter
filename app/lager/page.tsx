@@ -44,6 +44,8 @@ export default function LagerPage() {
   const [artikel, setArtikel] = useState<LagerArtikel[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterMode>("alle");
+  const [search, setSearch] = useState("");
+  const [kategorieFilter, setKategorieFilter] = useState("alle");
 
   // Korrektur inline
   const [korrekturArtikel, setKorrekturArtikel] = useState<LagerArtikel | null>(null);
@@ -96,10 +98,17 @@ export default function LagerPage() {
     { gruen: 0, gelb: 0, rot: 0 }
   );
 
+  const kategorien = ["alle", ...Array.from(new Set(artikel.map((a) => a.kategorie).filter(Boolean))).sort()];
+
   const filteredArtikel = artikel.filter((a) => {
     const s = lagerStatus(a.aktuellerBestand, a.mindestbestand);
-    if (filter === "alarme") return s === "rot" || s === "gelb";
-    if (filter === "leer") return a.aktuellerBestand <= 0;
+    if (filter === "alarme" && s !== "rot" && s !== "gelb") return false;
+    if (filter === "leer" && a.aktuellerBestand > 0) return false;
+    if (kategorieFilter !== "alle" && a.kategorie !== kategorieFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return a.name.toLowerCase().includes(q) || a.artikelnummer.toLowerCase().includes(q);
+    }
     return true;
   });
 
@@ -220,27 +229,45 @@ export default function LagerPage() {
       {/* ── Tab: Bestand ─────────────────────────────────────────────────────── */}
       {tab === "bestand" && (
         <div>
-          {/* Filter buttons */}
-          <div className="flex gap-2 mb-4 flex-wrap">
-            {(
-              [
-                { key: "alle", label: "Alle" },
-                { key: "alarme", label: "Nur Alarme" },
-                { key: "leer", label: "Nur leer" },
-              ] as const
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setFilter(key)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                  filter === key
-                    ? "bg-green-800 text-white border-green-800"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Suche + Filter */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <input
+              type="search"
+              placeholder="Artikel suchen…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+            <select
+              value={kategorieFilter}
+              onChange={(e) => setKategorieFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            >
+              {kategorien.map((k) => (
+                <option key={k} value={k}>{k === "alle" ? "Alle Kategorien" : k}</option>
+              ))}
+            </select>
+            <div className="flex gap-2 flex-wrap">
+              {(
+                [
+                  { key: "alle", label: "Alle" },
+                  { key: "alarme", label: "Nur Alarme" },
+                  { key: "leer", label: "Nur leer" },
+                ] as const
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    filter === key
+                      ? "bg-green-800 text-white border-green-800"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
