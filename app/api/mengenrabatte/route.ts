@@ -54,7 +54,9 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(rabatt, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Mengenrabatt POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

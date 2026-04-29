@@ -54,8 +54,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(sr);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
-    const status = (err as { code?: string }).code === "P2025" ? 404 : 400;
+    console.error("Sammelrechnung error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const isNotFound = (err as { code?: string }).code === "P2025";
+    const status = isNotFound ? 404 : 400;
+    const message = isNotFound ? "Nicht gefunden" : (isDev && err instanceof Error ? err.message : "Interner Fehler");
     return NextResponse.json({ error: message }, { status });
   }
 }
@@ -71,8 +74,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.sammelrechnung.delete({ where: { id: parseInt(id, 10) } });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
-    const status = (err as { code?: string }).code === "P2025" ? 404 : 400;
+    console.error("Sammelrechnung error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const isNotFound = (err as { code?: string }).code === "P2025";
+    const status = isNotFound ? 404 : 400;
+    const message = isNotFound ? "Nicht gefunden" : (isDev && err instanceof Error ? err.message : "Interner Fehler");
     return NextResponse.json({ error: message }, { status });
   }
 }
