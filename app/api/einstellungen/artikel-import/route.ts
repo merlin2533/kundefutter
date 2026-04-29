@@ -182,26 +182,6 @@ async function lieferantIdFuerName(name: string): Promise<number> {
   return neu.id;
 }
 
-// ── Hilfsfunktion: Artikelnummer automatisch vergeben ────────────────────────
-async function naechsteArtikelnummer(): Promise<string> {
-  const nummernkreisRaw = await prisma.einstellung.findUnique({
-    where: { key: "artikel.nummernkreis" },
-  });
-  const nk = nummernkreisRaw?.value
-    ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
-    : null;
-  const prefix = nk?.prefix ?? "ART-";
-  const laenge = Number(nk?.laenge) || 5;
-  const naechste = Number(nk?.naechste) || 1;
-  const nummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
-  await prisma.einstellung.upsert({
-    where: { key: "artikel.nummernkreis" },
-    update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-    create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-  });
-  return nummer;
-}
-
 // ── Hilfsfunktion: Zeile importieren ─────────────────────────────────────────
 async function importZeile(
   row: Record<string, unknown>,
@@ -209,15 +189,15 @@ async function importZeile(
   const name = pickCol(row, ...ARTIKEL_ALIAS.name);
   if (!name) return "fehler";
 
-  let artikelnummer = pickCol(row, ...ARTIKEL_ALIAS.artikelnummer);
-  if (artikelnummer) {
+  const artikelnummerRaw = pickCol(row, ...ARTIKEL_ALIAS.artikelnummer);
+
+  // Prüfen ob Artikel mit dieser Nummer schon vorhanden (vor Transaktion, kein Lock nötig)
+  if (artikelnummerRaw) {
     const bestehend = await prisma.artikel.findUnique({
-      where: { artikelnummer },
+      where: { artikelnummer: artikelnummerRaw },
       select: { id: true },
     });
     if (bestehend) return "uebersprungen";
-  } else {
-    artikelnummer = await naechsteArtikelnummer();
   }
 
   const standardpreis = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.standardpreis));
@@ -226,36 +206,61 @@ async function importZeile(
   const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
   const mindestbestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestand));
   const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Sonstiges";
+  const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
   const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "Stück";
   const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
   const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
   const lieferantName = pickCol(row, ...ARTIKEL_ALIAS.lieferant);
 
-  const lieferantCreate = lieferantName
-    ? [{
-        lieferantId: await lieferantIdFuerName(lieferantName),
-        lieferantenArtNr: artikelnummer,
-        einkaufspreis,
-        mindestbestellmenge: 1,
-        lieferzeitTage: 7,
-        bevorzugt: true,
-      }]
-    : [];
+  // Lieferant vorab anlegen/finden (idempotent, außerhalb der Transaktion OK)
+  const lieferantId = lieferantName ? await lieferantIdFuerName(lieferantName) : null;
 
-  await prisma.artikel.create({
-    data: {
-      artikelnummer,
-      name,
-      kategorie,
-      einheit,
-      standardpreis,
-      mwstSatz,
-      mindestbestand,
-      aktuellerBestand: 0,
-      liefergroesse,
-      beschreibung,
-      lieferanten: lieferantCreate.length ? { create: lieferantCreate } : undefined,
-    },
+  // Nummer-Vergabe und Create atomar in einer Transaktion
+  await prisma.$transaction(async (tx) => {
+    let artikelnummer = artikelnummerRaw;
+    if (!artikelnummer) {
+      const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
+      const nk = nummernkreisRaw?.value
+        ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+        : null;
+      const prefix = nk?.prefix ?? "ART-";
+      const laenge = Number(nk?.laenge) || 5;
+      const naechste = Number(nk?.naechste) || 1;
+      artikelnummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
+      await tx.einstellung.upsert({
+        where: { key: "artikel.nummernkreis" },
+        update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+        create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+      });
+    }
+
+    await tx.artikel.create({
+      data: {
+        artikelnummer,
+        name,
+        kategorie,
+        unterkategorie,
+        einheit,
+        standardpreis,
+        mwstSatz,
+        mindestbestand,
+        aktuellerBestand: 0,
+        liefergroesse,
+        beschreibung,
+        ...(lieferantId && {
+          lieferanten: {
+            create: [{
+              lieferantId,
+              lieferantenArtNr: artikelnummer,
+              einkaufspreis,
+              mindestbestellmenge: 1,
+              lieferzeitTage: 7,
+              bevorzugt: true,
+            }],
+          },
+        }),
+      },
+    });
   });
   return "importiert";
 }
