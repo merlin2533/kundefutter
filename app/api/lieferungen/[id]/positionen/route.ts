@@ -1,3 +1,4 @@
+import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      include: { lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
+      select: { standardpreis: true, lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         einkaufspreis: ek,
         chargeNr: chargeNr ?? null,
       },
-      include: { artikel: true },
+      include: { artikel: { select: liefposArtikelSelect } },
     });
     return NextResponse.json(pos, { status: 201 });
   } catch {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addTage, berechneVerkaufspreis } from "@/lib/utils";
+import { liefposArtikelSelect } from "@/lib/artikel-select";
 
 // GET: Zeigt fällige wiederkehrende Lieferungen (nächste X Tage)
 // ?tage=30  – Vorschau für die nächsten N Tage (default 30)
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
     where: { aktiv: true },
     include: {
       kunde: true,
-      artikel: true,
+      artikel: { select: liefposArtikelSelect },
     },
   });
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
   if (body.alleAusloesen) {
     const bedarfe = await prisma.kundeBedarf.findMany({
       where: { aktiv: true },
-      include: { artikel: true },
+      include: { artikel: { select: liefposArtikelSelect } },
     });
 
     const heute = new Date();
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
   // Fix 10: bulk lookups instead of per-bedarfId queries
   const bedarfeListe = await prisma.kundeBedarf.findMany({
     where: { id: { in: bedarfIds } },
-    include: { artikel: true },
+    include: { artikel: { select: liefposArtikelSelect } },
   });
 
   if (bedarfeListe.length === 0) {
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
       },
       include: {
         kunde: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
     angelegt.push(lieferung);

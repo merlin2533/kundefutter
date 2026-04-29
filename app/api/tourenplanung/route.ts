@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
       orderBy: { datum: "asc" },
     });

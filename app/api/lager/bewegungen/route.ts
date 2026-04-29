@@ -1,3 +1,4 @@
+import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const bewegungen = await prisma.lagerbewegung.findMany({
     where,
-    include: { artikel: true },
+    include: { artikel: { select: liefposArtikelSelect } },
     orderBy: { datum: "desc" },
     take: 500,
   });

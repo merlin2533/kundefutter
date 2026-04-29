@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       include: {
         kunde: true,
         lieferung: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
       orderBy: { datum: "desc" },
       take: 200,
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         include: {
           kunde: true,
           lieferung: true,
-          positionen: { include: { artikel: true } },
+          positionen: { include: { artikel: { select: liefposArtikelSelect } } },
         },
       });
 

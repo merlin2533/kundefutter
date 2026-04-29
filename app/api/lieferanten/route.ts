@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const lieferanten = await prisma.lieferant.findMany({
       where,
       include: {
-        artikelZuordnungen: { include: { artikel: true } },
+        artikelZuordnungen: { include: { artikel: { select: artikelSafeSelect } } },
         _count: { select: { artikelZuordnungen: true } },
       },
       orderBy: { name: "asc" },

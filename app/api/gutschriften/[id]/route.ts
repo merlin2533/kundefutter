@@ -13,9 +13,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
       include: {
         kunde: true,
         lieferung: {
-          include: { positionen: { include: { artikel: true } } },
+          include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
         },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
     if (!gutschrift) {
@@ -67,7 +67,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       include: {
         kunde: true,
         lieferung: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
 
