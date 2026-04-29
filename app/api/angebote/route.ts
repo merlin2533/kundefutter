@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect } from "@/lib/artikel-select";
 
 function naechsteAngebotsnummer(letzte: string | null): string {
   const jahr = new Date().getFullYear();
