@@ -4,6 +4,7 @@ import { naechsteRechnungsnummer } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
 import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
+import { artikelSafeSelect } from "@/lib/artikel-select";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -14,12 +15,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
       where: { id: Number(id) },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: artikelSafeSelect } } },
       },
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(lieferung);
-  } catch {
+  } catch (e) {
+    console.error("Lieferung GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -187,7 +189,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       data: updateData,
       include: {
         kunde: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: artikelSafeSelect } } },
       },
     });
     return { updated, altRechnungNr: alt.rechnungNr, altZahlungsziel: alt.zahlungsziel };
@@ -319,7 +321,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         return tx.lieferung.update({
           where: { id: Number(id) },
           data: { status: "geliefert" },
-          include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: true } } },
+          include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: { select: artikelSafeSelect } } } },
         });
       });
       // Fire-and-forget: Lieferschein-PDF in Google Drive hochladen
@@ -369,7 +371,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           data: { rechnungNr, rechnungDatum: new Date() },
           include: {
             kunde: { include: { kontakte: true } },
-            positionen: { include: { artikel: true } },
+            positionen: { include: { artikel: { select: artikelSafeSelect } } },
           },
         });
       });

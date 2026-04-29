@@ -17,6 +17,18 @@ interface Artikel {
   mindestbestand: number;
 }
 
+interface NeuArtikelForm {
+  name: string;
+  artikelnummer: string;
+  kategorie: string;
+  einheit: string;
+  standardpreis: string;
+  mindestbestand: string;
+  mwstSatz: string;
+  beschreibung: string;
+  einkaufspreis: string;
+}
+
 interface Lieferant {
   id: number;
   name: string;
@@ -217,6 +229,12 @@ function KiWareneingangWizard() {
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string>("");
 
+  // Inline "Artikel anlegen" state (Schritt 3)
+  const [createForIdx, setCreateForIdx] = useState<number | null>(null);
+  const [createForm, setCreateForm] = useState<NeuArtikelForm | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string>("");
+
   // Current step
   const [step, setStep] = useState(0);
 
@@ -296,6 +314,105 @@ function KiWareneingangWizard() {
 
   const updatePosition = (idx: number, patch: Partial<MatchedPosition>) => {
     setPositionen((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  };
+
+  const openCreateArtikel = (idx: number) => {
+    const pos = positionen[idx];
+    if (!pos) return;
+    setCreateForIdx(idx);
+    setCreateError("");
+    setCreateForm({
+      name: pos.ki.name ?? "",
+      artikelnummer: pos.ki.artikelnummer ?? "",
+      kategorie: "Futter",
+      einheit: pos.ki.einheit || "kg",
+      standardpreis: String(pos.einkaufspreis || 0),
+      mindestbestand: "0",
+      mwstSatz: "19",
+      beschreibung: "",
+      einkaufspreis: String(pos.einkaufspreis || 0),
+    });
+  };
+
+  const cancelCreateArtikel = () => {
+    setCreateForIdx(null);
+    setCreateForm(null);
+    setCreateError("");
+  };
+
+  const submitCreateArtikel = async () => {
+    if (!createForm || createForIdx === null) return;
+    const name = createForm.name.trim();
+    if (!name) {
+      setCreateError("Artikelname ist erforderlich.");
+      return;
+    }
+    const lieferantIdNum = lieferantId
+      ? parseInt(lieferantId, 10)
+      : vorLieferantId
+        ? parseInt(vorLieferantId, 10)
+        : NaN;
+    const ekPreis = parseFloat(createForm.einkaufspreis);
+    const lieferantenArr =
+      Number.isFinite(lieferantIdNum) && lieferantIdNum > 0
+        ? [
+            {
+              lieferantId: lieferantIdNum,
+              einkaufspreis: Number.isFinite(ekPreis) ? ekPreis : 0,
+              bevorzugt: true,
+            },
+          ]
+        : [];
+
+    const payload: Record<string, unknown> = {
+      name,
+      kategorie: createForm.kategorie,
+      einheit: createForm.einheit,
+      standardpreis: parseFloat(createForm.standardpreis) || 0,
+      mindestbestand: parseFloat(createForm.mindestbestand) || 0,
+      mwstSatz: parseFloat(createForm.mwstSatz) || 19,
+      beschreibung: createForm.beschreibung.trim() || undefined,
+      lieferanten: lieferantenArr,
+    };
+    const artNr = createForm.artikelnummer.trim();
+    if (artNr) payload.artikelnummer = artNr;
+
+    setCreating(true);
+    setCreateError("");
+    try {
+      const res = await fetch("/api/artikel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `Fehler ${res.status}`);
+      }
+      const neu = await res.json();
+      const neuArtikel: Artikel = {
+        id: neu.id,
+        name: neu.name,
+        artikelnummer: neu.artikelnummer,
+        einheit: neu.einheit,
+        standardpreis: neu.standardpreis,
+        aktuellerBestand: neu.aktuellerBestand ?? 0,
+        mindestbestand: neu.mindestbestand ?? 0,
+      };
+      setArtikel((prev) => [...prev, neuArtikel]);
+      const finalEk = Number.isFinite(ekPreis) ? ekPreis : 0;
+      updatePosition(createForIdx, {
+        artikelId: String(neu.id),
+        konfidenz: "exakt",
+        einkaufspreis: finalEk,
+      });
+      setCreateForIdx(null);
+      setCreateForm(null);
+    } catch (err: unknown) {
+      setCreateError(err instanceof Error ? err.message : "Anlegen fehlgeschlagen");
+    } finally {
+      setCreating(false);
+    }
   };
 
   // ---- Step 4: Booking -----------------------------------------------------
@@ -635,15 +752,14 @@ function KiWareneingangWizard() {
                           {zugeordneterArtikel && (
                             <div className="mt-1">{lagerAmpel(zugeordneterArtikel)}</div>
                           )}
-                          {!pos.artikelId && (
-                            <a
-                              href="/artikel/neu"
-                              target="_blank"
-                              rel="noopener noreferrer"
+                          {!pos.artikelId && createForIdx !== idx && (
+                            <button
+                              type="button"
+                              onClick={() => openCreateArtikel(idx)}
                               className="inline-block mt-1 text-xs text-green-700 underline hover:text-green-900"
                             >
                               + Neuen Artikel anlegen
-                            </a>
+                            </button>
                           )}
                         </div>
 
@@ -681,6 +797,184 @@ function KiWareneingangWizard() {
                           />
                         </div>
                       </div>
+
+                      {/* Inline Artikel anlegen */}
+                      {createForIdx === idx && createForm && (
+                        <div className="mt-3 border-t border-gray-200 pt-3 bg-green-50/50 rounded-md p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-green-800">
+                              Neuen Artikel im Stamm anlegen
+                            </p>
+                            <button
+                              type="button"
+                              onClick={cancelCreateArtikel}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                          {!lieferantId && !vorLieferantId && (
+                            <div className="bg-amber-100 border border-amber-200 rounded px-2 py-1.5 text-xs text-amber-800">
+                              Hinweis: Wählen Sie oben einen Lieferanten, damit dieser automatisch
+                              mit dem EK-Preis am Artikel hinterlegt wird.
+                            </div>
+                          )}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs text-gray-500 mb-1">Name *</label>
+                              <input
+                                type="text"
+                                value={createForm.name}
+                                onChange={(e) =>
+                                  setCreateForm({ ...createForm, name: e.target.value })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Artikelnummer{" "}
+                                <span className="text-gray-400">(leer = automatisch)</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={createForm.artikelnummer}
+                                onChange={(e) =>
+                                  setCreateForm({ ...createForm, artikelnummer: e.target.value })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Kategorie</label>
+                              <select
+                                value={createForm.kategorie}
+                                onChange={(e) =>
+                                  setCreateForm({ ...createForm, kategorie: e.target.value })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              >
+                                <option value="Futter">Futter</option>
+                                <option value="Duenger">Düngemittel</option>
+                                <option value="Saatgut">Saatgut</option>
+                                <option value="Sonstiges">Sonstiges</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Einheit</label>
+                              <input
+                                type="text"
+                                value={createForm.einheit}
+                                onChange={(e) =>
+                                  setCreateForm({ ...createForm, einheit: e.target.value })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">MwSt-Satz (%)</label>
+                              <select
+                                value={createForm.mwstSatz}
+                                onChange={(e) =>
+                                  setCreateForm({ ...createForm, mwstSatz: e.target.value })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              >
+                                <option value="0">0 %</option>
+                                <option value="7">7 %</option>
+                                <option value="19">19 %</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">EK-Preis (€)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={createForm.einkaufspreis}
+                                onChange={(e) =>
+                                  setCreateForm({
+                                    ...createForm,
+                                    einkaufspreis: e.target.value,
+                                  })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Standardpreis VK (€)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={createForm.standardpreis}
+                                onChange={(e) =>
+                                  setCreateForm({
+                                    ...createForm,
+                                    standardpreis: e.target.value,
+                                  })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Mindestbestand</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={createForm.mindestbestand}
+                                onChange={(e) =>
+                                  setCreateForm({
+                                    ...createForm,
+                                    mindestbestand: e.target.value,
+                                  })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs text-gray-500 mb-1">Beschreibung</label>
+                              <input
+                                type="text"
+                                value={createForm.beschreibung}
+                                onChange={(e) =>
+                                  setCreateForm({
+                                    ...createForm,
+                                    beschreibung: e.target.value,
+                                  })
+                                }
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                            </div>
+                          </div>
+                          {createError && (
+                            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
+                              {createError}
+                            </div>
+                          )}
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={cancelCreateArtikel}
+                              disabled={creating}
+                              className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-40"
+                            >
+                              Abbrechen
+                            </button>
+                            <button
+                              type="button"
+                              onClick={submitCreateArtikel}
+                              disabled={creating || !createForm.name.trim()}
+                              className="px-4 py-1.5 rounded-lg bg-green-700 text-white text-sm font-medium hover:bg-green-800 disabled:opacity-40"
+                            >
+                              {creating ? "Speichert…" : "Artikel anlegen & zuordnen"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
