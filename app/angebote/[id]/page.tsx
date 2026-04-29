@@ -83,14 +83,14 @@ export default function AngebotDetailPage() {
   function fetchAngebot() {
     setLoading(true);
     fetch(`/api/angebote/${id}`)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error("Angebot nicht gefunden"); return r.json(); })
       .then((d) => {
         setAngebot(d);
         setNotiz(d.notiz ?? "");
         setGueltigBis(d.gueltigBis ? d.gueltigBis.split("T")[0] : "");
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e: unknown) => { setError(e instanceof Error ? e.message : "Ladefehler"); setLoading(false); });
   }
 
   async function handleUpdate(data: Record<string, unknown>) {
