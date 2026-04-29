@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, ctx: Params) {
       where: { id: numId },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
     if (!angebot) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -52,7 +52,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
         const angebot = await tx.angebot.findUnique({
           where: { id: numId },
           include: {
-            positionen: { include: { artikel: true } },
+            positionen: { include: { artikel: { select: liefposArtikelSelect } } },
           },
         });
         if (!angebot) throw new Error("Angebot nicht gefunden");
@@ -139,7 +139,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
           data: { status: "ANGENOMMEN", notiz: `Lieferung ${lieferung.id} / Rechnung ${rechnungNr}. ${angebot.notiz ?? ""}`.trim() },
           include: {
             kunde: { include: { kontakte: true } },
-            positionen: { include: { artikel: true } },
+            positionen: { include: { artikel: { select: liefposArtikelSelect } } },
           },
         });
 
@@ -169,7 +169,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
       data: updateData,
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
 

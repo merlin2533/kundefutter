@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
           { artikel: { artikelnummer: artNr } },
         ],
       },
-      include: { artikel: true },
+      include: { artikel: { select: artikelSafeSelect } },
     });
 
     if (!zuordnung) continue;

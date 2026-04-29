@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
       where: lieferantId ? { lieferantId: Number(lieferantId) } : undefined,
       include: {
         lieferant: true,
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
       orderBy: { datum: "desc" },
       take: 100,
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         notiz,
         positionen: { create: positionen },
       },
-      include: { positionen: { include: { artikel: true } } },
+      include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
     });
 
     // Bulk-Fetch aller betroffenen Artikel (statt N+1 findUnique im Loop)

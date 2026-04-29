@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   try {
     const bedarfe = await prisma.kundeBedarf.findMany({
       where: { kundeId: Number(id) },
-      include: { artikel: true },
+      include: { artikel: { select: artikelSafeSelect } },
     });
     return NextResponse.json(bedarfe);
   } catch {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       where: { kundeId_artikelId: { kundeId: Number(id), artikelId } },
       update: { menge, intervallTage, notiz },
       create: { kundeId: Number(id), artikelId, menge, intervallTage, notiz },
-      include: { artikel: true },
+      include: { artikel: { select: artikelSafeSelect } },
     });
     return NextResponse.json(bedarf);
   } catch {

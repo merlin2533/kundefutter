@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
         },
         include: {
           kunde: { select: { id: true, name: true, firma: true } },
-          positionen: { include: { artikel: true } },
+          positionen: { include: { artikel: { select: liefposArtikelSelect } } },
         },
       });
     });
