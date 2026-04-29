@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { generiereRechnungPdf } from "@/lib/pdfGenerator";
 import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
 import { sendEmail } from "@/lib/email";
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
       where: { id: lieferungId },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: true } },
+        positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });
     if (!lieferung) {

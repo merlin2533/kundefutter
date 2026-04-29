@@ -21,3 +21,14 @@ export const artikelSafeSelect = {
   updatedAt: true,
   driveOrdnerId: true,
 } as const;
+
+// Minimal artikel fields needed when loading Lieferpositionen / Wareneingangspositionen
+// for PDFs and exports. Keeps queries lean.
+export const liefposArtikelSelect = {
+  id: true,
+  name: true,
+  artikelnummer: true,
+  einheit: true,
+  mwstSatz: true,
+  standardpreis: true,
+} as const;

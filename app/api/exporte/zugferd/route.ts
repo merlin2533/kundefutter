@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
 
 // GET /api/exporte/zugferd?lieferungId=N
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
         where: { id: lieferungId },
         include: {
           kunde: true,
-          positionen: { include: { artikel: true } },
+          positionen: { include: { artikel: { select: liefposArtikelSelect } } },
         },
       });
 
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
           kunde: true,
           lieferungen: {
             include: {
-              positionen: { include: { artikel: true } },
+              positionen: { include: { artikel: { select: liefposArtikelSelect } } },
             },
           },
         },

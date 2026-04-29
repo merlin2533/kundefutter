@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import * as XLSX from "xlsx";
 import { berechneMarge, formatDatum } from "@/lib/utils";
 
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     const lieferungen = await prisma.lieferung.findMany({
       where,
-      include: { kunde: true, positionen: { include: { artikel: true } } },
+      include: { kunde: true, positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
       orderBy: { datum: "desc" },
     });
 
@@ -139,7 +140,7 @@ export async function GET(req: NextRequest) {
 
     const bewegungen = await prisma.lagerbewegung.findMany({
       where,
-      include: { artikel: true },
+      include: { artikel: { select: liefposArtikelSelect } },
       orderBy: { datum: "desc" },
     });
     rows = bewegungen.map((b) => ({
@@ -160,7 +161,7 @@ export async function GET(req: NextRequest) {
 
     const lieferungen = await prisma.lieferung.findMany({
       where,
-      include: { kunde: true, positionen: { include: { artikel: true } } },
+      include: { kunde: true, positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
     });
 
     const kundenMargen: Record<string, { name: string; umsatz: number; einkauf: number; marge: number }> = {};

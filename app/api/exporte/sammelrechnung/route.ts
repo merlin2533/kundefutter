@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { naechsteRechnungsnummer, formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
         kunde: { include: { kontakte: true } },
         lieferungen: {
           include: {
-            positionen: { include: { artikel: true } },
+            positionen: { include: { artikel: { select: liefposArtikelSelect } } },
           },
           orderBy: { datum: "asc" },
         },
