@@ -392,7 +392,8 @@ export async function fetchEurostatOutput(
     // Parse the response - it should contain an 'outputidx' dimension with available codes
     // The actual codes will be in json.dimension.outputidx.category.index
     return parseJsonStatOutput(json);
-  } catch {
+  } catch (err) {
+    console.warn("fetchEurostatOutput error:", err instanceof Error ? err.message : String(err));
     return [];
   }
 }

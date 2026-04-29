@@ -143,7 +143,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(angebot, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Angebot POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Angebot konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

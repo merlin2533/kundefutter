@@ -300,6 +300,9 @@ export default function ArtikelPage() {
                             if (res.ok) {
                               const neu = await res.json();
                               router.push(`/artikel/${neu.id}`);
+                            } else {
+                              const d = await res.json().catch(() => ({}));
+                              alert(d.error ?? "Duplizieren fehlgeschlagen");
                             }
                           }}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -313,6 +316,7 @@ export default function ArtikelPage() {
                             if (!confirm(`"${a.name}" wirklich löschen?`)) return;
                             const res = await fetch(`/api/artikel/${a.id}`, { method: "DELETE" });
                             if (res.ok) load();
+                            else { const d = await res.json().catch(() => ({})); alert(d.error ?? "Löschen fehlgeschlagen"); }
                           }}
                           className="text-red-400 hover:text-red-600 transition-colors"
                           title="Löschen"

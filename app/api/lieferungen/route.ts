@@ -181,7 +181,9 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json(lieferung, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Lieferung POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Lieferung konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
