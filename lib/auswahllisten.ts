@@ -9,6 +9,7 @@ export const DEFAULT_SAATGUT_KULTUREN = [
   "Raps",
   "Getreide",
   "Gräser",
+  "Kartoffel",
   "Zwischenfrüchte",
   "Leguminosen",
   "Sonnenblumen",
@@ -17,7 +18,7 @@ export const DEFAULT_SAATGUT_KULTUREN = [
 
 export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
-export const DEFAULT_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Palette", "BigBag", "km", "Stunden"];
+export const DEFAULT_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Kanister", "Palette", "BigBag", "km", "Stunden"];
 
 /** Liest ein JSON-Array aus dem Einstellungs-Objekt (Antwort von
  *  GET /api/einstellungen?prefix=system.). Gibt `fallback` zurück
