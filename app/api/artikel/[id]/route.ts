@@ -37,14 +37,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, inhaltsstoffe, ...data } = body;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { lieferanten, inhaltsstoffe, unterkategorie: _uk, ...data } = body;
 
   if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
 
   try {
     let altSnapshot: Record<string, unknown> | null = null;
     const artikel = await prisma.$transaction(async (tx) => {
-      const alt = await tx.artikel.findUnique({ where: { id: Number(id) } });
+      const alt = await tx.artikel.findUnique({
+        where: { id: Number(id) },
+        select: { id: true, standardpreis: true },
+      });
       if (!alt) throw new Error("Nicht gefunden");
       altSnapshot = alt as Record<string, unknown>;
 
