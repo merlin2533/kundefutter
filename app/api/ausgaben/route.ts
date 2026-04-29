@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         betragNetto: betrag,
         mwstSatz: mwst,
         kategorie: kategorie || "Sonstige",
-        lieferantId: lieferantId ? parseInt(lieferantId, 10) : null,
+        lieferantId: lieferantId ? (isNaN(parseInt(lieferantId, 10)) ? null : parseInt(lieferantId, 10)) : null,
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,
         notiz: notiz || null,
       },

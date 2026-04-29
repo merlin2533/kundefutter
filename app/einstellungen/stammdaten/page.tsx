@@ -53,14 +53,19 @@ function EditableList({
 
   async function save(list: string[]) {
     setSaving(true);
-    await fetch("/api/einstellungen", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: storeKey, value: JSON.stringify(list) }),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+    try {
+      const res = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: storeKey, value: JSON.stringify(list) }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+      }
+    } finally {
+      setSaving(false);
+    }
   }
 
   function addItem() {

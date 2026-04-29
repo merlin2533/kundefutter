@@ -62,8 +62,9 @@ export default function LagerPage() {
   const fetchArtikel = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/artikel?limit=500");
+    if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
-    setArtikel(data);
+    setArtikel(Array.isArray(data) ? data : []);
     setLoading(false);
   }, []);
 
