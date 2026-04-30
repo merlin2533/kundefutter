@@ -74,7 +74,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(updated);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Gutschrift error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
@@ -99,7 +101,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.gutschrift.delete({ where: { id: Number(id) } });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    console.error("Gutschrift error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

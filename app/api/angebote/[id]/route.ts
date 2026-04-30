@@ -27,8 +27,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
     if (!angebot) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(angebot);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Angebot GET error:", err);
+    return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
 }
 
