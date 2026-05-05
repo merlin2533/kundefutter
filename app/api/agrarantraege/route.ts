@@ -42,16 +42,16 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
 
   const body = await req.json();
-  const allowed: Record<string, unknown> = {};
+  const updateData: { kundeId?: number | null } = {};
 
   if ("kundeId" in body) {
-    allowed.kundeId = body.kundeId ? Number(body.kundeId) : null;
+    updateData.kundeId = body.kundeId ? Number(body.kundeId) : null;
   }
 
   const existing = await prisma.antragEmpfaenger.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-  const updated = await prisma.antragEmpfaenger.update({ where: { id }, data: allowed });
+  const updated = await prisma.antragEmpfaenger.update({ where: { id }, data: updateData });
   return NextResponse.json(updated);
 }
 

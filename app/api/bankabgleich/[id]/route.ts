@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     const umsatz = await prisma.kontoumsatz.findUnique({ where: { id } });
     if (!umsatz) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    const updateData: Record<string, unknown> = { zugeordnet: true };
+    const updateData: { zugeordnet: boolean; lieferungId?: number | null; sammelrechnungId?: number | null; ausgabeId?: number | null } = { zugeordnet: true };
     if (lieferungId !== undefined) updateData.lieferungId = lieferungId ?? null;
     if (sammelrechnungId !== undefined) updateData.sammelrechnungId = sammelrechnungId ?? null;
     if (ausgabeId !== undefined) updateData.ausgabeId = ausgabeId ?? null;

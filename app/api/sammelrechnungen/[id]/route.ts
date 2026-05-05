@@ -32,7 +32,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
   try {
     const body = await req.json();
-    const updateData: Record<string, unknown> = {};
+    const updateData: { notiz?: string | null; zahlungsziel?: number; bezahltAm?: Date | null; rechnungDatum?: Date | null } = {};
     if (body.notiz !== undefined) updateData.notiz = body.notiz;
     if (body.zahlungsziel !== undefined) updateData.zahlungsziel = body.zahlungsziel;
     if (body.bezahltAm !== undefined) updateData.bezahltAm = body.bezahltAm ? new Date(body.bezahltAm) : null;
