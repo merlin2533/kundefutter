@@ -42,7 +42,7 @@ export default function KundenmappePage() {
       fetch(`/api/kunden/${id}/notizen`).then((r) => r.json()).catch(() => []),
       fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()).catch(() => ({})),
     ]).then(([k, akt, noti, einst]) => {
-      setKunde(k);
+      setKunde(k as Kunde | null);
       setAktivitaeten(Array.isArray(akt) ? akt : []);
       setNotizen(Array.isArray(noti) ? noti : []);
       const f: Partial<Firma> = {};
