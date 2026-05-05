@@ -35,8 +35,8 @@ function EditableList({
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         if (d[storeKey]) {
           try {
             setItems(JSON.parse(d[storeKey]));

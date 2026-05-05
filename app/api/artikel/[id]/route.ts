@@ -37,9 +37,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, inhaltsstoffe, ...data } = body;
+  const { lieferanten, inhaltsstoffe } = body;
 
-  if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
+  // Explicit allowlist to prevent mass-assignment
+  const data: Record<string, unknown> = {};
+  if (body.name !== undefined) data.name = String(body.name);
+  if (body.artikelnummer !== undefined) data.artikelnummer = String(body.artikelnummer);
+  if (body.einheit !== undefined) data.einheit = String(body.einheit);
+  if (body.kategorie !== undefined) data.kategorie = String(body.kategorie);
+  if (body.unterkategorie !== undefined) data.unterkategorie = body.unterkategorie ? String(body.unterkategorie) : null;
+  if (body.standardpreis !== undefined) data.standardpreis = Number(body.standardpreis);
+  if (body.mwstSatz !== undefined) data.mwstSatz = Number(body.mwstSatz);
+  if (body.aktuellerBestand !== undefined) data.aktuellerBestand = Number(body.aktuellerBestand);
+  if (body.mindestbestand !== undefined) data.mindestbestand = Number(body.mindestbestand);
+  if (body.beschreibung !== undefined) data.beschreibung = body.beschreibung ? String(body.beschreibung) : null;
+  if (body.aktiv !== undefined) data.aktiv = Boolean(body.aktiv);
 
   try {
     let altSnapshot: Record<string, unknown> | null = null;
@@ -56,7 +68,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           data: {
             artikelId: Number(id),
             alterPreis: alt.standardpreis,
-            neuerPreis: data.standardpreis,
+            neuerPreis: data.standardpreis as number,
           },
         });
       }
