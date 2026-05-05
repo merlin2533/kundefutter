@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
   let rows: Record<string, unknown>[] = [];
   let sheetName = "Export";
 
+  try {
   if (typ === "kunden") {
     sheetName = "Kunden";
     const kunden = await prisma.kunde.findMany({
@@ -166,6 +167,7 @@ export async function GET(req: NextRequest) {
     const lieferungen = await prisma.lieferung.findMany({
       where,
       include: { kunde: true, positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
+      take: 5000,
     });
 
     const kundenMargen: Record<string, { name: string; umsatz: number; einkauf: number; marge: number }> = {};
@@ -190,6 +192,10 @@ export async function GET(req: NextRequest) {
       "Deckungsbeitrag €": Math.round(k.marge * 100) / 100,
       "Deckungsbeitrag %": k.umsatz > 0 ? Math.round((k.marge / k.umsatz) * 1000) / 10 : 0,
     }));
+  }
+
+  } catch {
+    return NextResponse.json({ error: "Exportfehler" }, { status: 500 });
   }
 
   const wb = XLSX.utils.book_new();

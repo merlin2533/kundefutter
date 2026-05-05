@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
   const vonStr = searchParams.get("von");
   const bisStr = searchParams.get("bis");
 
+  try {
   // Load DATEV settings from DB
   const einstellungen = await prisma.einstellung.findMany({
     where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn"] } },
@@ -350,4 +351,7 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+  } catch {
+    return NextResponse.json({ error: "DATEV-Export fehlgeschlagen" }, { status: 500 });
+  }
 }

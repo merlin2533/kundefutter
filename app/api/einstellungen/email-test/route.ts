@@ -6,9 +6,8 @@ export async function POST() {
     await verifyEmailConfig();
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Verbindung fehlgeschlagen" },
-      { status: 500 },
-    );
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

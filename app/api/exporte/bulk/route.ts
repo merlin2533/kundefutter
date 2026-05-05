@@ -229,6 +229,7 @@ export async function GET(req: NextRequest) {
     where.rechnungNr = { not: null };
   }
 
+  try {
   const lieferungen = await prisma.lieferung.findMany({
     where,
     include: {
@@ -280,4 +281,7 @@ export async function GET(req: NextRequest) {
       "X-Export-Count": String(filtered.length),
     },
   });
+  } catch {
+    return NextResponse.json({ error: "Massenexport fehlgeschlagen" }, { status: 500 });
+  }
 }

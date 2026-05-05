@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const zwolfMonate = new Date();
   zwolfMonate.setFullYear(zwolfMonate.getFullYear() - 1);
 
+  try {
   // Load all active customers
   const kunden = await prisma.kunde.findMany({
     where: { aktiv: true },
@@ -131,4 +132,7 @@ export async function GET(req: NextRequest) {
   scored.sort((a, b) => b.score - a.score);
 
   return NextResponse.json(scored);
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

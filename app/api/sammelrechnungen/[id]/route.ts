@@ -5,9 +5,11 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   try {
     const sr = await prisma.sammelrechnung.findUnique({
-      where: { id: parseInt(id, 10) },
+      where: { id: numId },
       include: {
         kunde: { select: { id: true, name: true, firma: true, strasse: true, plz: true, ort: true } },
         lieferungen: {
@@ -30,6 +32,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   try {
     const body = await req.json();
     const updateData: { notiz?: string | null; zahlungsziel?: number; bezahltAm?: Date | null; rechnungDatum?: Date | null } = {};
@@ -39,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (body.rechnungDatum !== undefined) updateData.rechnungDatum = body.rechnungDatum ? new Date(body.rechnungDatum) : null;
 
     const sr = await prisma.sammelrechnung.update({
-      where: { id: parseInt(id, 10) },
+      where: { id: numId },
       data: updateData,
       include: {
         kunde: { select: { id: true, name: true, firma: true } },
@@ -65,13 +69,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   try {
     // Lieferungen aus Sammelrechnung lösen
     await prisma.lieferung.updateMany({
-      where: { sammelrechnungId: parseInt(id, 10) },
+      where: { sammelrechnungId: numId },
       data: { sammelrechnungId: null },
     });
-    await prisma.sammelrechnung.delete({ where: { id: parseInt(id, 10) } });
+    await prisma.sammelrechnung.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Sammelrechnung error:", err);
