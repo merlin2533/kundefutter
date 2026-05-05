@@ -157,7 +157,7 @@ function NeueLieferungInner() {
         // Pre-fill from angebot if param present
         if (ausAngebotId) {
           try {
-            const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.json());
+            const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.ok ? r.json() : null);
             if (ang && ang.id) {
               setKundeId(ang.kundeId ?? ang.kunde?.id ?? "");
               setAngebotHinweis(`Erstellt aus Angebot ${ang.nummer}`);

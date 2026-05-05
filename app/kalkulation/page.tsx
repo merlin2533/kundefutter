@@ -72,8 +72,9 @@ export default function KalkulationPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/kalkulation");
+      if (!res.ok) return;
       const json = await res.json();
-      setData(json);
+      setData(Array.isArray(json) ? json : []);
     } finally {
       setLoading(false);
     }

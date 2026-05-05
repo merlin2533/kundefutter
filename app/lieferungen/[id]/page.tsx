@@ -189,7 +189,7 @@ export default function LieferungDetailPage() {
 
   useEffect(() => {
     fetch("/api/artikel?relations=false&limit=500")
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch(() => {});
   }, []);

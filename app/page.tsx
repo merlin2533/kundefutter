@@ -318,8 +318,8 @@ export default function DashboardPage() {
 
   const loadMatif = () => {
     fetch("/api/marktpreise/spot")
-      .then((r) => r.json())
-      .then((d) => { if (d.preise) setMatif(d); })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.preise) setMatif(d); })
       .catch(() => {});
   };
 

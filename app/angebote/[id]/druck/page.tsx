@@ -72,10 +72,10 @@ export default function AngebotDruckPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/angebote/${id}`).then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
+      fetch(`/api/angebote/${id}`).then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=firma.").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.ok ? r.json() : {}),
     ])
       .then(([ang, firmaData, logoData, ftrData]) => {
         setAngebot(ang as Angebot | null);
