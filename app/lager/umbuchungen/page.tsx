@@ -47,8 +47,9 @@ export default function UmbuchungenPage() {
 
   const fetchArtikel = useCallback(async () => {
     const res = await fetch("/api/artikel?limit=500");
+    if (!res.ok) return;
     const data = await res.json();
-    setArtikel(data);
+    setArtikel(Array.isArray(data) ? data : []);
   }, []);
 
   const fetchLagerorte = useCallback(async () => {

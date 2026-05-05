@@ -88,11 +88,12 @@ export default function NeueRechnungPage() {
       return;
     }
     fetch(`/api/lieferungen?kundeId=${kundeId}&status=geliefert&ohneRechnung=true`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
-        setLieferungen(data);
+        const list = Array.isArray(data) ? data : [];
+        setLieferungen(list);
         // Alle vorauswählen
-        setAusgewaehlt(data.map((l) => l.id));
+        setAusgewaehlt(list.map((l) => l.id));
       })
       .catch(() => {});
   }, [kundeId]);

@@ -231,7 +231,8 @@ export default function TourenplanungPage() {
     try {
       const res = await fetch(`/api/tourenplanung?datum=${d}`);
       if (!res.ok) { setFehler("Fehler beim Laden der Lieferungen"); return; }
-      setLieferungen(await res.json());
+      const ldata = await res.json();
+      setLieferungen(Array.isArray(ldata) ? ldata : []);
     } finally {
       setLoading(false);
     }

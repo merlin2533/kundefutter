@@ -56,8 +56,9 @@ export default function ArtikelPage() {
     if (kategorie !== "alle") params.set("kategorie", kategorie);
     if (kategorie === "Saatgut" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
     const res = await fetch(`/api/artikel?${params}`);
+    if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
-    setArtikel(data);
+    setArtikel(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 

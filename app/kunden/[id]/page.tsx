@@ -858,8 +858,8 @@ function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void 
 
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
-      .then((r) => r.json())
-      .then(setArtikel)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
 
@@ -1230,8 +1230,8 @@ function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => 
 
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
-      .then((r) => r.json())
-      .then(setArtikel)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
 

@@ -49,8 +49,8 @@ function WareneingangInner() {
   useEffect(() => {
     async function load() {
       const [liefRes, artRes] = await Promise.all([
-        fetch("/api/lieferanten").then((r) => r.json()),
-        fetch("/api/artikel?limit=500").then((r) => r.json()),
+        fetch("/api/lieferanten").then((r) => r.ok ? r.json() : []),
+        fetch("/api/artikel?limit=500").then((r) => r.ok ? r.json() : []),
       ]);
       setLieferantenList(Array.isArray(liefRes) ? liefRes : []);
       const artikelData: Artikel[] = Array.isArray(artRes) ? artRes : [];

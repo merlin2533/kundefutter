@@ -194,8 +194,8 @@ export default function ArtikelDetailPage() {
     }
     if (tab === "lieferanten" && lieferantenList.length === 0) {
       fetch("/api/lieferanten")
-        .then((r) => r.json())
-        .then(setLieferantenList)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => setLieferantenList(Array.isArray(d) ? d : []))
         .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
