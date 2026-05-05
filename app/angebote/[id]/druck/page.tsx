@@ -79,9 +79,10 @@ export default function AngebotDruckPage() {
     ])
       .then(([ang, firmaData, logoData, ftrData]) => {
         setAngebot(ang as Angebot | null);
-        setFirma(firmaData ?? {});
-        setFooterData(ftrData ?? {});
-        if (logoData?.["system.logo"]) setLogo(logoData["system.logo"]);
+        setFirma((firmaData as Record<string, string>) ?? {});
+        setFooterData((ftrData as Record<string, string>) ?? {});
+        const ld = logoData as Record<string, string>;
+        if (ld?.["system.logo"]) setLogo(ld["system.logo"]);
         setLoading(false);
       })
       .catch(() => setLoading(false));

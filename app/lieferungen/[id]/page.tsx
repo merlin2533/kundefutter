@@ -261,11 +261,11 @@ export default function LieferungDetailPage() {
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
       .then(r => r.ok ? r.json() : {})
-      .then(d => setFirmaData(d))
+      .then(raw => { const d = raw as Record<string, string>; setFirmaData(d); })
       .catch(() => {});
     fetch("/api/einstellungen?prefix=system.logo")
       .then(r => r.ok ? r.json() : {})
-      .then(d => { if (d?.["system.logo"]) setLogo(d["system.logo"]); })
+      .then(raw => { const d = raw as Record<string, string>; if (d?.["system.logo"]) setLogo(d["system.logo"]); })
       .catch(() => {});
   }, []);
 

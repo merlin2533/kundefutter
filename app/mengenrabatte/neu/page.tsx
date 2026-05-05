@@ -44,7 +44,8 @@ export default function NeuerMengenrabattPage() {
       .then((d) => setKunden(Array.isArray(d) ? d : []));
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => {
+      .then((raw) => {
+        const d = raw as Record<string, string>;
         if (d["system.artikelkategorien"]) {
           try {
             const parsed = JSON.parse(d["system.artikelkategorien"]);

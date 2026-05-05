@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[drive/dokumente POST]", err);
-    const msg = err instanceof Error ? err.message : "Interner Fehler";
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -147,7 +148,8 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[drive/dokumente GET]", err);
-    const msg = err instanceof Error ? err.message : "Interner Fehler";
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

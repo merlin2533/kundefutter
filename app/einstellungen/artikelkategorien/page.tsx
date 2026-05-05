@@ -27,7 +27,8 @@ export default function ArtikelkategorienPage() {
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => {
+      .then((raw) => {
+        const d = raw as Record<string, string>;
         let list: string[] = DEFAULT_KATEGORIEN;
         if (d[STORE_KEY]) {
           try {

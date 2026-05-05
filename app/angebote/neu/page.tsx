@@ -108,7 +108,8 @@ function NeuesAngebotForm() {
       .catch(() => {});
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => {
+      .then((raw) => {
+        const d = raw as Record<string, string>;
         if (d["system.einheiten"]) {
           try {
             const parsed = JSON.parse(d["system.einheiten"]);
