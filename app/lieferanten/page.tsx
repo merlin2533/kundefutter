@@ -21,16 +21,28 @@ export default function LieferantenPage() {
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
-    const res = await fetch(`/api/lieferanten?${params}`);
-    if (!res.ok) { setLoading(false); return; }
-    const data = await res.json();
-    setLieferanten(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/lieferanten?${params}`);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        setFetchError(d.error ?? `Serverfehler ${res.status}`);
+        setLieferanten([]);
+      } else {
+        const data = await res.json();
+        setLieferanten(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setFetchError("Netzwerkfehler – Seite neu laden");
+    } finally {
+      setLoading(false);
+    }
   }, [search]);
 
   useEffect(() => {
@@ -65,6 +77,8 @@ export default function LieferantenPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade Lieferanten…</p>
+        ) : fetchError ? (
+          <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
         ) : lieferanten.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">Keine Lieferanten gefunden.</p>
         ) : (

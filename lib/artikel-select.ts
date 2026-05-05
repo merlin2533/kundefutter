@@ -29,3 +29,23 @@ export const liefposArtikelSelect = {
   mwstSatz: true,
   standardpreis: true,
 } as const;
+
+// Explicit Lieferung field list — prevents "column not found" errors when include:true
+// loads ALL columns including ones added by newer migrations not yet applied on the DB.
+export const lieferungSafeSelect = {
+  id: true,
+  kundeId: true,
+  datum: true,
+  lieferDatum: true,
+  status: true,
+  stornoBegründung: true,
+  notiz: true,
+  rechnungNr: true,
+  rechnungDatum: true,
+  bezahltAm: true,
+  zahlungsziel: true,
+  wiederkehrend: true,
+  sammelrechnungId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
