@@ -23,6 +23,8 @@ export async function POST(req: NextRequest) {
     const result = await testConnection(cfg);
     return NextResponse.json(result);
   } catch (err) {
-    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Fehler" }, { status: 500 });
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

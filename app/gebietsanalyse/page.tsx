@@ -62,6 +62,7 @@ export default function GebietsanalysePage() {
         `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
         { headers: { "Accept-Language": "de", "User-Agent": "AgrarOffice/1.0" } },
       );
+      if (!res.ok) throw new Error(`Geocoding-Fehler ${res.status}`);
       const data = await res.json();
       if (data.length === 0) {
         setError("Adresse nicht gefunden");

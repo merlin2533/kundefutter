@@ -79,6 +79,7 @@ export default function TagesansichtPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/tagesansicht");
+      if (!res.ok) throw new Error("Tagesansicht konnte nicht geladen werden");
       const json = await res.json();
       setData(json);
     } catch {
