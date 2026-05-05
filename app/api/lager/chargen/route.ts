@@ -17,33 +17,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Mindestens 2 Zeichen für die Chargensuche erforderlich" }, { status: 400 });
   }
 
-  // Search Lieferposition.chargeNr
-  const lieferpositionen = await prisma.lieferposition.findMany({
-    where: { chargeNr: { contains: charge } },
-    take: 500,
-    include: {
-      lieferung: {
-        include: {
-          kunde: { select: { id: true, name: true, firma: true } },
+  try {
+    // Search Lieferposition.chargeNr
+    const lieferpositionen = await prisma.lieferposition.findMany({
+      where: { chargeNr: { contains: charge } },
+      take: 500,
+      include: {
+        lieferung: {
+          include: {
+            kunde: { select: { id: true, name: true, firma: true } },
+          },
         },
+        artikel: { select: { id: true, name: true, einheit: true } },
       },
-      artikel: { select: { id: true, name: true, einheit: true } },
-    },
-  });
+    });
 
-  const lieferungen = lieferpositionen.map((pos) => ({
-    lieferpositionId: pos.id,
-    chargeNr: pos.chargeNr,
-    datum: pos.lieferung.datum,
-    lieferungId: pos.lieferung.id,
-    status: pos.lieferung.status,
-    kunde: pos.lieferung.kunde,
-    artikel: pos.artikel,
-    menge: pos.menge,
-  }));
+    const lieferungen = lieferpositionen.map((pos) => ({
+      lieferpositionId: pos.id,
+      chargeNr: pos.chargeNr,
+      datum: pos.lieferung.datum,
+      lieferungId: pos.lieferung.id,
+      status: pos.lieferung.status,
+      kunde: pos.lieferung.kunde,
+      artikel: pos.artikel,
+      menge: pos.menge,
+    }));
 
-  // WareineingangPosition has no chargeNr field in current schema — return empty
-  const wareneingaenge: unknown[] = [];
+    // WareineingangPosition has no chargeNr field in current schema — return empty
+    const wareneingaenge: unknown[] = [];
 
-  return NextResponse.json({ wareneingaenge, lieferungen });
+    return NextResponse.json({ wareneingaenge, lieferungen });
+  } catch (e) {
+    console.error("Chargen GET error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

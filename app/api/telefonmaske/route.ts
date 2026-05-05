@@ -34,34 +34,51 @@ export async function GET(req: NextRequest) {
     orderBy: { name: "asc" },
   });
 
-  // For each kunde get last Lieferung + open invoices
-  const results = await Promise.all(
-    kunden.map(async (k) => {
-      const [letzteLiferung, offeneRechnungenRaw] = await Promise.all([
-        prisma.lieferung.findFirst({
-          where: { kundeId: k.id },
-          orderBy: { datum: "desc" },
-          include: {
-            positionen: {
-              take: 3,
-              include: { artikel: { select: { name: true } } },
-            },
-          },
-        }),
-        prisma.lieferung.findMany({
-          where: {
-            kundeId: k.id,
-            status: "geliefert",
-            bezahltAm: null,
-            rechnungNr: { not: null },
-          },
-          select: { id: true, positionen: { select: { menge: true, verkaufspreis: true } } },
-        }),
-      ]);
+  try {
+    const kundeIds = kunden.map((k) => k.id);
 
+    const [alleLetzteLieferungen, alleOffenenLieferungen] = await Promise.all([
+      prisma.lieferung.findMany({
+        where: { kundeId: { in: kundeIds }, status: { not: "storniert" } },
+        orderBy: { datum: "desc" },
+        take: kundeIds.length * 5,
+        include: {
+          positionen: {
+            take: 3,
+            include: { artikel: { select: { name: true } } },
+          },
+        },
+      }),
+      prisma.lieferung.findMany({
+        where: {
+          kundeId: { in: kundeIds },
+          status: "geliefert",
+          bezahltAm: null,
+          rechnungNr: { not: null },
+        },
+        select: { id: true, kundeId: true, positionen: { select: { menge: true, verkaufspreis: true } } },
+      }),
+    ]);
+
+    // Letzte Lieferung je Kunde ermitteln (Liste ist bereits nach datum desc sortiert)
+    const letzteProKunde = new Map<number, typeof alleLetzteLieferungen[0]>();
+    for (const l of alleLetzteLieferungen) {
+      if (!letzteProKunde.has(l.kundeId)) letzteProKunde.set(l.kundeId, l);
+    }
+
+    // Offene Rechnungen je Kunde gruppieren
+    const offeneProKunde = new Map<number, typeof alleOffenenLieferungen>();
+    for (const l of alleOffenenLieferungen) {
+      const list = offeneProKunde.get(l.kundeId) ?? [];
+      list.push(l);
+      offeneProKunde.set(l.kundeId, list);
+    }
+
+    const results = kunden.map((k) => {
+      const letzteLiferung = letzteProKunde.get(k.id) ?? null;
+      const offeneRechnungenRaw = offeneProKunde.get(k.id) ?? [];
       const offeneSumme = offeneRechnungenRaw.reduce((sum, l) => {
-        const lSum = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-        return sum + lSum;
+        return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
       }, 0);
 
       return {
@@ -89,8 +106,11 @@ export async function GET(req: NextRequest) {
           artikel: b.artikel,
         })),
       };
-    })
-  );
+    });
 
-  return NextResponse.json(results);
+    return NextResponse.json(results);
+  } catch (e) {
+    console.error("Telefonmaske GET error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
