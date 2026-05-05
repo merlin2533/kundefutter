@@ -48,10 +48,11 @@ function NeueSammelrechnungForm() {
     if (!kundeId) { setLieferungen([]); setAusgewaehlt(new Set()); return; }
     setLoadingLieferungen(true);
     fetch(`/api/lieferungen?kundeId=${kundeId}&status=geliefert`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
+        const list = Array.isArray(data) ? data : [];
         // Nur Lieferungen ohne bestehende Einzel-Rechnung und ohne Sammelrechnung
-        const verfuegbar = data.filter((l) => !l.rechnungNr && !l.sammelrechnungId);
+        const verfuegbar = list.filter((l) => !l.rechnungNr && !l.sammelrechnungId);
         setLieferungen(verfuegbar);
         setAusgewaehlt(new Set(verfuegbar.map((l) => l.id)));
       })

@@ -12,9 +12,10 @@ export default function NeueInventurPage() {
 
   useEffect(() => {
     fetch("/api/artikel?limit=5000")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data: Array<{ aktiv: boolean }>) => {
-        const aktiv = data.filter((a) => a.aktiv);
+        const list = Array.isArray(data) ? data : [];
+        const aktiv = list.filter((a) => a.aktiv);
         setArtikelAnzahl(aktiv.length);
       })
       .catch(() => setArtikelAnzahl(0));

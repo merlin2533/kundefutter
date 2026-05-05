@@ -258,14 +258,14 @@ function KiLieferungWizard() {
         }),
       ]);
 
-      const artikelData = await artikelRes.json();
-      const kundenData = await kundenRes.json();
+      const artikelData = artikelRes.ok ? await artikelRes.json() : [];
+      const kundenData = kundenRes.ok ? await kundenRes.json() : [];
       const analyzeData = await analyzeRes.json();
 
       if (!analyzeRes.ok) throw new Error(analyzeData.error || "KI-Analyse fehlgeschlagen");
 
-      const artikelList: ArtikelRaw[] = artikelData.artikel ?? artikelData ?? [];
-      const kundenList: KundeRaw[] = kundenData.kunden ?? kundenData ?? [];
+      const artikelList: ArtikelRaw[] = Array.isArray(artikelData) ? artikelData : (artikelData.artikel ?? []);
+      const kundenList: KundeRaw[] = Array.isArray(kundenData) ? kundenData : (kundenData.kunden ?? []);
 
       setArtikel(artikelList);
       setKunden(kundenList);

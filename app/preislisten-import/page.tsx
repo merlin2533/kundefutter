@@ -25,7 +25,7 @@ export default function PreislistenImportPage() {
   const [fehler, setFehler] = useState("");
 
   useEffect(() => {
-    fetch("/api/lieferanten").then(r => r.json()).then(setLieferanten);
+    fetch("/api/lieferanten").then(r => r.ok ? r.json() : []).then(d => setLieferanten(Array.isArray(d) ? d : []));
   }, []);
 
   async function analysieren() {

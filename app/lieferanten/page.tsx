@@ -27,8 +27,9 @@ export default function LieferantenPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     const res = await fetch(`/api/lieferanten?${params}`);
+    if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
-    setLieferanten(data);
+    setLieferanten(Array.isArray(data) ? data : []);
     setLoading(false);
   }, [search]);
 

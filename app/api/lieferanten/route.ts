@@ -22,9 +22,11 @@ export async function GET(req: NextRequest) {
         _count: { select: { artikelZuordnungen: true } },
       },
       orderBy: { name: "asc" },
+      take: 500,
     });
     return NextResponse.json(lieferanten);
-  } catch {
+  } catch (e) {
+    console.error("Lieferanten GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

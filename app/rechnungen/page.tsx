@@ -67,8 +67,8 @@ export default function RechnungenPage() {
 
   function load() {
     fetch("/api/lieferungen?hatRechnung=true")
-      .then((r) => r.json())
-      .then((data) => { setRechnungen(data); setLoading(false); })
+      .then((r) => { if (!r.ok) { setLoading(false); return Promise.reject(); } return r.json(); })
+      .then((data) => { setRechnungen(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
   }
 
