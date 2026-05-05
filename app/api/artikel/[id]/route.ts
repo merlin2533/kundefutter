@@ -64,7 +64,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (!alt) throw new Error("Nicht gefunden");
       altSnapshot = alt as Record<string, unknown>;
 
-      if ("standardpreis" in data && alt.standardpreis !== data.standardpreis) {
+      if (data.standardpreis !== undefined && alt.standardpreis !== data.standardpreis) {
         await tx.artikelPreisHistorie.create({
           data: {
             artikelId: Number(id),
