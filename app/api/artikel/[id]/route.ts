@@ -39,19 +39,20 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { lieferanten, inhaltsstoffe } = body;
 
-  // Explicit allowlist to prevent mass-assignment
-  const data: Record<string, unknown> = {};
-  if (body.name !== undefined) data.name = String(body.name);
-  if (body.artikelnummer !== undefined) data.artikelnummer = String(body.artikelnummer);
-  if (body.einheit !== undefined) data.einheit = String(body.einheit);
-  if (body.kategorie !== undefined) data.kategorie = String(body.kategorie);
-  if (body.unterkategorie !== undefined) data.unterkategorie = body.unterkategorie ? String(body.unterkategorie) : null;
-  if (body.standardpreis !== undefined) data.standardpreis = Number(body.standardpreis);
-  if (body.mwstSatz !== undefined) data.mwstSatz = Number(body.mwstSatz);
-  if (body.aktuellerBestand !== undefined) data.aktuellerBestand = Number(body.aktuellerBestand);
-  if (body.mindestbestand !== undefined) data.mindestbestand = Number(body.mindestbestand);
-  if (body.beschreibung !== undefined) data.beschreibung = body.beschreibung ? String(body.beschreibung) : null;
-  if (body.aktiv !== undefined) data.aktiv = Boolean(body.aktiv);
+  // Explicit allowlist (mass-assignment protection) with typed fields for Prisma
+  const data = {
+    ...(body.name !== undefined ? { name: String(body.name) } : {}),
+    ...(body.artikelnummer !== undefined ? { artikelnummer: String(body.artikelnummer) } : {}),
+    ...(body.einheit !== undefined ? { einheit: String(body.einheit) } : {}),
+    ...(body.kategorie !== undefined ? { kategorie: String(body.kategorie) } : {}),
+    ...(body.unterkategorie !== undefined ? { unterkategorie: body.unterkategorie ? String(body.unterkategorie) : null } : {}),
+    ...(body.standardpreis !== undefined ? { standardpreis: Number(body.standardpreis) } : {}),
+    ...(body.mwstSatz !== undefined ? { mwstSatz: Number(body.mwstSatz) } : {}),
+    ...(body.aktuellerBestand !== undefined ? { aktuellerBestand: Number(body.aktuellerBestand) } : {}),
+    ...(body.mindestbestand !== undefined ? { mindestbestand: Number(body.mindestbestand) } : {}),
+    ...(body.beschreibung !== undefined ? { beschreibung: body.beschreibung ? String(body.beschreibung) : null } : {}),
+    ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
+  };
 
   try {
     let altSnapshot: Record<string, unknown> | null = null;
@@ -63,12 +64,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (!alt) throw new Error("Nicht gefunden");
       altSnapshot = alt as Record<string, unknown>;
 
-      if (data.standardpreis !== undefined && alt.standardpreis !== data.standardpreis) {
+      if ("standardpreis" in data && alt.standardpreis !== data.standardpreis) {
         await tx.artikelPreisHistorie.create({
           data: {
             artikelId: Number(id),
             alterPreis: alt.standardpreis,
-            neuerPreis: data.standardpreis as number,
+            neuerPreis: data.standardpreis,
           },
         });
       }
