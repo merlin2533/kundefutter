@@ -58,7 +58,7 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
       });
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.json())
-      .then((d) => setKunden(d.data ?? []));
+      .then((d) => { const data = d as { data?: Kunde[] }; setKunden(data.data ?? []); });
   }, [id]);
 
   async function handleSubmit(e: React.FormEvent) {
