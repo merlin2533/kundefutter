@@ -64,7 +64,7 @@ export default function PreisauskunftPage() {
   // Load artikel options
   useEffect(() => {
     fetch("/api/artikel")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         if (Array.isArray(data)) {
           setArtikelOptions(
@@ -82,7 +82,7 @@ export default function PreisauskunftPage() {
   // Load kunde options
   useEffect(() => {
     fetch("/api/kunden?aktiv=true")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         if (Array.isArray(data)) {
           setKundeOptions(
@@ -106,16 +106,17 @@ export default function PreisauskunftPage() {
     }
     setLoadingArtikel(true);
     Promise.all([
-      fetch(`/api/artikel/${selectedArtikel}`).then((r) => r.json()),
-      fetch(`/api/mengenrabatte`).then((r) => r.json()),
+      fetch(`/api/artikel/${selectedArtikel}`).then((r) => r.ok ? r.json() : {}),
+      fetch(`/api/mengenrabatte`).then((r) => r.ok ? r.json() : []),
     ])
       .then(([art, rabs]) => {
-        setArtikel(art as ArtikelDetail | null);
+        const artTyped = art as ArtikelDetail | null;
+        setArtikel(artTyped);
         if (Array.isArray(rabs)) {
           setMengenrabatte(
             rabs.filter(
               (r: Mengenrabatt & { artikelId: number | null }) =>
-                r.artikelId === art.id && r.aktiv
+                r.artikelId === artTyped?.id && r.aktiv
             )
           );
         }
@@ -132,7 +133,7 @@ export default function PreisauskunftPage() {
     }
     setLoadingPreise(true);
     fetch(`/api/kunden/${selectedKunde}/preise`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((data) => setSonderpreise(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoadingPreise(false));

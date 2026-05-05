@@ -160,7 +160,8 @@ export async function POST(req: NextRequest) {
     const kundenname = lieferung.kunde.firma ?? lieferung.kunde.name;
     return NextResponse.json({ ok: true, empfaenger, kundenname });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: `E-Mail-Versand fehlgeschlagen: ${msg}` }, { status: 500 });
   }
 }

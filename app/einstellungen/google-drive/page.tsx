@@ -35,12 +35,12 @@ export default function GoogleDriveEinstellungenPage() {
   async function ladeStatus() {
     setStatusLoading(true);
     const res = await fetch("/api/drive/status");
-    setStatus(await res.json());
+    if (res.ok) setStatus(await res.json());
     setStatusLoading(false);
   }
 
   async function ladeZentralOrdner() {
-    const einst = await fetch("/api/einstellungen?prefix=system.google.").then((r) => r.json());
+    const einst = await fetch("/api/einstellungen?prefix=system.google.").then((r) => r.ok ? r.json() : {}) as Record<string, string>;
     if (einst["system.google.zentralOrdnerIds"]) {
       try { setZentralOrdner(JSON.parse(einst["system.google.zentralOrdnerIds"])); } catch { /* ignore */ }
     }

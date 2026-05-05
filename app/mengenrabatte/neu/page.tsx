@@ -37,14 +37,15 @@ export default function NeuerMengenrabattPage() {
 
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []));
     fetch("/api/kunden")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []));
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((raw) => {
+        const d = raw as Record<string, string>;
         if (d["system.artikelkategorien"]) {
           try {
             const parsed = JSON.parse(d["system.artikelkategorien"]);

@@ -140,6 +140,7 @@ export default function FirmaPage() {
         // Lädt dokument.footer.* UND dokument.rechnung.eigentumsvorbehalt
         fetch("/api/einstellungen?prefix=dokument."),
       ]);
+      if (!r1.ok || !r2.ok) throw new Error("Einstellungen konnten nicht geladen werden");
       const d1 = await r1.json();
       const d2 = await r2.json();
       setForm((prev) => ({ ...prev, ...d1, ...d2 }));

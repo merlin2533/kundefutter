@@ -98,7 +98,8 @@ export default function ExportePage() {
   useEffect(() => {
     fetch("/api/kunden")
       .then((r) => r.json())
-      .then((d) => setKunden(Array.isArray(d) ? d : []));
+      .then((d) => setKunden(Array.isArray(d) ? d : []))
+      .catch(() => {});
   }, []);
 
   function updateState(typ: string, field: keyof ExportState, value: string) {

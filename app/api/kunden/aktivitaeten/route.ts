@@ -107,7 +107,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const allowed: Record<string, unknown> = {};
+  const allowed: { erledigt?: boolean; betreff?: string; inhalt?: string | null; faelligAm?: Date | null } = {};
   if ("erledigt" in body) allowed.erledigt = Boolean(body.erledigt);
   if ("betreff" in body && body.betreff?.trim()) allowed.betreff = body.betreff.trim();
   if ("inhalt" in body) allowed.inhalt = body.inhalt?.trim() || null;

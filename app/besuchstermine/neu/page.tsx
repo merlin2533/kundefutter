@@ -26,7 +26,7 @@ function NeuenBesuchsterminForm() {
   useEffect(() => {
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.json())
-      .then((d) => setKunden(d.data ?? []))
+      .then((d) => { const data = d as { data?: Kunde[] }; setKunden(data.data ?? []); })
       .catch(() => {});
   }, []);
 

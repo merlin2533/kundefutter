@@ -241,12 +241,12 @@ function KiWareneingangWizard() {
   // Load Artikel + Lieferanten once
   useEffect(() => {
     fetch("/api/artikel?limit=500")
-      .then((r) => r.json())
-      .then((data) => setArtikel(Array.isArray(data) ? data : data.artikel ?? []))
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setArtikel(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetch("/api/lieferanten")
-      .then((r) => r.json())
-      .then((data) => setLieferanten(Array.isArray(data) ? data : data.lieferanten ?? []))
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setLieferanten(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
 

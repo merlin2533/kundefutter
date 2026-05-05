@@ -19,14 +19,20 @@ export async function GET(req: NextRequest) {
   if (haushaltsjahr) where.haushaltsjahr = Number(haushaltsjahr);
   if (kundeId) where.kundeId = Number(kundeId);
 
-  const items = await prisma.antragEmpfaenger.findMany({
-    where,
-    include: { kunde: { select: { id: true, name: true, firma: true } } },
-    orderBy: [{ haushaltsjahr: "desc" }, { gesamtBetrag: "desc" }],
-    take: 100,
-  });
-
-  return NextResponse.json(items);
+  try {
+    const items = await prisma.antragEmpfaenger.findMany({
+      where,
+      include: { kunde: { select: { id: true, name: true, firma: true } } },
+      orderBy: [{ haushaltsjahr: "desc" }, { gesamtBetrag: "desc" }],
+      take: 100,
+    });
+    return NextResponse.json(items);
+  } catch (err) {
+    console.error("Agrarantraege GET error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 // PATCH /api/agrarantraege?id=X — Verknüpfe mit Kunden oder aktualisiere Felder
@@ -36,16 +42,16 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
 
   const body = await req.json();
-  const allowed: Record<string, unknown> = {};
+  const updateData: { kundeId?: number | null } = {};
 
   if ("kundeId" in body) {
-    allowed.kundeId = body.kundeId ? Number(body.kundeId) : null;
+    updateData.kundeId = body.kundeId ? Number(body.kundeId) : null;
   }
 
   const existing = await prisma.antragEmpfaenger.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-  const updated = await prisma.antragEmpfaenger.update({ where: { id }, data: allowed });
+  const updated = await prisma.antragEmpfaenger.update({ where: { id }, data: updateData });
   return NextResponse.json(updated);
 }
 
@@ -55,6 +61,13 @@ export async function DELETE(req: NextRequest) {
   const id = Number(searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
 
-  await prisma.antragEmpfaenger.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  try {
+    await prisma.antragEmpfaenger.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Agrarantraege DELETE error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

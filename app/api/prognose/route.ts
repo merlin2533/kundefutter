@@ -11,21 +11,27 @@ export async function GET(req: NextRequest) {
   const seit = new Date();
   seit.setDate(seit.getDate() - zeitraumTage);
 
-  const artikel = await prisma.artikel.findMany({
-    where: { aktiv: true },
-    include: {
-      lieferanten: { include: { lieferant: true }, where: { bevorzugt: true } },
-      lieferpositionen: {
-        where: {
-          lieferung: {
-            status: "geliefert",
-            datum: { gte: seit },
+  let artikel;
+  try {
+    artikel = await prisma.artikel.findMany({
+      where: { aktiv: true },
+      take: 500,
+      include: {
+        lieferanten: { include: { lieferant: true }, where: { bevorzugt: true } },
+        lieferpositionen: {
+          where: {
+            lieferung: {
+              status: "geliefert",
+              datum: { gte: seit },
+            },
           },
+          include: { lieferung: true },
         },
-        include: { lieferung: true },
       },
-    },
-  });
+    });
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 
   const aktuellerMonat = new Date().getMonth(); // 0-11
 

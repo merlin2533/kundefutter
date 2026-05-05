@@ -25,15 +25,18 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const [logs, total] = await Promise.all([
-    prisma.auditLog.findMany({
-      where,
-      orderBy: { zeitpunkt: "desc" },
-      take: limit,
-      skip: offset,
-    }),
-    prisma.auditLog.count({ where }),
-  ]);
-
-  return NextResponse.json({ logs, total, limit, offset });
+  try {
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { zeitpunkt: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+    return NextResponse.json({ logs, total, limit, offset });
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

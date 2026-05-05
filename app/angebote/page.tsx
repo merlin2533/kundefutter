@@ -43,7 +43,7 @@ export default function AngebotePage() {
     if (statusFilter !== "alle") params.set("status", statusFilter);
     if (search) params.set("search", search);
     fetch(`/api/angebote?${params.toString()}`)
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [statusFilter, search]);

@@ -131,7 +131,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       const d = new Date(v as string);
       return Number.isNaN(d.getTime()) ? null : d;
     };
-    const updateData: Record<string, unknown> = {};
+    const updateData: {
+      status?: string; notiz?: string | null; stornoBegründung?: string;
+      datum?: Date; lieferDatum?: Date | null; bezahltAm?: Date | null;
+      zahlungsziel?: number; rechnungNr?: string; rechnungDatum?: Date | null;
+    } = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notiz !== undefined) updateData.notiz = data.notiz;
     if (data.stornoBegründung !== undefined) updateData.stornoBegründung = data.stornoBegründung;

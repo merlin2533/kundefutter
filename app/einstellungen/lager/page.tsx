@@ -11,12 +11,13 @@ function ListenEditor({ settingKey, label, placeholder }: { settingKey: string; 
 
   useEffect(() => {
     fetch(`/api/einstellungen?prefix=system.`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         if (d[settingKey]) {
           try { setItems(JSON.parse(d[settingKey])); } catch { /* ignore */ }
         }
-      });
+      })
+      .catch(() => {});
   }, [settingKey]);
 
   async function save(list: string[]) {

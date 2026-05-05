@@ -72,16 +72,17 @@ export default function AngebotDruckPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/angebote/${id}`).then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
+      fetch(`/api/angebote/${id}`).then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=firma.").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.ok ? r.json() : {}),
     ])
       .then(([ang, firmaData, logoData, ftrData]) => {
         setAngebot(ang as Angebot | null);
-        setFirma(firmaData ?? {});
-        setFooterData(ftrData ?? {});
-        if (logoData?.["system.logo"]) setLogo(logoData["system.logo"]);
+        setFirma((firmaData as Record<string, string>) ?? {});
+        setFooterData((ftrData as Record<string, string>) ?? {});
+        const ld = logoData as Record<string, string>;
+        if (ld?.["system.logo"]) setLogo(ld["system.logo"]);
         setLoading(false);
       })
       .catch(() => setLoading(false));

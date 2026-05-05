@@ -170,11 +170,13 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Interner Fehler";
+    const rawMessage = err instanceof Error ? err.message : "Interner Fehler";
     // P2025: Record not found
-    if (message.includes("P2025")) {
+    if (rawMessage.includes("P2025")) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev ? rawMessage : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

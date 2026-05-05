@@ -11,6 +11,7 @@ export async function GET() {
         },
       },
       orderBy: { name: "asc" },
+      take: 2000,
     });
 
     const result = artikelList.map((a) => {

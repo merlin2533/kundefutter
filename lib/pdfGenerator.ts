@@ -603,12 +603,6 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   doc.text("Datum", 14, finalY + 33);
   doc.text("Ort / Datum / Unterschrift", 110, finalY + 33);
 
-  if (lieferung.notiz) {
-    doc.setFontSize(8);
-    doc.setTextColor(80);
-    doc.text(`Hinweis: ${lieferung.notiz}`, 14, finalY + 45);
-  }
-
   // ── Fußzeile ────────────────────────────────────────────────────────────────
   doc.setDrawColor(200);
   doc.setLineWidth(0.2);

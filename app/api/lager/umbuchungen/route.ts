@@ -2,19 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const bewegungen = await prisma.lagerbewegung.findMany({
-    where: { typ: "UMBUCHUNG" },
-    include: {
-      artikel: { select: { id: true, name: true, einheit: true } },
-    },
-    orderBy: { datum: "desc" },
-    take: 50,
-  });
-  return NextResponse.json(bewegungen);
+  try {
+    const bewegungen = await prisma.lagerbewegung.findMany({
+      where: { typ: "UMBUCHUNG" },
+      include: {
+        artikel: { select: { id: true, name: true, einheit: true } },
+      },
+      orderBy: { datum: "desc" },
+      take: 50,
+    });
+    return NextResponse.json(bewegungen);
+  } catch (e) {
+    console.error("Umbuchungen GET error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
   const { artikelId, menge, vonLagerort, nachLagerort, bemerkung } = body;
 
   if (!artikelId) {
@@ -33,31 +43,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Von- und Nach-Lagerort dürfen nicht gleich sein" }, { status: 400 });
   }
 
-  const artikel = await prisma.artikel.findUnique({ where: { id: Number(artikelId) } });
-  if (!artikel) {
-    return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
+  try {
+    const artikel = await prisma.artikel.findUnique({ where: { id: Number(artikelId) } });
+    if (!artikel) {
+      return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
+    }
+
+    // Create ONE Lagerbewegung with typ=UMBUCHUNG, menge=0 (no net change to total stock)
+    // We store the transfer quantity in the notiz field for display purposes
+    const notizText = bemerkung
+      ? `${Number(menge)} ${artikel.einheit} umgebucht – ${bemerkung}`
+      : `${Number(menge)} ${artikel.einheit} umgebucht`;
+
+    const bewegung = await prisma.lagerbewegung.create({
+      data: {
+        artikelId: Number(artikelId),
+        typ: "UMBUCHUNG",
+        menge: 0,
+        bestandNach: artikel.aktuellerBestand,
+        notiz: notizText,
+        lagerortVon: vonLagerort.trim(),
+        lagerortNach: nachLagerort.trim(),
+      },
+      include: {
+        artikel: { select: { id: true, name: true, einheit: true } },
+      },
+    });
+
+    return NextResponse.json(bewegung, { status: 201 });
+  } catch (e) {
+    console.error("Umbuchungen POST error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
-
-  // Create ONE Lagerbewegung with typ=UMBUCHUNG, menge=0 (no net change to total stock)
-  // We store the transfer quantity in the notiz field for display purposes
-  const notizText = bemerkung
-    ? `${Number(menge)} ${artikel.einheit} umgebucht – ${bemerkung}`
-    : `${Number(menge)} ${artikel.einheit} umgebucht`;
-
-  const bewegung = await prisma.lagerbewegung.create({
-    data: {
-      artikelId: Number(artikelId),
-      typ: "UMBUCHUNG",
-      menge: 0,
-      bestandNach: artikel.aktuellerBestand,
-      notiz: notizText,
-      lagerortVon: vonLagerort.trim(),
-      lagerortNach: nachLagerort.trim(),
-    },
-    include: {
-      artikel: { select: { id: true, name: true, einheit: true } },
-    },
-  });
-
-  return NextResponse.json(bewegung, { status: 201 });
 }

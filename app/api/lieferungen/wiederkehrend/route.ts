@@ -12,13 +12,18 @@ export async function GET(req: NextRequest) {
   const nurFaellig = searchParams.get("nurFaellig") === "1";
   const bis = nurFaellig ? new Date() : addTage(new Date(), tage);
 
-  const bedarfe = await prisma.kundeBedarf.findMany({
-    where: { aktiv: true },
-    include: {
-      kunde: true,
-      artikel: { select: liefposArtikelSelect },
-    },
-  });
+  let bedarfe;
+  try {
+    bedarfe = await prisma.kundeBedarf.findMany({
+      where: { aktiv: true },
+      include: {
+        kunde: true,
+        artikel: { select: liefposArtikelSelect },
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 
   const faellig = [];
 
@@ -67,10 +72,16 @@ export async function GET(req: NextRequest) {
 //       { alleAusloesen: true }           – alle fälligen Bedarfe anlegen
 //       { ids: number[] }                 – Alias für bedarfIds
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
 
   let bedarfIds: number[] = body.bedarfIds ?? body.ids ?? [];
 
+  try {
   // alleAusloesen: alle fälligen (ueberfaellig) Bedarfe ermitteln
   if (body.alleAusloesen) {
     const bedarfe = await prisma.kundeBedarf.findMany({
@@ -188,4 +199,7 @@ export async function POST(req: NextRequest) {
     { ausgeloest: angelegt.length, lieferungen: angelegt.map((l) => l.id) },
     { status: 201 }
   );
+  } catch {
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

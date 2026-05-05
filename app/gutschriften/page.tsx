@@ -32,14 +32,20 @@ export default function GutschriftenPage() {
 
   const fetchGutschriften = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter !== "alle") params.set("status", statusFilter);
-    if (vonFilter) params.set("von", vonFilter);
-    if (bisFilter) params.set("bis", bisFilter);
-    const res = await fetch(`/api/gutschriften?${params}`);
-    const data = await res.json();
-    setGutschriften(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter !== "alle") params.set("status", statusFilter);
+      if (vonFilter) params.set("von", vonFilter);
+      if (bisFilter) params.set("bis", bisFilter);
+      const res = await fetch(`/api/gutschriften?${params}`);
+      if (!res.ok) throw new Error(`Fehler ${res.status}`);
+      const data = await res.json();
+      setGutschriften(Array.isArray(data) ? data : []);
+    } catch {
+      setGutschriften([]);
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter, vonFilter, bisFilter]);
 
   useEffect(() => {

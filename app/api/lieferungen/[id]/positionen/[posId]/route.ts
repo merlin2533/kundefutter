@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   // Nur ausgewählte Felder zulassen
-  const updateData: Record<string, unknown> = {};
+  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null } = {};
   if (body.rabattProzent !== undefined) {
     const r = Number(body.rabattProzent);
     if (isNaN(r) || r < 0 || r > 100) {

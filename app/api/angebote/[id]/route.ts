@@ -155,7 +155,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
     const VALID_STATUS = ["OFFEN", "ANGENOMMEN", "ABGELEHNT", "ABGELAUFEN"];
-    const updateData: Record<string, unknown> = {};
+    const updateData: { status?: string; notiz?: string | null; gueltigBis?: Date | null } = {};
     if (status !== undefined) {
       if (!VALID_STATUS.includes(status)) {
         return NextResponse.json({ error: `Ungültiger Status: ${status}` }, { status: 400 });

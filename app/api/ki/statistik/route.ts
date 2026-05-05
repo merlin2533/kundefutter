@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ gesamt, proFeature, letzteRequests });
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Fehler" }, { status: 500 });
+    console.error("KI Statistik GET error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

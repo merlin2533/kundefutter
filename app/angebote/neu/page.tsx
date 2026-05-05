@@ -99,16 +99,17 @@ function NeuesAngebotForm() {
 
   useEffect(() => {
     fetch("/api/kunden?aktiv=true&limit=500")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
     fetch("/api/artikel?aktiv=true")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((raw) => {
+        const d = raw as Record<string, string>;
         if (d["system.einheiten"]) {
           try {
             const parsed = JSON.parse(d["system.einheiten"]);
@@ -132,6 +133,7 @@ function NeuesAngebotForm() {
     setLoadingBedarfe(true);
     try {
       const res = await fetch(`/api/kunden/${kid}/bedarfe`);
+      if (!res.ok) return;
       const data: KundeBedarf[] = await res.json();
       if (!Array.isArray(data) || data.length === 0) return;
       const neuPositionen: Position[] = data

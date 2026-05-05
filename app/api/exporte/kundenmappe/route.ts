@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const kundeId = Number(searchParams.get("kundeId"));
   if (!kundeId) return NextResponse.json({ error: "kundeId fehlt" }, { status: 400 });
 
+  try {
   const kunde = await prisma.kunde.findUnique({
     where: { id: kundeId },
     include: {
@@ -233,4 +234,7 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+  } catch {
+    return NextResponse.json({ error: "PDF-Generierung fehlgeschlagen" }, { status: 500 });
+  }
 }

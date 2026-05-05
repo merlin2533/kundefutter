@@ -251,7 +251,7 @@ function NeueSammelrechnungForm() {
 
 export default function NeueSammelrechnungPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Lade…</div>}>
       <NeueSammelrechnungForm />
     </Suspense>
   );

@@ -50,7 +50,7 @@ export default function PreislisteImportPage() {
   useEffect(() => {
     fetch("/api/einstellungen/preisliste-import?action=lieferanten")
       .then((r) => r.json())
-      .then((d) => setLieferanten(d.lieferanten ?? []))
+      .then((d) => { const data = d as { lieferanten?: Lieferant[] }; setLieferanten(data.lieferanten ?? []); })
       .catch(() => setFehler("Lieferanten konnten nicht geladen werden."));
   }, []);
 

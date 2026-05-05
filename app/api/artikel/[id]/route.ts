@@ -37,9 +37,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { lieferanten, inhaltsstoffe, ...data } = body;
+  const { lieferanten, inhaltsstoffe } = body;
 
-  if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
+  // Explicit allowlist (mass-assignment protection) with typed fields for Prisma
+  const data = {
+    ...(body.name !== undefined ? { name: String(body.name) } : {}),
+    ...(body.artikelnummer !== undefined ? { artikelnummer: String(body.artikelnummer) } : {}),
+    ...(body.einheit !== undefined ? { einheit: String(body.einheit) } : {}),
+    ...(body.kategorie !== undefined ? { kategorie: String(body.kategorie) } : {}),
+    ...(body.unterkategorie !== undefined ? { unterkategorie: body.unterkategorie ? String(body.unterkategorie) : null } : {}),
+    ...(body.standardpreis !== undefined ? { standardpreis: Number(body.standardpreis) } : {}),
+    ...(body.mwstSatz !== undefined ? { mwstSatz: Number(body.mwstSatz) } : {}),
+    ...(body.aktuellerBestand !== undefined ? { aktuellerBestand: Number(body.aktuellerBestand) } : {}),
+    ...(body.mindestbestand !== undefined ? { mindestbestand: Number(body.mindestbestand) } : {}),
+    ...(body.beschreibung !== undefined ? { beschreibung: body.beschreibung ? String(body.beschreibung) : null } : {}),
+    ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
+  };
 
   try {
     let altSnapshot: Record<string, unknown> | null = null;

@@ -18,10 +18,12 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const driveUrl = `https://drive.google.com/drive/folders/${folderId}`;
     return NextResponse.json({ folderId, driveUrl, dateien });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("nicht konfiguriert")) {
-      return NextResponse.json({ error: msg, nichtKonfiguriert: true }, { status: 503 });
+    const rawMsg = e instanceof Error ? e.message : String(e);
+    if (rawMsg.includes("nicht konfiguriert")) {
+      return NextResponse.json({ error: rawMsg, nichtKonfiguriert: true }, { status: 503 });
     }
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev ? rawMsg : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -49,7 +51,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const result = await uploadDatei(folderId, datei.name, datei.type || "application/octet-stream", buffer);
     return NextResponse.json(result);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && e instanceof Error ? e.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

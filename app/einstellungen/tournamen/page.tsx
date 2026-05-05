@@ -11,12 +11,13 @@ function TourNamenEditor() {
 
   useEffect(() => {
     fetch(`/api/einstellungen?prefix=system.`)
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         if (d["system.tournamen"]) {
           try { setItems(JSON.parse(d["system.tournamen"])); } catch { /* ignore */ }
         }
-      });
+      })
+      .catch(() => {});
   }, []);
 
   async function save(list: string[]) {

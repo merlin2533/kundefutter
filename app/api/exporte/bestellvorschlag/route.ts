@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const baseUrl = req.nextUrl.origin;
   const progUrl = `${baseUrl}/api/prognose/bestellvorschlag?zeitraum=${zeitraum}&zielhorizont=${zielhorizont}&schwellwert=${schwellwert}&saisonal=${saisonal}`;
   const progRes = await fetch(progUrl);
+  if (!progRes.ok) return NextResponse.json({ error: "Prognose-Abruf fehlgeschlagen" }, { status: 502 });
   const alleGruppen: {
     lieferantId: number;
     lieferantName: string;
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Keine Bestellvorschläge" }, { status: 404 });
   }
 
+  try {
   // Lieferantendaten für Adresse
   const lieferantenIds = gruppen.map(g => g.lieferantId).filter(Boolean);
   const lieferantenDb = await prisma.lieferant.findMany({
@@ -105,4 +107,7 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+  } catch {
+    return NextResponse.json({ error: "PDF-Generierung fehlgeschlagen" }, { status: 500 });
+  }
 }

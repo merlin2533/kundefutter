@@ -63,6 +63,7 @@ export default function CrmPage() {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/kunden/aktivitaeten?offene=1");
+    if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
     setItems(Array.isArray(data) ? data : []);
     setLoading(false);
@@ -73,7 +74,7 @@ export default function CrmPage() {
   useEffect(() => {
     if (!kundenLoaded) {
       fetch("/api/kunden?aktiv=true")
-        .then((r) => r.json())
+        .then((r) => r.ok ? r.json() : [])
         .then((d) => { setKunden(Array.isArray(d) ? d : []); setKundenLoaded(true); });
     }
   }, [kundenLoaded]);
@@ -471,6 +472,7 @@ function KalenderTab() {
     const bis = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     try {
       const res = await fetch(`/api/kunden/aktivitaeten?faelligVon=${von}&faelligBis=${bis}`);
+      if (!res.ok) return;
       const data = await res.json();
       setAktivitaeten(Array.isArray(data) ? data : []);
     } finally {

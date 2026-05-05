@@ -283,6 +283,8 @@ model Lieferung {
   @@index([status])
   @@index([datum])
   @@index([status, datum])
+  @@index([rechnungNr])
+  @@index([bezahltAm])
 }
 
 model Lieferposition {

@@ -35,13 +35,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
+    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv } = body;
     const lieferant = await prisma.lieferant.update({
       where: { id: Number(id) },
-      data: body,
+      data: { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv },
     });
     return NextResponse.json(lieferant);
-  } catch {
-    return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
+  } catch (e) {
+    if ((e as { code?: string })?.code === "P2025") {
+      return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
+    }
+    console.error("Lieferant PUT error:", e);
+    const isDev = process.env.NODE_ENV === "development";
+    return NextResponse.json({ error: isDev && e instanceof Error ? e.message : "Fehler beim Speichern" }, { status: 500 });
   }
 }
 

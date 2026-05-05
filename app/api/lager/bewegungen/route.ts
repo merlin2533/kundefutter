@@ -19,11 +19,16 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  const bewegungen = await prisma.lagerbewegung.findMany({
-    where,
-    include: { artikel: { select: liefposArtikelSelect } },
-    orderBy: { datum: "desc" },
-    take: 500,
-  });
-  return NextResponse.json(bewegungen);
+  try {
+    const bewegungen = await prisma.lagerbewegung.findMany({
+      where,
+      include: { artikel: { select: liefposArtikelSelect } },
+      orderBy: { datum: "desc" },
+      take: 500,
+    });
+    return NextResponse.json(bewegungen);
+  } catch (e) {
+    console.error("Lagerbewegungen GET error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

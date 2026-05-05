@@ -2,15 +2,20 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const lagerorte = await prisma.artikel.findMany({
-    where: { lagerort: { not: null } },
-    select: { lagerort: true },
-    distinct: ["lagerort"],
-  });
+  try {
+    const lagerorte = await prisma.artikel.findMany({
+      where: { lagerort: { not: null } },
+      select: { lagerort: true },
+      distinct: ["lagerort"],
+    });
 
-  const values = lagerorte
-    .map((a) => a.lagerort)
-    .filter((l): l is string => l !== null);
+    const values = lagerorte
+      .map((a) => a.lagerort)
+      .filter((l): l is string => l !== null);
 
-  return NextResponse.json(values);
+    return NextResponse.json(values);
+  } catch (e) {
+    console.error("Lagerorte GET error:", e);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
 }

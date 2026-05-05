@@ -189,7 +189,7 @@ export default function LieferungDetailPage() {
 
   useEffect(() => {
     fetch("/api/artikel?relations=false&limit=500")
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch(() => {});
   }, []);
@@ -260,12 +260,12 @@ export default function LieferungDetailPage() {
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
-      .then(r => r.json())
-      .then(d => setFirmaData(d))
+      .then(r => r.ok ? r.json() : {})
+      .then(raw => { const d = raw as Record<string, string>; setFirmaData(d); })
       .catch(() => {});
     fetch("/api/einstellungen?prefix=system.logo")
-      .then(r => r.json())
-      .then(d => { if (d["system.logo"]) setLogo(d["system.logo"]); })
+      .then(r => r.ok ? r.json() : {})
+      .then(raw => { const d = raw as Record<string, string>; if (d?.["system.logo"]) setLogo(d["system.logo"]); })
       .catch(() => {});
   }, []);
 

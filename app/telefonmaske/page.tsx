@@ -49,6 +49,7 @@ export default function TelefonmaskePage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/telefonmaske?q=${encodeURIComponent(q.trim())}`);
+      if (!res.ok) throw new Error(`Fehler ${res.status}`);
       const data = await res.json();
       setResults(Array.isArray(data) ? data : []);
     } catch {

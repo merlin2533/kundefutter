@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "datum fehlt (YYYY-MM-DD)" }, { status: 400 });
   }
 
+  try {
   const von = new Date(datum);
   von.setHours(0, 0, 0, 0);
   const bis = new Date(datum);
@@ -108,4 +109,10 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+  } catch (err) {
+    console.error("Tour PDF error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

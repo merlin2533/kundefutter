@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
       tokensOut: result.tokensOut,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "KI-Fehler";
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "KI-Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -74,17 +74,23 @@ export default function AgrarantraegeePage() {
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search.trim()) params.set("search", search.trim());
-    if (plzFilter.trim()) params.set("plz", plzFilter.trim());
-    if (ortFilter.trim()) params.set("ort", ortFilter.trim());
-    if (jahrFilter) params.set("haushaltsjahr", jahrFilter);
-    const res = await fetch(`/api/agrarantraege?${params}`);
-    const data = await res.json();
-    let list: AntragEmpfaenger[] = Array.isArray(data) ? data : [];
-    if (nurUnverknuepft) list = list.filter((i) => !i.kundeId);
-    setItems(list);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("search", search.trim());
+      if (plzFilter.trim()) params.set("plz", plzFilter.trim());
+      if (ortFilter.trim()) params.set("ort", ortFilter.trim());
+      if (jahrFilter) params.set("haushaltsjahr", jahrFilter);
+      const res = await fetch(`/api/agrarantraege?${params}`);
+      if (!res.ok) throw new Error(`Fehler ${res.status}`);
+      const data = await res.json();
+      let list: AntragEmpfaenger[] = Array.isArray(data) ? data : [];
+      if (nurUnverknuepft) list = list.filter((i) => !i.kundeId);
+      setItems(list);
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, [search, plzFilter, ortFilter, jahrFilter, nurUnverknuepft]);
 
   useEffect(() => {
