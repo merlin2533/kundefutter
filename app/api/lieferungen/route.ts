@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const kundeId = searchParams.get("kundeId");
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (Object.keys(datum).length > 0) where.datum = datum;
   }
 
-  const limit = Math.min(200, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
+  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   try {

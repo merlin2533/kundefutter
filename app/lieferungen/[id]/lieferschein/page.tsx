@@ -66,9 +66,9 @@ export default function LieferscheinPage() {
         ]);
         if (!lRes.ok) throw new Error("Lieferung nicht gefunden");
         const lData: Lieferung = await lRes.json();
-        const firmaData: Record<string, string> = await eRes.json();
-        const logoData: Record<string, string> = await logoRes.json();
-        const ftrData: Record<string, string> = await ftrRes.json();
+        const firmaData: Record<string, string> = eRes.ok ? await eRes.json() : {};
+        const logoData: Record<string, string> = logoRes.ok ? await logoRes.json() : {};
+        const ftrData: Record<string, string> = ftrRes.ok ? await ftrRes.json() : {};
         setLieferung(lData);
         setFirma(firmaData);
         setFooterData(ftrData);

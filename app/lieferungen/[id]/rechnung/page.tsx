@@ -127,13 +127,13 @@ export default function RechnungPrintPage() {
     init(); // eslint-disable-line react-hooks/exhaustive-deps
 
     Promise.all([
-      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=dokument.").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=firma.").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=system.logo").then((r) => r.ok ? r.json() : {}),
+      fetch("/api/einstellungen?prefix=dokument.").then((r) => r.ok ? r.json() : {}),
     ]).then(([fd, ld, ftr]) => {
-      setFirmaData(fd);
-      if (ld["system.logo"]) setLogo(ld["system.logo"]);
-      setFooterData(ftr);
+      setFirmaData(fd as Record<string, string>);
+      if ((ld as Record<string, string>)["system.logo"]) setLogo((ld as Record<string, string>)["system.logo"]);
+      setFooterData(ftr as Record<string, string>);
     }).catch(() => {});
 
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
