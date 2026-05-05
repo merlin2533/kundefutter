@@ -66,7 +66,7 @@ export default function RechnungenPage() {
   const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
 
   function load() {
-    fetch("/api/lieferungen?hatRechnung=true")
+    fetch("/api/lieferungen?hatRechnung=true&limit=500")
       .then((r) => { if (!r.ok) { setLoading(false); return Promise.reject(); } return r.json(); })
       .then((data) => { setRechnungen(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => setLoading(false));
