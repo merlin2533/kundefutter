@@ -260,12 +260,12 @@ export default function LieferungDetailPage() {
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : {})
       .then(d => setFirmaData(d))
       .catch(() => {});
     fetch("/api/einstellungen?prefix=system.logo")
-      .then(r => r.json())
-      .then(d => { if (d["system.logo"]) setLogo(d["system.logo"]); })
+      .then(r => r.ok ? r.json() : {})
+      .then(d => { if (d?.["system.logo"]) setLogo(d["system.logo"]); })
       .catch(() => {});
   }, []);
 

@@ -161,7 +161,7 @@ function CrmSchnellWidget() {
 
   useEffect(() => {
     fetch("/api/kunden?limit=200&aktiv=true")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => {
         if (Array.isArray(d)) {
           setKunden(d.map((k: { id: number; name: string; firma?: string | null }) => ({

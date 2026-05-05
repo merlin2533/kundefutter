@@ -472,6 +472,7 @@ function KalenderTab() {
     const bis = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
     try {
       const res = await fetch(`/api/kunden/aktivitaeten?faelligVon=${von}&faelligBis=${bis}`);
+      if (!res.ok) return;
       const data = await res.json();
       setAktivitaeten(Array.isArray(data) ? data : []);
     } finally {
