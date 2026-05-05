@@ -78,7 +78,7 @@ export default function AngebotDruckPage() {
       fetch("/api/einstellungen?prefix=dokument.footer").then((r) => r.json()),
     ])
       .then(([ang, firmaData, logoData, ftrData]) => {
-        setAngebot(ang);
+        setAngebot(ang as Angebot | null);
         setFirma(firmaData ?? {});
         setFooterData(ftrData ?? {});
         if (logoData?.["system.logo"]) setLogo(logoData["system.logo"]);
