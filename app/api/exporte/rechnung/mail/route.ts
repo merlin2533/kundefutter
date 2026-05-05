@@ -6,6 +6,8 @@ import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
 import { sendEmail } from "@/lib/email";
 import { rechnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+export const dynamic = "force-dynamic";
+
 
 // POST /api/exporte/rechnung/mail
 // Body: { lieferungId: number; empfaenger?: string }

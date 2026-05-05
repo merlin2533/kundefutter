@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 const ALLOWED_PREFIXES = [
   "firma.",
@@ -10,6 +12,7 @@ const ALLOWED_PREFIXES = [
   "bankabgleich.",
   "dokument.",
   "smtp.",
+  "letzte_",
 ];
 
 export async function GET(req: NextRequest) {

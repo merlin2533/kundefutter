@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 // GET /api/besuchstermine?kundeId=X  — geplante Besuche (KundeAktivitaet typ="besuch", datum >= heute)
 export async function GET(req: NextRequest) {

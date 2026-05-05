@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import * as XLSX from "xlsx";
 import { berechneMarge, formatDatum } from "@/lib/utils";
+export const dynamic = "force-dynamic";
+
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

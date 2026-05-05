@@ -6,6 +6,8 @@ import {
   fetchEurostatOutput,
   PRODUKT_MAPPING,
 } from "@/lib/eurostat";
+export const dynamic = "force-dynamic";
+
 
 const CACHE_MAX_AGE_DAYS = 7;
 

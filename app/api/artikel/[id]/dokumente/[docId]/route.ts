@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readFile, unlink } from "fs/promises";
 import { resolveUploadPath } from "@/lib/upload";
+export const dynamic = "force-dynamic";
+
 
 type Params = { params: Promise<{ id: string; docId: string }> };
 

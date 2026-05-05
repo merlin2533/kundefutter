@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 // POST /api/kunden/adress-validierung  — einzelnen Kunden validieren
 // GET  /api/kunden/adress-validierung?batch=1  — bis zu 50 Kunden ohne Koordinaten per Batch validieren

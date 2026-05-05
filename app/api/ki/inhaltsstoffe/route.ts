@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeText, PROMPTS, getAiConfig } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 export async function POST(req: NextRequest) {
   let body;

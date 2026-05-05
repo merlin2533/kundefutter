@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
+export const dynamic = "force-dynamic";
+
 
 export async function POST() {
   try {

@@ -5,6 +5,8 @@ import { naechsteRechnungsnummer, formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+export const dynamic = "force-dynamic";
+
 
 export async function POST(req: NextRequest) {
   const body = await req.json();

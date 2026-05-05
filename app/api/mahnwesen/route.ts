@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 function mahnstufe(tageUeberfaellig: number): 1 | 2 | 3 {
   if (tageUeberfaellig >= 42) return 3;

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import * as XLSX from "xlsx";
+export const dynamic = "force-dynamic";
+
 
 // POST: Excel-Datei hochladen und Einkaufspreise vorschlagen
 export async function POST(req: NextRequest) {

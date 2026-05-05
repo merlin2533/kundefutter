@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
+export const dynamic = "force-dynamic";
+
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { STAMMDATEN_GRUPPEN, ALLE_STAMMDATEN_ARTIKEL } from "@/lib/artikel-stammdaten";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
 import * as XLSX from "xlsx";
+export const dynamic = "force-dynamic";
+
 
 /** GET ?action=template            → Excel-Datei mit allen Stammdaten zum Download
  *  GET ?action=sync-inhaltsstoffe  → Inhaltsstoffe aus Stammdaten auf vorhandene Artikel übertragen
