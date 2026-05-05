@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+
 
 // Bestellvorschlag: gruppiert nach Lieferant
 export async function GET(req: NextRequest) {

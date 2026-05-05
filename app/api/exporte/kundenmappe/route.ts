@@ -5,6 +5,8 @@ import { ladeFirmaDaten } from "@/lib/firma";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+export const dynamic = "force-dynamic";
+
 
 // GET /api/exporte/kundenmappe?kundeId=X
 // Erzeugt eine Kunden-Übersichtsmappe als PDF mit:

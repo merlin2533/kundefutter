@@ -8,6 +8,8 @@ import {
   statistischePrognose,
   type MatifProdukt,
 } from "@/lib/matif";
+export const dynamic = "force-dynamic";
+
 
 /** Cache gilt 6 Stunden (Futures handeln tagsüber) */
 const CACHE_STUNDEN = 6;

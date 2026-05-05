@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadPdfToKundeOrdner, isDriveKonfiguriert, DokumentTyp } from "@/lib/googleDrive";
+export const dynamic = "force-dynamic";
+
 
 const TYP_ORDNER: Record<string, DokumentTyp> = {
   rechnung: "Rechnungen",

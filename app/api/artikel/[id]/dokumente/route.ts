@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getUploadBase } from "@/lib/upload";
+export const dynamic = "force-dynamic";
+
 
 type Params = { params: Promise<{ id: string }> };
 

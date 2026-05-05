@@ -5,6 +5,8 @@ import { auditLog } from "@/lib/audit";
 import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+export const dynamic = "force-dynamic";
+
 
 type Params = { params: Promise<{ id: string }> };
 

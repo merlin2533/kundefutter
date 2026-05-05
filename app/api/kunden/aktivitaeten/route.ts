@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 // GET /api/kunden/aktivitaeten?kundeId=X  — Liste
 // GET /api/kunden/aktivitaeten?offene=1   — alle offenen Aufgaben/Aktivitäten

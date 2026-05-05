@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyEmailConfig } from "@/lib/email";
+export const dynamic = "force-dynamic";
+
 
 export async function POST() {
   try {

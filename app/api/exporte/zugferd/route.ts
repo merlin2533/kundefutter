@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
+export const dynamic = "force-dynamic";
+
 
 // GET /api/exporte/zugferd?lieferungId=N
 // GET /api/exporte/zugferd?sammelrechnungId=N

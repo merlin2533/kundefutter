@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getArtikelOrdnerId, listeDateien, uploadDatei } from "@/lib/googleDrive";
+export const dynamic = "force-dynamic";
+
 
 type Ctx = { params: Promise<{ id: string }> };
 

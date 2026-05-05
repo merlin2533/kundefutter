@@ -1,6 +1,8 @@
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
+
 
 type Params = { params: Promise<{ id: string }> };
 

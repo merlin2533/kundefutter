@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addTage, berechneVerkaufspreis } from "@/lib/utils";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+export const dynamic = "force-dynamic";
+
 
 // GET: Zeigt fällige wiederkehrende Lieferungen (nächste X Tage)
 // ?tage=30  – Vorschau für die nächsten N Tage (default 30)

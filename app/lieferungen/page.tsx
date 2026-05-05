@@ -48,6 +48,7 @@ export default function LieferungenPage() {
   const [kundeSearch, setKundeSearch] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Wiederkehrend state
   const [wiederkehrend, setWiederkehrend] = useState<WiederkehrendBedarf[]>([]);
@@ -59,15 +60,27 @@ export default function LieferungenPage() {
 
   const fetchLieferungen = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (statusFilter !== "alle") params.set("status", statusFilter);
     if (vonFilter) params.set("von", vonFilter);
     if (bisFilter) params.set("bis", bisFilter);
     if (kundeSearch) params.set("search", kundeSearch);
-    const res = await fetch(`/api/lieferungen?${params}`);
-    const data = await res.json();
-    setLieferungen(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/lieferungen?${params}`);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        setFetchError(d.error ?? `Serverfehler ${res.status}`);
+        setLieferungen([]);
+      } else {
+        const data = await res.json();
+        setLieferungen(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setFetchError("Netzwerkfehler – Seite neu laden");
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter, vonFilter, bisFilter, kundeSearch]);
 
   useEffect(() => {
@@ -279,6 +292,8 @@ export default function LieferungenPage() {
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
             {loading ? (
               <p className="p-6 text-gray-400 text-sm">Lade Lieferungen…</p>
+            ) : fetchError ? (
+              <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
             ) : lieferungen.length === 0 ? (
               <p className="p-6 text-gray-400 text-sm">Keine Lieferungen gefunden.</p>
             ) : (

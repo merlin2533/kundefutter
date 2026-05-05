@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+export const dynamic = "force-dynamic";
+
 
 // GET /api/agrarantraege/pdf?kundeId=X  — Antragsdaten-PDF für einen Kunden
 export async function GET(req: NextRequest) {

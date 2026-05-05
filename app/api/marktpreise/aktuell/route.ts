@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PRODUKT_MAPPING } from "@/lib/eurostat";
+export const dynamic = "force-dynamic";
+
 
 // Main category codes for the summary view
 const HAUPT_KATEGORIEN = [
