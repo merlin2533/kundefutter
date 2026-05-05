@@ -29,7 +29,7 @@ function NeueAufgabeForm() {
   useEffect(() => {
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => setKunden(Array.isArray(d.data) ? d.data : []));
+      .then((d) => { const data = d as { data?: unknown[] }; setKunden(Array.isArray(data.data) ? data.data : []); });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

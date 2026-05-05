@@ -110,12 +110,13 @@ export default function PreisauskunftPage() {
       fetch(`/api/mengenrabatte`).then((r) => r.ok ? r.json() : []),
     ])
       .then(([art, rabs]) => {
-        setArtikel(art as ArtikelDetail | null);
+        const artTyped = art as ArtikelDetail | null;
+        setArtikel(artTyped);
         if (Array.isArray(rabs)) {
           setMengenrabatte(
             rabs.filter(
               (r: Mengenrabatt & { artikelId: number | null }) =>
-                r.artikelId === art.id && r.aktiv
+                r.artikelId === artTyped?.id && r.aktiv
             )
           );
         }
