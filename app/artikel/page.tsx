@@ -48,6 +48,8 @@ export default function ArtikelPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -84,6 +86,40 @@ export default function ArtikelPage() {
   }, [kategorie]);
 
   useScrollRestoration(!loading && artikel.length > 0);
+
+  function toggleSelect(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === artikel.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(artikel.map((a) => a.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`${selected.size} Artikel wirklich löschen?`)) return;
+    setBulkDeleting(true);
+    const errors: string[] = [];
+    for (const id of selected) {
+      const res = await fetch(`/api/artikel/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        errors.push(d.error ?? `Artikel ${id} konnte nicht gelöscht werden`);
+      }
+    }
+    setBulkDeleting(false);
+    setSelected(new Set());
+    if (errors.length > 0) alert(errors.join("\n"));
+    load();
+  }
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
@@ -138,6 +174,15 @@ export default function ArtikelPage() {
           </Link>
         </span>
         <div className="flex gap-2 flex-wrap">
+          {selected.size > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+            >
+              {bulkDeleting ? "Lösche…" : `${selected.size} löschen`}
+            </button>
+          )}
           <a
             href="/api/exporte?typ=artikel"
             download
@@ -231,6 +276,15 @@ export default function ArtikelPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={artikel.length > 0 && selected.size === artikel.length}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300 text-green-700 focus:ring-green-700"
+                    title="Alle auswählen"
+                  />
+                </th>
                 {[
                   { label: "Artikelnr.", cls: "hidden md:table-cell" },
                   { label: "Name", cls: "" },
@@ -259,9 +313,17 @@ export default function ArtikelPage() {
                 return (
                   <tr
                     key={a.id}
-                    className="border-b last:border-0 hover:bg-green-50 cursor-pointer transition-colors"
+                    className={`border-b last:border-0 hover:bg-green-50 cursor-pointer transition-colors ${selected.has(a.id) ? "bg-green-50" : ""}`}
                     onClick={() => router.push(`/artikel/${a.id}`)}
                   >
+                    <td className="px-4 py-3 w-8" onClick={(e) => { e.stopPropagation(); toggleSelect(a.id); }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(a.id)}
+                        onChange={() => toggleSelect(a.id)}
+                        className="rounded border-gray-300 text-green-700 focus:ring-green-700"
+                      />
+                    </td>
                     <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{a.artikelnummer}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {a.name}

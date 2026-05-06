@@ -9,7 +9,7 @@ interface Position {
   id: number;
   menge: number;
   chargeNr?: string | null;
-  artikel: { name: string; einheit: string };
+  artikel: { name: string; einheit: string; kategorie?: string | null; unterkategorie?: string | null };
 }
 
 interface Kunde {
@@ -360,7 +360,14 @@ export default function LieferscheinPage() {
                     }}
                   >
                     <td style={{ padding: "6px 8px" }}>{idx + 1}</td>
-                    <td style={{ padding: "6px 8px" }}>{pos.artikel.name}</td>
+                    <td style={{ padding: "6px 8px" }}>
+                      {(pos.artikel.kategorie || pos.artikel.unterkategorie) && (
+                        <div style={{ fontSize: "8pt", color: "#888", marginBottom: "2px" }}>
+                          {[pos.artikel.kategorie === "Duenger" ? "Dünger" : pos.artikel.kategorie, pos.artikel.unterkategorie].filter(Boolean).join(" / ")}
+                        </div>
+                      )}
+                      {pos.artikel.name}
+                    </td>
                     {hasCharge && (
                       <td style={{ padding: "6px 8px", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
                         {pos.chargeNr ?? "—"}

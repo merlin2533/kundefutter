@@ -11,6 +11,8 @@ interface ArtikelInfo {
   name: string;
   einheit: string;
   mwstSatz: number;
+  kategorie?: string | null;
+  unterkategorie?: string | null;
 }
 
 interface Position {
@@ -503,6 +505,11 @@ export default function RechnungPrintPage() {
               >
                 <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{idx + 1}</td>
                 <td style={{ padding: "6px 8px", verticalAlign: "top" }}>
+                  {(p.artikel.kategorie || p.artikel.unterkategorie) && (
+                    <div style={{ fontSize: "8pt", color: "#888", marginBottom: "2px" }}>
+                      {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
+                    </div>
+                  )}
                   <div>{p.artikel.name}</div>
                   <div style={{ fontSize: "9pt", color: "#666" }}>
                     MwSt {p.artikel.mwstSatz ?? 19} %
