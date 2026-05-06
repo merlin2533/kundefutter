@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis } from "@/lib/utils";
-import { artikelSafeSelect } from "@/lib/artikel-select";
+import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +58,16 @@ export async function GET(req: NextRequest) {
   try {
     const lieferungen = await prisma.lieferung.findMany({
       where,
-      include: {
-        kunde: true,
-        positionen: { include: { artikel: { select: artikelSafeSelect } } },
+      select: {
+        ...lieferungSafeSelect,
+        kunde: { select: { id: true, name: true, firma: true, ort: true } },
+        positionen: {
+          select: {
+            id: true, menge: true, verkaufspreis: true, einkaufspreis: true,
+            chargeNr: true, rabattProzent: true, notiz: true,
+            artikel: { select: artikelSafeSelect },
+          },
+        },
       },
       orderBy: { datum: "desc" },
       skip: (page - 1) * limit,

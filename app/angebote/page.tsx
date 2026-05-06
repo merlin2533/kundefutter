@@ -33,19 +33,30 @@ const STATUS_FARBEN: Record<string, string> = {
 export default function AngebotePage() {
   const [angebote, setAngebote] = useState<AngebotListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("alle");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
   useEffect(() => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (statusFilter !== "alle") params.set("status", statusFilter);
     if (search) params.set("search", search);
     fetch(`/api/angebote?${params.toString()}`)
-      .then((r) => r.ok ? r.json() : [])
-      .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then(async (r) => {
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({})) as { error?: string };
+          setFetchError(d.error ?? `Serverfehler ${r.status}`);
+          setAngebote([]);
+        } else {
+          const d = await r.json();
+          setAngebote(Array.isArray(d) ? d : []);
+        }
+      })
+      .catch(() => setFetchError("Netzwerkfehler – Seite neu laden"))
+      .finally(() => setLoading(false));
   }, [statusFilter, search]);
 
   function handleSearch(e: React.FormEvent) {
@@ -123,6 +134,8 @@ export default function AngebotePage() {
       {/* Table */}
       {loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
+      ) : fetchError ? (
+        <div className="text-center py-16 text-red-600 text-sm">⚠ {fetchError}</div>
       ) : angebote.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl text-gray-400">
           <p className="text-3xl mb-2">📋</p>

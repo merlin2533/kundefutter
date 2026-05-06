@@ -47,19 +47,31 @@ export default function ArtikelPage() {
   const [unterkategorie, setUnterkategorie] = useState("alle");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
     if (kategorie === "Saatgut" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
-    const res = await fetch(`/api/artikel?${params}`);
-    if (!res.ok) { setLoading(false); return; }
-    const data = await res.json();
-    setArtikel(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/artikel?${params}`);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({})) as { error?: string };
+        setFetchError(d.error ?? `Serverfehler ${res.status}`);
+        setArtikel([]);
+      } else {
+        const data = await res.json();
+        setArtikel(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setFetchError("Netzwerkfehler – Seite neu laden");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -211,6 +223,8 @@ export default function ArtikelPage() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade…</p>
+        ) : fetchError ? (
+          <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
         ) : artikel.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">Keine Artikel gefunden.</p>
         ) : (
