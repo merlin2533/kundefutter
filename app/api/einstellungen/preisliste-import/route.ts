@@ -298,7 +298,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2) Neue Artikel anlegen (mit Auto-Artikelnummer)
+    // 2) Neue Artikel anlegen (mit Dublettenprüfung und Auto-Artikelnummer)
     for (const a of body.neueArtikel ?? []) {
       const name = String(a.name ?? "").trim();
       const ekNeu = Number(a.ekNeu);
@@ -306,6 +306,45 @@ export async function POST(req: NextRequest) {
         uebersprungen++;
         continue;
       }
+
+      // Dublettenprüfung: Artikel mit gleichem Namen bereits vorhanden?
+      const vorhandenerArtikel = await prisma.artikel.findFirst({
+        where: { name: { equals: name } },
+        select: { id: true },
+      });
+
+      if (vorhandenerArtikel) {
+        // Artikel existiert bereits — nur EK-Preis aktualisieren/anlegen
+        const vorhandenerLink = await prisma.artikelLieferant.findUnique({
+          where: { artikelId_lieferantId: { artikelId: vorhandenerArtikel.id, lieferantId } },
+          select: { id: true, einkaufspreis: true },
+        });
+        if (vorhandenerLink) {
+          if (vorhandenerLink.einkaufspreis !== ekNeu) {
+            await prisma.artikelLieferant.update({
+              where: { id: vorhandenerLink.id },
+              data: { einkaufspreis: ekNeu },
+            });
+            aktualisiert++;
+          } else {
+            uebersprungen++;
+          }
+        } else {
+          await prisma.artikelLieferant.create({
+            data: {
+              artikelId: vorhandenerArtikel.id,
+              lieferantId,
+              einkaufspreis: ekNeu,
+              mindestbestellmenge: 1,
+              lieferzeitTage: 7,
+              bevorzugt: false,
+            },
+          });
+          neuZuordnung++;
+        }
+        continue;
+      }
+
       const artikelnummer = await naechsteArtikelnummer();
       await prisma.artikel.create({
         data: {
