@@ -47,6 +47,25 @@ else
   warn "Kein Ping zu google.de – eingeschränkte Internetverbindung"
 fi
 
+# Schema-Reparatur: Spalten/Indizes aus Migrationen manuell anwenden,
+# die wegen fehlender IF NOT EXISTS in der SQL nicht idempotent sind.
+# Läuft VOR prisma migrate deploy, damit der anschließende Deploy diese
+# Migrationen als bereits angewendet überspringt.
+log "Schema-Reparatur (pre-migrate.js)..."
+node prisma/pre-migrate.js > /tmp/premigrate.log 2>&1
+PREMIG_EXIT=$?
+if [ -s /tmp/premigrate.log ]; then
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    log "  $line"
+  done < /tmp/premigrate.log
+fi
+if [ "$PREMIG_EXIT" -ne 0 ]; then
+  warn "pre-migrate.js fehlgeschlagen (exit=$PREMIG_EXIT)"
+else
+  ok "Schema-Reparatur abgeschlossen"
+fi
+
 # Datenbankmigrationen – Output in Datei schreiben, dann loggen
 log "Datenbankmigrationen ausführen..."
 npx --yes prisma migrate deploy > /tmp/prisma_migrate.log 2>&1
