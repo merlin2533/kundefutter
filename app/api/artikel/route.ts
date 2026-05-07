@@ -40,14 +40,19 @@ export async function GET(req: NextRequest) {
     : artikelSafeSelect;
 
   try {
-    const artikel = await prisma.artikel.findMany({
-      where,
-      select,
-      orderBy: { name: "asc" },
-      skip: (page - 1) * limit,
-      take: limit,
+    const [artikel, total] = await Promise.all([
+      prisma.artikel.findMany({
+        where,
+        select,
+        orderBy: { name: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.artikel.count({ where }),
+    ]);
+    return NextResponse.json(artikel, {
+      headers: { "X-Total-Count": String(total) },
     });
-    return NextResponse.json(artikel);
   } catch (e) {
     console.error("Artikel GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Artikel" }, { status: 500 });

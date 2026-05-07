@@ -51,15 +51,20 @@ export default function ArtikelPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 100;
   const importRef = useRef<HTMLInputElement>(null);
 
-  async function load() {
+  async function load(pageNum = page) {
     setLoading(true);
     setFetchError(null);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
     if (kategorie !== "alle" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("page", String(pageNum));
     try {
       const res = await fetch(`/api/artikel?${params}`);
       if (!res.ok) {
@@ -69,6 +74,8 @@ export default function ArtikelPage() {
       } else {
         const data = await res.json();
         setArtikel(Array.isArray(data) ? data : []);
+        const t = res.headers.get("X-Total-Count");
+        if (t) setTotal(parseInt(t, 10));
       }
     } catch {
       setFetchError("Netzwerkfehler – Seite neu laden");
@@ -93,9 +100,15 @@ export default function ArtikelPage() {
   }, [search, kategorie, unterkategorie]);
 
   useEffect(() => {
-    load();
+    setPage(1);
+    load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, kategorie, unterkategorie]);
+
+  useEffect(() => {
+    if (page > 1) load(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   useEffect(() => {
     setUnterkategorie("alle");
@@ -134,7 +147,7 @@ export default function ArtikelPage() {
     setBulkDeleting(false);
     setSelected(new Set());
     if (errors.length > 0) alert(errors.join("\n"));
-    load();
+    load(page);
   }
 
   useEffect(() => {
@@ -413,7 +426,7 @@ export default function ArtikelPage() {
                             e.stopPropagation();
                             if (!confirm(`"${a.name}" wirklich löschen?`)) return;
                             const res = await fetch(`/api/artikel/${a.id}`, { method: "DELETE" });
-                            if (res.ok) load();
+                            if (res.ok) load(page);
                             else { const d = await res.json().catch(() => ({})); alert(d.error ?? "Löschen fehlgeschlagen"); }
                           }}
                           className="text-red-400 hover:text-red-600 transition-colors"
@@ -430,6 +443,34 @@ export default function ArtikelPage() {
           </table>
         )}
       </div>
+
+      {/* Pagination */}
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+          <span>
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} von {total} Artikeln
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Zurück
+            </button>
+            <span className="px-3 py-1.5 bg-green-700 text-white rounded-lg font-medium">
+              {page} / {Math.ceil(total / PAGE_SIZE)}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
+              disabled={page >= Math.ceil(total / PAGE_SIZE)}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Weiter →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

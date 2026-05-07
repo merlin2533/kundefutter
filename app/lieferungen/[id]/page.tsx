@@ -24,7 +24,7 @@ interface ArtikelOption {
   einheit: string;
   aktuellerBestand: number;
   mindestbestand: number;
-  lieferanten?: { einkaufspreis: number }[];
+  lieferanten?: { einkaufspreis: number; bevorzugt: boolean }[];
 }
 
 interface Lieferung {
@@ -188,7 +188,7 @@ export default function LieferungDetailPage() {
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    fetch("/api/artikel?relations=false&limit=500")
+    fetch("/api/artikel?limit=500")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch(() => {});
@@ -209,7 +209,8 @@ export default function LieferungDetailPage() {
     const art = artikelListe.find(a => String(a.id) === artId);
     if (art) {
       setAddPosVk(String(art.standardpreis));
-      setAddPosEk(String(art.lieferanten?.[0]?.einkaufspreis ?? 0));
+      const bev = art.lieferanten?.find((l) => l.bevorzugt) ?? art.lieferanten?.[0];
+      setAddPosEk(String(bev?.einkaufspreis ?? 0));
     }
   }
 
