@@ -65,5 +65,5 @@ export const ARTIKEL_ALIAS = {
     "Gebinde",
   ],
   beschreibung: ["Beschreibung", "Bemerkung", "Notiz"],
-  lieferant: ["Lieferant", "Lieferantenname", "Hersteller"],
+  lieferant: ["Bevorzugter Lieferant", "Lieferant", "Lieferantenname", "Hersteller"],
 } as const;
