@@ -738,16 +738,11 @@ export default function ArtikelDetailPage() {
                   placeholder="z.B. Halle 1, Außenlager, Silo A"
                   className={inputCls}
                 />
-                {(() => {
-                  const orte = systemSettings !== null
-                    ? parseListSetting(systemSettings, "system.lagerorte", DEFAULT_LAGERORTE)
-                    : DEFAULT_LAGERORTE;
-                  return orte.length > 0 ? (
-                    <datalist id="lagerorte-list-detail">
-                      {orte.map((l) => <option key={l} value={l} />)}
-                    </datalist>
-                  ) : null;
-                })()}
+                {parseListSetting(systemSettings ?? {}, "system.lagerorte", DEFAULT_LAGERORTE).length > 0 && (
+                  <datalist id="lagerorte-list-detail">
+                    {parseListSetting(systemSettings ?? {}, "system.lagerorte", DEFAULT_LAGERORTE).map((l) => <option key={l} value={l} />)}
+                  </datalist>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
