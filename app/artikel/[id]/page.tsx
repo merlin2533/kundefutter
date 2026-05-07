@@ -1026,6 +1026,7 @@ export default function ArtikelDetailPage() {
                       { label: "Mindestbestellmenge", cls: "hidden lg:table-cell" },
                       { label: "Lieferzeit (Tage)", cls: "hidden lg:table-cell" },
                       { label: "Bevorzugt", cls: "" },
+                      { label: "", cls: "w-16" },
                     ].map((h) => (
                       <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
                         {h.label}
@@ -1089,6 +1090,22 @@ export default function ArtikelDetailPage() {
                             className="text-gray-400 hover:text-green-700 text-sm px-1"
                           >
                             ✎
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Lieferant „${l.lieferant.name}" von diesem Artikel entfernen?`)) return;
+                              const res = await fetch(`/api/artikel/${artikel.id}/lieferanten/${l.lieferantId}`, { method: "DELETE" });
+                              if (res.ok) {
+                                setArtikel({ ...artikel, lieferanten: artikel.lieferanten.filter((x) => x.id !== l.id) });
+                              } else {
+                                const d = await res.json().catch(() => ({})) as { error?: string };
+                                alert(d.error ?? "Löschen fehlgeschlagen");
+                              }
+                            }}
+                            title="Lieferant entfernen"
+                            className="text-red-400 hover:text-red-600 text-sm px-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           </button>
                         </div>
                       </td>

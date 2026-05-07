@@ -77,6 +77,21 @@ export default function ArtikelPage() {
     }
   }
 
+  // Restore filters from sessionStorage on mount (preserves state on back navigation)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>;
+      if (saved.search !== undefined) setSearch(saved.search);
+      if (saved.kategorie !== undefined) setKategorie(saved.kategorie);
+      if (saved.unterkategorie !== undefined) setUnterkategorie(saved.unterkategorie);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist filters to sessionStorage on change
+  useEffect(() => {
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie })); } catch { /* ignore */ }
+  }, [search, kategorie, unterkategorie]);
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,7 +337,7 @@ export default function ArtikelPage() {
                     className={`border-b last:border-0 hover:bg-green-50 cursor-pointer transition-colors ${selected.has(a.id) ? "bg-green-50" : ""}`}
                     onClick={() => router.push(`/artikel/${a.id}`)}
                   >
-                    <td className="px-4 py-3 w-8" onClick={(e) => { e.stopPropagation(); toggleSelect(a.id); }}>
+                    <td className="px-4 py-3 w-8" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={selected.has(a.id)}
