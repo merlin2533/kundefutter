@@ -32,6 +32,26 @@ export function getUnterkategorienKey(kategorie: string): string {
   return kategorie === "Saatgut" ? "system.saatgut_kulturen" : `system.unterkategorien_${kategorie}`;
 }
 
+export const DEFAULT_LAGERORTE: string[] = [];
+
+export const DEFAULT_FRUCHTARTEN = [
+  "Winterweizen",
+  "Sommerweizen",
+  "Wintergerste",
+  "Sommergerste",
+  "Winterraps",
+  "Mais",
+  "Silomais",
+  "Zuckerrüben",
+  "Futterrüben",
+  "Soja",
+  "Erbsen",
+  "Ackerbohnen",
+  "Grünland",
+  "Kleegras",
+  "Zwischenfrucht",
+];
+
 /** Liest ein JSON-Array aus dem Einstellungs-Objekt (Antwort von
  *  GET /api/einstellungen?prefix=system.). Gibt `fallback` zurück
  *  wenn der Key fehlt, leer oder kein gültiges Array ist. */

@@ -7,6 +7,7 @@ import DriveOrdner from "@/components/DriveOrdner";
 import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import { DEFAULT_FRUCHTARTEN, parseListSetting } from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,15 +262,16 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         if (d["system.kundenkategorien"]) {
           try { setKategorien(JSON.parse(d["system.kundenkategorien"])); } catch { /* ignore */ }
         }
         if (d["system.mitarbeiter"]) {
           try { setMitarbeiter(JSON.parse(d["system.mitarbeiter"])); } catch { /* ignore */ }
         }
-      });
+      })
+      .catch(() => {});
   }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -3123,6 +3125,7 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [fruchtarten, setFruchtarten] = useState<string[]>(DEFAULT_FRUCHTARTEN);
   const [form, setForm] = useState({
     name: "",
     flaeche: "",
@@ -3133,6 +3136,13 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
     aussaatMenge: "",
     notiz: "",
   });
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => setFruchtarten(parseListSetting(d, "system.fruchtarten", DEFAULT_FRUCHTARTEN)))
+      .catch(() => {});
+  }, []);
 
   const fetchSchlaegte = useCallback(async () => {
     setLoading(true);
@@ -3217,7 +3227,10 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Fruchtart</label>
-                <input type="text" value={form.fruchtart} onChange={(e) => setForm({ ...form, fruchtart: e.target.value })} className={inputClsSchlag} placeholder="z.B. Winterweizen" />
+                <input type="text" list="fruchtarten-list" value={form.fruchtart} onChange={(e) => setForm({ ...form, fruchtart: e.target.value })} className={inputClsSchlag} placeholder="z.B. Winterweizen" />
+                <datalist id="fruchtarten-list">
+                  {fruchtarten.map((f) => <option key={f} value={f} />)}
+                </datalist>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Sorte</label>
@@ -3225,7 +3238,7 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vorfrucht</label>
-                <input type="text" value={form.vorfrucht} onChange={(e) => setForm({ ...form, vorfrucht: e.target.value })} className={inputClsSchlag} placeholder="z.B. Raps" />
+                <input type="text" list="fruchtarten-list" value={form.vorfrucht} onChange={(e) => setForm({ ...form, vorfrucht: e.target.value })} className={inputClsSchlag} placeholder="z.B. Raps" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Aussaat-Jahr</label>

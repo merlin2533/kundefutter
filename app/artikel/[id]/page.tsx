@@ -8,6 +8,7 @@ import DriveOrdner from "@/components/DriveOrdner";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
+  DEFAULT_LAGERORTE,
   istAnalyseArtikel,
   parseListSetting,
   getUnterkategorienKey,
@@ -731,11 +732,17 @@ export default function ArtikelDetailPage() {
                 </label>
                 <input
                   type="text"
+                  list="lagerorte-list-detail"
                   value={editForm.lagerort ?? ""}
                   onChange={(e) => setEditForm({ ...editForm, lagerort: e.target.value })}
                   placeholder="z.B. Halle 1, Außenlager, Silo A"
                   className={inputCls}
                 />
+                {parseListSetting(systemSettings ?? {}, "system.lagerorte", DEFAULT_LAGERORTE).length > 0 && (
+                  <datalist id="lagerorte-list-detail">
+                    {parseListSetting(systemSettings ?? {}, "system.lagerorte", DEFAULT_LAGERORTE).map((l) => <option key={l} value={l} />)}
+                  </datalist>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

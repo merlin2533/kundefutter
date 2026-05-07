@@ -7,6 +7,8 @@ import {
   DEFAULT_EINHEITEN,
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
+  DEFAULT_LAGERORTE,
+  DEFAULT_FRUCHTARTEN,
   getUnterkategorienKey,
   parseListSetting,
 } from "@/lib/auswahllisten";
@@ -206,6 +208,20 @@ export default function StammdatenPage() {
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
+        />
+        <EditableList
+          title="Lagerorte"
+          description="Vordefinierte Lagerort-Bezeichnungen (Halle 1, Silo A …). Erscheinen als Vorschlagsliste beim Anlegen und Bearbeiten von Artikeln."
+          storeKey="system.lagerorte"
+          defaultItems={DEFAULT_LAGERORTE}
+          placeholder="z.B. Halle 1"
+        />
+        <EditableList
+          title="Fruchtarten (Schlagkartei)"
+          description="Fruchtarten für die Schlagkartei (Winterweizen, Raps, Mais …). Erscheinen als Vorschläge beim Anlegen von Schlägen."
+          storeKey="system.fruchtarten"
+          defaultItems={DEFAULT_FRUCHTARTEN}
+          placeholder="z.B. Winterweizen"
         />
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

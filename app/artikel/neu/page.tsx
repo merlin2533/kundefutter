@@ -6,6 +6,7 @@ import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_EINHEITEN,
   DEFAULT_UNTERKATEGORIEN,
+  DEFAULT_LAGERORTE,
   parseListSetting,
   getUnterkategorienKey,
 } from "@/lib/auswahllisten";
@@ -47,6 +48,11 @@ export default function NeuerArtikelPage() {
     systemSettings !== null
       ? parseListSetting(systemSettings, getUnterkategorienKey(form.kategorie), DEFAULT_UNTERKATEGORIEN[form.kategorie] ?? [])
       : (DEFAULT_UNTERKATEGORIEN[form.kategorie] ?? []);
+
+  const lagerorte =
+    systemSettings !== null
+      ? parseListSetting(systemSettings, "system.lagerorte", DEFAULT_LAGERORTE)
+      : DEFAULT_LAGERORTE;
 
   // Inhaltsstoffe
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
@@ -368,11 +374,17 @@ export default function NeuerArtikelPage() {
             </label>
             <input
               type="text"
+              list="lagerorte-list"
               value={form.lagerort}
               onChange={(e) => setForm({ ...form, lagerort: e.target.value })}
               placeholder="z.B. Halle 1, Silo A"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             />
+            {lagerorte.length > 0 && (
+              <datalist id="lagerorte-list">
+                {lagerorte.map((l) => <option key={l} value={l} />)}
+              </datalist>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
