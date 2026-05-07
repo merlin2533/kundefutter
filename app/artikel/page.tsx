@@ -6,9 +6,10 @@ import { LagerBadge } from "@/components/Badge";
 import { formatEuro, lagerStatus } from "@/lib/utils";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
-  DEFAULT_SAATGUT_KULTUREN,
+  DEFAULT_UNTERKATEGORIEN,
   istAnalyseArtikel,
   parseListSetting,
+  getUnterkategorienKey,
 } from "@/lib/auswahllisten";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
@@ -40,7 +41,7 @@ export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
-  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
+  const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
@@ -58,7 +59,7 @@ export default function ArtikelPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
-    if (kategorie === "Saatgut" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
+    if (kategorie !== "alle" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
     try {
       const res = await fetch(`/api/artikel?${params}`);
       if (!res.ok) {
@@ -82,7 +83,7 @@ export default function ArtikelPage() {
   }, [search, kategorie, unterkategorie]);
 
   useEffect(() => {
-    if (kategorie !== "Saatgut") setUnterkategorie("alle");
+    setUnterkategorie("alle");
   }, [kategorie]);
 
   useScrollRestoration(!loading && artikel.length > 0);
@@ -123,13 +124,18 @@ export default function ArtikelPage() {
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
-        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
+        setSystemSettings(d);
       })
       .catch(() => {});
   }, []);
+
+  const aktuelleUnterkategorien =
+    kategorie !== "alle" && systemSettings !== null
+      ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
+      : [];
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -245,10 +251,10 @@ export default function ArtikelPage() {
         </div>
       </div>
 
-      {kategorie === "Saatgut" && (
+      {aktuelleUnterkategorien.length > 0 && (
         <div className="flex gap-1 flex-wrap mb-5 -mt-2">
-          <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Kultur:</span>
-          {["alle", ...saatgutKulturen].map((u) => (
+          <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Unterkat.:</span>
+          {["alle", ...aktuelleUnterkategorien].map((u) => (
             <button
               key={u}
               onClick={() => setUnterkategorie(u)}

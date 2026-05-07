@@ -7,9 +7,10 @@ import SearchableSelect from "@/components/SearchableSelect";
 import DriveOrdner from "@/components/DriveOrdner";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
-  DEFAULT_SAATGUT_KULTUREN,
+  DEFAULT_UNTERKATEGORIEN,
   istAnalyseArtikel,
   parseListSetting,
+  getUnterkategorienKey,
 } from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ export default function ArtikelDetailPage() {
   const [artikel, setArtikel] = useState<Artikel | null>(null);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
-  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
+  const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
 
@@ -175,11 +176,11 @@ export default function ArtikelDetailPage() {
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
         setEinheiten(parseListSetting(d, "system.einheiten", FALLBACK_EINHEITEN));
-        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
+        setSystemSettings(d);
       })
       .catch(() => {});
   }, []);
@@ -650,23 +651,30 @@ export default function ArtikelDetailPage() {
                   </select>
                 </div>
               </div>
-              {editForm.kategorie === "Saatgut" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kultur <span className="text-gray-400 text-xs">(optional)</span>
-                  </label>
-                  <select
-                    value={(editForm.unterkategorie as string) ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, unterkategorie: e.target.value })}
-                    className={inputCls}
-                  >
-                    <option value="">&mdash; keine &mdash;</option>
-                    {saatgutKulturen.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {(() => {
+                const kat = editForm.kategorie ?? artikel?.kategorie ?? "";
+                const unterkats = systemSettings !== null
+                  ? parseListSetting(systemSettings, getUnterkategorienKey(kat), DEFAULT_UNTERKATEGORIEN[kat] ?? [])
+                  : (DEFAULT_UNTERKATEGORIEN[kat] ?? []);
+                if (unterkats.length === 0) return null;
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Unterkategorie <span className="text-gray-400 text-xs">(optional)</span>
+                    </label>
+                    <select
+                      value={(editForm.unterkategorie as string) ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, unterkategorie: e.target.value })}
+                      className={inputCls}
+                    >
+                      <option value="">&mdash; keine &mdash;</option>
+                      {unterkats.map((u) => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>

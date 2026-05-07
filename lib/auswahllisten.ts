@@ -9,16 +9,28 @@ export const DEFAULT_SAATGUT_KULTUREN = [
   "Raps",
   "Getreide",
   "Gräser",
-  "Kartoffel",
+  "Grünland",
+  "Pflanzkartoffeln",
   "Zwischenfrüchte",
   "Leguminosen",
   "Sonnenblumen",
   "Sorghum",
 ];
 
-export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
+export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
 
 export const DEFAULT_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Kanister", "Palette", "BigBag", "km", "Stunden"];
+
+/** Standardmäßige Unterkategorien je Hauptkategorie */
+export const DEFAULT_UNTERKATEGORIEN: Record<string, string[]> = {
+  Saatgut: DEFAULT_SAATGUT_KULTUREN,
+};
+
+/** DB-Key für Unterkategorien einer Kategorie.
+ *  Saatgut nutzt aus Rückwärtskompatibilität system.saatgut_kulturen. */
+export function getUnterkategorienKey(kategorie: string): string {
+  return kategorie === "Saatgut" ? "system.saatgut_kulturen" : `system.unterkategorien_${kategorie}`;
+}
 
 /** Liest ein JSON-Array aus dem Einstellungs-Objekt (Antwort von
  *  GET /api/einstellungen?prefix=system.). Gibt `fallback` zurück
