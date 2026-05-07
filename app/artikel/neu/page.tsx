@@ -5,8 +5,9 @@ import Link from "next/link";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_EINHEITEN,
-  DEFAULT_SAATGUT_KULTUREN,
+  DEFAULT_UNTERKATEGORIEN,
   parseListSetting,
+  getUnterkategorienKey,
 } from "@/lib/auswahllisten";
 
 const defaultForm = {
@@ -27,20 +28,25 @@ export default function NeuerArtikelPage() {
   const [form, setForm] = useState(defaultForm);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
   const [einheiten, setEinheiten] = useState<string[]>(DEFAULT_EINHEITEN);
-  const [saatgutKulturen, setSaatgutKulturen] = useState<string[]>(DEFAULT_SAATGUT_KULTUREN);
+  const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
         setEinheiten(parseListSetting(d, "system.einheiten", DEFAULT_EINHEITEN));
-        setSaatgutKulturen(parseListSetting(d, "system.saatgut_kulturen", DEFAULT_SAATGUT_KULTUREN));
+        setSystemSettings(d);
       })
       .catch(() => {});
   }, []);
+
+  const aktuelleUnterkategorien =
+    systemSettings !== null
+      ? parseListSetting(systemSettings, getUnterkategorienKey(form.kategorie), DEFAULT_UNTERKATEGORIEN[form.kategorie] ?? [])
+      : (DEFAULT_UNTERKATEGORIEN[form.kategorie] ?? []);
 
   // Inhaltsstoffe
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
@@ -199,10 +205,10 @@ export default function NeuerArtikelPage() {
           </div>
         </div>
 
-        {form.kategorie === "Saatgut" && (
+        {aktuelleUnterkategorien.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Kultur <span className="text-gray-400 text-xs">(optional)</span>
+              Unterkategorie <span className="text-gray-400 text-xs">(optional)</span>
             </label>
             <select
               value={form.unterkategorie}
@@ -210,7 +216,7 @@ export default function NeuerArtikelPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
               <option value="">&mdash; keine &mdash;</option>
-              {saatgutKulturen.map((u) => (
+              {aktuelleUnterkategorien.map((u) => (
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>

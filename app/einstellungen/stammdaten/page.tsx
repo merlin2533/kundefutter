@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { DEFAULT_SAATGUT_KULTUREN, DEFAULT_EINHEITEN } from "@/lib/auswahllisten";
+import {
+  DEFAULT_SAATGUT_KULTUREN,
+  DEFAULT_EINHEITEN,
+  DEFAULT_ARTIKEL_KATEGORIEN,
+  DEFAULT_UNTERKATEGORIEN,
+  getUnterkategorienKey,
+  parseListSetting,
+} from "@/lib/auswahllisten";
 
-type ListKey =
-  | "system.kundenkategorien"
-  | "system.mitarbeiter"
-  | "system.einheiten"
-  | "system.notiz_themen"
-  | "system.gutschrift_gruende"
-  | "system.saatgut_kulturen";
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
 
@@ -23,7 +23,7 @@ function EditableList({
 }: {
   title: string;
   description: string;
-  storeKey: ListKey;
+  storeKey: string;
   defaultItems?: string[];
   placeholder: string;
 }) {
@@ -135,6 +135,38 @@ function EditableList({
   );
 }
 
+function SubkategorienSection() {
+  const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
+        setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  if (!loaded) return <p className="text-sm text-gray-400 p-4">Lade…</p>;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {kategorien.map((k) => (
+        <EditableList
+          key={k}
+          title={`Unterkategorien: ${k === "Duenger" ? "Dünger" : k}`}
+          description={`Sub-Kategorien für Artikel der Kategorie „${k === "Duenger" ? "Dünger" : k}". Erscheinen als Filter und Dropdown bei Artikel-Erfassung.`}
+          storeKey={getUnterkategorienKey(k)}
+          defaultItems={DEFAULT_UNTERKATEGORIEN[k]}
+          placeholder="z.B. neue Unterkat."
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function StammdatenPage() {
   return (
     <div className="max-w-2xl">
@@ -162,19 +194,28 @@ export default function StammdatenPage() {
           placeholder="z.B. Max Mustermann"
         />
         <EditableList
+          title="Artikel-Kategorien"
+          description="Haupt-Kategorien für Artikel (Futter, Dünger, Saatgut, Pflege …). Erscheinen als Filter und Dropdown bei Artikel-Erfassung."
+          storeKey="system.artikelkategorien"
+          defaultItems={DEFAULT_ARTIKEL_KATEGORIEN}
+          placeholder="z.B. Pflege"
+        />
+        <EditableList
           title="Einheiten"
           description="Mengeneinheiten für Artikel (kg, t, dt, l, Stk, km …)."
           storeKey="system.einheiten"
           defaultItems={DEFAULT_EINHEITEN}
           placeholder="z.B. Fass"
         />
-        <EditableList
-          title="Saatgut-Kulturen"
-          description="Sub-Kategorien für Saatgut-Artikel (Mais, Raps, Getreide …). Erscheinen als Filter und Dropdown bei Artikeln der Kategorie 'Saatgut'."
-          storeKey="system.saatgut_kulturen"
-          defaultItems={DEFAULT_SAATGUT_KULTUREN}
-          placeholder="z.B. Hirse"
-        />
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold mb-1">Unterkategorien</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Sub-Kategorien je Artikel-Kategorie. Werden als Dropdown bei der Artikel-Erfassung und als Filter in der Artikelliste angezeigt.
+          </p>
+          <SubkategorienSection />
+        </div>
+
         <EditableList
           title="Notiz-Themen"
           description="Kategorien für Kundennotizen (z.B. Wichtig, Info, Offener Punkt)."
