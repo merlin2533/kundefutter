@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import type { WetterTag } from "@/lib/weather";
 
 interface Kontakt { typ: string; wert: string; }
 interface Artikel { id: number; name: string; einheit: string; standardpreis: number; einkaufspreis?: number; }
@@ -207,6 +208,11 @@ export default function TourenplanungPage() {
   const [besuchSaving, setBesuchSaving] = useState(false);
   const [besuchDeleting, setBesuchDeleting] = useState<number | null>(null);
 
+  // Wetter-Widget
+  const [wetter, setWetter] = useState<WetterTag[]>([]);
+  const [wetterLoading, setWetterLoading] = useState(true);
+  const [wetterFehler, setWetterFehler] = useState(false);
+
   // Load firm address + tour names
   useEffect(() => {
     fetch("/api/einstellungen?prefix=firma.")
@@ -252,6 +258,24 @@ export default function TourenplanungPage() {
   }, []);
 
   useEffect(() => { ladenBesuchstermine(); }, [ladenBesuchstermine]);
+
+  // Wetter laden (auf Basis der Firmenadresse, falls vorhanden – sonst Deutschland-Mitte)
+  useEffect(() => {
+    setWetterLoading(true);
+    setWetterFehler(false);
+    fetch("/api/wetter")
+      .then((r) => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then((data) => {
+        setWetter(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        setWetterFehler(true);
+      })
+      .finally(() => setWetterLoading(false));
+  }, []);
 
   // Load kunden for Schnellerfassung and Besuchsplanung (lazy)
   useEffect(() => {
@@ -479,6 +503,49 @@ export default function TourenplanungPage() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </Link>
       </span>
+
+      {/* 5-Tages-Wetter-Widget */}
+      <div className="mb-6">
+        {wetterLoading ? (
+          <div className="text-xs text-gray-400 py-2">Wetterdaten werden geladen…</div>
+        ) : wetterFehler || wetter.length === 0 ? (
+          <div className="text-xs text-gray-400 py-2">Wetter nicht verfügbar</div>
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {wetter.map((tag) => {
+              const d = new Date(tag.datum + "T12:00:00");
+              const wochentag = d.toLocaleDateString("de-DE", { weekday: "short" });
+              const tagMonat = d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+              const regenWarnung = tag.niederschlag > 10;
+              return (
+                <div
+                  key={tag.datum}
+                  className={`flex-none w-28 rounded-xl border px-3 py-2 text-center bg-white shadow-sm ${
+                    regenWarnung ? "border-amber-300 bg-amber-50" : "border-gray-200"
+                  }`}
+                >
+                  <div className="text-xs font-semibold text-gray-500">
+                    {wochentag} {tagMonat}
+                  </div>
+                  <div className="text-2xl my-1">{tag.icon}</div>
+                  <div className="text-xs text-gray-600 leading-tight">{tag.beschreibung}</div>
+                  <div className="text-xs font-semibold text-gray-800 mt-1">
+                    {tag.maxTemp}° / {tag.minTemp}°
+                  </div>
+                  {tag.niederschlag > 0 && (
+                    <div className={`text-xs mt-0.5 ${regenWarnung ? "text-amber-700 font-semibold" : "text-blue-500"}`}>
+                      {tag.niederschlag} mm
+                    </div>
+                  )}
+                  {regenWarnung && (
+                    <div className="text-xs text-amber-700 font-semibold mt-0.5">⚠️ Schlechtwetter</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>

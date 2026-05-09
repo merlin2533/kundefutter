@@ -407,5 +407,28 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
+  // Unterschrift speichern
+  if (body.unterschriftPng !== undefined) {
+    try {
+      const numId = parseInt(id, 10);
+      if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+      const wert = body.unterschriftPng;
+      if (typeof wert !== "string" && wert !== null) {
+        return NextResponse.json({ error: "unterschriftPng muss ein String oder null sein" }, { status: 400 });
+      }
+      const updated = await prisma.lieferung.update({
+        where: { id: numId },
+        data: { unterschriftPng: wert ?? null },
+        select: { id: true, unterschriftPng: true },
+      });
+      return NextResponse.json(updated);
+    } catch (err) {
+      console.error("Unterschrift speichern error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   return NextResponse.json({ error: "Unbekannte Aktion" }, { status: 400 });
 }
