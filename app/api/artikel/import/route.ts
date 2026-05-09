@@ -94,34 +94,64 @@ export async function POST(req: NextRequest) {
           lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
         }
 
-        await tx.artikel.create({
-          data: {
-            artikelnummer: finalNummer,
-            name,
-            kategorie,
-            unterkategorie,
-            einheit,
-            standardpreis,
-            mwstSatz,
-            aktuellerBestand,
-            mindestbestand,
-            liefergroesse,
-            beschreibung,
-            aktiv,
-            ...(lieferantId && {
-              lieferanten: {
-                create: [{
-                  lieferantId,
-                  lieferantenArtNr: finalNummer,
-                  einkaufspreis,
-                  mindestbestellmenge: 1,
-                  lieferzeitTage: 7,
-                  bevorzugt: true,
-                }],
-              },
-            }),
-          },
+        // Duplikat-Check: Artikel mit gleichem Namen bereits vorhanden?
+        const vorhandener = await tx.artikel.findFirst({
+          where: { name: { equals: name } },
+          select: { id: true },
         });
+
+        if (vorhandener) {
+          // Artikel existiert: nur VK + EK/Lieferant aktualisieren, nichts überschreiben
+          const updateData: Record<string, unknown> = {};
+          if (standardpreis > 0) updateData.standardpreis = standardpreis;
+          if (Object.keys(updateData).length > 0) {
+            await tx.artikel.update({ where: { id: vorhandener.id }, data: updateData });
+          }
+          if (lieferantId) {
+            await tx.artikelLieferant.upsert({
+              where: { artikelId_lieferantId: { artikelId: vorhandener.id, lieferantId } },
+              update: { einkaufspreis: einkaufspreis ?? 0 },
+              create: {
+                artikelId: vorhandener.id,
+                lieferantId,
+                lieferantenArtNr: artikelnummer ?? null,
+                einkaufspreis: einkaufspreis ?? 0,
+                mindestbestellmenge: 1,
+                lieferzeitTage: 7,
+                bevorzugt: true,
+              },
+            });
+          }
+        } else {
+          await tx.artikel.create({
+            data: {
+              artikelnummer: finalNummer,
+              name,
+              kategorie,
+              unterkategorie,
+              einheit,
+              standardpreis,
+              mwstSatz,
+              aktuellerBestand,
+              mindestbestand,
+              liefergroesse,
+              beschreibung,
+              aktiv,
+              ...(lieferantId && {
+                lieferanten: {
+                  create: [{
+                    lieferantId,
+                    lieferantenArtNr: finalNummer,
+                    einkaufspreis: einkaufspreis ?? 0,
+                    mindestbestellmenge: 1,
+                    lieferzeitTage: 7,
+                    bevorzugt: true,
+                  }],
+                },
+              }),
+            },
+          });
+        }
       });
       created++;
     } catch (err) {
