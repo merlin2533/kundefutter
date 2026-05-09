@@ -298,17 +298,41 @@ export default function ArtikelPage() {
         </div>
       )}
 
+      {/* Ergebnis-Info */}
+      {!loading && !fetchError && total > 0 && (
+        <div className="mb-2 text-xs text-gray-500">
+          {total > PAGE_SIZE
+            ? `Zeige ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total} Artikeln`
+            : `${total} Artikel${total !== 1 ? "" : ""} gesamt`}
+          {selected.size > 0 && (
+            <span className="ml-2 text-green-700 font-medium">{selected.size} ausgewählt</span>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
         {loading ? (
-          <p className="p-6 text-gray-400 text-sm">Lade…</p>
+          <div className="flex items-center gap-3 p-6 text-gray-400 text-sm">
+            <div className="w-4 h-4 border-2 border-green-700 border-t-transparent rounded-full animate-spin shrink-0" />
+            Artikel werden geladen…
+          </div>
         ) : fetchError ? (
-          <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
+          <div className="flex items-center gap-2 p-6 text-red-600 text-sm">
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            {fetchError}
+          </div>
         ) : artikel.length === 0 ? (
-          <p className="p-6 text-gray-400 text-sm">Keine Artikel gefunden.</p>
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <svg className="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <p className="font-medium text-gray-500">Keine Artikel gefunden</p>
+            <p className="text-xs mt-1">Suchbegriff oder Kategoriefilter anpassen</p>
+          </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 w-8">
                   <input
