@@ -1,0 +1,100 @@
+# AgrarOffice — LLM-Kontext & Produktbeschreibung
+
+## Was ist AgrarOffice?
+
+AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für **Agrarhändler und Landhandelsunternehmen** in Deutschland. Sie vereint CRM, Lagerverwaltung, Lieferungsmanagement, Tourenplanung, KI-Integration und Marktpreise in einer einzigen Web-Anwendung.
+
+Zielgruppe: Landhandelsbetriebe mit eigenem Außendienst, Vertriebler im Agrar-Segment, Lagerverantwortliche und Geschäftsführer kleiner bis mittelgroßer Agrarhändler.
+
+## Kernfunktionen
+
+### CRM & Kundenverwaltung
+- 360°-Kundenprofil: Kontakte, Notizen, Aktivitäten, Bedarfspläne, Sonderpreise, Schlagkartei, Lieferhistorie, AFIG-Agraranträge
+- Telefonmaske: Beim Anruf sofort Kundendaten (Fläche, offene Lieferungen, letzter Kontakt, Wettbewerber-Notizen)
+- Kein-Kontakt-Alarm: Dashboard zeigt täglich Kunden ohne Kontakt seit X Tagen
+- Aktivitätenplanung: Rückrufe, Besuche, E-Mails mit Fälligkeit und Wiedervorlage
+- Gebietsanalyse: Umsatz und Potenzial nach Region auf der Karte
+
+### Tourenplanung & Außendienst
+- Karten-Ansicht mit Routing (OSRM-basiert) für Lieferungen und Besuche
+- Optimierung der Reihenfolge für minimale Fahrtstrecke
+- Benannte Tour-Templates (z.B. "Nord-Route Dienstag") speichern und laden
+- Tagesansicht Außendienst: offene Aufgaben, fällige Rückrufe, heutige Touren
+- Tour-PDF-Export für Fahrer (Adresse, Telefon, Lieferpositionen)
+
+### Lagerverwaltung
+- Echtzeit-Lagerbestände mit Mindestbestand-Ampel (grün/gelb/rot)
+- KI-gestützte Wareneingang-Erkennung per Foto (Artikel, Menge, Charge automatisch)
+- Chargenrückverfolgung: lückenlos nachvollziehbar, wer was wann erhalten hat
+- Wareneingänge, Lagerkorrekturen, Lagerbewegungen
+- Konfigurierbare Lagerorte und Mengeneinheiten
+
+### Lieferungen & Rechnungen
+- Lieferscheine erstellen, Touren zuordnen, Status verfolgen (geplant/geliefert/storniert)
+- Rechnungen direkt aus Lieferung generieren (1 Klick)
+- Sammelrechnungen je Kunde
+- Mengenrabatt-Staffeln automatisch angewendet
+- Digitale Lieferscheine und Rechnungen als druckfertige PDFs
+
+### Angebote
+- Angebote mit automatischer Nummerierung (AN-YYYY-NNNN)
+- Sonderpreise je Kunde & Artikel hinterlegen
+- Angebots-Status: OFFEN / ANGENOMMEN / ABGELEHNT / ABGELAUFEN
+- PDF-Druck und 1-Klick-Annahme
+- Mengenrabatte automatisch berücksichtigt
+
+### Aufgaben & Wiedervorlagen
+- Aufgaben mit Typ (Anruf, Besuch, E-Mail, Aufgabe), Priorität (niedrig/normal/hoch/kritisch) und Fälligkeit
+- Tags und Kundenverknüpfung
+- Tagesansicht: was ist heute fällig, welche Kunden warten auf Rückruf
+- Dashboard-Widget für überfällige Aufgaben
+
+### KI-Integration (5 Anwendungsfälle)
+1. **Wareneingang per Foto**: Lieferschein fotografieren → Artikel, Menge, Charge, Lieferant automatisch erkannt
+2. **Inhaltsstoff-Recherche**: Artikelname eingeben → KI liefert vollständige Nährstoffzusammensetzung (N, P, K, S, Mg …)
+3. **CRM-Notizen aus Besuchsbericht**: Text oder Foto → strukturierte CRM-Aktivität
+4. **Bestellungserfassung aus Bild**: Handschriftliche oder fotografierte Bestellliste → Lieferung wird vorbelegt
+5. **Nutzungsstatistik & Kostenkontrolle**: Kosten in Euro-Cent je Feature, eigener API-Key oder integriertes Kontingent
+- Unterstützte Modelle: OpenAI GPT-4o, GPT-4.1; Anthropic Claude Sonnet 4, Haiku 4, Opus 4
+
+### Marktpreise & Prognose
+- Eurostat-Preisindizes (apri_pi15_inq/outq) für Dünger (N/P/K), Saatgut, Pflanzenschutz, Ernte
+- Automatisch alle 7 Tage aktualisiert (gecacht in MarktpreisCache)
+- Trend-Charts und Prognose für das laufende Quartal
+- Gebietsanalyse: Umsatz nach PLZ/Region als Heatmap und CSV-Export
+
+### Schlagkartei & AFIG
+- Bewirtschaftete Flächen je Kunde: Name, Fläche, Fruchtart, Sorte, Vorfrucht, Aussaatjahr
+- AFIG-Import aus agrarzahlungen.de (CSV-Streaming-Import, ~250 MB)
+- Agrarantrag-Verknüpfung und PDF-Bericht je Kunde
+- Druckfertige Kundenmappen mit allen Daten
+
+### Mobile App (PWA)
+- Progressive Web App: installierbar ohne App Store
+- Offline-Modus via Service Worker (Cache-First)
+- Kamera-Integration für KI-Erkennung
+- Optimiert für Smartphone und Tablet
+
+## SaaS-Preismodell
+
+| Plan | Preis monatlich | Preis jährlich (–15%) | Nutzer |
+|------|----------------|-----------------------|--------|
+| Starter | €49/Monat | €41/Monat | bis 3 |
+| Professional | €129/Monat | €108/Monat | bis 10 |
+| Enterprise | individuell | — | unbegrenzt |
+
+- 14 Tage kostenlos testen, keine Kreditkarte
+- Monatlich kündbar
+- DSGVO-konform, Server in Deutschland
+- Datenmigration beim Enterprise-Tarif inklusive
+
+## Technischer Stack (für Entwickler)
+- Frontend: Next.js 16 App Router, React Server Components, Tailwind CSS
+- Backend: Next.js API Routes, Prisma 7 + SQLite via @libsql/client
+- Deployment: Docker, Watchtower (Auto-Update), läuft auf einem VPS
+- PWA: Service Worker (Cache-First), Web App Manifest
+- KI: lib/ai.ts mit OpenAI SDK + Anthropic SDK; frei konfigurierbar per Einstellung
+
+## Kontakt & URL
+- Website: https://agraroffice.de/
+- Demo anfragen: info@agraroffice.de
