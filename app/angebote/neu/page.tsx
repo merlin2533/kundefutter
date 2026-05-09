@@ -97,6 +97,44 @@ function NeuesAngebotForm() {
   const [bedarfenGeladen, setBedarfenGeladen] = useState(false);
   const [loadingBedarfe, setLoadingBedarfe] = useState(false);
 
+  // KI-Preisempfehlung
+  interface PreisEmpfehlung {
+    empfohlenVon: number;
+    empfohlenBis: number;
+    durchschnitt: number;
+    kundenDurchschnitt: number | null;
+    hinweis: string;
+  }
+  const [preisEmpfehlungen, setPreisEmpfehlungen] = useState<Record<number, PreisEmpfehlung | null>>({});
+  const [preisLadend, setPreisLadend] = useState<Record<number, boolean>>({});
+
+  async function ladePreisEmpfehlung(index: number) {
+    const pos = positionen[index];
+    if (!pos.artikelId || !kundeId) return;
+    setPreisLadend((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch("/api/ki/preis-empfehlung", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kundeId: Number(kundeId),
+          artikelId: Number(pos.artikelId),
+          menge: parseFloat(pos.menge) || null,
+        }),
+      });
+      if (!res.ok) {
+        setPreisEmpfehlungen((prev) => ({ ...prev, [index]: null }));
+        return;
+      }
+      const data: PreisEmpfehlung = await res.json();
+      setPreisEmpfehlungen((prev) => ({ ...prev, [index]: data }));
+    } catch {
+      setPreisEmpfehlungen((prev) => ({ ...prev, [index]: null }));
+    } finally {
+      setPreisLadend((prev) => ({ ...prev, [index]: false }));
+    }
+  }
+
   useEffect(() => {
     fetch("/api/kunden?aktiv=true&limit=500")
       .then((r) => r.ok ? r.json() : [])
@@ -375,15 +413,58 @@ function NeuesAngebotForm() {
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         Preis (netto, {artObj?.einheit ?? "Einheit"})
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={pos.preis}
-                        onChange={(e) => updatePosition(i, "preis", e.target.value)}
-                        placeholder="0,00"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                      />
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={pos.preis}
+                          onChange={(e) => updatePosition(i, "preis", e.target.value)}
+                          placeholder="0,00"
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                        />
+                        {pos.artikelId && kundeId && (
+                          <button
+                            type="button"
+                            onClick={() => ladePreisEmpfehlung(i)}
+                            disabled={preisLadend[i]}
+                            title="KI-Preisempfehlung laden"
+                            className="shrink-0 px-2 py-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {preisLadend[i] ? "…" : "💡 KI-Preis"}
+                          </button>
+                        )}
+                      </div>
+                      {preisEmpfehlungen[i] && (
+                        <div className="mt-1.5 p-2 bg-purple-50 border border-purple-100 rounded-lg text-xs text-purple-800 space-y-0.5">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span>
+                              Empfehlung:{" "}
+                              <strong>
+                                {preisEmpfehlungen[i]!.empfohlenVon.toLocaleString("de-DE", { minimumFractionDigits: 2 })}
+                                {" – "}
+                                {preisEmpfehlungen[i]!.empfohlenBis.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
+                              </strong>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updatePosition(i, "preis", String(preisEmpfehlungen[i]!.durchschnitt));
+                              }}
+                              className="text-purple-600 hover:text-purple-800 underline font-medium"
+                            >
+                              Ø übernehmen
+                            </button>
+                          </div>
+                          <div className="text-purple-600">
+                            {preisEmpfehlungen[i]!.kundenDurchschnitt !== null && (
+                              <span>Kunde Ø: {preisEmpfehlungen[i]!.kundenDurchschnitt!.toLocaleString("de-DE", { minimumFractionDigits: 2 })} € · </span>
+                            )}
+                            Markt Ø: {preisEmpfehlungen[i]!.durchschnitt.toLocaleString("de-DE", { minimumFractionDigits: 2 })} €
+                          </div>
+                          <p className="text-purple-500 italic">{preisEmpfehlungen[i]!.hinweis}</p>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Rabatt (%)</label>

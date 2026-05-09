@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatDatum } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
@@ -30,6 +30,7 @@ interface Lieferung {
   lieferadresse?: string | null;
   angebotId?: number | null;
   rechnungNr?: string | null;
+  unterschriftPng?: string | null;
   positionen: Position[];
   kunde: Kunde;
 }
@@ -47,6 +48,14 @@ export default function LieferscheinPage() {
   const [canShare, setCanShare] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [rechnungLoading, setRechnungLoading] = useState(false);
+
+  // Digitale Unterschrift
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawing = useRef(false);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const [unterschriftGespeichert, setUnterschriftGespeichert] = useState(false);
+  const [unterschriftSaving, setUnterschriftSaving] = useState(false);
+  const [unterschriftMsg, setUnterschriftMsg] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -81,6 +90,108 @@ export default function LieferscheinPage() {
     }
     load();
   }, [id]);
+
+  // Canvas weißen Hintergrund initialisieren
+  const initCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  // Canvas Events via native DOM (vermeidet React-Namespace-Typen)
+  useEffect(() => {
+    if (loading || !lieferung) return;
+
+    const t = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      // Init Hintergrund
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function onMouseDown(e: MouseEvent) {
+        const c = canvasRef.current;
+        if (!c) return;
+        isDrawing.current = true;
+        lastPos.current = getCanvasPosFromMouse(e, c);
+      }
+      function onMouseMove(e: MouseEvent) {
+        if (!isDrawing.current) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctxC = c.getContext("2d");
+        if (!ctxC) return;
+        const pos = getCanvasPosFromMouse(e, c);
+        if (lastPos.current) {
+          ctxC.beginPath();
+          ctxC.strokeStyle = "#000";
+          ctxC.lineWidth = 2.5;
+          ctxC.lineCap = "round";
+          ctxC.lineJoin = "round";
+          ctxC.moveTo(lastPos.current.x, lastPos.current.y);
+          ctxC.lineTo(pos.x, pos.y);
+          ctxC.stroke();
+        }
+        lastPos.current = pos;
+      }
+      function onTouchStart(e: TouchEvent) {
+        e.preventDefault();
+        const c = canvasRef.current;
+        if (!c) return;
+        isDrawing.current = true;
+        lastPos.current = getCanvasPosFromTouch(e, c);
+      }
+      function onTouchMove(e: TouchEvent) {
+        e.preventDefault();
+        if (!isDrawing.current) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctxC = c.getContext("2d");
+        if (!ctxC) return;
+        const pos = getCanvasPosFromTouch(e, c);
+        if (!pos) return;
+        if (lastPos.current) {
+          ctxC.beginPath();
+          ctxC.strokeStyle = "#000";
+          ctxC.lineWidth = 2.5;
+          ctxC.lineCap = "round";
+          ctxC.lineJoin = "round";
+          ctxC.moveTo(lastPos.current.x, lastPos.current.y);
+          ctxC.lineTo(pos.x, pos.y);
+          ctxC.stroke();
+        }
+        lastPos.current = pos;
+      }
+
+      canvas.addEventListener("mousedown", onMouseDown);
+      canvas.addEventListener("mousemove", onMouseMove);
+      canvas.addEventListener("mouseup", stopDrawing);
+      canvas.addEventListener("mouseleave", stopDrawing);
+      canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+      canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+      canvas.addEventListener("touchend", stopDrawing);
+
+      return () => {
+        canvas.removeEventListener("mousedown", onMouseDown);
+        canvas.removeEventListener("mousemove", onMouseMove);
+        canvas.removeEventListener("mouseup", stopDrawing);
+        canvas.removeEventListener("mouseleave", stopDrawing);
+        canvas.removeEventListener("touchstart", onTouchStart);
+        canvas.removeEventListener("touchmove", onTouchMove);
+        canvas.removeEventListener("touchend", stopDrawing);
+      };
+    }, 100);
+
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, lieferung]);
 
   async function inRechnungUmwandeln() {
     if (!lieferung) return;
@@ -120,6 +231,70 @@ export default function LieferscheinPage() {
       }
     } catch {
       // Benutzer hat Dialog abgebrochen
+    }
+  }
+
+  // Canvas-Hilfsfunktionen (native DOM Events, kein React-Namespace nötig)
+  function getCanvasPosFromMouse(e: MouseEvent, canvas: HTMLCanvasElement): { x: number; y: number } {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function getCanvasPosFromTouch(e: TouchEvent, canvas: HTMLCanvasElement): { x: number; y: number } | null {
+    const touch = e.touches[0];
+    if (!touch) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+      y: (touch.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }
+
+  function stopDrawing() {
+    isDrawing.current = false;
+    lastPos.current = null;
+  }
+
+  function canvasLoeschen() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setUnterschriftMsg("");
+  }
+
+  async function unterschriftSpeichern() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setUnterschriftSaving(true);
+    setUnterschriftMsg("");
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unterschriftPng: dataUrl }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setUnterschriftMsg(d.error ?? "Fehler beim Speichern");
+        return;
+      }
+      setUnterschriftGespeichert(true);
+      setUnterschriftMsg("Unterschrift gespeichert");
+      if (lieferung) {
+        setLieferung({ ...lieferung, unterschriftPng: dataUrl });
+      }
+    } catch {
+      setUnterschriftMsg("Netzwerkfehler – bitte nochmal versuchen");
+    } finally {
+      setUnterschriftSaving(false);
     }
   }
 
@@ -425,6 +600,111 @@ export default function LieferscheinPage() {
 
         {/* Footer – 3 Spalten */}
         <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="64px" />
+      </div>
+
+      {/* ── Digitale Unterschrift (nur am Bildschirm, nicht beim Drucken) ── */}
+      <div className="print-hidden max-w-[210mm] mx-auto px-4 pb-10 mt-6">
+        <div className="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-5 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            <h3 className="font-semibold text-gray-800 text-sm">Digitale Kundenunterschrift</h3>
+          </div>
+
+          <div className="p-5">
+            {/* Bereits gespeicherte Unterschrift anzeigen */}
+            {lieferung.unterschriftPng && !unterschriftGespeichert ? (
+              <div className="flex flex-col items-start gap-3">
+                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Unterschrift erhalten
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={lieferung.unterschriftPng}
+                  alt="Gespeicherte Kundenunterschrift"
+                  className="border border-gray-200 rounded-lg bg-white"
+                  style={{ maxWidth: "400px", height: "150px", objectFit: "contain" }}
+                />
+                <button
+                  onClick={() => {
+                    if (confirm("Neue Unterschrift aufnehmen? Die bestehende wird überschrieben.")) {
+                      setLieferung({ ...lieferung, unterschriftPng: null });
+                      setTimeout(initCanvas, 50);
+                    }
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Neue Unterschrift aufnehmen
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm text-gray-600">
+                  Bitte hier unterschreiben, um den Erhalt der Lieferung zu bestätigen:
+                </p>
+
+                {/* Zeichenfläche */}
+                <div className="border-2 border-dashed border-gray-300 rounded-xl overflow-hidden bg-white touch-none"
+                  style={{ width: "100%", maxWidth: "400px" }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    width={400}
+                    height={150}
+                    className="block w-full cursor-crosshair"
+                    style={{ touchAction: "none" }}
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={canvasLoeschen}
+                    className="px-4 py-2.5 min-h-[44px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Löschen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={unterschriftSpeichern}
+                    disabled={unterschriftSaving}
+                    className="px-4 py-2.5 min-h-[44px] bg-green-700 hover:bg-green-600 disabled:opacity-60 text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
+                  >
+                    {unterschriftSaving ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                        Speichern…
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Unterschrift speichern
+                      </>
+                    )}
+                  </button>
+                  {unterschriftMsg && (
+                    <span className={`text-sm font-medium ${unterschriftMsg.includes("Fehler") || unterschriftMsg.includes("Netzwerk") ? "text-red-600" : "text-green-700"}`}>
+                      {unterschriftMsg}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );

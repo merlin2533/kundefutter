@@ -5,6 +5,101 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 
+interface ChurnKunde {
+  id: number;
+  name: string;
+  firma: string | null;
+  score: number;
+  risiko: "hoch" | "mittel" | "niedrig";
+  letzteAktivitaet: string | null;
+  letztelieferung: string | null;
+  volumeRueckgang: number;
+}
+
+const RISIKO_BADGE: Record<string, string> = {
+  hoch: "bg-red-100 text-red-700",
+  mittel: "bg-orange-100 text-orange-700",
+  niedrig: "bg-yellow-100 text-yellow-700",
+};
+
+const RISIKO_LABEL: Record<string, string> = {
+  hoch: "Hoch",
+  mittel: "Mittel",
+  niedrig: "Niedrig",
+};
+
+function ChurnWidget() {
+  const [kunden, setKunden] = useState<ChurnKunde[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/ki/churn")
+      .then((r) => r.ok ? r.json() : { kunden: [] })
+      .then((d) => {
+        const liste = d?.kunden;
+        setKunden(Array.isArray(liste) ? liste.slice(0, 5) : []);
+      })
+      .catch(() => setKunden([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading || kunden.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h2 className="font-semibold">KI-Churn-Analyse</h2>
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+              Abwanderungsrisiko
+            </span>
+          </div>
+          <Link href="/kunden" className="text-xs text-green-700 hover:underline">
+            Alle Kunden →
+          </Link>
+        </div>
+        <div className="space-y-2">
+          {kunden.map((k) => (
+            <Link
+              key={k.id}
+              href={`/kunden/${k.id}`}
+              className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-800 truncate">
+                  {k.firma ?? k.name}
+                </p>
+                {k.firma && (
+                  <p className="text-xs text-gray-500 truncate">{k.name}</p>
+                )}
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {k.letztelieferung && (
+                    <span className="text-xs text-gray-400">
+                      Letzte Lieferung: {new Date(k.letztelieferung).toLocaleDateString("de-DE")}
+                    </span>
+                  )}
+                  {k.volumeRueckgang > 0 && (
+                    <span className="text-xs text-red-500">
+                      -{k.volumeRueckgang}% Volumen
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                <span className="text-xs font-medium text-gray-500">Score {k.score}</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${RISIKO_BADGE[k.risiko] ?? "bg-gray-100 text-gray-600"}`}>
+                  {RISIKO_LABEL[k.risiko] ?? k.risiko}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 interface MarktTrend {
   kategorie: string;
   aktuell: number;
@@ -331,7 +426,14 @@ export default function DashboardPage() {
     return () => { clearInterval(interval); clearInterval(matifInterval); };
   }, []);
 
-  if (!data) return <p className="text-gray-400 mt-8">Lade Dashboard…</p>;
+  if (!data) return (
+    <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="text-center">
+        <div className="inline-block w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-gray-500 text-sm">Dashboard wird geladen…</p>
+      </div>
+    </div>
+  );
 
   const marge =
     data.umsatzMonat > 0
@@ -919,6 +1021,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      {/* KI Churn-Risiko Widget */}
+      <ChurnWidget />
     </div>
   );
 }

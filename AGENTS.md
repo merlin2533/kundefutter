@@ -98,9 +98,20 @@ Lieferposition      — Positionen einer Lieferung (chargeNr String?)
 Wareneingang        — Wareneingänge
 WareineingangPosition
 Lagerbewegung       — alle Lagerbuchungen
+Inventur            — Inventur-Kopf (datum, status: offen/abgeschlossen, bezeichnung)
+InventurPosition    — Positionen einer Inventur (artikel, gezaehlt, erwartet)
 Mengenrabatt        — Staffelrabatte
 Sammelrechnung      — Rechnungen mit zahlungsstatus
-Einstellung         — Key/Value-Store (system.*, firma.*, letzte_angebotsnummer)
+Gutschrift          — Gutschriften (nummer, status, positionen)
+GutschriftPosition
+Ausgabe             — Ausgabenbuch (datum, betrag, kategorie, belegpfad)
+Kontoumsatz         — Bankabgleich-Buchungen (buchungsdatum, betrag, verwendungszweck)
+Bestellliste        — Bestellpositionen (artikel, menge, lieferant, status)
+Besuchstermin       — Besuchsplanung (datum, kundeId, status, notiz)
+Benutzer            — Multi-User (benutzername, passwortHash, rolle, aktiv)
+AuditLog            — Änderungshistorie (entitaet, entitaetId, aktion, feld, alterWert, neuerWert)
+KiNutzung           — KI-Kostentracking (provider, modell, feature, tokens, kostenCent)
+Einstellung         — Key/Value-Store (system.*, firma.*, letzte_angebotsnummer, ki.*, smtp.*)
 MarktpreisCache     — Eurostat-Preisindex (dataset, produktCode, zeitraum, land)
 AgrarflaechenCache  — Flächendaten-Cache
 AntragEmpfaenger    — AFIG-Daten (agrarzahlungen.de) aggregiert je Empfänger+Jahr
@@ -116,8 +127,20 @@ Aufgabe             — TODO/Wiedervorlage (betreff, faelligAm, erledigt, priori
 | `system.logo` | Base64 DataURL des Firmenlogos |
 | `system.tournamen` | JSON-Array gespeicherter Tour-Namen |
 | `system.firmenname` | Firmenbezeichnung |
-| `firma.*` | Firmenstammdaten (adresse, plz, ort, tel, email…) |
+| `firma.*` | Firmenstammdaten (adresse, plz, ort, tel, email, iban, bic, bank, steuernummer, ustIdNr…) |
 | `letzte_angebotsnummer` | Letzter Angebots-Zähler (AN-YYYY-NNNN) |
+| `ki.provider` | "openai" oder "anthropic" |
+| `ki.modell` | z.B. "gpt-4o", "claude-sonnet-4-5" |
+| `ki.openai_key` | OpenAI API-Key |
+| `ki.anthropic_key` | Anthropic API-Key |
+| `ki.prompt.<feature>` | Benutzerdefinierter Prompt (leerer Wert = Standard) |
+| `smtp.*` | SMTP-Konfiguration (host, port, secure, user, pass) |
+| `email.from` | Absender-E-Mail-Adresse |
+| `resend.api_key` | Resend API-Key |
+| `system.google.serviceAccountKey` | Google Drive Service-Account JSON |
+| `system.nummernkreis` | JSON `{prefix, laenge, naechste}` für Artikelnummern |
+| `system.bankkonten` | JSON-Array der Bankkonten |
+| `datev.*` | DATEV Kontenrahmen-Mapping |
 
 ---
 
@@ -125,10 +148,13 @@ Aufgabe             — TODO/Wiedervorlage (betreff, faelligAm, erledigt, priori
 
 ```
 app/
-├── page.tsx                    Dashboard (KPIs, Wiedervorlagen, Kein-Kontakt-Widget)
+├── page.tsx                    Dashboard (KPIs, MATIF-Futures, Wiedervorlagen, Kein-Kontakt-Widget, CRM-Schnellerfassung)
+├── login/page.tsx              Login-Seite (JWT-Session via lib/auth.ts)
 ├── kunden/
-│   ├── page.tsx                Kundenliste (mit Löschen-Button)
+│   ├── page.tsx                Kundenliste (Filter, Pagination, Import/Export, Löschen)
 │   ├── neu/page.tsx            Neuer Kunde
+│   ├── bewertung/page.tsx      Kundenbewertung (RFM-Analyse, KPI-Cards)
+│   ├── karte/page.tsx          Karte (Geocoding, Cluster)
 │   └── [id]/page.tsx           Kundendetail
 │       TABS: Stammdaten | Kontakte | Bedarfe | Sonderpreise |
 │             Statistik | Lieferhistorie | CRM | Notizen | Agrarantrag |
@@ -136,9 +162,15 @@ app/
 │       Schnellübersicht-Strip: Kontakt, Adresse, Offener Betrag, Letzte Lieferung,
 │             Schnellaktionen (inkl. Rückruf planen)
 │   └── [id]/mappe/page.tsx     Kundenmappe HTML-Druck
+│   └── [id]/aktivitaet/page.tsx  CRM-Aktivität direkt erfassen
+├── kundenimport/page.tsx       Erweiterter Kunden-Import (Schritt-für-Schritt UI)
 ├── telefonmaske/page.tsx       Telefon-Schnellsuche (Anruf-Lookup)
 ├── tagesansicht/page.tsx       Tages-Übersicht Außendienst
 ├── preisauskunft/page.tsx      Preisauskunft Artikel + Sonderpreise
+├── besuchstermine/
+│   ├── page.tsx                Besuchstermine-Kalender/Liste
+│   └── neu/page.tsx
+├── mailverteiler/page.tsx      E-Mail-Verteiler (Kunden-Segment-Auswahl + Versand)
 ├── angebote/
 │   ├── page.tsx
 │   ├── neu/page.tsx
@@ -149,21 +181,50 @@ app/
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx
 ├── artikel/
-│   ├── page.tsx
-│   └── neu/page.tsx
+│   ├── page.tsx                Artikelliste (Kategorie-Filter, Bulk-Delete, Pagination)
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx           Artikeldetail (Inhaltsstoffe-Tab, KI-Suche, Lieferanten-Tab)
 ├── lieferanten/
 │   ├── page.tsx
-│   └── neu/page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
 ├── lieferungen/
 │   ├── page.tsx
 │   ├── neu/page.tsx            (mit Artikel-Verfügbarkeitsampel)
 │   └── [id]/
+│       ├── page.tsx
 │       ├── lieferschein/page.tsx  HTML-Druckseite
 │       └── rechnung/page.tsx      HTML-Druckseite
+├── rechnungen/
+│   ├── page.tsx                Rechnungsliste (aus Lieferungen + Sammelrechnungen)
+│   └── neu/page.tsx            Neue Einzelrechnung
+├── gutschriften/
+│   ├── page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── ausgaben/
+│   ├── page.tsx                Ausgabenbuch (Kategorien, Beleg-Upload)
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── bankabgleich/
+│   ├── page.tsx                Bankabgleich (Umsätze zuordnen, Vorschläge)
+│   └── import/page.tsx         CSV/MT940-Import
+├── sammelrechnungen/
+│   ├── page.tsx
+│   └── neu/page.tsx
+├── mahnwesen/page.tsx          Mahnwesen (offene Rechnungen, Mahnstufen, PDF-Druck)
 ├── lager/
 │   ├── page.tsx
 │   ├── chargen/page.tsx        Chargenrückverfolgung
+│   ├── umbuchungen/page.tsx    Lagerumbuchungen zwischen Lagerorten
 │   └── wareneingang/page.tsx
+├── inventur/
+│   ├── page.tsx                Inventurliste
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx           Inventur-Detail (Positionen, Abschluss)
+├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant)
+├── preislisten-import/page.tsx Preislisten-Import (EK-Update via CSV/Excel)
+├── kalkulation/page.tsx        Preiskalkulation (Marge, Verkaufspreis aus EK)
 ├── mengenrabatte/
 │   ├── page.tsx
 │   └── neu/page.tsx
@@ -173,7 +234,21 @@ app/
 ├── agrarantraege/page.tsx
 ├── gebietsanalyse/page.tsx
 ├── prognose/page.tsx
+├── statistik/page.tsx          Statistik (Umsatz/Marge Charts, Kunden-/Artikel-Statistik)
+├── analyse/
+│   ├── abc/page.tsx            ABC-Analyse (Kunden + Artikel)
+│   ├── deckungsbeitrag/page.tsx  Deckungsbeitrags-Analyse
+│   └── saisonal/page.tsx       Saisonale Auswertung
+├── audit/page.tsx              Änderungshistorie (AuditLog, Filter nach Entität/Aktion)
 ├── exporte/page.tsx
+├── qr/[id]/page.tsx            QR-Lieferschein-Scan (öffentlich, kein Login)
+├── ki/
+│   ├── page.tsx                KI-Übersicht
+│   ├── wareneingang/page.tsx   Lieferschein-Erkennung per Foto
+│   ├── lieferung/page.tsx      Bestellungs-Erkennung
+│   └── crm/page.tsx            CRM-Notizen aus Bild/Sprache
+├── fahrer/page.tsx             Fahrer-Cockpit (Tourenübersicht, Unterschrift auf Lieferschein)
+├── hilfe/page.tsx              Hilfe-Seite (Feature-Übersicht, Anker-Links)
 ├── einstellungen/
 │   ├── page.tsx                Kachelübersicht
 │   ├── firma/page.tsx
@@ -181,7 +256,28 @@ app/
 │   ├── lager/page.tsx
 │   ├── adressen/page.tsx
 │   ├── tournamen/page.tsx
-│   └── system/page.tsx
+│   ├── system/page.tsx
+│   ├── stammdaten/page.tsx     Kategorien, Einheiten, Unterkategorien, Lagerorte, Fruchtarten
+│   ├── lieferanten/page.tsx    Zahlungskonditionen, MwSt
+│   ├── agrarantraege/page.tsx  CSV-Import UI (AFIG)
+│   ├── ki/page.tsx             API-Keys, Modell, Prompt-Verwaltung, Statistik
+│   ├── benutzer/               Benutzerverwaltung (Multi-User, Rollen)
+│   │   ├── page.tsx
+│   │   ├── neu/page.tsx
+│   │   └── [id]/page.tsx
+│   ├── email/page.tsx          SMTP/Resend-Konfiguration + Test
+│   ├── backup/page.tsx         DB-Backup herunterladen / wiederherstellen
+│   ├── google-drive/page.tsx   Google Drive Service-Account-Integration
+│   ├── bankkonten/page.tsx     Bankkonten-Stammdaten (IBAN, BIC)
+│   ├── nummernkreis/page.tsx   Artikelnummer-Prefix + Startnummer
+│   ├── ausgaben/page.tsx       Ausgaben-Kategorien konfigurieren
+│   ├── datev/page.tsx          DATEV-Export Konfiguration
+│   ├── artikelkategorien/page.tsx  Artikelkategorien verwalten
+│   ├── import/
+│   │   ├── page.tsx            Import-Übersicht
+│   │   ├── kunden/page.tsx     Kunden-Import UI
+│   │   └── preisliste/page.tsx Preislisten-Import Einstellungen
+│   └── artikel-import/page.tsx Artikel-Import-Konfiguration
 ├── manifest.ts
 ├── icon.tsx
 └── apple-icon.tsx
@@ -194,44 +290,164 @@ app/
 ## API-Routen
 
 ```
-/api/kunden                     GET(filter+limit+page), POST
+-- Authentifizierung --
+/api/auth/login                 POST({benutzername,passwort}) — JWT-Session-Cookie setzen
+/api/auth/logout                POST — Session-Cookie löschen
+/api/auth/me                    GET — aktuelle Session-Infos
+
+-- Benutzerverwaltung --
+/api/benutzer                   GET, POST
+/api/benutzer/[id]              GET, PUT, DELETE
+
+-- Kunden --
+/api/kunden                     GET(filter+limit+page+aktiv+tag), POST
 /api/kunden/[id]                GET, PUT, DELETE
 /api/kunden/[id]/kontakte       GET, POST, DELETE
 /api/kunden/[id]/notizen        GET, POST, DELETE?notizId= (thema: Wichtig/Info/Wettbewerber/…)
-/api/kunden/[id]/sonderpreise   GET, POST, DELETE
+/api/kunden/[id]/preise         GET, POST, DELETE (Sonderpreise, ehemals /sonderpreise)
+/api/kunden/[id]/bedarfe        GET, POST, DELETE
 /api/kunden/[id]/schlaegte      GET, POST, DELETE?schlagId=
 /api/kunden/aktivitaeten        GET(?kundeId,?typ,?faelligVon,?faelligBis,?offene), POST
 /api/kunden/adress-validierung  GET(stats), POST(batch)
-/api/lieferanten                GET, POST
-/api/lieferanten/[id]           GET, PUT, DELETE
-/api/artikel                    GET, POST
+/api/kunden/bewertung           GET — RFM-Auswertung
+/api/kunden/import              POST (multipart CSV/Excel)
+/api/kundenimport               POST — erweiterter Import-Endpunkt
+
+-- Artikel --
+/api/artikel                    GET(?search,?kategorie,?unterkategorie,?limit,?page), POST
 /api/artikel/[id]               GET, PUT, DELETE
 /api/artikel/[id]/lieferanten/[lieferantId]  DELETE (ArtikelLieferant entfernen)
+/api/artikel/[id]/preishistorie GET
+/api/artikel/[id]/dokumente     GET, POST (Dateianlage)
+/api/artikel/[id]/dokumente/[docId]  DELETE
+/api/artikel/import             POST (multipart CSV/Excel)
+/api/artikel/dedup              POST — Duplikat-Bereinigung
+/api/artikel/kategorien         GET — Kategorien + Unterkategorien aus DB
+
+-- Lieferanten --
+/api/lieferanten                GET, POST
+/api/lieferanten/[id]           GET, PUT, DELETE
+
+-- Lieferungen --
 /api/lieferungen                GET, POST
 /api/lieferungen/[id]           GET, PUT, DELETE
+/api/lieferungen/[id]/positionen         GET, POST
+/api/lieferungen/[id]/positionen/[posId] PUT, DELETE
+/api/lieferungen/wiederkehrend  POST — wiederkehrende Lieferungen auslösen
+
+-- Lager --
+/api/lager                      GET — Lagerübersicht (Bestände)
 /api/lager/wareneingaenge       GET, POST
-/api/lager/korrekturen          POST
+/api/lager/korrektur            POST — Lagerkorrektur (ehemals /korrekturen)
 /api/lager/chargen              GET?charge=X (min. 2 Zeichen, take:500)
-/api/mengenrabatte              GET(?artikelId=), POST, DELETE
-/api/sammelrechnungen           GET, POST
+/api/lager/umbuchungen          GET, POST — Umbuchung zwischen Lagerorten
+/api/lager/bewegungen           GET(?artikelId,?von,?bis)
+/api/lager/lagerorte            GET — konfigurierte Lagerorte
+
+-- Inventur --
+/api/inventur                   GET, POST
+/api/inventur/[id]              GET, PUT, DELETE (inkl. Abschluss-Aktion)
+
+-- Bestellliste / Prognose --
+/api/bestellliste               GET, POST
+/api/bestellliste/[id]          PUT, DELETE
+/api/prognose                   GET(?kundeId,?artikelId,?monate)
+/api/prognose/bestellvorschlag  GET — automatischer Bestellvorschlag
+
+-- Angebote --
 /api/angebote                   GET(?kundeId,?status,?search), POST (auto AN-YYYY-NNNN)
 /api/angebote/[id]              GET, PUT({aktion:"annehmen"}|{status,notiz,gueltigBis}), DELETE
+
+-- Aufgaben --
 /api/aufgaben                   GET(?status,?kundeId,?tag,?prioritaet,?faelligBis), POST
 /api/aufgaben/[id]              GET, PUT, DELETE
+
+-- Besuchstermine --
+/api/besuchstermine             GET, POST
+
+-- Finanzen --
+/api/sammelrechnungen           GET, POST
+/api/sammelrechnungen/[id]      GET, PUT, DELETE
+/api/gutschriften               GET, POST
+/api/gutschriften/[id]          GET, PUT, DELETE
+/api/ausgaben                   GET(?kategorie,?von,?bis), POST
+/api/ausgaben/[id]              GET, PUT, DELETE
+/api/ausgaben/[id]/beleg        POST (Beleg-Upload)
+/api/bankabgleich               GET(?status), POST (Kontoumsatz speichern)
+/api/bankabgleich/[id]          PUT, DELETE
+/api/bankabgleich/vorschlaege   GET — Zuordnungsvorschläge
+/api/mahnwesen                  GET(?kundeId,?mahnstufe,?uberfaellig)
+/api/mengenrabatte              GET(?artikelId=), POST, DELETE
+
+-- Rechnungen (Druck/Export) --
+/api/exporte/rechnung           GET?lieferungId= — Einzel-Rechnungs-PDF
+/api/exporte/rechnung/mail      POST — Rechnung per E-Mail versenden
+/api/exporte/sammelrechnung     GET?sammelrechnungId=
+/api/exporte/lieferschein       GET?lieferungId=
+/api/exporte/kundenmappe        GET?kundeId=
+/api/exporte/tour               GET(?tourname=)
+/api/exporte/datev              GET(?von,?bis) — DATEV-Export CSV
+/api/exporte/bulk               POST — Bulk-Export
+/api/exporte/bestellvorschlag   GET — Bestellvorschlag CSV/PDF
+/api/exporte/zugferd            GET?lieferungId= — ZUGFeRD/Factur-X XML
+
+-- AFIG (Agraranträge) --
 /api/agrarantraege              GET(search), PATCH(link), DELETE
 /api/agrarantraege/import       POST (multipart|{action:"url"}|{action:"serverpath"})
 /api/agrarantraege/pdf          GET?kundeId=
-/api/marktpreise                GET(?force=true)
-/api/dashboard                  GET (inkl. wiedervorlagen, keinKontakt)
+
+-- Agrarflächen --
+/api/agrarflaechen              GET?lat=&lng=&radius=
+/api/agrarflaechen/analyse      GET?kundeId= — Flächenanalyse mit Overpass
+
+-- Marktpreise / MATIF --
+/api/marktpreise                GET(?force=true) — Eurostat-Preisindex
+/api/marktpreise/aktuell        GET — aktuellste Preise je Produkt
+/api/marktpreise/spot           GET — MATIF Futures (Yahoo Finance via lib/matif.ts)
+
+-- Kalkulation --
+/api/kalkulation                GET(?artikelId,?lieferantId,?marge)
+
+-- Analyse --
+/api/analyse/abc                GET(?von,?bis) — ABC-Analyse Kunden + Artikel
+/api/analyse/deckungsbeitrag    GET(?von,?bis,?kundeId,?artikelId)
+/api/analyse/saisonal           GET(?von,?bis,?gruppeNach)
+/api/statistik                  GET(?von,?bis,?granularitaet)
+
+-- Audit / Änderungshistorie --
+/api/audit                      GET(?entitaet,?entitaetId,?aktion,?von,?bis,?limit)
+
+-- Google Drive --
+/api/drive/status               GET — Verbindungsstatus
+/api/drive/zentral              GET, POST — zentrale Ablage
+/api/drive/kunden/[id]          GET — Kunden-Ordner-Inhalt
+/api/drive/artikel/[id]         GET — Artikel-Ordner-Inhalt
+/api/drive/dokumente            GET — alle Drive-Dokumente
+
+-- KI --
+/api/ki/analyze                 POST({image?,text?,feature}) — Bild-/Text-Analyse (wareneingang|lieferung|crm)
+/api/ki/inhaltsstoffe           POST({name,kategorie?}) — KI-Recherche Produktzusammensetzung
+/api/ki/beleg                   POST — Beleg per KI erkennen (OCR)
+/api/ki/churn                   GET?kundeId= — Churn-Risiko-Analyse
+/api/ki/test                    POST — Verbindungstest API-Key
+/api/ki/statistik               GET(?tage=30) — Nutzungsstatistik
+/api/ki/preis-empfehlung        POST — KI-basierte Preisempfehlung (intern)
+
+-- System --
+/api/dashboard                  GET (inkl. wiedervorlagen, keinKontakt, lieferungenOhneRechnung, matif)
 /api/tagesansicht               GET (offeneAufgaben, faelligeAnrufe, keinKontakt30, heutigeTouren)
 /api/telefonmaske               GET?q=X (max 5 Kunden mit Kontakten, Bedarfen, offenen Rechnungen)
 /api/einstellungen              GET(?prefix=), PUT({key,value})
-/api/exporte/tour               GET(?tourname=)
+/api/einstellungen/smtp-test    POST — SMTP-Verbindung testen
+/api/einstellungen/email-test   POST — Test-E-Mail senden
+/api/einstellungen/artikel-import     GET/PUT — Artikel-Import-Konfiguration
+/api/einstellungen/preisliste-import  GET/PUT — Preislisten-Import-Konfiguration
 /api/suche                      GET(?q=) — Kunden/Artikel/Lieferungen/Inhaltsstoffe, min 2 Zeichen
-/api/ki/analyze                 POST({image?,text?,feature}) — Bild-/Text-Analyse (wareneingang|lieferung|crm)
-/api/ki/inhaltsstoffe           POST({name,kategorie?}) — KI-Recherche Produktzusammensetzung
-/api/ki/test                    POST — Verbindungstest API-Key
-/api/ki/statistik               GET(?tage=30) — Nutzungsstatistik
+/api/suche/rebuild              POST — FTS5-Index neu aufbauen
+/api/backup                     GET — DB-Backup-Status
+/api/backup/download            GET — SQLite-Datenbank herunterladen
+/api/db-check                   GET — DB-Verbindungscheck (Health-Check)
+/api/preislisten-import         POST — Preislisten-EK-Update
 ```
 
 ---
@@ -251,9 +467,13 @@ Wiederverwendbarer Combobox (ersetzt alle `<select>`):
 
 ### `components/Nav.tsx`
 - Lädt `system.logo` aus DB, zeigt es im Header
-- Gruppen: Dashboard | Kunden (Kundenliste, Karte, Import, CRM, Gebietsanalyse, AFIG,
-  Telefonmaske, Tagesansicht, Preisauskunft) | Artikel | Lieferungen (Angebote, Aufgaben/TODO,
-  Lieferungen, Tourenplanung) | Finanzen | Analyse | Einstellungen
+- Gruppen: Dashboard | Kunden (Kundenliste, Karte, Import, CRM, Besuchstermine, Gebietsanalyse,
+  AFIG, Mailverteiler, Kundenbewertung, Telefonmaske, Preisauskunft, Tagesansicht) |
+  Artikel (Artikelstamm, Lieferanten, Lager, Umbuchungen, Inventur, Preiskalkulation) |
+  Lieferungen (Angebote, Aufgaben/TODO, Lieferungen, Fahrer-Cockpit, Bestellliste, Tourenplanung) |
+  Finanzen (Rechnungen, Sammelrechnungen, Gutschriften, Ausgabenbuch, Bankabgleich, Mahnwesen,
+  Mengenrabatte, Export) | Analyse (Statistik, Prognose, Marktpreise, ABC-Analyse, Saisonal,
+  Deckungsbeitrag, Änderungshistorie) | KI | Einstellungen
 
 ### `components/Card.tsx`
 `<Card>` und `<KpiCard label="" value="" color="" sub="" />`
@@ -303,6 +523,16 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Lieferanten | /einstellungen/lieferanten | Zahlungskonditionen, MwSt |
 | Agraranträge (AFIG) | /einstellungen/agrarantraege | CSV-Import UI |
 | KI / AI | /einstellungen/ki | API-Keys, Modell, Prompt-Verwaltung, Statistik |
+| Benutzer | /einstellungen/benutzer | Multi-User, Passwort-Reset, Rollen |
+| E-Mail | /einstellungen/email | SMTP/Resend-Konfiguration + Test |
+| Backup | /einstellungen/backup | DB-Backup herunterladen |
+| Google Drive | /einstellungen/google-drive | Service-Account JSON hochladen, Root-Ordner |
+| Bankkonten | /einstellungen/bankkonten | IBAN/BIC für Rechnungen + Bankabgleich |
+| Nummernkreis | /einstellungen/nummernkreis | Artikelnummer-Prefix + Startnummer |
+| Ausgaben-Kategorien | /einstellungen/ausgaben | Ausgabenkategorien für Ausgabenbuch |
+| DATEV | /einstellungen/datev | DATEV-Kontenrahmen-Mapping |
+| Artikelkategorien | /einstellungen/artikelkategorien | Kategorien verwalten |
+| Import | /einstellungen/import | Kunden-Import + Preislisten-Import Konfiguration |
 
 ---
 
@@ -427,6 +657,37 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
   - `/ki/wareneingang` — Lieferschein-Erkennung per Foto
   - `/ki/lieferung` — Bestellungs-Erkennung
   - `/ki/crm` — CRM-Notizen aus Bild/Sprache
+- **Weitere KI-Endpunkte:**
+  - `POST /api/ki/beleg` — Beleg-OCR (Ausgaben-Erkennung)
+  - `GET /api/ki/churn?kundeId=` — Churn-Risiko-Score
+  - `POST /api/ki/preis-empfehlung` — KI-Preisempfehlung (intern)
+
+## Authentifizierung (`lib/auth.ts`)
+
+- **JWT-Sessions** via `jose` + `bcryptjs` — Cookie `kundefutter_session` (7 Tage)
+- **Env-Var:** `SESSION_SECRET` (mind. 32 Zeichen) — Dev-Fallback wird geloggt
+- **Exports:** `getSessionSecret()`, `createSession()`, `validateSession()`, `SessionPayload`
+- **Login-Seite:** `/login/page.tsx` — POST zu `/api/auth/login`
+- **Middleware:** Prüft Cookie auf geschützten Routen; `/login` und `/qr/[id]` sind öffentlich
+- **Rollen:** Gespeichert im JWT-Payload; `rolle: "admin" | "benutzer"`
+
+## Neue Lib-Module
+
+| Datei | Zweck |
+|-------|-------|
+| `lib/auth.ts` | JWT-Session (jose + bcryptjs), Login/Logout, Session-Validierung |
+| `lib/audit.ts` | `auditLog()` + `auditChanges()` — schreibt in `AuditLog`-Tabelle |
+| `lib/bankimport.ts` | Parser für CSV-Kontoauszüge (MT940-ähnlich, deutsche Formate) |
+| `lib/email.ts` | E-Mail-Versand via SMTP (nodemailer) oder Resend, `loadEmailConfig()` |
+| `lib/email-templates.ts` | HTML-E-Mail-Templates (Rechnung, Mahnung, Angebot) |
+| `lib/firma.ts` | `loadFirmaDaten()` — lädt Firmen-Einstellungen aus DB (Interface `FirmaDaten`) |
+| `lib/girocode.ts` | EPC-QR-Code / GiroCode Generator (SEPA-Überweisungs-QR auf Rechnungen) |
+| `lib/googleDrive.ts` | Google Drive Service-Account-Integration (Dokument-Ablage) |
+| `lib/matif.ts` | MATIF/Euronext Futures via Yahoo Finance (Crumb-Auth, Symbols EBM/ERO/EMA) |
+| `lib/overpass.ts` | OpenStreetMap Overpass API — Abfrage von Landwirtschaftsflächen |
+| `lib/upload.ts` | `getUploadBase()` — Upload-Verzeichnis (Docker: `/data/uploads`, Dev: `./uploads`) |
+| `lib/weather.ts` | Open-Meteo Wetter-API — 7-Tage-Forecast mit WMO-Codes als Emojis |
+| `lib/zugferd-xml.ts` | Factur-X / ZUGFeRD BASIC-WL XML-Generator (kein externe Dep.) |
 
 ## Wettbewerber-Notizen
 

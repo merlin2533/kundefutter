@@ -197,6 +197,15 @@ export default function KundenPage() {
         </div>
       </div>
 
+      {/* Ergebnis-Info */}
+      {!loading && total !== null && (
+        <div className="mb-2 text-xs text-gray-500">
+          {kunden.length < total
+            ? `Zeige ${kunden.length} von ${total} Kunden`
+            : `${total} Kunde${total !== 1 ? "n" : ""} gesamt`}
+        </div>
+      )}
+
       {/* Geocoding-Hinweis */}
       {!loading && (() => {
         const ohneKoord = kunden.filter((k) => k.lat == null || k.lng == null).length;
@@ -214,13 +223,22 @@ export default function KundenPage() {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
-          <p className="p-6 text-gray-400 text-sm">Lade Kunden…</p>
+          <div className="flex items-center gap-3 p-6 text-gray-400 text-sm">
+            <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            Lade Kunden…
+          </div>
         ) : kunden.length === 0 ? (
-          <p className="p-6 text-gray-400 text-sm">Keine Kunden gefunden.</p>
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <svg className="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="font-medium text-gray-500">Keine Kunden gefunden</p>
+            <p className="text-xs mt-1">Suchbegriff oder Filter anpassen</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
                   <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Firma</th>

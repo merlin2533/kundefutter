@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     if (!artNr || isNaN(neuerPreis)) continue;
 
-    const zuordnung = await prisma.artikelLieferant.findFirst({
+    let zuordnung = await prisma.artikelLieferant.findFirst({
       where: {
         lieferantId,
         OR: [
@@ -38,7 +38,33 @@ export async function POST(req: NextRequest) {
       include: { artikel: { select: artikelSafeSelect } },
     });
 
-    if (!zuordnung) continue;
+    // Kein bestehender Link für diesen Lieferanten — Artikel trotzdem suchen und neu verknüpfen
+    if (!zuordnung) {
+      const artikel = await prisma.artikel.findFirst({
+        where: {
+          OR: [
+            { artikelnummer: artNr },
+            { lieferanten: { some: { lieferantenArtNr: artNr } } },
+          ],
+        },
+        select: { ...artikelSafeSelect, id: true },
+      });
+      if (!artikel) continue;
+
+      const neueZuordnung = await prisma.artikelLieferant.create({
+        data: {
+          artikelId: artikel.id,
+          lieferantId,
+          lieferantenArtNr: artNr,
+          einkaufspreis: neuerPreis,
+          mindestbestellmenge: 1,
+          lieferzeitTage: 7,
+          bevorzugt: false,
+        },
+        include: { artikel: { select: artikelSafeSelect } },
+      });
+      zuordnung = neueZuordnung;
+    }
 
     vorschlaege.push({
       artikelLieferantId: zuordnung.id,
