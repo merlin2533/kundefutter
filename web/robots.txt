@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://agraroffice.de/sitemap.xml
+
+# Performance hint for crawlers
+Crawl-delay: 1

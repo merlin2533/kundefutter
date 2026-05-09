@@ -1,5 +1,70 @@
 # AgrarOffice Röthemeier — Projekt-Wissensbasis
 
+---
+
+## Marketing-Website (`web/`)
+
+Die SaaS-Landingpage liegt unter `web/index.html` (statisches **HTML**, kein Framework).
+
+### Technologie-Stack der Website
+- **Reines HTML5 + CSS3 + Vanilla JS** — kein Build-Schritt, kein Framework
+- PHP kann optional für Kontaktformular-Backend ergänzt werden (z.B. `web/kontakt.php`)
+- Fonts: Google Fonts (Inter + Playfair Display), per `<link>` geladen
+- Icons: Inline SVG — keine externe Icon-Bibliothek
+- Performance: Critical CSS inline, Scroll-Animationen via IntersectionObserver, Counter-Animation
+
+### Struktur
+```
+web/
+├── index.html          ← Haupt-Landingpage (Single-Page)
+├── sitemap.xml         ← SEO Sitemap
+├── robots.txt          ← Crawler-Regeln
+└── img/
+    └── favicon.svg     ← Favicon
+```
+
+### Abschnitte der Landingpage
+1. **Hero** — Headline, CTA, App-Preview-Mockup, Trust-Avatare
+2. **Trust-Bar** — DSGVO, Verfügbarkeit, Support, Kündigung
+3. **Features-Übersicht** — 9 Feature-Cards (3×3 Grid)
+4. **Deep-Dives** — CRM, Lager/Lieferung, KI/Marktpreise (alternierend mit App-Mockups)
+5. **Stats** — Animierte Zähler (47+ Betriebe, 12.000+ Lieferscheine, 98%, 4h)
+6. **Pricing** — 3 Tarife (Starter €49, Professional €129, Enterprise individuell) mit Monats/Jahres-Toggle
+7. **Testimonials** — 3 Kundenstimmen
+8. **FAQ** — 6 Fragen mit Accordion (Schema.org FAQPage)
+9. **CTA-Banner** — E-Mail + Telefon Conversion
+10. **Footer** — Links, Badges, Copyright
+
+### SEO-Daten
+- Title: `AgrarOffice – Die All-in-One CRM & ERP Software für Agrarhändler | SaaS`
+- Meta Description: max 160 Zeichen, mit Keywords
+- Schema.org: `SoftwareApplication` + `FAQPage` + `AggregateRating`
+- Open Graph + Twitter Card vollständig
+- Canonical: `https://agraroffice.de/`
+- Sitemap verlinkt in `robots.txt`
+
+### Preise (SaaS-Tarife)
+| Tarif | Monatlich | Jährlich | Nutzer |
+|-------|-----------|----------|--------|
+| Starter | €49 | €41 | bis 3 |
+| Professional | €129 | €108 | bis 10 |
+| Enterprise | individuell | — | unbegrenzt |
+
+### Farben (CSS Custom Properties)
+- `--green-700: #40916c` (Primär)
+- `--green-800: #2d6a4f` (Hover)
+- `--green-900: #1b4332` (Hero/Footer Hintergrund)
+- `--amber: #f4a261` (CTA/Akzent)
+
+### Regeln für Website-Änderungen
+- Neue Features im Produkt → immer Feature-Card und ggf. Deep-Dive in `web/index.html` ergänzen
+- Preisänderungen → in `web/index.html` Abschnitt `pricing-grid` UND Schema.org `offers` anpassen
+- SEO-Keywords immer in `<title>`, `<meta name="description">` und `<h1>` integriert halten
+- Keine externen JS-Bibliotheken hinzufügen (Performance)
+- PHP nur für serverseitige Logik (Kontaktformular, Lead-Capture) — Datei dann `web/kontakt.php`
+
+---
+
 ## Framework & Laufzeitumgebung
 
 **WICHTIG: Lies immer zuerst `node_modules/next/dist/docs/` bevor du Code schreibst.**
