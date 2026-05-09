@@ -11,6 +11,7 @@
  *   20260429000000_add_wareneingang_chargenr
  *   20260429010000_add_einheiten_saatgut_defaults  (data-only, idempotent SQL)
  *   20260505000000_add_lieferung_rechnung_indizes   (already uses IF NOT EXISTS)
+ *   20260509000000_add_unterschrift_fahrer          (Lieferung.unterschriftPng + fahrerId)
  */
 
 const { createClient } = require("@libsql/client");
@@ -144,6 +145,23 @@ async function main() {
     log(`✓ ${MIG4} applied`);
   } else {
     log(`skip ${MIG4} (already applied)`);
+  }
+
+  // ── Migration 5: 20260509000000_add_unterschrift_fahrer ───────────────────
+  const MIG5 = "20260509000000_add_unterschrift_fahrer";
+  if (!(await migrationApplied(client, MIG5))) {
+    if (!(await columnExists(client, "Lieferung", "unterschriftPng"))) {
+      log("Adding Lieferung.unterschriftPng …");
+      await client.execute(`ALTER TABLE "Lieferung" ADD COLUMN "unterschriftPng" TEXT`);
+    }
+    if (!(await columnExists(client, "Lieferung", "fahrerId"))) {
+      log("Adding Lieferung.fahrerId …");
+      await client.execute(`ALTER TABLE "Lieferung" ADD COLUMN "fahrerId" INTEGER`);
+    }
+    await recordMigration(client, MIG5);
+    log(`✓ ${MIG5} applied`);
+  } else {
+    log(`skip ${MIG5} (already applied)`);
   }
 
   await client.close();

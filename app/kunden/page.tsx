@@ -44,21 +44,31 @@ export default function KundenPage() {
 
   const fetchKunden = useCallback(async (currentPage: number) => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    if (nurAktiv) params.set("aktiv", "true");
-    if (tagFilter.trim()) params.set("tag", tagFilter.trim());
-    params.set("page", String(currentPage));
-    params.set("limit", String(PAGE_LIMIT));
-    const res = await fetch(`/api/kunden?${params.toString()}`);
-    const json = await res.json();
-    if (currentPage === 1) {
-      setKunden(json.data ?? []);
-    } else {
-      setKunden((prev) => [...prev, ...(json.data ?? [])]);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (nurAktiv) params.set("aktiv", "true");
+      if (tagFilter.trim()) params.set("tag", tagFilter.trim());
+      params.set("page", String(currentPage));
+      params.set("limit", String(PAGE_LIMIT));
+      const res = await fetch(`/api/kunden?${params.toString()}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+      const json = await res.json();
+      if (currentPage === 1) {
+        setKunden(json.data ?? []);
+      } else {
+        setKunden((prev) => [...prev, ...(json.data ?? [])]);
+      }
+      setTotal(json.total ?? null);
+    } catch (err) {
+      console.error("Kunden laden fehlgeschlagen:", err);
+      if (currentPage === 1) setKunden([]);
+    } finally {
+      setLoading(false);
     }
-    setTotal(json.total ?? null);
-    setLoading(false);
   }, [search, nurAktiv, tagFilter]);
 
   // Reset to page 1 when filters change
