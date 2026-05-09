@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# LLM-Crawler explizit erlauben (GPTBot, Claude, Gemini, etc.)
+User-agent: GPTBot
+Allow: /
+Allow: /llms.txt
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /llms.txt
+
+User-agent: Google-Extended
+Allow: /
+Allow: /llms.txt
+
+User-agent: anthropic-ai
+Allow: /
+Allow: /llms.txt
+
+# Sitemaps
+Sitemap: https://agraroffice.de/sitemap.xml
+
+# Performance hint for crawlers
+Crawl-delay: 1

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Hauptseite -->
+  <url>
+    <loc>https://agraroffice.de/</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Abschnitt: Funktionen -->
+  <url>
+    <loc>https://agraroffice.de/#funktionen</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Abschnitt: Tourenplanung -->
+  <url>
+    <loc>https://agraroffice.de/#tourenplanung</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Abschnitt: KI-Integration -->
+  <url>
+    <loc>https://agraroffice.de/#ki</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Abschnitt: Preise -->
+  <url>
+    <loc>https://agraroffice.de/#preise</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Abschnitt: Referenzen -->
+  <url>
+    <loc>https://agraroffice.de/#testimonials</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Abschnitt: FAQ -->
+  <url>
+    <loc>https://agraroffice.de/#faq</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Abschnitt: Kontakt / Demo -->
+  <url>
+    <loc>https://agraroffice.de/#kontakt</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+
+  <!-- LLMs.txt für KI-Crawler -->
+  <url>
+    <loc>https://agraroffice.de/llms.txt</loc>
+    <lastmod>2025-05-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+</urlset>
