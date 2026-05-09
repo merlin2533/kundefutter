@@ -93,7 +93,38 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
   <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap&display=swap" rel="stylesheet" />
+
+  <!-- Structured Data: HowTo Tourenplanung -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Tourenplanung mit AgrarOffice einrichten",
+    "description": "Optimierte Liefertour in 3 Schritten planen und als PDF exportieren",
+    "step": [
+      { "@type": "HowToStep", "name": "Lieferungen auswählen", "text": "Wählen Sie alle Lieferungen oder Besuche des Tages in der Listenansicht aus." },
+      { "@type": "HowToStep", "name": "Route optimieren", "text": "AgrarOffice berechnet per Klick die kürzeste Route via OSRM-Routing und zeigt sie auf der Karte." },
+      { "@type": "HowToStep", "name": "Tour exportieren", "text": "Exportieren Sie die fertige Tour als druckfertiges PDF für den Fahrer oder die Disponentin." }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data: LocalBusiness -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "AgrarOffice",
+    "description": "Cloud-SaaS-Software für Agrarhändler und Landhandelsbetriebe: CRM, Tourenplanung, Lagerverwaltung, KI-Integration.",
+    "url": "https://agraroffice.de",
+    "email": "info@agraroffice.de",
+    "areaServed": "DE",
+    "currenciesAccepted": "EUR",
+    "priceRange": "€€",
+    "sameAs": []
+  }
+  </script>
 
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg" />
@@ -402,9 +433,176 @@
 
     /* Smooth counter */
     .counter { font-variant-numeric: tabular-nums; }
+
+    /* ── ACCESSIBILITY ── */
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    .skip-link { position:absolute; top:-100px; left:16px; background:var(--green-700); color:white; padding:12px 20px; z-index:9999; border-radius:0 0 10px 10px; transition:top .2s; font-weight:600; text-decoration:none; font-size:.9rem; }
+    .skip-link:focus { top:0; }
+
+    /* ── COOKIE BANNER ── */
+    .cookie-banner { position:fixed; bottom:0; left:0; right:0; background:#111827; color:white; padding:18px 0; z-index:3000; border-top:3px solid var(--green-700); transform:translateY(100%); transition:transform .4s ease; }
+    .cookie-banner.show { transform:translateY(0); }
+    .cookie-inner { display:flex; align-items:center; gap:24px; flex-wrap:wrap; justify-content:space-between; }
+    .cookie-text { font-size:.85rem; color:rgba(255,255,255,.8); line-height:1.6; flex:1; min-width:220px; }
+    .cookie-text a { color:var(--green-400); text-decoration:underline; }
+    .cookie-btns { display:flex; gap:10px; flex-shrink:0; }
+    .btn-cookie-accept { background:var(--green-700); color:white; border:none; padding:10px 22px; border-radius:50px; font-size:.875rem; font-weight:600; cursor:pointer; transition:background .2s; }
+    .btn-cookie-accept:hover { background:var(--green-800); }
+    .btn-cookie-decline { background:transparent; color:rgba(255,255,255,.6); border:1px solid rgba(255,255,255,.25); padding:10px 20px; border-radius:50px; font-size:.875rem; cursor:pointer; transition:all .2s; }
+    .btn-cookie-decline:hover { border-color:rgba(255,255,255,.6); color:white; }
+
+    /* ── STICKY BOTTOM CTA ── */
+    .sticky-bottom { position:fixed; bottom:0; left:0; right:0; z-index:800; background:var(--green-800); padding:11px 0; transform:translateY(100%); transition:transform .35s ease; box-shadow:0 -4px 20px rgba(0,0,0,.2); }
+    .sticky-bottom.show { transform:translateY(0); }
+    .sticky-bottom-inner { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .sticky-bottom-text { font-size:.875rem; color:rgba(255,255,255,.85); }
+    .sticky-bottom-text strong { color:var(--amber); }
+    .sticky-bottom-btns { display:flex; gap:10px; flex-shrink:0; }
+    @media(max-width:600px) { .sticky-bottom-text { display:none; } .sticky-bottom-inner { justify-content:center; } }
+
+    /* ── HOW IT WORKS ── */
+    .how-it-works { padding:80px 0; background:var(--green-50); }
+    .how-header { text-align:center; margin-bottom:56px; }
+    .how-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:40px; position:relative; }
+    .how-steps::before { content:""; position:absolute; top:32px; left:calc(16.7% + 24px); right:calc(16.7% + 24px); height:2px; background:repeating-linear-gradient(90deg,var(--green-400) 0,var(--green-400) 8px,transparent 8px,transparent 18px); pointer-events:none; }
+    .how-step { text-align:center; position:relative; }
+    .how-num { width:64px; height:64px; border-radius:50%; background:var(--green-700); color:white; font-family:'Playfair Display',Georgia,serif; font-size:1.5rem; font-weight:800; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; box-shadow:0 4px 20px rgba(64,145,108,.35); position:relative; z-index:1; }
+    .how-step h3 { font-size:1.05rem; font-weight:700; color:var(--gray-900); margin-bottom:8px; }
+    .how-step p { font-size:.9rem; color:var(--gray-600); line-height:1.65; }
+    .how-badge { display:inline-block; margin-top:12px; padding:4px 14px; background:var(--green-100); border-radius:50px; font-size:.75rem; font-weight:700; color:var(--green-800); }
+    @media(max-width:768px) { .how-steps { grid-template-columns:1fr; gap:32px; } .how-steps::before { display:none; } }
+
+    /* ── COMPARISON TABLE ── */
+    .comparison-section { padding:80px 0; background:var(--white); }
+    .comparison-header { text-align:center; margin-bottom:48px; }
+    .comparison-wrap { overflow-x:auto; }
+    .comparison-table { width:100%; border-collapse:separate; border-spacing:0; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-lg); min-width:560px; }
+    .comparison-table thead tr { background:var(--green-900); }
+    .comparison-table th { padding:18px 22px; text-align:center; color:white; font-size:.875rem; font-weight:700; }
+    .comparison-table th:first-child { text-align:left; }
+    .comparison-table th.hl { background:var(--green-700); }
+    .comparison-table tbody tr { border-bottom:1px solid var(--gray-100); transition:background .12s; }
+    .comparison-table tbody tr:hover { background:var(--gray-50); }
+    .comparison-table tbody tr:last-child { border-bottom:none; }
+    .comparison-table td { padding:13px 22px; font-size:.875rem; text-align:center; color:var(--gray-600); }
+    .comparison-table td:first-child { text-align:left; font-weight:600; color:var(--gray-900); }
+    .comparison-table td.hl { background:rgba(64,145,108,.05); }
+    .cmp-yes { color:var(--green-700); font-size:1.1rem; font-weight:700; }
+    .cmp-no { color:var(--gray-300); font-size:1.1rem; }
+    .cmp-part { color:#d97706; font-size:.8rem; font-weight:600; }
+
+    /* ── ROI CALCULATOR ── */
+    .roi-section { padding:80px 0; background:var(--green-900); }
+    .roi-inner { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+    .roi-text .section-label { color:var(--amber); }
+    .roi-text .section-title { color:var(--white); }
+    .roi-text .section-sub { color:rgba(255,255,255,.7); }
+    .roi-inputs { margin-top:32px; display:flex; flex-direction:column; gap:24px; }
+    .roi-group label { display:flex; justify-content:space-between; font-size:.82rem; font-weight:600; color:rgba(255,255,255,.75); margin-bottom:8px; }
+    .roi-group label em { color:var(--amber); font-style:normal; font-size:.95rem; }
+    input[type=range] { width:100%; -webkit-appearance:none; height:6px; border-radius:6px; background:rgba(255,255,255,.18); outline:none; cursor:pointer; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--amber); cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+    input[type=range]::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:var(--amber); cursor:pointer; border:none; }
+    .roi-result { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.13); border-radius:var(--radius-lg); padding:36px; }
+    .roi-result-label { font-size:.8rem; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px; }
+    .roi-result-amount { font-family:'Playfair Display',Georgia,serif; font-size:3rem; font-weight:800; color:var(--amber); line-height:1; }
+    .roi-result-unit { font-size:.85rem; color:rgba(255,255,255,.5); margin-top:4px; margin-bottom:28px; }
+    .roi-breakdown { display:flex; flex-direction:column; gap:10px; margin-bottom:28px; }
+    .roi-row { display:flex; justify-content:space-between; align-items:center; padding:11px 16px; border-radius:8px; font-size:.85rem; }
+    .roi-row.loss { background:rgba(248,113,113,.12); color:#fca5a5; }
+    .roi-row.gain { background:rgba(74,222,128,.12); color:#86efac; }
+    .roi-row span:last-child { font-weight:700; }
+    @media(max-width:900px) { .roi-inner { grid-template-columns:1fr; gap:40px; } }
+
+    /* ── VIDEO DEMO ── */
+    .video-section { padding:80px 0; background:var(--gray-50); }
+    .video-header { text-align:center; margin-bottom:48px; }
+    .video-header .section-sub { margin:16px auto 0; }
+    .video-thumb { position:relative; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-lg); max-width:720px; margin:0 auto; cursor:pointer; }
+    .video-art { height:380px; background:linear-gradient(135deg,var(--green-900) 0%,var(--green-800) 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+    .video-art-icon { font-size:3rem; }
+    .video-art-text { font-size:.9rem; color:rgba(255,255,255,.6); }
+    .video-play-ring { width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,.35); transition:all .2s; }
+    .video-thumb:hover .video-play-ring { background:var(--amber); border-color:var(--amber); transform:scale(1.08); }
+    .video-duration { position:absolute; bottom:16px; right:20px; background:rgba(0,0,0,.65); color:white; font-size:.75rem; padding:4px 10px; border-radius:4px; font-weight:600; }
+    .video-features { display:flex; justify-content:center; gap:32px; margin-top:32px; flex-wrap:wrap; }
+    .video-feature { display:flex; align-items:center; gap:8px; font-size:.875rem; color:var(--gray-600); font-weight:500; }
+    .video-feature svg { color:var(--green-700); }
+
+    /* ── BLOG TEASER ── */
+    .blog-section { padding:80px 0; background:var(--white); }
+    .blog-header { text-align:center; margin-bottom:48px; }
+    .blog-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+    .blog-card { border-radius:var(--radius-lg); overflow:hidden; border:1px solid var(--gray-200); transition:all .25s; display:flex; flex-direction:column; }
+    .blog-card:hover { box-shadow:var(--shadow); transform:translateY(-4px); border-color:var(--green-400); }
+    .blog-card-img { height:140px; display:flex; align-items:center; justify-content:center; font-size:2.8rem; }
+    .blog-card-body { padding:20px; flex:1; display:flex; flex-direction:column; }
+    .blog-tag { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--green-700); margin-bottom:8px; }
+    .blog-card h3 { font-size:.975rem; font-weight:700; color:var(--gray-900); margin-bottom:8px; line-height:1.4; }
+    .blog-card p { font-size:.85rem; color:var(--gray-600); line-height:1.6; flex:1; }
+    .blog-card-link { display:inline-flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; color:var(--green-700); margin-top:16px; transition:gap .15s; }
+    .blog-card-link:hover { gap:10px; }
+    @media(max-width:900px) { .blog-grid { grid-template-columns:1fr 1fr; } }
+    @media(max-width:580px) { .blog-grid { grid-template-columns:1fr; } }
+
+    /* ── CONTACT FORM SECTION ── */
+    .contact-section { padding:100px 0; background:linear-gradient(135deg,var(--green-900) 0%,var(--green-800) 100%); position:relative; overflow:hidden; }
+    .contact-section::before { content:""; position:absolute; top:-40%; right:-5%; width:500px; height:500px; border-radius:50%; background:rgba(255,255,255,.04); pointer-events:none; }
+    .contact-grid { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:start; position:relative; z-index:1; }
+    .contact-left h2 { font-family:'Playfair Display',Georgia,serif; font-size:clamp(1.8rem,3.5vw,2.6rem); font-weight:800; color:var(--white); margin:12px 0 20px; line-height:1.2; }
+    .contact-left p { font-size:1rem; color:rgba(255,255,255,.75); line-height:1.75; margin-bottom:32px; }
+    .contact-trust { display:flex; flex-direction:column; gap:12px; }
+    .contact-trust-item { display:flex; align-items:center; gap:10px; color:rgba(255,255,255,.8); font-size:.9rem; }
+    .contact-trust-dot { width:8px; height:8px; border-radius:50%; background:var(--amber); flex-shrink:0; }
+    .contact-form-card { background:var(--white); border-radius:var(--radius-lg); padding:40px; box-shadow:0 24px 64px rgba(0,0,0,.3); }
+    .contact-form-card h3 { font-size:1.15rem; font-weight:700; color:var(--gray-900); margin-bottom:24px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-group { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+    .form-group label { font-size:.8rem; font-weight:600; color:var(--gray-700); }
+    .form-group input, .form-group textarea, .form-group select { padding:11px 14px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:.9rem; font-family:inherit; color:var(--gray-900); transition:border-color .2s,box-shadow .2s; background:var(--white); }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline:none; border-color:var(--green-700); box-shadow:0 0 0 3px rgba(64,145,108,.12); }
+    .form-group textarea { resize:vertical; min-height:88px; }
+    .form-group select { cursor:pointer; }
+    .form-check { display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; }
+    .form-check input[type=checkbox] { width:17px; height:17px; margin-top:2px; flex-shrink:0; accent-color:var(--green-700); cursor:pointer; }
+    .form-check label { font-size:.8rem; color:var(--gray-600); line-height:1.55; cursor:pointer; }
+    .form-check label a { color:var(--green-700); }
+    .form-honeypot { display:none; }
+    .form-msg { display:none; padding:12px 16px; border-radius:8px; font-size:.875rem; font-weight:500; margin-top:10px; }
+    .form-msg.ok { background:var(--green-100); color:var(--green-800); display:block; }
+    .form-msg.err { background:#fee2e2; color:#991b1b; display:block; }
+    @media(max-width:900px) { .contact-grid { grid-template-columns:1fr; gap:48px; } }
+    @media(max-width:520px) { .form-row { grid-template-columns:1fr; } .contact-form-card { padding:24px; } }
+
+    /* ── BACK TO TOP ── */
+    .back-to-top { position:fixed; bottom:80px; right:20px; width:44px; height:44px; background:var(--green-700); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; cursor:pointer; box-shadow:0 4px 16px rgba(64,145,108,.45); opacity:0; transform:translateY(16px); transition:all .3s; z-index:700; border:none; }
+    .back-to-top.show { opacity:1; transform:translateY(0); }
+    .back-to-top:hover { background:var(--green-800); transform:translateY(-2px) !important; }
+
+    /* ── FLOAT PHONE CTA (mobile only) ── */
+    .float-phone { position:fixed; bottom:24px; right:20px; z-index:700; }
+    @media(min-width:769px) { .float-phone { display:none; } }
+    .float-phone-btn { width:54px; height:54px; border-radius:50%; background:var(--amber); display:flex; align-items:center; justify-content:center; color:white; box-shadow:0 4px 20px rgba(244,162,97,.55); border:none; cursor:pointer; text-decoration:none; animation:pulse-phone 2.5s ease-in-out infinite; }
+    @keyframes pulse-phone { 0%,100% { box-shadow:0 4px 20px rgba(244,162,97,.55); } 50% { box-shadow:0 4px 36px rgba(244,162,97,.9); } }
   </style>
 </head>
 <body>
+
+<!-- Skip Navigation (Accessibility) -->
+<a href="#main-content" class="skip-link">Zum Hauptinhalt springen</a>
+
+<!-- Sticky Bottom CTA (erscheint nach dem Hero) -->
+<div class="sticky-bottom" id="stickyBottom" role="complementary" aria-label="Demo-Anmeldung">
+  <div class="container">
+    <div class="sticky-bottom-inner">
+      <p class="sticky-bottom-text"><strong>14 Tage gratis testen</strong> — keine Kreditkarte, kein Risiko.</p>
+      <div class="sticky-bottom-btns">
+        <a href="#kontakt" class="btn btn-amber" style="padding:9px 20px;font-size:.85rem">Jetzt testen</a>
+        <a href="#preise" class="btn btn-white" style="padding:9px 20px;font-size:.85rem;background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.3)">Preise</a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobileMenu">
@@ -456,7 +654,7 @@
 </nav>
 
 <!-- Hero -->
-<section class="hero">
+<section class="hero" id="main-content">
   <div class="hero-bg">
     <div class="hero-bg-circle"></div>
     <div class="hero-bg-circle"></div>
@@ -562,6 +760,37 @@
     </div>
   </div>
 </div>
+
+<!-- Wie es funktioniert -->
+<section class="how-it-works" aria-labelledby="how-title">
+  <div class="container">
+    <div class="how-header animate-on-scroll">
+      <div class="section-label">So einfach ist der Start</div>
+      <h2 class="section-title" id="how-title">In 3 Schritten live — ohne IT-Projekt</h2>
+      <p class="section-sub" style="margin:16px auto 0">Kein Installations-Aufwand, kein langer Einführungsprozess. Die meisten Betriebe sind innerhalb eines Tages produktiv.</p>
+    </div>
+    <div class="how-steps">
+      <div class="how-step animate-on-scroll delay-1">
+        <div class="how-num">1</div>
+        <h3>Konto anlegen</h3>
+        <p>Formular ausfüllen, E-Mail bestätigen – fertig. Ihr Testzugang mit vollem Funktionsumfang ist sofort aktiv.</p>
+        <span class="how-badge">⏱ ca. 2 Minuten</span>
+      </div>
+      <div class="how-step animate-on-scroll delay-2">
+        <div class="how-num">2</div>
+        <h3>Daten importieren</h3>
+        <p>Kunden, Artikel und Preislisten per CSV hochladen. Wer kein CSV hat: wir helfen beim Import aus Excel oder dem alten System.</p>
+        <span class="how-badge">📂 CSV oder manuell</span>
+      </div>
+      <div class="how-step animate-on-scroll delay-3">
+        <div class="how-num">3</div>
+        <h3>Team einladen & loslegen</h3>
+        <p>Außendienst per E-Mail einladen, Zugriffsrechte vergeben – und sofort erste Lieferscheine und Touren erstellen.</p>
+        <span class="how-badge">🚀 Sofort produktiv</span>
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- Features Overview -->
 <section class="features-overview" id="funktionen">
@@ -1089,6 +1318,42 @@
   </div>
 </section>
 
+<!-- Comparison Table -->
+<section class="comparison-section" aria-labelledby="cmp-title">
+  <div class="container">
+    <div class="comparison-header animate-on-scroll">
+      <div class="section-label">Warum AgrarOffice?</div>
+      <h2 class="section-title" id="cmp-title">AgrarOffice vs. Excel vs. allgemeines CRM</h2>
+      <p class="section-sub" style="margin:16px auto 0">Viele Landhandelsbetriebe starten mit Excel. Hier sehen Sie, was dabei auf der Strecke bleibt.</p>
+    </div>
+    <div class="comparison-wrap animate-on-scroll">
+      <table class="comparison-table" role="table">
+        <thead>
+          <tr>
+            <th scope="col">Funktion</th>
+            <th scope="col" class="hl">AgrarOffice</th>
+            <th scope="col">Excel / Papier</th>
+            <th scope="col">Allgem. CRM</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="feature-name">CRM für Landhandel</td><td class="hl"><span class="cmp-yes">✓</span> Speziell gebaut</td><td><span class="cmp-no">✕</span></td><td><span class="cmp-part">~ Generisch</span></td></tr>
+          <tr><td class="feature-name">Tourenplanung & Routing</td><td class="hl"><span class="cmp-yes">✓</span> Optimiert</td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">Digitale Lieferscheine & Rechnungen</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Manuell</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">Lagerverwaltung mit Ampel</td><td class="hl"><span class="cmp-yes">✓</span> Echtzeit</td><td><span class="cmp-part">~ Manuell pflegen</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">KI-Lieferscheinerkennung per Foto</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">Eurostat-Marktpreise live</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">AFIG / Agraranträge</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">Mobile App (Offline)</td><td class="hl"><span class="cmp-yes">✓</span> PWA</td><td><span class="cmp-no">✕</span></td><td><span class="cmp-part">~ Eingeschränkt</span></td></tr>
+          <tr><td class="feature-name">Server in Deutschland / DSGVO</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Je Anbieter</span></td></tr>
+          <tr><td class="feature-name">Monatlich kündbar</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Oft Jahresvertrag</span></td></tr>
+          <tr><td class="feature-name">Einrichtung ohne IT-Abteilung</td><td class="hl"><span class="cmp-yes">✓</span> &lt;1 Tag</td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Wochen</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <!-- Stats -->
 <section class="stats-section">
   <div class="container">
@@ -1108,6 +1373,53 @@
       <div class="animate-on-scroll delay-3">
         <div class="stat-number"><span class="counter" data-target="4">0</span>h</div>
         <div class="stat-label">Durchschnittliche Zeitersparnis pro Woche</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROI Calculator -->
+<section class="roi-section" aria-labelledby="roi-title">
+  <div class="container">
+    <div class="roi-inner">
+      <div class="roi-text animate-on-scroll">
+        <div class="section-label">ROI-Rechner</div>
+        <h2 class="section-title" id="roi-title">Was kostet Ihr Status quo wirklich?</h2>
+        <p class="section-sub">Stellen Sie ein, wie viel Zeit Ihr Team pro Woche mit Verwaltung verbringt – und sehen Sie, was das jährlich kostet.</p>
+        <div class="roi-inputs">
+          <div class="roi-group">
+            <label for="r-kunden">Aktive Kunden <em id="v-kunden">150</em></label>
+            <input type="range" id="r-kunden" min="20" max="600" value="150" step="10" aria-label="Anzahl aktiver Kunden" oninput="calcRoi()"/>
+          </div>
+          <div class="roi-group">
+            <label for="r-std">Stunden/Woche für manuelle Verwaltung <em id="v-std">8 h</em></label>
+            <input type="range" id="r-std" min="2" max="30" value="8" step="1" aria-label="Stunden pro Woche" oninput="calcRoi()"/>
+          </div>
+          <div class="roi-group">
+            <label for="r-lohn">Stundensatz Innen-/Außendienst <em id="v-lohn">45 €</em></label>
+            <input type="range" id="r-lohn" min="25" max="90" value="45" step="5" aria-label="Stundensatz" oninput="calcRoi()"/>
+          </div>
+        </div>
+      </div>
+      <div class="roi-result animate-on-scroll delay-2">
+        <div class="roi-result-label">Ihr geschätzter Verwaltungsverlust</div>
+        <div class="roi-result-amount" id="roi-amount">18.720 €</div>
+        <div class="roi-result-unit">pro Jahr — Personalkosten für manuelle Verwaltung</div>
+        <div class="roi-breakdown">
+          <div class="roi-row loss">
+            <span>Verwaltungsaufwand/Jahr</span>
+            <span id="roi-cost">18.720 €</span>
+          </div>
+          <div class="roi-row gain">
+            <span>AgrarOffice Professional/Jahr</span>
+            <span>1.548 €</span>
+          </div>
+          <div class="roi-row" style="background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)">
+            <span><strong>Potenzielle Einsparung</strong></span>
+            <span id="roi-save" style="color:var(--amber);font-weight:800">17.172 €</span>
+          </div>
+        </div>
+        <a href="#kontakt" class="btn btn-amber" style="width:100%;justify-content:center">Jetzt 14 Tage gratis testen</a>
       </div>
     </div>
   </div>
@@ -1211,6 +1523,41 @@
   </div>
 </section>
 
+<!-- Video Demo -->
+<section class="video-section" aria-labelledby="video-title">
+  <div class="container">
+    <div class="video-header animate-on-scroll">
+      <div class="section-label">Live-Demo</div>
+      <h2 class="section-title" id="video-title">Sehen Sie AgrarOffice in 2 Minuten</h2>
+      <p class="section-sub">Tourenplanung, CRM-Telefonmaske und KI-Wareneingang in der Praxis – ohne Registrierung.</p>
+    </div>
+    <div class="video-thumb animate-on-scroll delay-1" onclick="requestDemo()" role="button" tabindex="0" aria-label="Demo-Video abspielen" onkeydown="if(event.key==='Enter')requestDemo()">
+      <div class="video-art">
+        <div class="video-play-ring">
+          <svg width="28" height="28" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div class="video-art-icon">🌾</div>
+        <div class="video-art-text">AgrarOffice · Live-Demo · 2 Minuten</div>
+      </div>
+      <div class="video-duration">2:14</div>
+    </div>
+    <div class="video-features animate-on-scroll delay-2">
+      <div class="video-feature">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        Keine Anmeldung nötig
+      </div>
+      <div class="video-feature">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        Echter Produktionsstand
+      </div>
+      <div class="video-feature">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        Tourenplanung, CRM & KI gezeigt
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Testimonials -->
 <section class="testimonials" id="testimonials">
   <div class="container">
@@ -1258,6 +1605,45 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Blog Teaser -->
+<section class="blog-section" aria-labelledby="blog-title">
+  <div class="container">
+    <div class="blog-header animate-on-scroll">
+      <div class="section-label">Ratgeber & Wissen</div>
+      <h2 class="section-title" id="blog-title">Tipps für den modernen Landhandel</h2>
+    </div>
+    <div class="blog-grid">
+      <article class="blog-card animate-on-scroll delay-1">
+        <div class="blog-card-img" style="background:var(--green-50)">🗺️</div>
+        <div class="blog-card-body">
+          <div class="blog-tag">Tourenplanung</div>
+          <h3>5 Wege, wie Ihr Außendienst täglich 1 Stunde einspart</h3>
+          <p>Schlechte Routenplanung kostet Sprit, Zeit und Kundenkontakte. So optimieren Landhandelsbetriebe ihre Fahrtwege.</p>
+          <a href="#kontakt" class="blog-card-link">Mehr erfahren <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h8M7 3l4 4-4 4"/></svg></a>
+        </div>
+      </article>
+      <article class="blog-card animate-on-scroll delay-2">
+        <div class="blog-card-img" style="background:#fef3e2">🤖</div>
+        <div class="blog-card-body">
+          <div class="blog-tag">KI im Landhandel</div>
+          <h3>Lieferscheine per Foto erfassen – wie KI den Wareneingang revolutioniert</h3>
+          <p>Statt 20 Minuten Tippen: Foto machen, KI erkennt Artikel, Charge und Menge automatisch. So funktioniert es in der Praxis.</p>
+          <a href="#ki" class="blog-card-link">Zum KI-Bereich <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h8M7 3l4 4-4 4"/></svg></a>
+        </div>
+      </article>
+      <article class="blog-card animate-on-scroll delay-3">
+        <div class="blog-card-img" style="background:var(--green-50)">📈</div>
+        <div class="blog-card-body">
+          <div class="blog-tag">Marktpreise</div>
+          <h3>Harnstoff, Raps, KAS: Warum Eurostat-Daten Ihr bestes Verkaufsargument sind</h3>
+          <p>Mit aktuellen Preisindizes im Kundengespräch punkten – statt auf Bauchgefühl zu verkaufen.</p>
+          <a href="#kontakt" class="blog-card-link">Demo anfragen <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 7h8M7 3l4 4-4 4"/></svg></a>
+        </div>
+      </article>
     </div>
   </div>
 </section>
@@ -1346,37 +1732,81 @@
   </div>
 </section>
 
-<!-- CTA Banner -->
-<section class="cta-banner" id="kontakt">
+<!-- Contact Form Section -->
+<section class="contact-section" id="kontakt" aria-labelledby="contact-title">
   <div class="container">
-    <div class="cta-inner animate-on-scroll">
-      <div class="tag tag-amber" style="margin-bottom:24px">🌾 Jetzt starten</div>
-      <h2>Bereit, Ihren Landhandel-Vertrieb auf das nächste Level zu heben?</h2>
-      <p>Smarte Tourenplanung, KI-gestützte Lieferscheinerkennung und CRM, das wirklich für Agrar-Vertriebler gebaut ist. 14 Tage kostenlos – keine Kreditkarte, kein Risiko.</p>
-      <div class="cta-actions">
-        <a href="mailto:info@agraroffice.de?subject=14-Tage-Test%20AgrarOffice&body=Hallo%2C%0A%0Aich%20m%C3%B6chte%20AgrarOffice%2014%20Tage%20kostenlos%20testen.%0A%0AMein%20Betrieb%3A%20%0AAnzahl%20Kunden%3A%20%0ATelefon%3A%20%0A%0AVielen%20Dank!" class="btn btn-amber btn-lg">
-          ✉ Kostenlos testen – jetzt anmelden
-        </a>
-        <a href="tel:+4900000000000" class="btn btn-white btn-lg">
-          📞 Rückruf anfordern
-        </a>
+    <div class="contact-grid">
+      <div class="contact-left animate-on-scroll">
+        <div class="section-label" style="color:var(--amber)">🌾 Jetzt starten</div>
+        <h2 id="contact-title">14 Tage gratis testen — ohne Risiko</h2>
+        <p>Smarte Tourenplanung, KI-gestützte Lieferscheinerkennung und ein CRM, das wirklich für den Landhandel gebaut ist. Schreiben Sie uns – wir melden uns innerhalb von 1 Werktag.</p>
+        <div class="contact-trust">
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>Keine Kreditkarte erforderlich</div>
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>14 Tage voller Zugriff auf alle Funktionen</div>
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>DSGVO-konform, Server in Deutschland</div>
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>Persönlicher Support auf Deutsch</div>
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>Monatlich kündbar – kein Kleingedrucktes</div>
+          <div class="contact-trust-item"><span class="contact-trust-dot"></span>Datenmigration aus Excel? Wir helfen!</div>
+        </div>
+        <div style="margin-top:32px;display:flex;gap:16px;flex-wrap:wrap">
+          <a href="tel:+4900000000000" class="btn btn-white" style="padding:12px 22px;font-size:.875rem">📞 Direkt anrufen</a>
+          <a href="mailto:info@agraroffice.de" class="btn" style="background:rgba(255,255,255,.12);color:white;border:1px solid rgba(255,255,255,.3);padding:12px 22px;font-size:.875rem">✉ E-Mail senden</a>
+        </div>
       </div>
-      <div class="cta-trust">
-        <div class="cta-trust-item">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" transform="scale(.67)"/></svg>
-          DSGVO-konform
-        </div>
-        <div class="cta-trust-item">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5" transform="scale(.67)"/></svg>
-          Keine Kreditkarte
-        </div>
-        <div class="cta-trust-item">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="7" transform="scale(.67) translate(1,1)"/><path d="M8 5v3l2 2" transform="scale(.67) translate(1,1)"/></svg>
-          Setup in 5 Minuten
-        </div>
-        <div class="cta-trust-item">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" transform="scale(.67)"/></svg>
-          Persönlicher Support
+      <div class="animate-on-scroll delay-2">
+        <div class="contact-form-card">
+          <h3>Kostenlos testen oder Demo anfragen</h3>
+          <form id="contactForm" novalidate>
+            <input type="hidden" name="csrf" id="csrfToken" value="" />
+            <!-- Honeypot -->
+            <div class="form-honeypot" aria-hidden="true">
+              <label for="website">Website (nicht ausfüllen)</label>
+              <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="f-name">Name *</label>
+                <input type="text" id="f-name" name="name" placeholder="Max Mustermann" required autocomplete="name" />
+              </div>
+              <div class="form-group">
+                <label for="f-firma">Firma / Betrieb *</label>
+                <input type="text" id="f-firma" name="firma" placeholder="Muster Agrarhandel GmbH" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="f-email">E-Mail *</label>
+                <input type="email" id="f-email" name="email" placeholder="max@betrieb.de" required autocomplete="email" />
+              </div>
+              <div class="form-group">
+                <label for="f-tel">Telefon</label>
+                <input type="tel" id="f-tel" name="telefon" placeholder="+49 171 000000" autocomplete="tel" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="f-paket">Gewünschter Plan</label>
+              <select id="f-paket" name="paket">
+                <option value="">-- bitte wählen --</option>
+                <option value="Starter">Starter (€49/Monat, bis 3 Nutzer)</option>
+                <option value="Professional">Professional (€129/Monat, bis 10 Nutzer)</option>
+                <option value="Enterprise">Enterprise (individuell, unbegrenzt)</option>
+                <option value="Demo">Erst Demo ansehen</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="f-msg">Ihre Nachricht *</label>
+              <textarea id="f-msg" name="nachricht" placeholder="Was beschäftigt Sie? Wie viele Kunden betreuen Sie? Womit arbeiten Sie aktuell?" required></textarea>
+            </div>
+            <div class="form-check">
+              <input type="checkbox" id="f-dsgvo" name="dsgvo" required />
+              <label for="f-dsgvo">Ich habe die <a href="datenschutz.html" target="_blank">Datenschutzerklärung</a> gelesen und stimme der Verarbeitung meiner Daten zur Bearbeitung dieser Anfrage zu. *</label>
+            </div>
+            <button type="submit" class="btn btn-primary form-submit btn-lg" id="formSubmit">
+              <span id="formBtnText">Anfrage senden</span>
+              <svg id="formSpinner" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:none;animation:spin .8s linear infinite"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </button>
+            <div class="form-msg" id="formMsg" role="alert"></div>
+          </form>
         </div>
       </div>
     </div>
@@ -1420,11 +1850,11 @@
       <div class="footer-col">
         <h4>Rechtliches</h4>
         <ul>
-          <li><a href="#">Datenschutz</a></li>
-          <li><a href="#">Impressum</a></li>
-          <li><a href="#">AGB</a></li>
-          <li><a href="#">Cookie-Richtlinie</a></li>
-          <li><a href="#">DSGVO / AVV</a></li>
+          <li><a href="datenschutz.html">Datenschutz</a></li>
+          <li><a href="impressum.html">Impressum</a></li>
+          <li><a href="#kontakt">AGB</a></li>
+          <li><a href="#kontakt">Cookie-Richtlinie</a></li>
+          <li><a href="#kontakt">DSGVO / AVV</a></li>
         </ul>
       </div>
     </div>
@@ -1438,6 +1868,34 @@
     </div>
   </div>
 </footer>
+
+<!-- Cookie Banner -->
+<div class="cookie-banner" id="cookieBanner" role="dialog" aria-labelledby="cookie-title" aria-live="polite">
+  <div class="container">
+    <div class="cookie-inner">
+      <p class="cookie-text" id="cookie-title">
+        🍪 Wir verwenden technisch notwendige Cookies sowie – nach Ihrer Einwilligung – Analyse-Cookies zur Verbesserung des Angebots.
+        Weitere Infos in unserer <a href="datenschutz.html">Datenschutzerklärung</a>.
+      </p>
+      <div class="cookie-btns">
+        <button class="btn-cookie-accept" onclick="acceptCookies()" aria-label="Alle Cookies akzeptieren">Alle akzeptieren</button>
+        <button class="btn-cookie-decline" onclick="declineCookies()" aria-label="Nur notwendige Cookies">Nur notwendige</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Back to Top -->
+<button class="back-to-top" id="backToTop" aria-label="Zurück nach oben" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
+
+<!-- Float Phone CTA (mobile) -->
+<div class="float-phone" aria-label="Anrufen">
+  <a href="tel:+4900000000000" class="float-phone-btn" aria-label="Jetzt anrufen">
+    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.11 1.23 2 2 0 012.1 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+  </a>
+</div>
 
 <script>
   // Nav scroll effect
@@ -1514,6 +1972,119 @@
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
   });
+
+  // ── Sticky Bottom CTA ──────────────────────────────────────────────────────
+  const stickyBottom = document.getElementById('stickyBottom');
+  const heroHeight = document.querySelector('.hero')?.offsetHeight || 600;
+  let stickyVisible = false;
+  window.addEventListener('scroll', () => {
+    const atBottom = (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200;
+    const past = window.scrollY > heroHeight;
+    const show = past && !atBottom;
+    if (show !== stickyVisible) {
+      stickyVisible = show;
+      stickyBottom.classList.toggle('show', show);
+    }
+  }, { passive: true });
+
+  // ── Back to Top ────────────────────────────────────────────────────────────
+  const btt = document.getElementById('backToTop');
+  window.addEventListener('scroll', () => {
+    btt.classList.toggle('show', window.scrollY > 400);
+  }, { passive: true });
+
+  // ── Cookie Consent ─────────────────────────────────────────────────────────
+  const cookieBanner = document.getElementById('cookieBanner');
+  function showCookieBanner() {
+    if (!localStorage.getItem('cookieConsent')) {
+      setTimeout(() => cookieBanner.classList.add('show'), 1200);
+    }
+  }
+  function acceptCookies() {
+    localStorage.setItem('cookieConsent', 'all');
+    cookieBanner.classList.remove('show');
+  }
+  function declineCookies() {
+    localStorage.setItem('cookieConsent', 'necessary');
+    cookieBanner.classList.remove('show');
+  }
+  showCookieBanner();
+
+  // ── ROI Calculator ─────────────────────────────────────────────────────────
+  function calcRoi() {
+    const kunden = parseInt(document.getElementById('r-kunden').value, 10);
+    const std    = parseInt(document.getElementById('r-std').value, 10);
+    const lohn   = parseInt(document.getElementById('r-lohn').value, 10);
+    document.getElementById('v-kunden').textContent = kunden;
+    document.getElementById('v-std').textContent    = std + ' h';
+    document.getElementById('v-lohn').textContent   = lohn + ' €';
+    const jahreskosten = std * 52 * lohn;
+    const einsparung   = Math.max(0, jahreskosten - 1548);
+    const fmt = n => n.toLocaleString('de-DE') + ' €';
+    document.getElementById('roi-amount').textContent = fmt(jahreskosten);
+    document.getElementById('roi-cost').textContent   = fmt(jahreskosten);
+    document.getElementById('roi-save').textContent   = fmt(einsparung);
+  }
+  calcRoi();
+
+  // ── Video Demo ─────────────────────────────────────────────────────────────
+  function requestDemo() {
+    document.getElementById('kontakt').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('f-paket').value = 'Demo', 600);
+  }
+
+  // ── Spin animation for form button ─────────────────────────────────────────
+  const spinStyle = document.createElement('style');
+  spinStyle.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+  document.head.appendChild(spinStyle);
+
+  // ── Contact Form AJAX ──────────────────────────────────────────────────────
+  (async function initForm() {
+    // CSRF-Token vom Server holen
+    try {
+      const r = await fetch('csrf.php');
+      if (r.ok) { const d = await r.json(); document.getElementById('csrfToken').value = d.token || ''; }
+    } catch (_) {}
+
+    document.getElementById('contactForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const btn     = document.getElementById('formSubmit');
+      const spinner = document.getElementById('formSpinner');
+      const btnTxt  = document.getElementById('formBtnText');
+      const msg     = document.getElementById('formMsg');
+
+      btn.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnTxt.textContent = 'Wird gesendet …';
+      msg.className = 'form-msg';
+      msg.textContent = '';
+
+      try {
+        const res = await fetch('kontakt.php', {
+          method: 'POST',
+          body: new FormData(this),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          msg.className = 'form-msg ok';
+          msg.textContent = '✓ ' + (data.message || 'Danke! Ihre Nachricht wurde gesendet.');
+          this.reset();
+          if (data.csrf) document.getElementById('csrfToken').value = data.csrf;
+        } else {
+          msg.className = 'form-msg err';
+          msg.textContent = '✕ ' + (data.error || 'Fehler beim Senden. Bitte versuchen Sie es erneut.');
+        }
+      } catch (_) {
+        msg.className = 'form-msg err';
+        msg.textContent = '✕ Verbindungsfehler. Bitte rufen Sie uns direkt an oder schreiben Sie an info@agraroffice.de';
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        btnTxt.textContent = 'Anfrage senden';
+        msg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  })();
 </script>
 </body>
 </html>
