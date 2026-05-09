@@ -48,6 +48,8 @@ export default function MahnwesenPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [stufeFilter, setStufeFilter] = useState<number | "alle">("alle");
+  const [sepaLoading, setSepaLoading] = useState(false);
+  const [sepaFehler, setSepaFehler] = useState("");
   const [firma, setFirma] = useState<FirmaEinstellungen>({
     name: "", adresse: "", plz: "", ort: "", tel: "", email: "", iban: "", bic: "",
   });
@@ -101,6 +103,42 @@ export default function MahnwesenPage() {
       setError("Fehler beim Markieren als bezahlt.");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function exportiereSepa() {
+    setSepaLoading(true);
+    setSepaFehler("");
+    try {
+      const ids = gefiltert.map((e) => e.lieferung.id);
+      if (ids.length === 0) {
+        setSepaFehler("Keine Einträge zum Exportieren.");
+        return;
+      }
+      const res = await fetch("/api/exporte/sepa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferungIds: ids }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSepaFehler(data?.error ?? "SEPA-Export fehlgeschlagen.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const heute = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `sepa-export-${heute}.xml`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setSepaFehler("Netzwerkfehler beim SEPA-Export.");
+    } finally {
+      setSepaLoading(false);
     }
   }
 
@@ -396,6 +434,43 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
               Stufe 3: ab 42 Tage überfällig
             </span>
           </div>
+
+          {/* SEPA XML Export */}
+          <div className="mt-6 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={exportiereSepa}
+              disabled={sepaLoading || gefiltert.length === 0}
+              className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+              title="SEPA Credit Transfer XML (pain.001) für angezeigte Einträge herunterladen"
+            >
+              {sepaLoading ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Exportiere…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  SEPA XML exportieren ({gefiltert.length})
+                </>
+              )}
+            </button>
+            <span className="text-xs text-gray-400">
+              Exportiert alle angezeigten Einträge als SEPA pain.001 XML
+              {stufeFilter !== "alle" && ` (Stufe ${stufeFilter} gefiltert)`}.
+              Nur Kunden mit hinterlegter IBAN werden berücksichtigt.
+            </span>
+          </div>
+          {sepaFehler && (
+            <div className="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {sepaFehler}
+            </div>
+          )}
         </>
       )}
     </div>

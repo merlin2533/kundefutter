@@ -101,13 +101,97 @@ export default function LieferscheinPage() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
+  // Canvas Events via native DOM (vermeidet React-Namespace-Typen)
   useEffect(() => {
-    if (!loading && lieferung) {
-      // Kurz warten bis Canvas gerendert ist
-      const t = setTimeout(initCanvas, 100);
-      return () => clearTimeout(t);
-    }
-  }, [loading, lieferung, initCanvas]);
+    if (loading || !lieferung) return;
+
+    const t = setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      // Init Hintergrund
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      function onMouseDown(e: MouseEvent) {
+        const c = canvasRef.current;
+        if (!c) return;
+        isDrawing.current = true;
+        lastPos.current = getCanvasPosFromMouse(e, c);
+      }
+      function onMouseMove(e: MouseEvent) {
+        if (!isDrawing.current) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctxC = c.getContext("2d");
+        if (!ctxC) return;
+        const pos = getCanvasPosFromMouse(e, c);
+        if (lastPos.current) {
+          ctxC.beginPath();
+          ctxC.strokeStyle = "#000";
+          ctxC.lineWidth = 2.5;
+          ctxC.lineCap = "round";
+          ctxC.lineJoin = "round";
+          ctxC.moveTo(lastPos.current.x, lastPos.current.y);
+          ctxC.lineTo(pos.x, pos.y);
+          ctxC.stroke();
+        }
+        lastPos.current = pos;
+      }
+      function onTouchStart(e: TouchEvent) {
+        e.preventDefault();
+        const c = canvasRef.current;
+        if (!c) return;
+        isDrawing.current = true;
+        lastPos.current = getCanvasPosFromTouch(e, c);
+      }
+      function onTouchMove(e: TouchEvent) {
+        e.preventDefault();
+        if (!isDrawing.current) return;
+        const c = canvasRef.current;
+        if (!c) return;
+        const ctxC = c.getContext("2d");
+        if (!ctxC) return;
+        const pos = getCanvasPosFromTouch(e, c);
+        if (!pos) return;
+        if (lastPos.current) {
+          ctxC.beginPath();
+          ctxC.strokeStyle = "#000";
+          ctxC.lineWidth = 2.5;
+          ctxC.lineCap = "round";
+          ctxC.lineJoin = "round";
+          ctxC.moveTo(lastPos.current.x, lastPos.current.y);
+          ctxC.lineTo(pos.x, pos.y);
+          ctxC.stroke();
+        }
+        lastPos.current = pos;
+      }
+
+      canvas.addEventListener("mousedown", onMouseDown);
+      canvas.addEventListener("mousemove", onMouseMove);
+      canvas.addEventListener("mouseup", stopDrawing);
+      canvas.addEventListener("mouseleave", stopDrawing);
+      canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+      canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+      canvas.addEventListener("touchend", stopDrawing);
+
+      return () => {
+        canvas.removeEventListener("mousedown", onMouseDown);
+        canvas.removeEventListener("mousemove", onMouseMove);
+        canvas.removeEventListener("mouseup", stopDrawing);
+        canvas.removeEventListener("mouseleave", stopDrawing);
+        canvas.removeEventListener("touchstart", onTouchStart);
+        canvas.removeEventListener("touchmove", onTouchMove);
+        canvas.removeEventListener("touchend", stopDrawing);
+      };
+    }, 100);
+
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, lieferung]);
 
   async function inRechnungUmwandeln() {
     if (!lieferung) return;
@@ -150,53 +234,23 @@ export default function LieferscheinPage() {
     }
   }
 
-  // Canvas-Hilfsfunktionen
-  function getCanvasPos(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>): { x: number; y: number } | null {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
+  // Canvas-Hilfsfunktionen (native DOM Events, kein React-Namespace nötig)
+  function getCanvasPosFromMouse(e: MouseEvent, canvas: HTMLCanvasElement): { x: number; y: number } {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    if ("touches" in e) {
-      const touch = e.touches[0];
-      if (!touch) return null;
-      return {
-        x: (touch.clientX - rect.left) * scaleX,
-        y: (touch.clientY - rect.top) * scaleY,
-      };
-    }
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
     };
   }
 
-  function startDrawing(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    isDrawing.current = true;
-    lastPos.current = getCanvasPos(e);
-  }
-
-  function draw(e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) {
-    e.preventDefault();
-    if (!isDrawing.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const pos = getCanvasPos(e);
-    if (!pos) return;
-    ctx.beginPath();
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    if (lastPos.current) {
-      ctx.moveTo(lastPos.current.x, lastPos.current.y);
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-    lastPos.current = pos;
+  function getCanvasPosFromTouch(e: TouchEvent, canvas: HTMLCanvasElement): { x: number; y: number } | null {
+    const touch = e.touches[0];
+    if (!touch) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (touch.clientX - rect.left) * (canvas.width / rect.width),
+      y: (touch.clientY - rect.top) * (canvas.height / rect.height),
+    };
   }
 
   function stopDrawing() {
@@ -603,13 +657,6 @@ export default function LieferscheinPage() {
                     height={150}
                     className="block w-full cursor-crosshair"
                     style={{ touchAction: "none" }}
-                    onMouseDown={startDrawing}
-                    onMouseMove={draw}
-                    onMouseUp={stopDrawing}
-                    onMouseLeave={stopDrawing}
-                    onTouchStart={startDrawing}
-                    onTouchMove={draw}
-                    onTouchEnd={stopDrawing}
                   />
                 </div>
 

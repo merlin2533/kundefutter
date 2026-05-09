@@ -81,6 +81,7 @@ const groups: NavGroup[] = [
       { href: "/ki/wareneingang", label: "KI-Wareneingang" },
       { href: "/ki/lieferung", label: "KI-Lieferung" },
       { href: "/ki/crm", label: "KI-CRM Notiz" },
+      { href: "/ki/sprache", label: "Sprachmemo → CRM" },
     ],
   },
   { label: "Einstellungen", href: "/einstellungen" },
