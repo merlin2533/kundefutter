@@ -208,8 +208,10 @@
     .nav-mobile-btn { display: none; background: none; border: none; cursor: pointer; padding: 4px; }
 
     /* ── HERO ── */
-    .hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--green-900) 0%, var(--green-800) 50%, #1d4d3a 100%); }
-    .hero-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: url('img/hero_bg.png') center/cover no-repeat; }
+    .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(27,67,50,0.92) 0%, rgba(45,106,79,0.85) 50%, rgba(29,77,58,0.95) 100%); z-index: 0; }
+    .hero-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+    .hero .container { position: relative; z-index: 2; }
     .hero-bg-circle { position: absolute; border-radius: 50%; opacity: .08; }
     .hero-bg-circle:nth-child(1) { width: 600px; height: 600px; background: var(--green-400); top: -200px; right: -100px; animation: float 8s ease-in-out infinite; }
     .hero-bg-circle:nth-child(2) { width: 400px; height: 400px; background: var(--amber); bottom: -100px; left: -80px; animation: float 10s ease-in-out infinite reverse; }
@@ -292,6 +294,11 @@
     .deep-dive-visual { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
 
     /* Dashboard mockup */
+    .mockup-wrapper { position: relative; margin: 20px 0; }
+    .mockup-bg-img { width: 85%; height: auto; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg); display: block; border: 4px solid var(--white); }
+    .deep-dive-inner:not(.reverse) .mockup-bg-img { margin-left: auto; }
+    .mockup.mockup-overlay { position: absolute; bottom: -40px; left: -20px; width: 85%; z-index: 2; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
+    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: -20px; }
     .mockup { background: #0f1923; padding: 0; border-radius: var(--radius-lg); overflow: hidden; }
     .mockup-bar { height: 40px; background: #1a2634; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
     .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -973,7 +980,9 @@
         <a href="#kontakt" class="btn btn-primary">CRM testen →</a>
       </div>
       <div class="animate-on-scroll delay-2">
-        <div class="mockup">
+        <div class="mockup-wrapper">
+          <img src="img/crm_sales.png" alt="CRM Sales" class="mockup-bg-img" loading="lazy" />
+          <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
             <div class="mockup-dot" style="background:#f59e0b"></div>
@@ -1013,6 +1022,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1043,7 +1053,9 @@
         <a href="#kontakt" class="btn btn-primary">Lagerverwaltung testen →</a>
       </div>
       <div class="animate-on-scroll delay-2">
-        <div class="mockup">
+        <div class="mockup-wrapper">
+          <img src="img/warehouse.png" alt="Lager & Lieferung" class="mockup-bg-img" loading="lazy" />
+          <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
             <div class="mockup-dot" style="background:#f59e0b"></div>
@@ -1074,6 +1086,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1109,7 +1122,9 @@
         <a href="#kontakt" class="btn btn-primary">Tourenplanung testen →</a>
       </div>
       <div class="animate-on-scroll delay-2">
-        <div class="mockup">
+        <div class="mockup-wrapper">
+          <img src="img/truck_delivery.png" alt="Tourenplanung" class="mockup-bg-img" loading="lazy" />
+          <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
             <div class="mockup-dot" style="background:#f59e0b"></div>
@@ -1163,6 +1178,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1201,7 +1217,9 @@
         <a href="#kontakt" class="btn btn-primary">KI-Demo starten →</a>
       </div>
       <div class="animate-on-scroll delay-2">
-        <div class="mockup">
+        <div class="mockup-wrapper">
+          <img src="img/smartphone_scan.png" alt="KI Lieferschein Scan" class="mockup-bg-img" loading="lazy" />
+          <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
             <div class="mockup-dot" style="background:#f59e0b"></div>
@@ -1251,6 +1269,7 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1281,7 +1300,9 @@
         <a href="#kontakt" class="btn btn-primary">Marktpreise live sehen →</a>
       </div>
       <div class="animate-on-scroll delay-2">
-        <div class="mockup">
+        <div class="mockup-wrapper">
+          <img src="img/commodities.png" alt="Agrar Rohstoffe & Marktpreise" class="mockup-bg-img" loading="lazy" />
+          <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
             <div class="mockup-dot" style="background:#f59e0b"></div>
@@ -1324,6 +1345,7 @@
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
