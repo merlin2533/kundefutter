@@ -2148,7 +2148,7 @@
   (async function initForm() {
     // CSRF-Token vom Server holen
     try {
-      const r = await fetch('csrf.php');
+      const r = await fetch('/api/kontakt/csrf');
       if (r.ok) { const d = await r.json(); document.getElementById('csrfToken').value = d.token || ''; }
     } catch (_) {}
 
@@ -2166,7 +2166,7 @@
       msg.textContent = '';
 
       try {
-        const res = await fetch('kontakt.php', {
+        const res = await fetch('/api/kontakt', {
           method: 'POST',
           body: new FormData(this),
         });
