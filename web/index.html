@@ -294,11 +294,11 @@
     .deep-dive-visual { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
 
     /* Dashboard mockup */
-    .mockup-wrapper { position: relative; margin: 20px 0; }
-    .mockup-bg-img { width: 85%; height: auto; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg); display: block; border: 4px solid var(--white); }
+    .mockup-wrapper { position: relative; margin: 20px 0 100px 0; }
+    .mockup-bg-img { width: 90%; height: auto; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg); display: block; border: 4px solid var(--white); }
     .deep-dive-inner:not(.reverse) .mockup-bg-img { margin-left: auto; }
-    .mockup.mockup-overlay { position: absolute; bottom: -40px; left: -20px; width: 85%; z-index: 2; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
-    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: -20px; }
+    .mockup.mockup-overlay { position: absolute; bottom: -80px; left: -10px; width: 85%; z-index: 2; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
+    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: -10px; }
     .mockup { background: #0f1923; padding: 0; border-radius: var(--radius-lg); overflow: hidden; }
     .mockup-bar { height: 40px; background: #1a2634; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
     .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -780,37 +780,6 @@
   </div>
 </div>
 
-<!-- Wie es funktioniert -->
-<section class="how-it-works" aria-labelledby="how-title">
-  <div class="container">
-    <div class="how-header animate-on-scroll">
-      <div class="section-label">So einfach ist der Start</div>
-      <h2 class="section-title" id="how-title">In 3 Schritten live — ohne IT-Projekt</h2>
-      <p class="section-sub" style="margin:16px auto 0">Kein Installations-Aufwand, kein langer Einführungsprozess. Die meisten Betriebe sind innerhalb eines Tages produktiv.</p>
-    </div>
-    <div class="how-steps">
-      <div class="how-step animate-on-scroll delay-1">
-        <div class="how-num">1</div>
-        <h3>Konto anlegen</h3>
-        <p>Formular ausfüllen, E-Mail bestätigen – fertig. Ihr Testzugang mit vollem Funktionsumfang ist sofort aktiv.</p>
-        <span class="how-badge">⏱ ca. 2 Minuten</span>
-      </div>
-      <div class="how-step animate-on-scroll delay-2">
-        <div class="how-num">2</div>
-        <h3>Daten importieren</h3>
-        <p>Kunden, Artikel und Preislisten per CSV hochladen. Wer kein CSV hat: wir helfen beim Import aus Excel oder dem alten System.</p>
-        <span class="how-badge">📂 CSV oder manuell</span>
-      </div>
-      <div class="how-step animate-on-scroll delay-3">
-        <div class="how-num">3</div>
-        <h3>Team einladen & loslegen</h3>
-        <p>Außendienst per E-Mail einladen, Zugriffsrechte vergeben – und sofort erste Lieferscheine und Touren erstellen.</p>
-        <span class="how-badge">🚀 Sofort produktiv</span>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- Features Overview -->
 <section class="features-overview" id="funktionen">
   <div class="container">
@@ -950,6 +919,39 @@
     </div>
   </div>
 </section>
+
+<!-- Wie es funktioniert -->
+<section class="how-it-works" aria-labelledby="how-title">
+  <div class="container">
+    <div class="how-header animate-on-scroll">
+      <div class="section-label">So einfach ist der Start</div>
+      <h2 class="section-title" id="how-title">In 3 Schritten live — ohne IT-Projekt</h2>
+      <p class="section-sub" style="margin:16px auto 0">Kein Installations-Aufwand, kein langer Einführungsprozess. Die meisten Betriebe sind innerhalb eines Tages produktiv.</p>
+    </div>
+    <div class="how-steps">
+      <div class="how-step animate-on-scroll delay-1">
+        <div class="how-num">1</div>
+        <h3>Konto anlegen</h3>
+        <p>Formular ausfüllen, E-Mail bestätigen – fertig. Ihr Testzugang mit vollem Funktionsumfang ist sofort aktiv.</p>
+        <span class="how-badge">⏱ ca. 2 Minuten</span>
+      </div>
+      <div class="how-step animate-on-scroll delay-2">
+        <div class="how-num">2</div>
+        <h3>Daten importieren</h3>
+        <p>Kunden, Artikel und Preislisten per CSV hochladen. Wer kein CSV hat: wir helfen beim Import aus Excel oder dem alten System.</p>
+        <span class="how-badge">📂 CSV oder manuell</span>
+      </div>
+      <div class="how-step animate-on-scroll delay-3">
+        <div class="how-num">3</div>
+        <h3>Team einladen & loslegen</h3>
+        <p>Außendienst per E-Mail einladen, Zugriffsrechte vergeben – und sofort erste Lieferscheine und Touren erstellen.</p>
+        <span class="how-badge">🚀 Sofort produktiv</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
 
 <!-- Deep Dive: CRM -->
 <section class="deep-dive" style="background:var(--white)">
