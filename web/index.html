@@ -281,7 +281,7 @@
     /* ── DEEP DIVE SECTIONS ── */
     .deep-dive { padding: 80px 0; }
     .deep-dive:nth-child(even) { background: var(--gray-50); }
-    .deep-dive-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    .deep-dive-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
     .deep-dive-inner.reverse { direction: rtl; }
     .deep-dive-inner.reverse > * { direction: ltr; }
     .deep-dive-text h2 { font-family: 'Playfair Display', Georgia, serif; font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 700; color: var(--gray-900); margin: 12px 0 16px; line-height: 1.25; }
@@ -293,13 +293,13 @@
     .check-item p { font-size: .95rem; color: var(--gray-700); line-height: 1.55; margin: 0; }
     .deep-dive-visual { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
 
-    /* Dashboard mockup */
-    .mockup-wrapper { position: relative; margin: 20px 0 100px 0; }
-    .mockup-bg-img { width: 90%; height: auto; border-radius: var(--radius-lg); object-fit: cover; box-shadow: var(--shadow-lg); display: block; border: 4px solid var(--white); }
-    .deep-dive-inner:not(.reverse) .mockup-bg-img { margin-left: auto; }
-    .mockup.mockup-overlay { position: absolute; bottom: -80px; left: -10px; width: 85%; z-index: 2; box-shadow: 0 24px 80px rgba(0,0,0,.4); }
-    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: -10px; }
-    .mockup { background: #0f1923; padding: 0; border-radius: var(--radius-lg); overflow: hidden; }
+    /* Dashboard mockup — sauberes gestapeltes Card-Design */
+    .mockup-wrapper { position: relative; margin: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.22); }
+    .mockup-bg-img { width: 100%; height: 200px; object-fit: cover; display: block; }
+    .deep-dive-inner:not(.reverse) .mockup-bg-img { margin-left: 0; }
+    .mockup.mockup-overlay { position: relative; left: auto; right: auto; bottom: auto; width: 100%; z-index: 2; box-shadow: none; border-top: 2px solid rgba(255,255,255,.06); }
+    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: auto; }
+    .mockup { background: #0f1923; padding: 0; border-radius: 0; overflow: hidden; }
     .mockup-bar { height: 40px; background: #1a2634; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
     .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
     .mockup-body { padding: 20px; }
@@ -434,11 +434,8 @@
       .nav-mobile-btn { display: block; }
       .hero-inner { grid-template-columns: 1fr; gap: 48px; padding: 100px 0 60px; }
       .hero-visual { display: none; }
+      .mockup-bg-img { height: 160px; }
       .deep-dive-inner, .deep-dive-inner.reverse { grid-template-columns: 1fr; gap: 40px; direction: ltr; }
-      .mockup-wrapper { margin: 20px 0 60px 0; }
-      .mockup-bg-img { width: 100%; border-width: 2px; }
-      .mockup.mockup-overlay { width: 94%; left: 3%; bottom: -50px; }
-      .deep-dive-inner.reverse .mockup.mockup-overlay { right: auto; left: 3%; }
       .features-grid { grid-template-columns: 1fr; }
       .testimonials-grid { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
