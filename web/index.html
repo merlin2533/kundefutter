@@ -293,13 +293,18 @@
     .check-item p { font-size: .95rem; color: var(--gray-700); line-height: 1.55; margin: 0; }
     .deep-dive-visual { border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
 
-    /* Dashboard mockup — sauberes gestapeltes Card-Design */
-    .mockup-wrapper { position: relative; margin: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.22); }
-    .mockup-bg-img { width: 100%; height: 200px; object-fit: cover; display: block; }
-    .deep-dive-inner:not(.reverse) .mockup-bg-img { margin-left: 0; }
-    .mockup.mockup-overlay { position: relative; left: auto; right: auto; bottom: auto; width: 100%; z-index: 2; box-shadow: none; border-top: 2px solid rgba(255,255,255,.06); }
-    .deep-dive-inner.reverse .mockup.mockup-overlay { left: auto; right: auto; }
+    /* ── MOCKUP FOTO/APP WECHSELKARTE ── */
+    .mockup-wrapper { position: relative; margin: 0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,.28); cursor: pointer; background: #0f1923; }
+    /* Foto liegt absolut über dem App-Mockup und blendet bei Hover aus */
+    .mockup-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; z-index: 3; transition: opacity .55s ease; border-radius: 0; }
+    .mockup-wrapper.show-app .mockup-bg-img { opacity: 0; pointer-events: none; }
+    /* App-Mockup liegt darunter in normalem Fluss – bestimmt die Kartenhöhe */
+    .mockup.mockup-overlay { position: relative; width: 100%; z-index: 1; box-shadow: none; border-radius: 0; }
+    .deep-dive-inner.reverse .mockup.mockup-overlay { }
     .mockup { background: #0f1923; padding: 0; border-radius: 0; overflow: hidden; }
+    /* Hinweis-Badge unten in der Mitte */
+    .switch-hint { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 50px; padding: 5px 16px; font-size: .7rem; font-weight: 700; color: var(--gray-900); z-index: 5; transition: background .4s, color .4s; white-space: nowrap; pointer-events: none; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 14px rgba(0,0,0,.18); letter-spacing: .2px; }
+    .mockup-wrapper.show-app .switch-hint { background: rgba(64,145,108,.9); color: #fff; }
     .mockup-bar { height: 40px; background: #1a2634; display: flex; align-items: center; padding: 0 16px; gap: 8px; }
     .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
     .mockup-body { padding: 20px; }
@@ -434,7 +439,7 @@
       .nav-mobile-btn { display: block; }
       .hero-inner { grid-template-columns: 1fr; gap: 48px; padding: 100px 0 60px; }
       .hero-visual { display: none; }
-      .mockup-bg-img { height: 160px; }
+      .mockup-wrapper { border-radius: 12px; }
       .deep-dive-inner, .deep-dive-inner.reverse { grid-template-columns: 1fr; gap: 40px; direction: ltr; }
       .features-grid { grid-template-columns: 1fr; }
       .testimonials-grid { grid-template-columns: 1fr; }
@@ -2081,6 +2086,52 @@
     document.getElementById('roi-save').textContent   = fmt(einsparung);
   }
   calcRoi();
+
+  // ── Mockup Foto/App Wechselkarte ───────────────────────────────────────────
+  (function initMockupSwitch() {
+    document.querySelectorAll('.mockup-wrapper').forEach(function(wrap, idx) {
+      // Hinweis-Badge einfügen
+      var hint = document.createElement('div');
+      hint.className = 'switch-hint';
+      hint.innerHTML = '<span>📷</span><span>App-Vorschau →</span>';
+      wrap.appendChild(hint);
+
+      var isHovered = false;
+      var timer = null;
+
+      function showApp() {
+        wrap.classList.add('show-app');
+        hint.innerHTML = '<span>🖥</span><span>App-Ansicht</span>';
+      }
+      function showPhoto() {
+        wrap.classList.remove('show-app');
+        hint.innerHTML = '<span>📷</span><span>App-Vorschau →</span>';
+      }
+
+      function startCycle() {
+        timer = setInterval(function() {
+          if (!isHovered) {
+            if (wrap.classList.contains('show-app')) showPhoto();
+            else showApp();
+          }
+        }, 4000);
+      }
+
+      // Versetzt starten damit nicht alle gleichzeitig wechseln
+      setTimeout(startCycle, idx * 1200);
+
+      wrap.addEventListener('mouseenter', function() {
+        isHovered = true;
+        clearInterval(timer);
+        showApp();
+      });
+      wrap.addEventListener('mouseleave', function() {
+        isHovered = false;
+        showPhoto();
+        startCycle();
+      });
+    });
+  })();
 
   // ── Video Demo ─────────────────────────────────────────────────────────────
   function requestDemo() {
