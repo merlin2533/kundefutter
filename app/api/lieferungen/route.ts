@@ -90,6 +90,13 @@ export async function POST(req: NextRequest) {
 
   const { datum, notiz, wiederkehrend } = body;
   const kundeId = Number(body.kundeId);
+  const istStreckengeschaeft = body.istStreckengeschaeft === true;
+  const streckenLieferantId = body.streckenLieferantId != null
+    ? parseInt(String(body.streckenLieferantId), 10)
+    : null;
+  if (streckenLieferantId !== null && isNaN(streckenLieferantId)) {
+    return NextResponse.json({ error: "Ungültige streckenLieferantId" }, { status: 400 });
+  }
   const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; einkaufspreis?: unknown; chargeNr?: unknown }[] = body.positionen;
 
   if (!kundeId || isNaN(kundeId) || !Array.isArray(positionenRaw) || positionenRaw.length === 0) {
@@ -180,6 +187,8 @@ export async function POST(req: NextRequest) {
         datum: datum ? new Date(datum) : new Date(),
         notiz,
         wiederkehrend: wiederkehrend ?? false,
+        istStreckengeschaeft,
+        streckenLieferantId: streckenLieferantId ?? undefined,
         positionen: { create: angereichert },
       },
       include: {

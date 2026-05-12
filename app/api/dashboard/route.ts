@@ -443,6 +443,16 @@ export async function GET() {
     unzugeordneteUmsaetze = 0;
   }
 
+  // Benachrichtigungen ungelesen zählen
+  const benachrichtigungenUngelesen = await prisma.benachrichtigung.count({ where: { gelesen: false } });
+
+  // Benachrichtigungs-Check (async, non-blocking / fire-and-forget)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  fetch(`${appUrl}/api/benachrichtigungen/pruefen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  }).catch(() => {});
+
   return NextResponse.json({
     kundenAktiv,
     offeneLieferungen,
@@ -466,6 +476,7 @@ export async function GET() {
     letzteAktivitaeten,
     lieferungenOhneRechnung,
     unzugeordneteUmsaetze,
+    benachrichtigungenUngelesen,
   });
   } catch (e) {
     console.error("Dashboard API error:", e);

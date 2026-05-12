@@ -69,30 +69,32 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
-    // Status: geplant → geliefert: Bestand reduzieren
+    // Status: geplant → geliefert: Bestand reduzieren (nicht bei Streckengeschäft)
     if (alt.status === "geplant" && data.status === "geliefert") {
-      const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
-      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+      if (!alt.istStreckengeschaeft) {
+        const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
+        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
 
-      for (const pos of alt.positionen) {
-        const artikel = artikelMap.get(pos.artikelId);
-        if (!artikel) continue;
-        const neuerBestand = artikel.aktuellerBestand - pos.menge;
-        artikel.aktuellerBestand = neuerBestand;
-        await tx.artikel.update({
-          where: { id: pos.artikelId },
-          data: { aktuellerBestand: neuerBestand },
-        });
-        await tx.lagerbewegung.create({
-          data: {
-            artikelId: pos.artikelId,
-            typ: "ausgang",
-            menge: -pos.menge,
-            bestandNach: neuerBestand,
-            lieferungId: Number(id),
-          },
-        });
+        for (const pos of alt.positionen) {
+          const artikel = artikelMap.get(pos.artikelId);
+          if (!artikel) continue;
+          const neuerBestand = artikel.aktuellerBestand - pos.menge;
+          artikel.aktuellerBestand = neuerBestand;
+          await tx.artikel.update({
+            where: { id: pos.artikelId },
+            data: { aktuellerBestand: neuerBestand },
+          });
+          await tx.lagerbewegung.create({
+            data: {
+              artikelId: pos.artikelId,
+              typ: "ausgang",
+              menge: -pos.menge,
+              bestandNach: neuerBestand,
+              lieferungId: Number(id),
+            },
+          });
+        }
       }
     }
 

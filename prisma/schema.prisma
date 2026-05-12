@@ -50,6 +50,7 @@ model Kunde {
 
   psmAusbringungen     PsmAusbringung[]
   kontrakte            Kontrakt[]
+  reklamationen        Reklamation[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -123,6 +124,7 @@ model Lieferant {
   ausgaben           Ausgabe[]
   bestellungen       Bestellung[]
   eingangsRechnungen EingangsRechnung[]
+  streckenLieferungen Lieferung[] @relation("StreckenLieferant")
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
@@ -280,9 +282,11 @@ model Lieferung {
   zahlungsziel     Int?      @default(30)  // Tage
   wiederkehrend    Boolean  @default(false) // wurde automatisch angelegt
   unterschriftPng  String?  // base64 PNG Kundenunterschrift bei Lieferung
-  fahrerId         Int?     // zugewiesener Fahrer (Benutzer)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  fahrerId             Int?     // zugewiesener Fahrer (Benutzer)
+  istStreckengeschaeft Boolean  @default(false)  // Lieferant liefert direkt an Kunde
+  streckenLieferantId  Int?     // Lieferant der direkt liefert
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   kunde             Kunde            @relation(fields: [kundeId], references: [id])
   positionen        Lieferposition[]
@@ -291,6 +295,8 @@ model Lieferung {
   sammelrechnungId  Int?
   gutschriften      Gutschrift[]
   bestellpositionen Bestellposition[]
+  reklamationen     Reklamation[]
+  streckenLieferant Lieferant?       @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
 
   @@index([kundeId])
   @@index([status])
@@ -879,6 +885,53 @@ model KampagneArtikel {
   @@unique([kampagneId, artikelId])
   @@index([kampagneId])
   @@index([artikelId])
+}
+
+// ─── REKLAMATIONSMANAGEMENT ───────────────────────────────────────────────────
+
+model Reklamation {
+  id           Int       @id @default(autoincrement())
+  nummer       String    @unique  // RK-YYYY-NNNN
+  kundeId      Int
+  lieferungId  Int?
+  datum        DateTime  @default(now())
+  betreff      String
+  beschreibung String
+  kategorie    String    @default("Qualitaet")  // Qualitaet|Menge|Lieferung|Preis|Sonstiges
+  prioritaet   String    @default("normal")      // niedrig|normal|hoch|kritisch
+  status       String    @default("OFFEN")        // OFFEN|IN_BEARBEITUNG|GELOEST|GESCHLOSSEN
+  zugewiesen   String?   // Mitarbeiter-Name
+  loesung      String?
+  geloestAm    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  kunde     Kunde      @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  lieferung Lieferung? @relation(fields: [lieferungId], references: [id], onDelete: SetNull)
+
+  @@index([kundeId])
+  @@index([status])
+  @@index([datum])
+  @@index([prioritaet])
+}
+
+// ─── BENACHRICHTIGUNGEN ───────────────────────────────────────────────────────
+
+model Benachrichtigung {
+  id         Int      @id @default(autoincrement())
+  typ        String   // "lagerbestand" | "sachkunde" | "kreditlimit" | "rechnung_faellig" | "reklamation"
+  titel      String
+  text       String
+  prioritaet String   @default("info")  // "info" | "warnung" | "kritisch"
+  gelesen    Boolean  @default(false)
+  kundeId    Int?
+  artikelId  Int?
+  link       String?  // Ziel-URL für Klick
+  createdAt  DateTime @default(now())
+
+  @@index([gelesen])
+  @@index([createdAt])
+  @@index([typ])
 }
 
 // ─── EINGANGSRECHNUNGEN (Lieferanten) ─────────────────────────────────────────
