@@ -376,8 +376,48 @@ export default function HilfePage() {
         ))}
       </div>
 
+      {/* Import-Schnelllinks */}
+      {!query && (
+        <div className="mt-8 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <h3 className="font-semibold text-amber-800 mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import-Anleitungen
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link
+              href="/hilfe/import"
+              className="flex items-center gap-3 p-3 bg-white border border-amber-200 rounded-lg hover:bg-amber-50 hover:border-amber-300 transition-colors"
+            >
+              <span className="text-xl flex-shrink-0">📥</span>
+              <div>
+                <div className="font-medium text-gray-800 text-sm">Artikel-Import</div>
+                <div className="text-xs text-gray-500">CSV/Excel, Spaltenübersicht, Duplikate, Beispiel-Vorlage</div>
+              </div>
+              <svg className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+            <Link
+              href="/preislisten-import"
+              className="flex items-center gap-3 p-3 bg-white border border-amber-200 rounded-lg hover:bg-amber-50 hover:border-amber-300 transition-colors"
+            >
+              <span className="text-xl flex-shrink-0">💰</span>
+              <div>
+                <div className="font-medium text-gray-800 text-sm">Preislisten-Import</div>
+                <div className="text-xs text-gray-500">EK-Preise vom Lieferanten aktualisieren, Vorschau & Auswahl</div>
+              </div>
+              <svg className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Footer-Hinweis */}
-      <div className="mt-10 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+      <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
         <div className="flex items-start gap-3">
           <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

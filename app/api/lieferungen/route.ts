@@ -188,7 +188,42 @@ export async function POST(req: NextRequest) {
       },
     });
   });
-  return NextResponse.json(lieferung, { status: 201 });
+  // Kreditlimit-Prüfung (nur Warnung, kein Fehler)
+  let kreditlimitWarnung = false;
+  let offenerBetrag: number | undefined;
+  let kreditlimitWert: number | undefined;
+  try {
+    const kunde = await prisma.kunde.findUnique({
+      where: { id: kundeId },
+      select: { kreditlimit: true },
+    });
+    if (kunde?.kreditlimit != null) {
+      kreditlimitWert = kunde.kreditlimit;
+      // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer)
+      const offeneLieferungen = await prisma.lieferung.findMany({
+        where: { kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null } },
+        include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },
+        take: 200,
+      });
+      offenerBetrag = offeneLieferungen.reduce((sum, l) => {
+        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0);
+        return sum + netto;
+      }, 0);
+      if (offenerBetrag > kreditlimitWert) {
+        kreditlimitWarnung = true;
+      }
+    }
+  } catch {
+    // Kreditlimit-Check ist nicht kritisch, Fehler ignorieren
+  }
+
+  const response: Record<string, unknown> = { ...lieferung };
+  if (kreditlimitWarnung) {
+    response.kreditlimitWarnung = true;
+    response.offenerBetrag = offenerBetrag;
+    response.kreditlimit = kreditlimitWert;
+  }
+  return NextResponse.json(response, { status: 201 });
   } catch (err) {
     console.error("Lieferung POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
