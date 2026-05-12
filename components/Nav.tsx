@@ -71,6 +71,7 @@ const groups: NavGroup[] = [
       { href: "/ausgaben", label: "Ausgabenbuch" },
       { href: "/bankabgleich", label: "Bankabgleich" },
       { href: "/mahnwesen", label: "Mahnwesen" },
+      { href: "/finanzen/cashflow", label: "Cashflow" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },
     ],
