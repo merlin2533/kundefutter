@@ -975,3 +975,19 @@ model EingangsRechnung {
   @@index([status])
   @@index([faelligAm])
 }
+
+// ─── BUDGETPLANUNG ────────────────────────────────────────────────────────────
+
+model Umsatzziel {
+  id         Int      @id @default(autoincrement())
+  jahr       Int
+  monat      Int?     // null = Jahresziel
+  kategorie  String?  // null = gesamt; "Futter" | "Duenger" | "Saatgut" etc.
+  zielBetrag Float
+  notiz      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([jahr, monat, kategorie])
+  @@index([jahr])
+}

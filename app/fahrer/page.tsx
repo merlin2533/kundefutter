@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { formatDatum } from "@/lib/utils";
 
 interface Artikel {
@@ -45,12 +45,29 @@ function mapsUrl(l: Lieferung): string {
   return `https://maps.google.com/?q=${encodeURIComponent(addr)}`;
 }
 
+interface GpsPosition {
+  lat: number;
+  lng: number;
+  genauigkeit: number | null;
+  zeitpunkt: string;
+}
+
 export default function FahrerCockpit() {
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [successId, setSuccessId] = useState<number | null>(null);
+
+  // GPS-Tracking
+  const [gpsAktiv, setGpsAktiv] = useState(false);
+  const [letztePosition, setLetztePosition] = useState<GpsPosition | null>(null);
+  const [gpsFehler, setGpsFehler] = useState("");
+  const [gpsSending, setGpsSending] = useState(false);
+  const [gpsAutoAktiv, setGpsAutoAktiv] = useState(false);
+  const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const geolocationVerfuegbar =
+    typeof navigator !== "undefined" && !!navigator.geolocation;
 
   const lade = useCallback(async () => {
     setLoading(true);
@@ -102,6 +119,72 @@ export default function FahrerCockpit() {
     }
   }
 
+  // GPS: Position einmalig senden
+  const sendPosition = useCallback(async (tourname?: string) => {
+    if (!geolocationVerfuegbar) return;
+    setGpsSending(true);
+    setGpsFehler("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng, accuracy: genauigkeit } = pos.coords;
+        setLetztePosition({ lat, lng, genauigkeit, zeitpunkt: new Date().toISOString() });
+        setGpsAktiv(true);
+        try {
+          const res = await fetch("/api/fahrer/position", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat, lng, genauigkeit, tourname }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            setGpsFehler(d.error ?? "Fehler beim Senden der Position");
+          }
+        } catch {
+          setGpsFehler("Netzwerkfehler beim Senden der Position");
+        } finally {
+          setGpsSending(false);
+        }
+      },
+      (err) => {
+        setGpsFehler(`GPS-Fehler: ${err.message}`);
+        setGpsSending(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  }, [geolocationVerfuegbar]);
+
+  // GPS: Auto-Intervall (5 Minuten)
+  const toggleAutoGps = useCallback(() => {
+    if (gpsAutoAktiv) {
+      if (gpsIntervalRef.current) clearInterval(gpsIntervalRef.current);
+      gpsIntervalRef.current = null;
+      setGpsAutoAktiv(false);
+    } else {
+      setGpsAutoAktiv(true);
+      sendPosition();
+      gpsIntervalRef.current = setInterval(() => sendPosition(), 5 * 60 * 1000);
+    }
+  }, [gpsAutoAktiv, sendPosition]);
+
+  // GPS: Abmelden
+  const gpsDeaktivieren = useCallback(async () => {
+    if (gpsIntervalRef.current) clearInterval(gpsIntervalRef.current);
+    gpsIntervalRef.current = null;
+    setGpsAutoAktiv(false);
+    setGpsAktiv(false);
+    setLetztePosition(null);
+    try {
+      await fetch("/api/fahrer/position", { method: "DELETE" });
+    } catch { /* ignore */ }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (gpsIntervalRef.current) clearInterval(gpsIntervalRef.current);
+    };
+  }, []);
+
   const heute = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
 
   return (
@@ -133,6 +216,106 @@ export default function FahrerCockpit() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4">
+
+        {/* GPS-Status-Card */}
+        <div className="mb-4 bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              GPS-Tracking
+            </h2>
+            <span className={`text-sm font-semibold flex items-center gap-1.5 ${gpsAktiv ? "text-green-600" : "text-gray-400"}`}>
+              <span className={`inline-block w-2 h-2 rounded-full ${gpsAktiv ? "bg-green-500" : "bg-gray-300"}`} />
+              {gpsAktiv ? "GPS aktiv" : "GPS inaktiv"}
+            </span>
+          </div>
+
+          {!geolocationVerfuegbar ? (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              GPS nicht verfügbar in diesem Browser.
+            </p>
+          ) : (
+            <>
+              {letztePosition && (
+                <div className="mb-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                  <div>
+                    <span className="font-medium text-gray-700">Letzter Standort:</span>{" "}
+                    {letztePosition.lat.toFixed(5)}, {letztePosition.lng.toFixed(5)}
+                    {letztePosition.genauigkeit !== null && (
+                      <span className="text-gray-400"> (±{Math.round(letztePosition.genauigkeit)} m)</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-gray-400">
+                    {new Date(letztePosition.zeitpunkt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} Uhr
+                  </div>
+                </div>
+              )}
+
+              {gpsFehler && (
+                <p className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  {gpsFehler}
+                </p>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => sendPosition()}
+                  disabled={gpsSending}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-medium rounded-xl transition-colors text-sm"
+                >
+                  {gpsSending ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Wird gesendet…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Position senden
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={toggleAutoGps}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 font-medium rounded-xl transition-colors text-sm border-2 ${
+                    gpsAutoAktiv
+                      ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {gpsAutoAktiv ? "Auto: An (5 Min.)" : "Automatisch alle 5 Min."}
+                </button>
+
+                {gpsAktiv && (
+                  <button
+                    onClick={gpsDeaktivieren}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-50 hover:bg-red-100 border-2 border-red-200 text-red-700 font-medium rounded-xl transition-colors text-sm"
+                    title="GPS deaktivieren und Schicht beenden"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Schicht beenden
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Fehlerhinweis */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm">
