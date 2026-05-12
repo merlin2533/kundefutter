@@ -201,6 +201,164 @@ interface DashboardData {
   unzugeordneteUmsaetze?: number;
 }
 
+// ─── Dashboard Widgets ────────────────────────────────────────────────────────
+
+type WidgetId = "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen";
+
+const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
+  { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
+  { id: "matif", label: "MATIF-Futures", icon: "📈" },
+  { id: "wiedervorlagen", label: "Wiedervorlagen", icon: "🔁" },
+  { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
+  { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
+];
+
+const DEFAULT_WIDGETS: WidgetId[] = ["kpis", "matif", "wiedervorlagen", "kein_kontakt", "benachrichtigungen"];
+
+function useDashboardWidgets() {
+  const [aktiv, setAktiv] = useState<WidgetId[]>(DEFAULT_WIDGETS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=dashboard.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: Record<string, string>) => {
+        const raw = d["dashboard.widgets"];
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              setAktiv(parsed as WidgetId[]);
+            }
+          } catch { /* use default */ }
+        }
+      })
+      .catch(() => { /* use default */ })
+      .finally(() => setLoaded(true));
+  }, []);
+
+  function toggleWidget(id: WidgetId) {
+    setAktiv((prev) => {
+      const next = prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id];
+      // Persist async
+      fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "dashboard.widgets", value: JSON.stringify(next) }),
+      }).catch(() => {});
+      return next;
+    });
+  }
+
+  return { aktiv, loaded, toggleWidget };
+}
+
+// ─── Notification Feed Widget ─────────────────────────────────────────────────
+
+interface BenachrichtigungItem {
+  id: number;
+  typ: string;
+  titel: string;
+  text: string;
+  prioritaet: string;
+  link: string | null;
+  createdAt: string;
+}
+
+const NOTIF_PRIO_BADGE: Record<string, string> = {
+  kritisch: "bg-red-100 text-red-700",
+  warnung: "bg-amber-100 text-amber-700",
+  info: "bg-blue-100 text-blue-700",
+};
+
+const NOTIF_TYP_ICON: Record<string, string> = {
+  lagerbestand: "📦",
+  sachkunde: "🎓",
+  kreditlimit: "💳",
+  rechnung_faellig: "📄",
+  reklamation: "⚠️",
+};
+
+function BenachrichtigungenWidget() {
+  const [items, setItems] = useState<BenachrichtigungItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/benachrichtigungen?gelesen=false")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setItems(Array.isArray(d) ? d.slice(0, 5) : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function markRead(id: number) {
+    await fetch(`/api/benachrichtigungen/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gelesen: true }),
+    }).catch(() => {});
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">System-Benachrichtigungen</h2>
+          {items.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
+              {items.length}
+            </span>
+          )}
+        </div>
+        <Link href="/einstellungen/benachrichtigungen" className="text-xs text-green-700 hover:underline">
+          Einstellungen →
+        </Link>
+      </div>
+      {loading && <p className="text-sm text-gray-400">Wird geladen…</p>}
+      {!loading && items.length === 0 && (
+        <p className="text-sm text-gray-400">Keine ungelesenen Benachrichtigungen</p>
+      )}
+      {!loading && items.length > 0 && (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-start gap-3 p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-base leading-none mt-0.5 shrink-0">{NOTIF_TYP_ICON[item.typ] ?? "🔔"}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${NOTIF_PRIO_BADGE[item.prioritaet] ?? "bg-gray-100 text-gray-600"}`}>
+                    {item.prioritaet}
+                  </span>
+                </div>
+                {item.link ? (
+                  <Link href={item.link} className="text-sm font-medium text-gray-800 hover:text-green-700 block truncate">
+                    {item.titel}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.titel}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-0.5">{item.text}</p>
+              </div>
+              <button
+                onClick={() => markRead(item.id)}
+                className="shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
+                title="Als gelesen markieren"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 const SCHNELLZUGRIFF = [
   { href: "/lieferungen/neu", label: "Neue Lieferung", icon: "📦", color: "bg-green-50 border-green-200 hover:bg-green-100" },
   { href: "/lager/wareneingang", label: "Wareneingang", icon: "🚚", color: "bg-blue-50 border-blue-200 hover:bg-blue-100" },
@@ -395,6 +553,12 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [matif, setMatif] = useState<MatifData | null>(null);
+  const [anpassenOpen, setAnpassenOpen] = useState(false);
+  const { aktiv: aktiveWidgets, loaded: widgetsLoaded, toggleWidget } = useDashboardWidgets();
+
+  function widgetAktiv(id: WidgetId): boolean {
+    return aktiveWidgets.includes(id);
+  }
 
   const loadData = () => {
     fetch("/api/dashboard")
@@ -475,25 +639,72 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-2 mb-6">
+      <div className="flex items-start justify-between flex-wrap gap-2 mb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             {getGreeting()} —{" "}
             <span className="text-gray-500 font-normal">{formatHeaderDate()}</span>
           </h1>
         </div>
-        {lastUpdated && (
-          <button
-            onClick={loadData}
-            className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
-            title="Klicken zum sofortigen Neu laden"
-          >
-            Aktualisiert:{" "}
-            {lastUpdated.getHours().toString().padStart(2, "0")}:
-            {lastUpdated.getMinutes().toString().padStart(2, "0")} Uhr
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {lastUpdated && (
+            <button
+              onClick={loadData}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0"
+              title="Klicken zum sofortigen Neu laden"
+            >
+              Aktualisiert:{" "}
+              {lastUpdated.getHours().toString().padStart(2, "0")}:
+              {lastUpdated.getMinutes().toString().padStart(2, "0")} Uhr
+            </button>
+          )}
+          {widgetsLoaded && (
+            <button
+              onClick={() => setAnpassenOpen((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                anpassenOpen
+                  ? "bg-gray-800 text-white border-gray-800"
+                  : "bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Dashboard anpassen
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Widget-Konfiguration Panel */}
+      {anpassenOpen && (
+        <div className="mb-5 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-700 mb-3">Widgets ein-/ausblenden</h2>
+          <div className="flex flex-wrap gap-2">
+            {WIDGET_DEFS.map((w) => {
+              const isOn = aktiveWidgets.includes(w.id);
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => toggleWidget(w.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+                    isOn
+                      ? "bg-green-700 text-white border-green-700"
+                      : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  <span>{w.icon}</span>
+                  <span>{w.label}</span>
+                  <span className="ml-0.5 opacity-70">{isOn ? "✓" : "○"}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">Einstellungen werden automatisch gespeichert.</p>
+        </div>
+      )}
 
       {/* CRM Schnellerfassung + Lieferungen ohne Rechnung */}
       <CrmSchnellWidget />
@@ -524,7 +735,7 @@ export default function DashboardPage() {
       )}
 
       {/* Obere Reihe: KPI-Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {widgetAktiv("kpis") && <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {/* Umsatz mit Monatsvergleich */}
         <div>
           <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-green-500`}>
@@ -598,7 +809,7 @@ export default function DashboardPage() {
             </div>
           </Link>
         )}
-      </div>
+      </div>}
 
       {/* Mittlere Reihe: Fällige Rechnungen + Lager-Ampel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -783,7 +994,7 @@ export default function DashboardPage() {
 
         {/* Wiedervorlagen + ggf. Kein-Kontakt */}
         <div className="space-y-6">
-          <Card>
+          {widgetAktiv("wiedervorlagen") && <Card>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold">Wiedervorlagen</h2>
@@ -836,9 +1047,9 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
-          </Card>
+          </Card>}
 
-          {data.keinKontakt.length > 0 && (
+          {widgetAktiv("kein_kontakt") && data.keinKontakt.length > 0 && (
             <Card>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -937,7 +1148,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* MATIF Futures */}
-        <Card>
+        {widgetAktiv("matif") && <Card>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Futurespreise (MATIF)</h2>
             <Link href="/marktpreise" className="text-xs text-green-700 hover:underline">
@@ -999,8 +1210,15 @@ export default function DashboardPage() {
               </p>
             )}
           </div>
-        </Card>
+        </Card>}
       </div>
+
+      {/* System-Benachrichtigungen Widget */}
+      {widgetAktiv("benachrichtigungen") && (
+        <div className="mt-6">
+          <BenachrichtigungenWidget />
+        </div>
+      )}
 
       {/* Wiederkehrend fällig (wenn vorhanden) */}
       {data.wiederkehrendFaellig > 0 && (

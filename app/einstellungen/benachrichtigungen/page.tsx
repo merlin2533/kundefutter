@@ -47,7 +47,7 @@ export default function BenachrichtigungenEinstellungenPage() {
   useEffect(() => {
     fetch("/api/einstellungen?prefix=alert.")
       .then((r) => (r.ok ? r.json() : {}))
-      .then((d) => {
+      .then((d: Record<string, string>) => {
         const map: Record<string, boolean> = {};
         for (const t of ALERT_TYPEN) {
           // default: active (true) unless explicitly set to "false"

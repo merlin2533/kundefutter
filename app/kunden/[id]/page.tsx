@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DriveOrdner from "@/components/DriveOrdner";
@@ -8,6 +9,8 @@ import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
 import { DEFAULT_FRUCHTARTEN, parseListSetting } from "@/lib/auswahllisten";
+
+const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,7 +100,7 @@ interface Kunde {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
-const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Agrarantrag", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
+const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Reklamationen", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Agrarantrag", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
 type Tab = (typeof TABS)[number];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -2473,9 +2476,10 @@ export default function KundeDetailPage() {
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} autoOpen={crmAutoOpen} />}
         {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
-        {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
+        {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} lat={kunde.lat} lng={kunde.lng} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
+        {activeTab === "Reklamationen" && <ReklamationenTab kundeId={kunde.id} />}
         {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
         {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} />}
         {activeTab === "Erklärungen" && <ErklaerungTab kundeId={kunde.id} />}
@@ -3208,7 +3212,7 @@ interface KundeSchlag {
 const inputClsSchlag =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";
 
-function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
+function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number; lat?: number | null; lng?: number | null }) {
   const [schlaegte, setSchlaegte] = useState<KundeSchlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -3292,6 +3296,17 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
 
   return (
     <div className="space-y-4">
+      {/* Wetter-Widget */}
+      {lat != null && lng != null ? (
+        <WetterWidget lat={lat} lng={lng} compact={false} />
+      ) : (
+        <p className="text-sm text-gray-400 italic">
+          Für Wetterdaten bitte Adresse geocodieren (
+          <a href="/einstellungen/adressen" className="underline hover:text-gray-600">/einstellungen/adressen</a>
+          ).
+        </p>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
@@ -4153,5 +4168,104 @@ function KategorieBadge({ kategorie }: { kategorie: string }) {
     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
       {kategorie}
     </span>
+  );
+}
+
+// ─── Reklamationen Tab ────────────────────────────────────────────────────────
+
+interface KundeReklamation {
+  id: number;
+  nummer: string;
+  datum: string;
+  betreff: string;
+  status: string;
+  prioritaet: string;
+  kategorie: string;
+}
+
+const REKO_STATUS_BADGE: Record<string, string> = {
+  OFFEN: "bg-yellow-100 text-yellow-800",
+  IN_BEARBEITUNG: "bg-blue-100 text-blue-800",
+  GELOEST: "bg-green-100 text-green-800",
+  GESCHLOSSEN: "bg-gray-100 text-gray-700",
+};
+const REKO_STATUS_LABEL: Record<string, string> = {
+  OFFEN: "Offen",
+  IN_BEARBEITUNG: "In Bearbeitung",
+  GELOEST: "Gelöst",
+  GESCHLOSSEN: "Geschlossen",
+};
+
+function ReklamationenTab({ kundeId }: { kundeId: number }) {
+  const [liste, setListe] = useState<KundeReklamation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/reklamationen?kundeId=${kundeId}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setListe(Array.isArray(d) ? d : []))
+      .catch(() => setListe([]))
+      .finally(() => setLoading(false));
+  }, [kundeId]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-900">Reklamationen</h2>
+        <Link
+          href={`/reklamationen/neu?kundeId=${kundeId}`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-700 text-white rounded-lg text-sm font-medium hover:bg-green-800 transition-colors"
+        >
+          + Neue Reklamation
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-gray-400">Lade…</div>
+      ) : liste.length === 0 ? (
+        <div className="text-sm text-gray-400 py-4">Keine Reklamationen vorhanden.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Datum</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Nummer</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Betreff</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600 hidden sm:table-cell">Priorität</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Status</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {liste.map((r) => (
+                <tr key={r.id} className="hover:bg-gray-50">
+                  <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">
+                    {new Date(r.datum).toLocaleDateString("de-DE")}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Link href={`/reklamationen/${r.id}`} className="font-mono text-xs text-green-700 hover:underline">
+                      {r.nummer}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2.5 max-w-[200px] truncate">{r.betreff}</td>
+                  <td className="px-3 py-2.5 hidden sm:table-cell capitalize text-gray-600 text-xs">{r.prioritaet}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${REKO_STATUS_BADGE[r.status] ?? "bg-gray-100 text-gray-700"}`}>
+                      {REKO_STATUS_LABEL[r.status] ?? r.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Link href={`/reklamationen/${r.id}`} className="text-xs text-green-700 hover:underline">
+                      Öffnen
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

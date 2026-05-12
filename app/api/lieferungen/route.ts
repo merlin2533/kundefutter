@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
       select: {
         ...lieferungSafeSelect,
         kunde: { select: { id: true, name: true, firma: true, ort: true } },
+        streckenLieferant: { select: { id: true, name: true } },
         positionen: {
           select: {
             id: true, menge: true, verkaufspreis: true, einkaufspreis: true,

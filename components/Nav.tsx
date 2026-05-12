@@ -37,6 +37,7 @@ const groups: NavGroup[] = [
       { href: "/lieferanten", label: "Lieferanten" },
       { href: "/lager", label: "Lager" },
       { href: "/lager/umbuchungen", label: "Umbuchungen" },
+      { href: "/lager/etiketten", label: "Etiketten-Druck" },
       { href: "/inventur", label: "Inventur" },
       { href: "/kalkulation", label: "Preiskalkulation" },
       { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator" },
@@ -47,7 +48,9 @@ const groups: NavGroup[] = [
     children: [
       { href: "/angebote", label: "Angebote" },
       { href: "/aufgaben", label: "Aufgaben / TODO" },
+      { href: "/reklamationen", label: "Reklamationen" },
       { href: "/lieferungen", label: "Lieferungen" },
+      { href: "/streckengeschaeft", label: "Streckengeschäfte" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },

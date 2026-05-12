@@ -1,13 +1,18 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+
+const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
 interface Kunde {
   id: number;
   name: string;
   firma: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface Schlag {
@@ -26,6 +31,7 @@ function PSMNeuInner() {
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [kundeGeo, setKundeGeo] = useState<{ lat: number; lng: number } | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -52,12 +58,20 @@ function PSMNeuInner() {
   }, []);
 
   useEffect(() => {
-    if (!form.kundeId) { setSchlaegte([]); return; }
+    if (!form.kundeId) { setSchlaegte([]); setKundeGeo(null); return; }
     fetch(`/api/kunden/${form.kundeId}/schlaegte`)
       .then((r) => r.json())
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
       .catch(() => setSchlaegte([]));
-  }, [form.kundeId]);
+    // Fetch kunde geo for WetterWidget
+    const found = kunden.find((k) => k.id === parseInt(form.kundeId, 10));
+    if (found?.lat != null && found?.lng != null) {
+      setKundeGeo({ lat: found.lat, lng: found.lng });
+    } else {
+      setKundeGeo(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.kundeId, kunden]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -136,6 +150,10 @@ function PSMNeuInner() {
             required
           />
         </div>
+
+        {kundeGeo && (
+          <WetterWidget lat={kundeGeo.lat} lng={kundeGeo.lng} compact={true} />
+        )}
 
         {form.kundeId && (
           <div>

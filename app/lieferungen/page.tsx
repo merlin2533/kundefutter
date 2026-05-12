@@ -12,6 +12,7 @@ interface Lieferung {
   status: string;
   notiz?: string;
   rechnungNr?: string | null;
+  istStreckengeschaeft?: boolean;
   positionen: {
     id: number;
     menge: number;
@@ -325,7 +326,14 @@ export default function LieferungenPage() {
                         <td className="px-4 py-3 whitespace-nowrap">{formatDatum(l.datum)}</td>
                         <td className="px-4 py-3 font-medium">
                           {l.kunde.firma ? `${l.kunde.firma} (${l.kunde.name})` : l.kunde.name}
-                          <div className="sm:hidden text-xs text-gray-500 font-mono mt-0.5">{formatEuro(umsatz)}</div>
+                          <div className="sm:hidden text-xs text-gray-500 font-mono mt-0.5">
+                            {formatEuro(umsatz)}
+                            {l.istStreckengeschaeft && (
+                              <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                                🔀 Strecke
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="hidden md:table-cell px-4 py-3 text-center">{l.positionen.length}</td>
                         <td className="hidden sm:table-cell px-4 py-3 font-mono whitespace-nowrap">{formatEuro(umsatz)}</td>
@@ -333,7 +341,14 @@ export default function LieferungenPage() {
                           <MargeBadge pct={margePct} />
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge status={l.status} />
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <StatusBadge status={l.status} />
+                            {l.istStreckengeschaeft && (
+                              <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap">
+                                🔀 Strecke
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-0.5">
