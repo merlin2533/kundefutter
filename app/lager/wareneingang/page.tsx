@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import { formatEuro } from "@/lib/utils";
 
 interface Lieferant {
@@ -45,6 +46,8 @@ function WareneingangInner() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [scannerForIdx, setScannerForIdx] = useState<number | null>(null);
+  const [scanToast, setScanToast] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -81,6 +84,37 @@ function WareneingangInner() {
     setPositionen(
       positionen.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
     );
+  }
+
+  async function handleBarcodeScan(code: string) {
+    const idx = scannerForIdx;
+    setScannerForIdx(null);
+    if (idx === null) return;
+
+    // Search by artikelnummer or name
+    try {
+      const res = await fetch(`/api/artikel?search=${encodeURIComponent(code)}&limit=5`);
+      if (!res.ok) throw new Error("Fehler");
+      const data = await res.json();
+      const list: Artikel[] = Array.isArray(data) ? data : [];
+      if (list.length === 0) {
+        setScanToast(`Artikel mit Code "${code}" nicht gefunden.`);
+        setTimeout(() => setScanToast(null), 4000);
+        return;
+      }
+      const found = list[0];
+      updatePosition(idx, "artikelId", String(found.id));
+      // Also refresh artikelList to include if not already there
+      setArtikelList((prev) => {
+        if (prev.find((a) => a.id === found.id)) return prev;
+        return [...prev, found];
+      });
+      setScanToast(`Artikel gefunden: ${found.name}`);
+      setTimeout(() => setScanToast(null), 3000);
+    } catch {
+      setScanToast("Fehler bei der Artikel-Suche.");
+      setTimeout(() => setScanToast(null), 4000);
+    }
   }
 
   const gesamt = positionen.reduce(
@@ -133,6 +167,17 @@ function WareneingangInner() {
 
   return (
     <div>
+      {scannerForIdx !== null && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setScannerForIdx(null)}
+        />
+      )}
+      {scanToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-lg shadow-xl">
+          {scanToast}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Neuer Wareneingang</h1>
         <Link
@@ -212,13 +257,27 @@ function WareneingangInner() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Artikel
                   </label>
-                  <SearchableSelect
-                    options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
-                    value={pos.artikelId}
-                    onChange={(v) => updatePosition(idx, "artikelId", v)}
-                    placeholder="-- Artikel wählen --"
-                    required
-                  />
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
+                        value={pos.artikelId}
+                        onChange={(v) => updatePosition(idx, "artikelId", v)}
+                        placeholder="-- Artikel wählen --"
+                        required
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScannerForIdx(idx)}
+                      title="Barcode / EAN scannen"
+                      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-600 hover:text-green-700 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9V6a1 1 0 011-1h3M3 15v3a1 1 0 001 1h3m11-4v3a1 1 0 01-1 1h-3m4-13h-3a1 1 0 00-1 1v3M6 9h.01M10 9h.01M14 9h.01M6 12h.01M10 12h.01M14 12h.01M6 15h.01M10 15h.01M14 15h.01" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div className="w-full sm:w-28">
                   <label className="block text-xs font-medium text-gray-500 mb-1">

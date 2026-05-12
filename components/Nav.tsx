@@ -37,6 +37,7 @@ const groups: NavGroup[] = [
       { href: "/lieferanten", label: "Lieferanten" },
       { href: "/lager", label: "Lager" },
       { href: "/lager/umbuchungen", label: "Umbuchungen" },
+      { href: "/lager/etiketten", label: "Etiketten-Druck" },
       { href: "/inventur", label: "Inventur" },
       { href: "/kalkulation", label: "Preiskalkulation" },
       { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator" },
