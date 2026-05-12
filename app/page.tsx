@@ -222,7 +222,7 @@ function useDashboardWidgets() {
   useEffect(() => {
     fetch("/api/einstellungen?prefix=dashboard.")
       .then((r) => (r.ok ? r.json() : {}))
-      .then((d) => {
+      .then((d: Record<string, string>) => {
         const raw = d["dashboard.widgets"];
         if (raw) {
           try {
