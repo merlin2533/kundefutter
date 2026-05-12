@@ -6,6 +6,7 @@ import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistratio
 import { InstallPrompt } from "@/components/InstallPrompt";
 import SearchPalette from "@/components/SearchPalette";
 import { ToastProvider } from "@/components/ToastProvider";
+import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 
 export const metadata: Metadata = {
   title: "AgrarOffice Röthemeier",
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorkerRegistration />
         <InstallPrompt />
         <SearchPalette />
+        <KeyboardShortcuts />
         <Nav />
         <Breadcrumbs />
         <ToastProvider>

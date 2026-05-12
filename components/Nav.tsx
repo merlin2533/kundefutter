@@ -776,6 +776,19 @@ export default function Nav() {
       .catch(() => {});
   }, [hideNav]);
 
+  // Auto-open active group when mobile menu opens
+  useEffect(() => {
+    if (open) {
+      const activeGroup = groups.find((g) => g.children?.some((c) => {
+        if (c.href === "/") return pathname === "/";
+        return pathname === c.href || pathname.startsWith(c.href + "/");
+      }));
+      if (activeGroup) setMobileOpen(activeGroup.label);
+    } else {
+      setMobileOpen(null);
+    }
+  }, [open, pathname]);
+
   if (hideNav) return null;
 
   function isActive(href: string) {
