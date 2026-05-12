@@ -52,6 +52,7 @@ const groups: NavGroup[] = [
       { href: "/lieferungen", label: "Lieferungen" },
       { href: "/streckengeschaeft", label: "Streckengeschäfte" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
+      { href: "/fahrer/standorte", label: "Fahrer-Standorte" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
       { href: "/kontrakte", label: "Kontrakte" },
