@@ -16,14 +16,14 @@ export const prisma = globalForPrisma.prisma || makeClient();
 // Request ein neuer PrismaClient erstellt → Connection-Pool-Erschöpfung
 globalForPrisma.prisma = prisma;
 
-// Für bessere Concurrent-Read-Performance (SQLite WAL-Modus):
+// WAL-Modus für bessere Concurrent-Read-Performance
 async function ensureWalMode() {
   try {
     await prisma.$executeRawUnsafe('PRAGMA journal_mode=WAL;');
     await prisma.$executeRawUnsafe('PRAGMA synchronous=NORMAL;');
     await prisma.$executeRawUnsafe('PRAGMA cache_size=10000;');
     await prisma.$executeRawUnsafe('PRAGMA temp_store=memory;');
-  } catch (e) {
+  } catch {
     // silently ignore (might not be SQLite)
   }
 }
