@@ -114,7 +114,8 @@ export default function EtikettenPage() {
         fetch("/api/einstellungen?prefix=firma.").then((r) => (r.ok ? r.json() : {})),
       ]);
       setArtikelList(Array.isArray(artRes) ? artRes : []);
-      setFirmenname(einRes["firma.name"] ?? einRes["system.firmenname"] ?? "");
+      const ein = einRes as Record<string, string>;
+      setFirmenname(ein["firma.name"] ?? ein["system.firmenname"] ?? "");
     }
     load();
   }, []);
