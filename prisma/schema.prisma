@@ -118,6 +118,7 @@ model KundeAktivitaet {
   @@index([kundeId])
   @@index([datum])
   @@index([faelligAm])
+  @@index([erledigt])
 }
 
 // ─── LIEFERANT ────────────────────────────────────────────────────────────────
@@ -407,6 +408,7 @@ model Lagerbewegung {
   @@index([artikelId])
   @@index([datum])
   @@index([artikelId, datum])
+  @@index([typ])
 }
 
 // ─── MENGENRABATTE ────────────────────────────────────────────────────────────
