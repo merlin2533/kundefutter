@@ -58,12 +58,20 @@ function PSMNeuInner() {
   }, []);
 
   useEffect(() => {
-    if (!form.kundeId) { setSchlaegte([]); return; }
+    if (!form.kundeId) { setSchlaegte([]); setKundeGeo(null); return; }
     fetch(`/api/kunden/${form.kundeId}/schlaegte`)
       .then((r) => r.json())
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
       .catch(() => setSchlaegte([]));
-  }, [form.kundeId]);
+    // Fetch kunde geo for WetterWidget
+    const found = kunden.find((k) => k.id === parseInt(form.kundeId, 10));
+    if (found?.lat != null && found?.lng != null) {
+      setKundeGeo({ lat: found.lat, lng: found.lng });
+    } else {
+      setKundeGeo(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.kundeId, kunden]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,6 +150,10 @@ function PSMNeuInner() {
             required
           />
         </div>
+
+        {kundeGeo && (
+          <WetterWidget lat={kundeGeo.lat} lng={kundeGeo.lng} compact={true} />
+        )}
 
         {form.kundeId && (
           <div>

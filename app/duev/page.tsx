@@ -1,3 +1,46 @@
+"use client";
+
+import { useState } from "react";
+
+const BUNDESLAENDER = [
+  "Bundesweit (Basiswerte)",
+  "Bayern",
+  "Baden-Württemberg",
+  "Berlin",
+  "Brandenburg",
+  "Bremen",
+  "Hamburg",
+  "Hessen",
+  "Mecklenburg-Vorpommern",
+  "Niedersachsen",
+  "Nordrhein-Westfalen",
+  "Rheinland-Pfalz",
+  "Saarland",
+  "Sachsen",
+  "Sachsen-Anhalt",
+  "Schleswig-Holstein",
+  "Thüringen",
+];
+
+// Next sperrfrist calculation: returns { tage, label } for the nearest upcoming sperrfrist start
+function naechsteSperrfrist(now: Date): { tage: number; label: string } | null {
+  // Sperrfrist starts (month=1-based, day)
+  const starts = [
+    { month: 10, day: 1, label: "01.10. (Grünland-Stickstoff)" },
+    { month: 11, day: 1, label: "01.11. (Ackerland-Stickstoff)" },
+    { month: 12, day: 1, label: "01.12. (Festmist / Phosphat)" },
+  ];
+  const year = now.getFullYear();
+  let nearest: { tage: number; label: string } | null = null;
+  for (const s of starts) {
+    let candidate = new Date(year, s.month - 1, s.day);
+    if (candidate <= now) candidate = new Date(year + 1, s.month - 1, s.day);
+    const tage = Math.ceil((candidate.getTime() - now.getTime()) / 86400000);
+    if (!nearest || tage < nearest.tage) nearest = { tage, label: s.label };
+  }
+  return nearest;
+}
+
 export default function DuevPage() {
   const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 
@@ -8,18 +51,104 @@ export default function DuevPage() {
   const gruenlandStickstoff = new Set([10, 11, 12, 1]); // 01.10.–31.01.
   const gruenlandFestmist = new Set([12, 1]); // 01.12.–31.01.
 
+  // Current month (1-based)
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+
+  const [bundesland, setBundesland] = useState("Bundesweit (Basiswerte)");
+
+  const naechste = naechsteSperrfrist(now);
+
   function isSperrfrist(month: number, set: Set<number>) {
     return set.has(month);
   }
 
+  function MonatsKalender({ label, sperrSet, color }: { label: string; sperrSet: Set<number>; color: "red" | "orange" }) {
+    const gesperrtCls = color === "red"
+      ? "bg-red-100 text-red-700 border-red-300"
+      : "bg-orange-100 text-orange-700 border-orange-300";
+    return (
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
+        <div className="flex gap-1 flex-wrap">
+          {MONATE.map((m, i) => {
+            const monthNum = i + 1;
+            const gesperrt = isSperrfrist(monthNum, sperrSet);
+            const isJetzt = monthNum === currentMonth;
+            return (
+              <div
+                key={m}
+                className={`flex-1 min-w-[3rem] text-center py-3 rounded-lg text-xs font-medium border transition-all ${
+                  gesperrt ? gesperrtCls : "bg-green-50 text-green-700 border-green-200"
+                } ${isJetzt ? "ring-2 ring-offset-1 ring-gray-700 font-bold" : ""}`}
+              >
+                {m}
+                <div className="text-[10px] mt-0.5">{gesperrt ? "Gesperrt" : "Frei"}</div>
+                {isJetzt && <div className="text-[9px] mt-0.5 text-gray-600">Jetzt</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">
-        Düngeverordnung — Sperrfristen 2025/2026
-      </h1>
-      <p className="text-sm text-gray-600 mb-6">
+    <div className="container mx-auto px-4 py-8 max-w-4xl print:py-4 print:px-0">
+      {/* Header + PDF button */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Düngeverordnung — Sperrfristen 2025/2026
+        </h1>
+        <button
+          onClick={() => window.print()}
+          className="print:hidden inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          Als PDF drucken
+        </button>
+      </div>
+      <p className="text-sm text-gray-600 mb-4">
         Die folgenden Sperrfristen gelten nach § 6 Abs. 8 DüV. Bitte prüfen Sie immer die aktuell gültige Fassung.
       </p>
+
+      {/* Bundesland-Auswahl */}
+      <div className="print:hidden bg-white rounded-xl border border-gray-200 p-4 mb-4 flex flex-wrap items-center gap-3">
+        <label className="text-sm font-medium text-gray-700">Bundesland:</label>
+        <select
+          value={bundesland}
+          onChange={(e) => setBundesland(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+        >
+          {BUNDESLAENDER.map((bl) => (
+            <option key={bl} value={bl}>{bl}</option>
+          ))}
+        </select>
+        {bundesland !== "Bundesweit (Basiswerte)" && (
+          <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+            Länderspezifische Abweichungen beachten — diese Angaben zeigen die Bundesbasiswerte.
+          </span>
+        )}
+      </div>
+
+      {/* Nächste Sperrfrist-Warnung */}
+      {naechste && naechste.tage <= 60 && (
+        <div className="bg-orange-50 border border-orange-300 rounded-xl p-4 mb-6 text-sm text-orange-800 flex items-start gap-2">
+          <span className="text-lg leading-none mt-0.5">⚠️</span>
+          <div>
+            <span className="font-semibold">Nächste Sperrfrist beginnt in {naechste.tage} Tagen</span>
+            {" "}({naechste.label})
+          </div>
+        </div>
+      )}
+      {naechste && naechste.tage > 60 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-6 text-sm text-blue-700">
+          Nächste Sperrfrist beginnt in <span className="font-semibold">{naechste.tage} Tagen</span>{" "}
+          ({naechste.label})
+        </div>
+      )}
 
       {/* Hinweis */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8 text-sm text-amber-800">
@@ -75,79 +204,16 @@ export default function DuevPage() {
 
       {/* Kalenderübersicht */}
       <div className="space-y-6">
-        <h2 className="text-base font-semibold text-gray-900">Jahresübersicht — Gesperrte Monate (visuell)</h2>
+        <h2 className="text-base font-semibold text-gray-900">
+          Jahresübersicht — Gesperrte Monate (visuell)
+          <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+            Aktueller Monat hervorgehoben
+          </span>
+        </h2>
 
-        {/* Ackerland Stickstoff */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Ackerland — Stickstoff (flüssig)</p>
-          <div className="flex gap-1 flex-wrap">
-            {MONATE.map((m, i) => {
-              const monthNum = i + 1;
-              const gesperrt = isSperrfrist(monthNum, ackerStickstoff);
-              return (
-                <div
-                  key={m}
-                  className={`flex-1 min-w-[3rem] text-center py-3 rounded-lg text-xs font-medium border ${
-                    gesperrt
-                      ? "bg-red-100 text-red-700 border-red-300"
-                      : "bg-green-50 text-green-700 border-green-200"
-                  }`}
-                >
-                  {m}
-                  <div className="text-[10px] mt-0.5">{gesperrt ? "Gesperrt" : "Frei"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Grünland Stickstoff */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Grünland — Stickstoff (flüssig)</p>
-          <div className="flex gap-1 flex-wrap">
-            {MONATE.map((m, i) => {
-              const monthNum = i + 1;
-              const gesperrt = isSperrfrist(monthNum, gruenlandStickstoff);
-              return (
-                <div
-                  key={m}
-                  className={`flex-1 min-w-[3rem] text-center py-3 rounded-lg text-xs font-medium border ${
-                    gesperrt
-                      ? "bg-red-100 text-red-700 border-red-300"
-                      : "bg-green-50 text-green-700 border-green-200"
-                  }`}
-                >
-                  {m}
-                  <div className="text-[10px] mt-0.5">{gesperrt ? "Gesperrt" : "Frei"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Festmist / Phosphat */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Ackerland — Festmist / Kompost / Phosphat</p>
-          <div className="flex gap-1 flex-wrap">
-            {MONATE.map((m, i) => {
-              const monthNum = i + 1;
-              const gesperrt = isSperrfrist(monthNum, ackerFestmistKompost);
-              return (
-                <div
-                  key={m}
-                  className={`flex-1 min-w-[3rem] text-center py-3 rounded-lg text-xs font-medium border ${
-                    gesperrt
-                      ? "bg-orange-100 text-orange-700 border-orange-300"
-                      : "bg-green-50 text-green-700 border-green-200"
-                  }`}
-                >
-                  {m}
-                  <div className="text-[10px] mt-0.5">{gesperrt ? "Gesperrt" : "Frei"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <MonatsKalender label="Ackerland — Stickstoff (flüssig)" sperrSet={ackerStickstoff} color="red" />
+        <MonatsKalender label="Grünland — Stickstoff (flüssig)" sperrSet={gruenlandStickstoff} color="red" />
+        <MonatsKalender label="Ackerland — Festmist / Kompost / Phosphat" sperrSet={ackerFestmistKompost} color="orange" />
       </div>
 
       {/* Legende */}
@@ -163,6 +229,10 @@ export default function DuevPage() {
         <div className="flex items-center gap-1.5">
           <span className="w-4 h-4 rounded bg-green-50 border border-green-200 inline-block" />
           <span className="text-gray-600">Keine Sperrfrist</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-4 h-4 rounded bg-white border-2 border-gray-700 inline-block" />
+          <span className="text-gray-600">Aktueller Monat</span>
         </div>
       </div>
 

@@ -13,7 +13,6 @@ interface Kunde {
 interface Lieferant {
   id: number;
   name: string;
-  firma?: string | null;
 }
 
 interface ArtikelLieferantInfo {
@@ -298,6 +297,11 @@ function NeueLieferungInner() {
     setSaving(true);
     setError("");
     try {
+      if (istStreckengeschaeft && !streckenLieferantId) {
+        setError("Bitte einen Direktlieferanten auswählen.");
+        setSaving(false);
+        return;
+      }
       const res = await fetch("/api/lieferungen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -306,6 +310,8 @@ function NeueLieferungInner() {
           datum,
           status,
           notiz: notiz || undefined,
+          istStreckengeschaeft,
+          streckenLieferantId: istStreckengeschaeft && streckenLieferantId ? Number(streckenLieferantId) : undefined,
           positionen: positionen.map((p) => ({
             artikelId: Number(p.artikelId),
             menge: parseFloat(p.menge) || 0,
@@ -390,6 +396,46 @@ function NeueLieferungInner() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
               />
             </div>
+          </div>
+
+          {/* Streckengeschäft Toggle */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={istStreckengeschaeft}
+                onChange={(e) => {
+                  setIstStreckengeschaeft(e.target.checked);
+                  if (!e.target.checked) setStreckenLieferantId("");
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Streckengeschäft (Lieferant liefert direkt an Kunden — kein Lagerabgang)
+              </span>
+            </label>
+            {istStreckengeschaeft && (
+              <div className="space-y-2 pl-7">
+                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Bei Streckengeschäft wird kein Lagerabgang gebucht. Die Rechnung wird trotzdem durch Sie ausgestellt.
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Direktlieferant <span className="text-red-500">*</span>
+                  </label>
+                  <SearchableSelect
+                    options={lieferanten.map((l) => ({
+                      value: l.id,
+                      label: l.name,
+                    }))}
+                    value={streckenLieferantId}
+                    onChange={(v) => setStreckenLieferantId(v ? Number(v) : "")}
+                    placeholder="Direktlieferant auswählen…"
+                    required={istStreckengeschaeft}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sprengstoffvorläufer-Warnung */}

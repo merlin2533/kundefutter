@@ -48,7 +48,9 @@ const groups: NavGroup[] = [
     children: [
       { href: "/angebote", label: "Angebote" },
       { href: "/aufgaben", label: "Aufgaben / TODO" },
+      { href: "/reklamationen", label: "Reklamationen" },
       { href: "/lieferungen", label: "Lieferungen" },
+      { href: "/streckengeschaeft", label: "Streckengeschäfte" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
