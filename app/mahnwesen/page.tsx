@@ -24,6 +24,14 @@ interface MahnwesenEintrag {
   mahnstufe: 1 | 2 | 3;
 }
 
+const BASISZINS = 3.37; // Basiszinssatz ab 01.01.2026 gemäß § 247 BGB
+const VERZUGSZINS = BASISZINS + 9; // § 288 Abs. 2 BGB (Handelsgeschäfte)
+
+function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number): number {
+  if (tageUeberfaellig <= 0) return 0;
+  return (betrag * (VERZUGSZINS / 100) / 365) * tageUeberfaellig;
+}
+
 const STUFE_FARBEN: Record<number, string> = {
   1: "bg-yellow-50 border-yellow-200",
   2: "bg-orange-50 border-orange-200",
@@ -241,6 +249,12 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
         </button>
       </div>
 
+      {/* Verzugszins-Info */}
+      <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
+        Verzugszinssatz: <strong>{VERZUGSZINS.toFixed(2)}% p.a.</strong> (Basiszins{" "}
+        {BASISZINS.toFixed(2)}% + 9 Prozentpunkte, §288 BGB). Stand: 01.01.2026.
+      </div>
+
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {error}
@@ -319,6 +333,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Rechnungsnr.</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Betrag</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Tage überfällig</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden lg:table-cell">Verzugszinsen (€)</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Aktionen</th>
                   </tr>
                 </thead>
@@ -377,6 +392,18 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                           {e.tageUeberfaellig} {e.tageUeberfaellig === 1 ? "Tag" : "Tage"}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-right font-mono text-sm hidden lg:table-cell">
+                        {e.tageUeberfaellig > 0 ? (
+                          <span className="text-orange-700 font-semibold">
+                            {berechneVerzugszinsen(e.betrag, e.tageUeberfaellig).toLocaleString("de-DE", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">0,00</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -411,7 +438,20 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                       <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono whitespace-nowrap">
                         {formatEuro(gesamtbetrag)}
                       </td>
-                      <td colSpan={2} className="hidden md:table-cell" />
+                      <td className="hidden md:table-cell" />
+                      <td className="px-4 py-3 text-right font-mono font-bold text-orange-700 whitespace-nowrap hidden lg:table-cell">
+                        {gefiltert
+                          .reduce(
+                            (s, e) =>
+                              s + berechneVerzugszinsen(e.betrag, e.tageUeberfaellig),
+                            0
+                          )
+                          .toLocaleString("de-DE", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                      </td>
+                      <td className="hidden md:table-cell" />
                     </tr>
                   </tfoot>
                 )}
