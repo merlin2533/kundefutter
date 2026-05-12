@@ -3,6 +3,14 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
 # LLM-Crawler explizit erlauben (GPTBot, Claude, Gemini, etc.)
 User-agent: GPTBot
 Allow: /
@@ -22,6 +30,3 @@ Allow: /llms.txt
 
 # Sitemaps
 Sitemap: https://agraroffice.de/sitemap.xml
-
-# Performance hint for crawlers
-Crawl-delay: 1

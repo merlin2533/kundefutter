@@ -840,7 +840,7 @@
   <div class="mobile-menu-header">
     <div class="nav-logo">
       <div class="nav-logo-mark">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
       </div>
       <span class="nav-logo-text">Agrar<span>Office</span></span>
     </div>
@@ -863,7 +863,7 @@
     <div class="nav-inner">
       <a href="#" class="nav-logo">
         <div class="nav-logo-mark">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         </div>
         <span class="nav-logo-text">Agrar<span>Office</span></span>
       </a>
@@ -888,9 +888,12 @@
   </div>
 </nav>
 
+<!-- Main Content -->
+<main id="main-content">
+
 <!-- Hero -->
-<section class="hero" id="main-content" aria-label="Hero">
-  <div class="hero-bg">
+<section class="hero" aria-label="Hero">
+  <div class="hero-bg" aria-hidden="true">
     <div class="hero-bg-circle"></div>
     <div class="hero-bg-circle"></div>
     <div class="hero-bg-circle"></div>
@@ -901,10 +904,10 @@
       <div class="hero-text">
         <div class="hero-badge">
           <span class="hero-badge-dot"></span>
-          <span>Speziell für Landhandel & Agrar-Außendienst</span>
+          <span>Landhandel-Software · Made in Germany · DSGVO-konform</span>
         </div>
         <h1>Schluss mit Excel —<br/><em>mehr Umsatz</em> im Landhandel</h1>
-        <p class="hero-sub">AgrarOffice gibt Ihrem Vertriebsteam alles, was es braucht: smarte Tourenplanung, KI-gestützte Lieferscheinerkennung, Live-Marktpreise und ein CRM, das wirklich für den Landhandel gebaut wurde.</p>
+        <p class="hero-sub">AgrarOffice ist die führende Landhandel-Software für Agrarhändler: smarte Tourenplanung, KI-gestützte Lieferscheinerkennung, PSM-Dokumentation §14 PflSchG, Düngeverordnung-Compliance und ein CRM, das wirklich für den Landhandel gebaut wurde — DSGVO-konform auf deutschen Servern.</p>
         <div class="hero-actions">
           <a href="#kontakt" class="btn btn-amber btn-lg">
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12s2.545-2 5-2c2.454 0 5 2 5 2m-5-9v4"/><circle cx="12" cy="3" r="1"/></svg>
@@ -997,11 +1000,11 @@
 </div>
 
 <!-- Features Overview -->
-<section class="features-overview" id="funktionen">
+<section class="features-overview" id="funktionen" aria-labelledby="features-title">
   <div class="container">
     <div class="features-overview-header animate-on-scroll">
       <div class="section-label">Alle Funktionen</div>
-      <h2 class="section-title">Gebaut für den Landhandel-Alltag</h2>
+      <h2 class="section-title" id="features-title">Gebaut für den Landhandel-Alltag</h2>
       <p class="section-sub">Von der Telefonmaske beim Kundenanruf bis zum fertig optimierten Tourplan: AgrarOffice kennt die Abläufe im Landhandel und bildet sie 1:1 ab.</p>
     </div>
     <div class="features-grid">
@@ -1009,7 +1012,7 @@
       <!-- CRM -->
       <div class="feature-card animate-on-scroll delay-1">
         <div class="feature-icon green">🤝</div>
-        <h3>CRM für den Außendienst</h3>
+        <h3>CRM für Agrarhändler</h3>
         <p>Ihr Vertriebler weiß beim Anruf sofort: letzter Kontakt, offene Angebote, Bedarfsplan, Fläche, Wettbewerberinfos. Kein Suchen, kein Nachfragen.</p>
         <ul>
           <li>Telefonmaske: Kundendaten beim Klingeln</li>
@@ -1037,7 +1040,7 @@
       <!-- Lager -->
       <div class="feature-card animate-on-scroll delay-3">
         <div class="feature-icon green">📦</div>
-        <h3>Lagerverwaltung</h3>
+        <h3>Lagerverwaltung Landhandel</h3>
         <p>Lagerbestände live, Mindestbestand-Ampel beim Erfassen, Chargenrückverfolgung – und KI, die Wareneingänge per Foto einliest.</p>
         <ul>
           <li>Echtzeit-Bestände & Ampel-Status</li>
@@ -1149,8 +1152,8 @@
       <!-- Compliance & PSM -->
       <div class="feature-card animate-on-scroll delay-2">
         <div class="feature-icon blue">🌿</div>
-        <h3>PSM-Dokumentation &amp; DüV</h3>
-        <p>Pflanzenschutz-Aufzeichnungen §14 PflSchG, Sachkundenachweis-Verwaltung und Düngeverordnung-Sperrfristen — alles rechtssicher in einer Software.</p>
+        <h3>PSM-Dokumentation §14 PflSchG &amp; DüV</h3>
+        <p>Pflanzenschutz-Aufzeichnungen §14 PflSchG, Sachkundenachweis-Verwaltung und Düngeverordnung-Sperrfristen — alles rechtssicher in einer Landhandel-Software.</p>
         <ul>
           <li>PSM-Ausbringung je Schlag dokumentieren</li>
           <li>Sachkundenachweis-Ablauf-Alarm</li>
@@ -1798,7 +1801,7 @@
 </section>
 
 <!-- Stats -->
-<section class="stats-section">
+<section class="stats-section" aria-label="Kennzahlen">
   <div class="container">
     <div class="stats-grid">
       <div class="animate-on-scroll">
@@ -1969,11 +1972,11 @@
 </section>
 
 <!-- Pricing -->
-<section class="pricing" id="preise">
+<section class="pricing" id="preise" aria-labelledby="pricing-title">
   <div class="container">
     <div class="pricing-header animate-on-scroll">
       <div class="section-label">Preise</div>
-      <h2 class="section-title">Transparent und fair – keine versteckten Kosten</h2>
+      <h2 class="section-title" id="pricing-title">Transparent und fair – keine versteckten Kosten</h2>
       <p class="section-sub" style="margin:16px auto 0">Monatlich kündbar. Ihre Daten gehören Ihnen. Kein Kleingedrucktes.</p>
     </div>
     <div class="pricing-toggle">
@@ -2102,11 +2105,11 @@
 </section>
 
 <!-- Testimonials -->
-<section class="testimonials" id="testimonials">
+<section class="testimonials" id="testimonials" aria-labelledby="testimonials-title">
   <div class="container">
     <div class="testimonials-header animate-on-scroll">
       <div class="section-label">Referenzen</div>
-      <h2 class="section-title">Was unsere Kunden sagen</h2>
+      <h2 class="section-title" id="testimonials-title">Was unsere Kunden sagen</h2>
     </div>
     <div class="testimonials-grid">
       <div class="testimonial-card animate-on-scroll delay-1">
@@ -2192,11 +2195,11 @@
 </section>
 
 <!-- FAQ -->
-<section class="faq" id="faq">
+<section class="faq" id="faq" aria-labelledby="faq-title">
   <div class="container">
     <div class="faq-header animate-on-scroll">
       <div class="section-label">FAQ</div>
-      <h2 class="section-title">Häufige Fragen</h2>
+      <h2 class="section-title" id="faq-title">Häufige Fragen</h2>
     </div>
     <div class="faq-list">
       <div class="faq-item animate-on-scroll delay-1">
@@ -2392,6 +2395,8 @@
   </div>
 </section>
 
+</main><!-- /main -->
+
 <!-- Footer -->
 <footer class="footer">
   <div class="container">
@@ -2399,7 +2404,7 @@
       <div class="footer-brand">
         <div class="nav-logo">
           <div class="nav-logo-mark">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
           <span class="nav-logo-text" style="color:white">Agrar<span>Office</span></span>
         </div>
@@ -2437,6 +2442,13 @@
         </ul>
       </div>
     </div>
+    <p style="font-size:.75rem; color:rgba(255,255,255,.4); margin-bottom:24px; line-height:1.6;">
+AgrarOffice ist die führende Cloud-Software für Agrarhändler und Landhandelsbetriebe in Deutschland.
+CRM, Tourenplanung Außendienst, Lagerverwaltung Agrar, KI-gestützte Lieferscheinerkennung, DATEV-Export,
+ZUGFeRD E-Rechnung Landhandel, PSM-Dokumentation nach §14 PflSchG und Düngeverordnung-Compliance —
+alles in einer DSGVO-konformen SaaS-Lösung auf deutschen Servern. Entwickelt von Markus Straub,
+Walddorfhäslach, Baden-Württemberg.
+    </p>
     <div class="footer-bottom">
       <p>© 2026 AgrarOffice · Markus Straub &amp; Carsten Stock · <a href="impressum.html" style="color:inherit;opacity:.7">Impressum</a> · <a href="datenschutz.html" style="color:inherit;opacity:.7">Datenschutz</a></p>
       <div class="footer-badges">
