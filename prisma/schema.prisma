@@ -44,6 +44,7 @@ model Kunde {
   gutschriften     Gutschrift[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+  sprengstoffErklaerungen KundeSprengstoffErklaerung[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -72,6 +73,23 @@ model KundeNotiz {
   thema    String?  // e.g. "Wichtig", "Offener Punkt", "Erledigt", "Info"
   erstellt DateTime @default(now())
 
+  @@index([kundeId])
+}
+
+// ─── SPRENGSTOFFVORLÄUFER-ERKLÄRUNG (EU-VO 2019/1148) ─────────────────────────
+
+model KundeSprengstoffErklaerung {
+  id           Int      @id @default(autoincrement())
+  kundeId      Int
+  jahr         Int      // Kalenderjahr der Erklärung
+  datum        DateTime // Datum der Unterzeichnung
+  dokumentPfad String?  // optionaler Datei-Upload (unter /uploads/erklaerungen/)
+  notiz        String?
+  createdAt    DateTime @default(now())
+
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@unique([kundeId, jahr])
   @@index([kundeId])
 }
 
@@ -132,11 +150,12 @@ model Artikel {
   mwstSatz         Float    @default(19) // 0 | 7 | 19
   mindestbestand   Float    @default(0)
   aktuellerBestand Float    @default(0)
-  aktiv            Boolean  @default(true)
-  lagerort         String?  // optional: storage location label
-  liefergroesse    String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  aktiv                  Boolean  @default(true)
+  lagerort               String?  // optional: storage location label
+  liefergroesse          String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
+  sprengstoffvorlaeufer  Boolean  @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   inhaltsstoffe    ArtikelInhaltsstoff[]
   lieferanten      ArtikelLieferant[]
