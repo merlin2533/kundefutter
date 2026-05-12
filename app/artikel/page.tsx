@@ -11,6 +11,7 @@ import {
   parseListSetting,
   getUnterkategorienKey,
 } from "@/lib/auswahllisten";
+import { ARTIKEL_ALIAS } from "@/lib/import-utils";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
 interface ArtikelLieferant {
@@ -47,7 +48,10 @@ export default function ArtikelPage() {
   const [kategorie, setKategorie] = useState("alle");
   const [unterkategorie, setUnterkategorie] = useState("alle");
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewRows, setPreviewRows] = useState<Record<string, string>[] | null>(null);
+  const [previewCols, setPreviewCols] = useState<{ name: string; erkannt: boolean }[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -165,21 +169,58 @@ export default function ArtikelPage() {
       ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
       : [];
 
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Parse preview client-side using a simple CSV reader for CSV files
+    // For XLSX we just store the file and show a simple preview prompt
+    setPreviewFile(file);
+    setImportResult(null);
+
+    // Use FileReader to get first lines for preview (CSV only; XLSX needs server)
+    if (file.name.endsWith(".csv")) {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length > 0) {
+        const sep = lines[0].includes(";") ? ";" : ",";
+        const headers = lines[0].split(sep).map((h) => h.trim().replace(/^["']|["']$/g, ""));
+        // Check which headers are recognised by ARTIKEL_ALIAS
+        const allAliases = Object.values(ARTIKEL_ALIAS).flat().map((a) => a.toLowerCase().replace(/[\s_\-()]/g, ""));
+        const cols = headers.map((h) => ({
+          name: h,
+          erkannt: allAliases.includes(h.toLowerCase().replace(/[\s_\-()]/g, "")),
+        }));
+        setPreviewCols(cols);
+        const dataRows = lines.slice(1, 6).map((line) => {
+          const vals = line.split(sep).map((v) => v.trim().replace(/^["']|["']$/g, ""));
+          return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
+        });
+        setPreviewRows(dataRows);
+      }
+    } else {
+      // XLSX: show minimal info, let server parse
+      setPreviewCols([]);
+      setPreviewRows([]);
+    }
+  }
+
+  async function doImport() {
+    if (!previewFile) return;
     setImporting(true);
     setImportResult(null);
+    setPreviewFile(null);
+    setPreviewRows(null);
+    setPreviewCols([]);
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", previewFile);
     try {
       const res = await fetch("/api/artikel/import", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { setImportResult({ created: 0, skipped: 0, errors: [data.error ?? "Fehler"] }); return; }
+      if (!res.ok) { setImportResult({ neu: 0, aktualisiert: 0, lieferantenGesetzt: 0, skipped: 0, errors: [data.error ?? "Fehler"] }); return; }
       setImportResult(data);
-      if (data.created > 0) load();
+      if ((data.neu ?? 0) > 0 || (data.aktualisiert ?? 0) > 0) load();
     } catch {
-      setImportResult({ created: 0, skipped: 0, errors: ["Netzwerkfehler"] });
+      setImportResult({ neu: 0, aktualisiert: 0, lieferantenGesetzt: 0, skipped: 0, errors: ["Netzwerkfehler"] });
     } finally {
       setImporting(false);
       if (importRef.current) importRef.current.value = "";
@@ -231,7 +272,7 @@ export default function ArtikelPage() {
           >
             {importing ? "Importiert…" : "Importieren"}
           </button>
-          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
           <Link
             href="/artikel/neu"
             className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
@@ -241,11 +282,81 @@ export default function ArtikelPage() {
         </div>
       </div>
 
+      {/* Import Vorschau */}
+      {previewFile && !importing && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-semibold text-blue-800 mb-1">Vorschau: {previewFile.name}</div>
+              {previewCols.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {previewCols.map((c) => (
+                    <span key={c.name} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${c.erkannt ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                      {c.erkannt ? "✓" : "?"} {c.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {previewRows && previewRows.length > 0 && (
+                <div className="overflow-x-auto max-w-full">
+                  <table className="text-xs border border-gray-200 rounded">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        {previewCols.map((c) => (
+                          <th key={c.name} className={`px-2 py-1 text-left font-medium border-r last:border-0 ${c.erkannt ? "text-green-700" : "text-gray-400"}`}>{c.name}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewRows.map((row, i) => (
+                        <tr key={i} className="border-t border-gray-100">
+                          {previewCols.map((c) => (
+                            <td key={c.name} className="px-2 py-1 border-r last:border-0 text-gray-700 max-w-[120px] truncate">{row[c.name] ?? ""}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-xs text-gray-400 mt-1">Vorschau: erste {previewRows.length} Datenzeilen</p>
+                </div>
+              )}
+              {previewFile.name.match(/\.(xlsx|xls)$/i) && (
+                <p className="text-blue-700 text-xs">Excel-Datei — Vorschau nur nach Import verfügbar. Spalten werden automatisch erkannt.</p>
+              )}
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={() => { setPreviewFile(null); setPreviewRows(null); setPreviewCols([]); if (importRef.current) importRef.current.value = ""; }}
+                className="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-600 text-xs hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={doImport}
+                className="px-4 py-1.5 rounded bg-green-700 text-white text-xs font-medium hover:bg-green-800"
+              >
+                Jetzt importieren
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-blue-600">
+            Duplikate (gleicher Name) werden aktualisiert statt neu angelegt.{" "}
+            <a href="/hilfe/import" className="underline hover:text-blue-800">Import-Anleitung</a>
+          </div>
+        </div>
+      )}
+
       {importResult && (
-        <div className={`mb-4 px-4 py-3 rounded-lg text-sm border ${importResult.errors.length && !importResult.created ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-800"}`}>
-          <div className="font-medium">{importResult.created} Artikel importiert{importResult.skipped > 0 ? `, ${importResult.skipped} übersprungen` : ""}.</div>
+        <div className={`mb-4 px-4 py-3 rounded-lg text-sm border ${importResult.errors.length && !importResult.neu && !importResult.aktualisiert ? "bg-red-50 border-red-200 text-red-700" : "bg-green-50 border-green-200 text-green-800"}`}>
+          <div className="font-medium">Import abgeschlossen:</div>
+          <ul className="mt-1 space-y-0.5 text-sm">
+            {importResult.neu > 0 && <li>✓ {importResult.neu} Artikel neu angelegt</li>}
+            {importResult.aktualisiert > 0 && <li>✓ {importResult.aktualisiert} Artikel aktualisiert (Duplikate)</li>}
+            {importResult.lieferantenGesetzt > 0 && <li>✓ {importResult.lieferantenGesetzt} Lieferanten-Verknüpfungen gesetzt</li>}
+            {importResult.skipped > 0 && <li className="text-amber-700">— {importResult.skipped} Zeilen übersprungen (Fehler)</li>}
+          </ul>
           {importResult.errors.length > 0 && (
-            <ul className="mt-1 list-disc list-inside text-xs text-red-600 space-y-0.5">
+            <ul className="mt-2 list-disc list-inside text-xs text-red-600 space-y-0.5">
               {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
             </ul>
           )}

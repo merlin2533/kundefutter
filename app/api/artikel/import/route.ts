@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Keine Zeilen in der Datei gefunden" }, { status: 400 });
   }
 
-  let created = 0;
+  let neu = 0;
+  let aktualisiert = 0;
+  let lieferantenGesetzt = 0;
   let skipped = 0;
   const errors: string[] = [];
 
@@ -121,7 +123,9 @@ export async function POST(req: NextRequest) {
                 bevorzugt: true,
               },
             });
+            lieferantenGesetzt++;
           }
+          aktualisiert++;
         } else {
           await tx.artikel.create({
             data: {
@@ -151,15 +155,17 @@ export async function POST(req: NextRequest) {
               }),
             },
           });
+          if (lieferantId) lieferantenGesetzt++;
+          neu++;
         }
       });
-      created++;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const isDev = process.env.NODE_ENV === "development";
+      const msg = isDev && err instanceof Error ? err.message : "Verarbeitungsfehler";
       errors.push(`Zeile ${rowNum} (${name}): ${msg}`);
       skipped++;
     }
   }
 
-  return NextResponse.json({ created, skipped, errors: errors.slice(0, 20) });
+  return NextResponse.json({ neu, aktualisiert, lieferantenGesetzt, skipped, errors: errors.slice(0, 20) });
 }

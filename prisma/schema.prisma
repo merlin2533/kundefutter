@@ -44,6 +44,12 @@ model Kunde {
   gutschriften     Gutschrift[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+  kreditlimit          Float?    // max. offener Betrag in €
+  sachkundeNr          String?   // PSM-Sachkundenummer §9 PflSchG
+  sachkundeGueltigBis  DateTime? // Ablaufdatum Sachkundenachweis
+
+  psmAusbringungen     PsmAusbringung[]
+  kontrakte            Kontrakt[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -115,6 +121,8 @@ model Lieferant {
   wareneingaenge     Wareneingang[]
   bestellpositionen  Bestellposition[]
   ausgaben           Ausgabe[]
+  bestellungen       Bestellung[]
+  eingangsRechnungen EingangsRechnung[]
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
@@ -153,6 +161,9 @@ model Artikel {
   gutschriftPositionen GutschriftPosition[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
+  kampagneArtikel      KampagneArtikel[]
+  bestellungPositionen BestellungPosition[]
+  kontraktPositionen   KontraktPosition[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -646,7 +657,8 @@ model KundeSchlag {
   notiz      String?
   erstellt   DateTime @default(now())
 
-  kunde      Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kunde            Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  psmAusbringungen PsmAusbringung[]
 
   @@index([kundeId])
 }
@@ -734,4 +746,160 @@ model Benutzer {
   geaendertAm  DateTime  @updatedAt
 
   @@index([aktiv])
+}
+
+// ─── PSM-AUSBRINGUNG (Pflanzenschutz) ─────────────────────────────────────────
+
+model PsmAusbringung {
+  id              Int       @id @default(autoincrement())
+  kundeId         Int
+  schlagId        Int?
+  datum           DateTime
+  mittel          String    // PSM-Mittelname
+  wirkstoff       String?
+  menge           Float
+  einheit         String    @default("l/ha")
+  kultur          String?
+  flaeche         Float?    // ha
+  anwendungsgrund String?
+  wartezeit       Int?      // Tage
+  notiz           String?
+  createdAt       DateTime  @default(now())
+
+  kunde  Kunde        @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  schlag KundeSchlag? @relation(fields: [schlagId], references: [id], onDelete: SetNull)
+
+  @@index([kundeId])
+  @@index([datum])
+}
+
+// ─── FORMELLE LIEFERANTENBESTELLUNG ──────────────────────────────────────────
+
+model Bestellung {
+  id          Int       @id @default(autoincrement())
+  nummer      String    @unique  // BES-YYYY-NNNN
+  lieferantId Int
+  datum       DateTime  @default(now())
+  lieferdatum DateTime?
+  status      String    @default("OFFEN")  // OFFEN|BESTAETIGT|TEILGELIEFERT|ABGESCHLOSSEN|STORNIERT
+  notiz       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lieferant  Lieferant           @relation(fields: [lieferantId], references: [id])
+  positionen BestellungPosition[]
+
+  @@index([lieferantId])
+  @@index([status])
+  @@index([datum])
+}
+
+model BestellungPosition {
+  id              Int     @id @default(autoincrement())
+  bestellungId    Int
+  artikelId       Int
+  menge           Float
+  mengeGeliefert  Float   @default(0)
+  preis           Float?
+  einheit         String  @default("kg")
+
+  bestellung Bestellung @relation(fields: [bestellungId], references: [id], onDelete: Cascade)
+  artikel    Artikel    @relation(fields: [artikelId], references: [id])
+
+  @@index([bestellungId])
+  @@index([artikelId])
+}
+
+// ─── KONTRAKTE (Rahmenverträge) ───────────────────────────────────────────────
+
+model Kontrakt {
+  id              Int       @id @default(autoincrement())
+  nummer          String    @unique  // KON-YYYY-NNNN
+  kundeId         Int
+  datum           DateTime  @default(now())
+  gueltigVon      DateTime
+  gueltigBis      DateTime
+  status          String    @default("AKTIV")  // AKTIV|ABGESCHLOSSEN|STORNIERT
+  notiz           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  kunde      Kunde              @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  positionen KontraktPosition[]
+
+  @@index([kundeId])
+  @@index([status])
+  @@index([gueltigBis])
+}
+
+model KontraktPosition {
+  id             Int     @id @default(autoincrement())
+  kontraktId     Int
+  artikelId      Int
+  menge          Float
+  mengeAbgerufen Float   @default(0)
+  preis          Float?
+  einheit        String  @default("kg")
+
+  kontrakt Kontrakt @relation(fields: [kontraktId], references: [id], onDelete: Cascade)
+  artikel  Artikel  @relation(fields: [artikelId], references: [id])
+
+  @@index([kontraktId])
+  @@index([artikelId])
+}
+
+// ─── KAMPAGNEN / AKTIONSPREISE ────────────────────────────────────────────────
+
+model Kampagne {
+  id            Int       @id @default(autoincrement())
+  name          String
+  beschreibung  String?
+  von           DateTime
+  bis           DateTime
+  rabattProzent Float?
+  aktiv         Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  artikel KampagneArtikel[]
+
+  @@index([aktiv])
+  @@index([bis])
+}
+
+model KampagneArtikel {
+  id          Int     @id @default(autoincrement())
+  kampagneId  Int
+  artikelId   Int
+  sonderpreis Float?
+
+  kampagne Kampagne @relation(fields: [kampagneId], references: [id], onDelete: Cascade)
+  artikel  Artikel  @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@unique([kampagneId, artikelId])
+  @@index([kampagneId])
+  @@index([artikelId])
+}
+
+// ─── EINGANGSRECHNUNGEN (Lieferanten) ─────────────────────────────────────────
+
+model EingangsRechnung {
+  id          Int       @id @default(autoincrement())
+  nummer      String?   // Rechnungsnummer des Lieferanten
+  lieferantId Int
+  datum       DateTime
+  faelligAm   DateTime?
+  betrag      Float
+  mwst        Float     @default(19)
+  status      String    @default("OFFEN")  // OFFEN|BEZAHLT|STORNIERT
+  belegpfad   String?
+  notiz       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lieferant Lieferant @relation(fields: [lieferantId], references: [id])
+
+  @@index([lieferantId])
+  @@index([status])
+  @@index([faelligAm])
 }
