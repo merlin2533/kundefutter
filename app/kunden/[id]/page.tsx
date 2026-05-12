@@ -82,6 +82,9 @@ interface Kunde {
   notizen?: string;
   tags?: string;
   ustIdNr?: string;
+  kreditlimit?: number | null;
+  sachkundeNr?: string | null;
+  sachkundeGueltigBis?: string | null;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -258,6 +261,9 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
     land: kunde.land,
     notizen: kunde.notizen ?? "",
     ustIdNr: kunde.ustIdNr ?? "",
+    kreditlimit: kunde.kreditlimit != null ? String(kunde.kreditlimit) : "",
+    sachkundeNr: kunde.sachkundeNr ?? "",
+    sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
   });
 
   useEffect(() => {
@@ -303,6 +309,9 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       land: kunde.land,
       notizen: kunde.notizen ?? "",
       ustIdNr: kunde.ustIdNr ?? "",
+      kreditlimit: kunde.kreditlimit != null ? String(kunde.kreditlimit) : "",
+      sachkundeNr: kunde.sachkundeNr ?? "",
+      sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
     });
     setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
     setError("");
@@ -330,6 +339,9 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           notizen: form.notizen || null,
           tags,
           ustIdNr: form.ustIdNr || null,
+          kreditlimit: form.kreditlimit ? parseFloat(form.kreditlimit) : null,
+          sachkundeNr: form.sachkundeNr || null,
+          sachkundeGueltigBis: form.sachkundeGueltigBis || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -384,6 +396,30 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           <InfoRow label="PLZ / Ort" value={[kunde.plz, kunde.ort].filter(Boolean).join(" ")} />
           <InfoRow label="Land" value={kunde.land} />
           <InfoRow label="USt-IdNr." value={kunde.ustIdNr} />
+          <InfoRow
+            label="Kreditlimit (€)"
+            value={kunde.kreditlimit != null ? kunde.kreditlimit.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "Kein Limit"}
+          />
+          <InfoRow label="Sachkunde-Nr." value={kunde.sachkundeNr} />
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sachkunde gültig bis</p>
+            {kunde.sachkundeGueltigBis ? (() => {
+              const bis = new Date(kunde.sachkundeGueltigBis);
+              const now = new Date();
+              const diffDays = Math.ceil((bis.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const warn = diffDays <= 90;
+              return (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-sm text-gray-800">{bis.toLocaleDateString("de-DE")}</span>
+                  {warn && (
+                    <span className="px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                      {diffDays < 0 ? "Abgelaufen" : `läuft ab in ${diffDays}d`}
+                    </span>
+                  )}
+                </div>
+              );
+            })() : <p className="text-sm text-gray-400 mt-0.5">—</p>}
+          </div>
           {kunde.lat !== undefined && kunde.lat !== null && (
             <InfoRow label="Koordinaten" value={`${kunde.lat?.toFixed(4)}, ${kunde.lng?.toFixed(4)}`} />
           )}
@@ -531,6 +567,53 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       </div>
       <Field label="Land" value={form.land} onChange={(v) => setForm({ ...form, land: v })} />
       <Field label="USt-IdNr." value={form.ustIdNr} onChange={(v) => setForm({ ...form, ustIdNr: v })} />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Kreditlimit (€)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={form.kreditlimit}
+          onChange={(e) => setForm({ ...form, kreditlimit: e.target.value })}
+          placeholder="Leer = kein Limit"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        <p className="text-xs text-gray-400 mt-0.5">Leer lassen = kein Kreditlimit</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Sachkunde-Nr.</label>
+          <input
+            type="text"
+            value={form.sachkundeNr}
+            onChange={(e) => setForm({ ...form, sachkundeNr: e.target.value })}
+            placeholder="Sachkundenummer"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Sachkunde gültig bis</label>
+          <input
+            type="date"
+            value={form.sachkundeGueltigBis}
+            onChange={(e) => setForm({ ...form, sachkundeGueltigBis: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          {form.sachkundeGueltigBis && (() => {
+            const bis = new Date(form.sachkundeGueltigBis);
+            const now = new Date();
+            const diffDays = Math.ceil((bis.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 90) {
+              return (
+                <p className="text-xs text-orange-600 mt-0.5">
+                  {diffDays < 0 ? "Sachkunde abgelaufen!" : `Sachkunde läuft in ${diffDays} Tagen ab`}
+                </p>
+              );
+            }
+            return null;
+          })()}
+        </div>
+      </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
         <textarea
@@ -2299,6 +2382,12 @@ export default function KundeDetailPage() {
               >
                 + CRM Aktivität
               </button>
+              <Link
+                href={`/psm/neu?kundeId=${kunde.id}`}
+                className="w-full text-center text-xs px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg font-medium transition-colors"
+              >
+                PSM-Ausbringung
+              </Link>
               {rueckrufSuccess ? (
                 <div className="w-full text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium text-center">
                   ✓ Rückruf eingeplant

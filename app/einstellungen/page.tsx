@@ -162,6 +162,12 @@ export default function EinstellungenPage() {
           title="Bankkonten"
           description="Konten für den Bankabgleich hinterlegen"
         />
+        <EinstellungTile
+          href="/einstellungen/benachrichtigungen"
+          icon="🔔"
+          title="Benachrichtigungen"
+          description="System-Alerts konfigurieren (Sachkunde, Kreditlimit, Lager, Rechnungen)"
+        />
       </div>
     </div>
   );

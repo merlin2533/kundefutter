@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
+import NotificationCenter from "./NotificationCenter";
 
 interface NavGroup {
   label: string;
@@ -26,6 +27,7 @@ const groups: NavGroup[] = [
       { href: "/telefonmaske", label: "Telefonmaske" },
       { href: "/preisauskunft", label: "Preisauskunft" },
       { href: "/tagesansicht", label: "Tagesansicht" },
+      { href: "/psm", label: "PSM-Ausbringung" },
     ],
   },
   {
@@ -37,6 +39,7 @@ const groups: NavGroup[] = [
       { href: "/lager/umbuchungen", label: "Umbuchungen" },
       { href: "/inventur", label: "Inventur" },
       { href: "/kalkulation", label: "Preiskalkulation" },
+      { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator" },
     ],
   },
   {
@@ -47,7 +50,16 @@ const groups: NavGroup[] = [
       { href: "/lieferungen", label: "Lieferungen" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
       { href: "/bestellliste", label: "Bestellliste" },
+      { href: "/bestellungen", label: "Lieferantenbestellungen" },
+      { href: "/kontrakte", label: "Kontrakte" },
+      { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
+    ],
+  },
+  {
+    label: "Aktionen & Kampagnen",
+    children: [
+      { href: "/kampagnen", label: "Kampagnen" },
     ],
   },
   {
@@ -59,6 +71,7 @@ const groups: NavGroup[] = [
       { href: "/ausgaben", label: "Ausgabenbuch" },
       { href: "/bankabgleich", label: "Bankabgleich" },
       { href: "/mahnwesen", label: "Mahnwesen" },
+      { href: "/finanzen/cashflow", label: "Cashflow" },
       { href: "/mengenrabatte", label: "Mengenrabatte" },
       { href: "/exporte", label: "Export" },
     ],
@@ -73,6 +86,7 @@ const groups: NavGroup[] = [
       { href: "/analyse/saisonal", label: "Saisonal" },
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
+      { href: "/duev", label: "DüV-Sperrfristen" },
     ],
   },
   {
@@ -815,10 +829,11 @@ export default function Nav() {
           </Link>
         </nav>
 
-        {/* Right side actions: search + bell + history + user */}
+        {/* Right side actions: search + bell + system alerts + history + user */}
         <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">
           <HeaderSearch />
           <NotificationBell />
+          <NotificationCenter />
           <RecentPages />
           <UserMenu />
         </div>
@@ -827,6 +842,7 @@ export default function Nav() {
         <div className="md:hidden flex items-center gap-1 ml-auto">
           <HeaderSearch />
           <NotificationBell />
+          <NotificationCenter />
           <RecentPages />
           <UserMenu />
           <button
