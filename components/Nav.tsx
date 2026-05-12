@@ -26,6 +26,7 @@ const groups: NavGroup[] = [
       { href: "/telefonmaske", label: "Telefonmaske" },
       { href: "/preisauskunft", label: "Preisauskunft" },
       { href: "/tagesansicht", label: "Tagesansicht" },
+      { href: "/psm", label: "PSM-Ausbringung" },
     ],
   },
   {
@@ -47,7 +48,16 @@ const groups: NavGroup[] = [
       { href: "/lieferungen", label: "Lieferungen" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
       { href: "/bestellliste", label: "Bestellliste" },
+      { href: "/bestellungen", label: "Lieferantenbestellungen" },
+      { href: "/kontrakte", label: "Kontrakte" },
+      { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
+    ],
+  },
+  {
+    label: "Aktionen & Kampagnen",
+    children: [
+      { href: "/kampagnen", label: "Kampagnen" },
     ],
   },
   {
@@ -73,6 +83,7 @@ const groups: NavGroup[] = [
       { href: "/analyse/saisonal", label: "Saisonal" },
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
+      { href: "/duev", label: "DüV-Sperrfristen" },
     ],
   },
   {
