@@ -55,6 +55,7 @@ const groups: NavGroup[] = [
       { href: "/fahrer/standorte", label: "Fahrer-Standorte" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
+      { href: "/sammelbestellung", label: "Sammelbestellung" },
       { href: "/kontrakte", label: "Kontrakte" },
       { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
@@ -91,6 +92,7 @@ const groups: NavGroup[] = [
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
       { href: "/duev", label: "DüV-Sperrfristen" },
+      { href: "/analyse/budget", label: "Budgetplanung" },
     ],
   },
   {

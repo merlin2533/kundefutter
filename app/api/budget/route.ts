@@ -143,45 +143,29 @@ export async function POST(req: NextRequest) {
   const notiz = body.notiz ? String(body.notiz) : null;
 
   try {
-    const ziel = await prisma.umsatzziel.upsert({
+    const existing = await prisma.umsatzziel.findFirst({
       where: {
-        jahr_monat_kategorie: {
-          jahr,
-          monat: monat ?? -1, // prisma needs exact value; use workaround below
-          kategorie: kategorie ?? "",
-        },
+        jahr,
+        monat: monat ?? null,
+        kategorie: kategorie ?? null,
       },
-      update: { zielBetrag, notiz },
-      create: { jahr, monat, kategorie, zielBetrag, notiz },
     });
-    return NextResponse.json(ziel, { status: 201 });
-  } catch {
-    // Fallback: try create then update
-    try {
-      const existing = await prisma.umsatzziel.findFirst({
-        where: {
-          jahr,
-          monat: monat ?? null,
-          kategorie: kategorie ?? null,
-        },
+    let ziel;
+    if (existing) {
+      ziel = await prisma.umsatzziel.update({
+        where: { id: existing.id },
+        data: { zielBetrag, notiz },
       });
-      let ziel;
-      if (existing) {
-        ziel = await prisma.umsatzziel.update({
-          where: { id: existing.id },
-          data: { zielBetrag, notiz },
-        });
-      } else {
-        ziel = await prisma.umsatzziel.create({
-          data: { jahr, monat, kategorie, zielBetrag, notiz },
-        });
-      }
-      return NextResponse.json(ziel, { status: 201 });
-    } catch (err2) {
-      console.error("Budget POST error:", err2);
-      const isDev = process.env.NODE_ENV === "development";
-      const msg = isDev && err2 instanceof Error ? err2.message : "Interner Fehler";
-      return NextResponse.json({ error: msg }, { status: 500 });
+    } else {
+      ziel = await prisma.umsatzziel.create({
+        data: { jahr, monat, kategorie, zielBetrag, notiz },
+      });
     }
+    return NextResponse.json(ziel, { status: 201 });
+  } catch (err) {
+    console.error("Budget POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
