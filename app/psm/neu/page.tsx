@@ -1,13 +1,18 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+
+const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
 interface Kunde {
   id: number;
   name: string;
   firma: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface Schlag {
@@ -26,6 +31,7 @@ function PSMNeuInner() {
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [kundeGeo, setKundeGeo] = useState<{ lat: number; lng: number } | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DriveOrdner from "@/components/DriveOrdner";
@@ -8,6 +9,8 @@ import { formatEuro, formatDatum, formatPercent } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
 import { DEFAULT_FRUCHTARTEN, parseListSetting } from "@/lib/auswahllisten";
+
+const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2473,7 +2476,7 @@ export default function KundeDetailPage() {
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} autoOpen={crmAutoOpen} />}
         {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
-        {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} />}
+        {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} lat={kunde.lat} lng={kunde.lng} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
         {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
@@ -3208,7 +3211,7 @@ interface KundeSchlag {
 const inputClsSchlag =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";
 
-function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
+function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number; lat?: number | null; lng?: number | null }) {
   const [schlaegte, setSchlaegte] = useState<KundeSchlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -3292,6 +3295,17 @@ function SchlagkarteiTab({ kundeId }: { kundeId: number }) {
 
   return (
     <div className="space-y-4">
+      {/* Wetter-Widget */}
+      {lat != null && lng != null ? (
+        <WetterWidget lat={lat} lng={lng} compact={false} />
+      ) : (
+        <p className="text-sm text-gray-400 italic">
+          Für Wetterdaten bitte Adresse geocodieren (
+          <a href="/einstellungen/adressen" className="underline hover:text-gray-600">/einstellungen/adressen</a>
+          ).
+        </p>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
