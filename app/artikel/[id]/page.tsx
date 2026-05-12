@@ -67,6 +67,7 @@ interface Artikel {
   aktiv: boolean;
   lagerort?: string | null;
   liefergroesse?: string | null;
+  sprengstoffvorlaeufer: boolean;
   inhaltsstoffe: Inhaltsstoff[];
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
@@ -169,6 +170,7 @@ export default function ArtikelDetailPage() {
       aktiv: data.aktiv,
       lagerort: data.lagerort ?? "",
       liefergroesse: data.liefergroesse ?? "",
+      sprengstoffvorlaeufer: data.sprengstoffvorlaeufer ?? false,
     });
     setLoading(false);
   }, [id]);
@@ -766,6 +768,23 @@ export default function ArtikelDetailPage() {
                 />
                 <label htmlFor="aktiv" className="text-sm text-gray-700">Aktiv</label>
               </div>
+              <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="sprengstoffvorlaeufer"
+                  checked={editForm.sprengstoffvorlaeufer ?? false}
+                  onChange={(e) => setEditForm({ ...editForm, sprengstoffvorlaeufer: e.target.checked })}
+                  className="rounded mt-0.5"
+                />
+                <div>
+                  <label htmlFor="sprengstoffvorlaeufer" className="text-sm font-medium text-orange-800 cursor-pointer">
+                    Sprengstoffvorläufer (EU-VO 2019/1148)
+                  </label>
+                  <p className="text-xs text-orange-700 mt-0.5">
+                    Abgabe nur an gewerbliche Verwender. Jährliche Erklärung des Käufers erforderlich.
+                  </p>
+                </div>
+              </div>
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -810,12 +829,20 @@ export default function ArtikelDetailPage() {
                     ["Beschreibung", artikel.beschreibung ?? "—"],
                     ["Liefergröße", artikel.liefergroesse ?? "—"],
                     ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
+                    ["Abgabebeschränkung", null],
                   );
                   return rows.map(([label, value]) => (
                     <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
                       <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">{label}</dt>
                       <dd className="text-sm text-gray-900">
-                        {label === "Status" ? <LagerBadge status={status} /> : value}
+                        {label === "Status" ? <LagerBadge status={status} /> :
+                         label === "Abgabebeschränkung" ? (
+                           artikel.sprengstoffvorlaeufer ? (
+                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-orange-100 text-orange-800 border border-orange-300 rounded text-xs font-medium">
+                               ⚠ Sprengstoffvorläufer (EU-VO 2019/1148)
+                             </span>
+                           ) : <span className="text-gray-400">—</span>
+                         ) : value}
                       </dd>
                     </div>
                   ));

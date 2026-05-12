@@ -24,6 +24,7 @@ interface Artikel {
   aktuellerBestand: number;
   mindestbestand: number;
   lieferanten?: ArtikelLieferantInfo[];
+  sprengstoffvorlaeufer?: boolean;
 }
 
 /** EK aus bevorzugtem Lieferanten, sonst einzigem Lieferanten, sonst 0 */
@@ -127,6 +128,8 @@ function NeueLieferungInner() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [erklaerungOk, setErklaerungOk] = useState<boolean | null>(null);
+  const [erklaerungBestaetigt, setErklaerungBestaetigt] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -196,6 +199,28 @@ function NeueLieferungInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Wenn Kunde oder Positionen wechseln: prüfen ob Sprengstoffvorläufer betroffen
+  // und ob für diesen Kunden eine gültige Jahreserklärung vorliegt.
+  useEffect(() => {
+    const hatSprengstoff = positionen.some((p) => {
+      const art = artikel.find((a) => a.id === Number(p.artikelId));
+      return art?.sprengstoffvorlaeufer;
+    });
+    if (!hatSprengstoff || !kundeId) {
+      setErklaerungOk(null);
+      setErklaerungBestaetigt(false);
+      return;
+    }
+    fetch(`/api/kunden/${kundeId}/erklaerungen`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: { jahr: number }[]) => {
+        const aktuellesJahr = new Date().getFullYear();
+        setErklaerungOk(Array.isArray(data) && data.some((e) => e.jahr === aktuellesJahr));
+        setErklaerungBestaetigt(false);
+      })
+      .catch(() => setErklaerungOk(false));
+  }, [kundeId, positionen, artikel]);
+
   function updatePosition(idx: number, field: keyof NewPosition, value: string | number) {
     setPositionen((prev) =>
       prev.map((p, i) => {
@@ -253,6 +278,10 @@ function NeueLieferungInner() {
     }
     if (positionen.some((p) => !p.artikelId)) {
       setError("Bitte alle Positionen mit einem Artikel belegen.");
+      return;
+    }
+    if (erklaerungOk === false && !erklaerungBestaetigt) {
+      setError("Bitte die Bestätigung zur Sprengstoffvorläufer-Erklärung setzen.");
       return;
     }
     setSaving(true);
@@ -351,6 +380,35 @@ function NeueLieferungInner() {
               />
             </div>
           </div>
+
+          {/* Sprengstoffvorläufer-Warnung */}
+          {erklaerungOk === true && (
+            <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+              <span>✓</span>
+              <span>Gültige Sprengstoffvorläufer-Erklärung für {new Date().getFullYear()} liegt vor.</span>
+            </div>
+          )}
+          {erklaerungOk === false && (
+            <div className="p-3 bg-orange-50 border border-orange-300 rounded-lg space-y-2">
+              <div className="flex items-start gap-2 text-sm text-orange-900">
+                <span className="text-base leading-none">⚠</span>
+                <span>
+                  <strong>Achtung:</strong> Diese Lieferung enthält Sprengstoffvorläufer (EU-VO 2019/1148).
+                  Für diesen Kunden liegt <strong>keine gültige Erklärung</strong> für {new Date().getFullYear()} vor.
+                  Bitte zuerst im Kunden-Tab &quot;Erklärungen&quot; die Jahreserklärung erfassen.
+                </span>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-orange-900 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={erklaerungBestaetigt}
+                  onChange={(e) => setErklaerungBestaetigt(e.target.checked)}
+                  className="rounded"
+                />
+                Ich bestätige, dass eine gültige schriftliche Erklärung vorliegt und nachgepflegt wird.
+              </label>
+            </div>
+          )}
 
           {/* Positionen */}
           <div>

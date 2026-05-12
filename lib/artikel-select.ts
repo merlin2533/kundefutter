@@ -17,6 +17,7 @@ export const artikelSafeSelect = {
   createdAt: true,
   updatedAt: true,
   driveOrdnerId: true,
+  sprengstoffvorlaeufer: true,
 } as const;
 
 // Minimal artikel fields needed when loading Lieferpositionen / Wareneingangspositionen

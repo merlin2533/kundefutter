@@ -22,6 +22,7 @@ const defaultForm = {
   mwstSatz: "19",
   lagerort: "",
   liefergroesse: "",
+  sprengstoffvorlaeufer: false,
 };
 
 export default function NeuerArtikelPage() {
@@ -398,6 +399,24 @@ export default function NeuerArtikelPage() {
               placeholder="z.B. 25 kg Sack, Big Bag 600 kg"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             />
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <input
+            type="checkbox"
+            id="sprengstoffvorlaeufer"
+            checked={form.sprengstoffvorlaeufer}
+            onChange={(e) => setForm({ ...form, sprengstoffvorlaeufer: e.target.checked })}
+            className="rounded mt-0.5"
+          />
+          <div>
+            <label htmlFor="sprengstoffvorlaeufer" className="text-sm font-medium text-orange-800 cursor-pointer">
+              Sprengstoffvorläufer (EU-VO 2019/1148)
+            </label>
+            <p className="text-xs text-orange-700 mt-0.5">
+              Abgabe nur an gewerbliche Verwender. Jährliche Erklärung des Käufers erforderlich.
+            </p>
           </div>
         </div>
 

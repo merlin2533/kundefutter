@@ -54,6 +54,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     ...(body.mindestbestand !== undefined ? { mindestbestand: Number(body.mindestbestand) } : {}),
     ...(body.beschreibung !== undefined ? { beschreibung: body.beschreibung ? String(body.beschreibung) : null } : {}),
     ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
+    ...(body.sprengstoffvorlaeufer !== undefined ? { sprengstoffvorlaeufer: Boolean(body.sprengstoffvorlaeufer) } : {}),
   };
 
   try {

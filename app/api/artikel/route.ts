@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
   try {
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
     else data.mwstSatz = 19;
+    if (data.sprengstoffvorlaeufer !== undefined) data.sprengstoffvorlaeufer = Boolean(data.sprengstoffvorlaeufer);
+    else data.sprengstoffvorlaeufer = false;
 
     // Nummer-Vergabe und Create in einer Transaktion, damit parallele POSTs
     // keine doppelten Artikelnummern erzeugen.
