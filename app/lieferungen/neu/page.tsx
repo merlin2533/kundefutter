@@ -10,6 +10,12 @@ interface Kunde {
   firma?: string;
 }
 
+interface Lieferant {
+  id: number;
+  name: string;
+  firma?: string | null;
+}
+
 interface ArtikelLieferantInfo {
   einkaufspreis: number;
   bevorzugt: boolean;
@@ -117,6 +123,7 @@ function NeueLieferungInner() {
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
+  const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
   const [angebotHinweis, setAngebotHinweis] = useState<string | null>(null);
 
@@ -125,6 +132,8 @@ function NeueLieferungInner() {
   const [notiz, setNotiz] = useState("");
   const [status, setStatus] = useState("geplant");
   const [positionen, setPositionen] = useState<NewPosition[]>([emptyPosition()]);
+  const [istStreckengeschaeft, setIstStreckengeschaeft] = useState(false);
+  const [streckenLieferantId, setStreckenLieferantId] = useState<number | "">("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -136,12 +145,14 @@ function NeueLieferungInner() {
       try {
         // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
         // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
-        const [kr, ar] = await Promise.all([
+        const [kr, ar, lr] = await Promise.all([
           fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
           fetch("/api/artikel?limit=500").then((r) => r.ok ? r.json() : []),
+          fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
         ]);
         let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
         const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
+        setLieferanten(Array.isArray(lr) ? lr : []);
 
         // Wenn ein bestimmter Kunde vorausgewählt werden soll, sicherstellen
         // dass er in der Liste ist (auch wenn inaktiv oder außerhalb des Limits).

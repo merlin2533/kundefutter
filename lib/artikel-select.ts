@@ -47,6 +47,8 @@ export const lieferungSafeSelect = {
   zahlungsziel: true,
   wiederkehrend: true,
   sammelrechnungId: true,
+  istStreckengeschaeft: true,
+  streckenLieferantId: true,
   createdAt: true,
   updatedAt: true,
 } as const;
