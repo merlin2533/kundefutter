@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateSession } from "@/lib/auth";
-import { cookies } from "next/headers";
-
 export async function GET() {
-  const session = await validateSession(await cookies());
-  if (!session) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   try {
     const positionen = await prisma.wareineingangPosition.findMany({

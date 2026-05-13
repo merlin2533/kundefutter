@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateSession } from "@/lib/auth";
 import { resolveUploadPath } from "@/lib/upload";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import fs from "fs/promises";
 import path from "path";
 
@@ -9,9 +8,6 @@ type Params = { params: Promise<{ id: string }> };
 
 // GET /api/chargen-zertifikate/[id] — Download
 export async function GET(req: NextRequest, ctx: Params) {
-  const session = await validateSession(req);
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
-
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -22,31 +18,30 @@ export async function GET(req: NextRequest, ctx: Params) {
 
     const filePath = resolveUploadPath(record.pfad);
     const data = await fs.readFile(filePath);
-    const ext = path.extname(record.dateiName).toLowerCase();
+    const ext = path.extname(record.dateiname).toLowerCase();
     const contentType =
       ext === ".pdf" ? "application/pdf" :
       ext === ".png" ? "image/png" :
       ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" :
-      "application/octet-stream";
+      record.typ ?? "application/octet-stream";
 
     return new NextResponse(data, {
       headers: {
         "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(record.dateiName)}"`,
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(record.dateiname)}"`,
       },
     });
   } catch (err) {
     const isDev = process.env.NODE_ENV === "development";
-    const msg = isDev && err instanceof Error ? err.message : "Datei nicht abrufbar";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: isDev && err instanceof Error ? err.message : "Datei nicht abrufbar" },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE /api/chargen-zertifikate/[id]
 export async function DELETE(req: NextRequest, ctx: Params) {
-  const session = await validateSession(req);
-  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
-
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -61,7 +56,9 @@ export async function DELETE(req: NextRequest, ctx: Params) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     const isDev = process.env.NODE_ENV === "development";
-    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },
+      { status: 500 }
+    );
   }
 }

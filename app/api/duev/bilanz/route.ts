@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateSession } from "@/lib/auth";
-import { cookies } from "next/headers";
-
 export async function GET(req: Request) {
-  const session = await validateSession(await cookies());
-  if (!session) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const jahr = parseInt(searchParams.get("jahr") ?? String(new Date().getFullYear()), 10);
