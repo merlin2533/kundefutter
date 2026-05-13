@@ -13,6 +13,9 @@ const ALLOWED_PREFIXES = [
   "dokument.",
   "smtp.",
   "letzte_",
+  "dashboard.",
+  "email.",
+  "resend.",
 ];
 
 export async function GET(req: NextRequest) {
