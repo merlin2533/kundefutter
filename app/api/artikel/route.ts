@@ -55,7 +55,18 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     console.error("Artikel GET error:", e);
-    return NextResponse.json({ error: "Datenbankfehler beim Laden der Artikel" }, { status: 500 });
+    const isDev = process.env.NODE_ENV === "development";
+    const raw = e instanceof Error ? e.message : "";
+    const isMissingColumn = /no such column|column .* does not exist/i.test(raw);
+    return NextResponse.json(
+      {
+        error: isMissingColumn
+          ? "Schema-Fehler: fehlende DB-Spalte. /api/db-check für Details, dann Container neu starten (pre-migrate.js wendet fehlende Migrationen an)."
+          : "Datenbankfehler beim Laden der Artikel",
+        detail: isDev ? raw : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
 
