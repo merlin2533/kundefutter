@@ -89,6 +89,7 @@ const groups: NavGroup[] = [
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
       { href: "/duev", label: "DüV-Sperrfristen" },
+      { href: "/duev/bilanz", label: "Nährstoffbilanz (DüV §8)" },
     ],
   },
   {
