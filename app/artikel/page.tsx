@@ -66,7 +66,7 @@ export default function ArtikelPage() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
-    if (kategorie !== "alle" && unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
+    if (unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
     params.set("limit", String(PAGE_SIZE));
     params.set("page", String(pageNum));
     try {
@@ -165,8 +165,14 @@ export default function ArtikelPage() {
   }, []);
 
   const aktuelleUnterkategorien =
-    kategorie !== "alle" && systemSettings !== null
-      ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
+    systemSettings !== null
+      ? kategorie !== "alle"
+        ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
+        : [...new Set(
+            kategorien.flatMap((k) =>
+              parseListSetting(systemSettings!, getUnterkategorienKey(k), DEFAULT_UNTERKATEGORIEN[k] ?? [])
+            )
+          )].sort()
       : [];
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -579,31 +585,44 @@ export default function ArtikelPage() {
         )}
       </div>
 
-      {/* Pagination */}
-      {total > PAGE_SIZE && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
-          <span>
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} von {total} Artikeln
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              ← Zurück
-            </button>
-            <span className="px-3 py-1.5 bg-green-700 text-white rounded-lg font-medium">
-              {page} / {Math.ceil(total / PAGE_SIZE)}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
-              disabled={page >= Math.ceil(total / PAGE_SIZE)}
-              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Weiter →
-            </button>
+      {/* Bottom bar: bulk delete + pagination */}
+      {(selected.size > 0 || total > PAGE_SIZE) && (
+        <div className="flex items-center justify-between mt-4 text-sm text-gray-600 flex-wrap gap-3">
+          <div>
+            {selected.size > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+              >
+                {bulkDeleting ? "Lösche…" : `${selected.size} ausgewählte löschen`}
+              </button>
+            )}
           </div>
+          {total > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <span className="text-gray-500">
+                {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} von {total}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                ← Zurück
+              </button>
+              <span className="px-3 py-1.5 bg-green-700 text-white rounded-lg font-medium">
+                {page} / {Math.ceil(total / PAGE_SIZE)}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(Math.ceil(total / PAGE_SIZE), p + 1))}
+                disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Weiter →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
