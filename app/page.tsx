@@ -602,12 +602,12 @@ export default function DashboardPage() {
       <div className="mb-5 h-12 bg-gray-100 border border-blue-100 rounded-xl animate-pulse" />
 
       {/* KPI cards skeleton */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-gray-200">
-            <div className="h-4 w-28 bg-gray-200 rounded animate-pulse mb-2" />
-            <div className="h-8 w-20 bg-gray-200 rounded animate-pulse mb-1" />
-            <div className="h-3 w-32 bg-gray-100 rounded animate-pulse" />
+          <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-gray-200">
+            <div className="h-3 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+            <div className="h-7 w-28 bg-gray-200 rounded animate-pulse mb-1" />
+            <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
           </div>
         ))}
       </div>
@@ -783,32 +783,30 @@ export default function DashboardPage() {
       )}
 
       {/* Obere Reihe: KPI-Cards */}
-      {widgetAktiv("kpis") && <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {widgetAktiv("kpis") && <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {/* Umsatz mit Monatsvergleich */}
         <div>
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-green-500`}>
-            <p className="text-sm text-gray-500">Umsatz (Monat)</p>
-            <p className="text-2xl font-bold mt-1">{formatEuro(data.umsatzMonat)}</p>
+          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-green-500`}>
+            <p className="text-xs sm:text-sm text-gray-500">Umsatz (Monat)</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1 truncate">{formatEuro(data.umsatzMonat)}</p>
             {umsatzDiff !== null ? (
-              <p className={`text-xs mt-1 font-medium ${umsatzDiffColor}`}>
+              <p className={`text-xs mt-1 font-medium ${umsatzDiffColor} truncate`}>
                 {umsatzPfeil} {Math.abs(umsatzDiff).toFixed(1)} % vs. Vormonat
-                <span className="text-gray-400 font-normal ml-1">({formatEuro(data.umsatzVormonat)})</span>
               </p>
             ) : (
-              <p className="text-xs text-gray-400 mt-1">Vormonat: {formatEuro(data.umsatzVormonat)}</p>
+              <p className="text-xs text-gray-400 mt-1 truncate">Vorm.: {formatEuro(data.umsatzVormonat)}</p>
             )}
           </div>
         </div>
 
         {/* Deckungsbeitrag */}
         <Link href="/analyse/deckungsbeitrag" className="block">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-emerald-500 h-full hover:shadow-md transition-shadow">
-            <p className="text-sm text-gray-500">Deckungsbeitrag (Monat)</p>
-            <p className="text-2xl font-bold mt-1">{formatEuro(data.deckungsbeitragMonat)}</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-emerald-500 h-full hover:shadow-md transition-shadow">
+            <p className="text-xs sm:text-sm text-gray-500">Deckungsbeitrag</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1 truncate">{formatEuro(data.deckungsbeitragMonat)}</p>
             {dbDiff !== null ? (
-              <p className={`text-xs mt-1 font-medium ${dbDiffColor}`}>
-                {dbPfeil} {Math.abs(dbDiff).toFixed(1)} % vs. Vormonat
-                <span className="text-gray-400 font-normal ml-1">· {marge} % Marge</span>
+              <p className={`text-xs mt-1 font-medium ${dbDiffColor} truncate`}>
+                {dbPfeil} {Math.abs(dbDiff).toFixed(1)} % · {marge} % Marge
               </p>
             ) : (
               <p className="text-xs text-gray-400 mt-1">{marge} % Marge</p>
@@ -818,11 +816,11 @@ export default function DashboardPage() {
 
         {/* Offene Rechnungen */}
         <Link href="/lieferungen" className="block">
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 ${data.ueberfaelligeRechnungen > 0 ? "border-red-500" : "border-yellow-500"} h-full`}>
-            <p className="text-sm text-gray-500">Offene Rechnungen</p>
-            <p className="text-2xl font-bold mt-1">{formatEuro(data.faelligeRechnungenSumme)}</p>
-            <p className={`text-xs mt-1 ${data.ueberfaelligeRechnungen > 0 ? "text-red-600 font-medium" : "text-gray-400"}`}>
-              {data.offeneRechnungen} Rechnung{data.offeneRechnungen !== 1 ? "en" : ""}
+          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 ${data.ueberfaelligeRechnungen > 0 ? "border-red-500" : "border-yellow-500"} h-full`}>
+            <p className="text-xs sm:text-sm text-gray-500">Offene Rechnungen</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1 truncate">{formatEuro(data.faelligeRechnungenSumme)}</p>
+            <p className={`text-xs mt-1 truncate ${data.ueberfaelligeRechnungen > 0 ? "text-red-600 font-medium" : "text-gray-400"}`}>
+              {data.offeneRechnungen} Rechnungen
               {data.ueberfaelligeRechnungen > 0 ? ` · ${data.ueberfaelligeRechnungen} überfällig` : ""}
             </p>
           </div>
@@ -830,30 +828,29 @@ export default function DashboardPage() {
 
         {/* Lager-Status */}
         <Link href="/lager" className="block">
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 ${data.lagerAlarme === 0 ? "border-green-500" : lagerRotCount > 0 ? "border-red-500" : "border-yellow-500"} h-full`}>
-            <p className="text-sm text-gray-500">Lager-Status</p>
-            <p className="text-2xl font-bold mt-1">{data.lagerAlarme}</p>
-            <p className={`text-xs mt-1 ${data.lagerAlarme === 0 ? "text-gray-400" : lagerRotCount > 0 ? "text-red-600 font-medium" : "text-yellow-600 font-medium"}`}>
+          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 ${data.lagerAlarme === 0 ? "border-green-500" : lagerRotCount > 0 ? "border-red-500" : "border-yellow-500"} h-full`}>
+            <p className="text-xs sm:text-sm text-gray-500">Lager-Status</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1">{data.lagerAlarme}</p>
+            <p className={`text-xs mt-1 truncate ${data.lagerAlarme === 0 ? "text-gray-400" : lagerRotCount > 0 ? "text-red-600 font-medium" : "text-yellow-600 font-medium"}`}>
               {lagerSub}
             </p>
           </div>
         </Link>
 
         {/* Aktive Kunden */}
-        <KpiCard
-          label="Aktive Kunden"
-          value={data.kundenAktiv}
-          sub={`${data.offeneLieferungen} offene Lieferung${data.offeneLieferungen !== 1 ? "en" : ""}`}
-          color="blue"
-        />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-blue-500">
+          <p className="text-xs sm:text-sm text-gray-500">Aktive Kunden</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1">{data.kundenAktiv}</p>
+          <p className="text-xs text-gray-400 mt-1 truncate">{data.offeneLieferungen} offene Lieferungen</p>
+        </div>
 
         {/* Offene Bankbuchungen — nur anzeigen wenn vorhanden */}
         {(data.unzugeordneteUmsaetze ?? 0) > 0 && (
           <Link href="/bankabgleich" className="block">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 border-l-4 border-amber-500 h-full hover:shadow-md transition-shadow">
-              <p className="text-sm text-gray-500">Offene Bankbuchungen</p>
-              <p className="text-2xl font-bold mt-1">{data.unzugeordneteUmsaetze}</p>
-              <p className="text-xs text-amber-600 font-medium mt-1">Nicht zugeordnet → Bankabgleich</p>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-amber-500 h-full hover:shadow-md transition-shadow">
+              <p className="text-xs sm:text-sm text-gray-500">Bankbuchungen</p>
+              <p className="text-xl sm:text-2xl font-bold mt-1">{data.unzugeordneteUmsaetze}</p>
+              <p className="text-xs text-amber-600 font-medium mt-1">Nicht zugeordnet</p>
             </div>
           </Link>
         )}
