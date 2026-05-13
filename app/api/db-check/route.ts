@@ -41,7 +41,11 @@ export async function GET() {
     queryTests.artikel = "ok";
   } catch (err) { queryTests.artikel = err instanceof Error ? err.message : String(err); }
   try {
-    await prisma.kunde.findFirst({ select: { id: true, name: true } });
+    await prisma.artikel.findFirst({ select: { id: true, sprengstoffvorlaeufer: true, ghsKlassen: true, hSaetze: true, pSaetze: true, signalwort: true } });
+    queryTests.artikelGhs = "ok";
+  } catch (err) { queryTests.artikelGhs = err instanceof Error ? err.message : String(err); }
+  try {
+    await prisma.kunde.findFirst({ select: { id: true, name: true, kreditlimit: true, sachkundeNr: true, sachkundeGueltigBis: true } });
     queryTests.kunde = "ok";
   } catch (err) { queryTests.kunde = err instanceof Error ? err.message : String(err); }
 
