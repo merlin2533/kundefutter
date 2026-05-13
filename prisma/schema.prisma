@@ -52,6 +52,12 @@ model Kunde {
   kontrakte            Kontrakt[]
   reklamationen        Reklamation[]
   sprengstoffErklaerungen KundeSprengstoffErklaerung[]
+  sachkundenachweise   Sachkundenachweis[]
+  sortenversuche       Sortenversuch[]
+  vorbestellungen      Vorbestellung[]
+
+  // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
+  vvvoNr               String?   // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
 
   @@index([aktiv])
   @@index([kategorie])
@@ -192,6 +198,8 @@ model Artikel {
   kontraktPositionen   KontraktPosition[]
   angebotVorlagePositionen AngebotVorlagePosition[]
   chargenZertifikate   ChargenZertifikat[]
+  vorbestellungPositionen VorbestellungPosition[]
+  fruehbezugStaffeln   FruehbezugsStaffel[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -703,6 +711,9 @@ model KundeSchlag {
 
   kunde            Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   psmAusbringungen PsmAusbringung[]
+  bodenproben      Bodenprobe[]
+  duengebedarfe    Duengebedarf[]
+  sortenversuche   Sortenversuch[]
 
   @@index([kundeId])
 }
@@ -1076,4 +1087,191 @@ model Umsatzziel {
 
   @@unique([jahr, monat, kategorie])
   @@index([jahr])
+}
+
+// ─── BODENPROBEN ──────────────────────────────────────────────────────────────
+
+model Bodenprobe {
+  id           Int       @id @default(autoincrement())
+  schlagId     Int
+  datum        DateTime                // Probenahmedatum
+  probenNr     String?                 // Labor-Probennummer
+  labor        String?                 // LUFA-NW | Eurofins | LKS | ...
+  tiefe        String?                 // "0-30 cm" | "30-60 cm"
+  pH           Float?
+  phosphor     Float?                  // P2O5 mg/100g Boden (CAL)
+  kalium       Float?                  // K2O mg/100g (CAL)
+  magnesium    Float?                  // Mg mg/100g (CaCl2)
+  bor          Float?                  // mg/kg
+  humus        Float?                  // %
+  nMin         Float?                  // kg N/ha (0-90cm)
+  cn           Float?                  // C/N-Verhältnis
+  bodenart     String?                 // S | lS | sL | L | T
+  klasse       String?                 // A | B | C | D | E (Versorgungsklasse Hauptnährstoffe)
+  notiz        String?
+  belegPfad    String?                 // /uploads/bodenproben/<id>.pdf
+  belegName    String?
+  createdAt    DateTime  @default(now())
+
+  schlag       KundeSchlag    @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  duengebedarfe Duengebedarf[]
+
+  @@index([schlagId])
+  @@index([datum])
+}
+
+// ─── DÜNGEBEDARFSERMITTLUNG (DüV) ────────────────────────────────────────────
+
+model Duengebedarf {
+  id            Int       @id @default(autoincrement())
+  schlagId      Int
+  jahr          Int                       // Düngejahr
+  fruchtart     String                    // Snapshot zum Berechnungszeitpunkt
+  ertragsZiel   Float?                    // dt/ha
+  vorfrucht     String?
+  bodenprobeId  Int?
+  nBedarf       Float                     // kg N/ha (Ergebnis)
+  pBedarf       Float                     // kg P2O5/ha
+  kBedarf       Float                     // kg K2O/ha
+  mgBedarf      Float?                    // kg MgO/ha
+  parameter     String?                   // JSON: Berechnungs-Snapshot (Eingaben)
+  notiz         String?
+  berechnetAm   DateTime  @default(now())
+
+  schlag     KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  bodenprobe Bodenprobe? @relation(fields: [bodenprobeId], references: [id], onDelete: SetNull)
+
+  @@index([schlagId])
+  @@index([jahr])
+}
+
+// ─── SACHKUNDENACHWEISE ───────────────────────────────────────────────────────
+
+model Sachkundenachweis {
+  id              Int       @id @default(autoincrement())
+  kundeId         Int
+  typ             String                  // "PSM-Sachkunde" | "Spritzgeraetekontrolle" | "Duengerschulung" | "Sprengstoff-Sachkunde" | "Sonstige"
+  nummer          String?
+  ausstellung     DateTime?
+  gueltigBis      DateTime?
+  ausgestelltVon  String?                 // Behörde / Kammer
+  notiz           String?
+  belegPfad       String?                 // /uploads/sachkunde/<id>.pdf
+  belegName       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@index([kundeId])
+  @@index([gueltigBis])
+  @@index([typ])
+}
+
+// ─── SORTENVERSUCHE / DEMOFLÄCHEN ─────────────────────────────────────────────
+
+model Sortenversuch {
+  id           Int       @id @default(autoincrement())
+  name         String                    // "Wintergerste-Versuch 2025 Süd"
+  jahr         Int
+  kultur       String                    // Wintergerste | Mais | Raps | ...
+  standort     String?
+  kundeId      Int?
+  schlagId     Int?
+  flaeche      Float?                    // ha
+  status       String    @default("LAUFEND") // LAUFEND | ABGESCHLOSSEN
+  startDatum   DateTime?
+  endeDatum    DateTime?
+  notiz        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  kunde        Kunde?       @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+  schlag       KundeSchlag? @relation(fields: [schlagId], references: [id], onDelete: SetNull)
+  positionen   SortenversuchPosition[]
+
+  @@index([jahr])
+  @@index([kultur])
+  @@index([kundeId])
+}
+
+model SortenversuchPosition {
+  id              Int     @id @default(autoincrement())
+  versuchId       Int
+  sorte           String
+  saatstaerke     Float?                  // Körner/m² oder kg/ha
+  ertragDtHa      Float?                  // dt/ha
+  feuchteProzent  Float?
+  proteinProzent  Float?
+  hektolitergew   Float?                  // kg/hl (Getreide)
+  bonitur         Int?                    // 1-9 Note (Krankheit/Lager)
+  reife           String?                 // früh | mittel | spät
+  notiz           String?
+
+  versuch Sortenversuch @relation(fields: [versuchId], references: [id], onDelete: Cascade)
+
+  @@index([versuchId])
+  @@index([sorte])
+}
+
+// ─── VORBESTELLUNGEN (Saison-/Frühbezug) ──────────────────────────────────────
+
+model Vorbestellung {
+  id              Int       @id @default(autoincrement())
+  nummer          String    @unique               // VB-YYYY-NNNN
+  kundeId         Int
+  saison          String                          // "Frühjahr 2026" | "Herbst 2026"
+  bestelldatum    DateTime  @default(now())
+  lieferdatum     DateTime?                       // gewünschtes Lieferdatum
+  bestellfrist    DateTime?                       // Frist für Frühbezug
+  status          String    @default("OFFEN")     // OFFEN | BESTAETIGT | UMGEWANDELT | STORNIERT
+  rabattProzent   Float?                          // gewährter Frühbezugs-Rabatt
+  notiz           String?
+  lieferungId     Int?                            // bei Umwandlung zur Lieferung
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  kunde      Kunde                  @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  positionen VorbestellungPosition[]
+
+  @@index([kundeId])
+  @@index([status])
+  @@index([bestellfrist])
+  @@index([saison])
+}
+
+model VorbestellungPosition {
+  id              Int     @id @default(autoincrement())
+  vorbestellungId Int
+  artikelId       Int
+  menge           Float
+  preis           Float?                  // Frühbezugspreis (netto, optional)
+  einheit         String  @default("kg")
+  reserviert      Boolean @default(false) // automatische Lagerreservierung gesetzt?
+  notiz           String?
+
+  vorbestellung Vorbestellung @relation(fields: [vorbestellungId], references: [id], onDelete: Cascade)
+  artikel       Artikel       @relation(fields: [artikelId], references: [id])
+
+  @@index([vorbestellungId])
+  @@index([artikelId])
+}
+
+model FruehbezugsStaffel {
+  id              Int       @id @default(autoincrement())
+  saison          String                          // "Frühjahr 2026"
+  kategorie       String?                         // null = alle Kategorien
+  artikelId       Int?                            // null = ganze Kategorie / alle
+  bestellfrist    DateTime                        // bis wann muss bestellt sein
+  rabattProzent   Float                           // 3.0 = -3%
+  beschreibung    String?
+  aktiv           Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  artikel Artikel? @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@index([saison])
+  @@index([bestellfrist])
+  @@index([aktiv])
 }
