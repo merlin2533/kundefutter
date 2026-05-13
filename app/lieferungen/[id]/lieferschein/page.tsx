@@ -9,7 +9,38 @@ interface Position {
   id: number;
   menge: number;
   chargeNr?: string | null;
-  artikel: { name: string; einheit: string; kategorie?: string | null; unterkategorie?: string | null };
+  artikel: {
+    name: string;
+    einheit: string;
+    kategorie?: string | null;
+    unterkategorie?: string | null;
+    ghsKlassen?: string | null;
+    hSaetze?: string | null;
+    pSaetze?: string | null;
+    signalwort?: string | null;
+  };
+}
+
+function GhsBadge({ klasse }: { klasse: string }) {
+  const farbe = klasse === "GHS06" ? "#cc0000" : "#cc3300";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: "9pt",
+        border: `1px solid ${farbe}`,
+        borderRadius: "2px",
+        padding: "0 3px",
+        color: farbe,
+        fontFamily: "monospace",
+        marginRight: "3px",
+        lineHeight: "1.4",
+        verticalAlign: "middle",
+      }}
+    >
+      {klasse}
+    </span>
+  );
 }
 
 interface Kunde {
@@ -542,6 +573,22 @@ export default function LieferscheinPage() {
                         </div>
                       )}
                       {pos.artikel.name}
+                      {(() => {
+                        try {
+                          const klassen: string[] = JSON.parse(pos.artikel.ghsKlassen || "[]");
+                          if (klassen.length === 0) return null;
+                          return (
+                            <div style={{ marginTop: "3px" }}>
+                              {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
+                              {pos.artikel.signalwort && (
+                                <span style={{ fontSize: "8pt", color: "#cc3300", marginLeft: "4px" }}>
+                                  {pos.artikel.signalwort}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        } catch { return null; }
+                      })()}
                     </td>
                     {hasCharge && (
                       <td style={{ padding: "6px 8px", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
@@ -570,6 +617,54 @@ export default function LieferscheinPage() {
             </div>
           </div>
         )}
+
+        {/* Gefahrgut-Hinweis block (only when positions have GHS data) */}
+        {(() => {
+          const gefahrPositionen = lieferung.positionen.filter((p) => {
+            try {
+              const k: string[] = JSON.parse(p.artikel.ghsKlassen || "[]");
+              return k.length > 0;
+            } catch { return false; }
+          });
+          if (gefahrPositionen.length === 0) return null;
+
+          return (
+            <div style={{ marginBottom: "32px", border: "1px solid #cc3300", borderRadius: "4px", padding: "12px" }}>
+              <div style={{ fontWeight: "bold", fontSize: "10pt", color: "#cc3300", marginBottom: "8px" }}>
+                ⚠ Sicherheitshinweise gemäß CLP-Verordnung
+              </div>
+              {gefahrPositionen.map((p) => {
+                let klassen: string[] = [];
+                try { klassen = JSON.parse(p.artikel.ghsKlassen || "[]"); } catch { /* ignore */ }
+                const hSaetze = (p.artikel.hSaetze || "").trim();
+                const pSaetze = (p.artikel.pSaetze || "").trim();
+                return (
+                  <div key={p.id} style={{ marginBottom: "8px", paddingBottom: "8px", borderBottom: "1px solid #f0d0d0" }}>
+                    <div style={{ fontWeight: "600", fontSize: "9pt" }}>{p.artikel.name}</div>
+                    <div style={{ fontSize: "8pt", marginTop: "2px" }}>
+                      {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
+                      {p.artikel.signalwort && (
+                        <span style={{ color: "#cc3300", fontSize: "8pt", marginLeft: "4px", fontWeight: "600" }}>
+                          {p.artikel.signalwort}
+                        </span>
+                      )}
+                    </div>
+                    {hSaetze && (
+                      <div style={{ fontSize: "8pt", color: "#555", marginTop: "3px" }}>
+                        <span style={{ fontWeight: "600" }}>H-Sätze: </span>{hSaetze}
+                      </div>
+                    )}
+                    {pSaetze && (
+                      <div style={{ fontSize: "8pt", color: "#555", marginTop: "2px" }}>
+                        <span style={{ fontWeight: "600" }}>P-Sätze: </span>{pSaetze}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Unterschriftszeile + QR-Code */}
         <div style={{ marginTop: "48px", display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "32px", fontSize: "10pt" }}>

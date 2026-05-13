@@ -8,7 +8,7 @@
   <!-- Primary SEO -->
   <title>AgrarOffice – CRM &amp; ERP Software für Landhandel | Tourenplanung, KI &amp; Lagerverwaltung</title>
   <meta name="description" content="AgrarOffice: Die führende Branchensoftware für Agrarhändler &amp; Landhandel. CRM, Tourenplanung, Lagerverwaltung, KI-Lieferscheinerkennung &amp; DATEV-Export. Jetzt 14 Tage kostenlos testen – ohne Kreditkarte." />
-  <meta name="keywords" content="Landhandel Software, Agrarhändler CRM, Tourenplanung Außendienst, Lagerverwaltung Agrar, KI Lieferschein erkennen, DATEV Export Agrar, ZUGFeRD E-Rechnung Landhandel, PSM Dokumentation Software, Düngeverordnung Software, Schlagkartei digital, Agraranträge AFIG Software, Bestellwesen Landhandel, Kontrakte Getreidehandel, Agrar ERP Cloud, Landhandel SaaS Deutschland, Außendienst App Agrar, Agrar Warenwirtschaft, Pflanzenschutz Dokumentation §14 PflSchG" />
+  <meta name="keywords" content="Landhandel Software, Agrarhändler CRM, Tourenplanung Außendienst, Lagerverwaltung Agrar, KI Lieferschein erkennen, DATEV Export Agrar, ZUGFeRD E-Rechnung Landhandel, PSM Dokumentation Software, Düngeverordnung Software, Schlagkartei digital, Agraranträge AFIG Software, Bestellwesen Landhandel, Kontrakte Getreidehandel, Agrar ERP Cloud, Landhandel SaaS Deutschland, Außendienst App Agrar, Agrar Warenwirtschaft, Pflanzenschutz Dokumentation §14 PflSchG, Skonto Software Landhandel, GHS Lieferschein Software, Nährstoffbilanz DüV Software, MHD Verwaltung Agrar, Chargen-Zertifikate Agrar, Offene Posten Agrar" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <meta name="bingbot" content="index, follow" />
@@ -85,7 +85,14 @@
       "AFIG-Import",
       "Marktpreise Eurostat MATIF",
       "Mahnwesen",
-      "Bankabgleich"
+      "Bankabgleich",
+      "Skonto & Teilzahlungen",
+      "GHS-Lieferscheine (CLP-konform)",
+      "Angebots-Vorlagen",
+      "Chargen-Zertifikate",
+      "MHD-Übersicht mit Farbampel",
+      "Nährstoffbilanz DüV §8",
+      "Offene-Posten-Liste"
     ],
     "offers": [
       {
@@ -285,6 +292,16 @@
         "@type": "Question",
         "name": "Kann ich PSM-Aufzeichnungen nach §14 PflSchG führen?",
         "acceptedAnswer": { "@type": "Answer", "text": "Ja. AgrarOffice enthält PSM-Dokumentation für Pflanzenschutz-Ausbringungsnachweise gemäß §14 Pflanzenschutzgesetz, Sachkundenachweis-Verwaltung mit Ablauf-Alarm sowie einen DüV-Sperrfristenkalender. Alle Aufzeichnungen sind druckfertig abrufbar." }
+      },
+      {
+        "@type": "Question",
+        "name": "Unterstützt AgrarOffice die Skonto-Verwaltung?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Ja. Auf jeder Rechnung können Sie Skonto-Prozentsatz und Skonto-Tage hinterlegen — AgrarOffice berechnet das Skontodatum automatisch und zeigt es auf der Rechnung aus. Zusätzlich unterstützt AgrarOffice Teilzahlungen, sodass eine Rechnung durch mehrere Zahlungseingänge beglichen werden kann. Die Offene-Posten-Liste zeigt jederzeit den aktuellen Saldo je Rechnung." }
+      },
+      {
+        "@type": "Question",
+        "name": "Sind GHS-Gefahrenpiktogramme auf Lieferscheinen rechtskonform?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Ja. AgrarOffice druckt CLP-konforme GHS-Gefahrenpiktogramme auf Lieferscheine für Pflanzenschutzmittel, Düngemittel und andere kennzeichnungspflichtige Produkte. Die Piktogramme werden automatisch aus dem Artikelstamm übernommen und entsprechen den Anforderungen der CLP-Verordnung (EG) Nr. 1272/2008." }
       }
     ]
   }
@@ -481,6 +498,20 @@
     .feature-card ul { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
     .feature-card ul li { font-size: .85rem; color: var(--gray-600); display: flex; align-items: flex-start; gap: 8px; }
     .feature-card ul li::before { content: "✓"; color: var(--green-700); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── FEATURE ACCORDION ── */
+    .feature-card { position: relative; cursor: pointer; }
+    .feature-card .feature-details { display: none; max-height: 0; overflow: hidden; transition: max-height 0.3s ease; border-top: 1px solid var(--gray-200); margin-top: 16px; padding-top: 0; }
+    .feature-card.expanded .feature-details { display: block; max-height: 300px; padding-top: 14px; }
+    .feature-card .feature-details p { font-size: .82rem; color: var(--gray-600); line-height: 1.6; margin-bottom: 10px; }
+    .feature-card .feature-details a { font-size: .82rem; font-weight: 600; color: var(--green-700); display: inline-flex; align-items: center; gap: 4px; }
+    .feature-card .feature-details a:hover { color: var(--green-800); }
+    .feature-expand-hint { font-size: .72rem; color: var(--gray-400); margin-top: 12px; display: flex; align-items: center; gap: 4px; transition: color .2s; }
+    .feature-card:hover .feature-expand-hint { color: var(--green-700); }
+    .feature-card.expanded .feature-expand-hint { display: none; }
+
+    /* ── NEU BADGE ── */
+    .neu-badge { position: absolute; top: -8px; right: -8px; background: #e63946; color: white; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px; letter-spacing: 0.5px; z-index: 1; }
 
     /* ── DEEP DIVE SECTIONS ── */
     .deep-dive { padding: 80px 0; }
@@ -926,7 +957,7 @@
             <span style="background:#1b4332">RF</span>
           </div>
           <div class="hero-trust-text">
-            <strong>47+ Betriebe</strong> vertrauen AgrarOffice<br/>
+            <strong>55+ Betriebe</strong> vertrauen AgrarOffice<br/>
             <span style="color:var(--amber)">★★★★★</span> 4.8 / 5 Bewertung
           </div>
         </div>
@@ -1021,6 +1052,12 @@
           <li>Wettbewerber-Notizen je Kunde</li>
           <li>360°-Profil: Flächen, Bedarfe, Preise</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Globale Suche (Cmd+K):</strong> Kunden, Artikel und Lieferungen sofort finden — mit Tastaturkürzel G+K oder Ctrl+K, ohne die Maus zu berühren.</p>
+          <p><strong>Mobile-Nav Akkordeon:</strong> Vollständig für den Außendienst optimiert — alle Bereiche per Fingertipp erreichbar, auch auf kleinen Displays.</p>
+          <a href="#kontakt">CRM live ansehen →</a>
+        </div>
       </div>
 
       <!-- Tourenplanung -->
@@ -1035,10 +1072,17 @@
           <li>Tagesansicht für Außendienst</li>
           <li>Tour-PDF/-Export für Fahrer</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Tastaturkürzel:</strong> G+D für Dashboard, G+K für Kunden, G+L für Lieferungen — Navigation ohne Maus, wie professionelle Softwaretools es machen.</p>
+          <p><strong>Dashboard Skeleton Loaders:</strong> Sofortige visuelle Rückmeldung beim Laden — kein leeres Flimmern, professionelles UX.</p>
+          <a href="#tourenplanung">Tourenplanung ansehen →</a>
+        </div>
       </div>
 
       <!-- Lager -->
       <div class="feature-card animate-on-scroll delay-3">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon green">📦</div>
         <h3>Lagerverwaltung Landhandel</h3>
         <p>Lagerbestände live, Mindestbestand-Ampel beim Erfassen, Chargenrückverfolgung – und KI, die Wareneingänge per Foto einliest.</p>
@@ -1049,10 +1093,17 @@
           <li>Wareneingänge & Lagerkorrekturen</li>
           <li>Konfigurierbare Lagerorte & Einheiten</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>MHD-Übersicht mit Farbampel:</strong> Mindesthaltbarkeitsdaten je Charge im Blick — rot/gelb/grün zeigt sofort, welche Ware bald abläuft.</p>
+          <p><strong>Chargen-Zertifikate:</strong> Upload und Download von Analysezertifikaten je Charge — LUFA, Lieferantenzertifikate, Prüfberichte griffbereit.</p>
+          <a href="#kontakt">Lager live ansehen →</a>
+        </div>
       </div>
 
       <!-- Lieferungen -->
       <div class="feature-card animate-on-scroll delay-1">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon amber">🚚</div>
         <h3>Lieferungen & Rechnungen</h3>
         <p>Lieferschein anlegen, Tour zuordnen, Sammelrechnung ziehen – der gesamte Ablauf digital, ohne Medienbruch, mit PDF-Druck auf Knopfdruck.</p>
@@ -1061,8 +1112,14 @@
           <li>Sammelrechnungen je Kunde</li>
           <li>Mengenrabatt-Staffeln automatisch</li>
           <li>Sonderpreise je Kunde & Artikel</li>
-          <li>Lieferstatus: geplant / geliefert / abgerechnet</li>
+          <li>GHS-Piktogramme auf Lieferschein (CLP)</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>GHS-Lieferscheine (CLP-konform):</strong> Gefahrenpiktogramme werden direkt aus dem Artikelstamm auf den Lieferschein gedruckt — rechtssicher für PSM und kennzeichnungspflichtige Düngemittel.</p>
+          <p><strong>Skonto & Teilzahlungen:</strong> Skonto-Prozent und -Tage je Rechnung hinterlegen; mehrere Zahlungseingänge je Rechnung möglich.</p>
+          <a href="#kontakt">Lieferungen live ansehen →</a>
+        </div>
       </div>
 
       <!-- KI -->
@@ -1077,6 +1134,12 @@
           <li>📦 Bestellungserfassung aus Bild</li>
           <li>⚙️ OpenAI GPT-4 oder Anthropic Claude</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Churn-Risiko-Analyse:</strong> KI bewertet je Kunde das Abwanderungsrisiko anhand von Kaufhistorie und Kontaktfrequenz — proaktiv gegensteuern, bevor Kunden abspringen.</p>
+          <p><strong>KI-Preisempfehlung:</strong> Auf Basis von Einkaufspreis, Marktindex und Kundenhistorie schlägt die KI den optimalen Verkaufspreis vor.</p>
+          <a href="#ki">KI live ansehen →</a>
+        </div>
       </div>
 
       <!-- Marktpreise -->
@@ -1091,20 +1154,33 @@
           <li>Kunden-KPIs & Lieferhistorie</li>
           <li>CSV-Export für Controlling</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>MATIF-Futures:</strong> Weizen-, Raps- und Mais-Futures direkt aus Euronext/Yahoo Finance im Dashboard — aktuell, ohne eigene Recherche.</p>
+          <p><strong>ABC-Analyse & Deckungsbeitrag:</strong> Kunden und Artikel nach Umsatz-Anteil einteilen — wissen Sie, wer Ihr A-Kunde ist und wo Marge verloren geht.</p>
+          <a href="#kontakt">Marktpreise live sehen →</a>
+        </div>
       </div>
 
       <!-- Angebote & Aufgaben -->
       <div class="feature-card animate-on-scroll delay-1">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon blue">📋</div>
         <h3>Angebote & Aufgaben</h3>
         <p>Angebote mit professioneller Nummerierung (AN-2025-0042), Sonderpreisen und PDF-Druck. Aufgaben und Rückrufe nie wieder vergessen.</p>
         <ul>
           <li>Angebote mit 1-Klick-Annahme</li>
-          <li>Sonderpreise & Mengenrabatte</li>
+          <li>Angebots-Vorlagen wiederverwendbar</li>
           <li>Aufgaben: Priorität, Typ, Fälligkeit</li>
           <li>Wiedervorlage & Rückruf-Planung</li>
           <li>Tagesansicht: Was ist heute fällig?</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Angebots-Vorlagen:</strong> Speichern Sie wiederkehrende Angebotsbausteine (z.B. Frühjahrsprogramm Dünger) und laden Sie sie mit einem Klick — kein Tippen von Grund auf.</p>
+          <p><strong>Tastaturkürzel:</strong> N+A für neues Angebot, N+L für neue Lieferung, G+K für Kundenliste — navigieren wie ein Profi ohne Maus.</p>
+          <a href="#kontakt">Angebote live ansehen →</a>
+        </div>
       </div>
 
       <!-- Schlagkartei & AFIG -->
@@ -1117,8 +1193,14 @@
           <li>AFIG-Import aus agrarzahlungen.de</li>
           <li>Agrarantrag-Verknüpfung je Kunde</li>
           <li>Druckfertiges Kunden-Profil (Mappe)</li>
-          <li>Flächen & Potenzial auf einen Blick</li>
+          <li>Nährstoffbilanz DüV §8 automatisch</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Nährstoffbilanz DüV §8:</strong> Automatische Berechnung der N-Ausbringung je Schlag — 170 kg N/ha Grenzwert-Check auf einen Blick, Ampel-Anzeige bei Überschreitung.</p>
+          <p><strong>Flächenanalyse Overpass:</strong> Abgleich mit OpenStreetMap-Landwirtschaftsflächen je Kunde — Potenzialanalyse und Gesprächsvorbereitung.</p>
+          <a href="#kontakt">Schlagkartei ansehen →</a>
+        </div>
       </div>
 
       <!-- Mobile -->
@@ -1133,34 +1215,54 @@
           <li>Telefonmaske für unterwegs</li>
           <li>Kamera-Integration für KI-Erkennung</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Dashboard Skeleton Loaders:</strong> Sofortige visuelle Rückmeldung beim Laden — kein leeres Flimmern, schnelle Wahrnehmung der Zahlen, auch bei langsamer Verbindung.</p>
+          <p><strong>Mobile-Nav Akkordeon:</strong> Vollständig responsive Navigation — alle Bereiche per Fingertipp, auch auf kleinen Displays übersichtlich.</p>
+          <a href="#kontakt">Mobile App testen →</a>
+        </div>
       </div>
 
       <!-- Finanzen & Mahnwesen -->
       <div class="feature-card animate-on-scroll delay-1">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon green">💰</div>
         <h3>Mahnwesen &amp; Finanzen</h3>
         <p>Offene Rechnungen auf Knopfdruck mahnen. DATEV-Export, ZUGFeRD E-Rechnung und Bankabgleich halten Ihre Buchhaltung sauber.</p>
         <ul>
           <li>Mahnstufen 1–3 mit PDF-Druck</li>
-          <li>DATEV-Export CSV</li>
-          <li>ZUGFeRD / Factur-X</li>
+          <li>Skonto & Teilzahlungen je Rechnung</li>
+          <li>Offene-Posten-Liste mit CSV-Export</li>
           <li>Bankabgleich CSV/MT940</li>
-          <li>Gutschriften &amp; Sammelrechnungen</li>
+          <li>DATEV-Export &amp; ZUGFeRD</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Offene-Posten-Liste:</strong> Alle unbezahlten Rechnungen mit Fälligkeit, Mahnstufe und Restsaldo auf einen Blick — exportierbar als CSV für Ihr Controlling.</p>
+          <p><strong>Skonto & Teilzahlungen:</strong> Skonto-Prozent und -Tage je Rechnung; mehrere Zahlungseingänge möglich — Saldo wird automatisch berechnet.</p>
+          <a href="#kontakt">Finanzen live ansehen →</a>
+        </div>
       </div>
 
       <!-- Compliance & PSM -->
       <div class="feature-card animate-on-scroll delay-2">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon blue">🌿</div>
         <h3>PSM-Dokumentation §14 PflSchG &amp; DüV</h3>
         <p>Pflanzenschutz-Aufzeichnungen §14 PflSchG, Sachkundenachweis-Verwaltung und Düngeverordnung-Sperrfristen — alles rechtssicher in einer Landhandel-Software.</p>
         <ul>
-          <li>PSM-Ausbringung je Schlag dokumentieren</li>
+          <li>GHS-Piktogramme auf Lieferscheinen (CLP)</li>
+          <li>Nährstoffbilanz DüV §8 automatisch</li>
           <li>Sachkundenachweis-Ablauf-Alarm</li>
-          <li>DüV-Sperrfristenkalender</li>
-          <li>Kontrakte &amp; Rahmenverträge</li>
-          <li>Kreditlimit-Warnung je Kunde</li>
+          <li>MHD-Übersicht mit Farbampel</li>
+          <li>Chargen-Zertifikate Upload &amp; Download</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>MHD-Übersicht (Mindesthaltbarkeit):</strong> Je Charge wird das MHD überwacht — rot/gelb/grün zeigt sofort, welche Ware bald abläuft. Kein Verderb durch Vergessen.</p>
+          <p><strong>Chargen-Zertifikate:</strong> LUFA-Analysezertifikate, Prüfberichte und Lieferantendokumente je Charge hochladen und jederzeit abrufbar.</p>
+          <a href="#compliance">Compliance-Funktionen ansehen →</a>
+        </div>
       </div>
 
       <!-- Bestellwesen & Einkauf -->
@@ -1175,6 +1277,12 @@
           <li>Frühbezugs-Kampagnen &amp; Aktionspreise</li>
           <li>Kalender-Export (iCal/Outlook)</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Automatischer Bestellvorschlag:</strong> Basierend auf Mindestbeständen und Verbrauchshistorie schlägt AgrarOffice automatisch vor, was und wann bestellt werden soll.</p>
+          <p><strong>Preislisten-Import (CSV/Excel):</strong> Lieferantenpreislisten per Datei hochladen — Einkaufspreise werden automatisch aktualisiert, Duplikate erkannt.</p>
+          <a href="#kontakt">Bestellwesen ansehen →</a>
+        </div>
       </div>
 
     </div>
@@ -1764,6 +1872,200 @@
   </div>
 </section>
 
+<!-- Deep Dive: Compliance -->
+<section class="deep-dive" style="background:var(--gray-50)" id="compliance">
+  <div class="container">
+    <div class="deep-dive-inner reverse">
+      <div class="deep-dive-text animate-on-scroll">
+        <div class="section-label">Compliance &amp; Rechtssicherheit</div>
+        <h2>GHS, DüV, PSM — rechtssicher ohne Aufwand</h2>
+        <p>Agrarhändler stehen unter wachsendem Compliance-Druck: CLP-konforme Kennzeichnung auf Lieferscheinen, Nährstoffbilanz nach DüV §8, Sachkundenachweis-Verwaltung. AgrarOffice deckt das alles ab — automatisch, ohne Zusatzaufwand.</p>
+        <div class="check-list">
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>GHS-Piktogramme (CLP-konform):</strong> Gefahrenpiktogramme werden direkt aus dem Artikelstamm auf Lieferscheine gedruckt — für PSM und kennzeichnungspflichtige Düngemittel, gemäß CLP-Verordnung (EG) Nr. 1272/2008.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Nährstoffbilanz DüV §8:</strong> Automatische Berechnung der N-Ausbringung je Schlag und Betrieb. Der 170 kg N/ha-Grenzwert wird per Ampel überwacht — rechtzeitig reagieren, bevor die Grenze gerissen wird.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>MHD-Übersicht mit Farbampel:</strong> Mindesthaltbarkeitsdaten je Charge im Blick — rot für abgelaufen, gelb für bald ablaufend, grün für unbedenklich. Kein Verderb durch Vergessen.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Chargen-Zertifikate:</strong> LUFA-Analysezertifikate, Lieferantendokumente und Prüfberichte je Charge hochladen und jederzeit abrufbar — ideal für Kontrollen und Kundenrückfragen.</p>
+          </div>
+        </div>
+        <a href="#kontakt" class="btn btn-primary">Compliance-Demo starten →</a>
+      </div>
+      <div class="animate-on-scroll delay-2">
+        <div class="mockup-wrapper">
+          <div class="mockup mockup-overlay">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#ef4444"></div>
+            <div class="mockup-dot" style="background:#f59e0b"></div>
+            <div class="mockup-dot" style="background:#22c55e"></div>
+            <span style="flex:1;font-size:.65rem;color:#6b7a8d;text-align:center">Lieferschein — GHS-Kennzeichnung</span>
+          </div>
+          <div class="mockup-body">
+            <!-- GHS Lieferschein Mockup -->
+            <div style="background:#1a2634;border-radius:8px;padding:14px;margin-bottom:12px">
+              <div style="font-size:.65rem;color:#6b7a8d;margin-bottom:10px;font-weight:600">Lieferschein #LS-2025-0847</div>
+              <div class="mlist-row" style="font-weight:600;color:#e2e8f0">
+                <span style="flex:1">Artikel</span><span>Menge</span><span style="width:80px;text-align:right">GHS</span>
+              </div>
+              <div class="mlist-row">
+                <span style="flex:1">Roundup PowerFlex</span><span style="color:#a0aec0">20 L</span>
+                <span style="width:80px;text-align:right;display:flex;gap:3px;justify-content:flex-end">
+                  <!-- GHS skull/crossbones simplified SVG -->
+                  <svg width="16" height="16" viewBox="0 0 100 100" style="border:1.5px solid #f87171;border-radius:3px;padding:1px">
+                    <rect width="100" height="100" fill="#1a2634"/>
+                    <circle cx="50" cy="38" r="20" fill="none" stroke="#f87171" stroke-width="8"/>
+                    <circle cx="50" cy="38" r="8" fill="#f87171"/>
+                    <line x1="30" y1="72" x2="70" y2="58" stroke="#f87171" stroke-width="7" stroke-linecap="round"/>
+                    <line x1="30" y1="58" x2="70" y2="72" stroke="#f87171" stroke-width="7" stroke-linecap="round"/>
+                  </svg>
+                  <svg width="16" height="16" viewBox="0 0 100 100" style="border:1.5px solid #fbbf24;border-radius:3px;padding:1px">
+                    <rect width="100" height="100" fill="#1a2634"/>
+                    <polygon points="50,10 90,85 10,85" fill="none" stroke="#fbbf24" stroke-width="8"/>
+                    <text x="50" y="78" text-anchor="middle" fill="#fbbf24" font-size="42" font-weight="bold">!</text>
+                  </svg>
+                </span>
+              </div>
+              <div class="mlist-row">
+                <span style="flex:1">Harnstoff 46%</span><span style="color:#a0aec0">5 t</span>
+                <span style="width:80px;text-align:right">
+                  <span class="status green" style="font-size:.55rem">Keine GHS</span>
+                </span>
+              </div>
+              <div class="mlist-row">
+                <span style="flex:1">Mais P8400 (Saatgut)</span><span style="color:#a0aec0">200 kg</span>
+                <span style="width:80px;text-align:right">
+                  <span class="status green" style="font-size:.55rem">Keine GHS</span>
+                </span>
+              </div>
+            </div>
+            <!-- MHD Übersicht -->
+            <div style="background:#1a2634;border-radius:8px;padding:14px">
+              <div style="font-size:.65rem;color:#6b7a8d;margin-bottom:10px;font-weight:600">MHD-Übersicht — Chargen</div>
+              <div class="mlist-row">
+                <span style="flex:1">Charge HU-2025-01</span>
+                <span style="color:#a0aec0;font-size:.6rem">MHD: 31.03.2026</span>
+                <span style="width:60px;text-align:right"><span class="status green">● OK</span></span>
+              </div>
+              <div class="mlist-row">
+                <span style="flex:1">Charge RP-2025-07</span>
+                <span style="color:#a0aec0;font-size:.6rem">MHD: 15.07.2025</span>
+                <span style="width:60px;text-align:right"><span class="status amber">● Bald</span></span>
+              </div>
+              <div class="mlist-row">
+                <span style="flex:1">Charge PSM-2024-44</span>
+                <span style="color:#a0aec0;font-size:.6rem">MHD: 01.01.2025</span>
+                <span style="width:60px;text-align:right"><span class="status red">● Abgelaufen</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Deep Dive: Finanzen & Liquidität -->
+<section class="deep-dive" style="background:var(--white)" id="finanzen-deepdive">
+  <div class="container">
+    <div class="deep-dive-inner">
+      <div class="deep-dive-text animate-on-scroll">
+        <div class="section-label">Finanzen &amp; Liquidität</div>
+        <h2>Liquidität im Griff: Skonto, Teilzahlungen &amp; Offene Posten</h2>
+        <p>Viele Landhandelsbetriebe verlieren bares Geld, weil Skonto nicht genutzt, Teilzahlungen nicht verbucht oder überfällige Rechnungen erst spät gemahnt werden. AgrarOffice schließt diese Lücken automatisch.</p>
+        <div class="check-list">
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Skonto-Verwaltung:</strong> Skonto-Prozentsatz und -Tage je Rechnung hinterlegen — AgrarOffice berechnet das Skontodatum und zeigt es auf der Rechnung aus. Kein Skonto mehr verpassen.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Teilzahlungen:</strong> Eine Rechnung kann durch mehrere Zahlungseingänge beglichen werden — Restsaldo wird automatisch berechnet und in der Offene-Posten-Liste angezeigt.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Offene-Posten-Liste:</strong> Alle unbezahlten Rechnungen mit Fälligkeit, Mahnstufe, Restsaldo und Skontofrist auf einen Blick — als CSV exportierbar für Ihre Buchhaltung.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Bankabgleich &amp; Zuordnung:</strong> Kontoauszüge per CSV/MT940 importieren — AgrarOffice schlägt automatisch vor, welche Zahlung zu welcher Rechnung gehört. Mahnwesen startet automatisch nach Fälligkeit.</p>
+          </div>
+        </div>
+        <a href="#kontakt" class="btn btn-primary">Finanzen-Demo starten →</a>
+      </div>
+      <div class="animate-on-scroll delay-2">
+        <div class="mockup-wrapper">
+          <div class="mockup mockup-overlay">
+          <div class="mockup-bar">
+            <div class="mockup-dot" style="background:#ef4444"></div>
+            <div class="mockup-dot" style="background:#f59e0b"></div>
+            <div class="mockup-dot" style="background:#22c55e"></div>
+            <span style="flex:1;font-size:.65rem;color:#6b7a8d;text-align:center">Offene-Posten-Liste</span>
+          </div>
+          <div class="mockup-body">
+            <div class="mockup-kpi-row">
+              <div class="mkpi"><div class="mkpi-v" style="color:#f87171">€ 28.450</div><div class="mkpi-l">Offene Posten gesamt</div></div>
+              <div class="mkpi"><div class="mkpi-v" style="color:#fbbf24">5</div><div class="mkpi-l">Überfällig &gt; 30 Tage</div></div>
+              <div class="mkpi"><div class="mkpi-v" style="color:#4ade80">€ 1.240</div><div class="mkpi-l">Skonto verfügbar</div></div>
+            </div>
+            <div class="mockup-list">
+              <div class="mlist-row" style="font-weight:600;color:#e2e8f0;font-size:.63rem">
+                <span style="flex:1">Kunde / Rechnung</span><span style="width:70px;text-align:right">Betrag</span><span style="width:60px;text-align:right">Status</span>
+              </div>
+              <div class="mlist-row">
+                <div style="flex:1">
+                  <div style="color:#a0aec0">Maier Landwirtschaft</div>
+                  <div style="color:#6b7a8d;font-size:.58rem">RE-2025-0412 · fällig 01.06.</div>
+                </div>
+                <div style="width:70px;text-align:right">
+                  <div style="color:#f87171;font-weight:600">€ 4.820</div>
+                  <div style="color:#6b7a8d;font-size:.56rem">2% Skonto bis 25.05.</div>
+                </div>
+                <span style="width:60px;text-align:right"><span class="status amber">offen</span></span>
+              </div>
+              <div class="mlist-row">
+                <div style="flex:1">
+                  <div style="color:#a0aec0">Schulze Agrar GmbH</div>
+                  <div style="color:#6b7a8d;font-size:.58rem">RE-2025-0398 · fällig 15.05.</div>
+                </div>
+                <div style="width:70px;text-align:right">
+                  <div style="color:#f87171;font-weight:600">€ 12.300</div>
+                  <div style="color:#4ade80;font-size:.56rem">Teilzahlung: 5.000 €</div>
+                </div>
+                <span style="width:60px;text-align:right"><span class="status red">überfällig</span></span>
+              </div>
+              <div class="mlist-row">
+                <div style="flex:1">
+                  <div style="color:#a0aec0">Bauer &amp; Söhne KG</div>
+                  <div style="color:#6b7a8d;font-size:.58rem">RE-2025-0405 · fällig 30.06.</div>
+                </div>
+                <div style="width:70px;text-align:right">
+                  <div style="color:#4ade80;font-weight:600">€ 8.900</div>
+                </div>
+                <span style="width:60px;text-align:right"><span class="status green">bezahlt</span></span>
+              </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <div style="background:var(--green-700);border-radius:6px;padding:6px 12px;font-size:.62rem;color:white;font-weight:600;cursor:pointer">CSV Export</div>
+              <div style="background:#243040;border-radius:6px;padding:6px 12px;font-size:.62rem;color:#a0aec0;cursor:pointer">Mahnung erstellen</div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Comparison Table -->
 <section class="comparison-section" aria-labelledby="cmp-title">
   <div class="container">
@@ -1794,6 +2096,11 @@
           <tr><td class="feature-name">Server in Deutschland / DSGVO</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Je Anbieter</span></td></tr>
           <tr><td class="feature-name">Monatlich kündbar</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Oft Jahresvertrag</span></td></tr>
           <tr><td class="feature-name">Einrichtung ohne IT-Abteilung</td><td class="hl"><span class="cmp-yes">✓</span> &lt;1 Tag</td><td><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Wochen</span></td></tr>
+          <tr><td class="feature-name">Skonto &amp; Teilzahlungen</td><td class="hl"><span class="cmp-yes">✓</span> automatisch</td><td><span class="cmp-no">✕</span></td><td><span class="cmp-part">~ Je Anbieter</span></td></tr>
+          <tr><td class="feature-name">GHS-Lieferscheine (CLP-konform)</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">MHD-Übersicht mit Farbampel</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-no">✕</span></td></tr>
+          <tr><td class="feature-name">Offene-Posten-Liste (CSV-Export)</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-part">~ Manuell</span></td><td><span class="cmp-part">~ Je Anbieter</span></td></tr>
+          <tr><td class="feature-name">Nährstoffbilanz DüV §8</td><td class="hl"><span class="cmp-yes">✓</span></td><td><span class="cmp-no">✕</span></td><td><span class="cmp-yes">✓</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -1805,11 +2112,11 @@
   <div class="container">
     <div class="stats-grid">
       <div class="animate-on-scroll">
-        <div class="stat-number"><span class="counter" data-target="47">0</span>+</div>
+        <div class="stat-number"><span class="counter" data-target="55">0</span>+</div>
         <div class="stat-label">Agrarbetriebe nutzen AgrarOffice täglich</div>
       </div>
       <div class="animate-on-scroll delay-1">
-        <div class="stat-number"><span class="counter" data-target="12000">0</span>+</div>
+        <div class="stat-number"><span class="counter" data-target="15000">0</span>+</div>
         <div class="stat-label">Lieferscheine digital erstellt</div>
       </div>
       <div class="animate-on-scroll delay-2">
@@ -2007,9 +2314,15 @@
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Lieferscheine & Rechnungen</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Angebote (bis 50/Monat)</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Mobile App (PWA)</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Skonto &amp; Teilzahlungen</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>GHS-Lieferscheine (CLP)</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Offene-Posten-Liste</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>MHD-Übersicht</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>E-Mail-Support</div>
           <div class="pricing-feature disabled"><div class="fi no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 8l6-6M8 8L2 2"/></svg></div>KI-Integration</div>
           <div class="pricing-feature disabled"><div class="fi no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 8l6-6M8 8L2 2"/></svg></div>Tourenplanung</div>
+          <div class="pricing-feature disabled"><div class="fi no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 8l6-6M8 8L2 2"/></svg></div>Chargen-Zertifikate</div>
+          <div class="pricing-feature disabled"><div class="fi no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 8l6-6M8 8L2 2"/></svg></div>Angebots-Vorlagen</div>
           <div class="pricing-feature disabled"><div class="fi no"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 8l6-6M8 8L2 2"/></svg></div>AFIG-Import</div>
         </div>
         <a href="#kontakt" class="btn btn-outline pricing-cta" style="width:100%;justify-content:center">Starter testen</a>
@@ -2035,6 +2348,9 @@
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Marktpreise (Eurostat)</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Unbegrenzte Angebote</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Gebietsanalyse & Prognose</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Angebots-Vorlagen</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Chargen-Zertifikate</div>
+          <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>Nährstoffbilanz DüV §8</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div>CSV-Import & -Export</div>
           <div class="pricing-feature"><div class="fi yes"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3"><path d="M1 5l3 3 5-5"/></svg></div><strong>Telefon-Support</strong></div>
         </div>
@@ -2292,6 +2608,24 @@
           <div class="faq-answer-inner">Ja. AgrarOffice enthält eine PSM-Dokumentationsfunktion für Pflanzenschutz-Ausbringungsnachweise gemäß §14 Pflanzenschutzgesetz. Je Schlag können Mittel, Aufwandmenge, Datum, Zweck und Witterungsbedingungen erfasst werden. Die integrierte Sachkundenachweis-Verwaltung alarmiert, wenn ein Nachweis abzulaufen droht. Für die Düngeverordnung (DüV) steht ein Sperrfristenkalender bereit. Alle Aufzeichnungen sind für Kontrollen jederzeit druckfertig abrufbar.</div>
         </div>
       </div>
+      <div class="faq-item animate-on-scroll delay-3">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Unterstützt AgrarOffice die Skonto-Verwaltung?</span>
+          <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
+        </div>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Ja. Auf jeder Rechnung können Sie Skonto-Prozentsatz und Skonto-Tage hinterlegen — AgrarOffice berechnet das Skontodatum automatisch und zeigt es auf der Rechnung aus. Zusätzlich unterstützt AgrarOffice Teilzahlungen, sodass eine Rechnung durch mehrere Zahlungseingänge beglichen werden kann. Die Offene-Posten-Liste zeigt jederzeit den aktuellen Saldo je Rechnung mit Skonto-Frist und Restzahlungsbetrag.</div>
+        </div>
+      </div>
+      <div class="faq-item animate-on-scroll">
+        <div class="faq-question" onclick="toggleFaq(this)">
+          <span>Sind GHS-Gefahrenpiktogramme auf Lieferscheinen rechtskonform?</span>
+          <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
+        </div>
+        <div class="faq-answer">
+          <div class="faq-answer-inner">Ja. AgrarOffice druckt CLP-konforme GHS-Gefahrenpiktogramme auf Lieferscheine für Pflanzenschutzmittel, Düngemittel und andere kennzeichnungspflichtige Produkte. Die Piktogramme werden automatisch aus dem Artikelstamm übernommen und entsprechen den Anforderungen der CLP-Verordnung (EG) Nr. 1272/2008. Eine manuelle Pflege je Artikel ist einmalig notwendig; danach werden alle zukünftigen Lieferscheine für diesen Artikel automatisch korrekt beschriftet.</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -2528,6 +2862,23 @@ Walddorfhäslach, Baden-Württemberg.
     });
   }, { threshold: 0.5 });
   document.querySelectorAll('.counter').forEach(el => counterObserver.observe(el));
+
+  // ── Feature-Card Accordion (delegated click) ───────────────────────────────
+  document.querySelectorAll('.features-grid').forEach(function(grid) {
+    grid.addEventListener('click', function(e) {
+      var card = e.target.closest('.feature-card');
+      if (!card) return;
+      // Don't toggle when clicking a link inside the details
+      if (e.target.closest('a')) return;
+      var wasExpanded = card.classList.contains('expanded');
+      // Collapse all
+      grid.querySelectorAll('.feature-card.expanded').forEach(function(c) {
+        c.classList.remove('expanded');
+      });
+      // Expand clicked if it wasn't already open
+      if (!wasExpanded) card.classList.add('expanded');
+    });
+  });
 
   // FAQ accordion
   function toggleFaq(btn) {

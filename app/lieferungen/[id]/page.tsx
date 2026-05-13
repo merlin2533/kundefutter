@@ -37,8 +37,18 @@ interface Lieferung {
   rechnungDatum?: string | null;
   bezahltAm?: string | null;
   zahlungsziel?: number | null;
+  skontoProzent?: number | null;
+  skontoTage?: number | null;
+  skontoGenutzt?: boolean | null;
   kunde: { id: number; name: string; firma?: string };
   positionen: Position[];
+}
+
+interface Teilzahlung {
+  id: number;
+  betrag: number;
+  datum: string;
+  notiz?: string | null;
 }
 
 export default function LieferungDetailPage() {
@@ -63,6 +73,24 @@ export default function LieferungDetailPage() {
   const [rechnungNrError, setRechnungNrError] = useState("");
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
+  // Skonto
+  const [skontoProzentEdit, setSkontoProzentEdit] = useState<string>("");
+  const [skontoTageEdit, setSkontoTageEdit] = useState<string>("");
+  const [skontoGenutztEdit, setSkontoGenutztEdit] = useState<boolean>(false);
+  const [skontoSaving, setSkontoSaving] = useState(false);
+  const [skontoSaved, setSkontoSaved] = useState(false);
+  const [skontoError, setSkontoError] = useState("");
+
+  // Teilzahlungen
+  const [teilzahlungen, setTeilzahlungen] = useState<Teilzahlung[]>([]);
+  const [tzLoading, setTzLoading] = useState(false);
+  const [showAddTz, setShowAddTz] = useState(false);
+  const [tzBetrag, setTzBetrag] = useState("");
+  const [tzDatum, setTzDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tzNotiz, setTzNotiz] = useState("");
+  const [tzSaving, setTzSaving] = useState(false);
+  const [tzError, setTzError] = useState("");
+
   const [rabattEditId, setRabattEditId] = useState<number | null>(null);
   const [rabattEditValue, setRabattEditValue] = useState<string>("");
   const [rabattSavingId, setRabattSavingId] = useState<number | null>(null);
@@ -104,7 +132,98 @@ export default function LieferungDetailPage() {
     setRechnungNrEdit(data.rechnungNr ?? "");
     setRechnungNrEditing(false);
     setRechnungNrError("");
+    setSkontoProzentEdit(String(data.skontoProzent ?? ""));
+    setSkontoTageEdit(String(data.skontoTage ?? ""));
+    setSkontoGenutztEdit(!!data.skontoGenutzt);
     setLoading(false);
+  }
+
+  async function loadTeilzahlungen() {
+    setTzLoading(true);
+    try {
+      const res = await fetch(`/api/teilzahlungen?lieferungId=${id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTeilzahlungen(Array.isArray(data) ? data : []);
+      }
+    } catch { /* ignore */ } finally {
+      setTzLoading(false);
+    }
+  }
+
+  async function speichereSkonto() {
+    const prozent = skontoProzentEdit.trim() === "" ? null : parseFloat(skontoProzentEdit.replace(",", "."));
+    const tage = skontoTageEdit.trim() === "" ? null : parseInt(skontoTageEdit, 10);
+    if (prozent !== null && (isNaN(prozent) || prozent < 0 || prozent > 100)) {
+      setSkontoError("Skontoprozent muss zwischen 0 und 100 liegen.");
+      return;
+    }
+    if (tage !== null && (isNaN(tage) || tage < 0)) {
+      setSkontoError("Skonto-Tage muss eine positive Zahl sein.");
+      return;
+    }
+    setSkontoSaving(true);
+    setSkontoError("");
+    setSkontoSaved(false);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skontoProzent: prozent, skontoTage: tage, skontoGenutzt: skontoGenutztEdit }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setSkontoSaved(true);
+      setTimeout(() => setSkontoSaved(false), 2000);
+      await load();
+    } catch (e) {
+      setSkontoError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally {
+      setSkontoSaving(false);
+    }
+  }
+
+  async function saveTeilzahlung() {
+    const betrag = parseFloat(tzBetrag.replace(",", "."));
+    if (isNaN(betrag) || betrag <= 0) { setTzError("Bitte einen gültigen Betrag eingeben."); return; }
+    if (!tzDatum) { setTzError("Bitte ein Datum angeben."); return; }
+    setTzSaving(true);
+    setTzError("");
+    try {
+      const res = await fetch("/api/teilzahlungen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferungId: Number(id), betrag, datum: new Date(tzDatum).toISOString(), notiz: tzNotiz.trim() || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setShowAddTz(false);
+      setTzBetrag("");
+      setTzNotiz("");
+      setTzDatum(new Date().toISOString().slice(0, 10));
+      await loadTeilzahlungen();
+    } catch (e) {
+      setTzError(e instanceof Error ? e.message : "Fehler");
+    } finally {
+      setTzSaving(false);
+    }
+  }
+
+  async function deleteTeilzahlung(tzId: number) {
+    if (!confirm("Teilzahlung wirklich löschen?")) return;
+    try {
+      const res = await fetch(`/api/teilzahlungen/${tzId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert((d as { error?: string }).error ?? "Fehler beim Löschen.");
+        return;
+      }
+      await loadTeilzahlungen();
+    } catch { /* ignore */ }
   }
 
   function startRabattEdit(pos: Position) {
@@ -185,7 +304,7 @@ export default function LieferungDetailPage() {
     }
   }
 
-  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); loadTeilzahlungen(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch("/api/artikel?limit=500")
@@ -1125,6 +1244,184 @@ export default function LieferungDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Skonto-Abschnitt – nur wenn Rechnung vorhanden */}
+      {lieferung.rechnungNr && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
+          <h2 className="text-base font-semibold text-gray-800 mb-4">Skonto</h2>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Skonto %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                value={skontoProzentEdit}
+                onChange={(e) => { setSkontoProzentEdit(e.target.value); setSkontoError(""); }}
+                placeholder="z.B. 2"
+                className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Skonto-Tage</label>
+              <input
+                type="number"
+                min={0}
+                value={skontoTageEdit}
+                onChange={(e) => { setSkontoTageEdit(e.target.value); setSkontoError(""); }}
+                placeholder="z.B. 10"
+                className="w-24 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+              />
+            </div>
+            {skontoProzentEdit && skontoTageEdit && (() => {
+              const pct = parseFloat(skontoProzentEdit.replace(",", "."));
+              const tage = parseInt(skontoTageEdit, 10);
+              const basisSkonto = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : new Date(lieferung.datum);
+              const skontoFaellig = new Date(basisSkonto.getTime() + tage * 24 * 60 * 60 * 1000);
+              const skontobetrag = bruttobetrag * (pct / 100);
+              return (
+                <div className="text-sm text-gray-600 self-end pb-2">
+                  <span className="font-medium text-green-700">{formatEuro(skontobetrag)}</span> Skontobetrag ·{" "}
+                  zahlbar bis <span className="font-medium">{formatDatum(skontoFaellig.toISOString())}</span>
+                </div>
+              );
+            })()}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="skontoGenutzt"
+              checked={skontoGenutztEdit}
+              onChange={(e) => setSkontoGenutztEdit(e.target.checked)}
+              className="rounded border-gray-300 text-green-700"
+            />
+            <label htmlFor="skontoGenutzt" className="text-sm text-gray-700">Skonto wurde genutzt</label>
+          </div>
+          {skontoError && <p className="mt-2 text-xs text-red-600">{skontoError}</p>}
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={speichereSkonto}
+              disabled={skontoSaving}
+              className="px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded text-sm font-medium disabled:opacity-60"
+            >
+              {skontoSaving ? "Speichern…" : "Skonto speichern"}
+            </button>
+            {skontoSaved && <span className="text-xs text-green-700">✓ gespeichert</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Teilzahlungen */}
+      {lieferung.rechnungNr && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-800">Teilzahlungen</h2>
+            {!showAddTz && (
+              <button
+                onClick={() => { setShowAddTz(true); setTzError(""); }}
+                className="text-sm text-green-700 hover:text-green-900 font-medium flex items-center gap-1"
+              >
+                <span className="text-lg leading-none">+</span> Hinzufügen
+              </button>
+            )}
+          </div>
+
+          {tzLoading && <p className="text-sm text-gray-400">Lade…</p>}
+
+          {!tzLoading && teilzahlungen.length === 0 && !showAddTz && (
+            <p className="text-sm text-gray-400 italic">Noch keine Teilzahlungen erfasst.</p>
+          )}
+
+          {teilzahlungen.length > 0 && (
+            <div className="space-y-1 mb-4">
+              {teilzahlungen.map((tz) => (
+                <div key={tz.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="text-gray-500 w-24 flex-shrink-0">{formatDatum(tz.datum)}</span>
+                    <span className="font-mono font-medium text-gray-800">{formatEuro(tz.betrag)}</span>
+                    {tz.notiz && <span className="text-gray-500 text-xs">{tz.notiz}</span>}
+                  </div>
+                  <button
+                    onClick={() => deleteTeilzahlung(tz.id)}
+                    className="text-red-400 hover:text-red-600 text-xs ml-4 flex-shrink-0"
+                    title="Teilzahlung löschen"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <div className="pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-sm">
+                {(() => {
+                  const summe = teilzahlungen.reduce((s, tz) => s + tz.betrag, 0);
+                  const offen = bruttobetrag - summe;
+                  return (
+                    <>
+                      <span>Gesamt gezahlt: <span className="font-mono font-medium text-green-700">{formatEuro(summe)}</span></span>
+                      <span>Offen: <span className={`font-mono font-medium ${offen > 0 ? "text-amber-600" : "text-green-700"}`}>{formatEuro(Math.max(0, offen))}</span></span>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {showAddTz && (
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+              <div className="flex flex-wrap gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Betrag (€)</label>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step="any"
+                    value={tzBetrag}
+                    onChange={(e) => { setTzBetrag(e.target.value); setTzError(""); }}
+                    placeholder="0.00"
+                    className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Datum</label>
+                  <input
+                    type="date"
+                    value={tzDatum}
+                    onChange={(e) => setTzDatum(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                  />
+                </div>
+                <div className="flex-1 min-w-36">
+                  <label className="block text-xs text-gray-500 mb-1">Notiz (opt.)</label>
+                  <input
+                    type="text"
+                    value={tzNotiz}
+                    onChange={(e) => setTzNotiz(e.target.value)}
+                    placeholder="z.B. Anzahlung"
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                  />
+                </div>
+              </div>
+              {tzError && <p className="text-xs text-red-600">{tzError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={saveTeilzahlung}
+                  disabled={tzSaving}
+                  className="px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded text-sm font-medium disabled:opacity-60"
+                >
+                  {tzSaving ? "Speichern…" : "Hinzufügen"}
+                </button>
+                <button
+                  onClick={() => { setShowAddTz(false); setTzError(""); }}
+                  className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Storno Modal */}
       {showStornoModal && (

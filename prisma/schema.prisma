@@ -118,6 +118,7 @@ model KundeAktivitaet {
   @@index([kundeId])
   @@index([datum])
   @@index([faelligAm])
+  @@index([erledigt])
 }
 
 // ─── LIEFERANT ────────────────────────────────────────────────────────────────
@@ -164,6 +165,10 @@ model Artikel {
   lagerort               String?  // optional: storage location label
   liefergroesse          String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
   sprengstoffvorlaeufer  Boolean  @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
+  ghsKlassen             String?  // JSON array: ["GHS05","GHS07"] — Gefahrenpiktogramme
+  hSaetze                String?  // JSON: ["H302","H318"] — Hazard statements
+  pSaetze                String?  // JSON: ["P260","P280"] — Precautionary statements
+  signalwort             String?  // "Achtung" | "Gefahr" | null
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
@@ -185,6 +190,8 @@ model Artikel {
   kampagneArtikel      KampagneArtikel[]
   bestellungPositionen BestellungPosition[]
   kontraktPositionen   KontraktPosition[]
+  angebotVorlagePositionen AngebotVorlagePosition[]
+  chargenZertifikate   ChargenZertifikat[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -304,6 +311,9 @@ model Lieferung {
   fahrerId             Int?     // zugewiesener Fahrer (Benutzer)
   istStreckengeschaeft Boolean  @default(false)  // Lieferant liefert direkt an Kunde
   streckenLieferantId  Int?     // Lieferant der direkt liefert
+  skontoProzent        Float?   // z.B. 2.0 = 2% Skonto
+  skontoTage           Int?     // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
+  skontoGenutzt        Boolean  @default(false)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -316,6 +326,7 @@ model Lieferung {
   bestellpositionen Bestellposition[]
   reklamationen     Reklamation[]
   streckenLieferant Lieferant?       @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
+  teilzahlungen     Teilzahlung[]
 
   @@index([kundeId])
   @@index([status])
@@ -346,11 +357,13 @@ model Lieferposition {
 // ─── WARENEINGANG ─────────────────────────────────────────────────────────────
 
 model Wareneingang {
-  id          Int      @id @default(autoincrement())
-  lieferantId Int
-  datum       DateTime @default(now())
-  notiz       String?
-  createdAt   DateTime @default(now())
+  id               Int      @id @default(autoincrement())
+  lieferantId      Int
+  datum            DateTime @default(now())
+  notiz            String?
+  istCrossDocking  Boolean  @default(false)
+  lieferungId      Int?     // direkt verknüpfte Lieferung bei Cross-Docking
+  createdAt        DateTime @default(now())
 
   lieferant       Lieferant              @relation(fields: [lieferantId], references: [id])
   positionen      WareineingangPosition[]
@@ -358,12 +371,13 @@ model Wareneingang {
 }
 
 model WareineingangPosition {
-  id             Int     @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   wareneingangId Int
   artikelId      Int
   menge          Float
   einkaufspreis  Float
-  chargeNr       String? // Chargen-/Losnummer (gesetzlich für Saatgut)
+  chargeNr       String?   // Chargen-/Losnummer (gesetzlich für Saatgut)
+  mhd            DateTime? // Mindesthaltbarkeitsdatum
 
   wareneingang Wareneingang @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
   artikel      Artikel      @relation(fields: [artikelId], references: [id])
@@ -394,6 +408,7 @@ model Lagerbewegung {
   @@index([artikelId])
   @@index([datum])
   @@index([artikelId, datum])
+  @@index([typ])
 }
 
 // ─── MENGENRABATTE ────────────────────────────────────────────────────────────
@@ -426,6 +441,10 @@ model Sammelrechnung {
 
   kunde       Kunde       @relation(fields: [kundeId], references: [id])
   lieferungen Lieferung[]
+  teilzahlungen Teilzahlung[]
+  skontoProzent Float?
+  skontoTage    Int?
+  skontoGenutzt Boolean  @default(false)
 }
 
 // ─── BESTELLLISTE (Lieferanten-Bestellungen) ─────────────────────────────────
@@ -974,6 +993,73 @@ model EingangsRechnung {
   @@index([lieferantId])
   @@index([status])
   @@index([faelligAm])
+}
+
+// ─── TEILZAHLUNGEN ────────────────────────────────────────────────────────────
+
+model Teilzahlung {
+  id               Int      @id @default(autoincrement())
+  lieferungId      Int?
+  sammelrechnungId Int?
+  betrag           Float
+  datum            DateTime @default(now())
+  notiz            String?
+  createdAt        DateTime @default(now())
+
+  lieferung      Lieferung?      @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
+  sammelrechnung Sammelrechnung? @relation(fields: [sammelrechnungId], references: [id], onDelete: Cascade)
+
+  @@index([lieferungId])
+  @@index([sammelrechnungId])
+}
+
+// ─── ANGEBOTS-VORLAGEN ────────────────────────────────────────────────────────
+
+model AngebotVorlage {
+  id           Int      @id @default(autoincrement())
+  name         String
+  beschreibung String?
+  notiz        String?
+  aktiv        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  positionen AngebotVorlagePosition[]
+}
+
+model AngebotVorlagePosition {
+  id        Int    @id @default(autoincrement())
+  vorlageId Int
+  artikelId Int
+  menge     Float
+  preis     Float  @default(0)  // 0 = aktuellen Standardpreis verwenden
+  rabatt    Float  @default(0)
+  einheit   String @default("kg")
+  notiz     String?
+
+  vorlage AngebotVorlage @relation(fields: [vorlageId], references: [id], onDelete: Cascade)
+  artikel Artikel        @relation(fields: [artikelId], references: [id])
+
+  @@index([vorlageId])
+}
+
+// ─── CHARGEN-ZERTIFIKATE ──────────────────────────────────────────────────────
+
+model ChargenZertifikat {
+  id        Int      @id @default(autoincrement())
+  chargeNr  String
+  artikelId Int
+  dateiname String
+  pfad      String   // /uploads/zertifikate/
+  typ       String?  // MIME type
+  groesse   Int?
+  notiz     String?
+  createdAt DateTime @default(now())
+
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@index([chargeNr])
+  @@index([artikelId])
 }
 
 // ─── BUDGETPLANUNG ────────────────────────────────────────────────────────────

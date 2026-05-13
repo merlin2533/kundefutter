@@ -18,10 +18,20 @@ export async function GET(_req: NextRequest, { params }: Params) {
       include: {
         kunde: { include: { kontakte: true } },
         positionen: { include: { artikel: { select: artikelSafeSelect } } },
+        teilzahlungen: { orderBy: { datum: "asc" as const } },
       },
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    return NextResponse.json(lieferung);
+
+    // Compute offenerBetrag = gesamtBetrag - SUM(teilzahlungen)
+    const gesamtBrutto = lieferung.positionen.reduce((sum, pos) => {
+      const netto = pos.menge * pos.verkaufspreis * (1 - pos.rabattProzent / 100);
+      return sum + netto;
+    }, 0);
+    const bezahlt = lieferung.teilzahlungen.reduce((sum, tz) => sum + tz.betrag, 0);
+    const offenerBetrag = Math.round((gesamtBrutto - bezahlt) * 100) / 100;
+
+    return NextResponse.json({ ...lieferung, gesamtBetrag: Math.round(gesamtBrutto * 100) / 100, offenerBetrag });
   } catch (e) {
     console.error("Lieferung GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

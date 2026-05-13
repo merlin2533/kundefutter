@@ -14,7 +14,11 @@ export async function GET() {
     for (const g of grouped) {
       result[g.kategorie] = g._count._all;
     }
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+      },
+    });
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

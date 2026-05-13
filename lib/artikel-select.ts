@@ -18,6 +18,10 @@ export const artikelSafeSelect = {
   updatedAt: true,
   driveOrdnerId: true,
   sprengstoffvorlaeufer: true,
+  ghsKlassen: true,
+  hSaetze: true,
+  pSaetze: true,
+  signalwort: true,
 } as const;
 
 // Minimal artikel fields needed when loading Lieferpositionen / Wareneingangspositionen
@@ -47,8 +51,6 @@ export const lieferungSafeSelect = {
   zahlungsziel: true,
   wiederkehrend: true,
   sammelrechnungId: true,
-  istStreckengeschaeft: true,
-  streckenLieferantId: true,
   createdAt: true,
   updatedAt: true,
 } as const;

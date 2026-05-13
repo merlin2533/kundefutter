@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface KundeResult {
   id: number;
@@ -586,6 +587,19 @@ export default function SearchPalette() {
                 );
               })}
             </div>
+
+            {/* "Alle anzeigen" link when 5+ results */}
+            {hasResults && flatItems.length >= 5 && (
+              <div className="border-t border-gray-100 px-4 py-2.5 text-center">
+                <Link
+                  href={`/suche?q=${encodeURIComponent(query)}`}
+                  onClick={() => setOpen(false)}
+                  className="text-sm text-green-700 hover:text-green-800 hover:underline font-medium"
+                >
+                  Alle {flatItems.length} Ergebnisse anzeigen &rarr;
+                </Link>
+              </div>
+            )}
 
             {/* Footer hint */}
             <div className="flex items-center gap-4 px-4 py-2 border-t border-gray-100 text-xs text-gray-400">

@@ -55,6 +55,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     ...(body.beschreibung !== undefined ? { beschreibung: body.beschreibung ? String(body.beschreibung) : null } : {}),
     ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
     ...(body.sprengstoffvorlaeufer !== undefined ? { sprengstoffvorlaeufer: Boolean(body.sprengstoffvorlaeufer) } : {}),
+    ...(body.ghsKlassen !== undefined ? { ghsKlassen: body.ghsKlassen ? String(body.ghsKlassen) : null } : {}),
+    ...(body.hSaetze !== undefined ? { hSaetze: body.hSaetze ? String(body.hSaetze) : null } : {}),
+    ...(body.pSaetze !== undefined ? { pSaetze: body.pSaetze ? String(body.pSaetze) : null } : {}),
+    ...(body.signalwort !== undefined ? { signalwort: body.signalwort ? String(body.signalwort) : null } : {}),
+    ...(body.lagerort !== undefined ? { lagerort: body.lagerort ? String(body.lagerort) : null } : {}),
+    ...(body.liefergroesse !== undefined ? { liefergroesse: body.liefergroesse ? String(body.liefergroesse) : null } : {}),
+    ...(body.preisStand !== undefined ? { preisStand: body.preisStand ? new Date(String(body.preisStand)) : null } : {}),
   };
 
   try {
