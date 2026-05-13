@@ -118,6 +118,14 @@ AntragEmpfaenger    — AFIG-Daten (agrarzahlungen.de) aggregiert je Empfänger+
 Angebot             — Angebote (nummer AN-YYYY-NNNN, status OFFEN/ANGENOMMEN/ABGELEHNT/ABGELAUFEN)
 AngebotPosition     — Positionen eines Angebots (artikelId, menge, preis, rabatt, einheit)
 KundeSchlag         — Schlagkartei je Kunde (name, flaeche, fruchtart, sorte, vorfrucht, aussaatJahr)
+Bodenprobe          — Bodenproben je KundeSchlag (datum, pH, P2O5, K2O, Mg, Bor, Humus, NMin, Bodenart, Klasse)
+Duengebedarf        — Berechnete N/P/K/Mg-Bedarfe je Schlag + Jahr (DüV Anlage 4)
+Sachkundenachweis   — PSM/Spritzgerät/Düngerschulung pro Kunde mit Ablaufdatum + Beleg
+Sortenversuch       — Sortenversuche/Demoflächen (jahr, kultur, standort, flaeche, status)
+SortenversuchPosition — Sorte mit Ertrag/Feuchte/Protein/hl-Gew/Bonitur
+Vorbestellung       — Saison-/Frühbezugsbestellungen (nummer VB-YYYY-NNNN, status OFFEN/BESTAETIGT/UMGEWANDELT/STORNIERT)
+VorbestellungPosition — Position mit Mengen, Frühbezugspreis, Lagerreservierung
+FruehbezugsStaffel  — Rabattregeln (saison, kategorie?, artikelId?, bestellfrist, rabattProzent)
 Aufgabe             — TODO/Wiedervorlage (betreff, faelligAm, erledigt, prioritaet, typ, kundeId?)
 ```
 
@@ -180,6 +188,21 @@ app/
 │   ├── page.tsx                TODO-Liste mit Filtern
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx
+├── bodenproben/
+│   ├── page.tsx                Bodenproben-Liste je Schlag
+│   └── neu/page.tsx
+├── duengebedarf/page.tsx       Düngebedarfsermittlung (interaktiv, DüV Anlage 4)
+├── sachkundenachweise/
+│   ├── page.tsx                Liste mit Ablauf-Status (gültig/ablaufend/abgelaufen)
+│   └── neu/page.tsx
+├── sortenversuche/
+│   ├── page.tsx                Versuche + Sorten-Ranking (Mehrjahres-Vergleich)
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── vorbestellungen/
+│   ├── page.tsx                Vorbestellungen (Frühbezug) Liste
+│   ├── neu/page.tsx            Frühbezugs-Staffel-Auto-Vorschlag
+│   └── [id]/page.tsx           Detail + "→ Lieferung umwandeln"
 ├── artikel/
 │   ├── page.tsx                Artikelliste (Kategorie-Filter, Bulk-Delete, Pagination)
 │   ├── neu/page.tsx
@@ -362,6 +385,24 @@ app/
 /api/aufgaben                   GET(?status,?kundeId,?tag,?prioritaet,?faelligBis), POST
 /api/aufgaben/[id]              GET, PUT, DELETE
 
+-- Bodenproben / Düngebedarf / Sachkunde --
+/api/bodenproben                GET(?schlagId,?kundeId), POST, DELETE?id=
+/api/bodenproben/import         POST (multipart CSV/Excel mit Spalten: Schlag, Datum, ProbenNr, Labor, Tiefe, pH, P2O5, K2O, Mg, B, Humus, NMin, CN, Bodenart, Klasse)
+/api/duengebedarf               GET(?schlagId|?fruchtarten=1), POST({...,speichern?}), DELETE?id=
+/api/sachkundenachweise         GET(?kundeId,?abgelaufen=1,?ablaufendIn=90), POST, PUT?id=, DELETE?id=
+
+-- Sortenversuche / Demoflächen --
+/api/sortenversuche             GET(?jahr,?kultur,?kundeId,?sorte), POST (inkl. positionen[])
+/api/sortenversuche/[id]        GET, PUT (mit positionen[] → full replace), DELETE
+
+-- Vorbestellungen / Frühbezug --
+/api/vorbestellungen            GET(?kundeId,?status,?saison), POST (auto Nummer VB-YYYY-NNNN + auto Frühbezugs-Staffel)
+/api/vorbestellungen/[id]       GET, PUT({status?}|{aktion:"umwandeln"}), DELETE
+/api/fruehbezugsstaffel         GET(?saison,?aktiv), POST, PUT?id=, DELETE?id=
+
+-- HIT/VVVO --
+/api/vvvo                       GET?nr= / POST{nr} — Format-Validierung der Betriebsnummer
+
 -- Besuchstermine --
 /api/besuchstermine             GET, POST
 
@@ -533,6 +574,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | DATEV | /einstellungen/datev | DATEV-Kontenrahmen-Mapping |
 | Artikelkategorien | /einstellungen/artikelkategorien | Kategorien verwalten |
 | Import | /einstellungen/import | Kunden-Import + Preislisten-Import Konfiguration |
+| Frühbezug | /einstellungen/fruehbezug | Saison-Rabattstaffeln für Vorbestellungen |
 
 ---
 
@@ -586,6 +628,10 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 - `Aufgabe.tags String @default("[]")` — JSON array
 - `Angebot.status` — "OFFEN"|"ANGENOMMEN"|"ABGELEHNT"|"ABGELAUFEN" (Whitelist in API)
 - `KundeNotiz.thema` — "Wichtig"|"Info"|"Offener Punkt"|"Wettbewerber"|…
+- `Kunde.vvvoNr` — 12-stellige Betriebsnummer (DE 276 + 2 BL + 7 Betrieb); normalisiert auf Server beim PUT
+- `Sachkundenachweis.typ` — "PSM-Sachkunde"|"Spritzgeraetekontrolle"|"Duengerschulung"|"Sprengstoff-Sachkunde"|"Mais-Beize-Sachkunde"|"Wildlebensmittel-Schulung"|"Sonstige"
+- `Vorbestellung.status` — "OFFEN"|"BESTAETIGT"|"UMGEWANDELT"|"STORNIERT"
+- `Sortenversuch.status` — "LAUFEND"|"ABGESCHLOSSEN"
 
 ## Auswahllisten-Architektur (`lib/auswahllisten.ts`)
 
@@ -688,6 +734,8 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
 | `lib/upload.ts` | `getUploadBase()` — Upload-Verzeichnis (Docker: `/data/uploads`, Dev: `./uploads`) |
 | `lib/weather.ts` | Open-Meteo Wetter-API — 7-Tage-Forecast mit WMO-Codes als Emojis |
 | `lib/zugferd-xml.ts` | Factur-X / ZUGFeRD BASIC-WL XML-Generator (kein externe Dep.) |
+| `lib/duengebedarf.ts` | DüV Anlage 4 Tabellenwerte (N/P/K/Mg) + Berechnung mit Vorfrucht-/Nmin-/Zwischenfrucht-Abzug + automatische Versorgungsklassen aus Bodenprobe (VDLUFA-Grenzwerte) |
+| `lib/vvvo.ts` | VVVO/HIT-Betriebsnummer Format-Validierung (12-stellig, Bundesland-Map 01–16) |
 
 ## Wettbewerber-Notizen
 

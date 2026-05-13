@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv, ustIdNr, kreditlimit, sachkundeNr, sachkundeGueltigBis } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv, ustIdNr, kreditlimit, sachkundeNr, sachkundeGueltigBis, vvvoNr } = body;
 
   // Nur erlaubte Felder uebernehmen
   const updateData: Record<string, unknown> = {};
@@ -60,6 +60,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (kreditlimit !== undefined) updateData.kreditlimit = kreditlimit != null ? Number(kreditlimit) : null;
   if (sachkundeNr !== undefined) updateData.sachkundeNr = sachkundeNr || null;
   if (sachkundeGueltigBis !== undefined) updateData.sachkundeGueltigBis = sachkundeGueltigBis ? new Date(sachkundeGueltigBis) : null;
+  if (vvvoNr !== undefined) {
+    if (vvvoNr) {
+      const ziffern = String(vvvoNr).replace(/\D/g, "");
+      updateData.vvvoNr = ziffern.length === 9 ? "276" + ziffern : ziffern.substring(0, 12);
+    } else {
+      updateData.vvvoNr = null;
+    }
+  }
   if (body.tags !== undefined) {
     updateData.tags = JSON.stringify(Array.isArray(body.tags) ? body.tags : []);
   }
