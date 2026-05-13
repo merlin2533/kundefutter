@@ -21,48 +21,26 @@ interface Position {
   };
 }
 
-// GHS-Piktogramm-Labels
-const GHS_LABELS: Record<string, string> = {
-  GHS01: "GHS01 Explosiv",
-  GHS02: "GHS02 Entzündbar",
-  GHS03: "GHS03 Oxidierend",
-  GHS04: "GHS04 Druckgas",
-  GHS05: "GHS05 Ätzend",
-  GHS06: "GHS06 Giftig",
-  GHS07: "GHS07 Achtung",
-  GHS08: "GHS08 Gesundheitsgefahr",
-  GHS09: "GHS09 Umweltgefährlich",
-};
-
 function GhsBadge({ klasse }: { klasse: string }) {
+  const farbe = klasse === "GHS06" ? "#cc0000" : "#cc3300";
   return (
     <span
-      title={GHS_LABELS[klasse] ?? klasse}
       style={{
         display: "inline-block",
-        fontSize: "8pt",
-        border: "1px solid #c00",
+        fontSize: "9pt",
+        border: `1px solid ${farbe}`,
         borderRadius: "2px",
         padding: "0 3px",
-        color: "#c00",
+        color: farbe,
         fontFamily: "monospace",
         marginRight: "3px",
         lineHeight: "1.4",
+        verticalAlign: "middle",
       }}
     >
       {klasse}
     </span>
   );
-}
-
-function parseGhsKlassen(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
 }
 
 interface Kunde {
@@ -596,18 +574,20 @@ export default function LieferscheinPage() {
                       )}
                       {pos.artikel.name}
                       {(() => {
-                        const klassen = parseGhsKlassen(pos.artikel.ghsKlassen);
-                        if (klassen.length === 0) return null;
-                        return (
-                          <div style={{ marginTop: "3px" }}>
-                            {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
-                            {pos.artikel.signalwort && (
-                              <span style={{ fontSize: "8pt", color: "#c00", fontStyle: "italic", marginLeft: "4px" }}>
-                                {pos.artikel.signalwort}
-                              </span>
-                            )}
-                          </div>
-                        );
+                        try {
+                          const klassen: string[] = JSON.parse(pos.artikel.ghsKlassen || "[]");
+                          if (klassen.length === 0) return null;
+                          return (
+                            <div style={{ marginTop: "3px" }}>
+                              {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
+                              {pos.artikel.signalwort && (
+                                <span style={{ fontSize: "8pt", color: "#cc3300", marginLeft: "4px" }}>
+                                  {pos.artikel.signalwort}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        } catch { return null; }
                       })()}
                     </td>
                     {hasCharge && (
@@ -638,34 +618,47 @@ export default function LieferscheinPage() {
           </div>
         )}
 
-        {/* GHS Sicherheitshinweise */}
+        {/* Gefahrgut-Hinweis block (only when positions have GHS data) */}
         {(() => {
-          const positionenMitGhs = lieferung.positionen.filter((p) => parseGhsKlassen(p.artikel.ghsKlassen).length > 0);
-          if (positionenMitGhs.length === 0) return null;
+          const gefahrPositionen = lieferung.positionen.filter((p) => {
+            try {
+              const k: string[] = JSON.parse(p.artikel.ghsKlassen || "[]");
+              return k.length > 0;
+            } catch { return false; }
+          });
+          if (gefahrPositionen.length === 0) return null;
+
           return (
-            <div style={{ marginBottom: "32px", border: "1px solid #c00", borderRadius: "4px", padding: "12px 14px" }}>
-              <div style={{ fontWeight: "bold", fontSize: "10pt", color: "#c00", marginBottom: "8px" }}>
-                Sicherheitshinweise gemäß CLP-Verordnung (EU) Nr. 1272/2008
+            <div style={{ marginBottom: "32px", border: "1px solid #cc3300", borderRadius: "4px", padding: "12px" }}>
+              <div style={{ fontWeight: "bold", fontSize: "10pt", color: "#cc3300", marginBottom: "8px" }}>
+                ⚠ Sicherheitshinweise gemäß CLP-Verordnung
               </div>
-              {positionenMitGhs.map((pos) => {
-                const klassen = parseGhsKlassen(pos.artikel.ghsKlassen);
-                const hSaetze = pos.artikel.hSaetze?.trim();
-                const pSaetze = pos.artikel.pSaetze?.trim();
+              {gefahrPositionen.map((p) => {
+                let klassen: string[] = [];
+                try { klassen = JSON.parse(p.artikel.ghsKlassen || "[]"); } catch { /* ignore */ }
+                const hSaetze = (p.artikel.hSaetze || "").trim();
+                const pSaetze = (p.artikel.pSaetze || "").trim();
                 return (
-                  <div key={pos.id} style={{ marginBottom: "8px", fontSize: "9pt" }}>
-                    <div style={{ fontWeight: "600", marginBottom: "2px" }}>
-                      {pos.artikel.name}
-                      {pos.artikel.signalwort && (
-                        <span style={{ marginLeft: "8px", color: "#c00", fontStyle: "italic" }}>
-                          Signalwort: {pos.artikel.signalwort}
+                  <div key={p.id} style={{ marginBottom: "8px", paddingBottom: "8px", borderBottom: "1px solid #f0d0d0" }}>
+                    <div style={{ fontWeight: "600", fontSize: "9pt" }}>{p.artikel.name}</div>
+                    <div style={{ fontSize: "8pt", marginTop: "2px" }}>
+                      {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
+                      {p.artikel.signalwort && (
+                        <span style={{ color: "#cc3300", fontSize: "8pt", marginLeft: "4px", fontWeight: "600" }}>
+                          {p.artikel.signalwort}
                         </span>
                       )}
                     </div>
-                    <div style={{ marginBottom: "2px" }}>
-                      Gefahrenpiktogramme: {klassen.map((k) => <GhsBadge key={k} klasse={k} />)}
-                    </div>
-                    {hSaetze && <div style={{ color: "#555" }}>H-Sätze: {hSaetze}</div>}
-                    {pSaetze && <div style={{ color: "#555" }}>P-Sätze: {pSaetze}</div>}
+                    {hSaetze && (
+                      <div style={{ fontSize: "8pt", color: "#555", marginTop: "3px" }}>
+                        <span style={{ fontWeight: "600" }}>H-Sätze: </span>{hSaetze}
+                      </div>
+                    )}
+                    {pSaetze && (
+                      <div style={{ fontSize: "8pt", color: "#555", marginTop: "2px" }}>
+                        <span style={{ fontWeight: "600" }}>P-Sätze: </span>{pSaetze}
+                      </div>
+                    )}
                   </div>
                 );
               })}

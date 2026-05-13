@@ -37,7 +37,8 @@ const groups: NavGroup[] = [
       { href: "/lieferanten", label: "Lieferanten" },
       { href: "/lager", label: "Lager" },
       { href: "/lager/umbuchungen", label: "Umbuchungen" },
-      { href: "/lager/etiketten", label: "Etiketten-Druck" },
+      { href: "/lager/chargen/zertifikate", label: "Chargen-Zertifikate" },
+      { href: "/lager/mhd", label: "MHD-Übersicht" },
       { href: "/inventur", label: "Inventur" },
       { href: "/kalkulation", label: "Preiskalkulation" },
       { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator" },
@@ -47,16 +48,11 @@ const groups: NavGroup[] = [
     label: "Lieferungen",
     children: [
       { href: "/angebote", label: "Angebote" },
-      { href: "/angebot-vorlagen", label: "Angebots-Vorlagen" },
       { href: "/aufgaben", label: "Aufgaben / TODO" },
-      { href: "/reklamationen", label: "Reklamationen" },
       { href: "/lieferungen", label: "Lieferungen" },
-      { href: "/streckengeschaeft", label: "Streckengeschäfte" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
-      { href: "/fahrer/standorte", label: "Fahrer-Standorte" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
-      { href: "/sammelbestellung", label: "Sammelbestellung" },
       { href: "/kontrakte", label: "Kontrakte" },
       { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
@@ -72,7 +68,6 @@ const groups: NavGroup[] = [
     label: "Finanzen",
     children: [
       { href: "/rechnungen", label: "Rechnungen" },
-      { href: "/offene-posten", label: "Offene Posten" },
       { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
       { href: "/ausgaben", label: "Ausgabenbuch" },
@@ -94,7 +89,6 @@ const groups: NavGroup[] = [
       { href: "/analyse/deckungsbeitrag", label: "Deckungsbeitrag" },
       { href: "/audit", label: "Änderungshistorie" },
       { href: "/duev", label: "DüV-Sperrfristen" },
-      { href: "/analyse/budget", label: "Budgetplanung" },
     ],
   },
   {
@@ -777,19 +771,6 @@ export default function Nav() {
       })
       .catch(() => {});
   }, [hideNav]);
-
-  // Auto-open active group when mobile menu opens
-  useEffect(() => {
-    if (open) {
-      const activeGroup = groups.find((g) => g.children?.some((c) => {
-        if (c.href === "/") return pathname === "/";
-        return pathname === c.href || pathname.startsWith(c.href + "/");
-      }));
-      if (activeGroup) setMobileOpen(activeGroup.label);
-    } else {
-      setMobileOpen(null);
-    }
-  }, [open, pathname]);
 
   if (hideNav) return null;
 

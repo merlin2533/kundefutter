@@ -1,67 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { validateSession } from "@/lib/auth";
 import { resolveUploadPath } from "@/lib/upload";
-import { readFile, unlink } from "fs/promises";
-import { existsSync } from "fs";
-export const dynamic = "force-dynamic";
+import prisma from "@/lib/prisma";
+import fs from "fs/promises";
+import path from "path";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
+// GET /api/chargen-zertifikate/[id] — Download
+export async function GET(req: NextRequest, ctx: Params) {
+  const session = await validateSession(req);
+  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+
+  const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
-    const zertifikat = await prisma.chargenZertifikat.findUnique({ where: { id: numId } });
-    if (!zertifikat) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    const record = await prisma.chargenZertifikat.findUnique({ where: { id: numId } });
+    if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    const absolutePath = resolveUploadPath(zertifikat.pfad);
-    if (!existsSync(absolutePath)) {
-      return NextResponse.json({ error: "Datei nicht vorhanden" }, { status: 404 });
-    }
+    const filePath = resolveUploadPath(record.pfad);
+    const data = await fs.readFile(filePath);
+    const ext = path.extname(record.dateiName).toLowerCase();
+    const contentType =
+      ext === ".pdf" ? "application/pdf" :
+      ext === ".png" ? "image/png" :
+      ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" :
+      "application/octet-stream";
 
-    const buffer = await readFile(absolutePath);
-    return new NextResponse(buffer, {
+    return new NextResponse(data, {
       headers: {
-        "Content-Type": zertifikat.typ || "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(zertifikat.dateiname)}"`,
-        "Content-Length": String(buffer.length),
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(record.dateiName)}"`,
       },
     });
-  } catch (e) {
-    console.error("ChargenZertifikat GET error:", e);
-    return NextResponse.json({ error: "Fehler beim Lesen der Datei" }, { status: 500 });
+  } catch (err) {
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Datei nicht abrufbar";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
+// DELETE /api/chargen-zertifikate/[id]
+export async function DELETE(req: NextRequest, ctx: Params) {
+  const session = await validateSession(req);
+  if (!session) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+
+  const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
-    const zertifikat = await prisma.chargenZertifikat.findUnique({ where: { id: numId } });
-    if (!zertifikat) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    const record = await prisma.chargenZertifikat.findUnique({ where: { id: numId } });
+    if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    // Delete file from disk
-    const absolutePath = resolveUploadPath(zertifikat.pfad);
-    if (existsSync(absolutePath)) {
-      try {
-        await unlink(absolutePath);
-      } catch (e) {
-        console.warn("Zertifikat file delete failed:", e);
-      }
-    }
-
+    const filePath = resolveUploadPath(record.pfad);
+    await fs.unlink(filePath).catch(() => {});
     await prisma.chargenZertifikat.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("P2025")) {
-      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    }
-    console.error("ChargenZertifikat DELETE error:", err);
-    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
