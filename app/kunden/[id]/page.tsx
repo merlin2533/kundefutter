@@ -88,6 +88,7 @@ interface Kunde {
   kreditlimit?: number | null;
   sachkundeNr?: string | null;
   sachkundeGueltigBis?: string | null;
+  vvvoNr?: string | null;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -267,6 +268,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
     kreditlimit: kunde.kreditlimit != null ? String(kunde.kreditlimit) : "",
     sachkundeNr: kunde.sachkundeNr ?? "",
     sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
+    vvvoNr: kunde.vvvoNr ?? "",
   });
 
   useEffect(() => {
@@ -315,6 +317,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
       kreditlimit: kunde.kreditlimit != null ? String(kunde.kreditlimit) : "",
       sachkundeNr: kunde.sachkundeNr ?? "",
       sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
+      vvvoNr: kunde.vvvoNr ?? "",
     });
     setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
     setError("");
@@ -345,6 +348,7 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           kreditlimit: form.kreditlimit ? parseFloat(form.kreditlimit) : null,
           sachkundeNr: form.sachkundeNr || null,
           sachkundeGueltigBis: form.sachkundeGueltigBis || null,
+          vvvoNr: form.vvvoNr || null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -426,6 +430,25 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
           {kunde.lat !== undefined && kunde.lat !== null && (
             <InfoRow label="Koordinaten" value={`${kunde.lat?.toFixed(4)}, ${kunde.lng?.toFixed(4)}`} />
           )}
+          {kunde.vvvoNr && (() => {
+            const ziffern = (kunde.vvvoNr || "").replace(/\D/g, "");
+            const normalisiert = ziffern.length === 9 ? "276" + ziffern : ziffern.substring(0, 12);
+            const blMap: Record<string, string> = {
+              "01": "Schleswig-Holstein", "02": "Hamburg", "03": "Niedersachsen", "04": "Bremen",
+              "05": "Nordrhein-Westfalen", "06": "Hessen", "07": "Rheinland-Pfalz",
+              "08": "Baden-Württemberg", "09": "Bayern", "10": "Saarland", "11": "Berlin",
+              "12": "Brandenburg", "13": "Mecklenburg-Vorpommern", "14": "Sachsen",
+              "15": "Sachsen-Anhalt", "16": "Thüringen",
+            };
+            const bl = blMap[normalisiert.substring(3, 5)];
+            return <InfoRow label="VVVO/HIT-Nr." value={`DE ${normalisiert.substring(3, 5)} ${normalisiert.substring(5)}${bl ? ` (${bl})` : ""}`} />;
+          })()}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`/sachkundenachweise?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">📜 Sachkundenachweise</Link>
+          <Link href={`/bodenproben?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">🧪 Bodenproben</Link>
+          <Link href={`/duengebedarf?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">🧮 Düngebedarf</Link>
+          <Link href={`/vorbestellungen?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">📋 Vorbestellungen</Link>
         </div>
         {/* Contact info from KundeKontakt */}
         {kunde.kontakte.length > 0 && (() => {
@@ -616,6 +639,39 @@ function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => vo
             return null;
           })()}
         </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">VVVO/HIT-Betriebsnummer</label>
+        <input
+          type="text"
+          value={form.vvvoNr}
+          onChange={(e) => setForm({ ...form, vvvoNr: e.target.value })}
+          placeholder="z.B. DE 03 12345678 oder 276031234567"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        {form.vvvoNr && (() => {
+          const ziffern = form.vvvoNr.replace(/\D/g, "");
+          if (ziffern.length === 0) return null;
+          if (ziffern.length !== 9 && ziffern.length !== 12 && ziffern.length !== 15) {
+            return <p className="text-xs text-orange-600 mt-0.5">⚠ Format prüfen (9 oder 12 Ziffern)</p>;
+          }
+          const normalisiert = ziffern.length === 9 ? "276" + ziffern : ziffern.substring(0, 12);
+          if (!normalisiert.startsWith("276")) {
+            return <p className="text-xs text-orange-600 mt-0.5">⚠ Erwartet DE-Code 276</p>;
+          }
+          const blCode = normalisiert.substring(3, 5);
+          const bundeslaender: Record<string, string> = {
+            "01": "Schleswig-Holstein", "02": "Hamburg", "03": "Niedersachsen",
+            "04": "Bremen", "05": "Nordrhein-Westfalen", "06": "Hessen",
+            "07": "Rheinland-Pfalz", "08": "Baden-Württemberg", "09": "Bayern",
+            "10": "Saarland", "11": "Berlin", "12": "Brandenburg",
+            "13": "Mecklenburg-Vorpommern", "14": "Sachsen", "15": "Sachsen-Anhalt", "16": "Thüringen",
+          };
+          const bl = bundeslaender[blCode];
+          return bl
+            ? <p className="text-xs text-green-700 mt-0.5">✓ {bl} (DE {blCode} {normalisiert.substring(5)})</p>
+            : <p className="text-xs text-orange-600 mt-0.5">⚠ Unbekannter Bundeslandcode {blCode}</p>;
+        })()}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>

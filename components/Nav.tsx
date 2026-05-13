@@ -28,6 +28,10 @@ const groups: NavGroup[] = [
       { href: "/preisauskunft", label: "Preisauskunft" },
       { href: "/tagesansicht", label: "Tagesansicht" },
       { href: "/psm", label: "PSM-Ausbringung" },
+      { href: "/sachkundenachweise", label: "Sachkundenachweise" },
+      { href: "/bodenproben", label: "Bodenproben" },
+      { href: "/duengebedarf", label: "Düngebedarfsermittlung" },
+      { href: "/sortenversuche", label: "Sortenversuche" },
     ],
   },
   {
@@ -63,6 +67,8 @@ const groups: NavGroup[] = [
     label: "Aktionen & Kampagnen",
     children: [
       { href: "/kampagnen", label: "Kampagnen" },
+      { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)" },
+      { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln" },
     ],
   },
   {
@@ -137,6 +143,12 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/bankabgleich/import": "Kontoauszug importieren",
   "/einstellungen/ausgaben": "Ausgaben-Einstellungen",
   "/einstellungen/bankkonten": "Bankkonten",
+  "/sachkundenachweise": "Sachkundenachweise",
+  "/bodenproben": "Bodenproben",
+  "/duengebedarf": "Düngebedarfsermittlung",
+  "/sortenversuche": "Sortenversuche",
+  "/vorbestellungen": "Vorbestellungen",
+  "/einstellungen/fruehbezug": "Frühbezugs-Staffeln",
 };
 
 function getPageTitle(pathname: string): string {

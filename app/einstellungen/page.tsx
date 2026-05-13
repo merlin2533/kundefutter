@@ -168,6 +168,12 @@ export default function EinstellungenPage() {
           title="Benachrichtigungen"
           description="System-Alerts konfigurieren (Sachkunde, Kreditlimit, Lager, Rechnungen)"
         />
+        <EinstellungTile
+          href="/einstellungen/fruehbezug"
+          icon="⏱"
+          title="Frühbezugs-Staffeln"
+          description="Saison-Rabatte für Vorbestellungen pflegen (z.B. -3% bis 31.07.)"
+        />
       </div>
     </div>
   );
