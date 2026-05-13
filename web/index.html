@@ -8,7 +8,7 @@
   <!-- Primary SEO -->
   <title>AgrarOffice – CRM &amp; ERP Software für Landhandel | Tourenplanung, KI &amp; Lagerverwaltung</title>
   <meta name="description" content="AgrarOffice: Die führende Branchensoftware für Agrarhändler &amp; Landhandel. CRM, Tourenplanung, Lagerverwaltung, KI-Lieferscheinerkennung &amp; DATEV-Export. Jetzt 14 Tage kostenlos testen – ohne Kreditkarte." />
-  <meta name="keywords" content="Landhandel Software, Agrarhändler CRM, Tourenplanung Außendienst, Lagerverwaltung Agrar, KI Lieferschein erkennen, DATEV Export Agrar, ZUGFeRD E-Rechnung Landhandel, PSM Dokumentation Software, Düngeverordnung Software, Schlagkartei digital, Agraranträge AFIG Software, Bestellwesen Landhandel, Kontrakte Getreidehandel, Agrar ERP Cloud, Landhandel SaaS Deutschland, Außendienst App Agrar, Agrar Warenwirtschaft, Pflanzenschutz Dokumentation §14 PflSchG" />
+  <meta name="keywords" content="Landhandel Software, Agrarhändler CRM, Tourenplanung Außendienst, Lagerverwaltung Agrar, KI Lieferschein erkennen, DATEV Export Agrar, ZUGFeRD E-Rechnung Landhandel, PSM Dokumentation Software, Düngeverordnung Software, Schlagkartei digital, Agraranträge AFIG Software, Bestellwesen Landhandel, Kontrakte Getreidehandel, Agrar ERP Cloud, Landhandel SaaS Deutschland, Außendienst App Agrar, Agrar Warenwirtschaft, Pflanzenschutz Dokumentation §14 PflSchG, Skonto Software Landhandel, GHS Lieferschein Software, Nährstoffbilanz DüV Software, MHD Verwaltung Agrar, Chargen-Zertifikate Agrar, Offene Posten Agrar" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
   <meta name="bingbot" content="index, follow" />
@@ -85,7 +85,14 @@
       "AFIG-Import",
       "Marktpreise Eurostat MATIF",
       "Mahnwesen",
-      "Bankabgleich"
+      "Bankabgleich",
+      "Skonto & Teilzahlungen",
+      "GHS-Lieferscheine (CLP-konform)",
+      "Angebots-Vorlagen",
+      "Chargen-Zertifikate",
+      "MHD-Übersicht mit Farbampel",
+      "Nährstoffbilanz DüV §8",
+      "Offene-Posten-Liste"
     ],
     "offers": [
       {
@@ -285,6 +292,16 @@
         "@type": "Question",
         "name": "Kann ich PSM-Aufzeichnungen nach §14 PflSchG führen?",
         "acceptedAnswer": { "@type": "Answer", "text": "Ja. AgrarOffice enthält PSM-Dokumentation für Pflanzenschutz-Ausbringungsnachweise gemäß §14 Pflanzenschutzgesetz, Sachkundenachweis-Verwaltung mit Ablauf-Alarm sowie einen DüV-Sperrfristenkalender. Alle Aufzeichnungen sind druckfertig abrufbar." }
+      },
+      {
+        "@type": "Question",
+        "name": "Unterstützt AgrarOffice die Skonto-Verwaltung?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Ja. Auf jeder Rechnung können Sie Skonto-Prozentsatz und Skonto-Tage hinterlegen — AgrarOffice berechnet das Skontodatum automatisch und zeigt es auf der Rechnung aus. Zusätzlich unterstützt AgrarOffice Teilzahlungen, sodass eine Rechnung durch mehrere Zahlungseingänge beglichen werden kann. Die Offene-Posten-Liste zeigt jederzeit den aktuellen Saldo je Rechnung." }
+      },
+      {
+        "@type": "Question",
+        "name": "Sind GHS-Gefahrenpiktogramme auf Lieferscheinen rechtskonform?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Ja. AgrarOffice druckt CLP-konforme GHS-Gefahrenpiktogramme auf Lieferscheine für Pflanzenschutzmittel, Düngemittel und andere kennzeichnungspflichtige Produkte. Die Piktogramme werden automatisch aus dem Artikelstamm übernommen und entsprechen den Anforderungen der CLP-Verordnung (EG) Nr. 1272/2008." }
       }
     ]
   }
@@ -481,6 +498,20 @@
     .feature-card ul { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
     .feature-card ul li { font-size: .85rem; color: var(--gray-600); display: flex; align-items: flex-start; gap: 8px; }
     .feature-card ul li::before { content: "✓"; color: var(--green-700); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── FEATURE ACCORDION ── */
+    .feature-card { position: relative; cursor: pointer; }
+    .feature-card .feature-details { display: none; max-height: 0; overflow: hidden; transition: max-height 0.3s ease; border-top: 1px solid var(--gray-200); margin-top: 16px; padding-top: 0; }
+    .feature-card.expanded .feature-details { display: block; max-height: 300px; padding-top: 14px; }
+    .feature-card .feature-details p { font-size: .82rem; color: var(--gray-600); line-height: 1.6; margin-bottom: 10px; }
+    .feature-card .feature-details a { font-size: .82rem; font-weight: 600; color: var(--green-700); display: inline-flex; align-items: center; gap: 4px; }
+    .feature-card .feature-details a:hover { color: var(--green-800); }
+    .feature-expand-hint { font-size: .72rem; color: var(--gray-400); margin-top: 12px; display: flex; align-items: center; gap: 4px; transition: color .2s; }
+    .feature-card:hover .feature-expand-hint { color: var(--green-700); }
+    .feature-card.expanded .feature-expand-hint { display: none; }
+
+    /* ── NEU BADGE ── */
+    .neu-badge { position: absolute; top: -8px; right: -8px; background: #e63946; color: white; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px; letter-spacing: 0.5px; z-index: 1; }
 
     /* ── DEEP DIVE SECTIONS ── */
     .deep-dive { padding: 80px 0; }
@@ -926,7 +957,7 @@
             <span style="background:#1b4332">RF</span>
           </div>
           <div class="hero-trust-text">
-            <strong>47+ Betriebe</strong> vertrauen AgrarOffice<br/>
+            <strong>55+ Betriebe</strong> vertrauen AgrarOffice<br/>
             <span style="color:var(--amber)">★★★★★</span> 4.8 / 5 Bewertung
           </div>
         </div>
@@ -1021,6 +1052,12 @@
           <li>Wettbewerber-Notizen je Kunde</li>
           <li>360°-Profil: Flächen, Bedarfe, Preise</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Globale Suche (Cmd+K):</strong> Kunden, Artikel und Lieferungen sofort finden — mit Tastaturkürzel G+K oder Ctrl+K, ohne die Maus zu berühren.</p>
+          <p><strong>Mobile-Nav Akkordeon:</strong> Vollständig für den Außendienst optimiert — alle Bereiche per Fingertipp erreichbar, auch auf kleinen Displays.</p>
+          <a href="#kontakt">CRM live ansehen →</a>
+        </div>
       </div>
 
       <!-- Tourenplanung -->
@@ -1035,10 +1072,17 @@
           <li>Tagesansicht für Außendienst</li>
           <li>Tour-PDF/-Export für Fahrer</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Tastaturkürzel:</strong> G+D für Dashboard, G+K für Kunden, G+L für Lieferungen — Navigation ohne Maus, wie professionelle Softwaretools es machen.</p>
+          <p><strong>Dashboard Skeleton Loaders:</strong> Sofortige visuelle Rückmeldung beim Laden — kein leeres Flimmern, professionelles UX.</p>
+          <a href="#tourenplanung">Tourenplanung ansehen →</a>
+        </div>
       </div>
 
       <!-- Lager -->
       <div class="feature-card animate-on-scroll delay-3">
+        <span class="neu-badge">NEU</span>
         <div class="feature-icon green">📦</div>
         <h3>Lagerverwaltung Landhandel</h3>
         <p>Lagerbestände live, Mindestbestand-Ampel beim Erfassen, Chargenrückverfolgung – und KI, die Wareneingänge per Foto einliest.</p>
@@ -1049,6 +1093,12 @@
           <li>Wareneingänge & Lagerkorrekturen</li>
           <li>Konfigurierbare Lagerorte & Einheiten</li>
         </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>MHD-Übersicht mit Farbampel:</strong> Mindesthaltbarkeitsdaten je Charge im Blick — rot/gelb/grün zeigt sofort, welche Ware bald abläuft.</p>
+          <p><strong>Chargen-Zertifikate:</strong> Upload und Download von Analysezertifikaten je Charge — LUFA, Lieferantenzertifikate, Prüfberichte griffbereit.</p>
+          <a href="#kontakt">Lager live ansehen →</a>
+        </div>
       </div>
 
       <!-- Lieferungen -->
@@ -1805,11 +1855,11 @@
   <div class="container">
     <div class="stats-grid">
       <div class="animate-on-scroll">
-        <div class="stat-number"><span class="counter" data-target="47">0</span>+</div>
+        <div class="stat-number"><span class="counter" data-target="55">0</span>+</div>
         <div class="stat-label">Agrarbetriebe nutzen AgrarOffice täglich</div>
       </div>
       <div class="animate-on-scroll delay-1">
-        <div class="stat-number"><span class="counter" data-target="12000">0</span>+</div>
+        <div class="stat-number"><span class="counter" data-target="15000">0</span>+</div>
         <div class="stat-label">Lieferscheine digital erstellt</div>
       </div>
       <div class="animate-on-scroll delay-2">
