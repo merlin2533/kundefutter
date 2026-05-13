@@ -2,27 +2,41 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface Zertifikat {
   id: number;
   chargeNr: string;
-  beschreibung: string | null;
-  dateiName: string;
+  notiz: string | null;
+  dateiname: string;
   pfad: string;
   createdAt: string;
+  artikel: { id: number; name: string } | null;
+}
+
+interface Artikel {
+  id: number;
+  name: string;
 }
 
 export default function ChargenZertifikatePage() {
   const [zertifikate, setZertifikate] = useState<Zertifikat[]>([]);
+  const [artikelList, setArtikelList] = useState<Artikel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
-  const [uploadForm, setUploadForm] = useState({ chargeNr: "", beschreibung: "" });
+  const [uploadForm, setUploadForm] = useState({ chargeNr: "", notiz: "", artikelId: "" });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/artikel?limit=500")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setArtikelList(Array.isArray(d) ? d : []));
+  }, []);
 
   async function load(chargeNr = "") {
     setLoading(true);
@@ -44,18 +58,20 @@ export default function ChargenZertifikatePage() {
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!uploadForm.chargeNr.trim()) { setUploadError("Chargennummer erforderlich"); return; }
+    if (!uploadForm.artikelId) { setUploadError("Artikel erforderlich"); return; }
     if (!uploadFile) { setUploadError("Bitte eine Datei auswählen"); return; }
     setUploading(true);
     setUploadError("");
     const fd = new FormData();
     fd.append("chargeNr", uploadForm.chargeNr.trim());
-    fd.append("beschreibung", uploadForm.beschreibung);
+    fd.append("artikelId", uploadForm.artikelId);
+    fd.append("notiz", uploadForm.notiz);
     fd.append("datei", uploadFile);
     const res = await fetch("/api/chargen-zertifikate", { method: "POST", body: fd });
     setUploading(false);
     if (res.ok) {
       setShowUpload(false);
-      setUploadForm({ chargeNr: "", beschreibung: "" });
+      setUploadForm({ chargeNr: "", notiz: "", artikelId: "" });
       setUploadFile(null);
       if (fileRef.current) fileRef.current.value = "";
       load(search);
@@ -73,9 +89,10 @@ export default function ChargenZertifikatePage() {
     if (res.ok) load(search);
   }
 
+  const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
+
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -91,7 +108,6 @@ export default function ChargenZertifikatePage() {
         </button>
       </div>
 
-      {/* Upload Form */}
       {showUpload && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 max-w-lg">
           <h2 className="text-base font-semibold mb-4">Zertifikat hochladen</h2>
@@ -101,6 +117,18 @@ export default function ChargenZertifikatePage() {
             )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Artikel <span className="text-red-500">*</span>
+              </label>
+              <SearchableSelect
+                options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
+                value={uploadForm.artikelId}
+                onChange={(v) => setUploadForm({ ...uploadForm, artikelId: v })}
+                placeholder="— Artikel wählen —"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Chargennummer <span className="text-red-500">*</span>
               </label>
               <input
@@ -108,17 +136,17 @@ export default function ChargenZertifikatePage() {
                 value={uploadForm.chargeNr}
                 onChange={(e) => setUploadForm({ ...uploadForm, chargeNr: e.target.value })}
                 placeholder="z.B. CH-2024-001"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notiz / Beschreibung</label>
               <input
                 type="text"
-                value={uploadForm.beschreibung}
-                onChange={(e) => setUploadForm({ ...uploadForm, beschreibung: e.target.value })}
+                value={uploadForm.notiz}
+                onChange={(e) => setUploadForm({ ...uploadForm, notiz: e.target.value })}
                 placeholder="z.B. Analysezertifikat, CoA"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                className={inputCls}
               />
             </div>
             <div>
@@ -130,23 +158,15 @@ export default function ChargenZertifikatePage() {
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg"
                 onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                className={inputCls}
               />
               <p className="text-xs text-gray-400 mt-1">PDF, PNG oder JPG</p>
             </div>
             <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={uploading}
-                className="px-4 py-2 bg-green-800 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium"
-              >
+              <button type="submit" disabled={uploading} className="px-4 py-2 bg-green-800 hover:bg-green-700 disabled:opacity-60 text-white rounded-lg text-sm font-medium">
                 {uploading ? "Hochladen…" : "Hochladen"}
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowUpload(false); setUploadError(""); }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-              >
+              <button type="button" onClick={() => { setShowUpload(false); setUploadError(""); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
                 Abbrechen
               </button>
             </div>
@@ -154,7 +174,6 @@ export default function ChargenZertifikatePage() {
         </div>
       )}
 
-      {/* Filter */}
       <div className="mb-4">
         <input
           type="search"
@@ -165,22 +184,22 @@ export default function ChargenZertifikatePage() {
         />
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade Zertifikate…</p>
         ) : zertifikate.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">
-            {search ? `Keine Zertifikate für Charge "${search}" gefunden.` : "Noch keine Zertifikate hochgeladen."}
+            {search ? `Keine Zertifikate für Charge „${search}" gefunden.` : "Noch keine Zertifikate hochgeladen."}
           </p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Charge</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Beschreibung</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Artikel</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Notiz</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Dateiname</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Hochgeladen</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Hochgeladen</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Aktionen</th>
               </tr>
             </thead>
@@ -189,16 +208,17 @@ export default function ChargenZertifikatePage() {
                 <tr key={z.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-mono font-medium text-gray-900">
                     {z.chargeNr}
-                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{z.beschreibung ?? "—"}</div>
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{z.artikel?.name ?? "—"}</div>
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{z.beschreibung ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-700 text-xs font-mono truncate max-w-[200px]">{z.dateiName}</td>
-                  <td className="hidden md:table-cell px-4 py-3 text-gray-500">{formatDatum(z.createdAt)}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600 text-xs">{z.artikel?.name ?? "—"}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-500 text-xs">{z.notiz ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-700 text-xs font-mono truncate max-w-[180px]">{z.dateiname}</td>
+                  <td className="hidden lg:table-cell px-4 py-3 text-gray-500 text-xs">{formatDatum(z.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <a
                         href={`/api/chargen-zertifikate/${z.id}`}
-                        download={z.dateiName}
+                        download={z.dateiname}
                         className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-600 hover:text-gray-800 transition-colors"
                         title="Herunterladen"
                       >
