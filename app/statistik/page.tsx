@@ -37,7 +37,7 @@ const SECTIONS: Section[] = [
     description: "Gesamtbild über Umsatz, Marge und Kennzahlen.",
     tiles: [
       { href: "/statistik/uebersicht", icon: "📊", title: "Statistik-Dashboard", description: "KPIs, Umsatz nach Monat, Vorjahresvergleich, offene Posten, Lager" },
-      { href: "/analyse/saisonal", icon: "🗓️", title: "Saisonale Auswertung", description: "Umsatzverteilung über das Jahr, Saisonmuster erkennen" },
+      { href: "/statistik/saisonal", icon: "🗓️", title: "Saisonale Auswertung", description: "Umsatzverteilung über das Jahr, Saisonmuster erkennen" },
     ],
   },
   {
@@ -46,7 +46,7 @@ const SECTIONS: Section[] = [
     tiles: [
       { href: "/statistik/kunden", icon: "👥", title: "Kundenauswertung", description: "Umsatz, Marge und Lieferungen je Kunde – filterbar nach Zeitraum & Kategorie" },
       { href: "/statistik/artikel", icon: "📦", title: "Artikelauswertung", description: "Umsatz, Menge und Marge je Artikel – filterbar nach Zeitraum & Kategorie" },
-      { href: "/analyse/abc", icon: "🔤", title: "ABC-Analyse", description: "Kunden und Artikel nach Umsatzanteil klassifiziert (A/B/C)" },
+      { href: "/statistik/abc", icon: "🔤", title: "ABC-Analyse", description: "Kunden und Artikel nach Umsatzanteil klassifiziert (A/B/C)" },
       { href: "/kunden/bewertung", icon: "⭐", title: "Kundenbewertung", description: "RFM-Analyse: Aktualität, Häufigkeit, Umsatz je Kunde" },
     ],
   },
@@ -54,7 +54,8 @@ const SECTIONS: Section[] = [
     title: "Finanzen & Planung",
     description: "Ergebnis, Deckungsbeitrag und Vorausschau.",
     tiles: [
-      { href: "/analyse/deckungsbeitrag", icon: "💶", title: "Deckungsbeitrag", description: "Deckungsbeitrags-Analyse nach Kunde und Artikel" },
+      { href: "/statistik/deckungsbeitrag", icon: "💶", title: "Deckungsbeitrag", description: "Deckungsbeitrags-Analyse nach Kunde und Artikel" },
+      { href: "/statistik/budget", icon: "🎯", title: "Budgetplanung", description: "Umsatzziele setzen und Soll/Ist-Vergleich je Monat und Kategorie" },
       { href: "/finanzen/cashflow", icon: "💸", title: "Cashflow", description: "Liquiditätsentwicklung aus Ein- und Ausgaben" },
       { href: "/prognose", icon: "🔮", title: "Prognose", description: "Bedarfs- und Absatzprognose je Kunde/Artikel" },
       { href: "/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Preisindizes und MATIF-Futures" },

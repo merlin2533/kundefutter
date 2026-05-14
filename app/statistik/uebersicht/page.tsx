@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, MONATE_KURZ } from "@/lib/utils";
+import ZeitraumFilter from "@/components/ZeitraumFilter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ function ProzentBalken({ data }: { data: { label: string; wert: number }[] }) {
 
 // ─── Saison-Mini-Balken (12 Monate) ───────────────────────────────────────────
 
-const MONATS_KUERZEL = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONATS_KUERZEL = MONATE_KURZ;
 
 function SaisonBalken({ data }: { data: { monat: number; umsatz: number }[] }) {
   const max = Math.max(...data.map((d) => d.umsatz), 1);
@@ -304,28 +305,11 @@ function KategorieProzentBalken({ data }: { data: KategorieUmsatz[] }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const JAHRE = ["2024", "2025", "2026"];
-const MONATE = [
-  { value: "01", label: "Januar" },
-  { value: "02", label: "Februar" },
-  { value: "03", label: "März" },
-  { value: "04", label: "April" },
-  { value: "05", label: "Mai" },
-  { value: "06", label: "Juni" },
-  { value: "07", label: "Juli" },
-  { value: "08", label: "August" },
-  { value: "09", label: "September" },
-  { value: "10", label: "Oktober" },
-  { value: "11", label: "November" },
-  { value: "12", label: "Dezember" },
-];
-
 export default function StatistikPage() {
   const now = new Date();
-  const defaultJahr = String(now.getFullYear());
   const defaultMonat = String(now.getMonth() + 1).padStart(2, "0");
 
-  const [jahr, setJahr] = useState(defaultJahr);
+  const [jahr, setJahr] = useState(String(now.getFullYear()));
   const [vonMonat, setVonMonat] = useState("01");
   const [bisMonat, setBisMonat] = useState(defaultMonat);
   const [data, setData] = useState<StatistikData | null>(null);
@@ -364,70 +348,13 @@ export default function StatistikPage() {
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Jahr</label>
-            <select
-              value={jahr}
-              onChange={(e) => setJahr(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              {JAHRE.map((j) => (
-                <option key={j} value={j}>{j}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Von Monat</label>
-            <select
-              value={vonMonat}
-              onChange={(e) => setVonMonat(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              {MONATE.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Bis Monat</label>
-            <select
-              value={bisMonat}
-              onChange={(e) => setBisMonat(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              {MONATE.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-2 items-end">
-            <button
-              type="button"
-              onClick={() => { setJahr(defaultJahr); setVonMonat("01"); setBisMonat("12"); }}
-              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Ganzes Jahr
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setJahr(defaultJahr);
-                const m = now.getMonth() + 1;
-                setVonMonat(String(Math.max(1, m - 2)).padStart(2, "0"));
-                setBisMonat(String(m).padStart(2, "0"));
-              }}
-              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Letzte 3 Monate
-            </button>
-          </div>
-          {loading && (
-            <span className="text-sm text-gray-400">Lade…</span>
-          )}
-        </div>
-      </div>
+      <ZeitraumFilter
+        jahr={jahr} setJahr={setJahr}
+        vonMonat={vonMonat} setVonMonat={setVonMonat}
+        bisMonat={bisMonat} setBisMonat={setBisMonat}
+        showQuickButtons
+        loading={loading}
+      />
 
       {data && (
         <>

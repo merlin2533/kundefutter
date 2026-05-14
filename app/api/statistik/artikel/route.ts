@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 // GET /api/statistik/artikel?von=YYYY-MM&bis=YYYY-MM&kategorie=Futter
@@ -10,16 +11,8 @@ export async function GET(req: NextRequest) {
     const bis = searchParams.get("bis");
     const kategorie = searchParams.get("kategorie");
 
-    const vonDate = von
-      ? (() => { const d = new Date(`${von}-01T00:00:00.000Z`); return isNaN(d.getTime()) ? new Date("2024-01-01T00:00:00.000Z") : d; })()
-      : new Date("2024-01-01T00:00:00.000Z");
-    const bisDate = bis
-      ? (() => {
-          const parts = bis.split("-").map(Number);
-          if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return new Date();
-          return new Date(parts[0], parts[1], 1);
-        })()
-      : new Date();
+    const vonDate = parseYearMonth(von);
+    const bisDate = parseBisYearMonth(bis);
     const vonIso = vonDate.toISOString();
     const bisIso = bisDate.toISOString();
 
