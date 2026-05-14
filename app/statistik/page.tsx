@@ -332,6 +332,18 @@ export default function StatistikPage() {
   const [bisMonat, setBisMonat] = useState(defaultMonat);
   const [data, setData] = useState<StatistikData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [favoriten, setFavoriten] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("statistik_favoriten") ?? "[]"); } catch { return []; }
+  });
+
+  function toggleFavorit(href: string) {
+    setFavoriten(prev => {
+      const next = prev.includes(href) ? prev.filter(h => h !== href) : [...prev, href];
+      localStorage.setItem("statistik_favoriten", JSON.stringify(next));
+      return next;
+    });
+  }
 
   const laden = useCallback(async () => {
     setLoading(true);
@@ -528,14 +540,43 @@ export default function StatistikPage() {
           {/* Weitere Auswertungen */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Weitere Auswertungen</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {QUICK_LINKS.map((l) => (
-                <Link key={l.href} href={l.href} className="flex items-center gap-2 p-3 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors text-sm text-gray-700 hover:text-green-700">
-                  <span>{l.icon}</span>
-                  <span>{l.title}</span>
-                </Link>
-              ))}
-            </div>
+            {(() => {
+              const fav = QUICK_LINKS.filter(l => favoriten.includes(l.href));
+              const rest = QUICK_LINKS.filter(l => !favoriten.includes(l.href));
+              const renderTile = (l: typeof QUICK_LINKS[0]) => (
+                <div key={l.href} className="relative group">
+                  <Link href={l.href} className="flex items-center gap-2 p-3 rounded-lg border border-gray-100 hover:border-green-400 hover:bg-green-50 transition-colors text-sm text-gray-700 hover:text-green-700 pr-8">
+                    <span>{l.icon}</span>
+                    <span>{l.title}</span>
+                  </Link>
+                  <button
+                    onClick={() => toggleFavorit(l.href)}
+                    className="absolute top-2 right-2 text-gray-300 hover:text-amber-400 transition-colors"
+                    title={favoriten.includes(l.href) ? "Favorit entfernen" : "Als Favorit markieren"}
+                  >
+                    {favoriten.includes(l.href) ? "★" : "☆"}
+                  </button>
+                </div>
+              );
+              return (
+                <>
+                  {fav.length > 0 && (
+                    <>
+                      <p className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-2">Favoriten</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                        {fav.map(renderTile)}
+                      </div>
+                      {rest.length > 0 && <div className="border-t border-gray-100 mb-4" />}
+                    </>
+                  )}
+                  {rest.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {rest.map(renderTile)}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </>
       )}

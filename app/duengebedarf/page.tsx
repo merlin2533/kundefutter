@@ -79,6 +79,8 @@ function Inner() {
         if (urlSchlag && liste.some((s: Schlag) => String(s.id) === urlSchlag)) {
           setSchlagId(urlSchlag);
         }
+        // Kein Schlag vorhanden → Formular direkt öffnen
+        if (liste.length === 0) setZeigSchlagForm(true);
       });
   }, [kundeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
