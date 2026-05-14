@@ -37,6 +37,77 @@ interface StatistikData {
   topKunden: TopKunde[];
   umsatzNachKategorie: KategorieUmsatz[];
   saisonaleVerteilung: { monat: number; umsatz: number }[];
+  kpi: {
+    umsatz: number;
+    marge: number;
+    margeProzent: number;
+    anzahlLieferungen: number;
+    durchschnittProLieferung: number;
+  };
+  lieferStatus: { status: string; anzahl: number }[];
+  offenePosten: { anzahl: number; summe: number };
+  ausgabenNachKategorie: { kategorie: string; summe: number }[];
+  lager: { artikelUnterMindest: number; lagerwert: number };
+  vorjahr: { umsatz: number; veraenderungProzent: number | null };
+}
+
+// ─── Kennzahl-Kachel ──────────────────────────────────────────────────────────
+
+function KpiKachel({ label, wert, sub, farbe }: { label: string; wert: string; sub?: string; farbe?: string }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${farbe ?? "text-gray-900"}`}>{wert}</p>
+      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+// ─── Generischer Prozentbalken ────────────────────────────────────────────────
+
+const BALKEN_FARBEN = ["bg-green-500", "bg-blue-500", "bg-amber-500", "bg-purple-500", "bg-rose-500", "bg-teal-500", "bg-gray-400"];
+
+function ProzentBalken({ data }: { data: { label: string; wert: number }[] }) {
+  if (data.length === 0) return <p className="text-sm text-gray-400">Keine Daten</p>;
+  const gesamt = data.reduce((s, d) => s + d.wert, 0);
+  return (
+    <div className="space-y-3">
+      {data.map((d, i) => {
+        const pct = gesamt > 0 ? (d.wert / gesamt) * 100 : 0;
+        return (
+          <div key={d.label}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-medium text-gray-700">{d.label}</span>
+              <span className="text-sm text-gray-500">{pct.toFixed(1)}% &middot; {formatEuro(d.wert)}</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+              <div className={`${BALKEN_FARBEN[i % BALKEN_FARBEN.length]} h-4 rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Saison-Mini-Balken (12 Monate) ───────────────────────────────────────────
+
+const MONATS_KUERZEL = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+
+function SaisonBalken({ data }: { data: { monat: number; umsatz: number }[] }) {
+  const max = Math.max(...data.map((d) => d.umsatz), 1);
+  return (
+    <div className="flex items-end gap-1.5 h-40">
+      {data.map((d) => (
+        <div key={d.monat} className="flex-1 flex flex-col items-center gap-1" title={`${MONATS_KUERZEL[d.monat - 1]}: ${formatEuro(d.umsatz)}`}>
+          <div className="w-full bg-green-100 rounded-t flex items-end" style={{ height: "100%" }}>
+            <div className="w-full bg-green-500 rounded-t transition-all duration-500" style={{ height: `${(d.umsatz / max) * 100}%` }} />
+          </div>
+          <span className="text-[10px] text-gray-400">{MONATS_KUERZEL[d.monat - 1]}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ─── SVG Balkenchart ──────────────────────────────────────────────────────────
@@ -325,6 +396,27 @@ export default function StatistikPage() {
               ))}
             </select>
           </div>
+          <div className="flex gap-2 items-end">
+            <button
+              type="button"
+              onClick={() => { setJahr(defaultJahr); setVonMonat("01"); setBisMonat("12"); }}
+              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Ganzes Jahr
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setJahr(defaultJahr);
+                const m = now.getMonth() + 1;
+                setVonMonat(String(Math.max(1, m - 2)).padStart(2, "0"));
+                setBisMonat(String(m).padStart(2, "0"));
+              }}
+              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Letzte 3 Monate
+            </button>
+          </div>
           {loading && (
             <span className="text-sm text-gray-400">Lade…</span>
           )}
@@ -333,6 +425,46 @@ export default function StatistikPage() {
 
       {data && (
         <>
+          {/* KPI-Kacheln */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiKachel label="Umsatz" wert={formatEuro(data.kpi.umsatz)} sub="im Zeitraum (geliefert)" />
+            <KpiKachel
+              label="Rohertrag"
+              wert={formatEuro(data.kpi.marge)}
+              sub={`${data.kpi.margeProzent.toLocaleString("de-DE")} % Marge`}
+              farbe={data.kpi.marge >= 0 ? "text-green-700" : "text-red-600"}
+            />
+            <KpiKachel label="Lieferungen" wert={String(data.kpi.anzahlLieferungen)} sub="geliefert im Zeitraum" />
+            <KpiKachel label="Ø pro Lieferung" wert={formatEuro(data.kpi.durchschnittProLieferung)} />
+          </div>
+
+          {/* Vorjahresvergleich + Offene Posten + Lager */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Vorjahresvergleich</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900">{formatEuro(data.vorjahr.umsatz)}</p>
+              {data.vorjahr.veraenderungProzent === null ? (
+                <p className="text-xs text-gray-400 mt-0.5">Kein Vorjahresumsatz im Zeitraum</p>
+              ) : (
+                <p className={`text-xs mt-0.5 font-medium ${data.vorjahr.veraenderungProzent >= 0 ? "text-green-700" : "text-red-600"}`}>
+                  {data.vorjahr.veraenderungProzent >= 0 ? "▲" : "▼"} {Math.abs(data.vorjahr.veraenderungProzent).toLocaleString("de-DE")} % ggü. Vorjahr
+                </p>
+              )}
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Offene Posten</p>
+              <p className="text-2xl font-bold mt-1 text-amber-700">{formatEuro(data.offenePosten.summe)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{data.offenePosten.anzahl} unbezahlte Rechnungen (Stichtag)</p>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lager</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900">{formatEuro(data.lager.lagerwert)}</p>
+              <p className={`text-xs mt-0.5 ${data.lager.artikelUnterMindest > 0 ? "text-red-600" : "text-gray-400"}`}>
+                {data.lager.artikelUnterMindest} Artikel unter Mindestbestand
+              </p>
+            </div>
+          </div>
+
           {/* Umsatz Balkenchart */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Umsatz nach Monat</h2>
@@ -407,10 +539,44 @@ export default function StatistikPage() {
             </div>
           </div>
 
-          {/* Umsatz nach Kategorie */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">Umsatz nach Kategorie</h2>
-            <KategorieProzentBalken data={data.umsatzNachKategorie} />
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Umsatz nach Kategorie */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-800 mb-4">Umsatz nach Kategorie</h2>
+              <KategorieProzentBalken data={data.umsatzNachKategorie} />
+            </div>
+
+            {/* Ausgaben nach Kategorie */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-800 mb-4">Ausgaben nach Kategorie</h2>
+              <ProzentBalken data={data.ausgabenNachKategorie.map((a) => ({ label: a.kategorie, wert: a.summe }))} />
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Lieferungen nach Status */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-800 mb-4">Lieferungen nach Status</h2>
+              {data.lieferStatus.length === 0 ? (
+                <p className="text-sm text-gray-400">Keine Lieferungen im gewählten Zeitraum</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.lieferStatus.map((s) => (
+                    <div key={s.status} className="flex items-center justify-between text-sm">
+                      <span className="capitalize text-gray-700">{s.status}</span>
+                      <span className="font-mono font-semibold text-gray-900">{s.anzahl}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Saisonale Verteilung */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-800 mb-1">Saisonale Verteilung</h2>
+              <p className="text-xs text-gray-400 mb-4">Umsatz je Kalendermonat im gewählten Zeitraum</p>
+              <SaisonBalken data={data.saisonaleVerteilung} />
+            </div>
           </div>
         </>
       )}
