@@ -418,19 +418,19 @@ def gen_leads_bundesland(bundesland, regionen, leads_je_region=3):
 
 # Anzahl Leads je Region pro Bundesland (angepasst auf Agrar-Relevanz)
 LEADS_JE_REGION = {
-    "Niedersachsen":          30,
-    "Baden-Württemberg":      28,
-    "Bayern":                 25,
-    "Nordrhein-Westfalen":    22,
-    "Schleswig-Holstein":     20,
-    "Mecklenburg-Vorpommern": 15,
-    "Brandenburg":            15,
-    "Sachsen":                15,
-    "Sachsen-Anhalt":         18,
-    "Thüringen":              15,
-    "Hessen":                 20,
-    "Rheinland-Pfalz":        15,
-    "Saarland":               10,
+    "Niedersachsen":          210,
+    "Baden-Württemberg":      196,
+    "Bayern":                 175,
+    "Nordrhein-Westfalen":    154,
+    "Schleswig-Holstein":     140,
+    "Mecklenburg-Vorpommern": 105,
+    "Brandenburg":            105,
+    "Sachsen":                105,
+    "Sachsen-Anhalt":         126,
+    "Thüringen":              105,
+    "Hessen":                 140,
+    "Rheinland-Pfalz":        105,
+    "Saarland":                70,
 }
 
 alle_leads = list(ECHTE_BETRIEBE)  # echte Betriebe zuerst
