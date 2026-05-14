@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo";
 
 function FirmenlogoEditor() {
   const [logo, setLogo] = useState<string | null>(null);
@@ -183,7 +184,7 @@ function AppNameEditor() {
       <h2 className="text-lg font-semibold mb-1">App-Name</h2>
       <p className="text-sm text-gray-500 mb-4">
         Erscheint in der Navigation, auf der Login-Seite und als Name der
-        installierbaren App (PWA). Leer lassen für den Standardnamen „AgrarOffice".
+        installierbaren App (PWA). Leer lassen für den Standardnamen {`„${DEFAULT_APP_NAME}"`}.
       </p>
 
       {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
@@ -197,7 +198,7 @@ function AppNameEditor() {
             type="text"
             value={appName}
             onChange={(e) => setAppName(e.target.value)}
-            placeholder="AgrarOffice"
+            placeholder={DEFAULT_APP_NAME}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-72"
           />
           <button

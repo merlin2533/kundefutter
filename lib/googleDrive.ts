@@ -10,6 +10,7 @@
 
 import { google, drive_v3 } from "googleapis";
 import { prisma } from "./prisma";
+import { getAppName } from "@/lib/appinfo";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -92,10 +93,10 @@ export async function getRootOrdnerId(drive: drive_v3.Drive): Promise<string> {
   const saved = await getEinstellung("system.google.rootOrdnerId");
   if (saved) return saved;
 
-  // Root-Ordner "AgrarOffice" in "My Drive" erstellen
+  // Root-Ordner in "My Drive" erstellen
   const root = await drive.files.create({
     requestBody: {
-      name: "AgrarOffice",
+      name: await getAppName(),
       mimeType: "application/vnd.google-apps.folder",
     },
     fields: "id",

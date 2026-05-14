@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAppName } from "@/lib/appinfo";
 export const dynamic = "force-dynamic";
 
 
@@ -8,15 +9,15 @@ export const dynamic = "force-dynamic";
 // GET  /api/kunden/adress-validierung?kundeId=X — Status eines Kunden
 
 const OSM_URL = "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "AgrarOffice/1.0";
 
 async function geocodeAdresse(strasse: string, plz: string, ort: string): Promise<{ lat: number; lng: number } | null> {
   const q = [strasse, plz, ort, "Deutschland"].filter(Boolean).join(", ");
   const url = `${OSM_URL}?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=de&addressdetails=0`;
+  const userAgent = `${await getAppName()}/1.0`;
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT },
+      headers: { "User-Agent": userAgent },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;

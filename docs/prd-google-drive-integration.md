@@ -1,4 +1,4 @@
-# PRD: Google Drive Integration — AgrarOffice Röthemeier
+# PRD: Google Drive Integration — AgrarOffice
 
 **Version:** 1.0
 **Datum:** 2026-03-29

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAppName } from "@/lib/appinfo";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,8 @@ export async function GET(req: NextRequest) {
   const bisStr = searchParams.get("bis");
 
   try {
+  const appName = await getAppName();
+
   // Load DATEV settings from DB
   const einstellungen = await prisma.einstellung.findMany({
     where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn"] } },
@@ -214,7 +217,7 @@ export async function GET(req: NextRequest) {
     "9",               // Formatversion
     exportDatum + "000000", // Erstellt am (YYYYMMDDHHmmss)
     "",                // Importiert
-    q("AgrarOffice"),  // Herkunft
+    q(appName),  // Herkunft
     "",                // Exportiert von
     "",                // Importiert von
     beraternummer,     // Beraternummer
@@ -223,7 +226,7 @@ export async function GET(req: NextRequest) {
     "4",               // Sachkontenlänge
     vonDatum,          // Datum von
     bisDatum,          // Datum bis
-    q("DATEV-Export AgrarOffice"), // Bezeichnung
+    q(`DATEV-Export ${appName}`), // Bezeichnung
     "",                // Diktatkürzel
     "1",               // Buchungstyp: 1 = Finanzbuchhaltung
     "0",               // Rechnungslegungszweck

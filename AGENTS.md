@@ -1,4 +1,4 @@
-# AgrarOffice Röthemeier — Projekt-Wissensbasis
+# AgrarOffice — Projekt-Wissensbasis
 
 ---
 
