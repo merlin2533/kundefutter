@@ -140,11 +140,11 @@ export async function GET(req: NextRequest) {
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.bezahltAm IS NULL AND l.rechnungNr IS NOT NULL`
         ),
-        // Ausgaben nach Kategorie
+        // Ausgaben nach Kategorie (Brutto = Netto inkl. MwSt)
         prisma.$queryRawUnsafe<AusgabeRow[]>(
           `SELECT
             COALESCE(a.kategorie, 'Sonstige') as kategorie,
-            CAST(SUM(a.betrag) AS REAL) as summe
+            CAST(SUM(a.betragNetto * (1 + a.mwstSatz / 100.0)) AS REAL) as summe
           FROM Ausgabe a
           WHERE a.datum >= ? AND a.datum < ?
           GROUP BY kategorie
