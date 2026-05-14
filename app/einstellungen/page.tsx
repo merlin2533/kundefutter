@@ -18,168 +18,85 @@ function EinstellungTile({ href, icon, title, description }: {
   );
 }
 
+interface Tile { href: string; icon: string; title: string; description: string; }
+
+const KATEGORIEN: { label: string; tiles: Tile[] }[] = [
+  {
+    label: "Betrieb & System",
+    tiles: [
+      { href: "/einstellungen/firma", icon: "🏢", title: "Firma", description: "Name, Adresse und Kontaktdaten" },
+      { href: "/einstellungen/erscheinungsbild", icon: "🎨", title: "Erscheinungsbild", description: "Logo, Favicon und Design" },
+      { href: "/einstellungen/system", icon: "⚙️", title: "System", description: "Version, Datenbank und Diagnose" },
+      { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Datenbank-Backups erstellen und verwalten" },
+      { href: "/einstellungen/benutzer", icon: "👥", title: "Benutzer", description: "Benutzerkonten, Rollen und Zugriffsrechte verwalten" },
+      { href: "/audit", icon: "📜", title: "Änderungshistorie", description: "Alle Änderungen an Stammdaten nachverfolgen" },
+    ],
+  },
+  {
+    label: "Stammdaten",
+    tiles: [
+      { href: "/einstellungen/stammdaten", icon: "📂", title: "Stammdaten", description: "Kundenkategorien, Mitarbeiter, Lieferanten-Einstellungen" },
+      { href: "/einstellungen/artikelkategorien", icon: "🏷️", title: "Artikelkategorien", description: "Artikel-Kategorien anlegen, umbenennen und löschen" },
+      { href: "/einstellungen/lieferanten", icon: "🚚", title: "Lieferanten", description: "Standard-Zahlungskonditionen und Lieferbedingungen" },
+      { href: "/einstellungen/lager", icon: "📦", title: "Lager", description: "Mindestbestände, Alarme und Kategorien" },
+      { href: "/einstellungen/tournamen", icon: "🚛", title: "Tour-Namen", description: "Gespeicherte Tourbezeichnungen" },
+      { href: "/einstellungen/nummernkreis", icon: "🔢", title: "Artikelnummer", description: "Präfix, Stellenanzahl und nächste Nummer konfigurieren" },
+      { href: "/einstellungen/bankkonten", icon: "🏦", title: "Bankkonten", description: "Konten für den Bankabgleich hinterlegen" },
+    ],
+  },
+  {
+    label: "Finanzen & Vertrieb",
+    tiles: [
+      { href: "/einstellungen/ausgaben", icon: "🧾", title: "Ausgaben", description: "Kategorien für Betriebsausgaben konfigurieren" },
+      { href: "/einstellungen/datev", icon: "📊", title: "DATEV", description: "Beraternummer, Mandantennummer und Kontenrahmen" },
+      { href: "/einstellungen/fruehbezug", icon: "⏱", title: "Frühbezugs-Staffeln", description: "Saison-Rabatte für Vorbestellungen pflegen (z.B. -3% bis 31.07.)" },
+      { href: "/einstellungen/benachrichtigungen", icon: "🔔", title: "Benachrichtigungen", description: "System-Alerts konfigurieren (Sachkunde, Kreditlimit, Lager, Rechnungen)" },
+    ],
+  },
+  {
+    label: "Pflanze & Tier",
+    tiles: [
+      { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
+      { href: "/einstellungen/futterwerte", icon: "🐄", title: "Futterwerte", description: "Eigene Futtermittel für die Rationsberechnung anlegen und pflegen" },
+    ],
+  },
+  {
+    label: "Integrationen",
+    tiles: [
+      { href: "/einstellungen/email", icon: "✉️", title: "E-Mail-Versand", description: "SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)" },
+      { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
+      { href: "/einstellungen/google-drive", icon: "📁", title: "Google Drive", description: "Dokumente für Kunden und Artikel in Drive ablegen" },
+    ],
+  },
+  {
+    label: "Import & Daten",
+    tiles: [
+      { href: "/einstellungen/import", icon: "📥", title: "Import", description: "Kunden, Artikel und Stammdaten aus Excel-Dateien importieren" },
+      { href: "/einstellungen/artikel-import", icon: "🌿", title: "Artikel-Stammdaten", description: "marstall & BvG Agrar Artikel manuell importieren" },
+      { href: "/einstellungen/adressen", icon: "🗺️", title: "Adress-Validierung", description: "Geocoding für alle Kundenadressen" },
+      { href: "/inventur", icon: "📋", title: "Inventur", description: "Lagerbestand erfassen, Leerliste drucken, Differenzen buchen" },
+    ],
+  },
+];
+
 export default function EinstellungenPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6 sm:mb-8">Einstellungen</h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        <EinstellungTile
-          href="/einstellungen/firma"
-          icon="🏢"
-          title="Firma"
-          description="Name, Adresse und Kontaktdaten"
-        />
-        <EinstellungTile
-          href="/einstellungen/erscheinungsbild"
-          icon="🎨"
-          title="Erscheinungsbild"
-          description="Logo, Favicon und Design"
-        />
-        <EinstellungTile
-          href="/einstellungen/lager"
-          icon="📦"
-          title="Lager"
-          description="Mindestbestände, Alarme und Kategorien"
-        />
-        <EinstellungTile
-          href="/einstellungen/adressen"
-          icon="🗺️"
-          title="Adress-Validierung"
-          description="Geocoding für alle Kundenadressen"
-        />
-        <EinstellungTile
-          href="/einstellungen/tournamen"
-          icon="🚛"
-          title="Tour-Namen"
-          description="Gespeicherte Tourbezeichnungen"
-        />
-        <EinstellungTile
-          href="/einstellungen/benutzer"
-          icon="👥"
-          title="Benutzer"
-          description="Benutzerkonten, Rollen und Zugriffsrechte verwalten"
-        />
-        <EinstellungTile
-          href="/einstellungen/system"
-          icon="⚙️"
-          title="System"
-          description="Version, Datenbank und Diagnose"
-        />
-        <EinstellungTile
-          href="/inventur"
-          icon="📋"
-          title="Inventur"
-          description="Lagerbestand erfassen, Leerliste drucken, Differenzen buchen"
-        />
-        <EinstellungTile
-          href="/einstellungen/stammdaten"
-          icon="📂"
-          title="Stammdaten"
-          description="Kundenkategorien, Mitarbeiter, Lieferanten-Einstellungen"
-        />
-        <EinstellungTile
-          href="/einstellungen/artikelkategorien"
-          icon="🏷️"
-          title="Artikelkategorien"
-          description="Artikel-Kategorien anlegen, umbenennen und löschen"
-        />
-        <EinstellungTile
-          href="/einstellungen/lieferanten"
-          icon="🚚"
-          title="Lieferanten"
-          description="Standard-Zahlungskonditionen und Lieferbedingungen"
-        />
-        <EinstellungTile
-          href="/einstellungen/agrarantraege"
-          icon="🌾"
-          title="Agraranträge (AFIG)"
-          description="CSV von agrarzahlungen.de importieren"
-        />
-        <EinstellungTile
-          href="/einstellungen/datev"
-          icon="📊"
-          title="DATEV"
-          description="Beraternummer, Mandantennummer und Kontenrahmen"
-        />
-        <EinstellungTile
-          href="/einstellungen/backup"
-          icon="💾"
-          title="Datensicherung"
-          description="Datenbank-Backups erstellen und verwalten"
-        />
-        <EinstellungTile
-          href="/audit"
-          icon="📜"
-          title="Änderungshistorie"
-          description="Alle Änderungen an Stammdaten nachverfolgen"
-        />
-        <EinstellungTile
-          href="/einstellungen/google-drive"
-          icon="📂"
-          title="Google Drive"
-          description="Dokumente für Kunden und Artikel in Drive ablegen"
-        />
-        <EinstellungTile
-          href="/einstellungen/nummernkreis"
-          icon="🔢"
-          title="Artikelnummer"
-          description="Präfix, Stellenanzahl und nächste Nummer konfigurieren"
-        />
-        <EinstellungTile
-          href="/einstellungen/import"
-          icon="📥"
-          title="Import"
-          description="Kunden, Artikel und Stammdaten aus Excel-Dateien importieren"
-        />
-        <EinstellungTile
-          href="/einstellungen/artikel-import"
-          icon="🌿"
-          title="Artikel-Stammdaten"
-          description="marstall & BvG Agrar Artikel manuell importieren"
-        />
-        <EinstellungTile
-          href="/einstellungen/email"
-          icon="✉️"
-          title="E-Mail-Versand"
-          description="SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)"
-        />
-        <EinstellungTile
-          href="/einstellungen/ki"
-          icon="🤖"
-          title="KI / AI"
-          description="API-Keys, Modellauswahl und Nutzungsstatistik"
-        />
-        <EinstellungTile
-          href="/einstellungen/ausgaben"
-          icon="🧾"
-          title="Ausgaben"
-          description="Kategorien für Betriebsausgaben konfigurieren"
-        />
-        <EinstellungTile
-          href="/einstellungen/bankkonten"
-          icon="🏦"
-          title="Bankkonten"
-          description="Konten für den Bankabgleich hinterlegen"
-        />
-        <EinstellungTile
-          href="/einstellungen/benachrichtigungen"
-          icon="🔔"
-          title="Benachrichtigungen"
-          description="System-Alerts konfigurieren (Sachkunde, Kreditlimit, Lager, Rechnungen)"
-        />
-        <EinstellungTile
-          href="/einstellungen/fruehbezug"
-          icon="⏱"
-          title="Frühbezugs-Staffeln"
-          description="Saison-Rabatte für Vorbestellungen pflegen (z.B. -3% bis 31.07.)"
-        />
-        <EinstellungTile
-          href="/einstellungen/futterwerte"
-          icon="🌾"
-          title="Futterwerte"
-          description="Eigene Futtermittel für die Rationsberechnung anlegen und pflegen"
-        />
+      <div className="space-y-8">
+        {KATEGORIEN.map((kat) => (
+          <section key={kat.label}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              {kat.label}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {kat.tiles.map((t) => (
+                <EinstellungTile key={t.href} {...t} />
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );
