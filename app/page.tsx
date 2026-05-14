@@ -815,8 +815,8 @@ export default function DashboardPage() {
         </Link>
 
         {/* Offene Rechnungen */}
-        <Link href="/lieferungen" className="block">
-          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 ${data.ueberfaelligeRechnungen > 0 ? "border-red-500" : "border-yellow-500"} h-full`}>
+        <Link href="/statistik/aging" className="block">
+          <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 ${data.ueberfaelligeRechnungen > 0 ? "border-red-500" : "border-yellow-500"} h-full hover:shadow-md transition-shadow`}>
             <p className="text-xs sm:text-sm text-gray-500">Offene Rechnungen</p>
             <p className="text-xl sm:text-2xl font-bold mt-1 truncate">{formatEuro(data.faelligeRechnungenSumme)}</p>
             <p className={`text-xs mt-1 truncate ${data.ueberfaelligeRechnungen > 0 ? "text-red-600 font-medium" : "text-gray-400"}`}>

@@ -1,6 +1,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Schema + Prisma-Config werden für das postinstall-Skript (prisma generate) benötigt
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm ci
 
 FROM node:20-alpine AS builder

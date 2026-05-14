@@ -180,13 +180,18 @@ export default function SaisonalPage() {
   const [error, setError] = useState<string | null>(null);
   const [showKategorie, setShowKategorie] = useState(false);
 
-  const load = useCallback((jahre: number[]) => {
+  const load = useCallback(async (jahre: number[]) => {
     setLoading(true);
     setError(null);
-    fetch(`/api/analyse/saisonal?jahre=${jahre.join(",")}`)
-      .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => { setError("Fehler beim Laden der Daten"); setLoading(false); });
+    try {
+      const res = await fetch(`/api/analyse/saisonal?jahre=${jahre.join(",")}`);
+      if (!res.ok) throw new Error();
+      setData(await res.json());
+    } catch {
+      setError("Fehler beim Laden der Daten");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

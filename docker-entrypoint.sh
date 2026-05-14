@@ -83,7 +83,10 @@ fi
 
 if [ "$MIGRATE_EXIT" -ne 0 ]; then
   fail "prisma migrate deploy exit=$MIGRATE_EXIT"
-  warn "Server wird trotzdem gestartet – bitte DB-Zustand prüfen"
+  fail "Server wird NICHT gestartet – die Datenbank ist in einem inkonsistenten Zustand."
+  fail "Bitte Migrationslog prüfen (siehe oben). Container wird neu gestartet."
+  sleep 5
+  exit 1
 else
   ok "Migrationen abgeschlossen"
 fi

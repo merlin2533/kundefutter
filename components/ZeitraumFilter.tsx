@@ -32,9 +32,9 @@ export default function ZeitraumFilter({
 }: ZeitraumFilterProps) {
   const jahre = getJahreListe();
 
-  function ganzesJahr() {
-    setVonMonat("01");
-    setBisMonat("12");
+  function setBereich(von: string, bis: string) {
+    setVonMonat(von);
+    setBisMonat(bis);
   }
 
   function letzte3Monate() {
@@ -44,6 +44,18 @@ export default function ZeitraumFilter({
     setVonMonat(String(Math.max(1, m - 2)).padStart(2, "0"));
     setBisMonat(String(m).padStart(2, "0"));
   }
+
+  // Schnellauswahl-Presets (innerhalb des gewählten Jahres)
+  const presets: { label: string; onClick: () => void }[] = [
+    { label: "Ganzes Jahr", onClick: () => setBereich("01", "12") },
+    { label: "Q1", onClick: () => setBereich("01", "03") },
+    { label: "Q2", onClick: () => setBereich("04", "06") },
+    { label: "Q3", onClick: () => setBereich("07", "09") },
+    { label: "Q4", onClick: () => setBereich("10", "12") },
+    { label: "1. Halbjahr", onClick: () => setBereich("01", "06") },
+    { label: "2. Halbjahr", onClick: () => setBereich("07", "12") },
+    { label: "Letzte 3 Monate", onClick: letzte3Monate },
+  ];
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -76,21 +88,17 @@ export default function ZeitraumFilter({
         {children}
 
         {showQuickButtons && (
-          <div className="flex gap-2 items-end">
-            <button
-              type="button"
-              onClick={ganzesJahr}
-              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Ganzes Jahr
-            </button>
-            <button
-              type="button"
-              onClick={letzte3Monate}
-              className="text-xs px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              Letzte 3 Monate
-            </button>
+          <div className="flex flex-wrap gap-1.5 items-end">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={p.onClick}
+                className="text-xs px-2.5 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 whitespace-nowrap"
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         )}
 
