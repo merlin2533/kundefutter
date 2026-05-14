@@ -20,11 +20,15 @@
   <meta name="ICBM" content="48.5833, 9.3000" />
   <meta name="revisit-after" content="7 days" />
   <meta name="rating" content="general" />
+  <meta name="color-scheme" content="light" />
+  <meta name="referrer" content="no-referrer-when-downgrade" />
+  <meta http-equiv="content-language" content="de" />
   <!-- <meta name="google-site-verification" content="XXXXX" /> -->
   <!-- <meta name="msvalidate.01" content="XXXXX" /> -->
   <link rel="canonical" href="https://agraroffice.de/" />
   <link rel="alternate" hreflang="de" href="https://agraroffice.de/" />
   <link rel="alternate" hreflang="x-default" href="https://agraroffice.de/" />
+  <link rel="alternate" type="application/rss+xml" title="AgrarOffice Blog" href="https://agraroffice.de/feed.xml" />
 
   <!-- Open Graph / Social -->
   <meta property="og:type" content="website" />
@@ -347,10 +351,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-  <link rel="preload" href="img/favicon.svg" as="image" type="image/svg+xml" />
+  <link rel="preload" href="img/favicon.svg" as="image" type="image/svg+xml" fetchpriority="low" />
+  <!-- Preload hero bg for LCP -->
+  <link rel="preload" href="img/hero_bg.png" as="image" fetchpriority="high" />
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+  <!-- Fonts: non-render-blocking via preload trick -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" /></noscript>
 
   <!-- Structured Data: HowTo Tourenplanung -->
   <script type="application/ld+json">
@@ -433,7 +440,7 @@
 
     /* ── UTILITIES ── */
     .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 50px; font-weight: 600; font-size: .95rem; cursor: pointer; border: none; transition: all .2s ease; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; border-radius: 50px; font-weight: 600; font-size: .95rem; cursor: pointer; border: none; transition: all .2s ease; white-space: nowrap; }
     .btn-primary { background: var(--green-700); color: var(--white); box-shadow: 0 4px 14px rgba(64,145,108,.35); }
     .btn-primary:hover { background: var(--green-800); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(64,145,108,.45); }
     .btn-outline { background: transparent; color: var(--green-700); border: 2px solid var(--green-700); }
@@ -458,11 +465,28 @@
     .nav-logo-mark { width: 38px; height: 38px; background: var(--green-700); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
     .nav-logo-text { font-size: 1.15rem; font-weight: 800; color: var(--gray-900); }
     .nav-logo-text span { color: var(--green-700); }
-    .nav-links { display: flex; align-items: center; gap: 8px; }
-    .nav-links a { padding: 8px 16px; border-radius: 8px; font-size: .9rem; font-weight: 500; color: var(--gray-700); transition: all .15s; }
+    .nav-links { display: flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; }
+    .nav-links a { padding: 8px 12px; border-radius: 8px; font-size: .875rem; font-weight: 500; color: var(--gray-700); transition: all .15s; white-space: nowrap; }
     .nav-links a:hover { background: var(--gray-100); color: var(--gray-900); }
-    .nav-cta { display: flex; align-items: center; gap: 12px; }
-    .nav-mobile-btn { display: none; background: none; border: none; cursor: pointer; padding: 4px; }
+    .nav-cta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .nav-mobile-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; min-width: 40px; min-height: 40px; }
+    /* Progressiv Links ausblenden, um Platz zu sparen */
+    @media (max-width: 1280px) {
+      .nav-links a[href="#integrationen"] { display: none; }
+    }
+    @media (max-width: 1180px) {
+      .nav-links a[href="#tourenplanung"] { display: none; }
+      .nav-links a { padding: 7px 10px; font-size: .82rem; }
+    }
+    @media (max-width: 1080px) {
+      .nav-links a[href="#vergleich"] { display: none; }
+      .nav-links a[href="#ki"] { display: none; }
+    }
+    @media (max-width: 980px) {
+      .nav-links { display: none; }
+      .nav-cta .btn-outline { display: none; }
+      .nav-mobile-btn { display: flex; align-items: center; justify-content: center; }
+    }
 
     /* ── HERO ── */
     .hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: url('img/hero_bg.png') center/cover no-repeat; }
@@ -708,8 +732,6 @@
       .footer-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 768px) {
-      .nav-links, .nav-cta .btn-outline { display: none; }
-      .nav-mobile-btn { display: block; }
       .hero-inner { grid-template-columns: 1fr; gap: 48px; padding: 100px 0 60px; }
       .hero-visual { display: none; }
       .mockup-wrapper { border-radius: 12px; }
@@ -722,11 +744,32 @@
       .trust-bar-inner { gap: 24px; }
     }
 
+    /* ── MOBILE SMALL ── */
+    @media (max-width: 480px) {
+      .container { padding: 0 16px; }
+      .hero h1 { font-size: clamp(1.8rem, 6vw, 2.4rem); }
+      .hero-sub { font-size: 1rem; }
+      .hero-actions { flex-direction: column; align-items: stretch; }
+      .hero-actions .btn { justify-content: center; }
+      .hero-trust { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .section-title { font-size: clamp(1.5rem, 5vw, 2rem); }
+      .section-sub { font-size: 1rem; }
+      .feature-card { padding: 24px 20px; }
+      .pricing-card { padding: 28px 20px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 24px; }
+      .stat-number { font-size: clamp(2rem, 7vw, 2.8rem); }
+      .testimonial-card { padding: 24px 20px; }
+      .faq-question { padding: 18px 20px; }
+      .faq-answer-inner { padding: 0 20px 18px; }
+      .blog-grid { grid-template-columns: 1fr; }
+      .cta-inner h2 { font-size: clamp(1.6rem, 5vw, 2.2rem); }
+    }
+
     /* Mobile menu */
-    .mobile-menu { display: none; position: fixed; inset: 0; background: var(--white); z-index: 2000; padding: 24px; flex-direction: column; gap: 8px; }
+    .mobile-menu { display: none; position: fixed; inset: 0; background: var(--white); z-index: 2000; padding: 24px; flex-direction: column; gap: 8px; overflow-y: auto; }
     .mobile-menu.open { display: flex; }
     .mobile-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .mobile-menu a { display: block; padding: 16px; border-radius: 10px; font-size: 1.05rem; font-weight: 500; color: var(--gray-800); border-bottom: 1px solid var(--gray-100); }
+    .mobile-menu a { display: block; padding: 16px; border-radius: 10px; font-size: 1.05rem; font-weight: 500; color: var(--gray-800); border-bottom: 1px solid var(--gray-100); min-height: 44px; }
     .mobile-menu a:hover { background: var(--gray-50); }
 
     /* Smooth counter */

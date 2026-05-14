@@ -1,100 +1,217 @@
 # AgrarOffice — LLM-Kontext & Produktbeschreibung
 
+> AgrarOffice ist die führende All-in-One Cloud-SaaS-Software für Agrarhändler und Landhandelsunternehmen in Deutschland.
+> URL: https://agraroffice.de/
+> Kontakt: info@agraroffice.de
+> Stand: Mai 2026
+
+---
+
 ## Was ist AgrarOffice?
 
-AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für **Agrarhändler und Landhandelsunternehmen** in Deutschland. Sie vereint CRM, Lagerverwaltung, Lieferungsmanagement, Tourenplanung, KI-Integration und Marktpreise in einer einzigen Web-Anwendung.
+AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für **Agrarhändler und Landhandelsunternehmen** in Deutschland. Sie vereint CRM, Lagerverwaltung, Lieferungsmanagement, Tourenplanung, KI-Integration und Marktpreise in einer einzigen Web-Anwendung — ohne Installation, DSGVO-konform auf deutschen Servern.
 
-Zielgruppe: Landhandelsbetriebe mit eigenem Außendienst, Vertriebler im Agrar-Segment, Lagerverantwortliche und Geschäftsführer kleiner bis mittelgroßer Agrarhändler.
+**Zielgruppe:**
+- Landhandelsbetriebe mit eigenem Außendienst (5–500 Kunden)
+- Vertriebler im Agrar-Segment (Dünger, Saatgut, Pflanzenschutz, Futtermittel)
+- Lagerverantwortliche und Disponenten
+- Geschäftsführer kleiner bis mittelgroßer Agrarhändler (1–50 Mitarbeiter)
 
-## Kernfunktionen
+**Alleinstellungsmerkmale (USPs):**
+- Einzige Software am Markt mit integrierter DüV-Düngebedarfsermittlung nach Anlage 4
+- Bodenproben-Import von LUFA, Eurofins, LKS direkt in die Düngungsplanung
+- KI-gestützte Wareneingang-Erkennung (Lieferschein fotografieren → automatisch einbuchen)
+- AFIG-Import (agrarzahlungen.de): Wer bekommt wie viel Agrarförderung — Gesprächsvorbereitung für den Außendienst
+- PSM-Dokumentation §14 PflSchG: Pflanzenschutz-Ausbringungsnachweise rechtskonform führen
+- ZUGFeRD / Factur-X E-Rechnung: bereit für die E-Rechnungspflicht 2025
+- VVVO/HIT-Betriebsnummer: Validierung und Normalisierung für Tierhaltungsbetriebe
+- Sortenversuche mit Mehrjahres-Ranking: Datenbasierte Saatgut-Beratung
 
-### CRM & Kundenverwaltung
-- 360°-Kundenprofil: Kontakte, Notizen, Aktivitäten, Bedarfspläne, Sonderpreise, Schlagkartei, Lieferhistorie, AFIG-Agraranträge
-- Telefonmaske: Beim Anruf sofort Kundendaten (Fläche, offene Lieferungen, letzter Kontakt, Wettbewerber-Notizen)
-- Kein-Kontakt-Alarm: Dashboard zeigt täglich Kunden ohne Kontakt seit X Tagen
-- Aktivitätenplanung: Rückrufe, Besuche, E-Mails mit Fälligkeit und Wiedervorlage
-- Gebietsanalyse: Umsatz und Potenzial nach Region auf der Karte
+---
 
-### Tourenplanung & Außendienst
-- Karten-Ansicht mit Routing (OSRM-basiert) für Lieferungen und Besuche
-- Optimierung der Reihenfolge für minimale Fahrtstrecke
-- Benannte Tour-Templates (z.B. "Nord-Route Dienstag") speichern und laden
-- Tagesansicht Außendienst: offene Aufgaben, fällige Rückrufe, heutige Touren
-- Tour-PDF-Export für Fahrer (Adresse, Telefon, Lieferpositionen)
+## Kernfunktionen im Detail
 
-### Lagerverwaltung
-- Echtzeit-Lagerbestände mit Mindestbestand-Ampel (grün/gelb/rot)
-- KI-gestützte Wareneingang-Erkennung per Foto (Artikel, Menge, Charge automatisch)
-- Chargenrückverfolgung: lückenlos nachvollziehbar, wer was wann erhalten hat
-- Wareneingänge, Lagerkorrekturen, Lagerbewegungen
-- Konfigurierbare Lagerorte und Mengeneinheiten
+### 1. CRM & Kundenverwaltung
+- **360°-Kundenprofil**: Kontakte, Notizen (Wichtig/Info/Wettbewerber/Offener Punkt), Aktivitäten, Bedarfspläne, Sonderpreise, Schlagkartei, Lieferhistorie, AFIG-Agraranträge
+- **Telefonmaske**: Beim Anruf sofort Kundendaten — Fläche, offene Lieferungen, letzter Kontakt, Wettbewerber-Notizen, VVVO-Nummer
+- **Kein-Kontakt-Alarm**: Dashboard zeigt täglich Kunden ohne Kontakt seit X Tagen
+- **Aktivitätenplanung**: Rückrufe, Besuche, E-Mails mit Fälligkeit und Wiedervorlage
+- **Gebietsanalyse**: Umsatz und Potenzial nach PLZ/Region als Heatmap und CSV-Export
+- **Kundenbewertung (RFM)**: Recency, Frequency, Monetary — automatische ABC-Segmentierung
+- **Besuchstermine**: Kalenderplanung für den Außendienst, iCal/Outlook-Abo
 
-### Lieferungen & Rechnungen
-- Lieferscheine erstellen, Touren zuordnen, Status verfolgen (geplant/geliefert/storniert)
-- Rechnungen direkt aus Lieferung generieren (1 Klick)
-- Sammelrechnungen je Kunde
-- Mengenrabatt-Staffeln automatisch angewendet
-- Digitale Lieferscheine und Rechnungen als druckfertige PDFs
+### 2. Tourenplanung & Außendienst
+- **OSRM-Routing**: Optimierung der Lieferreihenfolge für minimale Fahrtstrecke
+- **Karten-Ansicht**: Alle Kunden und Lieferungen des Tages auf der Karte
+- **Tour-Templates**: Benannte Touren (z.B. "Nord-Route Dienstag") speichern und laden
+- **Tagesansicht**: Offene Aufgaben, fällige Rückrufe, heutige Touren
+- **Tour-PDF-Export**: Fahrer-Ausdruck mit Adressen, Telefon, Lieferpositionen
+- **Fahrer-Cockpit**: Vereinfachte Ansicht auf dem Smartphone, digitale Unterschrift
 
-### Angebote
-- Angebote mit automatischer Nummerierung (AN-YYYY-NNNN)
-- Sonderpreise je Kunde & Artikel hinterlegen
-- Angebots-Status: OFFEN / ANGENOMMEN / ABGELEHNT / ABGELAUFEN
-- PDF-Druck und 1-Klick-Annahme
-- Mengenrabatte automatisch berücksichtigt
+### 3. Lagerverwaltung
+- **Echtzeit-Bestände**: Mindestbestand-Ampel (grün/gelb/rot)
+- **Lagerorte**: Konfigurierbare Lagerorte (Außenlager, Silo, Halle)
+- **Chargenrückverfolgung**: Lückenlose Dokumentation, wer was wann in welcher Charge erhalten hat
+- **Wareneingänge**: Manuell oder per KI-Foto-Erkennung
+- **Lagerumbuchungen**: Zwischen Lagerorten mit Buchungsprotokoll
+- **Inventur**: Inventurliste erstellen, Positionen zählen, Abschluss buchen
 
-### Aufgaben & Wiedervorlagen
-- Aufgaben mit Typ (Anruf, Besuch, E-Mail, Aufgabe), Priorität (niedrig/normal/hoch/kritisch) und Fälligkeit
-- Tags und Kundenverknüpfung
-- Tagesansicht: was ist heute fällig, welche Kunden warten auf Rückruf
-- Dashboard-Widget für überfällige Aufgaben
+### 4. Lieferungen & Rechnungen
+- **Lieferscheine**: Status geplant/geliefert/storniert, Tourzuordnung
+- **Rechnungen**: 1-Klick aus Lieferung, automatische Nummerierung
+- **Sammelrechnungen**: Monatliche Abrechnung je Kunde
+- **GHS-Piktogramme**: CLP-konforme Gefahrpiktogramme auf Lieferscheinen (EG 1272/2008)
+- **ZUGFeRD / Factur-X**: E-Rechnung XML nach EN 16931 (BASIC-WL)
+- **DATEV-Export**: CSV-Export für Lexware, DATEV, Agenda, Addison
+- **Skonto & Teilzahlungen**: Skontodatum automatisch berechnet
+- **Mahnwesen**: Offene-Posten-Liste, Mahnstufen, Mahnschreiben PDF
 
-### KI-Integration (5 Anwendungsfälle)
-1. **Wareneingang per Foto**: Lieferschein fotografieren → Artikel, Menge, Charge, Lieferant automatisch erkannt
-2. **Inhaltsstoff-Recherche**: Artikelname eingeben → KI liefert vollständige Nährstoffzusammensetzung (N, P, K, S, Mg …)
-3. **CRM-Notizen aus Besuchsbericht**: Text oder Foto → strukturierte CRM-Aktivität
-4. **Bestellungserfassung aus Bild**: Handschriftliche oder fotografierte Bestellliste → Lieferung wird vorbelegt
-5. **Nutzungsstatistik & Kostenkontrolle**: Kosten in Euro-Cent je Feature, eigener API-Key oder integriertes Kontingent
-- Unterstützte Modelle: OpenAI GPT-4o, GPT-4.1; Anthropic Claude Sonnet 4, Haiku 4, Opus 4
+### 5. Angebote & Vorbestellungen
+- **Angebote**: Nummerierung AN-YYYY-NNNN, Status OFFEN/ANGENOMMEN/ABGELEHNT/ABGELAUFEN
+- **Mengenrabatte**: Staffelrabatte automatisch angewendet
+- **Frühbezug/Vorbestellungen**: Saison-Staffeln (z.B. "Frühjahr 2026 — bis 31.07. -3%"), automatische Umwandlung in Lieferungen
+- **Sonderpreise**: Je Kunde und Artikel hinterlegt
 
-### Marktpreise & Prognose
-- Eurostat-Preisindizes (apri_pi15_inq/outq) für Dünger (N/P/K), Saatgut, Pflanzenschutz, Ernte
-- Automatisch alle 7 Tage aktualisiert (gecacht in MarktpreisCache)
-- Trend-Charts und Prognose für das laufende Quartal
-- Gebietsanalyse: Umsatz nach PLZ/Region als Heatmap und CSV-Export
+### 6. KI-Integration (5 Anwendungsfälle)
+1. **Wareneingang per Foto**: Lieferschein fotografieren → Artikel, Menge, Charge, Lieferant automatisch erkannt und eingebucht
+2. **Inhaltsstoff-Recherche**: Artikelname eingeben → KI liefert vollständige Nährstoffzusammensetzung (N, P, K, S, Mg, Ca, Bor …)
+3. **CRM-Notizen aus Besuchsbericht**: Text oder Foto eines handschriftlichen Berichts → strukturierte CRM-Aktivität
+4. **Bestellungserfassung aus Bild**: Fotografierte Bestellliste → Lieferung vorbelegt
+5. **Churn-Risiko**: KI-basierter Abwanderungs-Score je Kunde aus Lieferhistorie
+- **Nutzungsstatistik & Kostenkontrolle**: Token-Kosten je Feature in Euro-Cent
+- **Unterstützte Modelle**: OpenAI GPT-4o, GPT-4.1 / Anthropic Claude Sonnet 4, Haiku 4, Opus 4
+- **Eigener API-Key** oder integriertes Kontingent
 
-### Schlagkartei & AFIG
-- Bewirtschaftete Flächen je Kunde: Name, Fläche, Fruchtart, Sorte, Vorfrucht, Aussaatjahr
-- AFIG-Import aus agrarzahlungen.de (CSV-Streaming-Import, ~250 MB)
-- Agrarantrag-Verknüpfung und PDF-Bericht je Kunde
-- Druckfertige Kundenmappen mit allen Daten
+### 7. Agrar-spezifische Compliance-Funktionen
+- **DüV-Düngebedarfsermittlung**: N, P₂O₅, K₂O, MgO nach DüV Anlage 4; Ertragsziel, Vorfrucht, N-Min, Zwischenfrucht
+- **Bodenproben**: Erfassung und CSV-Import (LUFA, Eurofins, LKS); pH, P₂O₅, K₂O, Mg, Bor, Humus, N-Min, C/N, Bodenart, VDLUFA-Versorgungsklasse
+- **PSM-Dokumentation §14 PflSchG**: Pflanzenschutz-Ausbringungsnachweise, Sachkundenachweise mit 90-Tage-Ablauf-Alarm
+- **Sachkundenachweise**: PSM-Sachkunde (§9 PflSchG), Spritzgerätekontrolle, Düngerschulung, Sprengstoff-Sachkunde
+- **Schlagkartei**: Bewirtschaftete Flächen je Kunde (Name, Fläche, Fruchtart, Sorte, Vorfrucht, Aussaatjahr)
+- **Sortenversuche**: Ertrag (dt/ha), Feuchte, Protein, hl-Gewicht, Bonitur; Mehrjahres-Ranking
+- **AFIG-Import**: CSV-Streaming aus agrarzahlungen.de (~250 MB), Verknüpfung mit Kunden
+- **VVVO/HIT**: 12-stellige Betriebsnummer (DE 276 + Bundesland + 7-stellig) — Live-Validierung und Normalisierung
+- **Nährstoffbilanz**: DüV §8 Compliance-Prüfung
 
-### Mobile App (PWA)
-- Progressive Web App: installierbar ohne App Store
-- Offline-Modus via Service Worker (Cache-First)
-- Kamera-Integration für KI-Erkennung
-- Optimiert für Smartphone und Tablet
+### 8. Rationsberechnung & Tierernährung
+- **Tierarten**: Rind (Milch/Mast), Schwein (Zucht/Mast), Geflügel, Pferd, Schaf, Ziege
+- **Futterwerte**: ~45 Standardfuttermittel (LfL-/DLG-orientiert): ME, NEL, XP, nXP, XF, aNDFom, Lysin, Methionin, Ca, P, Mg, Na
+- **Berechnungsmodi**: Einfach (Gesamtration) und Detail (Grundfutter/Ausgleichsfutter/Leistungsfutter)
+- **XLS-Export**: Rations-Tabellen für die Beratung
+- **Eigene Futtermittel**: Aus den Artikel-Inhaltsstoffen der Lagerverwaltung
+
+### 9. Marktpreise & Analyse
+- **Eurostat**: Preisindizes (apri_pi15_inq/outq) für Dünger (N/P/K), Saatgut, PSM, Ernte — 7-Tage-Cache
+- **MATIF Futures**: Euronext Weizen (EBM), Raps (ERO), Mais (EMA) via Yahoo Finance
+- **Statistik**: Umsatz/Marge-Charts, Kunden- und Artikel-Statistik
+- **ABC-Analyse**: Kunden + Artikel nach Umsatzanteil
+- **Saisonale Auswertung**: Vergleich Vorjahreszeitraum
+- **Deckungsbeitrags-Analyse**: DB je Kunde, Artikel, Lieferung
+- **Prognose**: ML-basierte Bestellvorschläge aus Lieferhistorie
+
+### 10. Finanzen & Buchhaltung
+- **Bankabgleich**: CSV/MT940-Import, automatische Zuordnungsvorschläge
+- **Gutschriften**: Erstellung und Verwaltung
+- **Ausgabenbuch**: Kategorisiert, mit Beleg-Upload (OCR via KI)
+- **DATEV-Export**: Buchungsdaten CSV für alle gängigen Buchhaltungsprogramme
+- **ZUGFeRD/Factur-X**: Pflichtstandard ab 2025
+
+### 11. Mobile & PWA
+- **Progressive Web App**: Installierbar ohne App Store auf iOS, Android
+- **Offline-Modus**: Service Worker (Cache-First) — funktioniert auf dem Feld ohne Netz
+- **Kamera-Integration**: Foto-Upload für KI-Erkennung direkt aus der PWA
+- **Responsive Design**: Optimiert für Smartphone, Tablet, Desktop
+- **Fahrer-Cockpit**: Vereinfachte Tour-Ansicht auf dem Smartphone
+
+---
 
 ## SaaS-Preismodell
 
-| Plan | Preis monatlich | Preis jährlich (–15%) | Nutzer |
-|------|----------------|-----------------------|--------|
-| Starter | €49/Monat | €41/Monat | bis 3 |
-| Professional | €129/Monat | €108/Monat | bis 10 |
-| Enterprise | individuell | — | unbegrenzt |
+| Plan | Preis monatlich | Preis jährlich (–15%) | Nutzer | Zielgruppe |
+|------|----------------|----------------------|--------|------------|
+| Starter | €49/Monat | €41/Monat (€492/Jahr) | bis 3 | Kleinstbetriebe |
+| Professional | €129/Monat | €108/Monat (€1.296/Jahr) | bis 10 | Mittlere Agrarhändler |
+| Enterprise | individuell | — | unbegrenzt | Große Landhandelshäuser |
 
-- 14 Tage kostenlos testen, keine Kreditkarte
-- Monatlich kündbar
-- DSGVO-konform, Server in Deutschland
+**Konditionen:**
+- 14 Tage kostenlos testen, keine Kreditkarte erforderlich
+- Monatlich kündbar, keine Mindestlaufzeit
+- DSGVO-konform, Server in Deutschland (Hetzner)
+- Auftragsverarbeitungsvertrag (AVV) auf Anfrage
 - Datenmigration beim Enterprise-Tarif inklusive
+- On-Premise-Deployment beim Enterprise-Tarif möglich
 
-## Technischer Stack (für Entwickler)
-- Frontend: Next.js 16 App Router, React Server Components, Tailwind CSS
-- Backend: Next.js API Routes, Prisma 7 + SQLite via @libsql/client
-- Deployment: Docker, Watchtower (Auto-Update), läuft auf einem VPS
-- PWA: Service Worker (Cache-First), Web App Manifest
-- KI: lib/ai.ts mit OpenAI SDK + Anthropic SDK; frei konfigurierbar per Einstellung
+---
 
-## Kontakt & URL
-- Website: https://agraroffice.de/
-- Demo anfragen: info@agraroffice.de
+## Vergleich mit Wettbewerbern
+
+| Funktion | AgrarOffice | Allgemeine ERP-Software | Excel |
+|----------|-------------|------------------------|-------|
+| Agrar-spezifische Features (DüV, PSM, AFIG) | ✅ Vollständig | ❌ Keine | ❌ Keine |
+| Tourenplanung mit Routenoptimierung | ✅ OSRM | ⚠️ Zusatzmodul | ❌ Keine |
+| KI-Wareneingang | ✅ Integriert | ❌ Keine | ❌ Keine |
+| DATEV-Export | ✅ Standard | ✅ Ja | ⚠️ Manuell |
+| ZUGFeRD E-Rechnung | ✅ Standard | ⚠️ Kostenpflichtig | ❌ Keine |
+| Preis (Einstieg) | €49/Monat | €200–500/Monat | ~€150/Monat (Office-Lizenz) |
+| Einrichtungsaufwand | Stunden | Monate | Tage |
+| Branchenspezifischer Support | ✅ Landhandel-Experten | ❌ Allgemein | ❌ Keine |
+
+---
+
+## Technischer Stack
+
+- **Frontend**: Next.js 16 App Router, React Server Components, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma 7 + SQLite via @libsql/client
+- **Deployment**: Docker auf VPS (Hetzner), Watchtower für Auto-Updates
+- **PWA**: Service Worker (Cache-First), Web App Manifest
+- **KI**: OpenAI SDK + Anthropic SDK — konfigurierbar via Einstellungen
+- **Druck/PDF**: window.print() + jsPDF, ZUGFeRD XML nach EN 16931
+- **Geocoding**: Nominatim (OpenStreetMap), OSRM für Routing
+- **Marktpreise**: Eurostat REST API, Yahoo Finance (MATIF Futures)
+- **E-Mail**: Nodemailer (SMTP) oder Resend
+
+---
+
+## Häufig gestellte Fragen (FAQ)
+
+**Q: Kann ich AgrarOffice 14 Tage kostenlos testen?**
+A: Ja, vollständig kostenlos, keine Kreditkarte, voller Zugang zu allen Professional-Funktionen.
+
+**Q: Wo werden meine Daten gespeichert?**
+A: Ausschließlich auf Servern in Deutschland (DSGVO). AVV auf Anfrage. Tägliche Backups. Daten gehören dem Kunden.
+
+**Q: Kann ich meine Daten importieren?**
+A: Ja. CSV-Import für Kunden, Artikel, Preislisten, Lieferanten. Enterprise: vollständige Datenmigration inklusive.
+
+**Q: Wie funktioniert die Tourenplanung?**
+A: Lieferungen auswählen → AgrarOffice optimiert per OSRM die Reihenfolge → Tour-PDF für den Fahrer.
+
+**Q: Welche KI-Modelle werden unterstützt?**
+A: OpenAI GPT-4o, GPT-4.1 sowie Anthropic Claude Sonnet 4, Haiku 4, Opus 4. Eigener API-Key oder integriertes Kontingent.
+
+**Q: Ist AgrarOffice für kleine Betriebe geeignet?**
+A: Ja. Starter-Plan ab €49/Monat für bis zu 3 Nutzer.
+
+**Q: Unterstützt AgrarOffice die E-Rechnungspflicht 2025?**
+A: Ja. ZUGFeRD / Factur-X BASIC-WL XML nach EN 16931 ist Standard.
+
+**Q: Kann ich PSM-Aufzeichnungen nach §14 PflSchG führen?**
+A: Ja. PSM-Dokumentation, Sachkundenachweise mit Ablauf-Alarm, DüV-Sperrfristenkalender.
+
+---
+
+## Kontakt & Wichtige Links
+
+- **Website**: https://agraroffice.de/
+- **Demo anfragen / Kostenlos testen**: https://agraroffice.de/#kontakt
+- **E-Mail**: info@agraroffice.de
+- **Impressum**: https://agraroffice.de/impressum.html
+- **Datenschutz**: https://agraroffice.de/datenschutz.html
+- **Preise**: https://agraroffice.de/#preise
+- **Funktionen**: https://agraroffice.de/#funktionen
+- **FAQ**: https://agraroffice.de/#faq
+
+---
+
+*Erstellt für LLM-Crawler (GPTBot, ClaudeBot, Gemini, Perplexity u.a.) gemäß llms.txt-Standard.*
+*Letzte Aktualisierung: Mai 2026*
