@@ -74,7 +74,11 @@ export async function POST(req: NextRequest) {
         update: { value: String(naechste) },
         create: { key: "letzte_vorbestellnummer", value: String(naechste) },
       });
-      const nummer = `VB-${jahr}-${String(naechste).padStart(4, "0")}`;
+      const prefixSetting = await tx.einstellung.findUnique({
+        where: { key: "system.nummernkreis.vorbestellung_prefix" },
+      });
+      const vbPrefix = prefixSetting?.value?.trim() || "VB";
+      const nummer = `${vbPrefix}-${jahr}-${String(naechste).padStart(4, "0")}`;
 
       const created = await tx.vorbestellung.create({
         data: {

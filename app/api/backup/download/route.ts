@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
+import { getBackupDir } from "@/lib/backup";
 
 export const dynamic = "force-dynamic";
-
-const BACKUP_DIR = "/data/backups";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -21,9 +20,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiger Dateiname" }, { status: 400 });
   }
 
-  const filePath = path.resolve(BACKUP_DIR, filename);
-  // Zusätzliche Absicherung: resolved Pfad muss innerhalb BACKUP_DIR liegen.
-  if (!filePath.startsWith(path.resolve(BACKUP_DIR) + path.sep)) {
+  const backupDir = getBackupDir();
+  const filePath = path.resolve(backupDir, filename);
+  // Zusätzliche Absicherung: resolved Pfad muss innerhalb backupDir liegen.
+  if (!filePath.startsWith(path.resolve(backupDir) + path.sep)) {
     return NextResponse.json({ error: "Ungültiger Dateiname" }, { status: 400 });
   }
 

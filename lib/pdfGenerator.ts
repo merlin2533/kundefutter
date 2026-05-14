@@ -38,7 +38,7 @@ async function ladeLogo(): Promise<LogoDaten | null> {
 }
 
 const EIGENTUMSVORBEHALT_DEFAULT =
-  "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
+  "Die Ware bleibt bis zur vollständigen Bezahlung unser Eigentum.";
 
 /**
  * Lädt den rechtlichen Hinweis "Eigentumsvorbehalt" aus den Einstellungen.

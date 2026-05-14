@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseMahnwesenConfig } from "@/lib/mahnwesen-config";
 export const dynamic = "force-dynamic";
 
-
-function mahnstufe(tageUeberfaellig: number): 1 | 2 | 3 {
-  if (tageUeberfaellig >= 42) return 3;
-  if (tageUeberfaellig >= 28) return 2;
-  return 1; // ab 14 Tagen überfällig
-}
 
 export async function GET() {
   try {
     const heute = new Date();
     heute.setHours(0, 0, 0, 0);
+
+    const cfgSetting = await prisma.einstellung.findUnique({
+      where: { key: "system.mahnwesen" },
+    });
+    const cfg = parseMahnwesenConfig(cfgSetting?.value);
+    const mahnstufe = (tage: number): 1 | 2 | 3 =>
+      tage >= cfg.stufe3Tage ? 3 : tage >= cfg.stufe2Tage ? 2 : 1;
 
     // Alle gelieferten, unbezahlten Lieferungen mit Rechnung laden
     const offene = await prisma.lieferung.findMany({
@@ -37,8 +39,8 @@ export async function GET() {
 
       const tageUeberfaellig = Math.floor((heute.getTime() - faelligAm.getTime()) / (24 * 60 * 60 * 1000));
 
-      // Mahnstufen: Stufe 1 ab 14 Tagen, Stufe 2 ab 28 Tagen, Stufe 3 ab 42 Tagen
-      if (tageUeberfaellig < 14) continue; // noch keine Mahnstufe fällig
+      // Mahnstufen-Fristen aus den Einstellungen (system.mahnwesen)
+      if (tageUeberfaellig < cfg.stufe1Tage) continue; // noch keine Mahnstufe fällig
       const stufe = mahnstufe(tageUeberfaellig);
 
       const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);

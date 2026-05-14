@@ -84,7 +84,7 @@ export default function KundenmappePage() {
         {/* Briefkopf */}
         <div className="bg-green-800 text-white rounded-xl print:rounded-none px-8 py-5 flex justify-between items-start">
           <div>
-            <p className="font-bold text-xl">{firma.name ?? "Landhandel Röthemeier"}</p>
+            <p className="font-bold text-xl">{firma.name || ""}</p>
             {firma.zusatz && <p className="text-green-200 text-sm">{firma.zusatz}</p>}
             {firma.strasse && <p className="text-green-100 text-sm mt-1">{firma.strasse}</p>}
             {firma.plzOrt && <p className="text-green-100 text-sm">{firma.plzOrt}</p>}
@@ -307,7 +307,7 @@ export default function KundenmappePage() {
 
         {/* Fußzeile */}
         <div className="text-center text-xs text-gray-400 py-4 print:pt-6">
-          {firma.name ?? "Landhandel Röthemeier"} · Kundenmappe · Stand {heute}
+          {firma.name ? `${firma.name} · ` : ""}Kundenmappe · Stand {heute}
           {firma.iban && <> · IBAN: {firma.iban}</>}
         </div>
       </div>

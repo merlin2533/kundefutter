@@ -298,7 +298,7 @@ export default function HilfePage() {
           <h1 className="text-2xl font-bold text-gray-900">Hilfe & Features</h1>
         </div>
         <p className="text-gray-500 text-sm ml-13">
-          Alle Funktionen von AgrarOffice Röthemeier auf einen Blick. Klicken Sie auf einen Bereich, um die Details anzuzeigen.
+          Alle Funktionen auf einen Blick. Klicken Sie auf einen Bereich, um die Details anzuzeigen.
         </p>
       </div>
 

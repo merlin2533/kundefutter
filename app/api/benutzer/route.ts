@@ -7,6 +7,16 @@ export const dynamic = "force-dynamic";
 
 const ROLLEN = ["admin", "benutzer"] as const;
 
+async function passwortMinLaenge(): Promise<number> {
+  try {
+    const s = await prisma.einstellung.findUnique({ where: { key: "system.passwort_minlaenge" } });
+    const n = s ? parseInt(s.value, 10) : NaN;
+    return Number.isFinite(n) && n >= 4 ? n : 8;
+  } catch {
+    return 8;
+  }
+}
+
 const SELECT = {
   id: true,
   benutzername: true,
@@ -60,8 +70,9 @@ export async function POST(req: NextRequest) {
   if (benutzername.length < 3) {
     return NextResponse.json({ error: "Benutzername muss mindestens 3 Zeichen haben" }, { status: 400 });
   }
-  if (passwort.length < 8) {
-    return NextResponse.json({ error: "Passwort muss mindestens 8 Zeichen haben" }, { status: 400 });
+  const minLaenge = await passwortMinLaenge();
+  if (passwort.length < minLaenge) {
+    return NextResponse.json({ error: `Passwort muss mindestens ${minLaenge} Zeichen haben` }, { status: 400 });
   }
   if (!name) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });

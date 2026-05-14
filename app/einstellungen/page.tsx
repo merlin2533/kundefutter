@@ -18,62 +18,82 @@ function EinstellungTile({ href, icon, title, description }: {
   );
 }
 
-interface Tile { href: string; icon: string; title: string; description: string; }
+interface Tile {
+  href: string;
+  icon: string;
+  title: string;
+  description: string;
+}
 
-const KATEGORIEN: { label: string; tiles: Tile[] }[] = [
+interface Section {
+  title: string;
+  description: string;
+  tiles: Tile[];
+}
+
+const SECTIONS: Section[] = [
   {
-    label: "Betrieb & System",
+    title: "Firma & Darstellung",
+    description: "Stammdaten des Betriebs und Aussehen der Anwendung.",
     tiles: [
-      { href: "/einstellungen/firma", icon: "🏢", title: "Firma", description: "Name, Adresse und Kontaktdaten" },
-      { href: "/einstellungen/erscheinungsbild", icon: "🎨", title: "Erscheinungsbild", description: "Logo, Favicon und Design" },
-      { href: "/einstellungen/system", icon: "⚙️", title: "System", description: "Version, Datenbank und Diagnose" },
-      { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Datenbank-Backups erstellen und verwalten" },
-      { href: "/einstellungen/benutzer", icon: "👥", title: "Benutzer", description: "Benutzerkonten, Rollen und Zugriffsrechte verwalten" },
-      { href: "/audit", icon: "📜", title: "Änderungshistorie", description: "Alle Änderungen an Stammdaten nachverfolgen" },
+      { href: "/einstellungen/firma", icon: "🏢", title: "Firma", description: "Name, Adresse, Bankverbindung, Footer & Rechnungshinweis" },
+      { href: "/einstellungen/erscheinungsbild", icon: "🎨", title: "Erscheinungsbild", description: "App-Name, Logo und Design" },
     ],
   },
   {
-    label: "Stammdaten",
+    title: "Stammdaten & Kataloge",
+    description: "Auswahllisten und Vorgabewerte für die tägliche Arbeit.",
     tiles: [
-      { href: "/einstellungen/stammdaten", icon: "📂", title: "Stammdaten", description: "Kundenkategorien, Mitarbeiter, Lieferanten-Einstellungen" },
+      { href: "/einstellungen/stammdaten", icon: "📂", title: "Stammdaten", description: "Kategorien, Einheiten, Lagerorte, Fruchtarten" },
       { href: "/einstellungen/artikelkategorien", icon: "🏷️", title: "Artikelkategorien", description: "Artikel-Kategorien anlegen, umbenennen und löschen" },
       { href: "/einstellungen/lieferanten", icon: "🚚", title: "Lieferanten", description: "Standard-Zahlungskonditionen und Lieferbedingungen" },
       { href: "/einstellungen/lager", icon: "📦", title: "Lager", description: "Mindestbestände, Alarme und Kategorien" },
+      { href: "/einstellungen/futterwerte", icon: "🐄", title: "Futterwerte", description: "Eigene Futtermittel für die Rationsberechnung pflegen" },
+      { href: "/einstellungen/fruehbezug", icon: "⏱", title: "Frühbezugs-Staffeln", description: "Saison-Rabatte für Vorbestellungen (z.B. -3% bis 31.07.)" },
       { href: "/einstellungen/tournamen", icon: "🚛", title: "Tour-Namen", description: "Gespeicherte Tourbezeichnungen" },
-      { href: "/einstellungen/nummernkreis", icon: "🔢", title: "Artikelnummer", description: "Präfix, Stellenanzahl und nächste Nummer konfigurieren" },
-      { href: "/einstellungen/bankkonten", icon: "🏦", title: "Bankkonten", description: "Konten für den Bankabgleich hinterlegen" },
     ],
   },
   {
-    label: "Finanzen & Vertrieb",
+    title: "Belege, Nummern & Finanzen",
+    description: "Nummernkreise, Buchhaltung und finanzbezogene Vorgaben.",
     tiles: [
+      { href: "/einstellungen/nummernkreis", icon: "🔢", title: "Nummernkreise", description: "Präfixe & Zähler für Artikel-, Angebots- und Vorbestellnummern" },
+      { href: "/einstellungen/mahnwesen", icon: "⚠️", title: "Mahnwesen", description: "Mahnstufen-Fristen, Mahngebühren und Verzugszinssatz" },
       { href: "/einstellungen/ausgaben", icon: "🧾", title: "Ausgaben", description: "Kategorien für Betriebsausgaben konfigurieren" },
+      { href: "/einstellungen/bankkonten", icon: "🏦", title: "Bankkonten", description: "Konten für den Bankabgleich hinterlegen" },
       { href: "/einstellungen/datev", icon: "📊", title: "DATEV", description: "Beraternummer, Mandantennummer und Kontenrahmen" },
-      { href: "/einstellungen/fruehbezug", icon: "⏱", title: "Frühbezugs-Staffeln", description: "Saison-Rabatte für Vorbestellungen pflegen (z.B. -3% bis 31.07.)" },
-      { href: "/einstellungen/benachrichtigungen", icon: "🔔", title: "Benachrichtigungen", description: "System-Alerts konfigurieren (Sachkunde, Kreditlimit, Lager, Rechnungen)" },
     ],
   },
   {
-    label: "Pflanze & Tier",
-    tiles: [
-      { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
-      { href: "/einstellungen/futterwerte", icon: "🐄", title: "Futterwerte", description: "Eigene Futtermittel für die Rationsberechnung anlegen und pflegen" },
-    ],
-  },
-  {
-    label: "Integrationen",
-    tiles: [
-      { href: "/einstellungen/email", icon: "✉️", title: "E-Mail-Versand", description: "SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)" },
-      { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
-      { href: "/einstellungen/google-drive", icon: "📁", title: "Google Drive", description: "Dokumente für Kunden und Artikel in Drive ablegen" },
-    ],
-  },
-  {
-    label: "Import & Daten",
+    title: "Import & Schnittstellen",
+    description: "Datenimporte und Anbindung externer Dienste.",
     tiles: [
       { href: "/einstellungen/import", icon: "📥", title: "Import", description: "Kunden, Artikel und Stammdaten aus Excel-Dateien importieren" },
       { href: "/einstellungen/artikel-import", icon: "🌿", title: "Artikel-Stammdaten", description: "marstall & BvG Agrar Artikel manuell importieren" },
+      { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
+      { href: "/einstellungen/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Cache-Gültigkeit und Daten-Aktualisierung" },
+      { href: "/einstellungen/email", icon: "✉️", title: "E-Mail-Versand", description: "SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)" },
+      { href: "/einstellungen/google-drive", icon: "☁️", title: "Google Drive", description: "Dokumente für Kunden und Artikel in Drive ablegen" },
+      { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
+    ],
+  },
+  {
+    title: "Benutzer & Sicherheit",
+    description: "Zugriffsrechte und automatische Hinweise.",
+    tiles: [
+      { href: "/einstellungen/benutzer", icon: "👥", title: "Benutzer", description: "Benutzerkonten, Rollen und Zugriffsrechte verwalten" },
+      { href: "/einstellungen/sicherheit", icon: "🔒", title: "Sicherheit", description: "Passwort-Richtlinie und Hinweise zum sicheren Betrieb" },
+      { href: "/einstellungen/benachrichtigungen", icon: "🔔", title: "Benachrichtigungen", description: "System-Alerts (Sachkunde, Kreditlimit, Lager, Rechnungen)" },
+    ],
+  },
+  {
+    title: "System & Daten",
+    description: "Wartung, Datensicherung und Diagnose.",
+    tiles: [
+      { href: "/einstellungen/system", icon: "⚙️", title: "System", description: "Version, Datenbank und Diagnose" },
+      { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Backups erstellen, verwalten und automatisieren" },
       { href: "/einstellungen/adressen", icon: "🗺️", title: "Adress-Validierung", description: "Geocoding für alle Kundenadressen" },
+      { href: "/audit", icon: "📜", title: "Änderungshistorie", description: "Alle Änderungen an Stammdaten nachverfolgen" },
       { href: "/inventur", icon: "📋", title: "Inventur", description: "Lagerbestand erfassen, Leerliste drucken, Differenzen buchen" },
     ],
   },
@@ -84,15 +104,18 @@ export default function EinstellungenPage() {
     <div>
       <h1 className="text-2xl font-bold mb-6 sm:mb-8">Einstellungen</h1>
 
-      <div className="space-y-8">
-        {KATEGORIEN.map((kat) => (
-          <section key={kat.label}>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-              {kat.label}
-            </h2>
+      <div className="space-y-8 sm:space-y-10">
+        {SECTIONS.map((section) => (
+          <section key={section.title}>
+            <div className="mb-3 sm:mb-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                {section.title}
+              </h2>
+              <p className="text-sm text-gray-400 mt-0.5">{section.description}</p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {kat.tiles.map((t) => (
-                <EinstellungTile key={t.href} {...t} />
+              {section.tiles.map((tile) => (
+                <EinstellungTile key={tile.href} {...tile} />
               ))}
             </div>
           </section>

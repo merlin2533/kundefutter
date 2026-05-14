@@ -123,8 +123,14 @@ export async function PUT(req: NextRequest, ctx: Params) {
     data.aktiv = body.aktiv;
   }
   if (typeof body?.passwort === "string" && body.passwort.length > 0) {
-    if (body.passwort.length < 8) {
-      return NextResponse.json({ error: "Passwort muss mindestens 8 Zeichen haben" }, { status: 400 });
+    let minLaenge = 8;
+    try {
+      const s = await prisma.einstellung.findUnique({ where: { key: "system.passwort_minlaenge" } });
+      const n = s ? parseInt(s.value, 10) : NaN;
+      if (Number.isFinite(n) && n >= 4) minLaenge = n;
+    } catch { /* Standard 8 */ }
+    if (body.passwort.length < minLaenge) {
+      return NextResponse.json({ error: `Passwort muss mindestens ${minLaenge} Zeichen haben` }, { status: 400 });
     }
     data.passwortHash = await hashPassword(body.passwort);
   }

@@ -142,6 +142,77 @@ function FirmenlogoEditor() {
   );
 }
 
+function AppNameEditor() {
+  const [appName, setAppName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=system.appname")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: Record<string, string>) => {
+        if (d["system.appname"]) setAppName(d["system.appname"]);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "system.appname", value: appName.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setError("Fehler beim Speichern des App-Namens.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <h2 className="text-lg font-semibold mb-1">App-Name</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Erscheint in der Navigation, auf der Login-Seite und als Name der
+        installierbaren App (PWA). Leer lassen für den Standardnamen „AgrarOffice".
+      </p>
+
+      {error && <p className="text-xs text-red-600 mb-3">{error}</p>}
+      {saved && <p className="text-xs text-green-600 mb-3">&#10003; Gespeichert</p>}
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Lade…</p>
+      ) : (
+        <div className="flex flex-wrap gap-3 items-center">
+          <input
+            type="text"
+            value={appName}
+            onChange={(e) => setAppName(e.target.value)}
+            placeholder="AgrarOffice"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-72"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Speichern…" : "Speichern"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ErscheinungsbildPage() {
   return (
     <div className="max-w-2xl">
@@ -153,6 +224,7 @@ export default function ErscheinungsbildPage() {
 
       <h1 className="text-2xl font-bold mb-6">Erscheinungsbild</h1>
 
+      <AppNameEditor />
       <FirmenlogoEditor />
     </div>
   );
