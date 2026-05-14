@@ -418,19 +418,19 @@ def gen_leads_bundesland(bundesland, regionen, leads_je_region=3):
 
 # Anzahl Leads je Region pro Bundesland (angepasst auf Agrar-Relevanz)
 LEADS_JE_REGION = {
-    "Niedersachsen":          210,
-    "Baden-Württemberg":      196,
-    "Bayern":                 175,
-    "Nordrhein-Westfalen":    154,
-    "Schleswig-Holstein":     140,
-    "Mecklenburg-Vorpommern": 105,
-    "Brandenburg":            105,
-    "Sachsen":                105,
-    "Sachsen-Anhalt":         126,
-    "Thüringen":              105,
-    "Hessen":                 140,
-    "Rheinland-Pfalz":        105,
-    "Saarland":                70,
+    "Niedersachsen":          420,
+    "Baden-Württemberg":      392,
+    "Bayern":                 350,
+    "Nordrhein-Westfalen":    308,
+    "Schleswig-Holstein":     280,
+    "Mecklenburg-Vorpommern": 210,
+    "Brandenburg":            210,
+    "Sachsen":                210,
+    "Sachsen-Anhalt":         252,
+    "Thüringen":              210,
+    "Hessen":                 280,
+    "Rheinland-Pfalz":        210,
+    "Saarland":               140,
 }
 
 alle_leads = list(ECHTE_BETRIEBE)  # echte Betriebe zuerst
@@ -622,10 +622,76 @@ ws_top = wb.create_sheet("⭐ Top-Leads (Pot.5)")
 write_header(ws_top)
 write_leads(ws_top, [l for l in alle_leads if l["Potenzial"] == 5])
 
-# ── Speichern ──
+# ── Speichern — Master-Datei ──
 os.makedirs("/home/user/kundefutter/leads", exist_ok=True)
 output = "/home/user/kundefutter/leads/agraroffice_leads_deutschland.xlsx"
 wb.save(output)
 print(f"\nGespeichert: {output}")
 print(f"Dateigröße:  {os.path.getsize(output)/1024:.0f} KB")
-print(f"Tabs: {[ws.title for ws in wb.worksheets]}")
+
+# ── Separate Datei je Bundesland ──
+print("\nErstelle Einzeldateien je Bundesland...")
+os.makedirs("/home/user/kundefutter/leads/bundeslaender", exist_ok=True)
+for bl in sorted(set(l["Bundesland"] for l in alle_leads)):
+    bl_leads = [l for l in alle_leads if l["Bundesland"] == bl]
+    wb_bl = openpyxl.Workbook()
+
+    # Dashboard-Tab
+    ws_d = wb_bl.active
+    ws_d.title = "Dashboard"
+    ws_d.sheet_view.showGridLines = False
+    ws_d.column_dimensions["A"].width = 35
+    ws_d.column_dimensions["B"].width = 20
+
+    def dc2(ws, row, col, val, bold=False, size=11, color="000000", fg=None):
+        c = ws.cell(row=row, column=col, value=val)
+        c.font = Font(bold=bold, size=size, color=color)
+        c.alignment = Alignment(horizontal="left", vertical="center")
+        if fg:
+            c.fill = PatternFill("solid", fgColor=fg)
+        return c
+
+    dc2(ws_d, 1, 1, f"AgrarOffice — Leads {bl}", bold=True, size=14, color=GRUEN_DARK)
+    dc2(ws_d, 2, 1, "Potenzielle Kunden für Kaltakquise / E-Mail-Kampagne", size=10, color="666666")
+    ws_d.row_dimensions[1].height = 32
+    stats_bl = [
+        ("Gesamt Leads", len(bl_leads)),
+        ("Davon mit E-Mail", sum(1 for l in bl_leads if l["Email"])),
+        ("Privathandel", sum(1 for l in bl_leads if l["Typ"] == "Privathandel")),
+        ("Potenzial 5 (Priorität)", sum(1 for l in bl_leads if l["Potenzial"] == 5)),
+        ("Verifizierte Betriebe", sum(1 for l in bl_leads if l["Quelle"] == "Direkte Recherche")),
+    ]
+    for i, (label, val) in enumerate(stats_bl, start=4):
+        bg = GRAU_HELL if i % 2 == 0 else WEISS
+        dc2(ws_d, i, 1, label, size=10, fg=bg)
+        c = ws_d.cell(row=i, column=2, value=val)
+        c.font = Font(bold=True, size=11, color=GRUEN_MID)
+        c.fill = PatternFill("solid", fgColor=bg)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Alle Leads Tab
+    ws_a = wb_bl.create_sheet("Alle Leads")
+    write_header(ws_a)
+    write_leads(ws_a, bl_leads)
+
+    # Mit E-Mail Tab
+    mit_email = [l for l in bl_leads if l["Email"]]
+    if mit_email:
+        ws_m = wb_bl.create_sheet("✉ Mit E-Mail")
+        write_header(ws_m)
+        write_leads(ws_m, mit_email)
+
+    # Top-Leads Tab
+    top = [l for l in bl_leads if l["Potenzial"] == 5]
+    if top:
+        ws_t = wb_bl.create_sheet("⭐ Top-Leads")
+        write_header(ws_t)
+        write_leads(ws_t, top)
+
+    bl_filename = bl.replace("/", "-").replace(" ", "_").replace("ä","ae").replace("ö","oe").replace("ü","ue")
+    bl_path = f"/home/user/kundefutter/leads/bundeslaender/{bl_filename}.xlsx"
+    wb_bl.save(bl_path)
+    size_kb = os.path.getsize(bl_path) / 1024
+    print(f"  {bl:<32} {len(bl_leads):>5} Leads — {size_kb:.0f} KB → {bl_path.split('/')[-1]}")
+
+print(f"\nAlle Dateien in: /home/user/kundefutter/leads/bundeslaender/")
