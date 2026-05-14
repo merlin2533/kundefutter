@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 
 interface FirmaEinstellungen {
   name: string;
@@ -24,12 +25,13 @@ interface MahnwesenEintrag {
   mahnstufe: 1 | 2 | 3;
 }
 
-const BASISZINS = 3.37; // Basiszinssatz ab 01.01.2026 gemäß § 247 BGB
-const VERZUGSZINS = BASISZINS + 9; // § 288 Abs. 2 BGB (Handelsgeschäfte)
-
-function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number): number {
+function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number): number {
   if (tageUeberfaellig <= 0) return 0;
-  return (betrag * (VERZUGSZINS / 100) / 365) * tageUeberfaellig;
+  return (betrag * (satz / 100) / 365) * tageUeberfaellig;
+}
+
+function mahngebuehr(cfg: MahnwesenConfig, stufe: number): number {
+  return stufe === 3 ? cfg.mahngebuehr3 : stufe === 2 ? cfg.mahngebuehr2 : cfg.mahngebuehr1;
 }
 
 const STUFE_FARBEN: Record<number, string> = {
@@ -61,16 +63,22 @@ export default function MahnwesenPage() {
   const [firma, setFirma] = useState<FirmaEinstellungen>({
     name: "", adresse: "", plz: "", ort: "", tel: "", email: "", iban: "", bic: "",
   });
+  const [cfg, setCfg] = useState<MahnwesenConfig>(DEFAULT_MAHNWESEN_CONFIG);
 
   async function load() {
     setLoading(true);
     setError("");
     try {
-      const [mahnRes, firmaRes] = await Promise.all([
+      const [mahnRes, firmaRes, cfgRes] = await Promise.all([
         fetch("/api/mahnwesen"),
         fetch("/api/einstellungen?prefix=firma."),
+        fetch("/api/einstellungen?prefix=system.mahnwesen"),
       ]);
       if (!mahnRes.ok) throw new Error("Fehler beim Laden");
+      if (cfgRes.ok) {
+        const cfgData: Record<string, string> = await cfgRes.json();
+        setCfg(parseMahnwesenConfig(cfgData["system.mahnwesen"]));
+      }
       const data = await mahnRes.json();
       setEintraege(Array.isArray(data) ? data : []);
       if (firmaRes.ok) {
@@ -178,6 +186,10 @@ export default function MahnwesenPage() {
         ? `trotz unserer freundlichen Erinnerung haben wir bislang keinen Zahlungseingang feststellen können. Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen.`
         : `leider haben wir auch nach unserer 1. Mahnung keinen Zahlungseingang festgestellt. Wir fordern Sie hiermit letztmalig auf, den Betrag innerhalb von 5 Tagen zu überweisen. Andernfalls behalten wir uns rechtliche Schritte vor.`;
 
+    const gebuehr = mahngebuehr(cfg, stufe);
+    const zinsen = berechneVerzugszinsen(eintrag.betrag, eintrag.tageUeberfaellig, cfg.verzugszinssatz);
+    const gesamtForderung = eintrag.betrag + gebuehr + zinsen;
+
     const absenderzeile = [firma.adresse, `${firma.plz} ${firma.ort}`.trim()]
       .filter(Boolean).join(", ");
     const ibanZeile = firma.iban
@@ -185,8 +197,20 @@ export default function MahnwesenPage() {
       : "";
     const kontaktZeile = [firma.tel && `Tel: ${firma.tel}`, firma.email].filter(Boolean).join(" · ");
     const kontoInfo = firma.iban
-      ? `Bitte überweisen Sie den Betrag von <strong>${formatEuro(eintrag.betrag)}</strong> auf folgendes Konto:<br><strong>${ibanZeile}</strong>`
-      : `Bitte überweisen Sie den Betrag von <strong>${formatEuro(eintrag.betrag)}</strong> auf unser bekanntes Konto.`;
+      ? `Bitte überweisen Sie den Gesamtbetrag von <strong>${formatEuro(gesamtForderung)}</strong> auf folgendes Konto:<br><strong>${ibanZeile}</strong>`
+      : `Bitte überweisen Sie den Gesamtbetrag von <strong>${formatEuro(gesamtForderung)}</strong> auf unser bekanntes Konto.`;
+
+    const zusatzZeilen = [
+      gebuehr > 0
+        ? `<tr><td colspan="3" style="text-align:right;">Mahngebühr</td><td>${formatEuro(gebuehr)}</td></tr>`
+        : "",
+      zinsen > 0
+        ? `<tr><td colspan="3" style="text-align:right;">Verzugszinsen (${cfg.verzugszinssatz.toFixed(2)}% p.a.)</td><td>${formatEuro(zinsen)}</td></tr>`
+        : "",
+      gebuehr > 0 || zinsen > 0
+        ? `<tr><td colspan="3" style="text-align:right;" class="total">Gesamtforderung</td><td class="total">${formatEuro(gesamtForderung)}</td></tr>`
+        : "",
+    ].join("");
 
     win.document.write(`<!DOCTYPE html>
 <html lang="de">
@@ -219,8 +243,9 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
       <td>${eintrag.rechnungNr ?? `#${eintrag.lieferung.id}`}</td>
       <td>${rDatum}</td>
       <td>${eintrag.tageUeberfaellig} Tage</td>
-      <td class="total">${formatEuro(eintrag.betrag)}</td>
+      <td>${formatEuro(eintrag.betrag)}</td>
     </tr>
+    ${zusatzZeilen}
   </tbody>
 </table>
 <p>${kontoInfo}</p>
@@ -250,9 +275,16 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
       </div>
 
       {/* Verzugszins-Info */}
-      <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800">
-        Verzugszinssatz: <strong>{VERZUGSZINS.toFixed(2)}% p.a.</strong> (Basiszins{" "}
-        {BASISZINS.toFixed(2)}% + 9 Prozentpunkte, §288 BGB). Stand: 01.01.2026.
+      <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800 flex items-center justify-between gap-3 flex-wrap">
+        <span>
+          Verzugszinssatz: <strong>{cfg.verzugszinssatz.toFixed(2)}% p.a.</strong> (§ 288 BGB)
+          {(cfg.mahngebuehr1 > 0 || cfg.mahngebuehr2 > 0 || cfg.mahngebuehr3 > 0) && (
+            <> · Mahngebühren: {formatEuro(cfg.mahngebuehr1)} / {formatEuro(cfg.mahngebuehr2)} / {formatEuro(cfg.mahngebuehr3)}</>
+          )}
+        </span>
+        <Link href="/einstellungen/mahnwesen" className="text-blue-700 hover:underline whitespace-nowrap">
+          Einstellungen ›
+        </Link>
       </div>
 
       {error && (
@@ -296,7 +328,11 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                   {anzahlJeStufe[stufe] ?? 0}
                 </div>
                 <div className="text-xs text-gray-600 mt-0.5">
-                  {stufe === 1 ? "Stufe 1 (14–27 Tage)" : stufe === 2 ? "Stufe 2 (28–41 Tage)" : "Stufe 3 (ab 42 Tage)"}
+                  {stufe === 1
+                    ? `Stufe 1 (${cfg.stufe1Tage}–${cfg.stufe2Tage - 1} Tage)`
+                    : stufe === 2
+                    ? `Stufe 2 (${cfg.stufe2Tage}–${cfg.stufe3Tage - 1} Tage)`
+                    : `Stufe 3 (ab ${cfg.stufe3Tage} Tage)`}
                 </div>
               </div>
             ))}
@@ -395,7 +431,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                       <td className="px-4 py-3 text-right font-mono text-sm hidden lg:table-cell">
                         {e.tageUeberfaellig > 0 ? (
                           <span className="text-orange-700 font-semibold">
-                            {berechneVerzugszinsen(e.betrag, e.tageUeberfaellig).toLocaleString("de-DE", {
+                            {berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz).toLocaleString("de-DE", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -443,7 +479,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         {gefiltert
                           .reduce(
                             (s, e) =>
-                              s + berechneVerzugszinsen(e.betrag, e.tageUeberfaellig),
+                              s + berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz),
                             0
                           )
                           .toLocaleString("de-DE", {
@@ -463,15 +499,15 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-gray-500">
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-full bg-yellow-100 border border-yellow-300" />
-              Stufe 1: 14–27 Tage überfällig
+              Stufe 1: {cfg.stufe1Tage}–{cfg.stufe2Tage - 1} Tage überfällig
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-full bg-orange-100 border border-orange-300" />
-              Stufe 2: 28–41 Tage überfällig
+              Stufe 2: {cfg.stufe2Tage}–{cfg.stufe3Tage - 1} Tage überfällig
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-full bg-red-100 border border-red-300" />
-              Stufe 3: ab 42 Tage überfällig
+              Stufe 3: ab {cfg.stufe3Tage} Tage überfällig
             </span>
           </div>
 

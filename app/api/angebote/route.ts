@@ -4,14 +4,14 @@ import { liefposArtikelSelect } from "@/lib/artikel-select";
 export const dynamic = "force-dynamic";
 
 
-function naechsteAngebotsnummer(letzte: string | null): string {
+function naechsteAngebotsnummer(letzte: string | null, prefix = "AN"): string {
   const jahr = new Date().getFullYear();
-  if (!letzte) return `AN-${jahr}-0001`;
+  if (!letzte) return `${prefix}-${jahr}-0001`;
   const parts = letzte.split("-");
   const letzteJahr = parts.length >= 3 ? parseInt(parts[1], 10) : 0;
-  if (letzteJahr !== jahr) return `AN-${jahr}-0001`;
+  if (letzteJahr !== jahr) return `${prefix}-${jahr}-0001`;
   const num = parseInt(parts[parts.length - 1] || "0", 10) + 1;
-  return `AN-${jahr}-${String(num).padStart(4, "0")}`;
+  return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -94,7 +94,11 @@ export async function POST(req: NextRequest) {
       const einstellung = await tx.einstellung.findUnique({
         where: { key: "letzte_angebotsnummer" },
       });
-      const nummer = naechsteAngebotsnummer(einstellung?.value ?? null);
+      const prefixSetting = await tx.einstellung.findUnique({
+        where: { key: "system.nummernkreis.angebot_prefix" },
+      });
+      const prefix = prefixSetting?.value?.trim() || "AN";
+      const nummer = naechsteAngebotsnummer(einstellung?.value ?? null, prefix);
 
       await tx.einstellung.upsert({
         where: { key: "letzte_angebotsnummer" },

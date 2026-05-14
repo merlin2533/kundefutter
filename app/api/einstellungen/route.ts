@@ -16,6 +16,8 @@ const ALLOWED_PREFIXES = [
   "dashboard.",
   "email.",
   "resend.",
+  "alert.",
+  "artikel.",
 ];
 
 export async function GET(req: NextRequest) {

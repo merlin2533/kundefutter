@@ -26,7 +26,7 @@ interface FirmaSettings {
 }
 
 const EIGENTUMSVORBEHALT_DEFAULT =
-  "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
+  "Die Ware bleibt bis zur vollständigen Bezahlung unser Eigentum.";
 
 const DEFAULT_VALUES: FirmaSettings = {
   "firma.name": "",
