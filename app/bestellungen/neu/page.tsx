@@ -142,6 +142,7 @@ function BestellungNeuInner() {
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Lieferant <span className="text-red-500">*</span>
+                <a href="/lieferanten/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Lieferant anlegen</a>
               </label>
               <SearchableSelect
                 options={lieferantenOptions}

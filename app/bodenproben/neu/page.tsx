@@ -6,7 +6,7 @@ import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
 
-interface Schlag { id: number; name: string; kundeId: number; }
+interface Schlag { id: number; name: string; kundeId: number; flaeche: number; fruchtart?: string | null; vorfrucht?: string | null; }
 interface Kunde { id: number; name: string; firma?: string | null; }
 
 function NeuInner() {
@@ -16,8 +16,16 @@ function NeuInner() {
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
+  const [schlaegteGeladen, setSchlaegteGeladen] = useState(false);
   const [kundeId, setKundeId] = useState<string>(sp.get("kundeId") ?? "");
   const [schlagId, setSchlagId] = useState<string>(sp.get("schlagId") ?? "");
+
+  // Inline-Schlag-Anlage
+  const [zeigSchlagForm, setZeigSchlagForm] = useState(false);
+  const [neuerSchlag, setNeuerSchlag] = useState({ name: "", flaeche: "", fruchtart: "", vorfrucht: "" });
+  const [schlagSpeichern, setSchlagSpeichern] = useState(false);
+  const [fruchtarten, setFruchtarten] = useState<string[]>([]);
+
   const [form, setForm] = useState({
     datum: new Date().toISOString().slice(0, 10),
     probenNr: "",
@@ -41,17 +49,55 @@ function NeuInner() {
     fetch("/api/kunden?limit=2000")
       .then(r => r.json())
       .then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
+    fetch("/api/einstellungen?prefix=system.fruchtarten")
+      .then(r => r.ok ? r.json() : {})
+      .then(d => {
+        const raw = (d as Record<string, string>)["system.fruchtarten"];
+        if (raw) { try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFruchtarten(parsed); } catch { /* ignore */ } }
+      });
   }, []);
 
   useEffect(() => {
     if (!kundeId) {
       setSchlaegte([]);
+      setSchlaegteGeladen(false);
       return;
     }
+    setSchlaegteGeladen(false);
     fetch(`/api/kunden/${kundeId}/schlaegte`)
       .then(r => r.ok ? r.json() : [])
-      .then(d => setSchlaegte(Array.isArray(d) ? d : []));
+      .then(d => {
+        const liste = Array.isArray(d) ? d : [];
+        setSchlaegte(liste);
+        setSchlaegteGeladen(true);
+        if (liste.length === 0) setZeigSchlagForm(true);
+      });
   }, [kundeId]);
+
+  async function schlagAnlegen() {
+    if (!kundeId) return;
+    if (!neuerSchlag.name.trim()) { toast.error("Schlagname erforderlich"); return; }
+    if (!neuerSchlag.flaeche || isNaN(parseFloat(neuerSchlag.flaeche))) { toast.error("Fläche (ha) erforderlich"); return; }
+    setSchlagSpeichern(true);
+    const res = await fetch(`/api/kunden/${kundeId}/schlaegte`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: neuerSchlag.name.trim(),
+        flaeche: parseFloat(neuerSchlag.flaeche),
+        fruchtart: neuerSchlag.fruchtart || null,
+        vorfrucht: neuerSchlag.vorfrucht || null,
+      }),
+    });
+    setSchlagSpeichern(false);
+    if (!res.ok) { toast.error("Schlag konnte nicht angelegt werden"); return; }
+    const neu: Schlag = await res.json();
+    setSchlaegte(prev => [...prev, neu]);
+    setSchlagId(String(neu.id));
+    setZeigSchlagForm(false);
+    setNeuerSchlag({ name: "", flaeche: "", fruchtart: "", vorfrucht: "" });
+    toast.success(`Schlag „${neu.name}" angelegt`);
+  }
 
   async function speichern(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +125,8 @@ function NeuInner() {
     setForm(s => ({ ...s, [k]: v }));
   }
 
+  const keinSchlagVorhanden = !!kundeId && schlaegteGeladen && schlaegte.length === 0;
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">🧪 Neue Bodenprobe</h1>
@@ -90,17 +138,28 @@ function NeuInner() {
               <SearchableSelect
                 options={kunden.map(k => ({ value: String(k.id), label: k.firma ? `${k.firma} (${k.name})` : k.name }))}
                 value={kundeId}
-                onChange={v => { setKundeId(v); setSchlagId(""); }}
+                onChange={v => { setKundeId(v); setSchlagId(""); setZeigSchlagForm(false); }}
                 placeholder="Kunde wählen…"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Schlag *</label>
+              <label className="block text-sm font-medium mb-1">
+                Schlag *
+                {kundeId && (
+                  <button
+                    type="button"
+                    onClick={() => setZeigSchlagForm(v => !v)}
+                    className="ml-2 text-xs text-green-700 hover:underline font-normal"
+                  >
+                    + Schlag anlegen
+                  </button>
+                )}
+              </label>
               <SearchableSelect
                 options={schlaegte.map(s => ({ value: String(s.id), label: s.name }))}
                 value={schlagId}
                 onChange={setSchlagId}
-                placeholder={kundeId ? "Schlag wählen…" : "Erst Kunde wählen"}
+                placeholder={!kundeId ? "Erst Kunde wählen" : schlaegte.length === 0 ? "Kein Schlag — bitte anlegen" : "Schlag wählen…"}
               />
             </div>
             <div>
@@ -132,6 +191,92 @@ function NeuInner() {
               </datalist>
             </div>
           </div>
+
+          {/* Hinweis: kein Schlag vorhanden */}
+          {keinSchlagVorhanden && !zeigSchlagForm && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded p-3 flex items-center gap-3">
+              <span className="text-amber-700 text-sm">Dieser Kunde hat noch keine Schläge.</span>
+              <button
+                type="button"
+                onClick={() => setZeigSchlagForm(true)}
+                className="bg-green-700 text-white text-sm px-3 py-1 rounded hover:bg-green-800"
+              >
+                Schlag jetzt anlegen
+              </button>
+            </div>
+          )}
+
+          {/* Inline-Schlag-Formular */}
+          {zeigSchlagForm && (
+            <div className="mt-3 border border-green-200 bg-green-50 rounded p-4">
+              <h3 className="text-sm font-semibold text-green-800 mb-3">Neuen Schlag anlegen</h3>
+              <div className="grid sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Schlagname *</label>
+                  <input
+                    type="text"
+                    value={neuerSchlag.name}
+                    onChange={e => setNeuerSchlag(s => ({ ...s, name: e.target.value }))}
+                    placeholder="z. B. Nordfeld"
+                    className="w-full border rounded px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Fläche (ha) *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={neuerSchlag.flaeche}
+                    onChange={e => setNeuerSchlag(s => ({ ...s, flaeche: e.target.value }))}
+                    placeholder="z. B. 12.5"
+                    className="w-full border rounded px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Fruchtart</label>
+                  <input
+                    type="text"
+                    list="schlag-fruchtart-list"
+                    value={neuerSchlag.fruchtart}
+                    onChange={e => setNeuerSchlag(s => ({ ...s, fruchtart: e.target.value }))}
+                    placeholder="optional"
+                    className="w-full border rounded px-2 py-1.5 text-sm"
+                  />
+                  <datalist id="schlag-fruchtart-list">
+                    {fruchtarten.map(f => <option key={f} value={f} />)}
+                  </datalist>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Vorfrucht</label>
+                  <input
+                    type="text"
+                    value={neuerSchlag.vorfrucht}
+                    onChange={e => setNeuerSchlag(s => ({ ...s, vorfrucht: e.target.value }))}
+                    placeholder="optional"
+                    className="w-full border rounded px-2 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={schlagAnlegen}
+                  disabled={schlagSpeichern}
+                  className="bg-green-700 text-white text-sm px-4 py-1.5 rounded hover:bg-green-800 disabled:opacity-50"
+                >
+                  {schlagSpeichern ? "Speichere…" : "Schlag anlegen & auswählen"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZeigSchlagForm(false)}
+                  className="text-sm px-4 py-1.5 rounded border hover:bg-gray-50"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
 
         <Card>
