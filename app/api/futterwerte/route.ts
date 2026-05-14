@@ -48,7 +48,7 @@ export async function PUT(req: NextRequest) {
       for (const k of ["me", "nel", "rohprotein", "nxp", "dp", "rohfaser", "andfom", "lysin", "methionin", "threonin", "tryptophan", "ca", "p", "mg", "na"] as const) {
         const v = e[k];
         if (v != null && v !== "" && !isNaN(Number(v))) {
-          (eintrag as Record<string, number>)[k] = Number(v);
+          (eintrag as unknown as Record<string, number>)[k] = Number(v);
         }
       }
       sauber.push(eintrag);
