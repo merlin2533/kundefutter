@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<StatusRow[]>(
         `SELECT
            v.status,
-           COUNT(v.id) as anzahl,
+           COUNT(DISTINCT v.id) as anzahl,
            CAST(SUM(vp.menge * COALESCE(vp.preis, 0)) AS REAL) as wert
          FROM Vorbestellung v
          LEFT JOIN VorbestellungPosition vp ON vp.vorbestellungId = v.id
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<SaisonRow[]>(
         `SELECT
            v.saison,
-           COUNT(v.id) as anzahl,
+           COUNT(DISTINCT v.id) as anzahl,
            CAST(SUM(vp.menge * COALESCE(vp.preis, 0)) AS REAL) as wert
          FROM Vorbestellung v
          LEFT JOIN VorbestellungPosition vp ON vp.vorbestellungId = v.id
