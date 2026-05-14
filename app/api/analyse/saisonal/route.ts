@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { MONATE_KURZ } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 
-const MONAT_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONAT_LABELS = MONATE_KURZ;
 
 export async function GET(request: Request) {
   try {

@@ -58,3 +58,79 @@ export function formatEuro(n: number): string {
 export function formatPercent(n: number): string {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "\u00a0%";
 }
+
+// \u2500\u2500\u2500 Datum / Zeitraum \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+/** Fr\u00fchestes Jahr, das in Auswertungs-Filtern angeboten wird. */
+const BASE_YEAR = 2024;
+
+/**
+ * Dynamische Jahresliste von BASE_YEAR bis einschlie\u00dflich (aktuelles Jahr + 1)
+ * als Strings \u2014 direkt f\u00fcr <option>-Elemente nutzbar.
+ */
+export function getJahreListe(): string[] {
+  const current = new Date().getFullYear();
+  const jahre: string[] = [];
+  for (let y = BASE_YEAR; y <= current + 1; y++) jahre.push(String(y));
+  return jahre;
+}
+
+/** Dieselbe Jahresliste als Zahlen (Saisonal-Vergleich, Budget). */
+export function getJahreListeNum(): number[] {
+  return getJahreListe().map(Number);
+}
+
+/** Jahresliste f\u00fcr die Budgetplanung \u2014 zus\u00e4tzliches Planjahr in der Zukunft. */
+export function getBudgetJahre(): number[] {
+  const liste = getJahreListeNum();
+  return [...liste, liste[liste.length - 1] + 1];
+}
+
+/** Monate mit Wert ("01"\u2013"12") und langem Label \u2014 einzige Quelle f\u00fcr Monats-Selects. */
+export const MONATE_LANG = [
+  { value: "01", label: "Januar" },
+  { value: "02", label: "Februar" },
+  { value: "03", label: "M\u00e4rz" },
+  { value: "04", label: "April" },
+  { value: "05", label: "Mai" },
+  { value: "06", label: "Juni" },
+  { value: "07", label: "Juli" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "Oktober" },
+  { value: "11", label: "November" },
+  { value: "12", label: "Dezember" },
+] as const;
+
+/** Kurz-Labels der Monate (Index 0 = Jan) \u2014 f\u00fcr Diagramme. */
+export const MONATE_KURZ = [
+  "Jan", "Feb", "M\u00e4r", "Apr", "Mai", "Jun",
+  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez",
+] as const;
+
+/**
+ * Parst "YYYY-MM" zum UTC-Monatsanfang. Ung\u00fcltige/leere Eingabe \u2192 fallback
+ * (Standard: 2024-01-01T00:00:00Z).
+ */
+export function parseYearMonth(ym: string | null | undefined, fallback?: Date): Date {
+  if (ym) {
+    const d = new Date(`${ym}-01T00:00:00.000Z`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return fallback ?? new Date("2024-01-01T00:00:00.000Z");
+}
+
+/**
+ * Exklusive Obergrenze f\u00fcr einen "bis=YYYY-MM"-Parameter:
+ * "2025-03" \u2192 2025-04-01 (Monatsanfang des Folgemonats).
+ * Ung\u00fcltige/leere Eingabe \u2192 fallback (Standard: jetzt).
+ */
+export function parseBisYearMonth(ym: string | null | undefined, fallback?: Date): Date {
+  if (ym) {
+    const parts = ym.split("-").map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return new Date(parts[0], parts[1], 1);
+    }
+  }
+  return fallback ?? new Date();
+}

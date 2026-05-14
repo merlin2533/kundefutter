@@ -1,29 +1,53 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
-
-export async function GET() {
+// GET /api/analyse/abc — ohne von/bis: letzte 12 Monate (rückwärtskompatibel).
+// Mit ?von=YYYY-MM[&bis=YYYY-MM]: expliziter Zeitraum.
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const von = searchParams.get("von");
+    const bis = searchParams.get("bis");
+
     const heute = new Date();
-    const vor12Monaten = new Date(heute.getFullYear(), heute.getMonth() - 12, heute.getDate());
+    let vonIso: string;
+    let bisIso: string | null = null;
+    if (von) {
+      vonIso = parseYearMonth(von).toISOString();
+      bisIso = parseBisYearMonth(bis).toISOString();
+    } else {
+      vonIso = new Date(heute.getFullYear(), heute.getMonth() - 12, heute.getDate()).toISOString();
+    }
 
     type Row = { kundeId: number; name: string; firma: string | null; umsatz: number };
 
-    const rows = await prisma.$queryRawUnsafe<Row[]>(
-      `SELECT
-        l.kundeId,
-        k.name,
-        k.firma,
-        CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
-      FROM Lieferung l
-      JOIN Lieferposition lp ON lp.lieferungId = l.id
-      JOIN Kunde k ON k.id = l.kundeId
-      WHERE l.status = 'geliefert' AND l.datum >= ?
-      GROUP BY l.kundeId, k.name, k.firma
-      ORDER BY umsatz DESC`,
-      vor12Monaten.toISOString()
-    );
+    const rows = bisIso
+      ? await prisma.$queryRawUnsafe<Row[]>(
+          `SELECT
+            l.kundeId, k.name, k.firma,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          JOIN Kunde k ON k.id = l.kundeId
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY l.kundeId, k.name, k.firma
+          ORDER BY umsatz DESC`,
+          vonIso, bisIso
+        )
+      : await prisma.$queryRawUnsafe<Row[]>(
+          `SELECT
+            l.kundeId, k.name, k.firma,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          JOIN Kunde k ON k.id = l.kundeId
+          WHERE l.status = 'geliefert' AND l.datum >= ?
+          GROUP BY l.kundeId, k.name, k.firma
+          ORDER BY umsatz DESC`,
+          vonIso
+        );
 
     const gesamt = rows.reduce((s, k) => s + k.umsatz, 0);
 

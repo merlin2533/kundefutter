@@ -800,7 +800,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Deckungsbeitrag */}
-        <Link href="/analyse/deckungsbeitrag" className="block">
+        <Link href="/statistik/deckungsbeitrag" className="block">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-emerald-500 h-full hover:shadow-md transition-shadow">
             <p className="text-xs sm:text-sm text-gray-500">Deckungsbeitrag</p>
             <p className="text-xl sm:text-2xl font-bold mt-1 truncate">{formatEuro(data.deckungsbeitragMonat)}</p>
