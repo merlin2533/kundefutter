@@ -7,19 +7,23 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import SearchPalette from "@/components/SearchPalette";
 import { ToastProvider } from "@/components/ToastProvider";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
+import { getAppName } from "@/lib/appinfo";
 
-export const metadata: Metadata = {
-  title: "AgrarOffice Röthemeier",
-  description: "Futter · Dünger · Saatgut – Kunden-, Artikel- und Lagerverwaltung",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "AgrarOffice",
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const appName = await getAppName();
+  return {
+    title: appName,
+    description: "Kunden-, Artikel- und Lagerverwaltung für den Agrarhandel",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: appName,
+    },
+    other: {
+      "mobile-web-app-capable": "yes",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -28,13 +32,14 @@ export const viewport: Viewport = {
   themeColor: "#16a34a",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const appName = await getAppName();
   return (
     <html lang="de" className="h-full">
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="AgrarOffice" />
+        <meta name="apple-mobile-web-app-title" content={appName} />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="min-h-full flex flex-col">

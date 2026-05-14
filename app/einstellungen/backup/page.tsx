@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
+import {
+  DEFAULT_BACKUP_CONFIG,
+  parseBackupConfig,
+  type BackupConfig,
+} from "@/lib/backup-config";
 
 interface BackupEntry {
   filename: string;
@@ -34,6 +39,9 @@ export default function BackupPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [cfg, setCfg] = useState<BackupConfig>(DEFAULT_BACKUP_CONFIG);
+  const [cfgSaving, setCfgSaving] = useState(false);
+  const [cfgSaved, setCfgSaved] = useState(false);
 
   async function loadBackups() {
     setLoading(true);
@@ -50,8 +58,40 @@ export default function BackupPage() {
     }
   }
 
+  async function loadConfig() {
+    try {
+      const res = await fetch("/api/einstellungen?prefix=system.backup");
+      if (!res.ok) return;
+      const data: Record<string, string> = await res.json();
+      setCfg(parseBackupConfig(data["system.backup"]));
+    } catch {
+      /* Standardwerte beibehalten */
+    }
+  }
+
+  async function saveConfig(next: BackupConfig) {
+    setCfg(next);
+    setCfgSaving(true);
+    setCfgSaved(false);
+    try {
+      const res = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "system.backup", value: JSON.stringify(next) }),
+      });
+      if (!res.ok) throw new Error();
+      setCfgSaved(true);
+      setTimeout(() => setCfgSaved(false), 2000);
+    } catch {
+      setError("Automatik-Einstellungen konnten nicht gespeichert werden.");
+    } finally {
+      setCfgSaving(false);
+    }
+  }
+
   useEffect(() => {
     loadBackups();
+    loadConfig();
   }, []);
 
   async function handleCreate() {
@@ -136,6 +176,69 @@ export default function BackupPage() {
           {success}
         </div>
       )}
+
+      {/* Automatische Sicherung */}
+      <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700">Automatische Sicherung</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Der Server erstellt im eingestellten Abstand selbstständig ein Backup (Dateiname <code>auto-…</code>).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => saveConfig({ ...cfg, autoAktiv: !cfg.autoAktiv })}
+            disabled={cfgSaving}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-60 ${
+              cfg.autoAktiv ? "bg-green-500" : "bg-gray-300"
+            }`}
+            role="switch"
+            aria-checked={cfg.autoAktiv}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                cfg.autoAktiv ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Abstand (Stunden)</label>
+            <input
+              type="number"
+              min={1}
+              value={cfg.intervallStunden}
+              disabled={!cfg.autoAktiv}
+              onChange={(e) =>
+                setCfg({ ...cfg, intervallStunden: Math.max(1, parseInt(e.target.value, 10) || 24) })
+              }
+              onBlur={() => saveConfig(cfg)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Z. B. 24 = tägliche Sicherung.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Aufbewahrung (Anzahl)</label>
+            <input
+              type="number"
+              min={1}
+              value={cfg.aufbewahrung}
+              disabled={!cfg.autoAktiv}
+              onChange={(e) =>
+                setCfg({ ...cfg, aufbewahrung: Math.max(1, parseInt(e.target.value, 10) || 14) })
+              }
+              onBlur={() => saveConfig(cfg)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Ältere automatische Backups werden gelöscht.</p>
+          </div>
+          {cfgSaved && (
+            <p className="sm:col-span-2 text-xs text-green-600">✓ Automatik-Einstellungen gespeichert</p>
+          )}
+        </div>
+      </div>
 
       <Card>
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-6 text-sm text-blue-800">

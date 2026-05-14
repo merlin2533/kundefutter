@@ -250,7 +250,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
 </table>
 <p>${kontoInfo}</p>
 <p style="margin-top:2em;">Mit freundlichen Grüßen</p>
-<p><strong>${firma.name || "AgrarOffice"}</strong></p>
+<p><strong>${firma.name || ""}</strong></p>
 <div class="footer">${[firma.name, absenderzeile, ibanZeile, kontaktZeile].filter(Boolean).join(" · ")}</div>
 <script>window.onload = function() { window.print(); }</script>
 </body>

@@ -9,13 +9,27 @@ import {
 export const dynamic = "force-dynamic";
 
 
-const CACHE_MAX_AGE_DAYS = 7;
+const DEFAULT_CACHE_MAX_AGE_DAYS = 7;
+
+async function getCacheMaxAgeDays(): Promise<number> {
+  try {
+    const e = await prisma.einstellung.findUnique({
+      where: { key: "system.marktpreise_cache_tage" },
+    });
+    const n = e ? parseInt(e.value, 10) : NaN;
+    return Number.isFinite(n) && n >= 1 ? n : DEFAULT_CACHE_MAX_AGE_DAYS;
+  } catch {
+    return DEFAULT_CACHE_MAX_AGE_DAYS;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const kategorie = searchParams.get("kategorie");
     const force = searchParams.get("force") === "true";
+
+    const cacheMaxAgeDays = await getCacheMaxAgeDays();
 
     // Check if cache needs refreshing (input prices)
     let needsRefresh = force;
@@ -32,7 +46,7 @@ export async function GET(request: NextRequest) {
         const ageMs =
           Date.now() - new Date(latestEntry.abgerufenAm).getTime();
         const ageDays = ageMs / (1000 * 60 * 60 * 24);
-        needsRefresh = ageDays > CACHE_MAX_AGE_DAYS;
+        needsRefresh = ageDays > cacheMaxAgeDays;
       }
     }
 

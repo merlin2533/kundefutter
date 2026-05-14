@@ -266,7 +266,7 @@ export default function RechnungPrintPage() {
   const lieferDatumStr = formatDatum(lieferung.lieferDatum ?? lieferung.datum);
 
   const EIGENTUMSVORBEHALT_DEFAULT =
-    "Die Ware bleibt bis zur vollständigen Bezahlung Eigentum von Landhandel Röthemeier.";
+    "Die Ware bleibt bis zur vollständigen Bezahlung unser Eigentum.";
   const eigentumsvorbehaltText =
     footerData["dokument.rechnung.eigentumsvorbehalt"]?.trim() || EIGENTUMSVORBEHALT_DEFAULT;
 

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // GET  /api/kunden/adress-validierung?kundeId=X — Status eines Kunden
 
 const OSM_URL = "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "AgrarOffice-Roethemeier/1.0";
+const USER_AGENT = "AgrarOffice/1.0";
 
 async function geocodeAdresse(strasse: string, plz: string, ort: string): Promise<{ lat: number; lng: number } | null> {
   const q = [strasse, plz, ort, "Deutschland"].filter(Boolean).join(", ");

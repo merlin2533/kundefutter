@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
@@ -12,6 +12,18 @@ function LoginForm() {
   const [passwortSichtbar, setPasswortSichtbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [appName, setAppName] = useState("AgrarOffice");
+  const [firmenname, setFirmenname] = useState("");
+
+  useEffect(() => {
+    fetch("/api/app-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.appName) setAppName(d.appName);
+        if (d?.firmenname) setFirmenname(d.firmenname);
+      })
+      .catch(() => {});
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,8 +55,8 @@ function LoginForm() {
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg border border-green-200 p-8">
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">🌾</div>
-          <h1 className="text-2xl font-bold text-green-800">AgrarOffice</h1>
-          <p className="text-sm text-gray-600 mt-1">Röthemeier</p>
+          <h1 className="text-2xl font-bold text-green-800">{appName}</h1>
+          {firmenname && <p className="text-sm text-gray-600 mt-1">{firmenname}</p>}
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">

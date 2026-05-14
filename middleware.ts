@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/logout",
   "/api/db-check",
+  "/api/app-info",
 ];
 
 function isPublic(pathname: string): boolean {

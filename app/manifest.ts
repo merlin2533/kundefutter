@@ -1,10 +1,12 @@
 import type { MetadataRoute } from 'next'
+import { getAppName } from '@/lib/appinfo'
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const appName = await getAppName()
   return {
-    name: 'AgrarOffice Röthemeier',
-    short_name: 'AgrarOffice',
-    description: 'Warenwirtschafts- und CRM-System für Landhandel – Kunden, Artikel, Lager & CRM',
+    name: appName,
+    short_name: appName,
+    description: 'Warenwirtschafts- und CRM-System für den Agrarhandel – Kunden, Artikel, Lager & CRM',
     start_url: '/',
     scope: '/',
     id: '/',
@@ -46,14 +48,14 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '1280x720',
         type: 'image/png',
         form_factor: 'wide',
-        label: 'AgrarOffice Dashboard',
+        label: `${appName} Dashboard`,
       },
       {
         src: '/icons/screenshot-mobile.png',
         sizes: '390x844',
         type: 'image/png',
         form_factor: 'narrow',
-        label: 'AgrarOffice Mobile',
+        label: `${appName} Mobile`,
       },
     ],
   }

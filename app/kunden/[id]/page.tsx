@@ -2204,9 +2204,9 @@ function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () =
                 const rechnungNr = rechnungModal.rechnungNr ?? "";
                 const datum = formatDatum(rechnungModal.datum);
                 const betrag = formatEuro(lieferungTotal(rechnungModal));
-                const subject = encodeURIComponent(`Rechnung ${rechnungNr} - AgrarOffice Röthemeier`);
+                const subject = encodeURIComponent(`Rechnung ${rechnungNr}`);
                 const body = encodeURIComponent(
-                  `Sehr geehrte Damen und Herren,\n\nerbeten Sie die Rechnung ${rechnungNr} vom ${datum} über ${betrag}.\n\nMit freundlichen Grüßen\nAgrarOffice Röthemeier`
+                  `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung ${rechnungNr} vom ${datum} über ${betrag}.\n\nMit freundlichen Grüßen`
                 );
                 return (
                   <a

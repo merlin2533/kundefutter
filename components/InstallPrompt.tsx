@@ -71,7 +71,7 @@ export function InstallPrompt() {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-900">App installieren</p>
-        <p className="text-xs text-gray-500">AgrarOffice auf dem Startbildschirm hinzufügen</p>
+        <p className="text-xs text-gray-500">Auf dem Startbildschirm hinzufügen</p>
       </div>
       <button
         onClick={handleInstall}

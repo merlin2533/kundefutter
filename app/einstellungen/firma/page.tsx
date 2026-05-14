@@ -176,15 +176,21 @@ export default function FirmaPage() {
         "dokument.footer.rechts",
         "dokument.rechnung.eigentumsvorbehalt",
       ];
-      await Promise.all(
-        allKeys.map((key) =>
+      await Promise.all([
+        ...allKeys.map((key) =>
           fetch("/api/einstellungen", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ key, value: form[key] }),
           })
-        )
-      );
+        ),
+        // Anzeigenamen (Navigation/Login) mit dem Firmennamen synchron halten
+        fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: "system.firmenname", value: form["firma.name"] }),
+        }),
+      ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {

@@ -777,6 +777,8 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
+  const [appName, setAppName] = useState("AgrarOffice");
+  const [firmenname, setFirmenname] = useState("");
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");
 
@@ -786,6 +788,8 @@ export default function Nav() {
       .then((r) => r.json())
       .then((d) => {
         if (d["system.logo"]) setLogo(d["system.logo"]);
+        if (d["system.appname"]) setAppName(d["system.appname"]);
+        if (d["system.firmenname"]) setFirmenname(d["system.firmenname"]);
       })
       .catch(() => {});
   }, [hideNav]);
@@ -809,11 +813,13 @@ export default function Nav() {
         {/* Logo */}
         <div className="flex-shrink-0">
           {logo ? (
-            <img src={logo} alt="Logo" className="h-9 w-auto object-contain" />
+            <img src={logo} alt={appName} className="h-9 w-auto object-contain" />
           ) : (
             <span className="font-bold text-lg tracking-tight whitespace-nowrap leading-tight">
-              <span className="text-white">AgrarOffice</span>
-              <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">Röthemeier</span>
+              <span className="text-white">{appName}</span>
+              {firmenname && (
+                <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">{firmenname}</span>
+              )}
             </span>
           )}
         </div>

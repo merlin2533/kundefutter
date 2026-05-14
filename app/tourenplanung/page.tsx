@@ -296,7 +296,7 @@ export default function TourenplanungPage() {
     try {
       const q = encodeURIComponent(startOrt + ", Deutschland");
       const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=de`, {
-        headers: { "User-Agent": "AgrarOffice-Roethemeier/1.0" },
+        headers: { "User-Agent": "AgrarOffice/1.0" },
         signal: AbortSignal.timeout(8000),
       });
       const data = await res.json();

@@ -4,6 +4,7 @@ import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
+import { ladeFirmaDaten } from "@/lib/firma";
 export const dynamic = "force-dynamic";
 
 
@@ -44,6 +45,8 @@ export async function GET(req: NextRequest) {
   const heute = formatDatum(new Date());
   const datumFormatiert = formatDatum(new Date(datum));
 
+  const firma = await ladeFirmaDaten();
+
   const doc = new jsPDF({ orientation: "landscape" });
 
   // Header
@@ -57,7 +60,7 @@ export async function GET(req: NextRequest) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text("AgrarOffice Röthemeier", 14, 28);
+  if (firma.name) doc.text(firma.name, 14, 28);
   doc.text(`Gedruckt: ${heute}`, 14, 33);
   doc.setTextColor(0);
 
