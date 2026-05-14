@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import NotificationCenter from "./NotificationCenter";
+import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 
 interface NavGroup {
   label: string;
@@ -649,11 +650,14 @@ export default function Nav() {
           {logo ? (
             <img src={logo} alt={appName} className="h-9 w-auto object-contain" />
           ) : (
-            <span className="font-bold text-lg tracking-tight whitespace-nowrap leading-tight">
-              <span className="text-white">{appName}</span>
-              {firmenname && (
-                <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">{firmenname}</span>
-              )}
+            <span className="flex items-center gap-2 whitespace-nowrap leading-tight">
+              <img src={DEFAULT_LOGO_DATA_URI} alt="" className="h-9 w-9 object-contain" />
+              <span className="font-bold text-lg tracking-tight">
+                <span className="text-white">{appName}</span>
+                {firmenname && (
+                  <span className="text-green-300 text-xs font-normal ml-1.5 hidden sm:inline">{firmenname}</span>
+                )}
+              </span>
             </span>
           )}
         </div>

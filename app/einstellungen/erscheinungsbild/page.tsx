@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 
 function FirmenlogoEditor() {
   const [logo, setLogo] = useState<string | null>(null);
@@ -88,6 +89,7 @@ function FirmenlogoEditor() {
       <h2 className="text-lg font-semibold mb-1">Firmenlogo</h2>
       <p className="text-sm text-gray-500 mb-4">
         Wird im Header und als Favicon verwendet. Max. 2MB empfohlen (PNG, JPG, SVG, WebP).
+        Ohne eigenes Logo wird ein neutrales Standard-Logo angezeigt.
       </p>
 
       {error && (
@@ -97,18 +99,18 @@ function FirmenlogoEditor() {
         <p className="text-xs text-green-600 mb-3">&#10003; Gespeichert</p>
       )}
 
-      {(preview ?? logo) && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg inline-block">
-          <img
-            src={preview ?? logo ?? ""}
-            alt="Logo Vorschau"
-            className="h-16 w-auto object-contain"
-          />
-          {preview && (
-            <p className="text-xs text-blue-600 mt-1">Vorschau – noch nicht gespeichert</p>
-          )}
-        </div>
-      )}
+      <div className="mb-4 p-3 bg-gray-50 rounded-lg inline-block">
+        <img
+          src={preview ?? logo ?? DEFAULT_LOGO_DATA_URI}
+          alt="Logo Vorschau"
+          className="h-16 w-auto object-contain"
+        />
+        {preview ? (
+          <p className="text-xs text-blue-600 mt-1">Vorschau – noch nicht gespeichert</p>
+        ) : !logo ? (
+          <p className="text-xs text-gray-500 mt-1">Standard-Logo – kein eigenes Logo hochgeladen</p>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center">
         <input

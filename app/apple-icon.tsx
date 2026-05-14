@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -11,31 +12,14 @@ export default async function AppleIcon() {
     where: { key: "system.logo" },
   });
 
-  if (setting?.value && setting.value.startsWith("data:image")) {
-    return new ImageResponse(
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={setting.value} width={180} height={180} style={{ objectFit: "contain" }} alt="" />,
-      { ...size }
-    );
-  }
+  const src =
+    setting?.value && setting.value.startsWith("data:image")
+      ? setting.value
+      : DEFAULT_LOGO_DATA_URI;
 
   return new ImageResponse(
-    <div
-      style={{
-        width: 180,
-        height: 180,
-        background: "#16a34a",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: 30,
-        color: "white",
-        fontSize: 110,
-        fontWeight: "bold",
-      }}
-    >
-      A
-    </div>,
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} width={180} height={180} style={{ objectFit: "contain" }} alt="" />,
     { ...size }
   );
 }
