@@ -19,10 +19,13 @@ const groups: NavGroup[] = [
       { href: "/kunden/karte", label: "Karte" },
       { href: "/kundenimport", label: "Import" },
       { href: "/crm", label: "CRM / Aktivitäten" },
+      { href: "/ki/crm", label: "KI-CRM Notiz" },
+      { href: "/ki/sprache", label: "Sprachmemo → CRM" },
       { href: "/besuchstermine", label: "Besuchstermine" },
       { href: "/gebietsanalyse", label: "Gebietsanalyse" },
       { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
       { href: "/mailverteiler", label: "Mailverteiler" },
+      { href: "/kampagnen", label: "Kampagnen" },
       { href: "/kunden/bewertung", label: "Kundenbewertung" },
       { href: "/telefonmaske", label: "Telefonmaske" },
       { href: "/preisauskunft", label: "Preisauskunft" },
@@ -48,6 +51,7 @@ const groups: NavGroup[] = [
       { href: "/artikel", label: "Artikelstamm" },
       { href: "/lieferanten", label: "Lieferanten" },
       { href: "/lager", label: "Lager" },
+      { href: "/ki/wareneingang", label: "KI-Wareneingang" },
       { href: "/lager/umbuchungen", label: "Umbuchungen" },
       { href: "/lager/chargen/zertifikate", label: "Chargen-Zertifikate" },
       { href: "/lager/mhd", label: "MHD-Übersicht" },
@@ -61,22 +65,17 @@ const groups: NavGroup[] = [
     children: [
       { href: "/angebote", label: "Angebote" },
       { href: "/angebot-vorlagen", label: "Angebots-Vorlagen" },
+      { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)" },
+      { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln" },
       { href: "/aufgaben", label: "Aufgaben / TODO" },
       { href: "/lieferungen", label: "Lieferungen" },
+      { href: "/ki/lieferung", label: "KI-Lieferung" },
       { href: "/fahrer", label: "Fahrer-Cockpit" },
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
       { href: "/kontrakte", label: "Kontrakte" },
       { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
-    ],
-  },
-  {
-    label: "Aktionen & Kampagnen",
-    children: [
-      { href: "/kampagnen", label: "Kampagnen" },
-      { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)" },
-      { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln" },
     ],
   },
   {
@@ -106,16 +105,6 @@ const groups: NavGroup[] = [
       { href: "/audit", label: "Änderungshistorie" },
     ],
   },
-  {
-    label: "KI",
-    children: [
-      { href: "/ki/wareneingang", label: "KI-Wareneingang" },
-      { href: "/ki/lieferung", label: "KI-Lieferung" },
-      { href: "/ki/crm", label: "KI-CRM Notiz" },
-      { href: "/ki/sprache", label: "Sprachmemo → CRM" },
-    ],
-  },
-  { label: "Einstellungen", href: "/einstellungen" },
 ];
 
 // ---- PAGE TITLE MAP (for history) ----
@@ -236,12 +225,6 @@ function getResultSub(item: ResultItem): string {
   if (item.type === "lieferung") return `${item.data.status} · ${new Date(item.data.datum).toLocaleDateString("de-DE")}`;
   return `Angebot · ${item.data.status}`;
 }
-
-// ---- NOTIFICATION TYPES ----
-interface NotifAufgabe { id: number; betreff: string; faelligAm: string | null; kundeId: number | null; typ: string }
-interface NotifRechnung { id: number; rechnungNr: string | null; kundeName: string; ueberfaelligTage: number }
-interface NotifArtikel { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string; status: "rot" | "gelb" }
-interface Notifications { aufgaben: NotifAufgabe[]; rechnungen: NotifRechnung[]; lagerAlarm: NotifArtikel[] }
 
 // ---- HEADER SEARCH COMPONENT ----
 function HeaderSearch() {
@@ -425,160 +408,6 @@ function HeaderSearch() {
           })}
           <div className="px-3 py-2 border-t border-gray-100 text-center">
             <span className="text-xs text-gray-400">↑↓ Navigieren · Enter Öffnen · Esc Schließen</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---- NOTIFICATION BELL ----
-function NotificationBell() {
-  const [notifs, setNotifs] = useState<Notifications | null>(null);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const loadNotifs = useCallback(async () => {
-    try {
-      const heute = new Date();
-      heute.setHours(23, 59, 59, 999);
-      const [aufgabenRes, dashboardRes] = await Promise.all([
-        fetch(`/api/aufgaben?status=offen&faelligBis=${heute.toISOString()}`).then((r) => r.json()),
-        fetch("/api/dashboard").then((r) => r.json()),
-      ]);
-      const aufgaben: NotifAufgabe[] = (Array.isArray(aufgabenRes) ? aufgabenRes : []).slice(0, 5).map((a: Record<string, unknown>) => ({
-        id: a.id as number,
-        betreff: a.betreff as string,
-        faelligAm: a.faelligAm as string | null,
-        kundeId: a.kundeId as number | null,
-        typ: a.typ as string,
-      }));
-      const rechnungen: NotifRechnung[] = (dashboardRes.faelligeRechnungen ?? []).slice(0, 5);
-      const lagerAlarm: NotifArtikel[] = (dashboardRes.lagerKritisch ?? []).slice(0, 5);
-      setNotifs({ aufgaben, rechnungen, lagerAlarm });
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
-    loadNotifs();
-    const interval = setInterval(loadNotifs, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [loadNotifs]);
-
-  useEffect(() => {
-    function onDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, []);
-
-  const overdueRechnungen = notifs?.rechnungen.filter((r) => r.ueberfaelligTage > 0) ?? [];
-  const criticalLager = notifs?.lagerAlarm.filter((a) => a.status === "rot") ?? [];
-  const totalCount = (notifs?.aufgaben.length ?? 0) + overdueRechnungen.length + criticalLager.length;
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="relative p-2 rounded hover:bg-green-700 transition-colors text-white"
-        aria-label="Benachrichtigungen"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-        </svg>
-        {totalCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-            {totalCount > 99 ? "99+" : totalCount}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-80 max-h-[30rem] overflow-y-auto z-[90]">
-          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-800">Benachrichtigungen</h3>
-            {totalCount > 0 && (
-              <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium">{totalCount}</span>
-            )}
-          </div>
-
-          {!notifs && <p className="text-sm text-gray-500 text-center py-6">Wird geladen…</p>}
-          {notifs && totalCount === 0 && (
-            <p className="text-sm text-gray-500 text-center py-6">Keine Benachrichtigungen</p>
-          )}
-
-          {notifs && notifs.aufgaben.length > 0 && (
-            <section>
-              <div className="px-3 py-1.5 text-xs font-semibold text-orange-700 uppercase tracking-wide bg-orange-50 border-b border-orange-100">
-                Fällige Aufgaben ({notifs.aufgaben.length})
-              </div>
-              {notifs.aufgaben.map((a) => {
-                const isOverdue = a.faelligAm && new Date(a.faelligAm) < new Date();
-                return (
-                  <Link
-                    key={a.id}
-                    href={`/aufgaben/${a.id}`}
-                    onClick={() => setOpen(false)}
-                    className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                  >
-                    <span className="text-sm font-medium text-gray-800 leading-tight">{a.betreff}</span>
-                    <span className={`text-xs mt-0.5 ${isOverdue ? "text-red-600" : "text-orange-600"}`}>
-                      {isOverdue ? "Überfällig" : "Heute fällig"}
-                      {a.faelligAm && ` · ${new Date(a.faelligAm).toLocaleDateString("de-DE")}`}
-                    </span>
-                  </Link>
-                );
-              })}
-            </section>
-          )}
-
-          {notifs && overdueRechnungen.length > 0 && (
-            <section>
-              <div className="px-3 py-1.5 text-xs font-semibold text-red-700 uppercase tracking-wide bg-red-50 border-b border-red-100">
-                Überfällige Rechnungen ({overdueRechnungen.length})
-              </div>
-              {overdueRechnungen.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/lieferungen/${r.id}`}
-                  onClick={() => setOpen(false)}
-                  className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                >
-                  <span className="text-sm font-medium text-gray-800 leading-tight">{r.kundeName}</span>
-                  <span className="text-xs text-red-600 mt-0.5">
-                    {r.rechnungNr && `${r.rechnungNr} · `}{r.ueberfaelligTage} Tage überfällig
-                  </span>
-                </Link>
-              ))}
-            </section>
-          )}
-
-          {notifs && criticalLager.length > 0 && (
-            <section>
-              <div className="px-3 py-1.5 text-xs font-semibold text-red-700 uppercase tracking-wide bg-red-50 border-b border-red-100">
-                Lagerbestand kritisch ({criticalLager.length})
-              </div>
-              {criticalLager.map((a) => (
-                <Link
-                  key={a.id}
-                  href={`/artikel/${a.id}`}
-                  onClick={() => setOpen(false)}
-                  className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
-                >
-                  <span className="text-sm font-medium text-gray-800 leading-tight">{a.name}</span>
-                  <span className="text-xs text-red-600 mt-0.5">
-                    Bestand: {a.aktuellerBestand} {a.einheit} (Min: {a.mindestbestand})
-                  </span>
-                </Link>
-              ))}
-            </section>
-          )}
-
-          <div className="px-3 py-2 border-t border-gray-100">
-            <Link href="/aufgaben" onClick={() => setOpen(false)} className="block text-center text-xs text-green-700 hover:text-green-800 hover:underline">
-              Alle Aufgaben anzeigen →
-            </Link>
           </div>
         </div>
       )}
@@ -860,19 +689,32 @@ export default function Nav() {
           </Link>
         </nav>
 
-        {/* Right side actions: search + bell + system alerts + history + user */}
+        {/* Right side actions: search + notifications + history + settings + user */}
         <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">
           <HeaderSearch />
-          <NotificationBell />
           <NotificationCenter />
           <RecentPages />
+          <Link
+            href="/einstellungen"
+            title="Einstellungen"
+            aria-label="Einstellungen"
+            className={`p-2 rounded transition-colors ${
+              pathname === "/einstellungen" || pathname.startsWith("/einstellungen/")
+                ? "bg-white text-green-800"
+                : "hover:bg-green-700 text-white"
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </Link>
           <UserMenu />
         </div>
 
         {/* Mobile right side */}
         <div className="md:hidden flex items-center gap-1 ml-auto">
           <HeaderSearch />
-          <NotificationBell />
           <NotificationCenter />
           <RecentPages />
           <UserMenu />
@@ -943,6 +785,21 @@ export default function Nav() {
             )
           )}
           <div className="border-t border-green-700 mt-1 pt-1">
+            <Link
+              href="/einstellungen"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
+                pathname === "/einstellungen" || pathname.startsWith("/einstellungen/")
+                  ? "bg-white text-green-800"
+                  : "hover:bg-green-700 text-white"
+              }`}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Einstellungen
+            </Link>
             <Link
               href="/hilfe"
               onClick={() => setOpen(false)}
