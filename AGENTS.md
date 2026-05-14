@@ -126,6 +126,8 @@ SortenversuchPosition — Sorte mit Ertrag/Feuchte/Protein/hl-Gew/Bonitur
 Vorbestellung       — Saison-/Frühbezugsbestellungen (nummer VB-YYYY-NNNN, status OFFEN/BESTAETIGT/UMGEWANDELT/STORNIERT)
 VorbestellungPosition — Position mit Mengen, Frühbezugspreis, Lagerreservierung
 FruehbezugsStaffel  — Rabattregeln (saison, kategorie?, artikelId?, bestellfrist, rabattProzent)
+KundeTier           — Tier/Tiergruppe je Kunde (tierart, nutzungsart, anzahl, gewicht, leistung) — Basis Rationsberechnung
+Rationsberechnung   — gespeicherte Futterration (tierart, nutzungsart, modus, kundeId?/kundeTierId? optional, parameter JSON-Snapshot)
 Aufgabe             — TODO/Wiedervorlage (betreff, faelligAm, erledigt, prioritaet, typ, kundeId?)
 ```
 
@@ -166,7 +168,8 @@ app/
 │   └── [id]/page.tsx           Kundendetail
 │       TABS: Stammdaten | Kontakte | Bedarfe | Sonderpreise |
 │             Statistik | Lieferhistorie | CRM | Notizen | Agrarantrag |
-│             Schlagkartei | Angebote | Aufgaben
+│             Schlagkartei | Tiere | Angebote | Aufgaben
+│       Tiere-Tab: Tierbestand erfassen + "Ration berechnen" → /rationsberechnung
 │       Schnellübersicht-Strip: Kontakt, Adresse, Offener Betrag, Letzte Lieferung,
 │             Schnellaktionen (inkl. Rückruf planen)
 │   └── [id]/mappe/page.tsx     Kundenmappe HTML-Druck
@@ -203,6 +206,7 @@ app/
 │   ├── page.tsx                Vorbestellungen (Frühbezug) Liste
 │   ├── neu/page.tsx            Frühbezugs-Staffel-Auto-Vorschlag
 │   └── [id]/page.tsx           Detail + "→ Lieferung umwandeln"
+├── rationsberechnung/page.tsx  Futterration berechnen (Modus einfach/detailliert, XLS-Export)
 ├── artikel/
 │   ├── page.tsx                Artikelliste (Kategorie-Filter, Bulk-Delete, Pagination)
 │   ├── neu/page.tsx
@@ -403,6 +407,12 @@ app/
 -- HIT/VVVO --
 /api/vvvo                       GET?nr= / POST{nr} — Format-Validierung der Betriebsnummer
 
+-- Rationsberechnung / Tierhaltung --
+/api/kunden/[id]/tiere          GET, POST, PUT?tierId=, DELETE?tierId= (Tierbestand je Kunde)
+/api/rationsberechnung          GET(?meta=1 | ?kundeId | ?kundeTierId), POST({...,speichern?}), DELETE?id=
+/api/rationsberechnung/export   GET?id= (gespeichert) | POST{ergebnis,eingabe} — XLS-Download
+/api/futterwerte                GET (Standardtabelle + custom), PUT({custom[]}) — Einstellung-Key futterwerte.custom
+
 -- Besuchstermine --
 /api/besuchstermine             GET, POST
 
@@ -575,6 +585,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Artikelkategorien | /einstellungen/artikelkategorien | Kategorien verwalten |
 | Import | /einstellungen/import | Kunden-Import + Preislisten-Import Konfiguration |
 | Frühbezug | /einstellungen/fruehbezug | Saison-Rabattstaffeln für Vorbestellungen |
+| Futterwerte | /einstellungen/futterwerte | Eigene Futtermittel für die Rationsberechnung pflegen |
 
 ---
 
@@ -736,12 +747,41 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
 | `lib/zugferd-xml.ts` | Factur-X / ZUGFeRD BASIC-WL XML-Generator (kein externe Dep.) |
 | `lib/duengebedarf.ts` | DüV Anlage 4 Tabellenwerte (N/P/K/Mg) + Berechnung mit Vorfrucht-/Nmin-/Zwischenfrucht-Abzug + automatische Versorgungsklassen aus Bodenprobe (VDLUFA-Grenzwerte) |
 | `lib/vvvo.ts` | VVVO/HIT-Betriebsnummer Format-Validierung (12-stellig, Bundesland-Map 01–16) |
+| `lib/futterwerte.ts` | Futterwerttabelle (~45 Futtermittel, LfL-/DLG-orientiert, Werte je kg TM: ME/NEL, XP/nXP/DP, XF/aNDFom, Lysin/Methionin, Ca/P/Mg/Na) |
+| `lib/tierbedarf.ts` | Ernährungs-Zielwerte je Tierart + Nutzungsart (Rind/Schwein/Geflügel/Pferd/Schaf/Ziege); `berechneTierbedarf()` + `NUTZUNGSARTEN` |
+| `lib/rationsberechnung.ts` | Reiner Rationsrechenkern: Aufnahme vs. Bedarf → Bilanz, Ca:P-Verhältnis, limitierende Aminosäuren, Magnesium, RNB (Wiederkäuer), simple/detail-Modus mit GF/AF/LF-Stufen |
 
 ## Wettbewerber-Notizen
 
 Werden als `KundeNotiz` mit `thema: "Wettbewerber"` gespeichert.
 - API: bestehende `/api/kunden/[id]/notizen` (kein Schema-Change nötig)
 - Anzeige im StammdatenTab unter "Wettbewerber-Info"
+
+## Rationsberechnung (Futterration)
+
+Aufbau angelehnt an die LfL-Rationsrechner (Pferd, Milchvieh, wachsende Rinder),
+erweitert auf Schwein, Geflügel, Schaf, Ziege.
+
+- **Tierarten** (`lib/tierbedarf.ts` `NUTZUNGSARTEN`): Rind, Schwein, Geflugel, Pferd, Schaf, Ziege —
+  je Tierart mehrere Nutzungsarten (z.B. Milchkuh laktierend/trockenstehend, Zuchtsau tragend/laktierend,
+  Mastschwein Anfangs-/Endmast, Pferd Warmblut/Vollblut/Pony + Arbeitsstufen).
+- **Modell:** Eine Ration ist eine Liste von Futterpositionen. Je Position: Frischmasse-kg +
+  Nähr-/Mineralstoffwerte je kg TM. Rechenkern (`lib/rationsberechnung.ts`): TM-kg = FM × TM-Gehalt/1000,
+  Nährstoff-Beitrag = TM-kg × Wert je kg TM; Summe → Vergleich mit `berechneTierbedarf()` → Bilanz.
+- **Qualitätsindikatoren:** Ca:P-Verhältnis (tierartspezifischer Sollbereich), limitierende Aminosäuren
+  (Lysin, Methionin — v.a. Schwein/Geflügel), Magnesium-Bilanz, RNB für Wiederkäuer ((XP−nXP)/6,25),
+  Rohfaser-/aNDFom-Anteil der TM.
+- **3 Futterwert-Quellen** (Auflösung in `/api/rationsberechnung` POST):
+  `standard` = `lib/futterwerte.ts` + Custom aus `Einstellung[futterwerte.custom]`,
+  `artikel` = `Artikel.inhaltsstoffe` (toleranter Namens-Alias → NaehrstoffWerte, Einheiten-Normalisierung),
+  `manuell` = Werte direkt aus dem Formular.
+- **Modus:** `simple` (eine Ration → Bilanz) und `detail` (zusätzlich Stufen-Zwischensummen
+  Grundfutter/Ausgleichsfutter/Leistungsfutter über `position.stufe` GF/AF/LF).
+- **Speichern:** `Rationsberechnung` mit vollständigem JSON-Snapshot in `parameter`; `kundeId` und
+  `kundeTierId` optional → frei rechenbar oder an hinterlegtes `KundeTier` gebunden.
+- **XLS-Export:** `/api/rationsberechnung/export` (Sheets Ration/Bilanz/Rechenweg) via `xlsx`-Paket.
+- **Hinweiswert-Charakter:** Bedarfswerte sind GfE-/LfL-orientierte Orientierungswerte — wie bei
+  `duengebedarf` werden Hinweise/Disclaimer mitgeführt.
 
 ## Mobile-Responsive-Muster
 
