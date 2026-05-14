@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import { downloadCSV } from "@/lib/csv";
 
 interface GruppenRow {
   label: string;
@@ -154,10 +155,28 @@ export default function StatistikReklamationenPage() {
           <span>›</span>
           <span className="text-gray-800 font-medium">Reklamationen</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Reklamations-Auswertung</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Aufschlüsselung der Reklamationen nach Kategorie, Status und Priorität im gewählten Zeitraum.
-        </p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Reklamations-Auswertung</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Aufschlüsselung der Reklamationen nach Kategorie, Status und Priorität im gewählten Zeitraum.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              data &&
+              downloadCSV(
+                "statistik-reklamationen",
+                ["Kategorie", "Anzahl"],
+                data.nachKategorie.map((r) => [r.label, r.anzahl])
+              )
+            }
+            disabled={!data}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            CSV-Export
+          </button>
+        </div>
       </div>
 
       <ZeitraumFilter

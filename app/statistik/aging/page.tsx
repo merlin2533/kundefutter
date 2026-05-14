@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { downloadCSV } from "@/lib/csv";
 import { formatEuro } from "@/lib/utils";
 
 interface BucketRow {
@@ -85,12 +86,33 @@ export default function AgingPage() {
               Stichtagsbezogen — zeigt alle offenen, unbezahlten Rechnungen zum heutigen Tag.
             </p>
           </div>
-          <Link
-            href="/mahnwesen"
-            className="text-sm px-3 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
-          >
-            Zum Mahnwesen →
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                data &&
+                downloadCSV(
+                  "aging",
+                  ["Kunde", "Firma", "Offen (EUR)", "Älteste Überfälligkeit (Tage)"],
+                  data.kunden.map((k) => [
+                    k.name,
+                    k.firma ?? "",
+                    k.offen,
+                    k.aeltesteTage,
+                  ])
+                )
+              }
+              disabled={!data}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              CSV-Export
+            </button>
+            <Link
+              href="/mahnwesen"
+              className="text-sm px-3 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+            >
+              Zum Mahnwesen →
+            </Link>
+          </div>
         </div>
       </div>
 

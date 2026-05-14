@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import { downloadCSV } from "@/lib/csv";
 
 interface KategorieRow {
   kategorie: string;
@@ -84,10 +85,33 @@ export default function StatistikAusgabenPage() {
           <span>›</span>
           <span className="text-gray-800 font-medium">Ausgaben</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Ausgaben-Auswertung</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Betriebsausgaben nach Kategorie und Monat im gewählten Zeitraum.
-        </p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Ausgaben-Auswertung</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Betriebsausgaben nach Kategorie und Monat im gewählten Zeitraum.
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              data &&
+              downloadCSV(
+                "statistik-ausgaben",
+                ["Kategorie", "Netto (EUR)", "Brutto (EUR)", "Anteil (%)"],
+                data.nachKategorie.map((k) => [
+                  k.kategorie,
+                  k.netto,
+                  k.brutto,
+                  k.anteilProzent,
+                ])
+              )
+            }
+            disabled={!data}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            CSV-Export
+          </button>
+        </div>
       </div>
 
       {/* Filter */}
