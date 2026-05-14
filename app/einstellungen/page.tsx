@@ -174,6 +174,12 @@ export default function EinstellungenPage() {
           title="Frühbezugs-Staffeln"
           description="Saison-Rabatte für Vorbestellungen pflegen (z.B. -3% bis 31.07.)"
         />
+        <EinstellungTile
+          href="/einstellungen/futterwerte"
+          icon="🌾"
+          title="Futterwerte"
+          description="Eigene Futtermittel für die Rationsberechnung anlegen und pflegen"
+        />
       </div>
     </div>
   );

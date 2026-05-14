@@ -12,7 +12,14 @@ const ToastContext = createContext<{
   showToast: (message: string, type: "success" | "error") => void;
 }>({ showToast: () => {} });
 
-export function useToast() { return useContext(ToastContext); }
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  return {
+    showToast: ctx.showToast,
+    success: (message: string) => ctx.showToast(message, "success"),
+    error: (message: string) => ctx.showToast(message, "error"),
+  };
+}
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);

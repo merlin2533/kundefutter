@@ -32,6 +32,7 @@ const groups: NavGroup[] = [
       { href: "/bodenproben", label: "Bodenproben" },
       { href: "/duengebedarf", label: "Düngebedarfsermittlung" },
       { href: "/sortenversuche", label: "Sortenversuche" },
+      { href: "/rationsberechnung", label: "Rationsberechnung" },
     ],
   },
   {
@@ -149,6 +150,8 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/sortenversuche": "Sortenversuche",
   "/vorbestellungen": "Vorbestellungen",
   "/einstellungen/fruehbezug": "Frühbezugs-Staffeln",
+  "/rationsberechnung": "Rationsberechnung",
+  "/einstellungen/futterwerte": "Futterwerte",
 };
 
 function getPageTitle(pathname: string): string {
