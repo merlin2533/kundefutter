@@ -211,10 +211,7 @@ function BalkenChart({ data }: { data: UmsatzMonat[] }) {
                 fill="#16a34a"
                 rx={3}
                 className="cursor-pointer hover:fill-green-500 transition-colors"
-                onMouseEnter={(e) => {
-                  const svgRect = (e.target as SVGElement)
-                    .closest("svg")!
-                    .getBoundingClientRect();
+                onMouseEnter={() => {
                   setTooltip({
                     x: cx,
                     y: y - 8,

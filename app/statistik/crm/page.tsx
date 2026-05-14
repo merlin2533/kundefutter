@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import { downloadCSV } from "@/lib/csv";
 
 interface TypRow {
   typ: string;
@@ -79,8 +80,26 @@ export default function StatistikCrmPage() {
           <span>›</span>
           <span className="text-gray-800 font-medium">CRM-Aktivität</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">CRM-Aktivität</h1>
-        <p className="text-sm text-gray-500 mt-1">Aktivitäten nach Typ und Monat im gewählten Zeitraum.</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">CRM-Aktivität</h1>
+            <p className="text-sm text-gray-500 mt-1">Aktivitäten nach Typ und Monat im gewählten Zeitraum.</p>
+          </div>
+          <button
+            onClick={() =>
+              data &&
+              downloadCSV(
+                "statistik-crm",
+                ["Typ", "Anzahl"],
+                nachTyp.map((t) => [TYP_LABEL[t.typ] ?? t.typ, t.anzahl])
+              )
+            }
+            disabled={!data}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            CSV-Export
+          </button>
+        </div>
       </div>
 
       <ZeitraumFilter

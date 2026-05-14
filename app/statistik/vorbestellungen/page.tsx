@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatPercent } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import { downloadCSV } from "@/lib/csv";
 
 interface StatusRow {
   status: string;
@@ -78,8 +79,26 @@ export default function StatistikVorbestellungenPage() {
           <span>›</span>
           <span className="text-gray-800 font-medium">Vorbestellungen</span>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Vorbestellungen / Frühbezug</h1>
-        <p className="text-sm text-gray-500 mt-1">Auswertung der Saison-Vorbestellungen nach Status und Saison.</p>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Vorbestellungen / Frühbezug</h1>
+            <p className="text-sm text-gray-500 mt-1">Auswertung der Saison-Vorbestellungen nach Status und Saison.</p>
+          </div>
+          <button
+            onClick={() =>
+              data &&
+              downloadCSV(
+                "statistik-vorbestellungen",
+                ["Saison", "Anzahl", "Wert (EUR)"],
+                nachSaison.map((r) => [r.saison, r.anzahl, r.wert])
+              )
+            }
+            disabled={!data}
+            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            CSV-Export
+          </button>
+        </div>
       </div>
 
       <ZeitraumFilter
