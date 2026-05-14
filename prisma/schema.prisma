@@ -55,6 +55,8 @@ model Kunde {
   sachkundenachweise   Sachkundenachweis[]
   sortenversuche       Sortenversuch[]
   vorbestellungen      Vorbestellung[]
+  tiere                KundeTier[]
+  rationsberechnungen  Rationsberechnung[]
 
   // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
   vvvoNr               String?   // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
@@ -1274,4 +1276,55 @@ model FruehbezugsStaffel {
   @@index([saison])
   @@index([bestellfrist])
   @@index([aktiv])
+}
+
+// ─── TIERHALTUNG / RATIONSBERECHNUNG ──────────────────────────────────────────
+
+/// Tier/Tiergruppe (Herde) je Kunde — Basis für die Rationsberechnung.
+model KundeTier {
+  id            Int      @id @default(autoincrement())
+  kundeId       Int
+  name          String                       // z.B. "Milchkuhherde Stall 1", "Wallach Falko"
+  tierart       String                       // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
+  nutzungsart   String                       // z.B. "Milchkuh laktierend", "Mastschwein Endmast", "Pferd Warmblut leichte Arbeit"
+  rasse         String?
+  anzahl        Int      @default(1)          // Tierzahl in der Gruppe
+  gewicht       Float?                        // durchschnittl. Lebendgewicht kg
+  leistung      Float?                        // Leistung: Milch kg/Tag | tgl. Zunahme g | Eier/Tag | …
+  leistungEinheit String?                     // "kg Milch/Tag" | "g Zunahme/Tag" | …
+  laktationstag Int?                          // optional bei Milchvieh
+  notiz         String?
+  erstellt      DateTime @default(now())
+  aktualisiert  DateTime @updatedAt
+
+  kunde               Kunde               @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  rationsberechnungen Rationsberechnung[]
+
+  @@index([kundeId])
+  @@index([tierart])
+}
+
+/// Gespeicherte Rationsberechnung. Positionen + Ergebnis + Rechenweg als JSON-Snapshot in `parameter`.
+model Rationsberechnung {
+  id           Int      @id @default(autoincrement())
+  bezeichnung  String
+  tierart      String                        // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
+  nutzungsart  String
+  modus        String   @default("simple")   // simple | detail
+  kundeId      Int?                           // frei rechenbar → optional
+  kundeTierId  Int?                           // an hinterlegtes Tier gebunden → optional
+  gewicht      Float?
+  leistung     Float?
+  parameter    String                         // JSON: { eingaben, positionen[], bedarf, summe, bilanz, rechenweg, hinweise }
+  notiz        String?
+  erstellt     DateTime @default(now())
+  aktualisiert DateTime @updatedAt
+
+  kunde     Kunde?     @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+  kundeTier KundeTier? @relation(fields: [kundeTierId], references: [id], onDelete: SetNull)
+
+  @@index([kundeId])
+  @@index([kundeTierId])
+  @@index([tierart])
+  @@index([erstellt])
 }
