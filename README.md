@@ -1,4 +1,4 @@
-# AgrarOffice Röthemeier
+# AgrarOffice
 
 Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Dünger, Saatgut, Analysen).
 
@@ -8,7 +8,7 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
  | | | |/ _` | '__/ _` | '__| | | |_| |_| |/ __/ _ \
  | |_| | (_| | | | (_| | |  | |_|  _|  _| | (_|  __/
   \___/ \__,_|_|  \__,_|_|   \___/_| |_| |_|\___\___|
-        Röthemeier  -  Landhandel Management
+        Landhandel Management
 ```
 
 ---

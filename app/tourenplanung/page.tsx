@@ -5,6 +5,7 @@ import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import type { WetterTag } from "@/lib/weather";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo";
 
 interface Kontakt { typ: string; wert: string; }
 interface Artikel { id: number; name: string; einheit: string; standardpreis: number; einkaufspreis?: number; }
@@ -296,7 +297,7 @@ export default function TourenplanungPage() {
     try {
       const q = encodeURIComponent(startOrt + ", Deutschland");
       const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=de`, {
-        headers: { "User-Agent": "AgrarOffice/1.0" },
+        headers: { "User-Agent": `${DEFAULT_APP_NAME}/1.0` },
         signal: AbortSignal.timeout(8000),
       });
       const data = await res.json();

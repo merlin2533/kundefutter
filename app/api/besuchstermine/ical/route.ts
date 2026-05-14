@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAppName } from "@/lib/appinfo";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ export async function GET(_req: NextRequest) {
   const now = new Date();
 
   try {
+    const appName = await getAppName();
+    const slug = appName.toLowerCase().replace(/\s+/g, "") || "agraroffice";
+
     const termine = await prisma.kundeAktivitaet.findMany({
       where: {
         typ: "besuch",
@@ -45,7 +49,7 @@ export async function GET(_req: NextRequest) {
 
       return [
         "BEGIN:VEVENT",
-        `UID:besuch-${t.id}@agraroffice`,
+        `UID:besuch-${t.id}@${slug}`,
         `DTSTAMP:${formatIcalDate(new Date())}`,
         `DTSTART:${formatIcalDate(start)}`,
         `DTEND:${formatIcalDate(end)}`,
@@ -61,10 +65,10 @@ export async function GET(_req: NextRequest) {
     const ical = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
-      "PRODID:-//AgrarOffice//Besuchstermine//DE",
+      `PRODID:-//${appName}//Besuchstermine//DE`,
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
-      "X-WR-CALNAME:AgrarOffice Besuchstermine",
+      `X-WR-CALNAME:${appName} Besuchstermine`,
       "X-WR-TIMEZONE:Europe/Berlin",
       ...events,
       "END:VCALENDAR",

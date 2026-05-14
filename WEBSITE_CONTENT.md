@@ -1,6 +1,6 @@
 # AgrarOffice – Website-Inhalt
 
-Dieses Dokument enthält den strukturierten Inhalt für die Produktwebsite von AgrarOffice Röthemeier.
+Dieses Dokument enthält den strukturierten Inhalt für die Produktwebsite von AgrarOffice.
 
 ---
 
@@ -162,4 +162,4 @@ Ja. Artikel und Kunden können per Excel/CSV importiert werden. Beim Artikelimpo
 
 ## Kontakt / Impressum
 
-*(Hier Kontaktdaten von Röthemeier eintragen)*
+*(Hier Kontaktdaten eintragen)*

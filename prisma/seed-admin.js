@@ -12,12 +12,13 @@ const adapter = new PrismaLibSql({ url: libsqlUrl });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const adminPw = process.env.ADMIN_PASSWORD || "changeme";
   const vorhanden = await prisma.benutzer.findUnique({ where: { benutzername: "admin" } });
   if (vorhanden) {
     console.log("Admin-Benutzer existiert bereits – überspringe");
     return;
   }
-  const hash = await bcrypt.hash("MarkusStraub", 10);
+  const hash = await bcrypt.hash(adminPw, 10);
   await prisma.benutzer.create({
     data: {
       benutzername: "admin",
@@ -26,7 +27,7 @@ async function main() {
       rolle: "admin",
     },
   });
-  console.log("Admin-Benutzer angelegt (admin / MarkusStraub)");
+  console.log(`Admin-Benutzer angelegt (admin / ${process.env.ADMIN_PASSWORD ? "***" : "changeme"})`);
 }
 
 main()
