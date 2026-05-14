@@ -51,12 +51,38 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: "Finanzen & Planung",
-    description: "Ergebnis, Deckungsbeitrag und Vorausschau.",
+    title: "Vertrieb & CRM",
+    description: "Angebote, Aktivitäten und Saison-Vorbestellungen.",
+    tiles: [
+      { href: "/statistik/angebote", icon: "📝", title: "Angebots-Conversion", description: "Annahmequote, Ø-Angebotswert und Status-Verteilung der Angebote" },
+      { href: "/statistik/crm", icon: "📞", title: "CRM-Aktivität", description: "Aktivitäten nach Typ & Monat, offene Aufgaben und Wiedervorlagen" },
+      { href: "/statistik/vorbestellungen", icon: "⏱", title: "Vorbestellungen", description: "Frühbezug nach Saison & Status, Umwandlungsquote" },
+    ],
+  },
+  {
+    title: "Finanzen",
+    description: "Ergebnis, Forderungen und Ausgaben.",
     tiles: [
       { href: "/statistik/deckungsbeitrag", icon: "💶", title: "Deckungsbeitrag", description: "Deckungsbeitrags-Analyse nach Kunde und Artikel" },
+      { href: "/statistik/aging", icon: "⏳", title: "Offene-Posten-Aging", description: "Forderungen nach Überfälligkeit gestaffelt (Stichtag)" },
+      { href: "/statistik/ausgaben", icon: "🧾", title: "Ausgaben-Auswertung", description: "Betriebsausgaben nach Kategorie und Monat" },
       { href: "/statistik/budget", icon: "🎯", title: "Budgetplanung", description: "Umsatzziele setzen und Soll/Ist-Vergleich je Monat und Kategorie" },
       { href: "/finanzen/cashflow", icon: "💸", title: "Cashflow", description: "Liquiditätsentwicklung aus Ein- und Ausgaben" },
+    ],
+  },
+  {
+    title: "Einkauf, Lager & Qualität",
+    description: "Lieferanten, Bestände und Reklamationen.",
+    tiles: [
+      { href: "/statistik/lieferanten", icon: "🚚", title: "Lieferanten / Einkauf", description: "Einkaufsvolumen je Lieferant, offene Eingangsrechnungen" },
+      { href: "/statistik/lager", icon: "🏭", title: "Lager-Auswertung", description: "Lagerwert, Artikel unter Mindestbestand, Lagerbewegungen" },
+      { href: "/statistik/reklamationen", icon: "⚠️", title: "Reklamationen", description: "Reklamationen nach Kategorie, Status und Priorität" },
+    ],
+  },
+  {
+    title: "Planung & Markt",
+    description: "Vorausschau und externe Preisdaten.",
+    tiles: [
       { href: "/prognose", icon: "🔮", title: "Prognose", description: "Bedarfs- und Absatzprognose je Kunde/Artikel" },
       { href: "/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Preisindizes und MATIF-Futures" },
     ],
