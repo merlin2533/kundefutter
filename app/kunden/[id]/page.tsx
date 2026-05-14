@@ -20,6 +20,7 @@ const CrmTab = nextDynamic(() => import("./tabs/CrmTab"), { loading: tabLoading 
 const NotizenTab = nextDynamic(() => import("./tabs/NotizenTab"), { loading: tabLoading });
 const AgrarantragTab = nextDynamic(() => import("./tabs/AgrarantragTab"), { loading: tabLoading });
 const SchlagkarteiTab = nextDynamic(() => import("./tabs/SchlagkarteiTab"), { loading: tabLoading });
+const DuengebedarfTab = nextDynamic(() => import("./tabs/DuengebedarfTab"), { loading: tabLoading });
 const TiereTab = nextDynamic(() => import("./tabs/TiereTab"), { loading: tabLoading });
 const AngeboteTab = nextDynamic(() => import("./tabs/AngeboteTab"), { loading: tabLoading });
 const AufgabenTab = nextDynamic(() => import("./tabs/AufgabenTab"), { loading: tabLoading });
@@ -325,6 +326,7 @@ export default function KundeDetailPage() {
         {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} lat={kunde.lat} lng={kunde.lng} />}
+        {activeTab === "Düngebedarf" && <DuengebedarfTab kundeId={kunde.id} />}
         {activeTab === "Tiere" && <TiereTab kundeId={kunde.id} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}

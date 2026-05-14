@@ -116,7 +116,7 @@ export interface KundeSchlag {
 
 export const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
 
-export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Reklamationen", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Tiere", "Agrarantrag", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
+export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Reklamationen", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Düngebedarf", "Tiere", "Agrarantrag", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
 export type Tab = (typeof TABS)[number];
 
 export const inputClsSchlag =
