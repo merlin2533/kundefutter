@@ -20,6 +20,8 @@
  *   20260512040000_skonto_teilzahlung_vorlagen_chargen_ghs
  *   20260512050000_add_performance_indexes
  *   20260512060000_fix_fts5_triggers
+ *   20260513000000_congruence_features
+ *   20260514000000_rationsberechnung
  */
 
 const { createClient } = require("@libsql/client");
@@ -567,6 +569,191 @@ async function main() {
     log(`✓ ${MIG13} applied`);
   } else {
     log(`skip ${MIG13} (already applied)`);
+  }
+
+  // ── Migration 14: 20260513000000_congruence_features ──────────────────────
+  // Bodenproben, Düngebedarf, Sachkundenachweise, Sortenversuche,
+  // Vorbestellungen + Frühbezugsstaffel, Kunde.vvvoNr.
+  // Nicht idempotent (kein IF NOT EXISTS) → hier abgesichert, sonst bricht
+  // `prisma migrate deploy` ab und z. B. /api/sortenversuche liefert 500.
+  const MIG14 = "20260513000000_congruence_features";
+  if (!(await migrationApplied(client, MIG14))) {
+    await addColumnIfMissing(client, "Kunde", "vvvoNr", "TEXT");
+
+    await createTableIfMissing(client, "Bodenprobe", `CREATE TABLE "Bodenprobe" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "schlagId" INTEGER NOT NULL,
+      "datum" DATETIME NOT NULL,
+      "probenNr" TEXT, "labor" TEXT, "tiefe" TEXT,
+      "pH" REAL, "phosphor" REAL, "kalium" REAL, "magnesium" REAL,
+      "bor" REAL, "humus" REAL, "nMin" REAL, "cn" REAL,
+      "bodenart" TEXT, "klasse" TEXT, "notiz" TEXT,
+      "belegPfad" TEXT, "belegName" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Bodenprobe_schlagId_fkey" FOREIGN KEY ("schlagId") REFERENCES "KundeSchlag" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Bodenprobe_schlagId_idx", `CREATE INDEX "Bodenprobe_schlagId_idx" ON "Bodenprobe"("schlagId")`);
+    await createIndexIfMissing(client, "Bodenprobe_datum_idx", `CREATE INDEX "Bodenprobe_datum_idx" ON "Bodenprobe"("datum")`);
+
+    await createTableIfMissing(client, "Duengebedarf", `CREATE TABLE "Duengebedarf" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "schlagId" INTEGER NOT NULL,
+      "jahr" INTEGER NOT NULL,
+      "fruchtart" TEXT NOT NULL,
+      "ertragsZiel" REAL, "vorfrucht" TEXT, "bodenprobeId" INTEGER,
+      "nBedarf" REAL NOT NULL, "pBedarf" REAL NOT NULL, "kBedarf" REAL NOT NULL, "mgBedarf" REAL,
+      "parameter" TEXT, "notiz" TEXT,
+      "berechnetAm" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "Duengebedarf_schlagId_fkey" FOREIGN KEY ("schlagId") REFERENCES "KundeSchlag" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "Duengebedarf_bodenprobeId_fkey" FOREIGN KEY ("bodenprobeId") REFERENCES "Bodenprobe" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Duengebedarf_schlagId_idx", `CREATE INDEX "Duengebedarf_schlagId_idx" ON "Duengebedarf"("schlagId")`);
+    await createIndexIfMissing(client, "Duengebedarf_jahr_idx", `CREATE INDEX "Duengebedarf_jahr_idx" ON "Duengebedarf"("jahr")`);
+
+    await createTableIfMissing(client, "Sachkundenachweis", `CREATE TABLE "Sachkundenachweis" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "kundeId" INTEGER NOT NULL,
+      "typ" TEXT NOT NULL,
+      "nummer" TEXT, "ausstellung" DATETIME, "gueltigBis" DATETIME,
+      "ausgestelltVon" TEXT, "notiz" TEXT, "belegPfad" TEXT, "belegName" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "Sachkundenachweis_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Sachkundenachweis_kundeId_idx", `CREATE INDEX "Sachkundenachweis_kundeId_idx" ON "Sachkundenachweis"("kundeId")`);
+    await createIndexIfMissing(client, "Sachkundenachweis_gueltigBis_idx", `CREATE INDEX "Sachkundenachweis_gueltigBis_idx" ON "Sachkundenachweis"("gueltigBis")`);
+    await createIndexIfMissing(client, "Sachkundenachweis_typ_idx", `CREATE INDEX "Sachkundenachweis_typ_idx" ON "Sachkundenachweis"("typ")`);
+
+    await createTableIfMissing(client, "Sortenversuch", `CREATE TABLE "Sortenversuch" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "name" TEXT NOT NULL,
+      "jahr" INTEGER NOT NULL,
+      "kultur" TEXT NOT NULL,
+      "standort" TEXT, "kundeId" INTEGER, "schlagId" INTEGER, "flaeche" REAL,
+      "status" TEXT NOT NULL DEFAULT 'LAUFEND',
+      "startDatum" DATETIME, "endeDatum" DATETIME, "notiz" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "Sortenversuch_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+      CONSTRAINT "Sortenversuch_schlagId_fkey" FOREIGN KEY ("schlagId") REFERENCES "KundeSchlag" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Sortenversuch_jahr_idx", `CREATE INDEX "Sortenversuch_jahr_idx" ON "Sortenversuch"("jahr")`);
+    await createIndexIfMissing(client, "Sortenversuch_kultur_idx", `CREATE INDEX "Sortenversuch_kultur_idx" ON "Sortenversuch"("kultur")`);
+    await createIndexIfMissing(client, "Sortenversuch_kundeId_idx", `CREATE INDEX "Sortenversuch_kundeId_idx" ON "Sortenversuch"("kundeId")`);
+
+    await createTableIfMissing(client, "SortenversuchPosition", `CREATE TABLE "SortenversuchPosition" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "versuchId" INTEGER NOT NULL,
+      "sorte" TEXT NOT NULL,
+      "saatstaerke" REAL, "ertragDtHa" REAL, "feuchteProzent" REAL,
+      "proteinProzent" REAL, "hektolitergew" REAL, "bonitur" INTEGER,
+      "reife" TEXT, "notiz" TEXT,
+      CONSTRAINT "SortenversuchPosition_versuchId_fkey" FOREIGN KEY ("versuchId") REFERENCES "Sortenversuch" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "SortenversuchPosition_versuchId_idx", `CREATE INDEX "SortenversuchPosition_versuchId_idx" ON "SortenversuchPosition"("versuchId")`);
+    await createIndexIfMissing(client, "SortenversuchPosition_sorte_idx", `CREATE INDEX "SortenversuchPosition_sorte_idx" ON "SortenversuchPosition"("sorte")`);
+
+    await createTableIfMissing(client, "Vorbestellung", `CREATE TABLE "Vorbestellung" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "nummer" TEXT NOT NULL,
+      "kundeId" INTEGER NOT NULL,
+      "saison" TEXT NOT NULL,
+      "bestelldatum" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "lieferdatum" DATETIME, "bestellfrist" DATETIME,
+      "status" TEXT NOT NULL DEFAULT 'OFFEN',
+      "rabattProzent" REAL, "notiz" TEXT, "lieferungId" INTEGER,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "Vorbestellung_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Vorbestellung_nummer_key", `CREATE UNIQUE INDEX "Vorbestellung_nummer_key" ON "Vorbestellung"("nummer")`);
+    await createIndexIfMissing(client, "Vorbestellung_kundeId_idx", `CREATE INDEX "Vorbestellung_kundeId_idx" ON "Vorbestellung"("kundeId")`);
+    await createIndexIfMissing(client, "Vorbestellung_status_idx", `CREATE INDEX "Vorbestellung_status_idx" ON "Vorbestellung"("status")`);
+    await createIndexIfMissing(client, "Vorbestellung_bestellfrist_idx", `CREATE INDEX "Vorbestellung_bestellfrist_idx" ON "Vorbestellung"("bestellfrist")`);
+    await createIndexIfMissing(client, "Vorbestellung_saison_idx", `CREATE INDEX "Vorbestellung_saison_idx" ON "Vorbestellung"("saison")`);
+
+    await createTableIfMissing(client, "VorbestellungPosition", `CREATE TABLE "VorbestellungPosition" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "vorbestellungId" INTEGER NOT NULL,
+      "artikelId" INTEGER NOT NULL,
+      "menge" REAL NOT NULL,
+      "preis" REAL,
+      "einheit" TEXT NOT NULL DEFAULT 'kg',
+      "reserviert" BOOLEAN NOT NULL DEFAULT false,
+      "notiz" TEXT,
+      CONSTRAINT "VorbestellungPosition_vorbestellungId_fkey" FOREIGN KEY ("vorbestellungId") REFERENCES "Vorbestellung" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "VorbestellungPosition_artikelId_fkey" FOREIGN KEY ("artikelId") REFERENCES "Artikel" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "VorbestellungPosition_vorbestellungId_idx", `CREATE INDEX "VorbestellungPosition_vorbestellungId_idx" ON "VorbestellungPosition"("vorbestellungId")`);
+    await createIndexIfMissing(client, "VorbestellungPosition_artikelId_idx", `CREATE INDEX "VorbestellungPosition_artikelId_idx" ON "VorbestellungPosition"("artikelId")`);
+
+    await createTableIfMissing(client, "FruehbezugsStaffel", `CREATE TABLE "FruehbezugsStaffel" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "saison" TEXT NOT NULL,
+      "kategorie" TEXT, "artikelId" INTEGER,
+      "bestellfrist" DATETIME NOT NULL,
+      "rabattProzent" REAL NOT NULL,
+      "beschreibung" TEXT,
+      "aktiv" BOOLEAN NOT NULL DEFAULT true,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL,
+      CONSTRAINT "FruehbezugsStaffel_artikelId_fkey" FOREIGN KEY ("artikelId") REFERENCES "Artikel" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "FruehbezugsStaffel_saison_idx", `CREATE INDEX "FruehbezugsStaffel_saison_idx" ON "FruehbezugsStaffel"("saison")`);
+    await createIndexIfMissing(client, "FruehbezugsStaffel_bestellfrist_idx", `CREATE INDEX "FruehbezugsStaffel_bestellfrist_idx" ON "FruehbezugsStaffel"("bestellfrist")`);
+    await createIndexIfMissing(client, "FruehbezugsStaffel_aktiv_idx", `CREATE INDEX "FruehbezugsStaffel_aktiv_idx" ON "FruehbezugsStaffel"("aktiv")`);
+
+    await recordMigration(client, MIG14);
+    log(`✓ ${MIG14} applied`);
+  } else {
+    log(`skip ${MIG14} (already applied)`);
+  }
+
+  // ── Migration 15: 20260514000000_rationsberechnung ────────────────────────
+  // KundeTier + Rationsberechnung. Nicht idempotent → hier abgesichert.
+  const MIG15 = "20260514000000_rationsberechnung";
+  if (!(await migrationApplied(client, MIG15))) {
+    await createTableIfMissing(client, "KundeTier", `CREATE TABLE "KundeTier" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "kundeId" INTEGER NOT NULL,
+      "name" TEXT NOT NULL,
+      "tierart" TEXT NOT NULL,
+      "nutzungsart" TEXT NOT NULL,
+      "rasse" TEXT,
+      "anzahl" INTEGER NOT NULL DEFAULT 1,
+      "gewicht" REAL, "leistung" REAL, "leistungEinheit" TEXT, "laktationstag" INTEGER,
+      "notiz" TEXT,
+      "erstellt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "aktualisiert" DATETIME NOT NULL,
+      CONSTRAINT "KundeTier_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "KundeTier_kundeId_idx", `CREATE INDEX "KundeTier_kundeId_idx" ON "KundeTier"("kundeId")`);
+    await createIndexIfMissing(client, "KundeTier_tierart_idx", `CREATE INDEX "KundeTier_tierart_idx" ON "KundeTier"("tierart")`);
+
+    await createTableIfMissing(client, "Rationsberechnung", `CREATE TABLE "Rationsberechnung" (
+      "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      "bezeichnung" TEXT NOT NULL,
+      "tierart" TEXT NOT NULL,
+      "nutzungsart" TEXT NOT NULL,
+      "modus" TEXT NOT NULL DEFAULT 'simple',
+      "kundeId" INTEGER, "kundeTierId" INTEGER,
+      "gewicht" REAL, "leistung" REAL,
+      "parameter" TEXT NOT NULL,
+      "notiz" TEXT,
+      "erstellt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "aktualisiert" DATETIME NOT NULL,
+      CONSTRAINT "Rationsberechnung_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+      CONSTRAINT "Rationsberechnung_kundeTierId_fkey" FOREIGN KEY ("kundeTierId") REFERENCES "KundeTier" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    )`);
+    await createIndexIfMissing(client, "Rationsberechnung_kundeId_idx", `CREATE INDEX "Rationsberechnung_kundeId_idx" ON "Rationsberechnung"("kundeId")`);
+    await createIndexIfMissing(client, "Rationsberechnung_kundeTierId_idx", `CREATE INDEX "Rationsberechnung_kundeTierId_idx" ON "Rationsberechnung"("kundeTierId")`);
+    await createIndexIfMissing(client, "Rationsberechnung_tierart_idx", `CREATE INDEX "Rationsberechnung_tierart_idx" ON "Rationsberechnung"("tierart")`);
+    await createIndexIfMissing(client, "Rationsberechnung_erstellt_idx", `CREATE INDEX "Rationsberechnung_erstellt_idx" ON "Rationsberechnung"("erstellt")`);
+
+    await recordMigration(client, MIG15);
+    log(`✓ ${MIG15} applied`);
+  } else {
+    log(`skip ${MIG15} (already applied)`);
   }
 
   await client.close();
