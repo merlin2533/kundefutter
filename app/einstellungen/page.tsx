@@ -37,7 +37,7 @@ const SECTIONS: Section[] = [
     description: "Stammdaten des Betriebs und Aussehen der Anwendung.",
     tiles: [
       { href: "/einstellungen/firma", icon: "🏢", title: "Firma", description: "Name, Adresse, Bankverbindung, Footer & Rechnungshinweis" },
-      { href: "/einstellungen/erscheinungsbild", icon: "🎨", title: "Erscheinungsbild", description: "Logo, Favicon und Design" },
+      { href: "/einstellungen/erscheinungsbild", icon: "🎨", title: "Erscheinungsbild", description: "App-Name, Logo und Design" },
     ],
   },
   {
@@ -91,7 +91,7 @@ const SECTIONS: Section[] = [
     description: "Wartung, Datensicherung und Diagnose.",
     tiles: [
       { href: "/einstellungen/system", icon: "⚙️", title: "System", description: "Version, Datenbank und Diagnose" },
-      { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Datenbank-Backups erstellen und verwalten" },
+      { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Backups erstellen, verwalten und automatisieren" },
       { href: "/einstellungen/adressen", icon: "🗺️", title: "Adress-Validierung", description: "Geocoding für alle Kundenadressen" },
       { href: "/audit", icon: "📜", title: "Änderungshistorie", description: "Alle Änderungen an Stammdaten nachverfolgen" },
       { href: "/inventur", icon: "📋", title: "Inventur", description: "Lagerbestand erfassen, Leerliste drucken, Differenzen buchen" },
