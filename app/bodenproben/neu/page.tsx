@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -44,6 +44,15 @@ function NeuInner() {
     notiz: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // KI-PDF-Upload state
+  const [kiFile, setKiFile] = useState<File | null>(null);
+  const [kiLoading, setKiLoading] = useState(false);
+  const [kiResult, setKiResult] = useState<{ felderGefuellt: number; hinweis?: string | null } | null>(null);
+  const [kiError, setKiError] = useState<string | null>(null);
+  const [belegPfad, setBelegPfad] = useState<string | null>(null);
+  const [belegName, setBelegName] = useState<string | null>(null);
+  const kiFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/kunden?limit=2000")
@@ -99,6 +108,82 @@ function NeuInner() {
     toast.success(`Schlag „${neu.name}" angelegt`);
   }
 
+  async function kiAnalysieren(file: File) {
+    setKiLoading(true);
+    setKiError(null);
+    setKiResult(null);
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ki/bodenprobe", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setKiError((err as { error?: string }).error ?? "KI-Analyse fehlgeschlagen");
+        return;
+      }
+      const json = await res.json() as {
+        data: Record<string, unknown>;
+        belegPfad?: string;
+        belegName?: string;
+        tokens?: number;
+      };
+
+      // Save beleg info
+      if (json.belegPfad) setBelegPfad(json.belegPfad);
+      if (json.belegName) setBelegName(json.belegName);
+
+      const d = json.data ?? {};
+      let gefuellt = 0;
+
+      function fill<K extends keyof typeof form>(k: K, v: unknown) {
+        if (v != null && v !== "") {
+          set(k, String(v));
+          gefuellt++;
+        }
+      }
+
+      fill("probenNr", d.probenNr);
+      fill("labor", d.labor);
+      fill("tiefe", d.tiefe);
+      fill("datum", d.datum);
+      fill("pH", d.pH);
+      fill("phosphor", d.phosphor);
+      fill("kalium", d.kalium);
+      fill("magnesium", d.magnesium);
+      fill("bor", d.bor);
+      fill("humus", d.humus);
+      fill("nMin", d.nMin);
+      fill("cn", d.cn);
+      fill("bodenart", d.bodenart);
+      fill("klasse", d.klasse);
+
+      // Schlag-Matching: wenn schlagName erkannt und Kunde gewählt
+      const erkannterSchlagName = typeof d.schlagName === "string" ? d.schlagName : null;
+      if (erkannterSchlagName && kundeId && schlaegte.length > 0) {
+        const match = schlaegte.find(s =>
+          s.name.toLowerCase().includes(erkannterSchlagName.toLowerCase()) ||
+          erkannterSchlagName.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (match) {
+          setSchlagId(String(match.id));
+          gefuellt++;
+        } else {
+          setKiError(`Schlag "${erkannterSchlagName}" nicht gefunden — bitte manuell auswählen oder anlegen.`);
+        }
+      }
+
+      setKiResult({
+        felderGefuellt: gefuellt,
+        hinweis: typeof d.hinweis === "string" ? d.hinweis : null,
+      });
+    } catch {
+      setKiError("Netzwerkfehler bei KI-Analyse");
+    } finally {
+      setKiLoading(false);
+    }
+  }
+
   async function speichern(e: React.FormEvent) {
     e.preventDefault();
     if (!schlagId) {
@@ -109,7 +194,12 @@ function NeuInner() {
     const res = await fetch("/api/bodenproben", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ schlagId: parseInt(schlagId, 10), ...form }),
+      body: JSON.stringify({
+        schlagId: parseInt(schlagId, 10),
+        ...form,
+        belegPfad: belegPfad ?? undefined,
+        belegName: belegName ?? undefined,
+      }),
     });
     setSaving(false);
     if (res.ok) {
@@ -131,6 +221,90 @@ function NeuInner() {
     <div className="p-6 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">🧪 Neue Bodenprobe</h1>
       <form onSubmit={speichern} className="space-y-4">
+        {/* KI-Erkennung */}
+        <Card>
+          <div className="flex items-start gap-3 mb-3">
+            <span className="text-2xl">🤖</span>
+            <div>
+              <h2 className="font-semibold">KI-Erkennung aus PDF oder Bild</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Lade einen Laborbericht hoch — die Felder werden automatisch ausgefüllt.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 items-center">
+            <label className="cursor-pointer inline-flex items-center gap-2 bg-green-700 hover:bg-green-800 text-white text-sm px-4 py-2 rounded transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {kiFile ? kiFile.name : "PDF / Bild hochladen"}
+              <input
+                ref={kiFileInputRef}
+                type="file"
+                accept="application/pdf,image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  setKiFile(f);
+                  setKiResult(null);
+                  setKiError(null);
+                  await kiAnalysieren(f);
+                  // Reset input so same file can be re-selected
+                  if (kiFileInputRef.current) kiFileInputRef.current.value = "";
+                }}
+              />
+            </label>
+
+            {kiFile && !kiLoading && (
+              <button
+                type="button"
+                onClick={() => { setKiFile(null); setKiResult(null); setKiError(null); setBelegPfad(null); setBelegName(null); }}
+                className="text-xs text-gray-500 hover:text-red-600 hover:underline"
+              >
+                Entfernen
+              </button>
+            )}
+
+            {kiLoading && (
+              <span className="text-sm text-gray-500 flex items-center gap-2">
+                <svg className="w-4 h-4 animate-spin text-green-700" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                KI analysiert…
+              </span>
+            )}
+          </div>
+
+          {kiResult && (
+            <div className="mt-3 bg-green-50 border border-green-200 rounded p-3 flex flex-wrap gap-2 items-start">
+              <span className="text-green-800 text-sm font-medium">
+                ✓ {kiResult.felderGefuellt} {kiResult.felderGefuellt === 1 ? "Feld" : "Felder"} automatisch ausgefüllt
+              </span>
+              {kiResult.hinweis && (
+                <span className="text-green-700 text-xs mt-0.5 w-full">ℹ {kiResult.hinweis}</span>
+              )}
+            </div>
+          )}
+
+          {kiError && (
+            <div className="mt-3 bg-red-50 border border-red-200 rounded p-3 text-red-700 text-sm">
+              {kiError}
+            </div>
+          )}
+
+          {belegPfad && (
+            <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" />
+              </svg>
+              PDF gespeichert: {belegName}
+            </div>
+          )}
+        </Card>
+
         <Card>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
