@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
         bodenart: body.bodenart?.trim() || null,
         klasse: body.klasse?.trim() || null,
         notiz: body.notiz?.trim() || null,
+        belegPfad: body.belegPfad?.trim() || null,
+        belegName: body.belegName?.trim() || null,
       },
     });
     return NextResponse.json(probe, { status: 201 });

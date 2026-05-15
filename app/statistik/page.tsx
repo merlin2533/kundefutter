@@ -440,21 +440,26 @@ export default function StatistikPage() {
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left pb-2 font-medium text-gray-600">Artikel</th>
-                      <th className="text-right pb-2 font-medium text-gray-600">Menge</th>
-                      <th className="text-right pb-2 font-medium text-gray-600">Umsatz</th>
+                      <th className="text-right pb-2 font-medium text-gray-600 pl-3 hidden sm:table-cell">Menge</th>
+                      <th className="text-right pb-2 font-medium text-gray-600 pl-3">Umsatz</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.topArtikel.map((a, i) => (
                       <tr key={a.artikelId} className="hover:bg-gray-50">
-                        <td className="py-2.5">
-                          <span className="text-xs text-gray-400 mr-2">#{i + 1}</span>
-                          {a.name}
+                        <td className="py-2.5 min-w-0">
+                          <div className="flex items-baseline gap-1.5 min-w-0">
+                            <span className="text-xs text-gray-400 shrink-0">#{i + 1}</span>
+                            <span className="truncate">{a.name}</span>
+                          </div>
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5 pl-5 tabular-nums">
+                            {a.menge.toLocaleString("de-DE")} Einh.
+                          </div>
                         </td>
-                        <td className="py-2.5 text-right font-mono text-gray-600">
+                        <td className="py-2.5 text-right font-mono text-gray-600 whitespace-nowrap pl-3 hidden sm:table-cell">
                           {a.menge.toLocaleString("de-DE")}
                         </td>
-                        <td className="py-2.5 text-right font-mono font-semibold">
+                        <td className="py-2.5 text-right font-mono font-semibold whitespace-nowrap pl-3 tabular-nums">
                           {formatEuro(a.umsatz)}
                         </td>
                       </tr>
@@ -474,19 +479,24 @@ export default function StatistikPage() {
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left pb-2 font-medium text-gray-600">Kunde</th>
-                      <th className="text-right pb-2 font-medium text-gray-600">Lieferungen</th>
-                      <th className="text-right pb-2 font-medium text-gray-600">Umsatz</th>
+                      <th className="text-right pb-2 font-medium text-gray-600 pl-3 hidden sm:table-cell">Lieferungen</th>
+                      <th className="text-right pb-2 font-medium text-gray-600 pl-3">Umsatz</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {data.topKunden.map((k, i) => (
                       <tr key={k.kundeId} className="hover:bg-gray-50">
-                        <td className="py-2.5">
-                          <span className="text-xs text-gray-400 mr-2">#{i + 1}</span>
-                          {k.name}
+                        <td className="py-2.5 min-w-0">
+                          <div className="flex items-baseline gap-1.5 min-w-0">
+                            <span className="text-xs text-gray-400 shrink-0">#{i + 1}</span>
+                            <span className="truncate">{k.name}</span>
+                          </div>
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5 pl-5 tabular-nums">
+                            {k.anzahl} Lieferung{k.anzahl !== 1 ? "en" : ""}
+                          </div>
                         </td>
-                        <td className="py-2.5 text-right text-gray-600">{k.anzahl}</td>
-                        <td className="py-2.5 text-right font-mono font-semibold">
+                        <td className="py-2.5 text-right text-gray-600 whitespace-nowrap pl-3 hidden sm:table-cell">{k.anzahl}</td>
+                        <td className="py-2.5 text-right font-mono font-semibold whitespace-nowrap pl-3 tabular-nums">
                           {formatEuro(k.umsatz)}
                         </td>
                       </tr>

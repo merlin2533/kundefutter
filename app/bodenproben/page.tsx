@@ -20,6 +20,8 @@ interface Bodenprobe {
   nMin?: number | null;
   bodenart?: string | null;
   klasse?: string | null;
+  belegPfad?: string | null;
+  belegName?: string | null;
   schlag?: { id: number; name: string; kundeId: number };
 }
 
@@ -106,6 +108,7 @@ export default function BodenprobenSeite() {
                   <th className="py-2 pr-3 hidden lg:table-cell">Humus</th>
                   <th className="py-2 pr-3">N-Min</th>
                   <th className="py-2 pr-3">Klasse</th>
+                  <th className="py-2 pr-3 hidden sm:table-cell">Beleg</th>
                   <th></th>
                 </tr>
               </thead>
@@ -129,6 +132,19 @@ export default function BodenprobenSeite() {
                     <td className="py-2 pr-3 hidden lg:table-cell">{p.humus ?? "–"}</td>
                     <td className="py-2 pr-3">{p.nMin ?? "–"}</td>
                     <td className="py-2 pr-3">{p.klasse ?? "–"}</td>
+                    <td className="py-2 pr-3 hidden sm:table-cell">
+                      {p.belegPfad ? (
+                        <a
+                          href={`/api/uploads/${p.belegPfad}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={p.belegName ?? "Beleg öffnen"}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          📄
+                        </a>
+                      ) : "–"}
+                    </td>
                     <td className="py-2 text-right">
                       <button onClick={() => loeschen(p.id)} className="text-red-600 hover:underline">Löschen</button>
                     </td>
