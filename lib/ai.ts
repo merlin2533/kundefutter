@@ -554,6 +554,57 @@ Wichtige Regeln:
 - Wenn ein Feld nicht erkennbar ist: null setzen, NIEMALS Werte erfinden.
 - Antworte NUR mit JSON — keine Erklärungen, kein Text davor oder danach, keine Markdown-Codeblöcke.`,
 
+  sachkundenachweis: `Du bist ein Experte für die Erkennung von Sachkundenachweisen und Zertifikaten im Agrarbereich
+(PSM-Sachkunde nach § 9 PflSchG, Spritzgerätekontrolle/JKI-Plakette, Düngerschulung,
+Sprengstoff-Sachkunde, Mais-Beize-Sachkunde, Wildlebensmittelschulung).
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
+{
+  "typ": "PSM-Sachkunde | Spritzgeraetekontrolle | Duengerschulung | Sprengstoff-Sachkunde | Mais-Beize-Sachkunde | Wildlebensmittel-Schulung | Sonstige",
+  "inhaberName": "Vor- und Nachname des Inhabers, sonst null",
+  "nummer": "Zertifikats-/Sachkundenummer (z.B. 'NW-2024-12345'), sonst null",
+  "ausstellung": "Ausstellungsdatum YYYY-MM-DD oder null",
+  "gueltigBis": "Gültig bis YYYY-MM-DD oder null (bei Spritzgerätekontrolle: nächste Pflichtprüfung)",
+  "ausgestelltVon": "Ausstellende Behörde/Kammer (z.B. 'LWK Niedersachsen', 'JKI Braunschweig', 'LWK NRW'), sonst null",
+  "hinweis": "Optional: Anmerkung zur Erkennungsqualität oder fehlenden Feldern"
+}
+
+Regeln:
+- typ-Whitelist exakt einhalten. Spritzgerätekontrolle ist die Plakette/Bescheinigung der JKI-anerkannten
+  Kontrollwerkstatt (alle 3 Jahre).
+- gueltigBis: bei PSM-Sachkunde steht oft kein direktes Ablaufdatum — leiten ab aus Ausstellungsdatum + 3 Jahre
+  Fortbildungsintervall, wenn nichts anderes vermerkt ist; alternativ null.
+- Datumsformate normieren auf YYYY-MM-DD.
+- Wenn Foto unscharf oder Feld nicht lesbar: null setzen, KEINE Werte erfinden.
+- Antworte NUR mit JSON — keine Erklärungen, kein Text, keine Markdown-Codeblöcke.`,
+
+  visitenkarte: `Du bist ein OCR-Assistent für Visitenkarten und Kontaktdaten im B2B-Agrarbereich
+(Landwirt, Berater, Lieferant, Genossenschaft, Maschinenring).
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
+{
+  "vorname": "Vorname oder null",
+  "nachname": "Nachname (inkl. Titel wie 'Dr.') oder null",
+  "firma": "Firma/Betrieb/Genossenschaft oder null",
+  "position": "Funktion/Rolle z.B. 'Geschäftsführer', 'Außendienst Futtermittel', sonst null",
+  "telefon": "Festnetz-Telefon im Format mit Vorwahl, sonst null",
+  "mobil": "Mobiltelefon, sonst null",
+  "fax": "Fax-Nummer, sonst null",
+  "email": "E-Mail-Adresse (kleingeschrieben), sonst null",
+  "website": "Website-URL ohne https://, sonst null",
+  "strasse": "Straße + Hausnummer oder null",
+  "plz": "Postleitzahl oder null",
+  "ort": "Ort oder null",
+  "hinweis": "Optional: fehlende Felder oder Mehrdeutigkeiten"
+}
+
+Regeln:
+- Telefonnummern als String mit Leerzeichen-Gruppierung (z.B. "05151 9871 24"). Keine Klammern um die Vorwahl.
+- E-Mail immer kleingeschrieben.
+- Wenn mehrere Telefonnummern: die mit Bezeichnung "Mobil"/"Handy"/"+49 17…"/"+49 15…" als 'mobil', den Rest als 'telefon'.
+- Wenn nur ein Name ohne Position erkennbar: position = null, nicht erfinden.
+- Antworte NUR mit JSON — keine Erklärungen, keine Markdown-Codeblöcke.`,
+
   inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Ergänzungsfutter, Mineralfutter, Düngemittel, Saatgut, Pflanzenhilfsmittel).
 Recherchiere die Inhaltsstoffe / Zusammensetzung des genannten Produkts anhand seines Namens.
 

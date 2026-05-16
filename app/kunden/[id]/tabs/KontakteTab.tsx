@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Kunde, kontaktIcon } from "../_shared";
 
 export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
@@ -16,6 +16,49 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Visitenkarten-Scanner
+  const [kiLoading, setKiLoading] = useState(false);
+  const [kiError, setKiError] = useState<string | null>(null);
+  const [kiInfo, setKiInfo] = useState<string | null>(null);
+  const visitenkarteInputRef = useRef<HTMLInputElement>(null);
+
+  async function scanVisitenkarte(file: File) {
+    setKiLoading(true); setKiError(null); setKiInfo(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ki/visitenkarte", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setKiError(err.error ?? "Erkennung fehlgeschlagen");
+        return;
+      }
+      const json = await res.json() as { data: Record<string, string | null> };
+      const d = json.data ?? {};
+      // Felder ins Add-Formular schreiben — User kann vor dem Speichern noch korrigieren
+      setForm(s => ({
+        ...s,
+        vorname: d.vorname ?? s.vorname,
+        nachname: d.nachname ?? s.nachname,
+        label: d.position ?? s.label,
+        telefon: d.telefon ?? s.telefon,
+        mobil: d.mobil ?? s.mobil,
+        email: d.email ?? s.email,
+        fax: d.fax ?? s.fax,
+      }));
+      setShowAdd(true);
+      const teile: string[] = [];
+      if (d.firma) teile.push(`Firma: ${d.firma}`);
+      if (d.strasse || d.plz || d.ort) teile.push(`Adresse: ${[d.strasse, d.plz, d.ort].filter(Boolean).join(", ")}`);
+      if (d.website) teile.push(`Web: ${d.website}`);
+      setKiInfo(teile.length ? `✓ Erkannt. Zusätzlich erkannt (nicht übernommen): ${teile.join(" · ")}` : "✓ Visitenkarte erkannt — Felder vorausgefüllt.");
+    } catch {
+      setKiError("Netzwerkfehler bei KI-Analyse");
+    } finally {
+      setKiLoading(false);
+    }
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -80,7 +123,24 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <label className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${kiLoading ? "bg-gray-300 text-gray-600" : "bg-white border border-green-600 text-green-700 hover:bg-green-50"}`}>
+          {kiLoading ? "Analysiere…" : "📸 Visitenkarte scannen"}
+          <input
+            ref={visitenkarteInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            disabled={kiLoading}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              await scanVisitenkarte(f);
+              if (visitenkarteInputRef.current) visitenkarteInputRef.current.value = "";
+            }}
+          />
+        </label>
         <button
           onClick={() => setShowAdd(true)}
           className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
@@ -88,6 +148,12 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
           + Kontakt hinzufügen
         </button>
       </div>
+      {kiInfo && (
+        <div className="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-800">{kiInfo}</div>
+      )}
+      {kiError && (
+        <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700">{kiError}</div>
+      )}
 
       {kunde.kontakte.length === 0 ? (
         <p className="text-sm text-gray-400">Keine Kontakte erfasst.</p>
