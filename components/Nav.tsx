@@ -38,6 +38,7 @@ const groups: NavGroup[] = [
     label: "Pflanze & Tier",
     children: [
       { href: "/bodenproben", label: "Bodenproben" },
+      { href: "/bodenanalyse", label: "Albrecht-Analyse" },
       { href: "/duengebedarf", label: "Düngebedarfsermittlung" },
       { href: "/duev", label: "DüV-Sperrfristen" },
       { href: "/duev/bilanz", label: "Nährstoffbilanz (DüV §8)" },
