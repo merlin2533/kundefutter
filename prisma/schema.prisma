@@ -1109,14 +1109,24 @@ model Bodenprobe {
   nMin         Float?                  // kg N/ha (0-90cm)
   cn           Float?                  // C/N-Verhältnis
   bodenart     String?                 // S | lS | sL | L | T
+  bodenartGruppe String?               // z.B. "(h)" humos, "(s)" sandig — IfB/LUFA-NW-Zusatz
+  nutzungsart  String?                 // A=Acker | W=Grünland | G=Garten | F=Forst | O=Obstbau | X=Sonstige
+  pHSoll       String?                 // anzustrebender pH-Bereich z.B. "6,3-7,0"
+  auftragsNr   String?                 // Labor-Auftrags-Nr.
+  probenehmer  String?                 // "Auftraggeber" | Labormitarbeiter
+  kundeNrLabor String?                 // Kunden-Nr. beim Labor
   // Erweiterte Nährstoff-Werte
   schwefel     Float?                  // SO₃ mg/100g (CAT) — wichtig für Raps, Mais, Getreide
   zink         Float?                  // mg/kg (CAT)
   kupfer       Float?                  // mg/kg (CAT)
   mangan       Float?                  // mg/kg (CAT)
+  natrium      Float?                  // Na mg/kg (CAT)
   kak          Float?                  // Kationenaustauschkapazität cmol+/kg
-  kalkbedarf   Float?                  // Kalkbedarf in t CaO/ha (aus pH + Bodenart)
-  // Versorgungsklassen pro Nährstoff (VDLUFA A–E)
+  kalkbedarf   Float?                  // Kalkbedarf in t CaO/ha (aus pH + Bodenart, legacy)
+  kalkbedarfDt Float?                  // Kalkbedarf in dt CaO/ha — IfB/LUFA-Format
+  corg         Float?                  // Kohlenstoff (Corg) %
+  nGesamt      Float?                  // Gesamt-Stickstoff (N) %
+  // Versorgungsklassen pro Nährstoff (VDLUFA/LWK Niedersachsen A–F)
   klasse       String?                 // DEPRECATED — Sammel-Versorgungsklasse; Werte werden in klasseP/K/Mg gespiegelt
   klasseP      String?
   klasseK      String?
@@ -1126,6 +1136,9 @@ model Bodenprobe {
   klasseZink   String?
   klasseKupfer String?
   klasseMangan String?
+  klasseNatrium String?
+  // Düngungsempfehlung als JSON-Blob (Tabelle aus PDF-Anlage)
+  empfehlungenJson String?             // {kalkDtHa, p2o5: {nutzung: kg}, k2o, mgO, cu, mn, b, zn, na}
   notiz        String?
   belegPfad    String?                 // /uploads/bodenproben/<id>.pdf
   belegName    String?
