@@ -28,6 +28,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [lieferantId, setLieferantId] = useState("");
   const [bezahltAm, setBezahltAm] = useState("");
   const [notiz, setNotiz] = useState("");
+  const [ausleger, setAusleger] = useState("");
+  const [privaterAusleger, setPrivaterAusleger] = useState(false);
 
   // Beleg state
   const [belegPfad, setBelegPfad] = useState<string>("");
@@ -53,6 +55,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         setLieferantId(a.lieferantId ? String(a.lieferantId) : "");
         setBezahltAm(a.bezahltAm?.slice(0, 10) ?? "");
         setNotiz(a.notiz ?? "");
+        if (a.ausleger) { setAusleger(a.ausleger); setPrivaterAusleger(true); }
         setBelegPfad(a.belegPfad ?? "");
         setBelegDateiname(a.belegDateiname ?? "");
         setLaden(false);
@@ -185,6 +188,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         lieferantId: lieferantId || null,
         bezahltAm: bezahltAm || null,
         notiz: notiz || null,
+        ausleger: privaterAusleger ? (ausleger.trim() || "Ich") : null,
       }),
     });
     setSaving(false);
@@ -387,6 +391,33 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           <label className="block text-sm font-medium mb-1">Bezahlt am</label>
           <input type="date" value={bezahltAm} onChange={e => setBezahltAm(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm" />
+        </div>
+
+        <div className="border rounded p-3 bg-orange-50 space-y-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer font-medium text-orange-800">
+            <input type="checkbox" checked={privaterAusleger} onChange={e => {
+              setPrivaterAusleger(e.target.checked);
+              if (!e.target.checked) setAusleger("");
+            }} />
+            Privat ausgelegt – Erstattung ausstehend
+          </label>
+          {privaterAusleger && (
+            <div>
+              <label className="block text-xs text-orange-700 mb-1">Ausgelegt von (Name)</label>
+              <input
+                type="text"
+                value={ausleger}
+                onChange={e => setAusleger(e.target.value)}
+                placeholder="z.B. Max Müller"
+                className="w-full border border-orange-200 rounded px-3 py-2 text-sm bg-white"
+              />
+              {bezahltAm && (
+                <p className="text-xs text-green-700 mt-1">
+                  Erstattet am {new Date(bezahltAm).toLocaleDateString("de-DE")}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

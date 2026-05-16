@@ -21,6 +21,8 @@ export async function GET(req: NextRequest) {
   const kategorie = searchParams.get("kategorie");
   const lieferantId = searchParams.get("lieferantId");
   const unbezahlt = searchParams.get("unbezahlt") === "true";
+  const nurAuslagen = searchParams.get("nurAuslagen") === "true";
+  const ausleger = searchParams.get("ausleger");
 
   const where: Record<string, unknown> = {};
 
@@ -36,6 +38,8 @@ export async function GET(req: NextRequest) {
     if (!isNaN(id)) where.lieferantId = id;
   }
   if (unbezahlt) where.bezahltAm = null;
+  if (nurAuslagen) where.ausleger = { not: null };
+  if (ausleger) where.ausleger = ausleger;
 
   try {
     const ausgaben = await prisma.ausgabe.findMany({
@@ -54,7 +58,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz } = body;
+    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger } = body;
 
     if (!beschreibung || betragNetto === undefined) {
       return NextResponse.json({ error: "Beschreibung und Betrag sind erforderlich" }, { status: 400 });
@@ -82,6 +86,7 @@ export async function POST(req: NextRequest) {
         lieferantId: lieferantId ? (isNaN(parseInt(lieferantId, 10)) ? null : parseInt(lieferantId, 10)) : null,
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,
         notiz: notiz || null,
+        ausleger: ausleger ? String(ausleger).trim() : null,
       },
       include: { lieferant: { select: { id: true, name: true } } },
     });

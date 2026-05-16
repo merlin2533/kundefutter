@@ -739,12 +739,14 @@ model Ausgabe {
   notiz          String?
   belegPfad      String?   // Relativer Pfad zur hochgeladenen Belegdatei (z.B. /uploads/belege/2026/20260403_42_RE-2026-1234.jpg)
   belegDateiname String?   // Originaler Dateiname des Belegs
+  ausleger       String?   // Name der Person, die privat ausgelegt hat (null = Firmenzahlung)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   @@index([datum])
   @@index([lieferantId])
   @@index([kategorie])
+  @@index([ausleger])
 }
 
 // ─── BANKABGLEICH (Kontoauszug-Import & Zahlungszuordnung) ───────────────────

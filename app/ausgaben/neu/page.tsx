@@ -28,6 +28,8 @@ export default function NeueAusgabePage() {
   const [lieferantId, setLieferantId] = useState("");
   const [bezahltHeute, setBezahltHeute] = useState(false);
   const [notiz, setNotiz] = useState("");
+  const [privaterAusleger, setPrivaterAusleger] = useState(false);
+  const [ausleger, setAusleger] = useState("");
 
   // Beleg upload state
   const [belegFile, setBelegFile] = useState<File | null>(null);
@@ -115,6 +117,7 @@ export default function NeueAusgabePage() {
         lieferantId: lieferantId || null,
         bezahltAm: bezahltHeute ? new Date().toISOString() : null,
         notiz: notiz || null,
+        ausleger: privaterAusleger ? (ausleger.trim() || "Ich") : null,
       }),
     });
 
@@ -258,6 +261,25 @@ export default function NeueAusgabePage() {
           <input type="checkbox" checked={bezahltHeute} onChange={e => setBezahltHeute(e.target.checked)} />
           Bereits bezahlt (heute)
         </label>
+
+        <div className="border rounded p-3 bg-orange-50 space-y-2">
+          <label className="flex items-center gap-2 text-sm cursor-pointer font-medium text-orange-800">
+            <input type="checkbox" checked={privaterAusleger} onChange={e => setPrivaterAusleger(e.target.checked)} />
+            Privat ausgelegt – Erstattung ausstehend
+          </label>
+          {privaterAusleger && (
+            <div>
+              <label className="block text-xs text-orange-700 mb-1">Ausgelegt von (Name)</label>
+              <input
+                type="text"
+                value={ausleger}
+                onChange={e => setAusleger(e.target.value)}
+                placeholder="z.B. Max Müller"
+                className="w-full border border-orange-200 rounded px-3 py-2 text-sm bg-white"
+              />
+            </div>
+          )}
+        </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Notiz</label>

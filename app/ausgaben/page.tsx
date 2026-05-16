@@ -18,6 +18,7 @@ interface Ausgabe {
   notiz: string | null;
   belegPfad: string | null;
   belegDateiname: string | null;
+  ausleger: string | null;
 }
 
 function formatEuro(n: number) {
@@ -43,6 +44,7 @@ function AusgabenContent() {
   const [bis, setBis] = useState(searchParams.get("bis") ?? todayStr);
   const [kategorie, setKategorie] = useState(searchParams.get("kategorie") ?? "Alle");
   const [nurUnbezahlt, setNurUnbezahlt] = useState(false);
+  const [nurAuslagen, setNurAuslagen] = useState(false);
   const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
 
   useEffect(() => {
@@ -66,14 +68,24 @@ function AusgabenContent() {
     if (bis) params.set("bis", bis);
     if (kategorie && kategorie !== "Alle") params.set("kategorie", kategorie);
     if (nurUnbezahlt) params.set("unbezahlt", "true");
+    if (nurAuslagen) params.set("nurAuslagen", "true");
     const res = await fetch(`/api/ausgaben?${params}`);
     if (res.ok) setAusgaben(await res.json());
     setLoading(false);
   }
 
-  useEffect(() => { laden(); }, [von, bis, kategorie, nurUnbezahlt]);
+  useEffect(() => { laden(); }, [von, bis, kategorie, nurUnbezahlt, nurAuslagen]);
 
   async function alsBezahlt(id: number) {
+    await fetch(`/api/ausgaben/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
+    });
+    laden();
+  }
+
+  async function alsErstattet(id: number) {
     await fetch(`/api/ausgaben/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -91,6 +103,9 @@ function AusgabenContent() {
   const summeNetto = ausgaben.reduce((s, a) => s + a.betragNetto, 0);
   const summeMwst = ausgaben.reduce((s, a) => s + a.betragNetto * (a.mwstSatz / 100), 0);
   const summeBrutto = summeNetto + summeMwst;
+  const offeneAuslagen = ausgaben
+    .filter(a => a.ausleger && !a.bezahltAm)
+    .reduce((s, a) => s + a.betragNetto * (1 + a.mwstSatz / 100), 0);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -125,10 +140,14 @@ function AusgabenContent() {
           <input type="checkbox" checked={nurUnbezahlt} onChange={e => setNurUnbezahlt(e.target.checked)} />
           Nur unbezahlte
         </label>
+        <label className="flex items-center gap-2 text-sm cursor-pointer pb-1">
+          <input type="checkbox" checked={nurAuslagen} onChange={e => setNurAuslagen(e.target.checked)} />
+          Nur private Auslagen
+        </label>
       </div>
 
       {/* Summen-Leiste */}
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
         <div className="bg-white border rounded p-3 text-center">
           <div className="text-xs text-gray-500">Netto gesamt</div>
           <div className="text-lg font-bold text-gray-800">{formatEuro(summeNetto)}</div>
@@ -141,6 +160,12 @@ function AusgabenContent() {
           <div className="text-xs text-gray-500">Brutto gesamt</div>
           <div className="text-lg font-bold text-blue-700">{formatEuro(summeBrutto)}</div>
         </div>
+        {offeneAuslagen > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded p-3 text-center">
+            <div className="text-xs text-orange-600">Offene Auslagen</div>
+            <div className="text-lg font-bold text-orange-700">{formatEuro(offeneAuslagen)}</div>
+          </div>
+        )}
       </div>
 
       {/* Tabelle */}
@@ -161,7 +186,8 @@ function AusgabenContent() {
                 <th className="text-right px-3 py-2">Netto</th>
                 <th className="text-right px-3 py-2 hidden sm:table-cell">MwSt</th>
                 <th className="text-right px-3 py-2">Brutto</th>
-                <th className="text-left px-3 py-2 hidden md:table-cell">Bezahlt</th>
+                <th className="text-left px-3 py-2 hidden md:table-cell">Bezahlt / Erstattet</th>
+                <th className="text-left px-3 py-2 hidden lg:table-cell">Ausgelegt von</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -176,6 +202,9 @@ function AusgabenContent() {
                     <td className="px-3 py-2 font-medium">
                       {a.beschreibung}
                       <div className="sm:hidden text-xs text-gray-400">{a.kategorie}</div>
+                      {a.ausleger && (
+                        <div className="lg:hidden text-xs text-orange-600 mt-0.5">👤 {a.ausleger}</div>
+                      )}
                     </td>
                     <td className="px-3 py-2 hidden md:table-cell">
                       <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">{a.kategorie}</span>
@@ -188,13 +217,27 @@ function AusgabenContent() {
                     <td className="px-3 py-2 text-right font-medium">{formatEuro(brutto)}</td>
                     <td className="px-3 py-2 hidden md:table-cell">
                       {a.bezahltAm ? (
-                        <span className="text-green-600 text-xs">{formatDatum(a.bezahltAm)}</span>
+                        <span className="text-green-600 text-xs">
+                          {a.ausleger ? "Erstattet" : "Bezahlt"} {formatDatum(a.bezahltAm)}
+                        </span>
+                      ) : a.ausleger ? (
+                        <button onClick={() => alsErstattet(a.id)}
+                          className="text-xs text-orange-600 hover:underline">
+                          Als erstattet
+                        </button>
                       ) : (
                         <button onClick={() => alsBezahlt(a.id)}
                           className="text-xs text-blue-600 hover:underline">
                           Als bezahlt
                         </button>
                       )}
+                    </td>
+                    <td className="px-3 py-2 hidden lg:table-cell">
+                      {a.ausleger ? (
+                        <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">
+                          👤 {a.ausleger}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex gap-2 justify-end items-center">
