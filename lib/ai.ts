@@ -464,58 +464,94 @@ Regeln:
 - "kategorie" anhand des Inhalts einordnen (z.B. Dünger/Futter → Wareneinkauf, Reparatur → Betriebsbedarf).
 - Fehlende Felder auf null setzen, niemals erfinden.`,
 
-  bodenprobe: `Du bist ein Experte für die Analyse von Bodenuntersuchungsberichten aus Agrarlaboren (LUFA, AGROLAB, Eurofins Agro, LKS Lichtenwalde etc.).
-Analysiere den Laborbericht und extrahiere alle Bodenanalyse-Werte.
+  bodenprobe: `Du bist ein Experte für die Analyse von Bodenuntersuchungsberichten aus Agrarlaboren
+(LUFA Nord-West / Institut für Boden und Umwelt, AGROLAB, Eurofins Agro, LKS Lichtenwalde, LUFA NRW etc.).
+
+Ein einzelner Prüfbericht enthält häufig MEHRERE Bodenproben (ein Sammelauftrag für viele Schläge eines
+Betriebes). Du extrahierst ALLE Proben des Berichts. Bei einer Düngungsempfehlungs-Anlage extrahierst du
+zusätzlich die Empfehlungstabelle pro Probe.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt diesem Format (ohne Markdown-Codeblöcke):
 {
-  "probenNr": "Probennummer des Labors oder null",
-  "labor": "Name des Labors (z.B. LUFA NRW, AGROLAB, Eurofins Agro) oder null",
-  "tiefe": "Beprobungstiefe z.B. '0-30 cm' oder null",
-  "datum": "Probenahmedatum im Format YYYY-MM-DD (bevorzugt) oder Analysedatum, oder null",
-  "pH": 6.5,
-  "phosphor": 12.0,
-  "kalium": 15.0,
-  "magnesium": 8.0,
-  "bor": 0.5,
-  "schwefel": 2.5,
-  "zink": 3.0,
-  "kupfer": 2.0,
-  "mangan": 60.0,
-  "kak": 14.0,
-  "kalkbedarf": 1.5,
-  "humus": 1.8,
-  "nMin": 45.0,
-  "cn": 10.5,
-  "bodenart": "Bodenartenkürzel z.B. sL, lS, S, L, T oder null",
-  "klasseP": "A, B, C, D oder E (Versorgungsklasse P₂O₅) oder null",
-  "klasseK": "A, B, C, D oder E (Versorgungsklasse K₂O) oder null",
-  "klasseMg": "A, B, C, D oder E (Versorgungsklasse Mg) oder null",
-  "klasseBor": "A, B, C, D oder E (Versorgungsklasse Bor) oder null",
-  "klasseSchwefel": "A–E oder null",
-  "klasseZink": "A–E oder null",
-  "klasseKupfer": "A–E oder null",
-  "klasseMangan": "A–E oder null",
-  "schlagName": "Name des Schlags/Feldes/Flurstücks falls im Bericht angegeben, sonst null",
-  "hinweis": "Hinweis falls Werte unsicher oder Bericht unvollständig, sonst null"
+  "auftrag": {
+    "labor": "Name des Labors (z.B. 'LUFA Nord-West' / 'Institut für Boden und Umwelt') oder null",
+    "auftragsNr": "Auftrags-Nr. des Labors oder null",
+    "kundeNrLabor": "Kunden-Nr. beim Labor oder null",
+    "probenahmeDatum": "Probenahmedatum YYYY-MM-DD oder null",
+    "berichtDatum": "Berichts-/Analysedatum YYYY-MM-DD oder null",
+    "probenehmer": "Auftraggeber | Labor | Name oder null",
+    "kundeName": "Empfänger-Name (Auftraggeber) oder null",
+    "kundeAdresse": "Empfänger-Adresse einzeilig oder null",
+    "berichtArt": "pruefbericht | duengungsempfehlung — je nach PDF-Typ"
+  },
+  "proben": [
+    {
+      "probenNr": "Proben-Nr. des Labors z.B. '26BB022422'",
+      "schlagName": "Schlagbezeichnung laut Auftraggeber z.B. '1_Hinterm Bach'",
+      "nutzungsart": "A | W | G | F | O | X (A=Acker, W=Grünland, G=Garten, F=Forst, O=Obstbau, X=Sonstige)",
+      "bodenart": "Bodenartenkürzel z.B. sL, lS, S, L, T",
+      "bodenartGruppe": "Bodenart-Zusatz in Klammern z.B. '(h)' humos, '(s)' sandig, sonst null",
+      "tiefe": "Beprobungstiefe z.B. '0-30 cm' oder null",
+      "pH": 6.5,
+      "pHSoll": "anzustrebender pH-Bereich als Text z.B. '6,3-7,0' oder null",
+      "phosphor": 12.0,
+      "kalium": 15.0,
+      "magnesium": 8.0,
+      "bor": 0.5,
+      "schwefel": 2.5,
+      "zink": 3.0,
+      "kupfer": 2.0,
+      "mangan": 60.0,
+      "natrium": 4.0,
+      "kak": 14.0,
+      "kalkbedarf": 1.5,
+      "kalkbedarfDt": 32,
+      "humus": 1.8,
+      "corg": 1.45,
+      "nGesamt": 0.139,
+      "nMin": 45.0,
+      "cn": 10.5,
+      "klasseP": "A|B|C|D|E|F oder null",
+      "klasseK": "A|B|C|D|E|F oder null",
+      "klasseMg": "A|B|C|D|E|F oder null",
+      "klasseBor": "A|B|C|D|E|F oder null",
+      "klasseSchwefel": "A|B|C|D|E|F oder null",
+      "klasseZink": "A|B|C|D|E|F oder null",
+      "klasseKupfer": "A|B|C|D|E|F oder null",
+      "klasseMangan": "A|B|C|D|E|F oder null",
+      "klasseNatrium": "A|B|C|D|E|F oder null",
+      "empfehlungen": {
+        "kalkDtHa": 32,
+        "p2o5": { "AckerRuebenKartoffeln": 100, "AckerGetreideRaps": 80, "AckerZwischenfruechte": 20 },
+        "k2o": { "AckerRuebenFeldgras": 290, "AckerMais": 150, "AckerStaerkekartoffelnRaps": 110 },
+        "mgO": { "AckerWintergetreide": 40 },
+        "cu": 40, "mn": 60, "b": 80, "zn": null, "na": null
+      }
+    }
+  ],
+  "hinweis": "Optionaler Hinweis falls Werte unsicher oder Bericht unvollständig"
 }
 
 Wichtige Regeln:
-- P₂O₅ (Phosphor als Phosphorpentoxid) und K₂O (Kalium als Kaliumoxid) sind die Standardwerte — NICHT reines P oder K.
-- Einheit für pH: dimensionslos (nur Zahl).
-- Einheit für phosphor, kalium, magnesium, schwefel (SO₃): mg/100g Boden (CAL- bzw. CAT-Methode).
-- Einheit für bor, zink, kupfer, mangan: mg/kg Boden (CAT-Methode).
-- Einheit für kak: cmol+/kg (manchmal als mmolc/kg angegeben — durch 10 teilen).
-- Einheit für kalkbedarf: t CaO/ha (gelegentlich t CaCO₃ — Faktor 0,56 zur Umrechnung in CaO).
-- Einheit für humus: % (Massenanteil).
-- Einheit für nMin: kg N/ha (Summe 0-90 cm oder wie angegeben).
-- Einheit für cn: dimensionsloses Verhältnis (z.B. 10.5 für C:N = 10,5:1).
-- Pro Nährstoff EIGENE Versorgungsklasse extrahieren (P, K, Mg, Bor, Schwefel, Zink, Kupfer, Mangan).
-  Klasse A = sehr gering, B = gering, C = anzustreben (optimal), D = hoch, E = sehr hoch.
-- Wenn der Bericht nur EINE Sammel-Klasse für "Hauptnährstoffe" angibt, diese als klasseP, klasseK
-  und klasseMg übernehmen.
-- Bodenart-Kürzel: S (Sand), lS (lehmiger Sand), sL (sandiger Lehm), L (Lehm), sT (sandiger Ton), T (Ton), Mo (Moor) etc.
-- Wenn ein Feld nicht erkennbar ist oder nicht vorkommt: null setzen, NIEMALS Werte erfinden.
+- Bei einem Prüfbericht: Werte (pH, P, K, …) und Klassen befüllen, 'empfehlungen' = null.
+- Bei einer Düngungsempfehlungs-Anlage: NUR 'empfehlungen' befüllen, alle Werte = null lassen. Setze
+  empfehlungen-Spalten aus der Tabelle als Strings die der Spaltenüberschrift entsprechen (Camelcase ohne
+  Sonderzeichen). Wenn unsicher, übernimm die Werte einer ganzen Zeile als JSON-Objekt mit lesbaren Keys.
+- Eine PDF mit BEIDEN Bestandteilen: kombiniere — selbe Proben-Nr. = selbes Objekt im 'proben'-Array.
+- ALLE Proben des Berichts extrahieren — NICHT nur die ersten. Bei 15 Proben gib 15 Objekte zurück.
+- Setze "berichtArt" entsprechend ("pruefbericht" für Werte-Bericht, "duengungsempfehlung" für reine
+  Empfehlungstabelle, "kombiniert" wenn beides vorliegt).
+- P₂O₅ (Phosphor als Phosphorpentoxid) und K₂O (Kalium als Kaliumoxid) sind die Standardwerte.
+- Einheiten: pH dimensionslos · P/K/Mg/S mg/100g · Bor/Zn/Cu/Mn/Na mg/kg · KAK cmol+/kg
+  · Humus % · nMin kg N/ha · Corg % · N_ges % · cn dimensionslos
+- Kalkbedarf: kalkbedarfDt = Wert in dt CaO/ha (IfB nutzt dt). Falls Bericht t/ha angibt, in dt umrechnen
+  (1 t = 10 dt) und beides setzen.
+- Klassenkürzel A–F nach LWK Niedersachsen (A sehr niedrig, B niedrig, C anzustreben, D hoch,
+  E sehr hoch, F extrem hoch). Falls Labor nur A–E nutzt, F nicht setzen.
+- Bodenart-Kürzel: S (Sand), lS (lehmiger Sand), sL (sandiger Lehm), L (Lehm), sT (sandiger Ton),
+  T (Ton), Mo (Moor) etc. Die Gruppe '(h)' = humos / '(s)' = sandig / '(l)' = lehmig wird separat als
+  'bodenartGruppe' geliefert.
+- Wenn ein Feld nicht erkennbar ist: null setzen, NIEMALS Werte erfinden.
 - Antworte NUR mit JSON — keine Erklärungen, kein Text davor oder danach, keine Markdown-Codeblöcke.`,
 
   inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Ergänzungsfutter, Mineralfutter, Düngemittel, Saatgut, Pflanzenhilfsmittel).

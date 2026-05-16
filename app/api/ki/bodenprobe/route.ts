@@ -115,7 +115,8 @@ export async function POST(req: NextRequest) {
       try {
         const response = await client.messages.create({
           model: cfg.modell,
-          max_tokens: 4096,
+          // 15+ Proben mit allen Feldern + Empfehlungstabelle brauchen reichlich Output-Budget
+          max_tokens: 16000,
           system: prompt,
           messages: [
             {
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Parse and sanitize result ───────────────────────────────────────────
-    const p = parseJsonFromText(raw);
+    const parsed = parseJsonFromText(raw);
 
     function strOrNull(v: unknown): string | null {
       return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -180,45 +181,90 @@ export async function POST(req: NextRequest) {
     }
     function klasseOrNull(v: unknown): string | null {
       const s = strOrNull(v);
-      return s && ["A", "B", "C", "D", "E"].includes(s.toUpperCase()) ? s.toUpperCase() : null;
+      return s && ["A", "B", "C", "D", "E", "F"].includes(s.toUpperCase()) ? s.toUpperCase() : null;
     }
     function datumOrNull(v: unknown): string | null {
       if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
       return null;
     }
 
-    const data = {
-      probenNr: strOrNull(p.probenNr),
-      labor: strOrNull(p.labor),
-      tiefe: strOrNull(p.tiefe),
-      datum: datumOrNull(p.datum),
-      pH: numOrNull(p.pH),
-      phosphor: numOrNull(p.phosphor),
-      kalium: numOrNull(p.kalium),
-      magnesium: numOrNull(p.magnesium),
-      bor: numOrNull(p.bor),
-      schwefel: numOrNull(p.schwefel),
-      zink: numOrNull(p.zink),
-      kupfer: numOrNull(p.kupfer),
-      mangan: numOrNull(p.mangan),
-      kak: numOrNull(p.kak),
-      kalkbedarf: numOrNull(p.kalkbedarf),
-      humus: numOrNull(p.humus),
-      nMin: numOrNull(p.nMin),
-      cn: numOrNull(p.cn),
-      bodenart: strOrNull(p.bodenart),
-      klasse: klasseOrNull(p.klasse), // legacy fallback
-      klasseP: klasseOrNull(p.klasseP),
-      klasseK: klasseOrNull(p.klasseK),
-      klasseMg: klasseOrNull(p.klasseMg),
-      klasseBor: klasseOrNull(p.klasseBor),
-      klasseSchwefel: klasseOrNull(p.klasseSchwefel),
-      klasseZink: klasseOrNull(p.klasseZink),
-      klasseKupfer: klasseOrNull(p.klasseKupfer),
-      klasseMangan: klasseOrNull(p.klasseMangan),
-      schlagName: strOrNull(p.schlagName),
-      hinweis: strOrNull(p.hinweis),
+    function sanitizeProbe(p: Record<string, unknown>) {
+      const emp = p.empfehlungen && typeof p.empfehlungen === "object" ? p.empfehlungen : null;
+      return {
+        probenNr: strOrNull(p.probenNr),
+        schlagName: strOrNull(p.schlagName),
+        nutzungsart: strOrNull(p.nutzungsart),
+        bodenart: strOrNull(p.bodenart),
+        bodenartGruppe: strOrNull(p.bodenartGruppe),
+        tiefe: strOrNull(p.tiefe),
+        pH: numOrNull(p.pH),
+        pHSoll: strOrNull(p.pHSoll),
+        phosphor: numOrNull(p.phosphor),
+        kalium: numOrNull(p.kalium),
+        magnesium: numOrNull(p.magnesium),
+        bor: numOrNull(p.bor),
+        schwefel: numOrNull(p.schwefel),
+        zink: numOrNull(p.zink),
+        kupfer: numOrNull(p.kupfer),
+        mangan: numOrNull(p.mangan),
+        natrium: numOrNull(p.natrium),
+        kak: numOrNull(p.kak),
+        kalkbedarf: numOrNull(p.kalkbedarf),
+        kalkbedarfDt: numOrNull(p.kalkbedarfDt),
+        humus: numOrNull(p.humus),
+        corg: numOrNull(p.corg),
+        nGesamt: numOrNull(p.nGesamt),
+        nMin: numOrNull(p.nMin),
+        cn: numOrNull(p.cn),
+        klasseP: klasseOrNull(p.klasseP),
+        klasseK: klasseOrNull(p.klasseK),
+        klasseMg: klasseOrNull(p.klasseMg),
+        klasseBor: klasseOrNull(p.klasseBor),
+        klasseSchwefel: klasseOrNull(p.klasseSchwefel),
+        klasseZink: klasseOrNull(p.klasseZink),
+        klasseKupfer: klasseOrNull(p.klasseKupfer),
+        klasseMangan: klasseOrNull(p.klasseMangan),
+        klasseNatrium: klasseOrNull(p.klasseNatrium),
+        empfehlungen: emp,
+      };
+    }
+
+    // Unterstütze sowohl das neue Multi-Proben-Format als auch das alte Einzel-Proben-Format
+    type ProbeRaw = Record<string, unknown>;
+    const probenRaw: ProbeRaw[] = Array.isArray(parsed.proben)
+      ? (parsed.proben as ProbeRaw[])
+      : [parsed as ProbeRaw];
+    const proben = probenRaw.map(sanitizeProbe);
+
+    const auftragRaw = (parsed.auftrag && typeof parsed.auftrag === "object")
+      ? parsed.auftrag as Record<string, unknown>
+      : {};
+
+    const auftrag = {
+      labor: strOrNull(auftragRaw.labor) ?? strOrNull(parsed.labor),
+      auftragsNr: strOrNull(auftragRaw.auftragsNr),
+      kundeNrLabor: strOrNull(auftragRaw.kundeNrLabor),
+      probenahmeDatum: datumOrNull(auftragRaw.probenahmeDatum) ?? datumOrNull(parsed.datum),
+      berichtDatum: datumOrNull(auftragRaw.berichtDatum),
+      probenehmer: strOrNull(auftragRaw.probenehmer),
+      kundeName: strOrNull(auftragRaw.kundeName),
+      kundeAdresse: strOrNull(auftragRaw.kundeAdresse),
+      berichtArt: strOrNull(auftragRaw.berichtArt) ?? "pruefbericht",
     };
+
+    const hinweis = strOrNull(parsed.hinweis);
+
+    // Legacy-Kompatibilitätsblock: erstes-Proben-Objekt im alten Schema
+    const erste = proben[0] ?? null;
+    const data = erste ? {
+      ...erste,
+      labor: auftrag.labor,
+      datum: auftrag.probenahmeDatum,
+      auftragsNr: auftrag.auftragsNr,
+      probenehmer: auftrag.probenehmer,
+      kundeNrLabor: auftrag.kundeNrLabor,
+      hinweis,
+    } : null;
 
     const kostenCent = (() => {
       const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
@@ -235,7 +281,10 @@ export async function POST(req: NextRequest) {
     })();
 
     return NextResponse.json({
-      data,
+      auftrag,
+      proben,
+      data,           // Backwards-Compat: erstes Probe-Objekt im alten Schema
+      hinweis,
       belegPfad,
       belegName,
       tokens: tokensIn + tokensOut,

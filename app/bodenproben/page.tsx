@@ -11,6 +11,7 @@ interface Bodenprobe {
   datum: string;
   probenNr?: string | null;
   labor?: string | null;
+  auftragsNr?: string | null;
   tiefe?: string | null;
   pH?: number | null;
   phosphor?: number | null;
@@ -25,6 +26,7 @@ interface Bodenprobe {
   klasseK?: string | null;
   klasseMg?: string | null;
   klasseBor?: string | null;
+  empfehlungenJson?: string | null;
   belegPfad?: string | null;
   belegName?: string | null;
   schlag?: { id: number; name: string; kundeId: number };
@@ -153,17 +155,22 @@ export default function BodenprobenSeite() {
                     <td className="py-1 pr-1 text-center">{klassenBadge(p.klasseMg ?? p.klasse)}</td>
                     <td className="py-1 pr-3 text-center">{klassenBadge(p.klasseBor)}</td>
                     <td className="py-2 pr-3 hidden sm:table-cell">
-                      {p.belegPfad ? (
-                        <a
-                          href={`/api/uploads/${p.belegPfad}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={p.belegName ?? "Beleg öffnen"}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          📄
-                        </a>
-                      ) : "–"}
+                      <div className="flex items-center gap-1">
+                        {p.belegPfad ? (
+                          <a
+                            href={`/api/uploads/${p.belegPfad}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={p.belegName ?? "Beleg herunterladen"}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            📄
+                          </a>
+                        ) : <span className="text-gray-300">–</span>}
+                        {p.empfehlungenJson && (
+                          <span title="Düngungsempfehlung aus PDF hinterlegt" className="text-green-700">📋</span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 text-right">
                       <button onClick={() => loeschen(p.id)} className="text-red-600 hover:underline">Löschen</button>

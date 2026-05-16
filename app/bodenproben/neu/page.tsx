@@ -78,6 +78,13 @@ function NeuInner() {
   const [belegName, setBelegName] = useState<string | null>(null);
   const kiFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Multi-Proben-State (eine PDF mit N Proben → Schlag-Mapping pro Zeile)
+  type AiProbe = Record<string, unknown>;
+  const [multiProben, setMultiProben] = useState<AiProbe[] | null>(null);
+  const [multiAuftrag, setMultiAuftrag] = useState<Record<string, unknown> | null>(null);
+  const [multiMapping, setMultiMapping] = useState<Record<number, string>>({}); // index → schlagId
+  const [multiSaving, setMultiSaving] = useState(false);
+
   useEffect(() => {
     fetch("/api/kunden?limit=2000")
       .then(r => r.json())
@@ -136,6 +143,8 @@ function NeuInner() {
     setKiLoading(true);
     setKiError(null);
     setKiResult(null);
+    setMultiProben(null);
+    setMultiAuftrag(null);
 
     try {
       const fd = new FormData();
@@ -147,7 +156,10 @@ function NeuInner() {
         return;
       }
       const json = await res.json() as {
-        data: Record<string, unknown>;
+        data: Record<string, unknown> | null;
+        auftrag?: Record<string, unknown> | null;
+        proben?: Record<string, unknown>[];
+        hinweis?: string | null;
         belegPfad?: string;
         belegName?: string;
         tokens?: number;
@@ -157,7 +169,18 @@ function NeuInner() {
       if (json.belegPfad) setBelegPfad(json.belegPfad);
       if (json.belegName) setBelegName(json.belegName);
 
-      const d = json.data ?? {};
+      // Multi-Proben-Workflow: PDF enthält 2+ Proben → eigene Tabellen-UI statt Einzel-Formular
+      if (Array.isArray(json.proben) && json.proben.length > 1) {
+        setMultiProben(json.proben);
+        setMultiAuftrag(json.auftrag ?? null);
+        setKiResult({
+          felderGefuellt: json.proben.length,
+          hinweis: `${json.proben.length} Bodenproben im Bericht erkannt — bitte unten jeder Probe einen Schlag zuordnen und gemeinsam speichern.`,
+        });
+        return;
+      }
+
+      const d = json.data ?? json.proben?.[0] ?? {};
       let gefuellt = 0;
 
       function fill<K extends keyof typeof form>(k: K, v: unknown) {
@@ -242,17 +265,73 @@ function NeuInner() {
       }),
     });
     setSaving(false);
-    if (res.ok) {
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && Array.isArray(json.erstellt) && json.erstellt.length > 0) {
       toast.success("Bodenprobe gespeichert");
       router.push("/bodenproben");
     } else {
-      const err = await res.json().catch(() => ({}));
-      toast.error(err.error ?? "Speichern fehlgeschlagen");
+      const grund = Array.isArray(json.fehler) && json.fehler[0]?.grund
+        ? json.fehler[0].grund
+        : (json.error ?? "Speichern fehlgeschlagen");
+      toast.error(grund);
     }
   }
 
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm(s => ({ ...s, [k]: v }));
+  }
+
+  // Auto-Mapping der Multi-Proben auf vorhandene Schläge (heuristischer Name-Match)
+  useEffect(() => {
+    if (!multiProben || schlaegte.length === 0) return;
+    const map: Record<number, string> = {};
+    multiProben.forEach((p, idx) => {
+      const namen = typeof p.schlagName === "string" ? p.schlagName.toLowerCase() : "";
+      if (!namen) return;
+      const match = schlaegte.find(s => {
+        const sn = s.name.toLowerCase();
+        return sn === namen || sn.includes(namen) || namen.includes(sn);
+      });
+      if (match) map[idx] = String(match.id);
+    });
+    setMultiMapping(prev => ({ ...map, ...prev }));
+  }, [multiProben, schlaegte]);
+
+  async function multiSpeichern() {
+    if (!multiProben) return;
+    if (!kundeId) { toast.error("Bitte einen Kunden wählen"); return; }
+    const ungemappt = multiProben.filter((_, i) => !multiMapping[i]).length;
+    if (ungemappt > 0) { toast.error(`${ungemappt} Proben sind noch keinem Schlag zugeordnet`); return; }
+    const datum = (typeof multiAuftrag?.probenahmeDatum === "string" && multiAuftrag.probenahmeDatum)
+      || (typeof multiAuftrag?.berichtDatum === "string" && multiAuftrag.berichtDatum)
+      || new Date().toISOString().slice(0, 10);
+
+    const proben = multiProben.map((p, i) => ({
+      ...p,
+      schlagId: parseInt(multiMapping[i], 10),
+      datum,
+      labor: multiAuftrag?.labor ?? p.labor,
+      auftragsNr: multiAuftrag?.auftragsNr ?? p.auftragsNr,
+      kundeNrLabor: multiAuftrag?.kundeNrLabor ?? p.kundeNrLabor,
+      probenehmer: multiAuftrag?.probenehmer ?? p.probenehmer,
+    }));
+
+    setMultiSaving(true);
+    const res = await fetch("/api/bodenproben", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ proben, belegPfad, belegName }),
+    });
+    setMultiSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error ?? "Speichern fehlgeschlagen");
+      return;
+    }
+    const json = await res.json() as { erstellt: number[]; fehler: { index: number; grund: string }[] };
+    if (json.fehler?.length) toast.error(`${json.erstellt.length} gespeichert, ${json.fehler.length} Fehler — z.B. ${json.fehler[0].grund}`);
+    else toast.success(`${json.erstellt.length} Bodenproben gespeichert`);
+    router.push("/bodenproben");
   }
 
   // Auto-Ableitung der Versorgungsklasse aus dem Nährstoff-Wert,
@@ -421,6 +500,94 @@ function NeuInner() {
             </div>
           )}
         </Card>
+
+        {/* Multi-Proben-Workflow: 2+ Proben aus einer Sammel-PDF (z.B. LUFA Nord-West, 15 Schläge) */}
+        {multiProben && (
+          <Card>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h2 className="font-semibold">📊 {multiProben.length} Proben aus PDF erkannt</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {typeof multiAuftrag?.labor === "string" && multiAuftrag.labor}
+                  {typeof multiAuftrag?.auftragsNr === "string" && ` · Auftrag ${multiAuftrag.auftragsNr}`}
+                  {typeof multiAuftrag?.probenahmeDatum === "string" && ` · Probenahme ${multiAuftrag.probenahmeDatum}`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setMultiProben(null); setMultiAuftrag(null); setMultiMapping({}); setKiResult(null); }}
+                className="text-xs text-gray-500 hover:text-red-600 hover:underline"
+              >
+                Abbrechen
+              </button>
+            </div>
+
+            {!kundeId && (
+              <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800 mb-3">
+                Bitte zuerst unten den Kunden wählen — dann werden Schläge automatisch nach Namen zugeordnet.
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-1.5 pr-2">Proben-Nr.</th>
+                    <th className="py-1.5 pr-2">Schlag laut PDF</th>
+                    <th className="py-1.5 pr-2">→ Zuordnung</th>
+                    <th className="py-1.5 pr-2 text-center">pH</th>
+                    <th className="py-1.5 pr-2 text-center">P</th>
+                    <th className="py-1.5 pr-2 text-center">K</th>
+                    <th className="py-1.5 pr-2 text-center">Mg</th>
+                    <th className="py-1.5 pr-2 text-center">Humus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {multiProben.map((p, idx) => {
+                    const mapped = !!multiMapping[idx];
+                    return (
+                      <tr key={idx} className={`border-b ${mapped ? "" : "bg-amber-50/40"}`}>
+                        <td className="py-1.5 pr-2 font-mono text-gray-500">{String(p.probenNr ?? "")}</td>
+                        <td className="py-1.5 pr-2">{String(p.schlagName ?? "—")}</td>
+                        <td className="py-1.5 pr-2 min-w-[180px]">
+                          <select
+                            value={multiMapping[idx] ?? ""}
+                            onChange={e => setMultiMapping(m => ({ ...m, [idx]: e.target.value }))}
+                            className="border rounded px-2 py-1 w-full text-xs"
+                          >
+                            <option value="">– Schlag wählen –</option>
+                            {schlaegte.map(s => (
+                              <option key={s.id} value={String(s.id)}>{s.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-1.5 pr-2 text-center">{p.pH != null ? String(p.pH) : "–"}</td>
+                        <td className="py-1.5 pr-2 text-center">{p.phosphor != null ? `${p.phosphor} ${p.klasseP ?? ""}` : "–"}</td>
+                        <td className="py-1.5 pr-2 text-center">{p.kalium != null ? `${p.kalium} ${p.klasseK ?? ""}` : "–"}</td>
+                        <td className="py-1.5 pr-2 text-center">{p.magnesium != null ? `${p.magnesium} ${p.klasseMg ?? ""}` : "–"}</td>
+                        <td className="py-1.5 pr-2 text-center">{p.humus != null ? `${p.humus}%` : "–"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="text-xs text-gray-500">
+                {Object.keys(multiMapping).filter(k => multiMapping[parseInt(k)]).length} / {multiProben.length} zugeordnet
+              </div>
+              <button
+                type="button"
+                onClick={multiSpeichern}
+                disabled={multiSaving || !kundeId}
+                className="bg-green-700 text-white px-5 py-2 rounded hover:bg-green-800 disabled:opacity-50 text-sm font-medium"
+              >
+                {multiSaving ? "Speichere…" : `Alle ${multiProben.length} Proben speichern`}
+              </button>
+            </div>
+          </Card>
+        )}
 
         <Card>
           <div className="grid sm:grid-cols-2 gap-4">

@@ -81,15 +81,19 @@ export const PK_FAKTOREN: Record<string, { p: number; k: number; mg?: number }> 
   "Ackerbohne":            { p: 1.1, k: 1.4, mg: 0.13 },
 };
 
-// Versorgungsklassen für P/K nach DüV (Versorgungsstufe -> Korrekturfaktor)
-// A=sehr niedrig (+25%), B=niedrig (+10%), C=anzustreben (0%), D=hoch (-25%), E=sehr hoch (kein Bedarf)
+// Versorgungsklassen nach LWK Niedersachsen (A–F, IfB/LUFA-Format) bzw. VDLUFA (A–E).
+// Korrekturfaktor: Klasse C = Entzugsdüngung; B/A = Aufdüngung; D/E/F = Düngung reduzieren/aussetzen.
 export const VERSORGUNG_KORREKTUR: Record<string, number> = {
   A: 1.25,
   B: 1.10,
   C: 1.00,
   D: 0.75,
   E: 0.00,
+  F: 0.00, // extrem hoch — keine Düngung
 };
+
+// Gültige Klassen-Buchstaben (IfB nutzt A–F, klassisch VDLUFA nur A–E)
+export const GUELTIGE_KLASSEN = ["A", "B", "C", "D", "E", "F"] as const;
 
 export type BedarfEingaben = {
   fruchtart: string;
@@ -192,7 +196,7 @@ export function berechneDuengebedarf(e: BedarfEingaben): BedarfErgebnis {
   };
 }
 
-// Bodenprobe → automatische Versorgungsklassen-Ableitung nach VDLUFA
+// Bodenprobe → automatische Versorgungsklassen-Ableitung nach VDLUFA / LWK Niedersachsen
 // Grenzwerte für P2O5 / K2O in mg/100g (CAL) — leichter Boden
 export function ableiteVersorgungsklasseP(phosphor: number | null | undefined): string | null {
   if (phosphor == null) return null;
@@ -200,7 +204,8 @@ export function ableiteVersorgungsklasseP(phosphor: number | null | undefined): 
   if (phosphor < 6) return "B";
   if (phosphor < 12) return "C";
   if (phosphor < 20) return "D";
-  return "E";
+  if (phosphor < 35) return "E";
+  return "F";
 }
 
 export function ableiteVersorgungsklasseK(kalium: number | null | undefined): string | null {
@@ -209,7 +214,8 @@ export function ableiteVersorgungsklasseK(kalium: number | null | undefined): st
   if (kalium < 10) return "B";
   if (kalium < 20) return "C";
   if (kalium < 30) return "D";
-  return "E";
+  if (kalium < 45) return "E";
+  return "F";
 }
 
 export function ableiteVersorgungsklasseMg(magnesium: number | null | undefined): string | null {
@@ -218,7 +224,19 @@ export function ableiteVersorgungsklasseMg(magnesium: number | null | undefined)
   if (magnesium < 5) return "B";
   if (magnesium < 8) return "C";
   if (magnesium < 12) return "D";
-  return "E";
+  if (magnesium < 18) return "E";
+  return "F";
+}
+
+// Natrium (Na) in mg/kg (CAT) — Grünland/Acker, Richtwerte LWK
+export function ableiteVersorgungsklasseNatrium(natrium: number | null | undefined): string | null {
+  if (natrium == null) return null;
+  if (natrium < 3) return "A";
+  if (natrium < 6) return "B";
+  if (natrium < 12) return "C";
+  if (natrium < 20) return "D";
+  if (natrium < 35) return "E";
+  return "F";
 }
 
 // Bor in mg/kg (Heißwasser-extrahierbar) — VDLUFA-Richtwerte
