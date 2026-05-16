@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -36,9 +36,60 @@ export default function NeuPage() {
   const [positionen, setPositionen] = useState<PositionRow[]>([{ ...EMPTY_POS }]);
   const [saving, setSaving] = useState(false);
 
+  const [kiLoading, setKiLoading] = useState(false);
+  const [kiInfo, setKiInfo] = useState<string | null>(null);
+  const [kiError, setKiError] = useState<string | null>(null);
+  const kiFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     fetch("/api/kunden?limit=2000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
   }, []);
+
+  async function importViaKi(file: File) {
+    setKiLoading(true); setKiInfo(null); setKiError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ki/sortenversuch", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setKiError(err.error ?? "Erkennung fehlgeschlagen");
+        return;
+      }
+      const json = await res.json() as {
+        versuch: { name: string; jahr: number; kultur: string; standort: string | null; flaeche: number | null; startDatum: string | null; endeDatum: string | null };
+        positionen: PositionRow[];
+        hinweis?: string | null;
+      };
+      const v = json.versuch;
+      setForm(f => ({
+        ...f,
+        name: v.name || f.name,
+        jahr: v.jahr || f.jahr,
+        kultur: v.kultur || f.kultur,
+        standort: v.standort ?? f.standort,
+        flaeche: v.flaeche != null ? String(v.flaeche) : f.flaeche,
+        startDatum: v.startDatum ?? f.startDatum,
+        endeDatum: v.endeDatum ?? f.endeDatum,
+      }));
+      const rows: PositionRow[] = json.positionen.map(p => ({
+        sorte: String(p.sorte ?? ""),
+        saatstaerke: p.saatstaerke != null ? String(p.saatstaerke) : "",
+        ertragDtHa: p.ertragDtHa != null ? String(p.ertragDtHa) : "",
+        feuchteProzent: p.feuchteProzent != null ? String(p.feuchteProzent) : "",
+        proteinProzent: p.proteinProzent != null ? String(p.proteinProzent) : "",
+        hektolitergew: p.hektolitergew != null ? String(p.hektolitergew) : "",
+        bonitur: p.bonitur != null ? String(p.bonitur) : "",
+        reife: p.reife ?? "",
+      }));
+      if (rows.length > 0) setPositionen(rows);
+      setKiInfo(`✓ ${rows.length} Sortenpositionen erkannt${json.hinweis ? ` · ${json.hinweis}` : ""}`);
+    } catch {
+      setKiError("Netzwerkfehler bei KI-Analyse");
+    } finally {
+      setKiLoading(false);
+    }
+  }
 
   function setP(i: number, k: keyof PositionRow, v: string) {
     setPositionen(ps => ps.map((p, idx) => idx === i ? { ...p, [k]: v } : p));
@@ -75,6 +126,36 @@ export default function NeuPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">🌾 Neuer Sortenversuch</h1>
       <form onSubmit={speichern} className="space-y-4">
+        <Card>
+          <div className="flex items-start gap-3 mb-3">
+            <span className="text-2xl">🤖</span>
+            <div>
+              <h2 className="font-semibold">KI-Import aus Auswertungstabelle</h2>
+              <p className="text-sm text-gray-500 mt-0.5">PDF, Foto oder Excel/CSV der LSV/Demoflächen-Auswertung hochladen — Versuchskopf und Sortenpositionen werden automatisch erkannt.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3 items-center">
+            <label className={`cursor-pointer inline-flex items-center gap-2 text-white text-sm px-4 py-2 rounded ${kiLoading ? "bg-gray-400" : "bg-green-700 hover:bg-green-800"}`}>
+              {kiLoading ? "Analysiere…" : "Datei hochladen"}
+              <input
+                ref={kiFileRef}
+                type="file"
+                accept="application/pdf,image/*,.xlsx,.xls,.csv,.ods"
+                className="hidden"
+                disabled={kiLoading}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  await importViaKi(f);
+                  if (kiFileRef.current) kiFileRef.current.value = "";
+                }}
+              />
+            </label>
+          </div>
+          {kiInfo && <div className="mt-3 bg-green-50 border border-green-200 rounded p-2 text-sm text-green-800">{kiInfo}</div>}
+          {kiError && <div className="mt-3 bg-red-50 border border-red-200 rounded p-2 text-sm text-red-700">{kiError}</div>}
+        </Card>
+
         <Card>
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
