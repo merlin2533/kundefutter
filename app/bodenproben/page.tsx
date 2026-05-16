@@ -29,7 +29,7 @@ interface Bodenprobe {
   empfehlungenJson?: string | null;
   belegPfad?: string | null;
   belegName?: string | null;
-  schlag?: { id: number; name: string; kundeId: number };
+  schlag?: { id: number; name: string; kundeId: number; kunde?: { name: string } | null };
 }
 
 function klassenBadge(k?: string | null) {
@@ -48,6 +48,7 @@ export default function BodenprobenSeite() {
   const [proben, setProben] = useState<Bodenprobe[]>([]);
   const [filterLabor, setFilterLabor] = useState("");
   const [filterSchlag, setFilterSchlag] = useState("");
+  const [filterKunde, setFilterKunde] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -61,9 +62,10 @@ export default function BodenprobenSeite() {
     return proben.filter(p => {
       if (filterLabor && !(p.labor ?? "").toLowerCase().includes(filterLabor.toLowerCase())) return false;
       if (filterSchlag && !(p.schlag?.name ?? "").toLowerCase().includes(filterSchlag.toLowerCase())) return false;
+      if (filterKunde && !(p.schlag?.kunde?.name ?? "").toLowerCase().includes(filterKunde.toLowerCase())) return false;
       return true;
     });
-  }, [proben, filterLabor, filterSchlag]);
+  }, [proben, filterLabor, filterSchlag, filterKunde]);
 
   async function loeschen(id: number) {
     if (!confirm("Bodenprobe wirklich löschen?")) return;
@@ -96,6 +98,13 @@ export default function BodenprobenSeite() {
             placeholder="Schlag filtern…"
             value={filterSchlag}
             onChange={e => setFilterSchlag(e.target.value)}
+            className="border rounded px-3 py-2 w-full sm:w-60"
+          />
+          <input
+            type="text"
+            placeholder="Kunde filtern…"
+            value={filterKunde}
+            onChange={e => setFilterKunde(e.target.value)}
             className="border rounded px-3 py-2 w-full sm:w-60"
           />
           <div className="ml-auto text-sm text-gray-500 flex items-center">
