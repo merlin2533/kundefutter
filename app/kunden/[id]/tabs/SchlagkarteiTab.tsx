@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { DEFAULT_FRUCHTARTEN, parseListSetting } from "@/lib/auswahllisten";
 import { KundeSchlag, inputClsSchlag } from "../_shared";
 
 const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
+
+interface AiSchlag {
+  name: string; flaeche: number;
+  fruchtart?: string | null; sorte?: string | null; vorfrucht?: string | null;
+  aussaatJahr?: number | null;
+}
 
 export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number; lat?: number | null; lng?: number | null }) {
   const [schlaegte, setSchlaegte] = useState<KundeSchlag[]>([]);
@@ -87,6 +93,64 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
     }
   }
 
+  // KI-Import aus AFIG/HIT/iBALIS-PDF
+  const [aiImporting, setAiImporting] = useState(false);
+  const [aiResult, setAiResult] = useState<{ imported: number; skipped: number; error?: string } | null>(null);
+  const aiFileRef = useRef<HTMLInputElement>(null);
+
+  async function importFromPdf(file: File) {
+    setAiImporting(true); setAiResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/ki/schlaegte", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setAiResult({ imported: 0, skipped: 0, error: err.error ?? "Erkennung fehlgeschlagen" });
+        return;
+      }
+      const json = await res.json() as { schlaege: AiSchlag[]; hinweis?: string | null };
+      const erkannt = json.schlaege ?? [];
+      if (erkannt.length === 0) {
+        setAiResult({ imported: 0, skipped: 0, error: "Keine Schläge erkannt" });
+        return;
+      }
+      if (!confirm(`${erkannt.length} Schläge erkannt — alle für diesen Kunden anlegen?`)) {
+        setAiResult({ imported: 0, skipped: erkannt.length });
+        return;
+      }
+
+      // Duplikate via Name + Fläche (±0.05 ha Toleranz) gegen Bestand prüfen
+      const existing = new Map(schlaegte.map(s => [s.name.toLowerCase().trim(), s.flaeche]));
+      let imported = 0, skipped = 0;
+      for (const s of erkannt) {
+        const key = s.name.toLowerCase().trim();
+        const sameNameFlaeche = existing.has(key) && Math.abs((existing.get(key) ?? 0) - s.flaeche) < 0.05;
+        if (sameNameFlaeche) { skipped++; continue; }
+
+        const res = await fetch(`/api/kunden/${kundeId}/schlaegte`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: s.name,
+            flaeche: s.flaeche,
+            fruchtart: s.fruchtart || null,
+            sorte: s.sorte || null,
+            vorfrucht: s.vorfrucht || null,
+            aussaatJahr: s.aussaatJahr ?? null,
+          }),
+        });
+        if (res.ok) imported++; else skipped++;
+      }
+      setAiResult({ imported, skipped });
+      if (imported > 0) fetchSchlaegte();
+    } catch {
+      setAiResult({ imported: 0, skipped: 0, error: "Netzwerkfehler" });
+    } finally {
+      setAiImporting(false);
+    }
+  }
+
   const totalFlaeche = schlaegte.reduce((s, sl) => s + sl.flaeche, 0);
 
   return (
@@ -102,7 +166,23 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
         </p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <label className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${aiImporting ? "bg-gray-300 text-gray-600" : "bg-white border border-green-600 text-green-700 hover:bg-green-50"}`}>
+          {aiImporting ? "Erkenne…" : "📄 Aus AFIG/HIT-PDF importieren"}
+          <input
+            ref={aiFileRef}
+            type="file"
+            accept="application/pdf,image/*"
+            className="hidden"
+            disabled={aiImporting}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              await importFromPdf(f);
+              if (aiFileRef.current) aiFileRef.current.value = "";
+            }}
+          />
+        </label>
         <button
           onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
           className="text-sm px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
@@ -110,6 +190,14 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
           {showForm ? "Abbrechen" : "+ Neuer Schlag"}
         </button>
       </div>
+
+      {aiResult && (
+        <div className={`text-sm rounded p-2 ${aiResult.error ? "bg-red-50 border border-red-200 text-red-700" : "bg-green-50 border border-green-200 text-green-800"}`}>
+          {aiResult.error
+            ? `❌ ${aiResult.error}`
+            : `✓ ${aiResult.imported} Schläge angelegt${aiResult.skipped > 0 ? `, ${aiResult.skipped} übersprungen (Duplikate oder Fehler)` : ""}`}
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">

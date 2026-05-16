@@ -56,6 +56,10 @@ export default function MahnwesenPage() {
   const [eintraege, setEintraege] = useState<MahnwesenEintrag[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [kiOpen, setKiOpen] = useState<{ kundeId: number; stufe: number; kundeName: string; rechnungen: { nr: string; datum: string; betrag: number; tageUeberfaellig: number }[] } | null>(null);
+  const [kiLoading, setKiLoading] = useState(false);
+  const [kiResult, setKiResult] = useState<{ betreff: string; anrede: string; text: string; gruss: string } | null>(null);
+  const [kiError, setKiError] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [stufeFilter, setStufeFilter] = useState<number | "alle">("alle");
   const [sepaLoading, setSepaLoading] = useState(false);
@@ -443,6 +447,26 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => {
+                              setKiOpen({
+                                kundeId: e.kunde.id,
+                                stufe: e.mahnstufe,
+                                kundeName: e.kunde.firma || e.kunde.name,
+                                rechnungen: [{
+                                  nr: e.rechnungNr ?? "",
+                                  datum: typeof e.rechnungDatum === "string" ? e.rechnungDatum.slice(0, 10) : "",
+                                  betrag: e.betrag,
+                                  tageUeberfaellig: e.tageUeberfaellig,
+                                }],
+                              });
+                              setKiResult(null); setKiError(null);
+                            }}
+                            className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-colors border border-blue-200"
+                            title="KI-Brief generieren"
+                          >
+                            🤖 Brief
+                          </button>
+                          <button
                             onClick={() => druckeZahlungserinnerung(e)}
                             className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors border border-gray-200"
                             title="Zahlungserinnerung drucken"
@@ -548,6 +572,97 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
             </div>
           )}
         </>
+      )}
+
+      {/* KI-Brief Modal */}
+      {kiOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setKiOpen(null)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold">🤖 KI-Mahntext für {kiOpen.kundeName}</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Stufe {kiOpen.stufe} · {kiOpen.rechnungen.length} Rechnung(en)
+                </p>
+              </div>
+              <button onClick={() => setKiOpen(null)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+
+            {!kiResult && !kiError && !kiLoading && (
+              <button
+                onClick={async () => {
+                  setKiLoading(true); setKiError(null);
+                  try {
+                    const mahngebuehr = kiOpen.stufe === 3 ? cfg.mahngebuehr3 : kiOpen.stufe === 2 ? cfg.mahngebuehr2 : cfg.mahngebuehr1;
+                    const frist = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+                    const res = await fetch("/api/ki/mahnungstext", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        kundeId: kiOpen.kundeId, mahnstufe: kiOpen.stufe,
+                        rechnungen: kiOpen.rechnungen,
+                        mahngebuehr: kiOpen.stufe > 1 ? mahngebuehr : undefined,
+                        frist,
+                      }),
+                    });
+                    if (!res.ok) {
+                      const err = await res.json().catch(() => ({}));
+                      setKiError(err.error ?? "Generierung fehlgeschlagen");
+                    } else {
+                      setKiResult(await res.json());
+                    }
+                  } catch {
+                    setKiError("Netzwerkfehler");
+                  } finally {
+                    setKiLoading(false);
+                  }
+                }}
+                className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded font-medium"
+              >
+                Brief generieren
+              </button>
+            )}
+
+            {kiLoading && <div className="text-center text-gray-500 py-8">KI verfasst den Brief…</div>}
+            {kiError && <div className="bg-red-50 border border-red-200 rounded p-3 text-red-700 text-sm">{kiError}</div>}
+
+            {kiResult && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Betreff</label>
+                  <input value={kiResult.betreff} onChange={e => setKiResult(r => r ? { ...r, betreff: e.target.value } : r)} className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Anrede</label>
+                  <input value={kiResult.anrede} onChange={e => setKiResult(r => r ? { ...r, anrede: e.target.value } : r)} className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Text</label>
+                  <textarea value={kiResult.text} onChange={e => setKiResult(r => r ? { ...r, text: e.target.value } : r)} rows={12} className="w-full border rounded px-3 py-2 text-sm font-mono" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Schlussformel</label>
+                  <input value={kiResult.gruss} onChange={e => setKiResult(r => r ? { ...r, gruss: e.target.value } : r)} className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    onClick={async () => {
+                      const fullText = `${kiResult.anrede}\n\n${kiResult.text}\n\n${kiResult.gruss}`;
+                      await navigator.clipboard.writeText(fullText);
+                      alert("Text in Zwischenablage kopiert");
+                    }}
+                    className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded font-medium"
+                  >
+                    📋 Kopieren
+                  </button>
+                  <button onClick={() => setKiOpen(null)} className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded font-medium">
+                    Schließen
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

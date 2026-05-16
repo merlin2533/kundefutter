@@ -20,6 +20,7 @@ const groups: NavGroup[] = [
       { href: "/kunden/karte", label: "Karte" },
       { href: "/kundenimport", label: "Import" },
       { href: "/crm", label: "CRM / Aktivitäten" },
+      { href: "/ki/erkennung", label: "KI-Belegerkennung" },
       { href: "/ki/crm", label: "KI-CRM Notiz" },
       { href: "/ki/sprache", label: "Sprachmemo → CRM" },
       { href: "/besuchstermine", label: "Besuchstermine" },
