@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const proben = await prisma.bodenprobe.findMany({
       where,
-      include: { schlag: { select: { id: true, name: true, kundeId: true } } },
+      include: { schlag: { select: { id: true, name: true, kundeId: true, kunde: { select: { name: true } } } } },
       orderBy: { datum: "desc" },
       take: 500,
     });
