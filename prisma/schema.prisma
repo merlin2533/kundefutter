@@ -1109,7 +1109,23 @@ model Bodenprobe {
   nMin         Float?                  // kg N/ha (0-90cm)
   cn           Float?                  // C/N-Verhältnis
   bodenart     String?                 // S | lS | sL | L | T
-  klasse       String?                 // A | B | C | D | E (Versorgungsklasse Hauptnährstoffe)
+  // Erweiterte Nährstoff-Werte
+  schwefel     Float?                  // SO₃ mg/100g (CAT) — wichtig für Raps, Mais, Getreide
+  zink         Float?                  // mg/kg (CAT)
+  kupfer       Float?                  // mg/kg (CAT)
+  mangan       Float?                  // mg/kg (CAT)
+  kak          Float?                  // Kationenaustauschkapazität cmol+/kg
+  kalkbedarf   Float?                  // Kalkbedarf in t CaO/ha (aus pH + Bodenart)
+  // Versorgungsklassen pro Nährstoff (VDLUFA A–E)
+  klasse       String?                 // DEPRECATED — Sammel-Versorgungsklasse; Werte werden in klasseP/K/Mg gespiegelt
+  klasseP      String?
+  klasseK      String?
+  klasseMg     String?
+  klasseBor    String?
+  klasseSchwefel String?
+  klasseZink   String?
+  klasseKupfer String?
+  klasseMangan String?
   notiz        String?
   belegPfad    String?                 // /uploads/bodenproben/<id>.pdf
   belegName    String?

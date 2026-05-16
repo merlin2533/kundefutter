@@ -16,13 +16,30 @@ interface Bodenprobe {
   phosphor?: number | null;
   kalium?: number | null;
   magnesium?: number | null;
+  bor?: number | null;
   humus?: number | null;
   nMin?: number | null;
   bodenart?: string | null;
-  klasse?: string | null;
+  klasse?: string | null; // deprecated
+  klasseP?: string | null;
+  klasseK?: string | null;
+  klasseMg?: string | null;
+  klasseBor?: string | null;
   belegPfad?: string | null;
   belegName?: string | null;
   schlag?: { id: number; name: string; kundeId: number };
+}
+
+function klassenBadge(k?: string | null) {
+  if (!k) return <span className="text-gray-300">–</span>;
+  const farben: Record<string, string> = {
+    A: "bg-red-100 text-red-800",
+    B: "bg-orange-100 text-orange-800",
+    C: "bg-green-100 text-green-800",
+    D: "bg-blue-100 text-blue-800",
+    E: "bg-purple-100 text-purple-800",
+  };
+  return <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${farben[k] ?? "bg-gray-100 text-gray-700"}`}>{k}</span>;
 }
 
 export default function BodenprobenSeite() {
@@ -107,7 +124,7 @@ export default function BodenprobenSeite() {
                   <th className="py-2 pr-3 hidden lg:table-cell">Mg</th>
                   <th className="py-2 pr-3 hidden lg:table-cell">Humus</th>
                   <th className="py-2 pr-3">N-Min</th>
-                  <th className="py-2 pr-3">Klasse</th>
+                  <th className="py-2 pr-3" colSpan={4} title="Versorgungsklasse je Nährstoff (P/K/Mg/Bor)">Klasse P · K · Mg · B</th>
                   <th className="py-2 pr-3 hidden sm:table-cell">Beleg</th>
                   <th></th>
                 </tr>
@@ -131,7 +148,10 @@ export default function BodenprobenSeite() {
                     <td className="py-2 pr-3 hidden lg:table-cell">{p.magnesium ?? "–"}</td>
                     <td className="py-2 pr-3 hidden lg:table-cell">{p.humus ?? "–"}</td>
                     <td className="py-2 pr-3">{p.nMin ?? "–"}</td>
-                    <td className="py-2 pr-3">{p.klasse ?? "–"}</td>
+                    <td className="py-1 pr-1 text-center">{klassenBadge(p.klasseP ?? p.klasse)}</td>
+                    <td className="py-1 pr-1 text-center">{klassenBadge(p.klasseK ?? p.klasse)}</td>
+                    <td className="py-1 pr-1 text-center">{klassenBadge(p.klasseMg ?? p.klasse)}</td>
+                    <td className="py-1 pr-3 text-center">{klassenBadge(p.klasseBor)}</td>
                     <td className="py-2 pr-3 hidden sm:table-cell">
                       {p.belegPfad ? (
                         <a

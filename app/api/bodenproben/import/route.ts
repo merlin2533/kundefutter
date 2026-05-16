@@ -6,7 +6,12 @@ import * as XLSX from "xlsx";
 export const dynamic = "force-dynamic";
 
 // POST /api/bodenproben/import — multipart CSV/Excel mit Spalten:
-//   Schlag, Datum, ProbenNr, Labor, Tiefe, pH, P2O5, K2O, Mg, B, Humus, NMin, CN, Bodenart, Klasse
+//   Schlag, Datum, ProbenNr, Labor, Tiefe, pH, P2O5, K2O, Mg, B, Humus, NMin, CN, Bodenart,
+//   KlasseP, KlasseK, KlasseMg, KlasseBor (alternativ: "Versorgungsklasse P" etc.)
+//
+// Rückwärtskompatibilität: eine alte Sammelspalte "Klasse"/"Versorgungsklasse"
+// wird auf KlasseP/K/Mg gespiegelt, sofern für den jeweiligen Nährstoff keine
+// eigene Spalte existiert.
 //
 // Schlag wird per Name innerhalb eines (optionalen) Kunden gesucht.
 export async function POST(req: NextRequest) {
@@ -73,7 +78,20 @@ export async function POST(req: NextRequest) {
             nMin: numFromCol(row, "NMin", "N-Min", "Nmin"),
             cn: numFromCol(row, "CN", "C/N"),
             bodenart: pickCol(row, "Bodenart") || null,
-            klasse: pickCol(row, "Klasse", "Versorgungsklasse") || null,
+            schwefel: numFromCol(row, "Schwefel", "S", "SO3", "SO₃"),
+            zink: numFromCol(row, "Zink", "Zn"),
+            kupfer: numFromCol(row, "Kupfer", "Cu"),
+            mangan: numFromCol(row, "Mangan", "Mn"),
+            kak: numFromCol(row, "KAK", "Kationenaustauschkapazitaet"),
+            kalkbedarf: numFromCol(row, "Kalkbedarf", "CaO", "Kalkung"),
+            klasseP: klasseFromCol(row, ["KlasseP", "Klasse P", "Versorgungsklasse P", "PKlasse", "Klasse P2O5"], "Klasse", "Versorgungsklasse"),
+            klasseK: klasseFromCol(row, ["KlasseK", "Klasse K", "Versorgungsklasse K", "KKlasse", "Klasse K2O"], "Klasse", "Versorgungsklasse"),
+            klasseMg: klasseFromCol(row, ["KlasseMg", "Klasse Mg", "Versorgungsklasse Mg", "MgKlasse"], "Klasse", "Versorgungsklasse"),
+            klasseBor: klasseFromCol(row, ["KlasseBor", "Klasse Bor", "Klasse B", "Versorgungsklasse Bor", "BorKlasse"]),
+            klasseSchwefel: klasseFromCol(row, ["KlasseSchwefel", "Klasse S", "Versorgungsklasse S", "SKlasse"]),
+            klasseZink: klasseFromCol(row, ["KlasseZink", "Klasse Zn", "Versorgungsklasse Zn", "ZnKlasse"]),
+            klasseKupfer: klasseFromCol(row, ["KlasseKupfer", "Klasse Cu", "Versorgungsklasse Cu", "CuKlasse"]),
+            klasseMangan: klasseFromCol(row, ["KlasseMangan", "Klasse Mn", "Versorgungsklasse Mn", "MnKlasse"]),
           },
         });
         ergebnisse.ok++;
@@ -97,6 +115,13 @@ function numFromCol(row: Record<string, unknown>, ...keys: string[]): number | n
   if (!v) return null;
   const n = parseNumber(v);
   return n === 0 && v !== "0" ? null : n;
+}
+
+function klasseFromCol(row: Record<string, unknown>, primary: string[], ...fallback: string[]): string | null {
+  const raw = pickCol(row, ...primary) || (fallback.length > 0 ? pickCol(row, ...fallback) : null);
+  if (!raw) return null;
+  const s = String(raw).trim().toUpperCase();
+  return ["A", "B", "C", "D", "E"].includes(s) ? s : null;
 }
 
 function parseDatum(s: string): Date | null {

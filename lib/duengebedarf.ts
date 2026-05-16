@@ -221,4 +221,70 @@ export function ableiteVersorgungsklasseMg(magnesium: number | null | undefined)
   return "E";
 }
 
+// Bor in mg/kg (Heißwasser-extrahierbar) — VDLUFA-Richtwerte
+export function ableiteVersorgungsklasseBor(bor: number | null | undefined): string | null {
+  if (bor == null) return null;
+  if (bor < 0.2) return "A";
+  if (bor < 0.4) return "B";
+  if (bor < 0.8) return "C";
+  if (bor < 1.5) return "D";
+  return "E";
+}
+
+// Schwefel als SO₃ in mg/100g (CAT) — VDLUFA-/LfL-Richtwerte
+export function ableiteVersorgungsklasseSchwefel(schwefel: number | null | undefined): string | null {
+  if (schwefel == null) return null;
+  if (schwefel < 1) return "A";
+  if (schwefel < 2) return "B";
+  if (schwefel < 4) return "C";
+  if (schwefel < 8) return "D";
+  return "E";
+}
+
+// Zink in mg/kg (CAT) — VDLUFA
+export function ableiteVersorgungsklasseZink(zink: number | null | undefined): string | null {
+  if (zink == null) return null;
+  if (zink < 1) return "A";
+  if (zink < 2) return "B";
+  if (zink < 4) return "C";
+  if (zink < 8) return "D";
+  return "E";
+}
+
+// Kupfer in mg/kg (CAT) — VDLUFA
+export function ableiteVersorgungsklasseKupfer(kupfer: number | null | undefined): string | null {
+  if (kupfer == null) return null;
+  if (kupfer < 0.6) return "A";
+  if (kupfer < 1.5) return "B";
+  if (kupfer < 4) return "C";
+  if (kupfer < 8) return "D";
+  return "E";
+}
+
+// Mangan in mg/kg (CAT) — VDLUFA
+export function ableiteVersorgungsklasseMangan(mangan: number | null | undefined): string | null {
+  if (mangan == null) return null;
+  if (mangan < 20) return "A";
+  if (mangan < 40) return "B";
+  if (mangan < 80) return "C";
+  if (mangan < 150) return "D";
+  return "E";
+}
+
+// Kalkbedarf t CaO/ha aus pH und Bodenart (vereinfachte LfL-Tabelle).
+// Ergebnis: nicht-negative t CaO/ha (0 = kein Bedarf).
+export function berechneKalkbedarf(pH: number | null | undefined, bodenart: string | null | undefined): number | null {
+  if (pH == null) return null;
+  // pH-Sollwerte je Bodenart (annähernd)
+  const SOLL: Record<string, number> = {
+    "S": 5.5, "lS": 5.8, "sL": 6.2, "L": 6.5, "T": 6.8, "Mo": 4.8,
+  };
+  const soll = bodenart && SOLL[bodenart] != null ? SOLL[bodenart] : 6.2;
+  const delta = soll - pH;
+  if (delta <= 0) return 0;
+  // ~1 t CaO/ha hebt pH um 0,2–0,3 (Bodenart-abhängig); Faktor 5 t / pH-Stufe.
+  const faktor = bodenart === "S" || bodenart === "lS" ? 3.5 : bodenart === "T" || bodenart === "Mo" ? 8 : 5;
+  return Math.round(delta * faktor * 10) / 10;
+}
+
 export const FRUCHTARTEN_DUEV = NBEDARF_TABELLE.map(t => t.fruchtart);

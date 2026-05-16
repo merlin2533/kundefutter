@@ -5,6 +5,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import {
+  ableiteVersorgungsklasseP,
+  ableiteVersorgungsklasseK,
+  ableiteVersorgungsklasseMg,
+  ableiteVersorgungsklasseBor,
+  ableiteVersorgungsklasseSchwefel,
+  ableiteVersorgungsklasseZink,
+  ableiteVersorgungsklasseKupfer,
+  ableiteVersorgungsklasseMangan,
+  berechneKalkbedarf,
+} from "@/lib/duengebedarf";
 
 interface Schlag { id: number; name: string; kundeId: number; flaeche: number; fruchtart?: string | null; vorfrucht?: string | null; }
 interface Kunde { id: number; name: string; firma?: string | null; }
@@ -40,7 +51,20 @@ function NeuInner() {
     nMin: "",
     cn: "",
     bodenart: "",
-    klasse: "",
+    schwefel: "",
+    zink: "",
+    kupfer: "",
+    mangan: "",
+    kak: "",
+    kalkbedarf: "",
+    klasseP: "",
+    klasseK: "",
+    klasseMg: "",
+    klasseBor: "",
+    klasseSchwefel: "",
+    klasseZink: "",
+    klasseKupfer: "",
+    klasseMangan: "",
     notiz: "",
   });
   const [saving, setSaving] = useState(false);
@@ -156,7 +180,23 @@ function NeuInner() {
       fill("nMin", d.nMin);
       fill("cn", d.cn);
       fill("bodenart", d.bodenart);
-      fill("klasse", d.klasse);
+      fill("schwefel", d.schwefel);
+      fill("zink", d.zink);
+      fill("kupfer", d.kupfer);
+      fill("mangan", d.mangan);
+      fill("kak", d.kak);
+      fill("kalkbedarf", d.kalkbedarf);
+      // KI liefert pro Nährstoff (preferred); falls nur Sammel-"klasse" geliefert wird,
+      // wird sie als gemeinsame Initial-Schätzung für P/K/Mg gespiegelt.
+      const sammelKlasse = typeof d.klasse === "string" ? d.klasse : null;
+      fill("klasseP", d.klasseP ?? sammelKlasse);
+      fill("klasseK", d.klasseK ?? sammelKlasse);
+      fill("klasseMg", d.klasseMg ?? sammelKlasse);
+      fill("klasseBor", d.klasseBor);
+      fill("klasseSchwefel", d.klasseSchwefel);
+      fill("klasseZink", d.klasseZink);
+      fill("klasseKupfer", d.klasseKupfer);
+      fill("klasseMangan", d.klasseMangan);
 
       // Schlag-Matching: wenn schlagName erkannt und Kunde gewählt
       const erkannterSchlagName = typeof d.schlagName === "string" ? d.schlagName : null;
@@ -214,6 +254,83 @@ function NeuInner() {
   function set<K extends keyof typeof form>(k: K, v: string) {
     setForm(s => ({ ...s, [k]: v }));
   }
+
+  // Auto-Ableitung der Versorgungsklasse aus dem Nährstoff-Wert,
+  // sofern noch keine Klasse manuell gesetzt wurde.
+  useEffect(() => {
+    const n = parseFloat(form.phosphor);
+    if (!form.klasseP && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseP(n);
+      if (k) setForm(s => ({ ...s, klasseP: k }));
+    }
+  }, [form.phosphor, form.klasseP]);
+
+  useEffect(() => {
+    const n = parseFloat(form.kalium);
+    if (!form.klasseK && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseK(n);
+      if (k) setForm(s => ({ ...s, klasseK: k }));
+    }
+  }, [form.kalium, form.klasseK]);
+
+  useEffect(() => {
+    const n = parseFloat(form.magnesium);
+    if (!form.klasseMg && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseMg(n);
+      if (k) setForm(s => ({ ...s, klasseMg: k }));
+    }
+  }, [form.magnesium, form.klasseMg]);
+
+  useEffect(() => {
+    const n = parseFloat(form.bor);
+    if (!form.klasseBor && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseBor(n);
+      if (k) setForm(s => ({ ...s, klasseBor: k }));
+    }
+  }, [form.bor, form.klasseBor]);
+
+  useEffect(() => {
+    const n = parseFloat(form.schwefel);
+    if (!form.klasseSchwefel && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseSchwefel(n);
+      if (k) setForm(s => ({ ...s, klasseSchwefel: k }));
+    }
+  }, [form.schwefel, form.klasseSchwefel]);
+
+  useEffect(() => {
+    const n = parseFloat(form.zink);
+    if (!form.klasseZink && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseZink(n);
+      if (k) setForm(s => ({ ...s, klasseZink: k }));
+    }
+  }, [form.zink, form.klasseZink]);
+
+  useEffect(() => {
+    const n = parseFloat(form.kupfer);
+    if (!form.klasseKupfer && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseKupfer(n);
+      if (k) setForm(s => ({ ...s, klasseKupfer: k }));
+    }
+  }, [form.kupfer, form.klasseKupfer]);
+
+  useEffect(() => {
+    const n = parseFloat(form.mangan);
+    if (!form.klasseMangan && !isNaN(n)) {
+      const k = ableiteVersorgungsklasseMangan(n);
+      if (k) setForm(s => ({ ...s, klasseMangan: k }));
+    }
+  }, [form.mangan, form.klasseMangan]);
+
+  // Kalkbedarf aus pH + Bodenart automatisch vorschlagen
+  useEffect(() => {
+    if (form.kalkbedarf) return;
+    const pH = parseFloat(form.pH);
+    if (isNaN(pH)) return;
+    const bedarf = berechneKalkbedarf(pH, form.bodenart || null);
+    if (bedarf != null && bedarf > 0) {
+      setForm(s => ({ ...s, kalkbedarf: bedarf.toFixed(1) }));
+    }
+  }, [form.pH, form.bodenart, form.kalkbedarf]);
 
   const keinSchlagVorhanden = !!kundeId && schlaegteGeladen && schlaegte.length === 0;
 
@@ -475,18 +592,46 @@ function NeuInner() {
                 <option value="T" />
               </datalist>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Versorgungsklasse</label>
-              <select value={form.klasse} onChange={e => set("klasse", e.target.value)} className="w-full border rounded px-3 py-2">
-                <option value="">– keine –</option>
-                <option value="A">A (sehr niedrig)</option>
-                <option value="B">B (niedrig)</option>
-                <option value="C">C (anzustreben)</option>
-                <option value="D">D (hoch)</option>
-                <option value="E">E (sehr hoch)</option>
-              </select>
+          </div>
+
+          <div className="mt-5 pt-4 border-t">
+            <h3 className="font-semibold text-sm mb-2">Mikronährstoffe & Spurenelemente</h3>
+            <div className="grid sm:grid-cols-3 gap-4">
+              <Num label="Schwefel SO₃ (mg/100g)" k="schwefel" form={form} set={set} />
+              <Num label="Zink (mg/kg)" k="zink" form={form} set={set} />
+              <Num label="Kupfer (mg/kg)" k="kupfer" form={form} set={set} />
+              <Num label="Mangan (mg/kg)" k="mangan" form={form} set={set} />
+              <Num label="KAK (cmol+/kg)" k="kak" form={form} set={set} />
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Kalkbedarf (t CaO/ha)
+                  <span className="text-xs text-gray-400 font-normal ml-1">aus pH + Bodenart</span>
+                </label>
+                <input type="number" step="0.1" value={form.kalkbedarf} onChange={e => set("kalkbedarf", e.target.value)} className="w-full border rounded px-3 py-2" />
+              </div>
             </div>
           </div>
+
+          <div className="mt-5 pt-4 border-t">
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="font-semibold text-sm">Versorgungsklasse je Nährstoff (VDLUFA A–E)</h3>
+              <span className="text-xs text-gray-500">wird aus den Werten oben automatisch vorgeschlagen</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
+              <KlassenSelect label="P₂O₅" value={form.klasseP} onChange={v => set("klasseP", v)} />
+              <KlassenSelect label="K₂O" value={form.klasseK} onChange={v => set("klasseK", v)} />
+              <KlassenSelect label="Mg" value={form.klasseMg} onChange={v => set("klasseMg", v)} />
+              <KlassenSelect label="Bor" value={form.klasseBor} onChange={v => set("klasseBor", v)} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <KlassenSelect label="Schwefel" value={form.klasseSchwefel} onChange={v => set("klasseSchwefel", v)} />
+              <KlassenSelect label="Zink" value={form.klasseZink} onChange={v => set("klasseZink", v)} />
+              <KlassenSelect label="Kupfer" value={form.klasseKupfer} onChange={v => set("klasseKupfer", v)} />
+              <KlassenSelect label="Mangan" value={form.klasseMangan} onChange={v => set("klasseMangan", v)} />
+            </div>
+            <PraxisHinweise form={form} />
+          </div>
+
           <div className="mt-4">
             <label className="block text-sm font-medium mb-1">Notiz</label>
             <textarea value={form.notiz} onChange={e => set("notiz", e.target.value)} rows={3} className="w-full border rounded px-3 py-2" />
@@ -513,12 +658,91 @@ function Num({ label, k, form, set }: { label: string; k: keyof Form; form: Form
   );
 }
 
+function KlassenSelect({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium mb-1">{label}</label>
+      <select value={value} onChange={e => onChange(e.target.value)} className="w-full border rounded px-2 py-1.5 text-sm">
+        <option value="">– offen –</option>
+        <option value="A">A · sehr niedrig</option>
+        <option value="B">B · niedrig</option>
+        <option value="C">C · anzustreben</option>
+        <option value="D">D · hoch</option>
+        <option value="E">E · sehr hoch</option>
+      </select>
+    </div>
+  );
+}
+
 type Form = {
   datum: string; probenNr: string; labor: string; tiefe: string;
   pH: string; phosphor: string; kalium: string; magnesium: string;
   bor: string; humus: string; nMin: string; cn: string;
-  bodenart: string; klasse: string; notiz: string;
+  bodenart: string;
+  schwefel: string; zink: string; kupfer: string; mangan: string;
+  kak: string; kalkbedarf: string;
+  klasseP: string; klasseK: string; klasseMg: string; klasseBor: string;
+  klasseSchwefel: string; klasseZink: string; klasseKupfer: string; klasseMangan: string;
+  notiz: string;
 };
+
+// Praxisrelevante Erfahrungswerte und Düngehinweise pro Versorgungsklasse,
+// abgeleitet aus VDLUFA-Empfehlungen und gängiger Beratungspraxis (LfL, LWK).
+function PraxisHinweise({ form }: { form: Form }) {
+  const hinweise: { nährstoff: string; klasse: string; text: string; ton: "warn" | "info" | "ok" }[] = [];
+
+  function addHinweis(nährstoff: string, klasse: string, baseline: string, nährstoffFreitext: string) {
+    if (!klasse) return;
+    const map: Record<string, { ton: "warn" | "info" | "ok"; suffix: string }> = {
+      A: { ton: "warn", suffix: `sehr niedrig — ${baseline}` },
+      B: { ton: "warn", suffix: `niedrig — leicht erhöhte ${nährstoffFreitext}-Düngung` },
+      C: { ton: "ok",   suffix: `Zielwert (Entzugsdüngung deckt Bedarf)` },
+      D: { ton: "info", suffix: `hoch — Düngung reduzieren (~25%)` },
+      E: { ton: "info", suffix: `sehr hoch — keine ${nährstoffFreitext}-Düngung empfohlen` },
+    };
+    const entry = map[klasse];
+    if (entry) hinweise.push({ nährstoff, klasse, text: entry.suffix, ton: entry.ton });
+  }
+
+  addHinweis("P₂O₅", form.klasseP, "Aufdüngung empfohlen (Frühjahr, vor Saat)", "P");
+  addHinweis("K₂O", form.klasseK, "Aufdüngung empfohlen (Herbst, vor Wintersaaten)", "K");
+  addHinweis("Mg", form.klasseMg, "Kieserit/Magnesia einsetzen, ggf. mit Kalkung kombinieren", "Mg");
+  addHinweis("Bor", form.klasseBor, "Borax-Blattdüngung in Raps/Zuckerrübe", "Bor");
+  addHinweis("Schwefel", form.klasseSchwefel, "Schwefelhaltige N-Dünger (ASS) wählen", "S");
+  addHinweis("Zink", form.klasseZink, "Zn-Spritzung im 4-6-Blatt-Stadium Mais", "Zn");
+  addHinweis("Kupfer", form.klasseKupfer, "Cu-Spritzung in Wintergetreide auf leichten Standorten", "Cu");
+  addHinweis("Mangan", form.klasseMangan, "Mn-Blattdüngung in Wintergetreide auf alkalischen Böden", "Mn");
+
+  const pH = parseFloat(form.pH);
+  if (!isNaN(pH)) {
+    if (pH < 5.5) hinweise.push({ nährstoff: "pH", klasse: pH.toFixed(1), text: "stark sauer — Kalkung dringend (Nährstoffverfügbarkeit eingeschränkt)", ton: "warn" });
+    else if (pH < 6.0) hinweise.push({ nährstoff: "pH", klasse: pH.toFixed(1), text: "leicht sauer — Erhaltungskalkung empfohlen", ton: "info" });
+    else if (pH > 7.2) hinweise.push({ nährstoff: "pH", klasse: pH.toFixed(1), text: "alkalisch — Mn/Zn/Bor-Verfügbarkeit prüfen", ton: "info" });
+  }
+  const cn = parseFloat(form.cn);
+  if (!isNaN(cn) && cn > 12) hinweise.push({ nährstoff: "C/N", klasse: cn.toFixed(1), text: "Weit — N-Immobilisierung möglich (Strohrotte/Zwischenfrucht prüfen)", ton: "info" });
+  const humus = parseFloat(form.humus);
+  if (!isNaN(humus) && humus < 1.5) hinweise.push({ nährstoff: "Humus", klasse: humus.toFixed(1) + "%", text: "Humusgehalt niedrig — organische Düngung / Zwischenfrucht aufbauen", ton: "warn" });
+
+  if (hinweise.length === 0) return null;
+  return (
+    <div className="mt-4 border border-gray-200 rounded p-3 bg-gray-50">
+      <div className="text-xs font-semibold text-gray-600 mb-2">📋 Praxis-Hinweise (VDLUFA / LfL / LWK)</div>
+      <ul className="space-y-1">
+        {hinweise.map((h, i) => (
+          <li key={i} className="text-xs flex items-start gap-2">
+            <span className={`inline-block px-1.5 py-0.5 rounded font-semibold shrink-0 ${
+              h.ton === "warn" ? "bg-red-100 text-red-700" :
+              h.ton === "info" ? "bg-blue-100 text-blue-700" :
+              "bg-green-100 text-green-700"
+            }`}>{h.nährstoff} · {h.klasse}</span>
+            <span className="text-gray-700">{h.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function NeuPage() {
   return (
