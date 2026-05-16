@@ -49,3 +49,12 @@ next-env.d.ts
 
 # claude code
 .claude/
+
+# hyperframes / skills (installed via `npx skills add`)
+/.agents/
+/skills-lock.json
+
+# hyperframes project build artifacts
+/agraroffice-werbung/node_modules
+/agraroffice-werbung/renders
+/agraroffice-werbung/.hyperframes
