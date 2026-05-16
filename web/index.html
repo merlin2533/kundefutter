@@ -859,13 +859,9 @@
     .video-section { padding:80px 0; background:var(--gray-50); }
     .video-header { text-align:center; margin-bottom:48px; }
     .video-header .section-sub { margin:16px auto 0; }
-    .video-thumb { position:relative; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-lg); max-width:720px; margin:0 auto; cursor:pointer; }
-    .video-art { height:380px; background:linear-gradient(135deg,var(--green-900) 0%,var(--green-800) 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
-    .video-art-icon { font-size:3rem; }
-    .video-art-text { font-size:.9rem; color:rgba(255,255,255,.6); }
-    .video-play-ring { width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center; border:2px solid rgba(255,255,255,.35); transition:all .2s; }
-    .video-thumb:hover .video-play-ring { background:var(--amber); border-color:var(--amber); transform:scale(1.08); }
-    .video-duration { position:absolute; bottom:16px; right:20px; background:rgba(0,0,0,.65); color:white; font-size:.75rem; padding:4px 10px; border-radius:4px; font-weight:600; }
+    .video-player { position:relative; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-lg); max-width:960px; margin:0 auto; background:var(--green-900); aspect-ratio:16/9; }
+    .video-player video { display:block; width:100%; height:100%; object-fit:cover; }
+    .video-duration { position:absolute; bottom:16px; right:20px; background:rgba(0,0,0,.65); color:white; font-size:.75rem; padding:4px 10px; border-radius:4px; font-weight:600; pointer-events:none; }
     .video-features { display:flex; justify-content:center; gap:32px; margin-top:32px; flex-wrap:wrap; }
     .video-feature { display:flex; align-items:center; gap:8px; font-size:.875rem; color:var(--gray-600); font-weight:500; }
     .video-feature svg { color:var(--green-700); }
@@ -2515,19 +2511,23 @@
 <section class="video-section" aria-labelledby="video-title">
   <div class="container">
     <div class="video-header animate-on-scroll">
-      <div class="section-label">Live-Demo</div>
-      <h2 class="section-title" id="video-title">Sehen Sie AgrarOffice in 2 Minuten</h2>
-      <p class="section-sub">Tourenplanung, CRM-Telefonmaske und KI-Wareneingang in der Praxis – ohne Registrierung.</p>
+      <div class="section-label">Werbespot</div>
+      <h2 class="section-title" id="video-title">AgrarOffice in 30 Sekunden</h2>
+      <p class="section-sub">Schluss mit Excel-Chaos — CRM, Lager und Rechnung in einer Software, vertraut von Landwirten in ganz Deutschland.</p>
     </div>
-    <div class="video-thumb animate-on-scroll delay-1" onclick="requestDemo()" role="button" tabindex="0" aria-label="Demo-Video abspielen" onkeydown="if(event.key==='Enter')requestDemo()">
-      <div class="video-art">
-        <div class="video-play-ring">
-          <svg width="28" height="28" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </div>
-        <div class="video-art-icon">🌾</div>
-        <div class="video-art-text">AgrarOffice · Live-Demo · 2 Minuten</div>
-      </div>
-      <div class="video-duration">2:14</div>
+    <div class="video-player animate-on-scroll delay-1">
+      <video
+        controls
+        preload="metadata"
+        playsinline
+        poster="video/agraroffice-werbung-poster.jpg"
+        aria-label="AgrarOffice Werbespot, 30 Sekunden"
+      >
+        <source src="video/agraroffice-werbung.mp4" type="video/mp4" />
+        Ihr Browser unterstützt kein HTML5-Video.
+        <a href="video/agraroffice-werbung.mp4">Spot herunterladen</a>.
+      </video>
+      <div class="video-duration">0:30</div>
     </div>
     <div class="video-features animate-on-scroll delay-2">
       <div class="video-feature">
@@ -2536,11 +2536,11 @@
       </div>
       <div class="video-feature">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
-        Echter Produktionsstand
+        CRM · Lager · Rechnung
       </div>
       <div class="video-feature">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
-        Tourenplanung, CRM & KI gezeigt
+        Schon ab €49 / Monat
       </div>
     </div>
   </div>
