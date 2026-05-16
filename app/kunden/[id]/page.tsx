@@ -241,6 +241,14 @@ export default function KundeDetailPage() {
               >
                 PSM-Ausbringung
               </Link>
+              <a
+                href={`/api/exporte/preisliste?kundeId=${kunde.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-center text-xs px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
+              >
+                Preisliste drucken
+              </a>
               {rueckrufSuccess ? (
                 <div className="w-full text-xs px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-medium text-center">
                   ✓ Rückruf eingeplant

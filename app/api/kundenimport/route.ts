@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { pickCol, parseNumber, KUNDEN_ALIAS } from "@/lib/import-utils";
 export const dynamic = "force-dynamic";
 
 
 // GET: Vorlage herunterladen
 export async function GET() {
   const ws = XLSX.utils.aoa_to_sheet([
-    ["Name", "Vorname", "Firma", "Straße", "PLZ", "Ort", "Telefon", "Mobil", "Fax", "E-Mail", "Notizen"],
-    ["Bartelheimer", "Dieter", "", "Im Paradies 36", "32312", "Lübbecke/Alswede", "", "0151-1430887", "", "", ""],
-    ["Becker Biolandhof", "Heinrich-Hermann", "Biolandhof", "Hücker Dorf 3", "32139", "Spenge", "05732-3339", "", "", "", ""],
-    ["BKS Ackerbau GbR", "Herr Block", "BKS Ackerbau GbR", "Unter den Eichen 23", "31632", "Husum", "", "0177-2643870", "", "", ""],
+    ["Name", "Vorname", "Firma", "Kundennr.", "Straße", "PLZ", "Ort", "Telefon", "Mobil", "Fax", "E-Mail", "Notizen", "USt-IdNr.", "Zahlungsziel"],
+    ["Bartelheimer", "Dieter", "", "", "Im Paradies 36", "32312", "Lübbecke/Alswede", "", "0151-1430887", "", "", "", "", ""],
+    ["Becker Biolandhof", "Heinrich-Hermann", "Biolandhof", "", "Hücker Dorf 3", "32139", "Spenge", "05732-3339", "", "", "", "", "", "30"],
+    ["BKS Ackerbau GbR", "Herr Block", "BKS Ackerbau GbR", "K-001", "Unter den Eichen 23", "31632", "Husum", "", "0177-2643870", "", "", "", "DE123456789", "14"],
   ]);
 
   ws["!cols"] = [
-    { wch: 22 }, { wch: 18 }, { wch: 25 }, { wch: 28 }, { wch: 8 },
+    { wch: 22 }, { wch: 18 }, { wch: 25 }, { wch: 12 }, { wch: 28 }, { wch: 8 },
     { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 28 }, { wch: 32 },
+    { wch: 16 }, { wch: 14 },
   ];
 
   const wb = XLSX.utils.book_new();
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
     name: string;
     vorname: string | null;
     firma: string | null;
+    kundennummer: string | null;
     kategorie: string;
     strasse: string | null;
     plz: string | null;
@@ -56,31 +59,54 @@ export async function POST(req: NextRequest) {
     fax: string | null;
     email: string | null;
     notizen: string | null;
+    ustIdNr: string | null;
+    zahlungsziel: number | null;
+    betriebsnummer: string | null;
   }[] = [];
 
   for (const row of rows) {
-    const nachname = String(row["Name"] ?? row["name"] ?? row["NAME"] ?? "").trim();
+    const nachname = pickCol(row, ...KUNDEN_ALIAS.name);
     if (!nachname) continue;
 
-    const vorname = String(row["Vorname"] ?? row["vorname"] ?? "").trim() || null;
-    const firma = String(row["Firma"] ?? row["firma"] ?? "").trim() || null;
+    const vorname = pickCol(row, ...KUNDEN_ALIAS.vorname) || null;
+    const firma = pickCol(row, ...KUNDEN_ALIAS.firma) || null;
     // Combine first+last name for private customers; keep company name as-is when Firma is set
     const name = vorname && !firma ? `${vorname} ${nachname}` : nachname;
+
+    const kundennummerRaw = pickCol(row, ...KUNDEN_ALIAS.kundennummer);
+    const kategorie = pickCol(row, ...KUNDEN_ALIAS.kategorie) || "Sonstige";
+    const strasse = pickCol(row, ...KUNDEN_ALIAS.strasse) || null;
+    const plz = pickCol(row, ...KUNDEN_ALIAS.plz) || null;
+    const ort = pickCol(row, ...KUNDEN_ALIAS.ort) || null;
+    const land = pickCol(row, ...KUNDEN_ALIAS.land) || "Deutschland";
+    const telefon = pickCol(row, ...KUNDEN_ALIAS.telefon) || null;
+    const mobil = pickCol(row, ...KUNDEN_ALIAS.mobil) || null;
+    const fax = pickCol(row, ...KUNDEN_ALIAS.fax) || null;
+    const email = pickCol(row, ...KUNDEN_ALIAS.email) || null;
+    const notizen = pickCol(row, ...KUNDEN_ALIAS.notizen) || null;
+    const ustIdNr = pickCol(row, ...KUNDEN_ALIAS.ustIdNr) || null;
+    const zahlungszielRaw = pickCol(row, ...KUNDEN_ALIAS.zahlungsziel);
+    const zahlungsziel = zahlungszielRaw ? parseNumber(zahlungszielRaw) || null : null;
+    const betriebsnummer = pickCol(row, ...KUNDEN_ALIAS.betriebsnummer) || null;
 
     eintraege.push({
       name,
       vorname,
       firma,
-      kategorie: String(row["Kategorie"] ?? row["kategorie"] ?? "").trim() || "Sonstige",
-      strasse: String(row["Strasse"] ?? row["Straße"] ?? row["strasse"] ?? "").trim() || null,
-      plz: String(row["PLZ"] ?? row["plz"] ?? "").trim() || null,
-      ort: String(row["Ort"] ?? row["ort"] ?? "").trim() || null,
-      land: String(row["Land"] ?? row["land"] ?? "").trim() || "Deutschland",
-      telefon: String(row["Telefon"] ?? row["telefon"] ?? "").trim() || null,
-      mobil: String(row["Mobil"] ?? row["mobil"] ?? "").trim() || null,
-      fax: String(row["Fax"] ?? row["fax"] ?? "").trim() || null,
-      email: String(row["Email"] ?? row["email"] ?? row["E-Mail"] ?? "").trim() || null,
-      notizen: String(row["Notizen"] ?? row["notizen"] ?? "").trim() || null,
+      kundennummer: kundennummerRaw || null,
+      kategorie,
+      strasse,
+      plz,
+      ort,
+      land,
+      telefon,
+      mobil,
+      fax,
+      email,
+      notizen,
+      ustIdNr,
+      zahlungsziel,
+      betriebsnummer,
     });
   }
 
@@ -115,6 +141,7 @@ export async function PUT(req: NextRequest) {
       name: string;
       vorname?: string | null;
       firma?: string | null;
+      kundennummer?: string | null;
       kategorie?: string;
       strasse?: string | null;
       plz?: string | null;
@@ -125,6 +152,9 @@ export async function PUT(req: NextRequest) {
       fax?: string | null;
       email?: string | null;
       notizen?: string | null;
+      ustIdNr?: string | null;
+      zahlungsziel?: number | null;
+      betriebsnummer?: string | null;
     }[];
   };
 
@@ -169,6 +199,8 @@ export async function PUT(req: NextRequest) {
         ort: k.ort ?? null,
         land: k.land ?? "Deutschland",
         notizen: k.notizen ?? null,
+        ustIdNr: k.ustIdNr ?? null,
+        betriebsnummer: k.betriebsnummer ?? null,
         kontakte: kontakte.length ? { create: kontakte } : undefined,
       },
     });

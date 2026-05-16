@@ -190,6 +190,32 @@ function OffenePostenInner() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportExcel() {
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Offene-Posten-Liste", "", "", "", new Date().toLocaleDateString("de-DE")],
+      [],
+      ["Kunde", "Rechnungs-Nr", "Rechnungsdatum", "Fällig am", "Brutto (€)", "Gezahlt (€)", "Offen (€)", "Tage überfällig", "Mahnstufe"],
+      ...gefiltert.map((p) => [
+        p.kundeName,
+        p.rechnungNr ?? "",
+        p.rechnungDatum ? new Date(p.rechnungDatum).toLocaleDateString("de-DE") : "",
+        p.faelligAm ? new Date(p.faelligAm).toLocaleDateString("de-DE") : "",
+        p.bruttoBetrag,
+        p.gezahlt,
+        p.offen,
+        p.tageUeberfaellig > 0 ? p.tageUeberfaellig : 0,
+        p.mahnstufe > 0 ? `Stufe ${p.mahnstufe}` : "—",
+      ]),
+      [],
+      ["Gesamt", "", "", "", gesamtBrutto, gefiltert.reduce((s, p) => s + p.gezahlt, 0), gesamtOffen],
+    ]);
+    ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Offene Posten");
+    XLSX.writeFile(wb, `offene-posten-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
   function statusColor(p: OffenerPosten): string {
     if (p.tageUeberfaellig > 0) return "bg-red-50";
     const daysUntilDue = -p.tageUeberfaellig;
@@ -237,15 +263,26 @@ function OffenePostenInner() {
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <h1 className="text-2xl font-bold text-gray-900">Offene Posten</h1>
-        <button
-          onClick={exportCsv}
-          className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportCsv}
+            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
+          <button
+            onClick={exportExcel}
+            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export Excel
+          </button>
+        </div>
       </div>
 
       {/* Filter pills */}

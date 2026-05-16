@@ -78,6 +78,7 @@ const groups: NavGroup[] = [
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
       { href: "/kontrakte", label: "Kontrakte" },
       { href: "/tourenplanung", label: "Tourenplanung" },
+      { href: "/anlieferungen", label: "Erzeugerabrechnung" },
     ],
   },
   {

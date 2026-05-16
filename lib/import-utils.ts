@@ -67,3 +67,27 @@ export const ARTIKEL_ALIAS = {
   beschreibung: ["Beschreibung", "Bemerkung", "Notiz"],
   lieferant: ["Bevorzugter Lieferant", "Lieferant", "Lieferantenname", "Hersteller"],
 } as const;
+
+// ── Spalten-Aliasse für Kunden-Import-Vorlagen ──────────────────────────────
+// Unterstützt u.a. Gevis/Navision-Exporte und einfache CSV-Listen.
+// Reihenfolge bestimmt Priorität — der erste Treffer gewinnt.
+
+export const KUNDEN_ALIAS = {
+  name: ["Name", "Name 1", "Nachname", "Kundenname", "Suchbegriff"],
+  vorname: ["Vorname", "Name 2", "Kontaktvorname"],
+  firma: ["Firma", "Firmenname", "Unternehmensname", "Gesellschaft"],
+  kundennummer: ["Kundennr.", "Kundennummer", "Kunden-Nr", "Nr.", "Nummer", "Debitorennummer", "Debitoren-Nr", "Kto.", "Kontonummer"],
+  kategorie: ["Kategorie", "Kundengruppe", "Gruppe", "Kundenkategorie", "Preisgruppe", "Geschäftsgruppe", "Buchungsgruppe"],
+  strasse: ["Straße", "Strasse", "Adresse", "Adresse 1", "Straße Nr.", "Str."],
+  plz: ["PLZ", "PLZ-Code", "Postleitzahl", "Post. Leitzahl"],
+  ort: ["Ort", "Stadt", "Wohnort", "Gemeinde"],
+  land: ["Land", "Länder-/Regionscode", "Landcode", "Land/Region"],
+  telefon: ["Telefon", "Tel.", "Telefonnr.", "Telefon 1", "Telefon Nr.", "Fon"],
+  mobil: ["Mobil", "Handy", "Mobiltelefon", "Mobile", "Mobilnr."],
+  fax: ["Fax", "Faxnr.", "Fax Nr.", "Fax-Nr."],
+  email: ["E-Mail", "Email", "E-Mail-Adresse", "eMail", "Mail"],
+  notizen: ["Notizen", "Bemerkungen", "Hinweise", "Kommentar", "Info"],
+  ustIdNr: ["USt-IdNr.", "USt-ID", "USt Identifikationsnummer", "Umsatzsteuer-ID", "UID"],
+  zahlungsziel: ["Zahlungsziel", "Zahlungsbedingungscode", "Zahlungsbedingung", "Nettotagezahl"],
+  betriebsnummer: ["Betriebsnummer", "Betriebs-Nr.", "VVVO"],
+} as const;
