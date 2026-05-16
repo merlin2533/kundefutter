@@ -41,7 +41,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
   try {
     const body = await req.json();
-    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz } = body;
+    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger } = body;
 
     if (betragNetto !== undefined) {
       const betrag = parseFloat(betragNetto);
@@ -64,6 +64,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     if (lieferantId !== undefined) data.lieferantId = lieferantId ? parseInt(lieferantId, 10) : null;
     if (bezahltAm !== undefined) data.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;
     if (notiz !== undefined) data.notiz = notiz || null;
+    if (ausleger !== undefined) data.ausleger = ausleger ? String(ausleger).trim() : null;
 
     const ausgabe = await prisma.ausgabe.update({
       where: { id },
