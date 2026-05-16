@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -12,9 +12,12 @@ interface Lieferant {
 
 function EingangsrechnungNeuInner() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [zugferdLoading, setZugferdLoading] = useState(false);
+  const [zugferdHint, setZugferdHint] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -39,15 +42,90 @@ function EingangsrechnungNeuInner() {
     sub: l.firma ? l.name : undefined,
   }));
 
-  const bruttoValue = betrag && mwst
-    ? (parseFloat(betrag) * (1 + parseFloat(mwst) / 100)).toLocaleString("de-DE", { style: "currency", currency: "EUR" })
-    : null;
+  const bruttoValue =
+    betrag && mwst
+      ? (parseFloat(betrag) * (1 + parseFloat(mwst) / 100)).toLocaleString("de-DE", {
+          style: "currency",
+          currency: "EUR",
+        })
+      : null;
+
+  async function handleZugferdUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setZugferdLoading(true);
+    setZugferdHint("");
+    setError("");
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/eingangsrechnungen/zugferd-import", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "ZUGFeRD-Import fehlgeschlagen");
+        return;
+      }
+
+      // Felder vorbelegen
+      if (data.rechnungNummer) setNummer(data.rechnungNummer);
+      if (data.datum) setDatum(data.datum);
+      if (data.faelligAm) setFaelligAm(data.faelligAm);
+      if (data.betragNetto != null) setBetrag(String(data.betragNetto.toFixed(2)));
+      if (data.mwstSatz != null) setMwst(String(data.mwstSatz));
+
+      // Lieferanten-Matchversuch über Namen
+      let matchHint = "";
+      if (data.lieferantName) {
+        const nameLower = data.lieferantName.toLowerCase();
+        const match = lieferanten.find(
+          (l) =>
+            (l.firma ?? l.name).toLowerCase().includes(nameLower) ||
+            nameLower.includes((l.firma ?? l.name).toLowerCase())
+        );
+        if (match) {
+          setLieferantId(String(match.id));
+          matchHint = `Lieferant automatisch erkannt: ${match.firma ?? match.name}`;
+        } else {
+          matchHint = `Lieferant laut Rechnung: „${data.lieferantName}" — bitte manuell zuordnen.`;
+        }
+      }
+
+      const parts: string[] = [];
+      if (data.rechnungNummer) parts.push(`Nr. ${data.rechnungNummer}`);
+      if (data.betragBrutto != null)
+        parts.push(
+          `Brutto ${data.betragBrutto.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}`
+        );
+      setZugferdHint(
+        [matchHint, parts.length ? `Erkannte Daten: ${parts.join(", ")}` : ""].filter(Boolean).join(" — ")
+      );
+    } catch {
+      setError("Fehler beim Lesen der Datei");
+    } finally {
+      setZugferdLoading(false);
+      // Input zurücksetzen damit dieselbe Datei nochmals gewählt werden kann
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!lieferantId) { setError("Bitte einen Lieferanten wählen."); return; }
-    if (!nummer.trim()) { setError("Rechnungsnummer ist erforderlich."); return; }
-    if (!betrag || parseFloat(betrag) < 0) { setError("Betrag ist erforderlich."); return; }
+    if (!lieferantId) {
+      setError("Bitte einen Lieferanten wählen.");
+      return;
+    }
+    if (!nummer.trim()) {
+      setError("Rechnungsnummer ist erforderlich.");
+      return;
+    }
+    if (!betrag || parseFloat(betrag) < 0) {
+      setError("Betrag ist erforderlich.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -76,16 +154,82 @@ function EingangsrechnungNeuInner() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/eingangsrechnungen" className="hover:text-green-700">Eingangsrechnungen</Link>
+        <Link href="/eingangsrechnungen" className="hover:text-green-700">
+          Eingangsrechnungen
+        </Link>
         <span>›</span>
         <span className="text-gray-900 font-medium">Neue Eingangsrechnung</span>
       </nav>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Eingangsrechnung erfassen</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        Neue Eingangsrechnung erfassen
+      </h1>
+
+      {/* ZUGFeRD-Import */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 text-blue-600 mt-0.5">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-blue-900 mb-1">
+              ZUGFeRD / Factur-X automatisch einlesen
+            </p>
+            <p className="text-xs text-blue-700 mb-3">
+              XML- oder PDF-Datei hochladen — Felder werden automatisch vorausgefüllt.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xml,.pdf,application/xml,text/xml,application/pdf"
+              onChange={handleZugferdUpload}
+              className="hidden"
+              id="zugferd-upload"
+            />
+            <label
+              htmlFor="zugferd-upload"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors
+                ${zugferdLoading
+                  ? "bg-blue-200 text-blue-500 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+                }`}
+            >
+              {zugferdLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Wird gelesen…
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  ZUGFeRD-Datei hochladen
+                </>
+              )}
+            </label>
+            {zugferdHint && (
+              <p className="mt-2 text-xs text-blue-800 bg-blue-100 rounded-lg px-3 py-2">
+                {zugferdHint}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </div>
         )}
 
         <div>
@@ -117,7 +261,9 @@ function EingangsrechnungNeuInner() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Rechnungsdatum</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Rechnungsdatum
+            </label>
             <input
               type="date"
               value={datum}
@@ -126,7 +272,9 @@ function EingangsrechnungNeuInner() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fällig am</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fällig am
+            </label>
             <input
               type="date"
               value={faelligAm}
@@ -170,7 +318,9 @@ function EingangsrechnungNeuInner() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notiz (optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notiz (optional)
+          </label>
           <textarea
             value={notiz}
             onChange={(e) => setNotiz(e.target.value)}
