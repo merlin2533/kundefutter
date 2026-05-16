@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         gueltigBis: body.gueltigBis ? new Date(body.gueltigBis) : null,
         ausgestelltVon: body.ausgestelltVon?.trim() || null,
         notiz: body.notiz?.trim() || null,
+        belegPfad: body.belegPfad?.trim() || null,
+        belegName: body.belegName?.trim() || null,
       },
     });
     return NextResponse.json(eintrag, { status: 201 });
