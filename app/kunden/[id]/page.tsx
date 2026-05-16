@@ -27,6 +27,7 @@ const AufgabenTab = nextDynamic(() => import("./tabs/AufgabenTab"), { loading: t
 const VorgangskettTab = nextDynamic(() => import("./tabs/VorgangskettTab"), { loading: tabLoading });
 const ErklaerungTab = nextDynamic(() => import("./tabs/ErklaerungTab"), { loading: tabLoading });
 const ReklamationenTab = nextDynamic(() => import("./tabs/ReklamationenTab"), { loading: tabLoading });
+const AlbrechtTab = nextDynamic(() => import("./tabs/AlbrechtTab"), { loading: tabLoading });
 
 export default function KundeDetailPage() {
   const params = useParams();
@@ -327,6 +328,7 @@ export default function KundeDetailPage() {
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} lat={kunde.lat} lng={kunde.lng} />}
         {activeTab === "Düngebedarf" && <DuengebedarfTab kundeId={kunde.id} />}
+        {activeTab === "Albrecht" && <AlbrechtTab kundeId={kunde.id} />}
         {activeTab === "Tiere" && <TiereTab kundeId={kunde.id} />}
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}

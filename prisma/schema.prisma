@@ -714,6 +714,7 @@ model KundeSchlag {
   kunde            Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   psmAusbringungen PsmAusbringung[]
   bodenproben      Bodenprobe[]
+  albrechtAnalysen BodenanalyseAlbrecht[]
   duengebedarfe    Duengebedarf[]
   sortenversuche   Sortenversuch[]
 
@@ -1331,6 +1332,73 @@ model KundeTier {
 
   @@index([kundeId])
   @@index([tierart])
+}
+
+// ─── ALBRECHT-BODENANALYSE ────────────────────────────────────────────────────
+
+model BodenanalyseAlbrecht {
+  id              Int       @id @default(autoincrement())
+  schlagId        Int
+  datum           DateTime
+  probenId        String?   // Labor-Proben-ID (z.B. 26CB2353)
+  kultur          String?   // Zielkultur (z.B. KLG - TRI)
+  tiefe           String?
+  bodenart        String?
+
+  // Basisdaten
+  phH2O           Float?
+  phKCl           Float?
+  kak             Float?    // mmol/100g
+  humus           Float?    // %
+  nGesamt         Float?    // %
+  cn              Float?
+  nNachlieferung  Float?    // kg/ha
+  caCo3           Float?    // %
+  leitfaehigkeit  Float?    // mS/cm
+
+  // Kationen-Sättigung %
+  caSaettigung    Float?
+  mgSaettigung    Float?
+  kSaettigung     Float?
+  naSaettigung    Float?
+  hSaettigung     Float?
+  variabelSaett   Float?
+
+  // Kationen-Vorräte kg/ha
+  caVorrat        Float?
+  mgVorrat        Float?
+  kVorrat         Float?
+  naVorrat        Float?
+
+  // Anionen + Phosphor
+  schwefel        Float?    // ppm
+  p2o5Verfuegbar  Float?    // kg/ha
+  p2o5Vorrat      Float?    // kg/ha
+
+  // Spurenelemente ppm
+  bor             Float?
+  eisen           Float?
+  mangan          Float?
+  kupfer          Float?
+  zink            Float?
+  chlorid         Float?
+  silizium        Float?
+  kobalt          Float?
+  molybdaen       Float?
+  selen           Float?
+
+  // Empfehlungen aus Bericht (JSON: [{mittel, menge, einheit, prioritaet}])
+  empfehlungenJson String?
+
+  notiz           String?
+  belegPfad       String?
+  belegName       String?
+  createdAt       DateTime @default(now())
+
+  schlag          KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+
+  @@index([schlagId])
+  @@index([datum])
 }
 
 /// Gespeicherte Rationsberechnung. Positionen + Ergebnis + Rechenweg als JSON-Snapshot in `parameter`.
