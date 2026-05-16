@@ -478,11 +478,24 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt diesem Format (ohne Markdow
   "kalium": 15.0,
   "magnesium": 8.0,
   "bor": 0.5,
+  "schwefel": 2.5,
+  "zink": 3.0,
+  "kupfer": 2.0,
+  "mangan": 60.0,
+  "kak": 14.0,
+  "kalkbedarf": 1.5,
   "humus": 1.8,
   "nMin": 45.0,
   "cn": 10.5,
   "bodenart": "Bodenartenkürzel z.B. sL, lS, S, L, T oder null",
-  "klasse": "A, B, C, D oder E (Versorgungsklasse) oder null",
+  "klasseP": "A, B, C, D oder E (Versorgungsklasse P₂O₅) oder null",
+  "klasseK": "A, B, C, D oder E (Versorgungsklasse K₂O) oder null",
+  "klasseMg": "A, B, C, D oder E (Versorgungsklasse Mg) oder null",
+  "klasseBor": "A, B, C, D oder E (Versorgungsklasse Bor) oder null",
+  "klasseSchwefel": "A–E oder null",
+  "klasseZink": "A–E oder null",
+  "klasseKupfer": "A–E oder null",
+  "klasseMangan": "A–E oder null",
   "schlagName": "Name des Schlags/Feldes/Flurstücks falls im Bericht angegeben, sonst null",
   "hinweis": "Hinweis falls Werte unsicher oder Bericht unvollständig, sonst null"
 }
@@ -490,12 +503,17 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt diesem Format (ohne Markdow
 Wichtige Regeln:
 - P₂O₅ (Phosphor als Phosphorpentoxid) und K₂O (Kalium als Kaliumoxid) sind die Standardwerte — NICHT reines P oder K.
 - Einheit für pH: dimensionslos (nur Zahl).
-- Einheit für phosphor, kalium, magnesium: mg/100g Boden (CAL-Methode).
-- Einheit für bor: mg/kg Boden.
+- Einheit für phosphor, kalium, magnesium, schwefel (SO₃): mg/100g Boden (CAL- bzw. CAT-Methode).
+- Einheit für bor, zink, kupfer, mangan: mg/kg Boden (CAT-Methode).
+- Einheit für kak: cmol+/kg (manchmal als mmolc/kg angegeben — durch 10 teilen).
+- Einheit für kalkbedarf: t CaO/ha (gelegentlich t CaCO₃ — Faktor 0,56 zur Umrechnung in CaO).
 - Einheit für humus: % (Massenanteil).
 - Einheit für nMin: kg N/ha (Summe 0-90 cm oder wie angegeben).
 - Einheit für cn: dimensionsloses Verhältnis (z.B. 10.5 für C:N = 10,5:1).
-- Versorgungsklasse A = sehr gering, B = gering, C = anzustreben (optimal), D = hoch, E = sehr hoch.
+- Pro Nährstoff EIGENE Versorgungsklasse extrahieren (P, K, Mg, Bor, Schwefel, Zink, Kupfer, Mangan).
+  Klasse A = sehr gering, B = gering, C = anzustreben (optimal), D = hoch, E = sehr hoch.
+- Wenn der Bericht nur EINE Sammel-Klasse für "Hauptnährstoffe" angibt, diese als klasseP, klasseK
+  und klasseMg übernehmen.
 - Bodenart-Kürzel: S (Sand), lS (lehmiger Sand), sL (sandiger Lehm), L (Lehm), sT (sandiger Ton), T (Ton), Mo (Moor) etc.
 - Wenn ein Feld nicht erkennbar ist oder nicht vorkommt: null setzen, NIEMALS Werte erfinden.
 - Antworte NUR mit JSON — keine Erklärungen, kein Text davor oder danach, keine Markdown-Codeblöcke.`,

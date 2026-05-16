@@ -58,7 +58,20 @@ export async function POST(req: NextRequest) {
         nMin: numOrNull(body.nMin),
         cn: numOrNull(body.cn),
         bodenart: body.bodenart?.trim() || null,
-        klasse: body.klasse?.trim() || null,
+        schwefel: numOrNull(body.schwefel),
+        zink: numOrNull(body.zink),
+        kupfer: numOrNull(body.kupfer),
+        mangan: numOrNull(body.mangan),
+        kak: numOrNull(body.kak),
+        kalkbedarf: numOrNull(body.kalkbedarf),
+        klasseP: klasseOrNull(body.klasseP),
+        klasseK: klasseOrNull(body.klasseK),
+        klasseMg: klasseOrNull(body.klasseMg),
+        klasseBor: klasseOrNull(body.klasseBor),
+        klasseSchwefel: klasseOrNull(body.klasseSchwefel),
+        klasseZink: klasseOrNull(body.klasseZink),
+        klasseKupfer: klasseOrNull(body.klasseKupfer),
+        klasseMangan: klasseOrNull(body.klasseMangan),
         notiz: body.notiz?.trim() || null,
         belegPfad: body.belegPfad?.trim() || null,
         belegName: body.belegName?.trim() || null,
@@ -92,4 +105,10 @@ function numOrNull(v: unknown): number | null {
   if (v == null || v === "") return null;
   const n = Number(v);
   return isNaN(n) ? null : n;
+}
+
+function klasseOrNull(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim().toUpperCase();
+  return ["A", "B", "C", "D", "E"].includes(s) ? s : null;
 }

@@ -11,8 +11,10 @@ interface Schlag { id: number; name: string; kundeId: number; fruchtart?: string
 interface Kunde { id: number; name: string; firma?: string | null; }
 interface Bodenprobe {
   id: number; schlagId: number; datum: string; pH?: number | null;
-  phosphor?: number | null; kalium?: number | null; magnesium?: number | null;
-  nMin?: number | null; klasse?: string | null;
+  phosphor?: number | null; kalium?: number | null; magnesium?: number | null; bor?: number | null;
+  nMin?: number | null;
+  klasse?: string | null; // deprecated — Legacy-Sammelklasse
+  klasseP?: string | null; klasseK?: string | null; klasseMg?: string | null; klasseBor?: string | null;
 }
 interface Bedarfseintrag {
   id: number; jahr: number; fruchtart: string; ertragsZiel: number;
@@ -297,7 +299,10 @@ function Inner() {
             {aktuelleProbe.phosphor != null && <span className="mr-2">P₂O₅ {aktuelleProbe.phosphor}</span>}
             {aktuelleProbe.kalium != null && <span className="mr-2">K₂O {aktuelleProbe.kalium}</span>}
             {aktuelleProbe.nMin != null && <span className="mr-2">N-Min {aktuelleProbe.nMin}</span>}
-            {aktuelleProbe.klasse && <span>Klasse {aktuelleProbe.klasse}</span>}
+            {(aktuelleProbe.klasseP ?? aktuelleProbe.klasse) && <span className="mr-2">Klasse P: {aktuelleProbe.klasseP ?? aktuelleProbe.klasse}</span>}
+            {(aktuelleProbe.klasseK ?? aktuelleProbe.klasse) && <span className="mr-2">K: {aktuelleProbe.klasseK ?? aktuelleProbe.klasse}</span>}
+            {(aktuelleProbe.klasseMg ?? aktuelleProbe.klasse) && <span className="mr-2">Mg: {aktuelleProbe.klasseMg ?? aktuelleProbe.klasse}</span>}
+            {aktuelleProbe.klasseBor && <span>Bor: {aktuelleProbe.klasseBor}</span>}
             {" — wird automatisch berücksichtigt"}
           </div>
         )}

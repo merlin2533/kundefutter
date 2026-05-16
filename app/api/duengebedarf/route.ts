@@ -65,9 +65,10 @@ export async function POST(req: NextRequest) {
     if (bodenprobeId) {
       bodenprobe = await prisma.bodenprobe.findUnique({ where: { id: bodenprobeId } });
       if (bodenprobe) {
-        if (!versorgP) versorgP = bodenprobe.klasse ?? ableiteVersorgungsklasseP(bodenprobe.phosphor);
-        if (!versorgK) versorgK = ableiteVersorgungsklasseK(bodenprobe.kalium);
-        if (!versorgMg) versorgMg = ableiteVersorgungsklasseMg(bodenprobe.magnesium);
+        // Vorrang: explizit gepflegte Klasse pro Nährstoff > Ableitung aus Wert > Sammelklasse (legacy)
+        if (!versorgP) versorgP = bodenprobe.klasseP ?? ableiteVersorgungsklasseP(bodenprobe.phosphor) ?? bodenprobe.klasse;
+        if (!versorgK) versorgK = bodenprobe.klasseK ?? ableiteVersorgungsklasseK(bodenprobe.kalium) ?? bodenprobe.klasse;
+        if (!versorgMg) versorgMg = bodenprobe.klasseMg ?? ableiteVersorgungsklasseMg(bodenprobe.magnesium) ?? bodenprobe.klasse;
       }
     }
 
