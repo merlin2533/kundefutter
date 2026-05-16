@@ -42,6 +42,7 @@ model Kunde {
   schlaegte        KundeSchlag[]
   aufgaben         Aufgabe[]
   gutschriften     Gutschrift[]
+  anlieferungen    Anlieferung[]
   bestellpositionen Bestellposition[]
   driveOrdnerId    String?  // Google Drive Folder ID
   kreditlimit          Float?    // max. offener Betrag in €
@@ -202,6 +203,7 @@ model Artikel {
   chargenZertifikate   ChargenZertifikat[]
   vorbestellungPositionen VorbestellungPosition[]
   fruehbezugStaffeln   FruehbezugsStaffel[]
+  anlieferungen        Anlieferung[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -662,6 +664,7 @@ model Gutschrift {
   kunde       Kunde              @relation(fields: [kundeId], references: [id])
   lieferung   Lieferung?         @relation(fields: [lieferungId], references: [id])
   positionen  GutschriftPosition[]
+  anlieferung Anlieferung?
 
   @@index([kundeId])
   @@index([datum])
@@ -1424,4 +1427,30 @@ model Rationsberechnung {
   @@index([kundeTierId])
   @@index([tierart])
   @@index([erstellt])
+}
+
+// ─── ERZEUGERABRECHNUNG (ANLIEFERUNG) ─────────────────────────────────────────
+
+model Anlieferung {
+  id              Int      @id @default(autoincrement())
+  nummer          String   @unique  // ANL-YYYY-NNNN
+  datum           DateTime @default(now())
+  kundeId         Int
+  artikelId       Int
+  menge           Float
+  einheit         String   @default("t")
+  feuchte         Float?   // % Restfeuchte
+  qualitaet       String?  // z.B. "A-Qualität", "Futtergetreide"
+  preisProEinheit Float?
+  gesamtBetrag    Float?
+  notiz           String?
+  gutschriftId    Int?     @unique  // verknüpfte Gutschrift wenn erstellt
+  createdAt       DateTime @default(now())
+
+  kunde     Kunde      @relation(fields: [kundeId], references: [id])
+  artikel   Artikel    @relation(fields: [artikelId], references: [id])
+  gutschrift Gutschrift? @relation(fields: [gutschriftId], references: [id])
+
+  @@index([kundeId])
+  @@index([datum])
 }

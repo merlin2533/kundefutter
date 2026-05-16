@@ -321,6 +321,16 @@ export default function RechnungPrintPage() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </button>
         )}
+        {lieferung?.rechnungNr && (
+          <a
+            href={`/api/exporte/zugferd?lieferungId=${id}`}
+            className="px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-1.5"
+            title="E-Rechnung (ZUGFeRD/Factur-X XML) herunterladen"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            E-Rechnung (XML)
+          </a>
+        )}
         <button
           onClick={handleTeilen}
           className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"

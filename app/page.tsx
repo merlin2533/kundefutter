@@ -554,6 +554,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [matif, setMatif] = useState<MatifData | null>(null);
   const [anpassenOpen, setAnpassenOpen] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const { aktiv: aktiveWidgets, loaded: widgetsLoaded, toggleWidget } = useDashboardWidgets();
 
   function widgetAktiv(id: WidgetId): boolean {
@@ -585,6 +586,13 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
     loadMatif();
+    // Check onboarding status
+    fetch("/api/einstellungen?prefix=system.onboarding")
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string>) => {
+        setOnboardingDone(d["system.onboarding_done"] === "1");
+      })
+      .catch(() => setOnboardingDone(true)); // Don't show on error
     const interval = setInterval(loadData, 60_000);
     const matifInterval = setInterval(loadMatif, 6 * 60 * 60_000); // 6h
     return () => { clearInterval(interval); clearInterval(matifInterval); };
@@ -686,6 +694,19 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* Onboarding Banner */}
+      {onboardingDone === false && (
+        <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-800 text-sm">
+            <span className="text-lg">🌱</span>
+            <span><strong>Onboarding noch nicht abgeschlossen</strong> — Richten Sie AgrarOffice in wenigen Schritten ein.</span>
+          </div>
+          <Link href="/onboarding"
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+            Zum Setup-Wizard →
+          </Link>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-2 mb-4">
         <div>

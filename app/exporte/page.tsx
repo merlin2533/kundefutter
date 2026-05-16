@@ -58,6 +58,12 @@ const EXPORTS: ExportCard[] = [
     typ: "datev",
     hasDateRange: true,
   },
+  {
+    title: "USt-Voranmeldungshilfe",
+    description: "Kennzahlen für die Umsatzsteuer-Voranmeldung (KZ 81/86/66/97/26/83) im gewählten Zeitraum als JSON-Download.",
+    typ: "ust",
+    hasDateRange: true,
+  },
 ];
 
 const today = new Date().toISOString().split("T")[0];
@@ -165,15 +171,29 @@ export default function ExportePage() {
     return `/api/exporte/datev?${params}`;
   }
 
+  function buildUstUrl(card: ExportCard): string {
+    const s = states[card.typ];
+    const params = new URLSearchParams();
+    if (s.von) params.set("von", s.von);
+    if (s.bis) params.set("bis", s.bis);
+    return `/api/exporte/ust-voranmeldung?${params}`;
+  }
+
   async function handleDownload(card: ExportCard) {
-    const url = card.typ === "datev" ? buildDatevUrl(card) : buildUrl(card);
+    let url: string;
+    if (card.typ === "datev") url = buildDatevUrl(card);
+    else if (card.typ === "ust") url = buildUstUrl(card);
+    else url = buildUrl(card);
     setDownloading((prev) => ({ ...prev, [card.typ]: true }));
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error("Download fehlgeschlagen");
       const blob = await res.blob();
       const contentDisposition = res.headers.get("content-disposition");
-      let filename = card.typ === "datev" ? `datev-buchungsstapel.csv` : `${card.typ}-export.csv`;
+      let filename: string;
+      if (card.typ === "datev") filename = `datev-buchungsstapel.csv`;
+      else if (card.typ === "ust") filename = `ust-voranmeldung-${new Date().toISOString().slice(0, 10)}.json`;
+      else filename = `${card.typ}-export.csv`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
         if (match?.[1]) filename = match[1].replace(/['"]/g, "");

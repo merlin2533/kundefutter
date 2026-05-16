@@ -92,8 +92,8 @@ export async function GET(req: NextRequest) {
   const wjJahr = von.getFullYear();
   const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
 
-  // Query invoiced deliveries and expenses in range
-  const [lieferungen, ausgaben] = await Promise.all([
+  // Query invoiced deliveries, sammelrechnungen, gutschriften and expenses in range
+  const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
     prisma.lieferung.findMany({
       where: {
         status: "geliefert",
@@ -109,6 +109,44 @@ export async function GET(req: NextRequest) {
         kunde: { select: { name: true, firma: true } },
         positionen: {
           select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } },
+        },
+      },
+      orderBy: { datum: "asc" },
+    }),
+    prisma.sammelrechnung.findMany({
+      where: {
+        rechnungNr: { not: null },
+        rechnungDatum: { gte: von, lte: bis },
+      },
+      select: {
+        id: true,
+        kundeId: true,
+        rechnungNr: true,
+        rechnungDatum: true,
+        kunde: { select: { name: true, firma: true } },
+        lieferungen: {
+          select: {
+            positionen: {
+              select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } },
+            },
+          },
+        },
+      },
+      orderBy: { rechnungDatum: "asc" },
+    }),
+    prisma.gutschrift.findMany({
+      where: {
+        status: { not: "STORNIERT" },
+        datum: { gte: von, lte: bis },
+      },
+      select: {
+        id: true,
+        kundeId: true,
+        nummer: true,
+        datum: true,
+        kunde: { select: { name: true, firma: true } },
+        positionen: {
+          select: { menge: true, preis: true, artikel: { select: { mwstSatz: true } } },
         },
       },
       orderBy: { datum: "asc" },
@@ -142,6 +180,8 @@ export async function GET(req: NextRequest) {
     belegfeld1: string;
     buchungstext: string;
     beleglink: string;   // URL zum Belegscan (DATEV Beleglink Feld)
+    leistungsdatum: string; // DDMMYYYY
+    steuersatz: string;  // e.g. "19"
   }
 
   // Base URL for Beleglink (e.g. http://194.164.59.48:8080)
@@ -150,6 +190,11 @@ export async function GET(req: NextRequest) {
   const baseUrl = host ? `${proto}://${host}` : "";
 
   const rows: DatevRow[] = [];
+
+  /** Format date as DDMMYYYY for DATEV Leistungsdatum */
+  function leistungsdatumFmt(date: Date): string {
+    return `${pad2(date.getDate())}${pad2(date.getMonth() + 1)}${date.getFullYear()}`;
+  }
 
   // ── Einnahmen (Lieferungen) ──────────────────────────────────────────────
   for (const lief of lieferungen) {
@@ -179,6 +224,77 @@ export async function GET(req: NextRequest) {
         belegfeld1: lief.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60),
         beleglink: "",
+        leistungsdatum: leistungsdatumFmt(rechnungDatum),
+        steuersatz: String(satz),
+      });
+    }
+  }
+
+  // ── Sammelrechnungen ──────────────────────────────────────────────────────
+  for (const sr of sammelrechnungen) {
+    const rechnungDatum = sr.rechnungDatum!;
+    const kundeName = sr.kunde.firma
+      ? `${sr.kunde.firma} ${sr.kunde.name}`
+      : sr.kunde.name;
+    const konto = String(10000 + sr.kundeId);
+
+    // Aggregate all positions from all included deliveries by MwSt rate
+    const byMwst = new Map<number, number>();
+    for (const lief of sr.lieferungen) {
+      for (const pos of lief.positionen) {
+        const satz = pos.artikel.mwstSatz ?? 19;
+        const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
+        byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      }
+    }
+
+    for (const [satz, brutto] of byMwst.entries()) {
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100,
+        sollHaben: "S",
+        wkz: "EUR",
+        konto,
+        gegenkonto: erloeseKonto(satz, kontenrahmen),
+        buSchluessel: "",
+        belegdatum: belegdatum(rechnungDatum),
+        belegfeld1: sr.rechnungNr ?? "",
+        buchungstext: kundeName.substring(0, 60),
+        beleglink: "",
+        leistungsdatum: leistungsdatumFmt(rechnungDatum),
+        steuersatz: String(satz),
+      });
+    }
+  }
+
+  // ── Gutschriften (Storno / Haben) ─────────────────────────────────────────
+  for (const gs of gutschriften) {
+    const datum = gs.datum;
+    const kundeName = gs.kunde.firma
+      ? `${gs.kunde.firma} ${gs.kunde.name}`
+      : gs.kunde.name;
+    const konto = String(10000 + gs.kundeId);
+
+    const byMwst = new Map<number, number>();
+    for (const pos of gs.positionen) {
+      const satz = pos.artikel?.mwstSatz ?? 19;
+      const brutto = pos.menge * pos.preis * (1 + satz / 100);
+      byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+    }
+
+    for (const [satz, brutto] of byMwst.entries()) {
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100,
+        sollHaben: "H",
+        wkz: "EUR",
+        konto,
+        gegenkonto: erloeseKonto(satz, kontenrahmen),
+        buSchluessel: "",
+        belegdatum: belegdatum(datum),
+        belegfeld1: gs.nummer,
+        buchungstext: `Gutschrift ${kundeName}`.substring(0, 60),
+        beleglink: "",
+        leistungsdatum: leistungsdatumFmt(datum),
+        steuersatz: String(satz),
       });
     }
   }
@@ -198,6 +314,8 @@ export async function GET(req: NextRequest) {
       belegfeld1: (ausg.belegNr ?? "").substring(0, 36),
       buchungstext: ausg.beschreibung.substring(0, 60),
       beleglink,
+      leistungsdatum: leistungsdatumFmt(ausg.datum),
+      steuersatz: String(ausg.mwstSatz),
     });
   }
 
@@ -310,12 +428,11 @@ export async function GET(req: NextRequest) {
   ].map(q).join(";");
 
   // Data rows
+  // Column count: 64 fields (index 0-63)
+  // Index 55 = Leistungsdatum, Index 63 = Steuersatz (last field)
   const dataLines = rows.map((r) => {
     const umsatzStr = r.umsatz.toFixed(2).replace(".", ",");
-    // Positions 14-18 are empty (Postensperre, Diverse Adressnummer, Geschäftspartnerbank, Sachverhalt, Zinssperre)
-    // Position 19 = Beleglink
-    // Positions 20-63 are empty (remaining 44 fields)
-    return [
+    const fields: string[] = [
       umsatzStr,       // 0  Umsatz
       r.sollHaben,     // 1  Soll/Haben-Kennzeichen
       r.wkz,           // 2  WKZ Umsatz
@@ -336,8 +453,32 @@ export async function GET(req: NextRequest) {
       "",              // 17 Sachverhalt
       "",              // 18 Zinssperre
       r.beleglink ? q(r.beleglink) : "", // 19 Beleglink
-      ...Array(44).fill(""), // 20-63 remaining empty fields
-    ].join(";");
+      "", "", "", "", "", "", "", "", "", "", // 20-29 Beleginfo Art/Inhalt 1-5
+      "", "", "", "", "", "",               // 30-35 Beleginfo Art/Inhalt 6-8
+      "", "", "", "", "", "",               // 36-41 Kostenrechnung Kostenstelle/Kostenmenge 1-3
+      "", "",                              // 42-43 KOST1/KOST2-Auftragsnummer
+      "",                                  // 44 Kost-Datum
+      "",                                  // 45 SEPA-Mandatsreferenz
+      "",                                  // 46 Skontosperre
+      "",                                  // 47 Gesellschaftername
+      "",                                  // 48 Beteiligtennummer
+      "",                                  // 49 Identifikationsnummer
+      "",                                  // 50 Zeichnernummer
+      "",                                  // 51 Postensperre bis
+      "",                                  // 52 Bezeichnung SoBil-Sachverhalt
+      "",                                  // 53 Kennzeichen SoBil-Buchung
+      "",                                  // 54 Festschreibung
+      r.leistungsdatum,                    // 55 Leistungsdatum (DDMMYYYY)
+      "",                                  // 56 Datum Zuord. Steuerperiode
+      "",                                  // 57 Fälligkeit
+      "",                                  // 58 Generalumkehr (GU)
+      r.steuersatz,                        // 59 Steuersatz
+      "",                                  // 60 Land
+      "",                                  // 61 Abrechnungsreferenz
+      "",                                  // 62 BVV-Position
+      "",                                  // 63 EU-Land u. UStID (last)
+    ];
+    return fields.join(";");
   });
 
   const csvContent = [headerLine, colHeaders, ...dataLines].join("\r\n");
