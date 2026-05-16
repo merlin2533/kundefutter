@@ -77,7 +77,6 @@ const groups: NavGroup[] = [
       { href: "/bestellliste", label: "Bestellliste" },
       { href: "/bestellungen", label: "Lieferantenbestellungen" },
       { href: "/kontrakte", label: "Kontrakte" },
-      { href: "/eingangsrechnungen", label: "Eingangsrechnungen" },
       { href: "/tourenplanung", label: "Tourenplanung" },
     ],
   },
@@ -85,6 +84,7 @@ const groups: NavGroup[] = [
     label: "Finanzen",
     children: [
       { href: "/rechnungen", label: "Rechnungen" },
+      { href: "/eingangsrechnungen", label: "Eingangsrechnungen (Lieferanten)" },
       { href: "/offene-posten", label: "Offene Posten" },
       { href: "/sammelrechnungen", label: "Sammelrechnungen" },
       { href: "/gutschriften", label: "Gutschriften" },
