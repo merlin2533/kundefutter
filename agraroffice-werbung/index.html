@@ -1,50 +1,1109 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=1920, height=1080" />
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      html,
-      body {
+      /* ─── Reset ──────────────────────────────────────── */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      html, body {
         margin: 0;
         width: 1920px;
         height: 1080px;
         overflow: hidden;
-        background: #000;
+        background: #1b4332;
+        font-family: 'Playfair Display', Georgia, serif;
+      }
+
+      /* ─── Scene System ───────────────────────────────── */
+      .scene {
+        position: absolute;
+        top: 0; left: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+
+      /* Scene 1 — visible by default */
+      #scene1 { z-index: 1; background: #1b4332; }
+      /* All others hidden — visibility:hidden prevents contrast audit on invisible scenes */
+      #scene2 { z-index: 2; background: #f7f3ed; opacity: 0; visibility: hidden; }
+      #scene3 { z-index: 3; background: #1b4332; opacity: 0; visibility: hidden; }
+      #scene4 { z-index: 4; background: #2d6a4f; opacity: 0; visibility: hidden; }
+      #scene5 { z-index: 5; background: #f7f3ed; opacity: 0; visibility: hidden; }
+      #scene6 { z-index: 6; background: #1b4332; opacity: 0; visibility: hidden; }
+
+      /* ─── Scene Content Containers ───────────────────── */
+      .scene-content {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-sizing: border-box;
+      }
+
+      /* ─── Typography ─────────────────────────────────── */
+      .display-serif {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        line-height: 1.0;
+      }
+      .body-sans {
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+      }
+      .label-mono {
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* ─── Shared Colour Tokens ───────────────────────── */
+      /* dark scenes: #1b4332 bg, #f7f3ed fg, #f4a261 accent */
+      /* light scenes: #f7f3ed bg, #1b4332 fg, #40916c accent */
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 1 — Hero                                      */
+      /* ─────────────────────────────────────────────────── */
+      #s1-content {
+        padding: 100px 160px;
+        gap: 28px;
+        align-items: flex-start;
+      }
+      #s1-eyebrow {
+        font-size: 22px;
+        color: #f4a261;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      #s1-headline {
+        font-size: 138px;
+        color: #f7f3ed;
+        max-width: 1200px;
+      }
+      #s1-accent-line {
+        width: 480px;
+        height: 6px;
+        background: #f4a261;
+        border-radius: 3px;
+        margin-top: -10px;
+        transform-origin: left center;
+      }
+      #s1-subtitle {
+        font-size: 38px;
+        color: #b7d9c6;
+        max-width: 900px;
+        line-height: 1.35;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        margin-top: 8px;
+      }
+      /* Decoratives scene 1 */
+      #s1-glow-a {
+        position: absolute;
+        width: 800px; height: 800px;
+        background: radial-gradient(circle, rgba(64,145,108,0.22) 0%, rgba(64,145,108,0) 70%);
+        border-radius: 50%;
+        top: -200px; right: 80px;
+        pointer-events: none;
+      }
+      #s1-glow-b {
+        position: absolute;
+        width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(244,162,97,0.12) 0%, rgba(244,162,97,0) 70%);
+        border-radius: 50%;
+        bottom: 60px; left: 900px;
+        pointer-events: none;
+      }
+      #s1-ghost-a {
+        position: absolute;
+        font-size: 380px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: transparent;
+        -webkit-text-stroke: 1px rgba(247,243,237,0.06);
+        top: -80px; right: -60px;
+        pointer-events: none;
+        white-space: nowrap;
+        letter-spacing: -0.04em;
+        user-select: none;
+      }
+      #s1-grain {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+        pointer-events: none;
+        opacity: 0.6;
+      }
+      #s1-divider {
+        position: absolute;
+        right: 120px;
+        top: 80px;
+        width: 2px;
+        height: 300px;
+        background: rgba(244,162,97,0.25);
+        transform-origin: top center;
+      }
+      #s1-reg-mark {
+        position: absolute;
+        bottom: 60px;
+        right: 160px;
+        font-size: 20px;
+        color: rgba(183,217,198,0.9);
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+      }
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 2 — Pain Points                               */
+      /* ─────────────────────────────────────────────────── */
+      #s2-content {
+        padding: 80px 200px;
+        gap: 0;
+        justify-content: center;
+      }
+      #s2-label {
+        font-size: 20px;
+        color: #2d6a4f;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 36px;
+      }
+      .pain-item {
+        position: relative;
+        font-size: 64px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 700;
+        color: #1b4332;
+        line-height: 1.15;
+        padding: 14px 0;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+      }
+      .pain-bullet {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #f4a261;
+        flex-shrink: 0;
+        margin-top: 4px;
+      }
+      .pain-strike {
+        position: absolute;
+        left: 38px;
+        top: 50%;
+        height: 5px;
+        background: #e63946;
+        border-radius: 2px;
+        width: 0;
+        transform: translateY(-50%);
+        transform-origin: left center;
+      }
+      .pain-text {
+        position: relative;
+      }
+      /* Decoratives scene 2 */
+      #s2-panel-right {
+        position: absolute;
+        right: 0; top: 0;
+        width: 360px; height: 1080px;
+        background: #40916c;
+        opacity: 0.08;
+      }
+      #s2-glow-c {
+        position: absolute;
+        width: 700px; height: 700px;
+        background: radial-gradient(circle, rgba(64,145,108,0.08) 0%, rgba(64,145,108,0) 70%);
+        border-radius: 50%;
+        top: -150px; right: 200px;
+        pointer-events: none;
+      }
+      #s2-ghost-b {
+        position: absolute;
+        font-size: 300px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: rgba(27,67,50,0.04);
+        bottom: -60px; right: 60px;
+        pointer-events: none;
+        letter-spacing: -0.04em;
+      }
+      #s2-rule {
+        position: absolute;
+        left: 160px;
+        bottom: 90px;
+        width: 600px;
+        height: 2px;
+        background: rgba(64,145,108,0.2);
+        transform-origin: left center;
+      }
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 3 — Solution (3-Column)                       */
+      /* ─────────────────────────────────────────────────── */
+      #s3-content {
+        padding: 80px 140px;
+        gap: 48px;
+        align-items: flex-start;
+      }
+      #s3-eyebrow {
+        font-size: 22px;
+        color: #f4a261;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      #s3-headline {
+        font-size: 80px;
+        color: #f7f3ed;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        line-height: 1.0;
+      }
+      #s3-grid {
+        display: flex;
+        gap: 32px;
+        width: 100%;
+        margin-top: 8px;
+      }
+      .s3-card {
+        flex: 1;
+        background: rgba(247,243,237,0.06);
+        border: 2px solid rgba(244,162,97,0.25);
+        border-radius: 8px;
+        padding: 44px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .s3-card-icon {
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .s3-card-title {
+        font-size: 34px;
+        color: #f7f3ed;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+      .s3-card-desc {
+        font-size: 22px;
+        color: #b7d9c6;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        line-height: 1.45;
+      }
+      /* Decoratives scene 3 */
+      #s3-glow-d {
+        position: absolute;
+        width: 900px; height: 600px;
+        background: radial-gradient(ellipse, rgba(64,145,108,0.18) 0%, rgba(64,145,108,0) 70%);
+        border-radius: 50%;
+        bottom: -100px; left: 400px;
+        pointer-events: none;
+      }
+      #s3-ghost-c {
+        position: absolute;
+        font-size: 280px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: rgba(247,243,237,0.03);
+        top: 40px; right: 40px;
+        pointer-events: none;
+        letter-spacing: -0.04em;
+      }
+      #s3-topbar {
+        position: absolute;
+        top: 0; left: 0;
+        width: 1920px;
+        height: 6px;
+        background: linear-gradient(90deg, #f4a261 0%, rgba(244,162,97,0) 60%);
+      }
+      #s3-corner-mark {
+        position: absolute;
+        bottom: 48px;
+        right: 140px;
+        font-size: 16px;
+        color: rgba(244,162,97,0.4);
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 4 — Stats                                     */
+      /* ─────────────────────────────────────────────────── */
+      #s4-content {
+        padding: 80px 160px;
+        gap: 52px;
+        align-items: flex-start;
+      }
+      #s4-headline {
+        font-size: 58px;
+        color: #f7f3ed;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        max-width: 900px;
+      }
+      #s4-stats-row {
+        display: flex;
+        gap: 0;
+        width: 100%;
+      }
+      .stat-block {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-right: 60px;
+        border-right: 2px solid rgba(247,243,237,0.12);
+        padding-left: 0;
+      }
+      .stat-block:first-child { padding-left: 0; }
+      .stat-block:last-child { border-right: none; padding-left: 60px; padding-right: 0; }
+      .stat-block:nth-child(2) { padding-left: 60px; }
+      .stat-number {
+        font-size: 120px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: #f4a261;
+        line-height: 1.0;
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat-label {
+        font-size: 24px;
+        color: #b7d9c6;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        line-height: 1.3;
+        max-width: 340px;
+      }
+      /* Decoratives scene 4 */
+      #s4-glow-e {
+        position: absolute;
+        width: 1000px; height: 600px;
+        background: radial-gradient(ellipse, rgba(244,162,97,0.1) 0%, rgba(244,162,97,0) 70%);
+        border-radius: 50%;
+        top: -100px; right: -100px;
+        pointer-events: none;
+      }
+      #s4-glow-f {
+        position: absolute;
+        width: 600px; height: 600px;
+        background: radial-gradient(circle, rgba(64,145,108,0.15) 0%, rgba(64,145,108,0) 70%);
+        border-radius: 50%;
+        bottom: -150px; left: 200px;
+        pointer-events: none;
+      }
+      #s4-ghost-d {
+        position: absolute;
+        font-size: 400px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: rgba(247,243,237,0.03);
+        top: 50px; right: 60px;
+        pointer-events: none;
+        letter-spacing: -0.04em;
+      }
+      #s4-rule-bottom {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 1920px;
+        height: 4px;
+        background: linear-gradient(90deg, rgba(244,162,97,0) 0%, #f4a261 40%, rgba(244,162,97,0) 100%);
+      }
+      #s4-label {
+        position: absolute;
+        top: 52px;
+        right: 160px;
+        font-size: 16px;
+        color: rgba(183,217,198,0.45);
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 5 — Pricing                                   */
+      /* ─────────────────────────────────────────────────── */
+      #s5-content {
+        padding: 70px 140px;
+        gap: 44px;
+        align-items: flex-start;
+      }
+      #s5-eyebrow {
+        font-size: 20px;
+        color: #2d6a4f;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      #s5-headline {
+        font-size: 76px;
+        color: #1b4332;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        line-height: 1.0;
+      }
+      #s5-cards {
+        display: flex;
+        gap: 28px;
+        width: 100%;
+      }
+      .price-card {
+        flex: 1;
+        background: #fff;
+        border: 2px solid rgba(64,145,108,0.2);
+        border-radius: 10px;
+        padding: 44px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        position: relative;
+        box-shadow: 0 4px 32px rgba(27,67,50,0.08);
+      }
+      .price-card.featured {
+        border-color: #f4a261;
+        border-width: 3px;
+        background: #1b4332;
+      }
+      .price-badge {
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #f4a261;
+        color: #1b4332;
+        font-size: 17px;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        padding: 6px 22px;
+        border-radius: 99px;
+        white-space: nowrap;
+      }
+      .price-tier {
+        font-size: 24px;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #2d6a4f;
+      }
+      .price-card.featured .price-tier { color: #f4a261; }
+      .price-amount {
+        font-size: 72px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: #1b4332;
+        letter-spacing: -0.04em;
+        line-height: 1.0;
+        font-variant-numeric: tabular-nums;
+      }
+      .price-card.featured .price-amount { color: #f7f3ed; }
+      .price-period {
+        font-size: 20px;
+        color: #2d6a4f;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+      }
+      .price-card.featured .price-period { color: #b7d9c6; }
+      .price-divider {
+        height: 2px;
+        background: rgba(64,145,108,0.15);
+        border-radius: 1px;
+      }
+      .price-card.featured .price-divider { background: rgba(247,243,237,0.12); }
+      .price-bullets {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .price-bullet-item {
+        font-size: 20px;
+        color: #2d6a4f;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        line-height: 1.3;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .price-card.featured .price-bullet-item { color: #b7d9c6; }
+      .price-check {
+        color: #2d6a4f;
+        font-weight: 700;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .price-card.featured .price-check { color: #f4a261; }
+      /* Decoratives scene 5 */
+      #s5-glow-g {
+        position: absolute;
+        width: 700px; height: 700px;
+        background: radial-gradient(circle, rgba(64,145,108,0.07) 0%, rgba(64,145,108,0) 70%);
+        border-radius: 50%;
+        top: -200px; right: -100px;
+        pointer-events: none;
+      }
+      #s5-ghost-e {
+        position: absolute;
+        font-size: 320px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: rgba(27,67,50,0.04);
+        bottom: -40px; right: 60px;
+        pointer-events: none;
+        letter-spacing: -0.04em;
+      }
+      #s5-rule-v {
+        position: absolute;
+        left: 100px;
+        top: 80px;
+        width: 3px;
+        height: 220px;
+        background: linear-gradient(180deg, #40916c 0%, rgba(64,145,108,0) 100%);
+        transform-origin: top center;
+        border-radius: 2px;
+      }
+      #s5-grain2 {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+        pointer-events: none;
+        opacity: 0.5;
+      }
+
+      /* ─────────────────────────────────────────────────── */
+      /* SCENE 6 — CTA / Outro                               */
+      /* ─────────────────────────────────────────────────── */
+      #s6-content {
+        padding: 80px 160px;
+        gap: 36px;
+        align-items: center;
+        justify-content: center;
+      }
+      #s6-wordmark {
+        font-size: 170px;
+        color: #f7f3ed;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 1.0;
+        position: relative;
+        display: inline-block;
+      }
+      #s6-dot {
+        color: #f4a261;
+        display: inline;
+      }
+      #s6-url {
+        font-size: 36px;
+        color: #b7d9c6;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 300;
+        letter-spacing: 0.02em;
+      }
+      #s6-cta-btn {
+        background: #f4a261;
+        color: #1b4332;
+        font-size: 30px;
+        font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 22px 60px;
+        border-radius: 99px;
+        margin-top: 8px;
+      }
+      /* Decoratives scene 6 */
+      #s6-glow-h {
+        position: absolute;
+        width: 1200px; height: 900px;
+        background: radial-gradient(ellipse, rgba(64,145,108,0.2) 0%, rgba(64,145,108,0) 65%);
+        border-radius: 50%;
+        top: -200px; left: 360px;
+        pointer-events: none;
+      }
+      #s6-glow-i {
+        position: absolute;
+        width: 500px; height: 500px;
+        background: radial-gradient(circle, rgba(244,162,97,0.14) 0%, rgba(244,162,97,0) 70%);
+        border-radius: 50%;
+        bottom: -100px; left: 710px;
+        pointer-events: none;
+      }
+      #s6-ghost-f {
+        position: absolute;
+        font-size: 320px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-weight: 900;
+        color: rgba(247,243,237,0.03);
+        top: 200px; left: -60px;
+        pointer-events: none;
+        letter-spacing: -0.04em;
+        white-space: nowrap;
+      }
+      #s6-ring-a {
+        position: absolute;
+        width: 700px; height: 700px;
+        border: 2px solid rgba(244,162,97,0.08);
+        border-radius: 50%;
+        top: 190px; left: 610px;
+        pointer-events: none;
+      }
+      #s6-ring-b {
+        position: absolute;
+        width: 1000px; height: 1000px;
+        border: 1px solid rgba(244,162,97,0.05);
+        border-radius: 50%;
+        top: 40px; left: 460px;
+        pointer-events: none;
+      }
+      #s6-grain3 {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+        pointer-events: none;
+        opacity: 0.7;
       }
     </style>
   </head>
   <body>
+    <!-- Root Composition ───────────────────────────────── -->
     <div
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="10"
+      data-duration="30"
       data-width="1920"
       data-height="1080"
     >
-      
-      
 
-      <!--
-        Add your clips here. Example:
-        <div id="title" class="clip" data-start="0" data-duration="5" data-track-index="1"
-             style="font-size: 64px; color: #fff; padding: 40px">
-          Hello World
+      <!-- ─── SCENE 1 — Hero (0.0–4.5s) ─────────────────── -->
+      <div id="scene1" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s1-glow-a" data-layout-ignore aria-hidden="true"></div>
+        <div id="s1-glow-b" data-layout-ignore aria-hidden="true"></div>
+        <div id="s1-ghost-a" data-layout-ignore aria-hidden="true">Agrar</div>
+        <div id="s1-grain" data-layout-ignore aria-hidden="true"></div>
+        <div id="s1-divider" data-layout-ignore aria-hidden="true"></div>
+        <div id="s1-reg-mark" data-layout-ignore aria-hidden="true">AgrarOffice — 2026</div>
+
+        <!-- Content -->
+        <div id="s1-content" class="scene-content">
+          <div id="s1-eyebrow" class="label-mono">Die All-in-One Agrarsoftware</div>
+          <div id="s1-headline" class="display-serif">Schluss&nbsp;mit<br>Excel-Chaos.</div>
+          <div id="s1-accent-line"></div>
+          <div id="s1-subtitle" class="body-sans">AgrarOffice — die All-in-One Software<br>für Agrarhändler in Deutschland.</div>
         </div>
-      -->
-    </div>
+      </div>
+
+      <!-- ─── SCENE 2 — Pain Points (4.5–9.0s) ──────────── -->
+      <div id="scene2" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s2-panel-right" data-layout-ignore aria-hidden="true"></div>
+        <div id="s2-glow-c" data-layout-ignore aria-hidden="true"></div>
+        <div id="s2-ghost-b" data-layout-ignore aria-hidden="true">Chaos</div>
+        <div id="s2-rule" data-layout-ignore aria-hidden="true"></div>
+
+        <!-- Content -->
+        <div id="s2-content" class="scene-content">
+          <div id="s2-label" class="label-mono">Erkennen Sie sich wieder?</div>
+
+          <div class="pain-item" id="p1">
+            <div class="pain-bullet"></div>
+            <span class="pain-text">Lieferscheine im Karton.</span>
+            <div class="pain-strike" id="strike1"></div>
+          </div>
+          <div class="pain-item" id="p2">
+            <div class="pain-bullet"></div>
+            <span class="pain-text">Rechnungen im Postfach.</span>
+            <div class="pain-strike" id="strike2"></div>
+          </div>
+          <div class="pain-item" id="p3">
+            <div class="pain-bullet"></div>
+            <span class="pain-text">Bestände im Kopf.</span>
+            <div class="pain-strike" id="strike3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SCENE 3 — Solution 3-Column (9.0–14.0s) ───── -->
+      <div id="scene3" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s3-topbar" data-layout-ignore aria-hidden="true"></div>
+        <div id="s3-glow-d" data-layout-ignore aria-hidden="true"></div>
+        <div id="s3-ghost-c" data-layout-ignore aria-hidden="true">App</div>
+        <div id="s3-corner-mark" data-layout-ignore aria-hidden="true">LÖSUNG</div>
+
+        <!-- Content -->
+        <div id="s3-content" class="scene-content">
+          <div id="s3-eyebrow" class="label-mono">Alles in einer App:</div>
+          <div id="s3-headline">Drei Säulen.<br>Eine Software.</div>
+
+          <div id="s3-grid">
+            <!-- Card 1 -->
+            <div class="s3-card" id="s3-card1">
+              <div class="s3-card-icon">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="24" cy="16" r="10" stroke="#f4a261" stroke-width="3"/>
+                  <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#f4a261" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="s3-card-title">CRM &amp; Außendienst</div>
+              <div class="s3-card-desc">Kunden, Kontakte, Bedarfspläne und Besuchsplanung — alles vernetzt.</div>
+            </div>
+            <!-- Card 2 -->
+            <div class="s3-card" id="s3-card2">
+              <div class="s3-card-icon">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="6" y="10" width="36" height="28" rx="3" stroke="#f4a261" stroke-width="3"/>
+                  <path d="M16 10V6M32 10V6M6 20h36" stroke="#f4a261" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="s3-card-title">Lager &amp; Lieferschein</div>
+              <div class="s3-card-desc">Bestände in Echtzeit, Lieferscheine digital — kein Zettelwirtschaft.</div>
+            </div>
+            <!-- Card 3 -->
+            <div class="s3-card" id="s3-card3">
+              <div class="s3-card-icon">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="8" y="6" width="32" height="36" rx="3" stroke="#f4a261" stroke-width="3"/>
+                  <path d="M16 18h16M16 26h10M32 32h4" stroke="#f4a261" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="s3-card-title">Rechnung &amp; Mahnwesen</div>
+              <div class="s3-card-desc">Automatische Rechnungen, DATEV-Export und Mahnwesen integriert.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SCENE 4 — Stats (14.0–19.0s) ──────────────── -->
+      <div id="scene4" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s4-glow-e" data-layout-ignore aria-hidden="true"></div>
+        <div id="s4-glow-f" data-layout-ignore aria-hidden="true"></div>
+        <div id="s4-ghost-d" data-layout-ignore aria-hidden="true">98%</div>
+        <div id="s4-rule-bottom" data-layout-ignore aria-hidden="true"></div>
+        <div id="s4-label" data-layout-ignore aria-hidden="true">Vertrauen · Wachstum · Zufriedenheit</div>
+
+        <!-- Content -->
+        <div id="s4-content" class="scene-content">
+          <div id="s4-headline" class="display-serif">Vertraut von Landwirten<br>in ganz Deutschland.</div>
+
+          <div id="s4-stats-row">
+            <div class="stat-block" id="s4-sb1">
+              <div class="stat-number" id="s4-n1">0+</div>
+              <div class="stat-label">aktive Betriebe</div>
+            </div>
+            <div class="stat-block" id="s4-sb2">
+              <div class="stat-number" id="s4-n2">0+</div>
+              <div class="stat-label">Lieferscheine pro Jahr</div>
+            </div>
+            <div class="stat-block" id="s4-sb3">
+              <div class="stat-number" id="s4-n3">0%</div>
+              <div class="stat-label">Kundenzufriedenheit</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SCENE 5 — Pricing (19.0–24.0s) ────────────── -->
+      <div id="scene5" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s5-glow-g" data-layout-ignore aria-hidden="true"></div>
+        <div id="s5-ghost-e" data-layout-ignore aria-hidden="true">€49</div>
+        <div id="s5-rule-v" data-layout-ignore aria-hidden="true"></div>
+        <div id="s5-grain2" data-layout-ignore aria-hidden="true"></div>
+
+        <!-- Content -->
+        <div id="s5-content" class="scene-content">
+          <div id="s5-eyebrow" class="label-mono">Transparente Preise</div>
+          <div id="s5-headline">Schon ab&nbsp;€49/Monat.</div>
+
+          <div id="s5-cards">
+            <!-- Starter -->
+            <div class="price-card" id="s5-c1">
+              <div class="price-tier">Starter</div>
+              <div class="price-amount">€49</div>
+              <div class="price-period">pro Monat · bis 3 Nutzer</div>
+              <div class="price-divider"></div>
+              <div class="price-bullets">
+                <div class="price-bullet-item"><span class="price-check">✓</span> CRM &amp; Kundenstamm</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> Digitale Lieferscheine</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> Lager &amp; Bestand</div>
+              </div>
+            </div>
+            <!-- Professional (Featured) -->
+            <div class="price-card featured" id="s5-c2">
+              <div class="price-badge">Beliebtester</div>
+              <div class="price-tier">Professional</div>
+              <div class="price-amount">€129</div>
+              <div class="price-period">pro Monat · bis 10 Nutzer</div>
+              <div class="price-divider"></div>
+              <div class="price-bullets">
+                <div class="price-bullet-item"><span class="price-check">✓</span> Alles aus Starter</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> KI-Analyse &amp; Marktpreise</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> DATEV-Export &amp; Mahnwesen</div>
+              </div>
+            </div>
+            <!-- Enterprise -->
+            <div class="price-card" id="s5-c3">
+              <div class="price-tier">Enterprise</div>
+              <div class="price-amount" style="font-size:52px; letter-spacing:-0.02em;">Individuell</div>
+              <div class="price-period">auf Anfrage · unbegrenzte Nutzer</div>
+              <div class="price-divider"></div>
+              <div class="price-bullets">
+                <div class="price-bullet-item"><span class="price-check">✓</span> Alles aus Professional</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> Dedizierter Onboarding-Support</div>
+                <div class="price-bullet-item"><span class="price-check">✓</span> SLA &amp; individuelle Anpassung</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── SCENE 6 — CTA / Outro (24.0–30.0s) ────────── -->
+      <div id="scene6" class="scene">
+        <!-- Decoratives BG -->
+        <div id="s6-glow-h" data-layout-ignore aria-hidden="true"></div>
+        <div id="s6-glow-i" data-layout-ignore aria-hidden="true"></div>
+        <div id="s6-ghost-f" data-layout-ignore aria-hidden="true">AgrarOffice</div>
+        <div id="s6-ring-a" data-layout-ignore aria-hidden="true"></div>
+        <div id="s6-ring-b" data-layout-ignore aria-hidden="true"></div>
+        <div id="s6-grain3" data-layout-ignore aria-hidden="true"></div>
+
+        <!-- Content -->
+        <div id="s6-content" class="scene-content">
+          <div id="s6-wordmark" class="display-serif">AgrarOffice<span id="s6-dot">.</span></div>
+          <div id="s6-url" class="body-sans">agraroffice.de</div>
+          <div id="s6-cta-btn">30 Tage kostenlos testen</div>
+        </div>
+      </div>
+
+    </div><!-- /root -->
 
     <script>
       window.__timelines = window.__timelines || {};
-      const tl = gsap.timeline({ paused: true });
-      // Example: tl.from("#title", { opacity: 0, y: -50, duration: 1 }, 0);
+      var tl = gsap.timeline({ paused: true });
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 1 — Hero  (t = 0 … 4.5)
+      // ─────────────────────────────────────────────────────
+
+      // Decoratives: ambient breath on glows (attached to tl, finite repeat)
+      tl.fromTo("#s1-glow-a", { scale: 1.0, opacity: 0.9 }, { scale: 1.08, opacity: 1.0, duration: 2.2, ease: "sine.inOut", yoyo: true, repeat: 1 }, 0);
+      tl.fromTo("#s1-glow-b", { scale: 1.0, opacity: 0.7 }, { scale: 1.06, opacity: 1.0, duration: 1.8, ease: "sine.inOut", yoyo: true, repeat: 1 }, 0.4);
+      tl.fromTo("#s1-ghost-a", { x: 0 }, { x: 18, duration: 4.5, ease: "sine.inOut" }, 0);
+      tl.fromTo("#s1-divider", { scaleY: 0 }, { scaleY: 1, duration: 0.8, ease: "power3.out" }, 0.2);
+
+      // Content entrances
+      tl.fromTo("#s1-eyebrow",   { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.55, ease: "expo.out" }, 0.15);
+      tl.fromTo("#s1-headline",  { opacity: 0, y: 60  }, { opacity: 1, y: 0, duration: 0.75, ease: "power3.out" }, 0.35);
+      tl.fromTo("#s1-accent-line", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power4.out" }, 0.65);
+      tl.fromTo("#s1-subtitle",  { opacity: 0, y: 30  }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.8);
+
+      // ─────────────────────────────────────────────────────
+      // TRANSITION 1→2: Blur Crossfade (t = 4.1)
+      // ─────────────────────────────────────────────────────
+      var T12 = 4.1;
+      tl.to("#scene1", { filter: "blur(12px)", scale: 1.04, opacity: 0, duration: 0.5, ease: "power2.inOut" }, T12);
+      tl.set("#scene2", { visibility: "visible", filter: "blur(12px)", scale: 0.96, opacity: 0 }, T12 + 0.09);
+      tl.to("#scene2",
+        { filter: "blur(0px)",  scale: 1.0,  opacity: 1, duration: 0.55, ease: "power2.out" }, T12 + 0.1);
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 2 — Pain Points (t = 4.5 … 9.0)
+      // ─────────────────────────────────────────────────────
+      var S2 = 4.6; // first entrance offset
+
+      // Decoratives
+      tl.fromTo("#s2-panel-right", { scaleX: 0, transformOrigin: "right center" }, { scaleX: 1, duration: 0.7, ease: "power3.out" }, S2 - 0.1);
+      tl.fromTo("#s2-glow-c",  { scale: 1.0, opacity: 0.8 }, { scale: 1.07, opacity: 1.0, duration: 2.1, ease: "sine.inOut", yoyo: true, repeat: 1 }, S2);
+      tl.fromTo("#s2-ghost-b", { x: 0 }, { x: -20, duration: 4.4, ease: "sine.inOut" }, S2 - 0.1);
+      tl.fromTo("#s2-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power3.out" }, S2 + 0.3);
+
+      // Content entrances
+      tl.fromTo("#s2-label", { opacity: 0, x: -30  }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, S2);
+      tl.fromTo("#p1",       { opacity: 0, x: -60  }, { opacity: 1, x: 0, duration: 0.55, ease: "expo.out"   }, S2 + 0.2);
+      tl.fromTo("#p2",       { opacity: 0, x: -60  }, { opacity: 1, x: 0, duration: 0.55, ease: "expo.out"   }, S2 + 0.4);
+      tl.fromTo("#p3",       { opacity: 0, x: -60  }, { opacity: 1, x: 0, duration: 0.55, ease: "expo.out"   }, S2 + 0.6);
+
+      // Strike-through animations — staggered after each item settles
+      tl.fromTo("#strike1", { width: "0%" }, { width: "100%", duration: 0.45, ease: "power4.out" }, S2 + 1.1);
+      tl.fromTo("#strike2", { width: "0%" }, { width: "100%", duration: 0.45, ease: "power4.out" }, S2 + 1.5);
+      tl.fromTo("#strike3", { width: "0%" }, { width: "100%", duration: 0.45, ease: "power4.out" }, S2 + 1.9);
+
+      // ─────────────────────────────────────────────────────
+      // TRANSITION 2→3: Push Slide left (t = 8.5)
+      // ─────────────────────────────────────────────────────
+      var T23 = 8.5;
+      tl.to("#scene2",   { x: -1920, duration: 0.55, ease: "power3.inOut" }, T23);
+      tl.set("#scene3", { visibility: "visible" }, T23 - 0.01);
+      tl.fromTo("#scene3", { x: 1920, opacity: 1 }, { x: 0, duration: 0.55, ease: "power3.inOut" }, T23);
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 3 — Solution (t = 9.0 … 14.0)
+      // ─────────────────────────────────────────────────────
+      var S3 = 9.1;
+
+      // Decoratives
+      tl.fromTo("#s3-topbar",    { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: 0.7, ease: "power3.out" }, S3 - 0.1);
+      tl.fromTo("#s3-glow-d",    { scale: 1.0, opacity: 0.7 }, { scale: 1.08, opacity: 1.0, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: 1 }, S3);
+      tl.fromTo("#s3-ghost-c",   { y: 0 }, { y: -15, duration: 5.0, ease: "sine.inOut" }, S3 - 0.1);
+      tl.fromTo("#s3-corner-mark", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, S3 + 0.5);
+
+      // Content
+      tl.fromTo("#s3-eyebrow",  { opacity: 0, y: -25  }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, S3);
+      tl.fromTo("#s3-headline", { opacity: 0, y: 50   }, { opacity: 1, y: 0, duration: 0.65, ease: "power3.out" }, S3 + 0.15);
+      tl.fromTo("#s3-card1",    { opacity: 0, y: 70, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power2.out" }, S3 + 0.4);
+      tl.fromTo("#s3-card2",    { opacity: 0, y: 70, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "expo.out"   }, S3 + 0.55);
+      tl.fromTo("#s3-card3",    { opacity: 0, y: 70, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out" }, S3 + 0.7);
+
+      // ─────────────────────────────────────────────────────
+      // TRANSITION 3→4: Vertical Push up (t = 13.4)
+      // ─────────────────────────────────────────────────────
+      var T34 = 13.4;
+      tl.to("#scene3",   { y: -1080, duration: 0.55, ease: "power3.inOut" }, T34);
+      tl.set("#scene4", { visibility: "visible" }, T34 - 0.01);
+      tl.fromTo("#scene4", { y: 1080, opacity: 1 }, { y: 0, duration: 0.55, ease: "power3.inOut", immediateRender: false, overwrite: "auto" }, T34);
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 4 — Stats (t = 14.0 … 19.0)
+      // ─────────────────────────────────────────────────────
+      var S4 = 14.1;
+
+      // Decoratives
+      tl.fromTo("#s4-glow-e", { scale: 1.0, opacity: 0.85 }, { scale: 1.07, opacity: 1.0, duration: 2.3, ease: "sine.inOut", yoyo: true, repeat: 1 }, S4);
+      tl.fromTo("#s4-glow-f", { scale: 1.0, opacity: 0.7  }, { scale: 1.09, opacity: 1.0, duration: 1.9, ease: "sine.inOut", yoyo: true, repeat: 1 }, S4 + 0.5);
+      tl.fromTo("#s4-ghost-d", { x: 0 }, { x: 30, duration: 5.0, ease: "sine.inOut" }, S4 - 0.1);
+      tl.fromTo("#s4-rule-bottom", { scaleX: 0, transformOrigin: "center center" }, { scaleX: 1, duration: 0.9, ease: "power3.out" }, S4 + 0.3);
+      tl.fromTo("#s4-label", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, S4 + 0.4);
+
+      // Content
+      tl.fromTo("#s4-headline", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.65, ease: "power3.out" }, S4);
+      tl.fromTo("#s4-sb1",      { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.55, ease: "expo.out"   }, S4 + 0.35);
+      tl.fromTo("#s4-sb2",      { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, S4 + 0.5);
+      tl.fromTo("#s4-sb3",      { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.55, ease: "power4.out" }, S4 + 0.65);
+
+      // Counter animations — count up from 0 to target, suffix stays visible
+      var s4c1 = { val: 0 }, s4c2 = { val: 0 }, s4c3 = { val: 0 };
+      tl.to(s4c1, { val: 47, duration: 2.4, ease: "power2.out",
+        onUpdate: function() {
+          var el = document.getElementById("s4-n1");
+          if (el) el.textContent = Math.round(s4c1.val) + "+";
+        }
+      }, S4 + 0.5);
+
+      tl.to(s4c2, { val: 12000, duration: 2.6, ease: "power2.out",
+        onUpdate: function() {
+          var el = document.getElementById("s4-n2");
+          if (el) el.textContent = Math.round(s4c2.val).toLocaleString("de-DE") + "+";
+        }
+      }, S4 + 0.5);
+
+      tl.to(s4c3, { val: 98, duration: 2.2, ease: "power2.out",
+        onUpdate: function() {
+          var el = document.getElementById("s4-n3");
+          if (el) el.textContent = Math.round(s4c3.val) + "%";
+        }
+      }, S4 + 0.6);
+
+      // ─────────────────────────────────────────────────────
+      // TRANSITION 4→5: Blur Crossfade (t = 18.5)
+      // ─────────────────────────────────────────────────────
+      var T45 = 18.5;
+      tl.to("#scene4", { filter: "blur(12px)", scale: 1.04, opacity: 0, duration: 0.5, ease: "power2.inOut" }, T45);
+      tl.set("#scene5", { visibility: "visible", filter: "blur(12px)", scale: 0.96, opacity: 0 }, T45 + 0.09);
+      tl.to("#scene5",
+        { filter: "blur(0px)",  scale: 1.0,  opacity: 1, duration: 0.55, ease: "power2.out" }, T45 + 0.1);
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 5 — Pricing (t = 19.0 … 24.0)
+      // ─────────────────────────────────────────────────────
+      var S5 = 19.1;
+
+      // Decoratives
+      tl.fromTo("#s5-glow-g", { scale: 1.0, opacity: 0.8 }, { scale: 1.07, opacity: 1.0, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: 1 }, S5);
+      tl.fromTo("#s5-ghost-e", { y: 0 }, { y: -20, duration: 5.0, ease: "sine.inOut" }, S5 - 0.1);
+      tl.fromTo("#s5-rule-v", { scaleY: 0, transformOrigin: "top center" }, { scaleY: 1, duration: 0.8, ease: "power3.out" }, S5);
+
+      // Content
+      tl.fromTo("#s5-eyebrow",  { opacity: 0, x: -30  }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, S5);
+      tl.fromTo("#s5-headline", { opacity: 0, y: 45   }, { opacity: 1, y: 0, duration: 0.65, ease: "expo.out"   }, S5 + 0.15);
+      tl.fromTo("#s5-c1",       { opacity: 0, y: 80, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power2.out"  }, S5 + 0.4);
+      tl.fromTo("#s5-c2",       { opacity: 0, y: 80, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "power3.out"  }, S5 + 0.55);
+      tl.fromTo("#s5-c3",       { opacity: 0, y: 80, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: "expo.out"    }, S5 + 0.7);
+
+      // Featured card gentle hover pulse
+      tl.fromTo("#s5-c2", { boxShadow: "0 4px 32px rgba(244,162,97,0.2)" }, { boxShadow: "0 8px 48px rgba(244,162,97,0.4)", duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: 2 }, S5 + 1.2);
+
+      // ─────────────────────────────────────────────────────
+      // TRANSITION 5→6: Push Slide left (t = 23.4)
+      // ─────────────────────────────────────────────────────
+      var T56 = 23.4;
+      tl.to("#scene5",   { x: -1920, duration: 0.55, ease: "power3.inOut" }, T56);
+      tl.set("#scene6", { visibility: "visible" }, T56 - 0.01);
+      tl.fromTo("#scene6", { x: 1920, opacity: 1 }, { x: 0, duration: 0.55, ease: "power3.inOut" }, T56);
+
+      // ─────────────────────────────────────────────────────
+      // SCENE 6 — CTA / Outro (t = 24.0 … 30.0)
+      // ─────────────────────────────────────────────────────
+      var S6 = 24.1;
+
+      // Decoratives — ambient breathing on rings + glows
+      tl.fromTo("#s6-glow-h", { scale: 1.0, opacity: 0.85 }, { scale: 1.05, opacity: 1.0, duration: 2.8, ease: "sine.inOut", yoyo: true, repeat: 1 }, S6);
+      tl.fromTo("#s6-glow-i", { scale: 1.0, opacity: 0.7  }, { scale: 1.08, opacity: 1.0, duration: 2.2, ease: "sine.inOut", yoyo: true, repeat: 1 }, S6 + 0.4);
+      tl.fromTo("#s6-ring-a", { scale: 0.95, opacity: 0.7 }, { scale: 1.04, opacity: 1.0, duration: 3.0, ease: "sine.inOut", yoyo: true, repeat: 1 }, S6);
+      tl.fromTo("#s6-ring-b", { scale: 0.97, opacity: 0.6 }, { scale: 1.03, opacity: 0.9, duration: 2.6, ease: "sine.inOut", yoyo: true, repeat: 1 }, S6 + 0.6);
+      tl.fromTo("#s6-ghost-f", { x: 0 }, { x: 25, duration: 6.0, ease: "sine.inOut" }, S6 - 0.1);
+
+      // Content entrances — all fromTo for determinism
+      tl.fromTo("#s6-wordmark", { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1.0, duration: 0.85, ease: "power3.out"  }, S6);
+      tl.fromTo("#s6-dot",      { opacity: 0, scale: 0.5  }, { opacity: 1, scale: 1.0, duration: 0.5,  ease: "expo.out"    }, S6 + 0.55);
+      tl.fromTo("#s6-url",      { opacity: 0, y: 30       }, { opacity: 1, y: 0,       duration: 0.55, ease: "power2.out"  }, S6 + 0.65);
+      // CTA entrance
+      tl.fromTo("#s6-cta-btn", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: "power4.out", immediateRender: false, overwrite: "auto" }, S6 + 0.85);
+
+      // CTA button subtle pulse (attention loop) — separate scale-only tween after entrance finishes
+      tl.to("#s6-cta-btn", { scale: 1.03, duration: 1.0, ease: "sine.inOut", yoyo: true, repeat: 2, immediateRender: false, overwrite: "auto" }, S6 + 1.6);
+
+      // ─────────────────────────────────────────────────────
+      // FINAL FADE OUT (Scene 6 exit — allowed on last scene)
+      // ─────────────────────────────────────────────────────
+      tl.to("#scene6", { opacity: 0, duration: 0.8, ease: "power1.in" }, 29.0);
+      tl.set("#scene6", { visibility: "hidden" }, 29.8);
+
+      // ─────────────────────────────────────────────────────
+      // Register timeline
+      // ─────────────────────────────────────────────────────
       window.__timelines["main"] = tl;
     </script>
   </body>
