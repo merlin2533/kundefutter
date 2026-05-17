@@ -117,6 +117,7 @@ function NeueAnalyseFormInner() {
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
+  const [schlaegteLoading, setSchlaegteLoading] = useState(false);
   const [kundeId, setKundeId] = useState(preKundeId ?? "");
   const [schlagId, setSchlagId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -191,10 +192,12 @@ function NeueAnalyseFormInner() {
 
   useEffect(() => {
     if (!kundeId) { setSchlaegte([]); return; }
+    setSchlaegteLoading(true);
     fetch(`/api/kunden/${kundeId}/schlaegte`)
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
-      .catch(() => setSchlaegte([]));
+      .catch(() => setSchlaegte([]))
+      .finally(() => setSchlaegteLoading(false));
   }, [kundeId]);
 
   // Live-Bewertung Daten
@@ -366,9 +369,11 @@ function NeueAnalyseFormInner() {
                   value={schlagId}
                   onChange={(e) => setSchlagId(e.target.value)}
                   required
-                  disabled={!kundeId || schlaegte.length === 0}
+                  disabled={!kundeId || schlaegteLoading || schlaegte.length === 0}
                 >
-                  <option value="">{kundeId && schlaegte.length === 0 ? "Kein Schlag vorhanden" : "Schlag wählen…"}</option>
+                  <option value="">
+                    {!kundeId ? "Zuerst Kunde wählen…" : schlaegteLoading ? "Lade Schläge…" : schlaegte.length === 0 ? "Kein Schlag vorhanden — bitte + nutzen" : "Schlag wählen…"}
+                  </option>
                   {schlaegte.map((s) => (
                     <option key={s.id} value={s.id}>{s.name} ({s.flaeche} ha){s.fruchtart ? ` — ${s.fruchtart}` : ""}</option>
                   ))}
