@@ -21,10 +21,12 @@ function extractTag(xml: string, localName: string): string | null {
   return m ? m[1].trim() : null;
 }
 
-/** Liest ein Tag mit bestimmtem Elterntag-Kontext */
+/** Liest ein Tag mit bestimmtem Elterntag-Kontext.
+ * Lookahead (?=[\s>]) stellt sicher, dass der Tagname nicht nur ein Präfix ist
+ * (z.B. "ExchangedDocument" darf nicht "ExchangedDocumentContext" treffen). */
 function extractInContext(xml: string, parentLocalName: string, childLocalName: string): string | null {
   const parentRe = new RegExp(
-    `<[^:>]*:?${parentLocalName}[^>]*>([\\s\\S]*?)<\\/[^:>]*:?${parentLocalName}>`,
+    `<[^:>]*:?${parentLocalName}(?=[\\s>])[^>]*>([\\s\\S]*?)<\\/[^:>]*:?${parentLocalName}(?=[\\s>/>])`,
     "i"
   );
   const parentMatch = xml.match(parentRe);
@@ -89,13 +91,16 @@ export function extractXmlFromPdf(pdfBuffer: Buffer): string | null {
 
 /** Parsed ZUGFeRD/Factur-X XML und gibt strukturierte Daten zurück */
 export function parseZugferdXml(xml: string): ZugferdParsed {
-  // Rechnungsnummer
-  const rechnungNummer = extractInContext(xml, "ExchangedDocument", "ID");
+  // Rechnungsnummer — ZUGFeRD 2.x: ExchangedDocument / ZUGFeRD 1.0: HeaderExchangedDocument
+  const rechnungNummer =
+    extractInContext(xml, "ExchangedDocument", "ID") ??
+    extractInContext(xml, "HeaderExchangedDocument", "ID");
 
   // Rechnungsdatum
   const datumRaw =
     extractInContext(xml, "IssueDateTime", "DateTimeString") ??
-    extractInContext(xml, "ExchangedDocument", "DateTimeString");
+    extractInContext(xml, "ExchangedDocument", "DateTimeString") ??
+    extractInContext(xml, "HeaderExchangedDocument", "DateTimeString");
   const datum = parseDate102(datumRaw);
 
   // Fälligkeitsdatum aus Zahlungsbedingungen
@@ -104,8 +109,10 @@ export function parseZugferdXml(xml: string): ZugferdParsed {
     extractInContext(xml, "SpecifiedTradePaymentTerms", "DateTimeString");
   const faelligAm = parseDate102(faelligRaw);
 
-  // Verkäufer-Name (= unser Lieferant)
-  const lieferantName = extractInContext(xml, "SellerTradeParty", "Name");
+  // Verkäufer-Name (= unser Lieferant) — ZUGFeRD 1.0: SellerTradeParty inside SpecifiedSupplyChainTradeTransaction
+  const lieferantName =
+    extractInContext(xml, "SellerTradeParty", "Name") ??
+    extractInContext(xml, "SellerTradeParty", "TradingBusinessName");
 
   // Geldbeträge aus Monetär-Zusammenfassung
   const summaryRe = new RegExp(
