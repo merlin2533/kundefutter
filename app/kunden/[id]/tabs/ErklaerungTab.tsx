@@ -175,7 +175,12 @@ export default function ErklaerungTab({ kundeId }: { kundeId: number }) {
                 <td className="px-4 py-2.5 hidden md:table-cell text-gray-500">{e.notiz ?? "—"}</td>
                 <td className="px-4 py-2.5 hidden sm:table-cell">
                   {e.dokumentPfad ? (
-                    <a href={e.dokumentPfad} target="_blank" rel="noopener noreferrer" className="text-green-700 hover:underline text-xs">
+                    <a
+                      href={e.dokumentPfad.startsWith("/") ? e.dokumentPfad : `/api/uploads/${e.dokumentPfad}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-700 hover:underline text-xs"
+                    >
                       Dokument öffnen
                     </a>
                   ) : <span className="text-gray-400 text-xs">—</span>}
