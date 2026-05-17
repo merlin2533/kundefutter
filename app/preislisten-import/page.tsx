@@ -110,7 +110,7 @@ export default function PreislistenImportPage() {
             Preisänderungen vor. Du wählst selbst welche Preise übernommen werden.
           </p>
 
-          <div className="bg-white rounded-lg border border-blue-200 overflow-hidden mb-4">
+          <div className="bg-white rounded-lg border border-blue-200 overflow-x-auto mb-4">
             <table className="w-full text-sm">
               <thead className="bg-blue-50 border-b border-blue-200">
                 <tr>
@@ -231,6 +231,7 @@ export default function PreislistenImportPage() {
               </button>
             </div>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500 border-b text-xs uppercase">
@@ -267,6 +268,7 @@ export default function PreislistenImportPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

@@ -56,9 +56,11 @@ export default function LieferantenPage() {
         <h1 className="text-2xl font-bold">Lieferanten</h1>
         <Link
           href="/lieferanten/neu"
-          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
+          title="Neuer Lieferant"
+          className="inline-flex items-center gap-1.5 bg-green-800 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-auto text-center"
         >
-          + Neuer Lieferant
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neuer Lieferant</span>
         </Link>
       </div>
 

@@ -183,7 +183,7 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
               let massnahmen: AntragMassnahme[] = [];
               try { if (antrag.massnahmen) massnahmen = JSON.parse(antrag.massnahmen); } catch { /* ignore */ }
               return (
-                <div key={antrag.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={antrag.id} className="border border-gray-200 rounded-lg overflow-x-auto">
                   <button
                     onClick={() => setExpanded(expanded === antrag.id ? null : antrag.id)}
                     className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"

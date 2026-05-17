@@ -211,9 +211,11 @@ export default function BodenanalyseListePage() {
         <h1 className="text-xl font-bold text-gray-900">Albrecht-Bodenanalysen</h1>
         <Link
           href="/bodenanalyse/neu"
-          className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-lg transition-colors"
+          title="Neue Analyse"
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          + Neue Analyse
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neue Analyse</span>
         </Link>
       </div>
 

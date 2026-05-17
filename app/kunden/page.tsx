@@ -142,23 +142,29 @@ export default function KundenPage() {
           <a
             href="/api/exporte?typ=kunden"
             download
-            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            title="Exportieren"
+            className="inline-flex items-center gap-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
-            Exportieren
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            <span className="hidden sm:inline">Exportieren</span>
           </a>
           <button
             onClick={() => importRef.current?.click()}
             disabled={importing}
-            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+            title="Importieren"
+            className="inline-flex items-center gap-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
           >
-            {importing ? "Importiert…" : "Importieren"}
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-16-4l4-4 4 4m-4-4v12" /></svg>
+            <span className="hidden sm:inline">{importing ? "Importiert…" : "Importieren"}</span>
           </button>
           <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
           <Link
             href="/kunden/neu"
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            title="Neuer Kunde"
+            className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
           >
-            + Neuer Kunde
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Neuer Kunde</span>
           </Link>
         </div>
       </div>

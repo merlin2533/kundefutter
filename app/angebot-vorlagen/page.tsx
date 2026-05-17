@@ -149,9 +149,11 @@ export default function AngebotVorlagenPage() {
         <h1 className="text-2xl font-bold text-gray-900">Angebots-Vorlagen</h1>
         <Link
           href="/angebot-vorlagen/neu"
-          className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors"
+          title="Neue Vorlage"
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors"
         >
-          + Neue Vorlage
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neue Vorlage</span>
         </Link>
       </div>
 

@@ -134,9 +134,11 @@ export default function AufgabenPage() {
         </div>
         <Link
           href="/aufgaben/neu"
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          title="Neue Aufgabe"
+          className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
-          + Neue Aufgabe
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neue Aufgabe</span>
         </Link>
       </div>
 

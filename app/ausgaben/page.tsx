@@ -111,8 +111,9 @@ function AusgabenContent() {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Ausgabenbuch</h1>
-        <Link href="/ausgaben/neu" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm">
-          + Neue Ausgabe
+        <Link href="/ausgaben/neu" title="Neue Ausgabe" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-2.5 sm:px-4 py-2 rounded hover:bg-blue-700 text-sm">
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neue Ausgabe</span>
         </Link>
       </div>
 

@@ -373,6 +373,7 @@ function Inner() {
           )}
           <details className="mt-4">
             <summary className="cursor-pointer text-sm text-gray-600">Rechenweg anzeigen</summary>
+            <div className="overflow-x-auto">
             <table className="mt-2 text-sm">
               <tbody>
                 <tr><td className="pr-3">N-Basis</td><td>{ergebnis.rechenweg.nBasis} kg/ha</td></tr>
@@ -385,6 +386,7 @@ function Inner() {
                 <tr><td className="pr-3">K-Basis × Korrektur</td><td>{ergebnis.rechenweg.kBasis} × {ergebnis.rechenweg.kKorrektur}</td></tr>
               </tbody>
             </table>
+            </div>
           </details>
         </Card>
       )}
@@ -392,6 +394,7 @@ function Inner() {
       {historie.length > 0 && (
         <Card>
           <h2 className="font-semibold mb-3">Historie für diesen Schlag</h2>
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead><tr className="text-left border-b"><th className="pb-1 pr-4">Jahr</th><th className="pb-1 pr-4">Fruchtart</th><th className="pb-1 pr-4">N</th><th className="pb-1 pr-4">P₂O₅</th><th className="pb-1 pr-4">K₂O</th><th className="pb-1 pr-4">MgO</th><th className="pb-1">Berechnet am</th></tr></thead>
             <tbody>
@@ -408,6 +411,7 @@ function Inner() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>
