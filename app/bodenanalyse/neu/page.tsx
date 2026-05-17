@@ -122,6 +122,14 @@ function NeueAnalyseFormInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Inline Schlag creation
+  const [showNewSchlag, setShowNewSchlag] = useState(false);
+  const [newSchlagName, setNewSchlagName] = useState("");
+  const [newSchlagFlaeche, setNewSchlagFlaeche] = useState("");
+  const [newSchlagFruchtart, setNewSchlagFruchtart] = useState("");
+  const [savingSchlag, setSavingSchlag] = useState(false);
+  const [schlagError, setSchlagError] = useState("");
+
   // Basisdaten
   const [datum, setDatum] = useState(() => new Date().toISOString().split("T")[0]);
   const [probenId, setProbenId] = useState("");
@@ -216,6 +224,37 @@ function NeueAnalyseFormInner() {
 
   const removeEmpfehlung = (i: number) =>
     setEmpfehlungen((prev) => prev.filter((_, idx) => idx !== i));
+
+  const saveNewSchlag = async () => {
+    setSchlagError("");
+    if (!newSchlagName.trim()) { setSchlagError("Name ist erforderlich"); return; }
+    const flaecheNum = parseFloat(newSchlagFlaeche);
+    if (isNaN(flaecheNum) || flaecheNum <= 0) { setSchlagError("Gültige Fläche (ha) eingeben"); return; }
+    setSavingSchlag(true);
+    try {
+      const res = await fetch(`/api/kunden/${kundeId}/schlaegte`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSchlagName.trim(), flaeche: flaecheNum, fruchtart: newSchlagFruchtart || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setSchlagError(d?.error ?? "Speichern fehlgeschlagen");
+        return;
+      }
+      const created: Schlag = await res.json();
+      setSchlaegte((prev) => [...prev, created]);
+      setSchlagId(String(created.id));
+      setShowNewSchlag(false);
+      setNewSchlagName("");
+      setNewSchlagFlaeche("");
+      setNewSchlagFruchtart("");
+    } catch {
+      setSchlagError("Netzwerkfehler");
+    } finally {
+      setSavingSchlag(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,18 +360,88 @@ function NeueAnalyseFormInner() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Schlag *</label>
-              <select
-                className={inputCls}
-                value={schlagId}
-                onChange={(e) => setSchlagId(e.target.value)}
-                required
-                disabled={!kundeId || schlaegte.length === 0}
-              >
-                <option value="">{kundeId && schlaegte.length === 0 ? "Kein Schlag vorhanden" : "Schlag wählen…"}</option>
-                {schlaegte.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.flaeche} ha){s.fruchtart ? ` — ${s.fruchtart}` : ""}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  className={inputCls}
+                  value={schlagId}
+                  onChange={(e) => setSchlagId(e.target.value)}
+                  required
+                  disabled={!kundeId || schlaegte.length === 0}
+                >
+                  <option value="">{kundeId && schlaegte.length === 0 ? "Kein Schlag vorhanden" : "Schlag wählen…"}</option>
+                  {schlaegte.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.flaeche} ha){s.fruchtart ? ` — ${s.fruchtart}` : ""}</option>
+                  ))}
+                </select>
+                {kundeId && (
+                  <button
+                    type="button"
+                    title="Neuen Schlag anlegen"
+                    onClick={() => { setShowNewSchlag((v) => !v); setSchlagError(""); }}
+                    className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 text-lg font-bold transition-colors"
+                  >
+                    {showNewSchlag ? "×" : "+"}
+                  </button>
+                )}
+              </div>
+
+              {showNewSchlag && (
+                <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg space-y-3">
+                  <p className="text-xs font-semibold text-green-800">Neuen Schlag anlegen</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Name *</label>
+                      <input
+                        type="text"
+                        className={inputCls}
+                        value={newSchlagName}
+                        onChange={(e) => setNewSchlagName(e.target.value)}
+                        placeholder="z.B. Nordfeld"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fläche (ha) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        className={inputCls}
+                        value={newSchlagFlaeche}
+                        onChange={(e) => setNewSchlagFlaeche(e.target.value)}
+                        placeholder="z.B. 4.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fruchtart</label>
+                      <input
+                        type="text"
+                        className={inputCls}
+                        value={newSchlagFruchtart}
+                        onChange={(e) => setNewSchlagFruchtart(e.target.value)}
+                        placeholder="z.B. Winterweizen"
+                      />
+                    </div>
+                  </div>
+                  {schlagError && <p className="text-xs text-red-600">{schlagError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={saveNewSchlag}
+                      disabled={savingSchlag}
+                      className="px-4 py-1.5 bg-green-700 hover:bg-green-800 disabled:opacity-60 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      {savingSchlag ? "Speichern…" : "Schlag anlegen"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowNewSchlag(false); setSchlagError(""); }}
+                      className="px-4 py-1.5 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
