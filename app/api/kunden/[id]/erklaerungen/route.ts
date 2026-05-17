@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { getUploadBase } from "@/lib/upload";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -46,15 +47,14 @@ export async function POST(req: NextRequest, { params }: Params) {
 
       const file = formData.get("dokument") as File | null;
       if (file && file.size > 0) {
-        const uploadDir = process.env.UPLOAD_BASE ?? (process.env.NODE_ENV === "production" ? "/data/uploads" : "./uploads");
-        const erklaerungDir = path.join(uploadDir, "erklaerungen");
+        const erklaerungDir = path.join(getUploadBase(), "erklaerungen");
         await mkdir(erklaerungDir, { recursive: true });
         const ext = file.name.split(".").pop() ?? "bin";
         const filename = `kunde_${kundeId}_${jahr}_${Date.now()}.${ext}`;
         const dest = path.join(erklaerungDir, filename);
         const buffer = Buffer.from(await file.arrayBuffer());
         await writeFile(dest, buffer);
-        dokumentPfad = `/uploads/erklaerungen/${filename}`;
+        dokumentPfad = `erklaerungen/${filename}`;
       }
     } else {
       const body = await req.json();
