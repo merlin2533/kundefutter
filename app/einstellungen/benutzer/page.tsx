@@ -81,9 +81,11 @@ export default function BenutzerListePage() {
         <h1 className="text-2xl font-bold">Benutzerverwaltung</h1>
         <Link
           href="/einstellungen/benutzer/neu"
-          className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded font-medium"
+          title="Neuer Benutzer"
+          className="inline-flex items-center gap-1.5 bg-green-700 hover:bg-green-800 text-white px-2.5 sm:px-4 py-2 rounded font-medium"
         >
-          + Neuer Benutzer
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neuer Benutzer</span>
         </Link>
       </div>
 
@@ -93,7 +95,7 @@ export default function BenutzerListePage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {loading ? (
           <div className="p-6 text-center text-gray-500">Lädt…</div>
         ) : benutzer.length === 0 ? (

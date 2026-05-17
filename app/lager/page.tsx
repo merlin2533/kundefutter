@@ -172,21 +172,27 @@ export default function LagerPage() {
         <div className="flex gap-2 flex-wrap w-full sm:w-auto">
           <Link
             href="/lager/chargen"
-            className="flex-1 sm:flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            title="Chargensuche"
+            className="inline-flex items-center gap-1.5 flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            Chargensuche →
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <span className="hidden sm:inline">Chargensuche</span>
           </Link>
           <Link
             href="/lager/umbuchungen"
-            className="flex-1 sm:flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            title="Umbuchungen"
+            className="inline-flex items-center gap-1.5 flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            Umbuchungen
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            <span className="hidden sm:inline">Umbuchungen</span>
           </Link>
           <Link
             href="/lager/wareneingang"
-            className="w-full sm:w-auto text-center bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            title="Wareneingang"
+            className="inline-flex items-center gap-1.5 w-auto text-center bg-green-800 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            + Wareneingang
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Wareneingang</span>
           </Link>
         </div>
       </div>

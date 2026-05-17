@@ -157,7 +157,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
       {schlaegte.map((sl) => {
         const liste = eintraege[sl.id] ?? [];
         return (
-          <div key={sl.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div key={sl.id} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
               <div>
                 <span className="font-medium text-gray-900">{sl.name}</span>

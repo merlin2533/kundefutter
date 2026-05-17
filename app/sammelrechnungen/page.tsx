@@ -137,9 +137,11 @@ export default function SammelrechnungenPage() {
         </div>
         <Link
           href="/sammelrechnungen/neu"
-          className="w-full sm:w-auto text-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+          title="Neue Sammelrechnung"
+          className="inline-flex items-center gap-1.5 w-auto text-center px-2.5 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
         >
-          + Neue Sammelrechnung
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <span className="hidden sm:inline">Neue Sammelrechnung</span>
         </Link>
       </div>
 

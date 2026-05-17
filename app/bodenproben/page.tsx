@@ -78,8 +78,9 @@ export default function BodenprobenSeite() {
       <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
         <h1 className="text-2xl font-bold">🧪 Bodenproben</h1>
         <div className="flex gap-2">
-          <Link href="/bodenproben/neu" className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800">
-            + Neue Probe
+          <Link href="/bodenproben/neu" title="Neue Probe" className="inline-flex items-center gap-1.5 bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded hover:bg-green-800">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Neue Probe</span>
           </Link>
         </div>
       </div>

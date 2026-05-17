@@ -246,6 +246,7 @@ export default function KalkulationPage() {
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                                 Lieferantenpreise
                               </p>
+                              <div className="overflow-x-auto">
                               <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
                                 <thead className="bg-gray-100">
                                   <tr>
@@ -320,6 +321,7 @@ export default function KalkulationPage() {
                                     })}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           )}
                         </td>
