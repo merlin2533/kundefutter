@@ -67,7 +67,7 @@ export async function getPortalSession(): Promise<{ kundeId: number; benutzernam
 export function portalCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: PORTAL_SESSION_MAX_AGE,
@@ -77,7 +77,7 @@ export function portalCookieOptions() {
 export function portalClearedCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
+    sameSite: "strict" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 0,

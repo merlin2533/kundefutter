@@ -20,7 +20,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const uploadDir = path.join(getUploadBase(), "zertifizierungen");
     await mkdir(uploadDir, { recursive: true });
 
-    const ext = path.extname(file.name) || ".bin";
+    const ALLOWED_EXT = new Set([".pdf", ".jpg", ".jpeg", ".png", ".webp"]);
+    const ext = path.extname(file.name).toLowerCase() || ".bin";
+    if (!ALLOWED_EXT.has(ext)) {
+      return NextResponse.json({ error: "Dateityp nicht erlaubt (PDF, JPG, PNG, WEBP)" }, { status: 400 });
+    }
     const filename = `zert-${id}-${Date.now()}${ext}`;
     const filepath = path.join(uploadDir, filename);
 
