@@ -82,6 +82,7 @@ const SECTIONS: Section[] = [
     description: "Zugriffsrechte und automatische Hinweise.",
     tiles: [
       { href: "/einstellungen/benutzer", icon: "👥", title: "Benutzer", description: "Benutzerkonten, Rollen und Zugriffsrechte verwalten" },
+      { href: "/einstellungen/portal", icon: "🌐", title: "Kunden-Portal", description: "Zugangsdaten für das Kunden-Self-Service-Portal verwalten" },
       { href: "/einstellungen/sicherheit", icon: "🔒", title: "Sicherheit", description: "Passwort-Richtlinie und Hinweise zum sicheren Betrieb" },
       { href: "/einstellungen/benachrichtigungen", icon: "🔔", title: "Benachrichtigungen", description: "System-Alerts (Sachkunde, Kreditlimit, Lager, Rechnungen)" },
     ],

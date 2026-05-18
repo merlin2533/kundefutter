@@ -62,6 +62,10 @@ model Kunde {
   // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
   vvvoNr               String?   // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
 
+  portalZugang         KundePortalZugang?
+  anbauplaene          Anbauplan[]
+  zertifizierungen     Zertifizierung[]
+
   @@index([aktiv])
   @@index([kategorie])
   @@index([name])
@@ -720,6 +724,7 @@ model KundeSchlag {
   albrechtAnalysen BodenanalyseAlbrecht[]
   duengebedarfe    Duengebedarf[]
   sortenversuche   Sortenversuch[]
+  anbauplaene      Anbauplan[]
 
   @@index([kundeId])
 }
@@ -1455,4 +1460,66 @@ model Anlieferung {
 
   @@index([kundeId])
   @@index([datum])
+}
+
+// ─── KUNDEN-SELF-SERVICE-PORTAL ───────────────────────────────────────────────
+
+model KundePortalZugang {
+  id            Int      @id @default(autoincrement())
+  kundeId       Int      @unique
+  benutzername  String   @unique
+  passwortHash  String
+  aktiv         Boolean  @default(true)
+  letzterLogin  DateTime?
+  createdAt     DateTime @default(now())
+
+  kunde         Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+}
+
+// ─── DIGITALE ANBAUPLANUNG (FRUCHTFOLGE) ──────────────────────────────────────
+
+model Anbauplan {
+  id           Int      @id @default(autoincrement())
+  schlagId     Int
+  kundeId      Int
+  jahr         Int
+  fruchtart    String
+  sorte        String?
+  aussaatDatum DateTime?
+  ernteDatum   DateTime?
+  ertragDt     Float?   // dt/ha
+  status       String   @default("geplant") // geplant | ausgesaet | geerntet | abgebrochen
+  notiz        String?
+  erstellt     DateTime @default(now())
+
+  schlag  KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  kunde   Kunde       @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@index([schlagId])
+  @@index([kundeId])
+  @@index([jahr])
+}
+
+// ─── ZERTIFIZIERUNGS-TRACKER ──────────────────────────────────────────────────
+
+model Zertifizierung {
+  id               Int       @id @default(autoincrement())
+  kundeId          Int
+  typ              String    // "QS"|"GlobalGAP"|"Bio/Öko"|"Cross-Compliance"|"Ernte-Plus"|"DLG"|"Sonstige"
+  nummer           String?   // Zertifikatsnummer
+  ausstellerOrg    String?   // z.B. "QS GmbH", "LUFA"
+  ausstellungsdatum DateTime?
+  ablaufdatum      DateTime?
+  status           String    @default("aktiv") // aktiv | abgelaufen | gesperrt
+  belegpfad        String?
+  belegname        String?
+  notiz            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  kunde            Kunde     @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@index([kundeId])
+  @@index([ablaufdatum])
+  @@index([typ])
 }
