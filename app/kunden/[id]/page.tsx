@@ -28,6 +28,7 @@ const VorgangskettTab = nextDynamic(() => import("./tabs/VorgangskettTab"), { lo
 const ErklaerungTab = nextDynamic(() => import("./tabs/ErklaerungTab"), { loading: tabLoading });
 const ReklamationenTab = nextDynamic(() => import("./tabs/ReklamationenTab"), { loading: tabLoading });
 const AlbrechtTab = nextDynamic(() => import("./tabs/AlbrechtTab"), { loading: tabLoading });
+const ZertifizierungenTab = nextDynamic(() => import("./tabs/ZertifizierungenTab"), { loading: tabLoading });
 
 export default function KundeDetailPage() {
   const params = useParams();
@@ -344,6 +345,7 @@ export default function KundeDetailPage() {
         {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
         {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} />}
         {activeTab === "Erklärungen" && <ErklaerungTab kundeId={kunde.id} />}
+        {activeTab === "Zertifizierungen" && <ZertifizierungenTab kundeId={kunde.id} />}
       </div>
     </div>
   );
