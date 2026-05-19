@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import ChargeInput from "@/components/ChargeInput";
 
 interface Kunde {
   id: number;
@@ -519,15 +520,17 @@ function NeueLieferungInner() {
                             required
                           />
                           <LagerAmpel art={selectedArtikel} />
-                          {/* Charge field — shown below when article is selected */}
+                          {/* Charge field — shown below when article is selected; Dropdown aus Wareneingang */}
                           {pos.artikelId !== "" && (
-                            <input
-                              type="text"
-                              value={pos.chargeNr}
-                              onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
-                              placeholder="Charge (optional)"
-                              className="mt-1.5 w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
-                            />
+                            <div className="mt-1.5">
+                              <ChargeInput
+                                artikelId={pos.artikelId}
+                                value={pos.chargeNr}
+                                onChange={(v) => updatePosition(idx, "chargeNr", v)}
+                                einheit={selectedArtikel?.einheit}
+                                className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
+                              />
+                            </div>
                           )}
                         </td>
 

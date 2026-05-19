@@ -2,55 +2,247 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
-
-// GET /api/lager/chargen?charge=X
-// Returns wareneingaenge and lieferungen containing the given charge number.
-// Note: WareineingangPosition does not have chargeNr in the schema,
-// so we only search Lieferposition.chargeNr directly, and return
-// Wareneingaenge as an empty array unless chargeNr is added later.
+// GET /api/lager/chargen
+// Rückverfolgungs-Endpoint mit zwei Modi:
+//
+//  1) Charge-Modus: ?charge=X
+//     Sucht eine Chargennummer (LIKE) in Lieferpositionen UND Wareneingängen.
+//
+//  2) Artikel-Modus: ?artikelId=N&von=YYYY-MM-DD&bis=YYYY-MM-DD
+//     Liefert alle Kunden, die einen Artikel erhalten haben (aggregiert + Lieferpositionen).
+//     Optional: zusätzlich ?charge=X um nur Lieferungen mit dieser Charge zu erhalten.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const charge = searchParams.get("charge")?.trim();
-  if (!charge) {
-    return NextResponse.json({ error: "charge Parameter fehlt" }, { status: 400 });
-  }
+  const charge = searchParams.get("charge")?.trim() ?? "";
+  const artikelIdRaw = searchParams.get("artikelId");
+  const von = searchParams.get("von");
+  const bis = searchParams.get("bis");
 
-  if (charge.length < 2) {
+  const artikelId = artikelIdRaw ? parseInt(artikelIdRaw, 10) : NaN;
+  const hasArtikel = !isNaN(artikelId);
+  const hasCharge = charge.length > 0;
+
+  if (!hasArtikel && !hasCharge) {
+    return NextResponse.json({ error: "charge oder artikelId Parameter erforderlich" }, { status: 400 });
+  }
+  if (hasCharge && charge.length < 2) {
     return NextResponse.json({ error: "Mindestens 2 Zeichen für die Chargensuche erforderlich" }, { status: 400 });
   }
 
+  const datumFilter: { gte?: Date; lte?: Date } = {};
+  if (von) {
+    const d = new Date(von);
+    if (!isNaN(d.getTime())) datumFilter.gte = d;
+  }
+  if (bis) {
+    const d = new Date(bis);
+    if (!isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      datumFilter.lte = d;
+    }
+  }
+  const hasDatum = datumFilter.gte || datumFilter.lte;
+
   try {
-    // Search Lieferposition.chargeNr
-    const lieferpositionen = await prisma.lieferposition.findMany({
-      where: { chargeNr: { contains: charge } },
-      take: 500,
-      include: {
-        lieferung: {
-          include: {
-            kunde: { select: { id: true, name: true, firma: true } },
+    if (hasArtikel) {
+      // ── Artikel-Rückverfolgung ────────────────────────────────────────────
+      const artikel = await prisma.artikel.findUnique({
+        where: { id: artikelId },
+        select: { id: true, name: true, einheit: true, kategorie: true },
+      });
+      if (!artikel) {
+        return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
+      }
+
+      const lieferpositionen = await prisma.lieferposition.findMany({
+        where: {
+          artikelId,
+          ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
+          ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
+        },
+        take: 1000,
+        orderBy: { id: "desc" },
+        include: {
+          lieferung: {
+            select: {
+              id: true,
+              datum: true,
+              status: true,
+              rechnungNr: true,
+              kunde: { select: { id: true, name: true, firma: true } },
+            },
           },
         },
-        artikel: { select: { id: true, name: true, einheit: true } },
-      },
-    });
+      });
 
-    const lieferungen = lieferpositionen.map((pos) => ({
-      lieferpositionId: pos.id,
-      chargeNr: pos.chargeNr,
-      datum: pos.lieferung.datum,
-      lieferungId: pos.lieferung.id,
-      status: pos.lieferung.status,
-      kunde: pos.lieferung.kunde,
-      artikel: pos.artikel,
-      menge: pos.menge,
-    }));
+      const lieferungen = lieferpositionen
+        .filter((pos) => pos.lieferung)
+        .map((pos) => ({
+          lieferpositionId: pos.id,
+          chargeNr: pos.chargeNr,
+          datum: pos.lieferung.datum,
+          lieferungId: pos.lieferung.id,
+          status: pos.lieferung.status,
+          rechnungNr: pos.lieferung.rechnungNr,
+          kunde: pos.lieferung.kunde,
+          menge: pos.menge,
+        }));
 
-    // WareineingangPosition has no chargeNr field in current schema — return empty
-    const wareneingaenge: unknown[] = [];
+      // Aggregation je Kunde
+      const kundenMap = new Map<
+        number,
+        {
+          id: number;
+          name: string;
+          firma: string | null;
+          anzahlLieferungen: number;
+          summeMenge: number;
+          letzteLieferung: string;
+          chargen: Set<string>;
+        }
+      >();
+      for (const l of lieferungen) {
+        const k = l.kunde;
+        if (!k) continue;
+        const entry = kundenMap.get(k.id);
+        const datum = typeof l.datum === "string" ? l.datum : l.datum.toISOString();
+        if (entry) {
+          entry.anzahlLieferungen += 1;
+          entry.summeMenge += l.menge;
+          if (datum > entry.letzteLieferung) entry.letzteLieferung = datum;
+          if (l.chargeNr) entry.chargen.add(l.chargeNr);
+        } else {
+          kundenMap.set(k.id, {
+            id: k.id,
+            name: k.name,
+            firma: k.firma,
+            anzahlLieferungen: 1,
+            summeMenge: l.menge,
+            letzteLieferung: datum,
+            chargen: l.chargeNr ? new Set([l.chargeNr]) : new Set(),
+          });
+        }
+      }
+      const kunden = Array.from(kundenMap.values())
+        .map((k) => ({ ...k, chargen: Array.from(k.chargen) }))
+        .sort((a, b) => b.summeMenge - a.summeMenge);
 
-    return NextResponse.json({ wareneingaenge, lieferungen });
+      // Wareneingänge dieses Artikels (optional gefiltert auf Charge / Datum)
+      const wareneingangPos = await prisma.wareineingangPosition.findMany({
+        where: {
+          artikelId,
+          ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
+          ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          wareneingang: {
+            select: {
+              id: true,
+              datum: true,
+              lieferant: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+
+      const wareneingaenge = wareneingangPos
+        .filter((p) => p.wareneingang)
+        .map((p) => ({
+          id: p.id,
+          wareneingangId: p.wareneingang.id,
+          datum: p.wareneingang.datum,
+          menge: p.menge,
+          chargeNr: p.chargeNr,
+          mhd: p.mhd,
+          lieferant: p.wareneingang.lieferant,
+          artikel: { id: artikel.id, name: artikel.name, einheit: artikel.einheit },
+        }));
+
+      return NextResponse.json({
+        modus: "artikel",
+        artikel,
+        kunden,
+        lieferungen,
+        wareneingaenge,
+      });
+    }
+
+    // ── Charge-Modus ────────────────────────────────────────────────────────
+    const [lieferpositionen, wareneingangPos] = await Promise.all([
+      prisma.lieferposition.findMany({
+        where: {
+          chargeNr: { contains: charge },
+          ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          lieferung: {
+            select: {
+              id: true,
+              datum: true,
+              status: true,
+              rechnungNr: true,
+              kunde: { select: { id: true, name: true, firma: true } },
+            },
+          },
+          artikel: { select: { id: true, name: true, einheit: true } },
+        },
+      }),
+      prisma.wareineingangPosition.findMany({
+        where: {
+          chargeNr: { contains: charge },
+          ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          wareneingang: {
+            select: {
+              id: true,
+              datum: true,
+              lieferant: { select: { id: true, name: true } },
+            },
+          },
+          artikel: { select: { id: true, name: true, einheit: true } },
+        },
+      }),
+    ]);
+
+    const lieferungen = lieferpositionen
+      .filter((pos) => pos.lieferung)
+      .map((pos) => ({
+        lieferpositionId: pos.id,
+        chargeNr: pos.chargeNr,
+        datum: pos.lieferung.datum,
+        lieferungId: pos.lieferung.id,
+        status: pos.lieferung.status,
+        rechnungNr: pos.lieferung.rechnungNr,
+        kunde: pos.lieferung.kunde,
+        artikel: pos.artikel,
+        menge: pos.menge,
+      }));
+
+    const wareneingaenge = wareneingangPos
+      .filter((p) => p.wareneingang)
+      .map((p) => ({
+        id: p.id,
+        wareneingangId: p.wareneingang.id,
+        datum: p.wareneingang.datum,
+        menge: p.menge,
+        chargeNr: p.chargeNr,
+        mhd: p.mhd,
+        lieferant: p.wareneingang.lieferant,
+        artikel: p.artikel,
+      }));
+
+    return NextResponse.json({ modus: "charge", wareneingaenge, lieferungen });
   } catch (e) {
+    const isDev = process.env.NODE_ENV === "development";
     console.error("Chargen GET error:", e);
-    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+    const msg = isDev && e instanceof Error ? e.message : "Datenbankfehler";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

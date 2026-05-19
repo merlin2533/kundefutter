@@ -172,11 +172,11 @@ export default function LagerPage() {
         <div className="flex gap-2 flex-wrap w-full sm:w-auto">
           <Link
             href="/lager/chargen"
-            title="Chargensuche"
+            title="Rückverfolgung: wer hat was bekommen?"
             className="inline-flex items-center gap-1.5 flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <span className="hidden sm:inline">Chargensuche</span>
+            <span className="hidden sm:inline">Rückverfolgung</span>
           </Link>
           <Link
             href="/lager/umbuchungen"

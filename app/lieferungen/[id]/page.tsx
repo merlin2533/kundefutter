@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
+import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface Position {
@@ -1219,12 +1220,13 @@ export default function LieferungDetailPage() {
                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                     />
                   </div>
-                  <div className="w-32">
+                  <div className="w-48">
                     <label className="block text-xs text-gray-500 mb-1">Charge (opt.)</label>
-                    <input
-                      type="text"
+                    <ChargeInput
+                      artikelId={addPosArtikelId}
                       value={addPosCharge}
-                      onChange={e => setAddPosCharge(e.target.value)}
+                      onChange={setAddPosCharge}
+                      einheit={artikelListe.find((a) => String(a.id) === addPosArtikelId)?.einheit}
                       placeholder="CH-2026-001"
                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                     />
