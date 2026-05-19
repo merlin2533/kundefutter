@@ -16,17 +16,23 @@ interface Props {
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
+  einheit?: string;
 }
 
 // Charge-Eingabe mit Dropdown der bereits im Wareneingang erfassten Chargen
 // für den gewählten Artikel. Fällt auf reine Freitext-Eingabe zurück, wenn der
 // Artikel keine Wareneingangs-Chargen hat.
+function fmtMenge(n: number) {
+  return n.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+}
+
 export default function ChargeInput({
   artikelId,
   value,
   onChange,
   placeholder = "Charge (optional)",
   className = "",
+  einheit = "",
 }: Props) {
   const reactId = useId();
   const datalistId = `chargen-${reactId.replace(/[:]/g, "")}`;
@@ -79,7 +85,7 @@ export default function ChargeInput({
         <datalist id={datalistId}>
           {chargen.map((c) => {
             const datum = new Date(c.letzterWareneingang).toLocaleDateString("de-DE");
-            const parts = [datum];
+            const parts = [`${fmtMenge(c.summeMenge)}${einheit ? " " + einheit : ""}`, datum];
             if (c.lieferant) parts.push(c.lieferant);
             if (c.mhd) parts.push("MHD " + new Date(c.mhd).toLocaleDateString("de-DE"));
             return <option key={c.chargeNr} value={c.chargeNr} label={parts.join(" · ")} />;
@@ -91,9 +97,10 @@ export default function ChargeInput({
           ⚠ Neue Charge (kein Wareneingang)
         </div>
       )}
-      {matched && matched.mhd && (
+      {matched && (
         <div className="text-[10px] text-gray-500 mt-0.5">
-          MHD: {new Date(matched.mhd).toLocaleDateString("de-DE")}
+          WE-Menge: {fmtMenge(matched.summeMenge)}{einheit ? " " + einheit : ""}
+          {matched.mhd && <> · MHD {new Date(matched.mhd).toLocaleDateString("de-DE")}</>}
         </div>
       )}
     </div>

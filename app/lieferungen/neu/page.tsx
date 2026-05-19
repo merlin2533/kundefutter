@@ -527,6 +527,7 @@ function NeueLieferungInner() {
                                 artikelId={pos.artikelId}
                                 value={pos.chargeNr}
                                 onChange={(v) => updatePosition(idx, "chargeNr", v)}
+                                einheit={selectedArtikel?.einheit}
                                 className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
                               />
                             </div>

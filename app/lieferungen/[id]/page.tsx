@@ -1226,6 +1226,7 @@ export default function LieferungDetailPage() {
                       artikelId={addPosArtikelId}
                       value={addPosCharge}
                       onChange={setAddPosCharge}
+                      einheit={artikelListe.find((a) => String(a.id) === addPosArtikelId)?.einheit}
                       placeholder="CH-2026-001"
                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                     />
