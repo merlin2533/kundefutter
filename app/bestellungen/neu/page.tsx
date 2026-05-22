@@ -10,12 +10,18 @@ interface Lieferant {
   firma: string | null;
 }
 
+interface ArtikelLieferantEintrag {
+  lieferantId: number;
+  einkaufspreis: number;
+}
+
 interface Artikel {
   id: number;
   name: string;
   artikelnummer: string | null;
   einheit: string;
   standardpreis: number;
+  lieferanten?: ArtikelLieferantEintrag[];
 }
 
 interface Position {
@@ -70,11 +76,14 @@ function BestellungNeuInner() {
       const updated = [...prev];
       if (field === "artikelId") {
         const art = artikel.find((a) => String(a.id) === value);
+        const liefEk = art?.lieferanten?.find(
+          (l) => String(l.lieferantId) === String(lieferantId)
+        )?.einkaufspreis;
         updated[index] = {
           ...updated[index],
           artikelId: value,
           einheit: art?.einheit ?? updated[index].einheit,
-          preis: art ? String(art.standardpreis) : updated[index].preis,
+          preis: liefEk != null ? String(liefEk) : "",
         };
       } else {
         updated[index] = { ...updated[index], [field]: value };

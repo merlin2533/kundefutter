@@ -26,12 +26,8 @@ export async function GET(req: NextRequest) {
     const list = await prisma.bestellung.findMany({
       where,
       include: {
-        lieferant: { select: { id: true, name: true } },
-        positionen: {
-          include: {
-            artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } },
-          },
-        },
+        lieferant: { select: { id: true, name: true, firma: true } },
+        _count: { select: { positionen: true } },
       },
       orderBy: { datum: "desc" },
       take: 200,
