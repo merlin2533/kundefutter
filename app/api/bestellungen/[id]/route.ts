@@ -50,6 +50,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
     data.status = "ABGESCHLOSSEN";
   } else if (body.aktion === "stornieren") {
     data.status = "STORNIERT";
+  } else if (body.aktion === "bestätigen" || body.aktion === "bestaetigen") {
+    data.status = "BESTAETIGT";
   } else {
     if (body.status !== undefined) {
       if (!GUELTIGE_STATUS.includes(body.status)) return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 });
@@ -60,15 +62,45 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const record = await prisma.bestellung.update({
-      where: { id: nId },
-      data,
-      include: {
-        lieferant: { select: { id: true, name: true } },
-        positionen: {
-          include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } },
+    const positionenUpdates = Array.isArray(body.positionen) ? body.positionen : null;
+
+    const record = await prisma.$transaction(async (tx) => {
+      if (positionenUpdates) {
+        for (const p of positionenUpdates as { id: unknown; mengeGeliefert?: unknown; preis?: unknown }[]) {
+          const posId = parseInt(String(p.id), 10);
+          if (isNaN(posId)) continue;
+          const updates: Record<string, unknown> = {};
+          if (p.mengeGeliefert !== undefined) updates.mengeGeliefert = p.mengeGeliefert != null ? Number(p.mengeGeliefert) : 0;
+          if (p.preis !== undefined) updates.preis = p.preis != null ? Number(p.preis) : null;
+          if (Object.keys(updates).length > 0) {
+            await tx.bestellungPosition.update({ where: { id: posId }, data: updates });
+          }
+        }
+        // auto-detect TEILGELIEFERT
+        if (!data.status) {
+          const bestellung = await tx.bestellung.findUnique({
+            where: { id: nId },
+            include: { positionen: true },
+          });
+          if (bestellung && bestellung.status === "BESTAETIGT") {
+            const delivered = bestellung.positionen.filter((p) => (p.mengeGeliefert ?? 0) > 0);
+            if (delivered.length > 0 && delivered.length < bestellung.positionen.length) {
+              data.status = "TEILGELIEFERT";
+            }
+          }
+        }
+      }
+
+      return tx.bestellung.update({
+        where: { id: nId },
+        data,
+        include: {
+          lieferant: { select: { id: true, name: true, firma: true } },
+          positionen: {
+            include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } },
+          },
         },
-      },
+      });
     });
     return NextResponse.json(record);
   } catch (err) {
