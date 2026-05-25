@@ -450,10 +450,10 @@ function CrmSchnellWidget() {
   }
 
   return (
-    <div className="mb-5 bg-white border border-blue-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="mb-5 bg-white border border-blue-200 rounded-xl shadow-sm">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-blue-50 transition-colors rounded-xl"
       >
         <div className="flex items-center gap-2">
           <span className="text-blue-600 font-medium text-sm">📞 CRM Schnellerfassung</span>
@@ -462,9 +462,9 @@ function CrmSchnellWidget() {
         <span className="text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <form onSubmit={handleSave} className="border-t border-blue-100 px-4 py-3 space-y-3 bg-blue-50">
+        <form onSubmit={handleSave} className="border-t border-blue-100 px-4 py-3 space-y-3 bg-blue-50 rounded-b-xl">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
+            <div className="relative z-30">
               <label className="block text-xs font-medium text-gray-600 mb-1">Kunde</label>
               <SearchableSelect
                 options={kunden}
@@ -497,7 +497,7 @@ function CrmSchnellWidget() {
               />
             </div>
           </div>
-          <div className="flex gap-3 items-end">
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex-1">
               <label className="block text-xs font-medium text-gray-600 mb-1">Notiz (optional)</label>
               <input
@@ -508,11 +508,11 @@ function CrmSchnellWidget() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            {error && <p className="text-xs text-red-600 shrink-0">{error}</p>}
+            {error && <p className="text-xs text-red-600">{error}</p>}
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-60 shrink-0"
+              className="w-full sm:w-auto px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-60"
             >
               {saving ? "…" : "Speichern"}
             </button>
