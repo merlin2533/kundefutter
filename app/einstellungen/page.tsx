@@ -98,6 +98,13 @@ const SECTIONS: Section[] = [
       { href: "/inventur", icon: "📋", title: "Inventur", description: "Lagerbestand erfassen, Leerliste drucken, Differenzen buchen" },
     ],
   },
+  {
+    title: "Enterprise & Administration",
+    description: "Erweiterte Verwaltungs- und Bereinigungsfunktionen für Administratoren.",
+    tiles: [
+      { href: "/einstellungen/loeschzentrum", icon: "🗑️", title: "Löschzentrum", description: "Duplikate bereinigen, Suchindex neu aufbauen und Datenpflege" },
+    ],
+  },
 ];
 
 export default function EinstellungenPage() {
