@@ -4,7 +4,8 @@ import { fetchCurrentMeasurement } from "@/lib/pegelonline";
 
 // GET /api/cron          — führt alle Jobs aus (Docker-Hintergrundprozess, 30 min)
 // GET /api/cron?status=1 — gibt nur den letzten gespeicherten Status zurück (kein Run)
-// Optional: CRON_SECRET als Bearer-Header absichern.
+// Absicherung: CRON_SECRET env-var als Bearer-Header; ohne Secret sind alle Aufrufe erlaubt.
+// /api/cron ist in middleware PUBLIC_PATHS — Middleware-Auth wird nicht erzwungen.
 
 interface JobResult {
   job: string;
@@ -57,8 +58,15 @@ async function jobPegelstaende(): Promise<JobResult> {
   }
 }
 
-async function saveStatus(startedAt: string, results: JobResult[]) {
-  const payload = JSON.stringify({ startedAt, jobs: results });
+function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true; // Kein Secret → offen (für Docker-intern; in Produktion CRON_SECRET setzen)
+  const auth = req.headers.get("authorization") ?? "";
+  return auth === `Bearer ${secret}`;
+}
+
+async function saveStatus(ok: boolean, startedAt: string, results: JobResult[]) {
+  const payload = JSON.stringify({ ok, startedAt, jobs: results });
   await prisma.einstellung.upsert({
     where: { key: "cron.letzterLauf" },
     create: { key: "cron.letzterLauf", value: payload },
@@ -66,31 +74,8 @@ async function saveStatus(startedAt: string, results: JobResult[]) {
   }).catch(() => {});
 }
 
-async function isAuthorized(req: NextRequest): Promise<boolean> {
-  // 1. CRON_SECRET Bearer-Token (Docker-Hintergrundprozess)
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth === `Bearer ${secret}`) return true;
-  } else {
-    // Kein Secret konfiguriert → externe Aufrufe ohne Token erlaubt
-    const auth = req.headers.get("authorization") ?? "";
-    if (!auth) return true;
-  }
-  // 2. Gültige Browser-Session (Nutzung aus einstellungen/cron)
-  const { cookies } = await import("next/headers");
-  const { verifySession } = await import("@/lib/auth");
-  const jar = await cookies();
-  const token = jar.get("kundefutter_session")?.value;
-  if (token) {
-    const session = await verifySession(token);
-    if (session) return true;
-  }
-  return false;
-}
-
 export async function GET(req: NextRequest) {
-  if (!(await isAuthorized(req))) {
+  if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -106,9 +91,9 @@ export async function GET(req: NextRequest) {
   const results: JobResult[] = [];
   results.push(await jobPegelstaende());
 
-  await saveStatus(startedAt, results);
-
   const allOk = results.every((r) => r.ok);
+  await saveStatus(allOk, startedAt, results);
+
   return NextResponse.json(
     { ok: allOk, startedAt, jobs: results },
     { status: allOk ? 200 : 207 }
