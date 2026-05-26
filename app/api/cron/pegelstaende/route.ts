@@ -8,7 +8,11 @@ export async function GET(req: NextRequest) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (authHeader) headers["Authorization"] = authHeader;
 
-  const res = await fetch(`${base}/api/cron`, { headers });
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+  try {
+    const res = await fetch(`${base}/api/cron`, { headers });
+    const data = await res.json().catch(() => ({ ok: false, error: "Ungültige Antwort" }));
+    return NextResponse.json(data, { status: res.status });
+  } catch {
+    return NextResponse.json({ ok: false, error: "Interner Fehler beim Weiterleiten" }, { status: 502 });
+  }
 }

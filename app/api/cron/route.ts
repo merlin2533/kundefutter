@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchCurrentMeasurement } from "@/lib/pegelonline";
 
-// GET /api/cron
-// Zentraler Cron-Dispatcher — wird von docker-entrypoint.sh alle 30 Minuten aufgerufen.
+// GET /api/cron          — führt alle Jobs aus (Docker-Hintergrundprozess, 30 min)
+// GET /api/cron?status=1 — gibt nur den letzten gespeicherten Status zurück (kein Run)
 // Optional: CRON_SECRET als Bearer-Header absichern.
-//
-// Enthaltene Jobs:
-//   pegelstaende — Wasserstandsmessungen von Pegelonline aktualisieren
 
 interface JobResult {
   job: string;
@@ -60,19 +57,56 @@ async function jobPegelstaende(): Promise<JobResult> {
   }
 }
 
-export async function GET(req: NextRequest) {
+async function saveStatus(startedAt: string, results: JobResult[]) {
+  const payload = JSON.stringify({ startedAt, jobs: results });
+  await prisma.einstellung.upsert({
+    where: { key: "cron.letzterLauf" },
+    create: { key: "cron.letzterLauf", value: payload },
+    update: { value: payload },
+  }).catch(() => {});
+}
+
+async function isAuthorized(req: NextRequest): Promise<boolean> {
+  // 1. CRON_SECRET Bearer-Token (Docker-Hintergrundprozess)
   const secret = process.env.CRON_SECRET;
   if (secret) {
     const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (auth === `Bearer ${secret}`) return true;
+  } else {
+    // Kein Secret konfiguriert → externe Aufrufe ohne Token erlaubt
+    const auth = req.headers.get("authorization") ?? "";
+    if (!auth) return true;
+  }
+  // 2. Gültige Browser-Session (Nutzung aus einstellungen/cron)
+  const { cookies } = await import("next/headers");
+  const { verifySession } = await import("@/lib/auth");
+  const jar = await cookies();
+  const token = jar.get("kundefutter_session")?.value;
+  if (token) {
+    const session = await verifySession(token);
+    if (session) return true;
+  }
+  return false;
+}
+
+export async function GET(req: NextRequest) {
+  if (!(await isAuthorized(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Status-only — kein Run
+  if (req.nextUrl.searchParams.get("status") === "1") {
+    const row = await prisma.einstellung.findUnique({ where: { key: "cron.letzterLauf" } }).catch(() => null);
+    if (!row) return NextResponse.json({ ok: null, startedAt: null, jobs: [] });
+    try { return NextResponse.json(JSON.parse(row.value)); }
+    catch { return NextResponse.json({ ok: null, startedAt: null, jobs: [] }); }
   }
 
   const startedAt = new Date().toISOString();
   const results: JobResult[] = [];
-
   results.push(await jobPegelstaende());
+
+  await saveStatus(startedAt, results);
 
   const allOk = results.every((r) => r.ok);
   return NextResponse.json(

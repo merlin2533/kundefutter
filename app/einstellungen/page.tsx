@@ -93,6 +93,7 @@ const SECTIONS: Section[] = [
     tiles: [
       { href: "/einstellungen/system", icon: "⚙️", title: "System", description: "Version, Datenbank und Diagnose" },
       { href: "/einstellungen/backup", icon: "💾", title: "Datensicherung", description: "Backups erstellen, verwalten und automatisieren" },
+      { href: "/einstellungen/cron", icon: "🕐", title: "Cron-Verwaltung", description: "Hintergrundjobs überwachen, manuell auslösen und Laufzeiten einsehen" },
       { href: "/einstellungen/adressen", icon: "🗺️", title: "Adress-Validierung", description: "Geocoding für alle Kundenadressen" },
       { href: "/audit", icon: "📜", title: "Änderungshistorie", description: "Alle Änderungen an Stammdaten nachverfolgen" },
       { href: "/inventur", icon: "📋", title: "Inventur", description: "Lagerbestand erfassen, Leerliste drucken, Differenzen buchen" },
