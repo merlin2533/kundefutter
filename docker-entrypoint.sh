@@ -106,4 +106,15 @@ if [ "$SEED_EXIT" -ne 0 ]; then
 fi
 
 ok "=== Starte Server (node server.js) ==="
+
+# Pegelstand-Hintergrundrefresher: alle 30 Minuten /api/cron/pegelstaende aufrufen
+# Wartet 60s auf Server-Start, dann im 30-min-Takt
+(
+  sleep 60
+  while true; do
+    curl -sf "http://localhost:${PORT:-8080}/api/cron/pegelstaende" -o /dev/null 2>/dev/null || true
+    sleep 1800
+  done
+) &
+
 exec node server.js
