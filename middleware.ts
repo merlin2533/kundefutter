@@ -30,6 +30,7 @@ const PUBLIC_PATHS = [
   "/api/auth/logout",
   "/api/db-check",
   "/api/app-info",
+  "/api/cron",       // Cron-Endpunkt: Auth via CRON_SECRET im Handler
   "/portal/login",
   "/api/portal/auth/",
 ];
