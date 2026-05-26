@@ -2,6 +2,18 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
+interface PegelstandEintrag {
+  id: number;
+  stationUuid: string;
+  stationKurz: string;
+  gewaesser: string;
+  einheit: string;
+  wert: number | null;
+  trend: number | null;
+  messung: string | null;
+  fetchedAt: string;
+}
+
 interface KundeRef {
   id: number;
   name: string;
@@ -74,14 +86,24 @@ export default function TagesansichtPage() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<number | null>(null);
   const [erfasst, setErfasst] = useState<Record<number, boolean>>({});
+  const [pegel, setPegel] = useState<PegelstandEintrag[]>([]);
+  const [aktualisiert, setAktualisiert] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tagesansicht");
-      if (!res.ok) throw new Error("Tagesansicht konnte nicht geladen werden");
-      const json = await res.json();
+      const [tagesRes, pegelRes] = await Promise.all([
+        fetch("/api/tagesansicht"),
+        fetch("/api/pegelstaende"),
+      ]);
+      if (!tagesRes.ok) throw new Error("Tagesansicht konnte nicht geladen werden");
+      const json = await tagesRes.json();
       setData(json);
+      if (pegelRes.ok) {
+        const p = await pegelRes.json();
+        setPegel(Array.isArray(p) ? p : []);
+      }
+      setAktualisiert(new Date());
     } catch {
       setData(null);
     } finally {
@@ -151,16 +173,47 @@ export default function TagesansichtPage() {
   const today = new Date().toLocaleDateString("de-DE", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+  const aktualisiertStr = aktualisiert
+    ? aktualisiert.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr"
+    : "—";
+
+  const trendIcon = (t: number | null) =>
+    t === 1 ? "▲" : t === -1 ? "▼" : "—";
 
   return (
+    <>
+      <style>{`
+        @media print {
+          @page { margin: 1.5cm; size: A4; }
+          .print\\:hidden { display: none !important; }
+          .print-section { break-inside: avoid; }
+          body { font-size: 11pt; }
+        }
+      `}</style>
+
     <div className="px-4 sm:px-6 py-4 sm:py-0">
-      <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Tages-Übersicht</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{today}</p>
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Tages-Übersicht</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{today}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Aktualisiert: {aktualisiertStr}</p>
+        </div>
+        <button
+          onClick={() => window.print()}
+          className="print:hidden shrink-0 flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg border border-gray-200 transition-colors"
+        >
+          🖨️ Drucken / PDF
+        </button>
+      </div>
+
+      {/* Print-Kopf (nur im Druck sichtbar) */}
+      <div className="hidden print:block mb-4 pb-3 border-b border-gray-300">
+        <p className="text-xs text-gray-500">Tages-Übersicht — Erstellt: {today}, {aktualisiertStr}</p>
       </div>
 
       {/* Summary badges */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 mb-6 print:hidden">
         <span className="px-3 py-1 text-sm rounded-full bg-yellow-100 text-yellow-800 font-medium">
           {data.offeneAufgaben.length} Aufgaben offen
         </span>
@@ -336,6 +389,126 @@ export default function TagesansichtPage() {
           )}
         </div>
       </div>
+
+      {/* Pegelstände */}
+      {pegel.length > 0 && (
+        <div className="mt-6 print-section">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400">≋</span>
+                <h2 className="font-semibold text-gray-800">Pegelstände</h2>
+                <span className="text-xs text-gray-400">
+                  Stand: {pegel[0]?.messung
+                    ? new Date(pegel[0].messung).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr"
+                    : aktualisiertStr}
+                </span>
+              </div>
+            </div>
+
+            {/* Karte (nur wenn Koordinaten vorhanden, nur im Browser) */}
+            <PegelKarte stationen={pegel} />
+
+            {/* Tabelle aller Stationen */}
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
+                  <th className="px-4 sm:px-5 py-2 text-left font-medium">Station</th>
+                  <th className="px-4 sm:px-5 py-2 text-left font-medium hidden sm:table-cell">Gewässer</th>
+                  <th className="px-4 sm:px-5 py-2 text-right font-medium">Pegel</th>
+                  <th className="px-4 sm:px-5 py-2 text-center font-medium">Trend</th>
+                  <th className="px-4 sm:px-5 py-2 text-right font-medium hidden sm:table-cell">Messung</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {pegel.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-4 sm:px-5 py-3">
+                      <span className="font-medium text-gray-800">{s.stationKurz}</span>
+                      <span className="sm:hidden text-xs text-green-700 block">{s.gewaesser}</span>
+                    </td>
+                    <td className="px-4 sm:px-5 py-3 text-gray-500 hidden sm:table-cell">{s.gewaesser}</td>
+                    <td className="px-4 sm:px-5 py-3 text-right font-mono font-semibold">
+                      {s.wert != null ? `${s.wert} ${s.einheit}` : <span className="text-gray-300">— {s.einheit}</span>}
+                    </td>
+                    <td className="px-4 sm:px-5 py-3 text-center">
+                      <span className={s.trend === 1 ? "text-blue-500" : s.trend === -1 ? "text-green-600" : "text-gray-300"}>
+                        {trendIcon(s.trend)}
+                      </span>
+                    </td>
+                    <td className="px-4 sm:px-5 py-3 text-right text-xs text-gray-400 hidden sm:table-cell">
+                      {s.messung
+                        ? new Date(s.messung).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }) + " Uhr"
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Print-Footer */}
+      <div className="hidden print:block mt-6 pt-3 border-t border-gray-300 text-xs text-gray-400 text-center">
+        AgrarOffice — Tages-Übersicht — {today}
+      </div>
+    </div>
+    </>
+  );
+}
+
+// Leaflet-Karte der Pegelstationen (dynamisch, kein SSR)
+function PegelKarte({ stationen }: { stationen: PegelstandEintrag[] }) {
+  const mitKoords = stationen.filter((s) => s.lat != null && s.lng != null);
+  if (mitKoords.length === 0) return null;
+
+  return (
+    <div className="print:hidden h-48 border-b border-gray-100">
+      <PegelKarteInner stationen={mitKoords} />
     </div>
   );
+}
+
+function PegelKarteInner({ stationen }: { stationen: PegelstandEintrag[] }) {
+  const mapRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node || typeof window === "undefined") return;
+    // Dynamisch laden um SSR-Fehler zu vermeiden
+    import("leaflet").then((L) => {
+      // Leaflet CSS
+      if (!document.getElementById("leaflet-css")) {
+        const link = document.createElement("link");
+        link.id = "leaflet-css";
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        document.head.appendChild(link);
+      }
+      // Existing map check
+      if ((node as HTMLDivElement & { _leaflet_id?: number })._leaflet_id) return;
+
+      const center: [number, number] = [
+        stationen.reduce((s, p) => s + (p.lat ?? 0), 0) / stationen.length,
+        stationen.reduce((s, p) => s + (p.lng ?? 0), 0) / stationen.length,
+      ];
+      const map = L.map(node, { zoomControl: true, attributionControl: false }).setView(center, stationen.length === 1 ? 12 : 8);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="background:#3b82f6;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 1px 4px rgba(0,0,0,0.3)">≋</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
+
+      stationen.forEach((s) => {
+        if (s.lat == null || s.lng == null) return;
+        const wertLabel = s.wert != null ? `<b>${s.wert} ${s.einheit}</b>` : "— cm";
+        L.marker([s.lat, s.lng], { icon })
+          .bindPopup(`<strong>${s.stationKurz}</strong><br>${s.gewaesser}<br>${wertLabel}`)
+          .addTo(map);
+      });
+    }).catch(() => {});
+  }, [stationen]);
+
+  return <div ref={mapRef} className="w-full h-full" />;
 }
