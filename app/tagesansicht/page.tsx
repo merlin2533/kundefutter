@@ -7,6 +7,8 @@ interface PegelstandEintrag {
   stationUuid: string;
   stationKurz: string;
   gewaesser: string;
+  lat: number | null;
+  lng: number | null;
   einheit: string;
   wert: number | null;
   trend: number | null;

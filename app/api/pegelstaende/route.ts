@@ -49,9 +49,21 @@ export async function POST(req: NextRequest) {
     const { uuid } = await req.json() as { uuid?: string };
     if (!uuid) return NextResponse.json({ error: "uuid fehlt" }, { status: 400 });
 
-    // Bereits vorhanden?
+    // Bereits vorhanden? Koordinaten nachfüllen wenn noch nicht gesetzt (pre-migration records)
     const existing = await prisma.pegelstandCache.findUnique({ where: { stationUuid: uuid } });
-    if (existing) return NextResponse.json(existing);
+    if (existing) {
+      if (existing.lat == null || existing.lng == null) {
+        const station = await fetchStationByUuid(uuid);
+        if (station?.latitude != null && station?.longitude != null) {
+          const updated = await prisma.pegelstandCache.update({
+            where: { stationUuid: uuid },
+            data: { lat: station.latitude, lng: station.longitude },
+          });
+          return NextResponse.json(updated);
+        }
+      }
+      return NextResponse.json(existing);
+    }
 
     // Stammdaten von API laden
     const station = await fetchStationByUuid(uuid);
