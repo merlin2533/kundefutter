@@ -8,6 +8,8 @@ export interface PegelStation {
   water: { shortname: string; longname: string };
   agency?: string;
   km?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PegelMessung {

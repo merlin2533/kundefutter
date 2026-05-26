@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
         stationKurz: station.shortname,
         stationLang: station.longname,
         gewaesser: station.water?.shortname ?? "",
+        lat: station.latitude ?? null,
+        lng: station.longitude ?? null,
         einheit: "cm",
         wert: messung?.value ?? null,
         trend: messung?.trend ?? null,

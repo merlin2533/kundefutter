@@ -107,12 +107,22 @@ fi
 
 ok "=== Starte Server (node server.js) ==="
 
-# Pegelstand-Hintergrundrefresher: alle 30 Minuten /api/cron/pegelstaende aufrufen
-# Wartet 60s auf Server-Start, dann im 30-min-Takt
+# ── Zentraler Cron-Dispatcher ───────────────────────────────────────────────
+# Ruft GET /api/cron alle 30 Minuten auf.
+# /api/cron orchestriert alle registrierten Jobs (z.B. Pegelstände-Refresh).
+# Wartet 60 s auf Server-Start, schreibt Ergebnis ins Log (log "cron: ...").
 (
   sleep 60
+  log "Cron-Dispatcher gestartet (Intervall: 30 min)"
   while true; do
-    curl -sf "http://localhost:${PORT:-8080}/api/cron/pegelstaende" -o /dev/null 2>/dev/null || true
+    CRON_RESULT=$(curl -sf \
+      ${CRON_SECRET:+-H "Authorization: Bearer ${CRON_SECRET}"} \
+      "http://localhost:${PORT:-8080}/api/cron" 2>/dev/null || echo '{"ok":false}')
+    if echo "$CRON_RESULT" | grep -q '"ok":true'; then
+      log "cron: OK — $CRON_RESULT"
+    else
+      warn "cron: Fehler — $CRON_RESULT"
+    fi
     sleep 1800
   done
 ) &

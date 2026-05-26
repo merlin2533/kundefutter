@@ -1532,6 +1532,8 @@ model PegelstandCache {
   stationKurz  String
   stationLang  String
   gewaesser    String
+  lat          Float?
+  lng          Float?
   einheit      String   @default("cm")
   wert         Float?
   trend        Int?     // -1 fallend, 0 gleichbleibend, 1 steigend
