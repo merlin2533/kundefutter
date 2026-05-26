@@ -1523,3 +1523,21 @@ model Zertifizierung {
   @@index([ablaufdatum])
   @@index([typ])
 }
+
+// ─── PEGELSTÄNDE (WSV Pegelonline) ───────────────────────────────────────────
+
+model PegelstandCache {
+  id           Int      @id @default(autoincrement())
+  stationUuid  String   @unique
+  stationKurz  String
+  stationLang  String
+  gewaesser    String
+  einheit      String   @default("cm")
+  wert         Float?
+  trend        Int?     // -1 fallend, 0 gleichbleibend, 1 steigend
+  messung      DateTime?
+  fetchedAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([stationUuid])
+}

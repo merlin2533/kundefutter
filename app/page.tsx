@@ -203,7 +203,7 @@ interface DashboardData {
 
 // ─── Dashboard Widgets ────────────────────────────────────────────────────────
 
-type WidgetId = "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen";
+type WidgetId = "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende";
 
 const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
@@ -211,6 +211,7 @@ const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "wiedervorlagen", label: "Wiedervorlagen", icon: "🔁" },
   { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
   { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
+  { id: "pegelstaende", label: "Pegelstände", icon: "🌊" },
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = ["kpis", "matif", "wiedervorlagen", "kein_kontakt", "benachrichtigungen"];
@@ -399,6 +400,180 @@ const TIMELINE_TYP_LABEL: Record<string, string> = {
   angebot: "Angebot",
   aufgabe: "Aufgabe",
 };
+
+// ─── Pegelstände Widget ───────────────────────────────────────────────────────
+
+interface PegelstandEintrag {
+  id: number;
+  stationUuid: string;
+  stationKurz: string;
+  stationLang: string;
+  gewaesser: string;
+  einheit: string;
+  wert: number | null;
+  trend: number | null;
+  messung: string | null;
+  fetchedAt: string;
+}
+
+interface PegelSucheStation {
+  uuid: string;
+  shortname: string;
+  longname: string;
+  water: { shortname: string };
+}
+
+function PegelstaendeWidget() {
+  const [stationen, setStationen] = useState<PegelstandEintrag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [suchQuery, setSuchQuery] = useState("");
+  const [suchErg, setSuchErg] = useState<PegelSucheStation[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  function ladeDaten() {
+    fetch("/api/pegelstaende")
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setStationen(Array.isArray(d) ? d : []))
+      .catch(() => setStationen([]))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { ladeDaten(); }, []);
+
+  useEffect(() => {
+    if (suchQuery.length < 2) { setSuchErg([]); return; }
+    const t = setTimeout(() => {
+      setSearching(true);
+      fetch(`/api/pegelstaende/suche?q=${encodeURIComponent(suchQuery)}`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => setSuchErg(Array.isArray(d) ? d : []))
+        .catch(() => setSuchErg([]))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(t);
+  }, [suchQuery]);
+
+  async function addStation(uuid: string) {
+    setAdding(true);
+    await fetch("/api/pegelstaende", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uuid }),
+    }).catch(() => {});
+    setAdding(false);
+    setAddOpen(false);
+    setSuchQuery("");
+    setSuchErg([]);
+    ladeDaten();
+  }
+
+  async function removeStation(uuid: string) {
+    await fetch(`/api/pegelstaende?uuid=${encodeURIComponent(uuid)}`, { method: "DELETE" }).catch(() => {});
+    setStationen((prev) => prev.filter((s) => s.stationUuid !== uuid));
+  }
+
+  const trendIcon = (t: number | null) =>
+    t === 1 ? <span className="text-blue-500 text-xs">▲</span>
+    : t === -1 ? <span className="text-green-600 text-xs">▼</span>
+    : <span className="text-gray-300 text-xs">—</span>;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-blue-400 text-sm">≋</span>
+          <h2 className="font-semibold">Pegelstände</h2>
+        </div>
+        <button
+          onClick={() => setAddOpen((v) => !v)}
+          className="text-xs text-green-700 hover:underline"
+          title="Station hinzufügen"
+        >
+          {addOpen ? "Schließen" : "+ Station"}
+        </button>
+      </div>
+
+      {addOpen && (
+        <div className="mb-3 border border-gray-200 rounded-lg p-3 bg-gray-50">
+          <input
+            type="text"
+            placeholder="Stationsname suchen (z.B. Freiburg)…"
+            value={suchQuery}
+            onChange={(e) => setSuchQuery(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+            autoFocus
+          />
+          {searching && <p className="text-xs text-gray-400 mt-1">Suche…</p>}
+          {suchErg.length > 0 && (
+            <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+              {suchErg.map((s) => (
+                <li key={s.uuid}>
+                  <button
+                    onClick={() => addStation(s.uuid)}
+                    disabled={adding || stationen.some((x) => x.stationUuid === s.uuid)}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-green-50 text-sm border border-transparent hover:border-green-200 disabled:opacity-40 transition-colors"
+                  >
+                    <span className="font-medium">{s.shortname}</span>
+                    <span className="text-gray-400 text-xs ml-2">{s.water?.shortname}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!searching && suchQuery.length >= 2 && suchErg.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2">Keine Stationen gefunden.</p>
+          )}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-2">
+          {[0, 1].map((i) => <div key={i} className="h-10 bg-gray-100 rounded-lg animate-pulse" />)}
+        </div>
+      ) : stationen.length === 0 ? (
+        <p className="text-sm text-gray-400">
+          Noch keine Station konfiguriert.{" "}
+          <button onClick={() => setAddOpen(true)} className="text-green-700 hover:underline">
+            Jetzt Station hinzufügen →
+          </button>
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {stationen.map((s) => (
+            <div key={s.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-800 truncate">{s.stationKurz}</p>
+                <p className="text-xs text-green-700 truncate">{s.gewaesser}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                {s.wert != null ? (
+                  <span className="font-mono font-semibold text-sm">{s.wert} {s.einheit}</span>
+                ) : (
+                  <span className="text-gray-300 text-sm font-mono">— {s.einheit}</span>
+                )}
+                {trendIcon(s.trend)}
+                <button
+                  onClick={() => removeStation(s.stationUuid)}
+                  className="text-gray-300 hover:text-red-400 text-xs ml-1 transition-colors"
+                  title="Station entfernen"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          {stationen[0]?.fetchedAt && (
+            <p className="text-xs text-gray-300 pt-1">
+              Aktualisiert: {new Date(stationen[0].fetchedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
 
 // ─── CRM Schnellerfassung Widget ─────────────────────────────────────────────
 
@@ -1283,6 +1458,13 @@ export default function DashboardPage() {
       {widgetAktiv("benachrichtigungen") && (
         <div className="mt-6">
           <BenachrichtigungenWidget />
+        </div>
+      )}
+
+      {/* Pegelstände Widget */}
+      {widgetAktiv("pegelstaende") && (
+        <div className="mt-6">
+          <PegelstaendeWidget />
         </div>
       )}
 
