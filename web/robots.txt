@@ -84,4 +84,4 @@ User-agent: facebookexternalhit
 Allow: /
 
 # Sitemaps
-Sitemap: https://agraroffice.de/sitemap.xml
+Sitemap: https://agri-office.de/sitemap.xml

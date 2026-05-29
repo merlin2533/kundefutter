@@ -4,13 +4,13 @@
 > **Erstellt:** 2026-04-03  
 > **Aktualisiert:** 2026-04-03 (nach Merge von `main`)  
 > **Branch:** `claude/justfarming-comparison-uj6K2`  
-> **Ziel:** Integration der fehlenden JustFarming-Kernfeatures in AgrarOffice
+> **Ziel:** Integration der fehlenden JustFarming-Kernfeatures in AGRI-Office
 
 ---
 
 ## 1. Zusammenfassung & Ist-Stand
 
-JustFarming (LAND-DATA GmbH) bietet Landwirten digitale Vorbereitende Buchhaltung. AgrarOffice ist ein Agrarhandel-ERP.
+JustFarming (LAND-DATA GmbH) bietet Landwirten digitale Vorbereitende Buchhaltung. AGRI-Office ist ein Agrarhandel-ERP.
 
 | # | Feature | Status | Priorität |
 |---|---------|--------|-----------|
@@ -33,7 +33,7 @@ JustFarming (LAND-DATA GmbH) bietet Landwirten digitale Vorbereitende Buchhaltun
 ## 2. Feature F1: ZUGFeRD E-Rechnung
 
 ### 2.1 Problemstellung
-Ab 2025 besteht E-Rechnungspflicht für B2B-Transaktionen in Deutschland. AgrarOffice erzeugt aktuell nur einfache jsPDF-Rechnungen ohne maschinenlesbares XML. Kunden und Steuerberater können Rechnungen nicht automatisch einlesen.
+Ab 2025 besteht E-Rechnungspflicht für B2B-Transaktionen in Deutschland. AGRI-Office erzeugt aktuell nur einfache jsPDF-Rechnungen ohne maschinenlesbares XML. Kunden und Steuerberater können Rechnungen nicht automatisch einlesen.
 
 ### 2.2 Anforderungen
 
@@ -150,7 +150,7 @@ Vollständig implementiert als **Ausgabenbuch** (`/ausgaben`):
 ## 4. Feature F3: Bankkonten-Abgleich
 
 ### 4.1 Problemstellung
-Zahlungseingänge werden in AgrarOffice heute manuell gebucht (Datum-Picker in Rechnungsliste). Es gibt keinen Import von Kontoauszügen und keine automatische Zuordnung von Bankbuchungen zu Rechnungen.
+Zahlungseingänge werden in AGRI-Office heute manuell gebucht (Datum-Picker in Rechnungsliste). Es gibt keinen Import von Kontoauszügen und keine automatische Zuordnung von Bankbuchungen zu Rechnungen.
 
 ### 4.2 Anforderungen
 

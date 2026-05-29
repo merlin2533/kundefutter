@@ -1,4 +1,4 @@
-# PRD: Google Drive Integration — AgrarOffice
+# PRD: Google Drive Integration — AGRI-Office
 
 **Version:** 1.0
 **Datum:** 2026-03-29
@@ -9,7 +9,7 @@
 
 ## 1. Zusammenfassung
 
-Google Drive wird als Dokumentenablage in AgrarOffice integriert. Ziel ist es, dass pro Kunde, pro Artikel und für zentrale Dokumente automatisch Google Drive-Ordner verknüpft werden — ohne manuelle Ordnerverwaltung. Mitarbeiter greifen direkt aus der App auf Angebote, Verträge, Lieferscheine, Datenblätter und Zertifikate zu.
+Google Drive wird als Dokumentenablage in AGRI-Office integriert. Ziel ist es, dass pro Kunde, pro Artikel und für zentrale Dokumente automatisch Google Drive-Ordner verknüpft werden — ohne manuelle Ordnerverwaltung. Mitarbeiter greifen direkt aus der App auf Angebote, Verträge, Lieferscheine, Datenblätter und Zertifikate zu.
 
 ---
 
@@ -60,7 +60,7 @@ Aktuell existieren Dokumente verstreut auf lokalen Rechnern, per E-Mail oder in 
 
 ```
 Google Cloud Project
-  └── Service Account (agraroffice-drive@projekt.iam.gserviceaccount.com)
+  └── Service Account (agri-office-drive@projekt.iam.gserviceaccount.com)
         └── JSON-Key wird einmalig in Einstellungen hochgeladen
 ```
 
@@ -77,7 +77,7 @@ Um sie im eigenen Drive zu sehen: Root-Ordner einmalig mit dem gewünschten Goog
 ### 6.2 Ordnerstruktur in Google Drive
 
 ```
-AgrarOffice/
+AGRI-Office/
 ├── Kunden/
 │   ├── Müller GbR (kundeId: abc123)/
 │   ├── Schulze & Söhne (kundeId: def456)/
@@ -110,7 +110,7 @@ model Artikel {
 
 // In Einstellung (Key/Value):
 // system.google.serviceAccountKey  → JSON-Key des Service Accounts (verschlüsselt)
-// system.google.rootOrdnerId       → ID des Root-Ordners "AgrarOffice"
+// system.google.rootOrdnerId       → ID des Root-Ordners "AGRI-Office"
 // system.google.kundenOrdnerId     → ID des Ordners "Kunden"
 // system.google.artikelOrdnerId    → ID des Ordners "Artikel"
 // system.google.zentralOrdnerIds   → JSON-Array [{name, id}]

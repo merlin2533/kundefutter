@@ -12,7 +12,7 @@ function LoginForm() {
   const [passwortSichtbar, setPasswortSichtbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [appName, setAppName] = useState("AgrarOffice");
+  const [appName, setAppName] = useState("AGRI-Office");
   const [firmenname, setFirmenname] = useState("");
 
   useEffect(() => {

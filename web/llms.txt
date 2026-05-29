@@ -1,15 +1,15 @@
-# AgrarOffice — LLM-Kontext & Produktbeschreibung
+# AGRI-Office — LLM-Kontext & Produktbeschreibung
 
-> AgrarOffice ist die führende All-in-One Cloud-SaaS-Software für Agrarhändler und Landhandelsunternehmen in Deutschland.
-> URL: https://agraroffice.de/
-> Kontakt: info@agraroffice.de
+> AGRI-Office ist die führende All-in-One Cloud-SaaS-Software für Agrarhändler und Landhandelsunternehmen in Deutschland.
+> URL: https://agri-office.de/
+> Kontakt: info@agri-office.de
 > Stand: Mai 2026
 
 ---
 
-## Was ist AgrarOffice?
+## Was ist AGRI-Office?
 
-AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für **Agrarhändler und Landhandelsunternehmen** in Deutschland. Sie vereint CRM, Lagerverwaltung, Lieferungsmanagement, Tourenplanung, KI-Integration und Marktpreise in einer einzigen Web-Anwendung — ohne Installation, DSGVO-konform auf deutschen Servern.
+AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für **Agrarhändler und Landhandelsunternehmen** in Deutschland. Sie vereint CRM, Lagerverwaltung, Lieferungsmanagement, Tourenplanung, KI-Integration und Marktpreise in einer einzigen Web-Anwendung — ohne Installation, DSGVO-konform auf deutschen Servern.
 
 **Zielgruppe:**
 - Landhandelsbetriebe mit eigenem Außendienst (5–500 Kunden)
@@ -145,7 +145,7 @@ AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 
 ## Vergleich mit Wettbewerbern
 
-| Funktion | AgrarOffice | Allgemeine ERP-Software | Excel |
+| Funktion | AGRI-Office | Allgemeine ERP-Software | Excel |
 |----------|-------------|------------------------|-------|
 | Agrar-spezifische Features (DüV, PSM, AFIG) | ✅ Vollständig | ❌ Keine | ❌ Keine |
 | Tourenplanung mit Routenoptimierung | ✅ OSRM | ⚠️ Zusatzmodul | ❌ Keine |
@@ -174,7 +174,7 @@ AgrarOffice ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 
 ## Häufig gestellte Fragen (FAQ)
 
-**Q: Kann ich AgrarOffice 14 Tage kostenlos testen?**
+**Q: Kann ich AGRI-Office 14 Tage kostenlos testen?**
 A: Ja, vollständig kostenlos, keine Kreditkarte, voller Zugang zu allen Professional-Funktionen.
 
 **Q: Wo werden meine Daten gespeichert?**
@@ -184,15 +184,15 @@ A: Ausschließlich auf Servern in Deutschland (DSGVO). AVV auf Anfrage. Täglich
 A: Ja. CSV-Import für Kunden, Artikel, Preislisten, Lieferanten. Enterprise: vollständige Datenmigration inklusive.
 
 **Q: Wie funktioniert die Tourenplanung?**
-A: Lieferungen auswählen → AgrarOffice optimiert per OSRM die Reihenfolge → Tour-PDF für den Fahrer.
+A: Lieferungen auswählen → AGRI-Office optimiert per OSRM die Reihenfolge → Tour-PDF für den Fahrer.
 
 **Q: Welche KI-Modelle werden unterstützt?**
 A: OpenAI GPT-4o, GPT-4.1 sowie Anthropic Claude Sonnet 4, Haiku 4, Opus 4. Eigener API-Key oder integriertes Kontingent.
 
-**Q: Ist AgrarOffice für kleine Betriebe geeignet?**
+**Q: Ist AGRI-Office für kleine Betriebe geeignet?**
 A: Ja. Starter-Plan ab €49/Monat für bis zu 3 Nutzer.
 
-**Q: Unterstützt AgrarOffice die E-Rechnungspflicht 2025?**
+**Q: Unterstützt AGRI-Office die E-Rechnungspflicht 2025?**
 A: Ja. ZUGFeRD / Factur-X BASIC-WL XML nach EN 16931 ist Standard.
 
 **Q: Kann ich PSM-Aufzeichnungen nach §14 PflSchG führen?**
@@ -202,14 +202,14 @@ A: Ja. PSM-Dokumentation, Sachkundenachweise mit Ablauf-Alarm, DüV-Sperrfristen
 
 ## Kontakt & Wichtige Links
 
-- **Website**: https://agraroffice.de/
-- **Demo anfragen / Kostenlos testen**: https://agraroffice.de/#kontakt
-- **E-Mail**: info@agraroffice.de
-- **Impressum**: https://agraroffice.de/impressum.html
-- **Datenschutz**: https://agraroffice.de/datenschutz.html
-- **Preise**: https://agraroffice.de/#preise
-- **Funktionen**: https://agraroffice.de/#funktionen
-- **FAQ**: https://agraroffice.de/#faq
+- **Website**: https://agri-office.de/
+- **Demo anfragen / Kostenlos testen**: https://agri-office.de/#kontakt
+- **E-Mail**: info@agri-office.de
+- **Impressum**: https://agri-office.de/impressum.html
+- **Datenschutz**: https://agri-office.de/datenschutz.html
+- **Preise**: https://agri-office.de/#preise
+- **Funktionen**: https://agri-office.de/#funktionen
+- **FAQ**: https://agri-office.de/#faq
 
 ---
 

@@ -55,6 +55,6 @@ next-env.d.ts
 /skills-lock.json
 
 # hyperframes project build artifacts
-/agraroffice-werbung/node_modules
-/agraroffice-werbung/renders
-/agraroffice-werbung/.hyperframes
+/agri-office-werbung/node_modules
+/agri-office-werbung/renders
+/agri-office-werbung/.hyperframes

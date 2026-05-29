@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest) {
 
   try {
     const appName = await getAppName();
-    const slug = appName.toLowerCase().replace(/\s+/g, "") || "agraroffice";
+    const slug = appName.toLowerCase().replace(/\s+/g, "") || "agri-office";
 
     const termine = await prisma.kundeAktivitaet.findMany({
       where: {

@@ -1,13 +1,13 @@
-# AgrarOffice – Website-Inhalt
+# AGRI-Office – Website-Inhalt
 
-Dieses Dokument enthält den strukturierten Inhalt für die Produktwebsite von AgrarOffice.
+Dieses Dokument enthält den strukturierten Inhalt für die Produktwebsite von AGRI-Office.
 
 ---
 
 ## Hero-Bereich (Startseite)
 
 **Headline:**
-> AgrarOffice — Die Warenwirtschaft für den modernen Landhandel
+> AGRI-Office — Die Warenwirtschaft für den modernen Landhandel
 
 **Subheadline:**
 > Kunden, Artikel, Lieferungen und Rechnungen — alles in einer Anwendung. Einfach, schnell, browserbasiert.
@@ -23,10 +23,10 @@ Dieses Dokument enthält den strukturierten Inhalt für die Produktwebsite von A
 Ob offene Lieferungen, Kundenbedarfe oder Lagerbestand — das Dashboard zeigt die wichtigsten Kennzahlen auf einen Blick. Kein Datenchaos, kein Papierstapel.
 
 ### Direkt im Browser
-Kein Installation, kein Client. AgrarOffice läuft vollständig im Webbrowser — auf dem PC im Büro, dem Tablet beim Kunden oder dem Smartphone im Außendienst.
+Kein Installation, kein Client. AGRI-Office läuft vollständig im Webbrowser — auf dem PC im Büro, dem Tablet beim Kunden oder dem Smartphone im Außendienst.
 
 ### Gemacht für den Landhandel
-Futter, Dünger, Saatgut, Analysen: AgrarOffice kennt die Besonderheiten des Agrarhandels. Chargenrückverfolgung, Schlagkartei, AFIG-Agraranträge und Marktpreise sind Standard.
+Futter, Dünger, Saatgut, Analysen: AGRI-Office kennt die Besonderheiten des Agrarhandels. Chargenrückverfolgung, Schlagkartei, AFIG-Agraranträge und Marktpreise sind Standard.
 
 ---
 
@@ -103,7 +103,7 @@ Ausdruckbare Tourenliste für den Fahrer, konfigurierbare Tour-Namen.
 ### KI-Unterstützung
 
 **Lieferschein-Erkennung per Foto**
-Eingehende Lieferscheine einfach fotografieren — AgrarOffice erkennt Artikel, Mengen und Lieferant automatisch.
+Eingehende Lieferscheine einfach fotografieren — AGRI-Office erkennt Artikel, Mengen und Lieferant automatisch.
 
 **CRM-Notizen aus dem Gespräch**
 Gesprächsnotizen direkt nach dem Kundenbesuch per Foto oder Spracheingabe erfassen. Die KI strukturiert den Inhalt automatisch.
@@ -119,7 +119,7 @@ Aktuelle Eurostat-Preisindizes für Agrarrohstoffe (Dünger, Getreide, Treibstof
 
 ---
 
-## Für wen ist AgrarOffice?
+## Für wen ist AGRI-Office?
 
 | Zielgruppe | Nutzen |
 |---|---|
@@ -144,10 +144,10 @@ Aktuelle Eurostat-Preisindizes für Agrarrohstoffe (Dünger, Getreide, Treibstof
 ## Häufige Fragen (FAQ)
 
 **Wo werden meine Daten gespeichert?**
-AgrarOffice läuft auf Ihrem eigenen Server (on-premise oder Ihrem Webhosting). Daten verlassen Ihren Server nicht — es sei denn, Sie aktivieren freiwillig die KI-Funktion mit eigenem API-Key.
+AGRI-Office läuft auf Ihrem eigenen Server (on-premise oder Ihrem Webhosting). Daten verlassen Ihren Server nicht — es sei denn, Sie aktivieren freiwillig die KI-Funktion mit eigenem API-Key.
 
 **Kann ich die Software auf dem Smartphone nutzen?**
-Ja. AgrarOffice ist als Progressive Web App (PWA) ausgelegt und lässt sich auf Android und iOS wie eine native App installieren.
+Ja. AGRI-Office ist als Progressive Web App (PWA) ausgelegt und lässt sich auf Android und iOS wie eine native App installieren.
 
 **Wie werden Updates eingespielt?**
 Per Docker: Watchtower prüft regelmäßig auf neue Images und spielt Updates automatisch ein — ohne Datenverlust.

@@ -5,40 +5,40 @@
 
   <!-- Hauptseite -->
   <url>
-    <loc>https://agraroffice.de/</loc>
+    <loc>https://agri-office.de/</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://agraroffice.de/img/og-preview.png</image:loc>
-      <image:title>AgrarOffice – CRM und ERP für Agrarhändler</image:title>
-      <image:caption>AgrarOffice Dashboard – All-in-One Landhandel-Software</image:caption>
+      <image:loc>https://agri-office.de/img/og-preview.png</image:loc>
+      <image:title>AGRI-Office – CRM und ERP für Agrarhändler</image:title>
+      <image:caption>AGRI-Office Dashboard – All-in-One Landhandel-Software</image:caption>
     </image:image>
     <image:image>
-      <image:loc>https://agraroffice.de/img/crm_sales.png</image:loc>
+      <image:loc>https://agri-office.de/img/crm_sales.png</image:loc>
       <image:title>CRM für Agrarhändler – Kundenmanagement im Außendienst</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://agraroffice.de/img/warehouse.png</image:loc>
+      <image:loc>https://agri-office.de/img/warehouse.png</image:loc>
       <image:title>Lagerverwaltung Landhandel – Echtzeit-Lagerbestand mit Ampel</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://agraroffice.de/img/truck_delivery.png</image:loc>
+      <image:loc>https://agri-office.de/img/truck_delivery.png</image:loc>
       <image:title>Tourenplanung Außendienst – OSRM-Routing für Liefertouren</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://agraroffice.de/img/smartphone_scan.png</image:loc>
+      <image:loc>https://agri-office.de/img/smartphone_scan.png</image:loc>
       <image:title>KI-Lieferscheinerkennung per Smartphone-Foto</image:title>
     </image:image>
     <image:image>
-      <image:loc>https://agraroffice.de/img/commodities.png</image:loc>
+      <image:loc>https://agri-office.de/img/commodities.png</image:loc>
       <image:title>Agrar-Marktpreise – Eurostat und MATIF Futures</image:title>
     </image:image>
   </url>
 
   <!-- Abschnitt: Funktionen -->
   <url>
-    <loc>https://agraroffice.de/#funktionen</loc>
+    <loc>https://agri-office.de/#funktionen</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
@@ -46,7 +46,7 @@
 
   <!-- Abschnitt: CRM -->
   <url>
-    <loc>https://agraroffice.de/#crm</loc>
+    <loc>https://agri-office.de/#crm</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.85</priority>
@@ -54,7 +54,7 @@
 
   <!-- Abschnitt: Lager & Lieferung -->
   <url>
-    <loc>https://agraroffice.de/#lager</loc>
+    <loc>https://agri-office.de/#lager</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -62,7 +62,7 @@
 
   <!-- Abschnitt: Tourenplanung -->
   <url>
-    <loc>https://agraroffice.de/#tourenplanung</loc>
+    <loc>https://agri-office.de/#tourenplanung</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -70,7 +70,7 @@
 
   <!-- Abschnitt: KI-Integration -->
   <url>
-    <loc>https://agraroffice.de/#ki</loc>
+    <loc>https://agri-office.de/#ki</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -78,7 +78,7 @@
 
   <!-- Abschnitt: Integrationen -->
   <url>
-    <loc>https://agraroffice.de/#integrationen</loc>
+    <loc>https://agri-office.de/#integrationen</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -86,7 +86,7 @@
 
   <!-- Abschnitt: Preise -->
   <url>
-    <loc>https://agraroffice.de/#preise</loc>
+    <loc>https://agri-office.de/#preise</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
@@ -94,7 +94,7 @@
 
   <!-- Abschnitt: Vergleich -->
   <url>
-    <loc>https://agraroffice.de/#vergleich</loc>
+    <loc>https://agri-office.de/#vergleich</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
@@ -102,7 +102,7 @@
 
   <!-- Abschnitt: ROI-Rechner -->
   <url>
-    <loc>https://agraroffice.de/#roi-rechner</loc>
+    <loc>https://agri-office.de/#roi-rechner</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -110,7 +110,7 @@
 
   <!-- Abschnitt: Referenzen / Testimonials -->
   <url>
-    <loc>https://agraroffice.de/#testimonials</loc>
+    <loc>https://agri-office.de/#testimonials</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.65</priority>
@@ -118,7 +118,7 @@
 
   <!-- Abschnitt: FAQ -->
   <url>
-    <loc>https://agraroffice.de/#faq</loc>
+    <loc>https://agri-office.de/#faq</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
@@ -126,7 +126,7 @@
 
   <!-- Abschnitt: Demo -->
   <url>
-    <loc>https://agraroffice.de/#demo</loc>
+    <loc>https://agri-office.de/#demo</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -134,7 +134,7 @@
 
   <!-- Abschnitt: Kontakt / Demo-Anfrage -->
   <url>
-    <loc>https://agraroffice.de/#kontakt</loc>
+    <loc>https://agri-office.de/#kontakt</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -142,7 +142,7 @@
 
   <!-- Impressum -->
   <url>
-    <loc>https://agraroffice.de/impressum.html</loc>
+    <loc>https://agri-office.de/impressum.html</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
@@ -150,7 +150,7 @@
 
   <!-- Datenschutz -->
   <url>
-    <loc>https://agraroffice.de/datenschutz.html</loc>
+    <loc>https://agri-office.de/datenschutz.html</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
@@ -158,7 +158,7 @@
 
   <!-- LLMs.txt für KI-Crawler -->
   <url>
-    <loc>https://agraroffice.de/llms.txt</loc>
+    <loc>https://agri-office.de/llms.txt</loc>
     <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>

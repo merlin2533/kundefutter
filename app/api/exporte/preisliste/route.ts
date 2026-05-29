@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       where: { key: { startsWith: "firma." } },
     });
     const settMap = Object.fromEntries(einstellungen.map((e) => [e.key, e.value]));
-    const firmaName = settMap["firma.name"] ?? settMap["system.firmenname"] ?? "AgrarOffice";
+    const firmaName = settMap["firma.name"] ?? settMap["system.firmenname"] ?? "AGRI-Office";
     const firmaAdresse = [
       settMap["firma.strasse"],
       [settMap["firma.plz"], settMap["firma.ort"]].filter(Boolean).join(" "),

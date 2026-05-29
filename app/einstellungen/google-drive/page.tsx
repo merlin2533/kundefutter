@@ -202,7 +202,7 @@ export default function GoogleDriveEinstellungenPage() {
                 <p className="text-sm font-medium text-gray-800">Dienstkonto erstellen</p>
                 <p className="text-sm text-gray-500 mt-0.5">
                   <span className="font-medium text-gray-700">IAM &amp; Verwaltung → Dienstkonten → Dienstkonto erstellen</span>.
-                  Namen vergeben (z.B. „agraroffice-drive"), Rolle kann leer bleiben.
+                  Namen vergeben (z.B. „agri-office-drive"), Rolle kann leer bleiben.
                 </p>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function GoogleDriveEinstellungenPage() {
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
           <strong>Tipp:</strong> Die Ordner in Google Drive liegen unter dem Service Account.
           Damit du sie in deinem eigenen Drive siehst: Öffne Google Drive, suche den Ordner
-          „AgrarOffice" unter „Für mich freigegeben" und füge ihn zu deiner Ablage hinzu.
+          „AGRI-Office" unter „Für mich freigegeben" und füge ihn zu deiner Ablage hinzu.
         </div>
       )}
     </div>

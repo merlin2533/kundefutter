@@ -100,7 +100,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
 </style></head>
 <body><div class="wrap">
 <div class="header">
-  <h1>Neue Anfrage über AgrarOffice.de</h1>
+  <h1>Neue Anfrage über AGRI-Office.de</h1>
   <p>Eingegangen: ${ts} · IP: ${ip}</p>
 </div>
 <div class="body">
@@ -111,7 +111,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
   <div class="field"><div class="field-label">Gewünschter Plan</div><div class="field-value">${paketLabel}</div></div>
   <div class="field"><div class="field-label">Nachricht</div><div class="field-value msg">${nachricht}</div></div>
 </div>
-<div class="footer">Diese E-Mail wurde automatisch von der AgrarOffice-Website gesendet. DSGVO-Einwilligung: erteilt.</div>
+<div class="footer">Diese E-Mail wurde automatisch von der AGRI-Office-Website gesendet. DSGVO-Einwilligung: erteilt.</div>
 </div></body></html>`;
 
   const confirmHtml = `<!DOCTYPE html>
@@ -133,19 +133,19 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
 </div>
 <div class="body">
   <p>Wir haben Ihre Anfrage erhalten und melden uns innerhalb von <strong>1 Werktag</strong> bei Ihnen zurück.</p>
-  <div class="highlight">📞 Telefon: +49 (0) 000 000000<br>✉ E-Mail: info@agraroffice.de</div>
-  <p>Bis dahin können Sie unsere <a href="https://agraroffice.de/#funktionen" style="color:#40916c">Funktionsübersicht</a> erkunden oder direkt mit dem <strong>14-tägigen kostenlosen Test</strong> starten.</p>
+  <div class="highlight">📞 Telefon: +49 (0) 000 000000<br>✉ E-Mail: info@agri-office.de</div>
+  <p>Bis dahin können Sie unsere <a href="https://agri-office.de/#funktionen" style="color:#40916c">Funktionsübersicht</a> erkunden oder direkt mit dem <strong>14-tägigen kostenlosen Test</strong> starten.</p>
 </div>
-<div class="footer">AgrarOffice · info@agraroffice.de · agraroffice.de</div>
+<div class="footer">AGRI-Office · info@agri-office.de · agri-office.de</div>
 </div></body></html>`;
 
   const resend = new Resend(apiKey);
 
   const { error } = await resend.emails.send({
-    from: "AgrarOffice Website <noreply@agraroffice.de>",
-    to: ["info@agraroffice.de"],
+    from: "AGRI-Office Website <noreply@agri-office.de>",
+    to: ["info@agri-office.de"],
     replyTo: email,
-    subject: `Neue AgrarOffice-Anfrage von ${name} (${firma})`,
+    subject: `Neue AGRI-Office-Anfrage von ${name} (${firma})`,
     html: notificationHtml,
     tags: [
       { name: "source", value: "website-contact" },
@@ -160,9 +160,9 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
 
   // Confirmation to the visitor — fire-and-forget
   resend.emails.send({
-    from: "AgrarOffice Website <noreply@agraroffice.de>",
+    from: "AGRI-Office Website <noreply@agri-office.de>",
     to: [email],
-    subject: "Ihre AgrarOffice-Anfrage ist eingegangen",
+    subject: "Ihre AGRI-Office-Anfrage ist eingegangen",
     html: confirmHtml,
   }).catch((err) => console.error("Resend confirmation error:", err));
 
