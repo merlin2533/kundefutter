@@ -1543,3 +1543,19 @@ model PegelstandCache {
 
   @@index([stationUuid])
 }
+
+// ─── MQTT-AUTOMATISIERUNG ─────────────────────────────────────────────────────
+
+model MqttRegel {
+  id           Int      @id @default(autoincrement())
+  name         String
+  source       String   @default("")  // z.B. MQTT-Broker-URL oder Quell-Label
+  topicPattern String
+  modus        String   @default("ki")  // "ki" | "direkt"
+  aktion       String   // "lieferung" | "wareneingang" | "benachrichtigung"
+  aktiv        Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([aktiv])
+}

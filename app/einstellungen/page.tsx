@@ -105,6 +105,8 @@ const SECTIONS: Section[] = [
     tiles: [
       { href: "/einstellungen/loeschzentrum", icon: "🗑️", title: "Löschzentrum", description: "Duplikate bereinigen, Suchindex neu aufbauen und Datenpflege" },
       { href: "/einstellungen/gdpr", icon: "🔐", title: "DSGVO / Datenschutz", description: "Auskunft, Datenexport und Löschung personenbezogener Daten (Art. 15–17)" },
+      { href: "/einstellungen/mqtt", icon: "📡", title: "MQTT-Automatisierung", description: "Regeln für die automatische Verarbeitung eingehender MQTT-Nachrichten per KI" },
+      { href: "/einstellungen/email-import", icon: "✉️", title: "E-Mail Import", description: "Eingehende E-Mails über Resend empfangen, lokal speichern und per KI verarbeiten" },
     ],
   },
 ];
