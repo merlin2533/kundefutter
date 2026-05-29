@@ -1318,6 +1318,29 @@ model FruehbezugsStaffel {
   @@index([aktiv])
 }
 
+// ─── EINKAUFSZETTEL / BESCHAFFUNGSSTATUS ──────────────────────────────────────
+// Markiert, ob eine Quell-Auftragsposition (Vorbestellung/Lieferung/Angebot)
+// bereits beim Lieferanten bestellt wurde — verhindert Doppelbestellungen und
+// liefert den grünen Haken inkl. Bestelldatum auf der Auftragsbestätigung.
+model EinkaufStatus {
+  id          Int      @id @default(autoincrement())
+  quelle      String   // "vorbestellung" | "lieferung" | "angebot"
+  positionId  Int      // ID der Quell-Position (VorbestellungPosition/Lieferposition/AngebotPosition)
+  artikelId   Int
+  lieferantId Int?     // bei welchem Lieferanten bestellt wurde
+  menge       Float
+  einheit     String   @default("kg")
+  bestelltAm  DateTime @default(now())
+  notiz       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([quelle, positionId])
+  @@index([artikelId])
+  @@index([lieferantId])
+  @@index([quelle])
+}
+
 // ─── TIERHALTUNG / RATIONSBERECHNUNG ──────────────────────────────────────────
 
 /// Tier/Tiergruppe (Herde) je Kunde — Basis für die Rationsberechnung.
