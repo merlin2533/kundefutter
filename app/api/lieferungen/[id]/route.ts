@@ -4,7 +4,7 @@ import { naechsteRechnungsnummer } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
 import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
-import { artikelSafeSelect } from "@/lib/artikel-select";
+import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 export const dynamic = "force-dynamic";
 
 
@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       where: { id: Number(id) },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: { select: artikelSafeSelect } } },
+        positionen: { include: { artikel: artikelWithInhaltSelect } },
         teilzahlungen: { orderBy: { datum: "asc" as const } },
       },
     });

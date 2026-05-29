@@ -343,7 +343,7 @@ export default function RechnungenPage() {
                     {isExpanded && (
                       <tr key={`${r.id}-pos`} className="bg-green-50 border-b border-green-100">
                         <td colSpan={8} className="px-6 py-3">
-                          <table className="w-full text-xs">
+                          <div className="overflow-x-auto"><table className="w-full min-w-[380px] text-xs">
                             <thead>
                               <tr className="text-gray-500">
                                 <th className="text-left pb-1 pr-4 font-medium">Artikel</th>
@@ -378,7 +378,7 @@ export default function RechnungenPage() {
                                 <td className="py-1.5 text-right font-mono text-green-800">{formatEuro(betrag)}</td>
                               </tr>
                             </tbody>
-                          </table>
+                          </table></div>
                           {r.notiz && (
                             <p className="text-xs text-gray-500 mt-2 italic">{r.notiz}</p>
                           )}

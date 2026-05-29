@@ -82,7 +82,7 @@ export default function BestelllistePage() {
             {totalBestellt > 0 && <span className="text-blue-700 font-medium">{totalBestellt} bestellt</span>}
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(["offen", "bestellt", "alle"] as const).map((f) => (
             <button
               key={f}

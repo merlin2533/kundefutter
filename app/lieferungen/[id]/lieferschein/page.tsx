@@ -5,6 +5,13 @@ import { formatDatum } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 
+interface Inhaltsstoff {
+  id: number;
+  name: string;
+  menge: number | null;
+  einheit: string | null;
+}
+
 interface Position {
   id: number;
   menge: number;
@@ -18,6 +25,7 @@ interface Position {
     hSaetze?: string | null;
     pSaetze?: string | null;
     signalwort?: string | null;
+    inhaltsstoffe?: Inhaltsstoff[];
   };
 }
 
@@ -402,24 +410,6 @@ export default function LieferscheinPage() {
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
-        <a
-          href={`/api/exporte/lieferschein?lieferungId=${id}`}
-          download
-          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors block"
-          title="PDF herunterladen"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-        </a>
-        <button
-          onClick={handleTeilen}
-          className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          title={canShare ? "Lieferschein teilen" : "Link kopieren"}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-        </button>
-        {shareMsg && (
-          <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
-        )}
         <DriveUploadButton
           kundeId={lieferung.kundeId}
           typ="lieferschein"
@@ -662,6 +652,52 @@ export default function LieferscheinPage() {
                   </div>
                 );
               })}
+            </div>
+          );
+        })()}
+
+        {/* ── DüV-Nährstoffdeklaration (§11 DüMV) ── */}
+        {(() => {
+          const posWithInhalt = lieferung.positionen.filter(
+            (p) => p.artikel.inhaltsstoffe && p.artikel.inhaltsstoffe.length > 0
+          );
+          if (posWithInhalt.length === 0) return null;
+          return (
+            <div style={{ marginBottom: "32px", pageBreakInside: "avoid" }}>
+              <div style={{ fontSize: "8pt", color: "#888", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Nährstoffdeklaration gem. DüMV / DüV
+              </div>
+              {posWithInhalt.map((pos) => (
+                <div key={pos.id} style={{ marginBottom: "14px" }}>
+                  <div style={{ fontSize: "9pt", fontWeight: 700, marginBottom: "4px", color: "#333" }}>
+                    {pos.artikel.name} — Deklarierte Nährstoffe
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid #bbb", backgroundColor: "#f9f9f9" }}>
+                        <th style={{ textAlign: "left", padding: "4px 8px", fontWeight: 600 }}>Nährstoff / Inhaltsstoff</th>
+                        <th style={{ textAlign: "right", padding: "4px 8px", fontWeight: 600 }}>Gehalt</th>
+                        <th style={{ textAlign: "left", padding: "4px 8px", fontWeight: 600 }}>Einheit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pos.artikel.inhaltsstoffe!.map((is) => (
+                        <tr key={is.id} style={{ borderBottom: "1px solid #eee" }}>
+                          <td style={{ padding: "3px 8px" }}>{is.name}</td>
+                          <td style={{ padding: "3px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                            {is.menge != null ? is.menge.toLocaleString("de-DE") : "k.A."}
+                          </td>
+                          <td style={{ padding: "3px 8px", color: "#555" }}>{is.einheit ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+              <div style={{ fontSize: "8pt", color: "#999", marginTop: "4px", borderTop: "1px solid #eee", paddingTop: "4px" }}>
+                Angaben gem. Düngemittelverordnung (DüV) i.V.m. Verordnung (EG) Nr. 2003/2003 bzw. EU 2019/1009.
+                Deklarierte Gehalte beziehen sich auf das Produkt in der gelieferten Form.
+              </div>
             </div>
           );
         })()}

@@ -121,12 +121,12 @@ export default function GebietsanalysePage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="flex gap-4">
+      <div className="flex flex-col lg:flex-row gap-4">
         {/* Map (left 2/3) */}
-        <div className="w-2/3 min-w-0">
+        <div className="w-full lg:w-2/3 min-w-0">
           <div
             className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
-            style={{ height: "600px" }}
+            style={{ height: "500px" }}
           >
             <DynamicGebietsMap
               center={center}
@@ -139,7 +139,7 @@ export default function GebietsanalysePage() {
         </div>
 
         {/* Controls + Results (right 1/3) */}
-        <div className="w-1/3 space-y-4">
+        <div className="w-full lg:w-1/3 space-y-4">
           {/* Controls */}
           <Card>
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Mittelpunkt bestimmen</h2>

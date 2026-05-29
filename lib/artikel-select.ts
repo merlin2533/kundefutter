@@ -24,6 +24,39 @@ export const artikelSafeSelect = {
   signalwort: true,
 } as const;
 
+// Same as artikelSafeSelect but includes the inhaltsstoffe relation and GHS fields.
+// Use this in Prisma queries where nutrient data and safety data are needed (e.g. delivery note print).
+// NOTE: Prisma select does not support relation fields with `true`; they must be
+// included via a nested include object.
+export const artikelWithInhaltSelect = {
+  select: {
+    id: true,
+    artikelnummer: true,
+    name: true,
+    kategorie: true,
+    unterkategorie: true,
+    einheit: true,
+    beschreibung: true,
+    standardpreis: true,
+    preisStand: true,
+    mwstSatz: true,
+    mindestbestand: true,
+    aktuellerBestand: true,
+    aktiv: true,
+    lagerort: true,
+    liefergroesse: true,
+    createdAt: true,
+    updatedAt: true,
+    driveOrdnerId: true,
+    sprengstoffvorlaeufer: true,
+    ghsKlassen: true,
+    hSaetze: true,
+    pSaetze: true,
+    signalwort: true,
+    inhaltsstoffe: true,
+  },
+} as const;
+
 // Minimal artikel fields needed when loading Lieferpositionen / Wareneingangspositionen
 // for PDFs and exports. Keeps queries lean.
 export const liefposArtikelSelect = {

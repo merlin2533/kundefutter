@@ -151,9 +151,9 @@ export default function KundenKartePage() {
       {loading ? (
         <p className="text-gray-400 text-sm">Lade Kunden…</p>
       ) : (
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           {/* Sidebar */}
-          <div className="w-56 flex-shrink-0 space-y-4">
+          <div className="w-full md:w-56 flex-shrink-0 space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Kategorien</h2>
               <div className="space-y-2">
