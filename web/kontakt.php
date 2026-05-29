@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 // ── Konfiguration ─────────────────────────────────────────────────────────────
 define('RESEND_API_KEY', getenv('RESEND_API_KEY') ?: 'YOUR_RESEND_API_KEY');
-define('FROM_EMAIL',     'AgrarOffice Website <noreply@agraroffice.de>');
-define('TO_EMAIL',       'info@agraroffice.de');
+define('FROM_EMAIL',     'AGRI-Office Website <noreply@agri-office.de>');
+define('TO_EMAIL',       'info@agri-office.de');
 define('RATE_LIMIT',     3);   // max. Anfragen pro Stunde pro IP
 define('RATE_WINDOW',    3600);
 
@@ -100,7 +100,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0;padd
 </style></head>
 <body><div class="wrap">
 <div class="header">
-  <h1>Neue Anfrage über AgrarOffice.de</h1>
+  <h1>Neue Anfrage über AGRI-Office.de</h1>
   <p>Eingegangen: {$_SERVER['REQUEST_TIME']} · IP: {$ip}</p>
 </div>
 <div class="body">
@@ -111,7 +111,7 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0;padd
   <div class="field"><div class="field-label">Gewünschter Plan</div><div class="field-value">$paket_label</div></div>
   <div class="field"><div class="field-label">Nachricht</div><div class="field-value msg">$nachricht</div></div>
 </div>
-<div class="footer">Diese E-Mail wurde automatisch von der AgrarOffice-Website gesendet. DSGVO-Einwilligung: erteilt.</div>
+<div class="footer">Diese E-Mail wurde automatisch von der AGRI-Office-Website gesendet. DSGVO-Einwilligung: erteilt.</div>
 </div></body></html>
 HTML;
 
@@ -120,7 +120,7 @@ $payload = json_encode([
     'from'    => FROM_EMAIL,
     'to'      => [TO_EMAIL],
     'reply_to'=> $email,
-    'subject' => "Neue AgrarOffice-Anfrage von $name ($firma)",
+    'subject' => "Neue AGRI-Office-Anfrage von $name ($firma)",
     'html'    => $html,
     'tags'    => [
         ['name' => 'source', 'value' => 'website-contact'],
@@ -174,17 +174,17 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
 </div>
 <div class="body">
   <p>Wir haben Ihre Anfrage erhalten und melden uns innerhalb von <strong>1 Werktag</strong> bei Ihnen zurück.</p>
-  <div class="highlight">📞 Telefon: +49 (0) 000 000000<br>✉ E-Mail: info@agraroffice.de</div>
-  <p>Bis dahin können Sie unsere <a href="https://agraroffice.de/#funktionen" style="color:#40916c">Funktionsübersicht</a> erkunden oder direkt mit dem <strong>14-tägigen kostenlosen Test</strong> starten.</p>
+  <div class="highlight">📞 Telefon: +49 (0) 000 000000<br>✉ E-Mail: info@agri-office.de</div>
+  <p>Bis dahin können Sie unsere <a href="https://agri-office.de/#funktionen" style="color:#40916c">Funktionsübersicht</a> erkunden oder direkt mit dem <strong>14-tägigen kostenlosen Test</strong> starten.</p>
 </div>
-<div class="footer">AgrarOffice · info@agraroffice.de · agraroffice.de</div>
+<div class="footer">AGRI-Office · info@agri-office.de · agri-office.de</div>
 </div></body></html>
 HTML;
 
 $confirm_payload = json_encode([
     'from'    => FROM_EMAIL,
     'to'      => [$email],
-    'subject' => 'Ihre AgrarOffice-Anfrage ist eingegangen',
+    'subject' => 'Ihre AGRI-Office-Anfrage ist eingegangen',
     'html'    => $confirm_html,
 ]);
 

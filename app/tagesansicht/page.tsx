@@ -453,7 +453,7 @@ export default function TagesansichtPage() {
 
       {/* Print-Footer */}
       <div className="hidden print:block mt-6 pt-3 border-t border-gray-300 text-xs text-gray-400 text-center">
-        AgrarOffice — Tages-Übersicht — {today}
+        AGRI-Office — Tages-Übersicht — {today}
       </div>
     </div>
     </>

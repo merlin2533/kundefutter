@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 /** Standard-Produktname, falls keine individuelle Bezeichnung hinterlegt ist. */
-export const DEFAULT_APP_NAME = "AgrarOffice";
+export const DEFAULT_APP_NAME = "AGRI-Office";
 
 /**
  * Liefert den (white-label-fähigen) Anwendungsnamen für Navigation, Login und

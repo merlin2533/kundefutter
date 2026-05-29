@@ -1,4 +1,4 @@
-# AgrarOffice — Projekt-Wissensbasis
+# AGRI-Office — Projekt-Wissensbasis
 
 ---
 
@@ -36,11 +36,11 @@ web/
 10. **Footer** — Links, Badges, Copyright
 
 ### SEO-Daten
-- Title: `AgrarOffice – Die All-in-One CRM & ERP Software für Agrarhändler | SaaS`
+- Title: `AGRI-Office – Die All-in-One CRM & ERP Software für Agrarhändler | SaaS`
 - Meta Description: max 160 Zeichen, mit Keywords
 - Schema.org: `SoftwareApplication` + `FAQPage` + `AggregateRating`
 - Open Graph + Twitter Card vollständig
-- Canonical: `https://agraroffice.de/`
+- Canonical: `https://agri-office.de/`
 - Sitemap verlinkt in `robots.txt`
 
 ### Preise (SaaS-Tarife)

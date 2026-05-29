@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const firmaIban = einMap["firma.iban"] ?? "";
     const firmaBic = einMap["firma.bic"];
     const firmaName =
-      einMap["system.firmenname"] ?? einMap["firma.name"] ?? "AgrarOffice";
+      einMap["system.firmenname"] ?? einMap["firma.name"] ?? "AGRI-Office";
 
     if (!firmaIban) {
       return NextResponse.json(

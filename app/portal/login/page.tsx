@@ -43,7 +43,7 @@ export default function PortalLoginPage() {
             </svg>
           </div>
           <h1 className="text-xl font-bold text-gray-900">Kundenportal</h1>
-          <p className="text-sm text-gray-500 mt-1">AgrarOffice · Ihr Agrarhändler</p>
+          <p className="text-sm text-gray-500 mt-1">AGRI-Office · Ihr Agrarhändler</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

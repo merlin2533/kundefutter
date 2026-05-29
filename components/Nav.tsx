@@ -629,7 +629,7 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
-  const [appName, setAppName] = useState("AgrarOffice");
+  const [appName, setAppName] = useState("AGRI-Office");
   const [firmenname, setFirmenname] = useState("");
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");

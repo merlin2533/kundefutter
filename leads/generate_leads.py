@@ -1,5 +1,5 @@
 """
-Lead-Generator: Potenzielle Kunden für AgrarOffice Röthemeier
+Lead-Generator: Potenzielle Kunden für AGRI-Office Röthemeier
 Zielgruppe: Landhandel, Saatguthändler, Agrarhändler
 Regionen:   Alle 16 deutschen Bundesländer
 Version:    2.0 — E-Mail nur wo verifiziert, Betriebsgröße ergänzt
@@ -536,7 +536,7 @@ def dc(ws, row, col, val, bold=False, size=11, color="000000", fg=None, align="l
         c.fill = PatternFill("solid", fgColor=fg)
     return c
 
-dc(ws_dash, 1, 1, "AgrarOffice — Leads Deutschland Gesamt", bold=True, size=16, color=GRUEN_DARK)
+dc(ws_dash, 1, 1, "AGRI-Office — Leads Deutschland Gesamt", bold=True, size=16, color=GRUEN_DARK)
 dc(ws_dash, 2, 1, "Potenzielle Kunden für Kaltakquise / E-Mail-Kampagne", size=11, color="666666")
 ws_dash.row_dimensions[1].height = 36
 
@@ -585,7 +585,7 @@ ws_dash.merge_cells(start_row=hinweis_row, start_column=1, end_row=hinweis_row, 
 hinweise = [
     "→  Priorität 1: Potenzial 5 + Typ=Privathandel + Größe=klein → sofort anrufen/mailen",
     "→  E-Mail-Kampagne: Nur Einträge mit E-Mail-Adresse verwenden (Spalte 'E-Mail' gefüllt)",
-    "→  In AgrarOffice importieren: Kunden-Import CSV aus dem Reiter 'Alle Leads'",
+    "→  In AGRI-Office importieren: Kunden-Import CSV aus dem Reiter 'Alle Leads'",
     "→  Verifizierte Betriebe (oben) haben echte Kontaktdaten — diese zuerst angehen",
     "→  Generator: leads/generate_leads.py — jederzeit auf weitere PLZ/Regionen erweiterbar",
     "→  Telefon generierter Einträge: plausibel aber nicht verifiziert — vor Anruf prüfen",
@@ -624,7 +624,7 @@ write_leads(ws_top, [l for l in alle_leads if l["Potenzial"] == 5])
 
 # ── Speichern — Master-Datei ──
 os.makedirs("/home/user/kundefutter/leads", exist_ok=True)
-output = "/home/user/kundefutter/leads/agraroffice_leads_deutschland.xlsx"
+output = "/home/user/kundefutter/leads/agri-office_leads_deutschland.xlsx"
 wb.save(output)
 print(f"\nGespeichert: {output}")
 print(f"Dateigröße:  {os.path.getsize(output)/1024:.0f} KB")
@@ -651,7 +651,7 @@ for bl in sorted(set(l["Bundesland"] for l in alle_leads)):
             c.fill = PatternFill("solid", fgColor=fg)
         return c
 
-    dc2(ws_d, 1, 1, f"AgrarOffice — Leads {bl}", bold=True, size=14, color=GRUEN_DARK)
+    dc2(ws_d, 1, 1, f"AGRI-Office — Leads {bl}", bold=True, size=14, color=GRUEN_DARK)
     dc2(ws_d, 2, 1, "Potenzielle Kunden für Kaltakquise / E-Mail-Kampagne", size=10, color="666666")
     ws_d.row_dimensions[1].height = 32
     stats_bl = [

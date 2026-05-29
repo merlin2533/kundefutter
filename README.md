@@ -1,4 +1,4 @@
-# AgrarOffice
+# AGRI-Office
 
 Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Dünger, Saatgut, Analysen).
 

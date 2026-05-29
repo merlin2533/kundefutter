@@ -186,9 +186,9 @@ export default function OnboardingPage() {
         {step === 1 && (
           <div className="text-center space-y-4">
             <div className="text-5xl mb-2">🌱</div>
-            <h1 className="text-2xl font-bold text-gray-900">Herzlich willkommen bei AgrarOffice!</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Herzlich willkommen bei AGRI-Office!</h1>
             <p className="text-gray-600 leading-relaxed">
-              Füllen Sie in 4 Schritten die wichtigsten Stammdaten aus, um AgrarOffice für Ihren Betrieb einzurichten.
+              Füllen Sie in 4 Schritten die wichtigsten Stammdaten aus, um AGRI-Office für Ihren Betrieb einzurichten.
             </p>
             <div className="grid grid-cols-2 gap-3 text-sm text-left mt-4">
               {[["2", "Firmendaten"], ["3", "Erster Artikel"], ["4", "Erster Kunde"], ["5", "Fertig!"]].map(([n, label]) => (
@@ -363,9 +363,9 @@ export default function OnboardingPage() {
         {step === 5 && (
           <div className="text-center space-y-4">
             <div className="text-5xl mb-2">✅</div>
-            <h2 className="text-2xl font-bold text-gray-900">AgrarOffice ist eingerichtet!</h2>
+            <h2 className="text-2xl font-bold text-gray-900">AGRI-Office ist eingerichtet!</h2>
             <p className="text-gray-600 leading-relaxed">
-              Herzlichen Glückwunsch! Ihr AgrarOffice ist einsatzbereit. Sie können jetzt loslegen.
+              Herzlichen Glückwunsch! Ihr AGRI-Office ist einsatzbereit. Sie können jetzt loslegen.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mt-4">
               {[

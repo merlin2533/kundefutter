@@ -874,7 +874,7 @@ export default function DashboardPage() {
         <div className="mb-4 flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <div className="flex items-center gap-2 text-amber-800 text-sm">
             <span className="text-lg">🌱</span>
-            <span><strong>Onboarding noch nicht abgeschlossen</strong> — Richten Sie AgrarOffice in wenigen Schritten ein.</span>
+            <span><strong>Onboarding noch nicht abgeschlossen</strong> — Richten Sie AGRI-Office in wenigen Schritten ein.</span>
           </div>
           <Link href="/onboarding"
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">

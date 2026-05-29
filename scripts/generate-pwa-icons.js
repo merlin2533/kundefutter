@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// Simple SVG icon with "A" for AgrarOffice (green background)
+// Simple SVG icon with "A" for AGRI-Office (green background)
 const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="80" fill="#16a34a"/>
   <text x="256" y="320" font-family="Arial,sans-serif" font-size="280" font-weight="bold"

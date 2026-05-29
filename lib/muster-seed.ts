@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
  */
 export const MUSTER_EINSTELLUNGEN: Record<string, string> = {
   // White-Label App-Name (in Navigation, Login, PWA-Titel)
-  "system.appname": "AgrarOffice",
+  "system.appname": "AGRI-Office",
 
   // Firmenstammdaten – Musterbetrieb, bei Inbetriebnahme anzupassen
   "system.firmenname": "Muster Agrarhandel GmbH",
