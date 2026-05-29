@@ -95,7 +95,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         where: { id: nId },
         data,
         include: {
-          lieferant: { select: { id: true, name: true, firma: true } },
+          lieferant: { select: { id: true, name: true } },
           positionen: {
             include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } },
           },

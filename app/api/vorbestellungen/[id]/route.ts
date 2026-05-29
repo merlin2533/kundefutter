@@ -20,7 +20,18 @@ export async function GET(_req: NextRequest, ctx: Params) {
       },
     });
     if (!v) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    return NextResponse.json(v);
+
+    // Beschaffungsstatus (EinkaufStatus) je Position einmischen → grüner Haken auf der Auftragsbestätigung
+    const status = await prisma.einkaufStatus.findMany({
+      where: { quelle: "vorbestellung", positionId: { in: v.positionen.map((p) => p.id) } },
+    });
+    const statusMap = new Map(status.map((s) => [s.positionId, s.bestelltAm]));
+    const positionen = v.positionen.map((p) => ({
+      ...p,
+      bestelltAm: statusMap.get(p.id)?.toISOString() ?? null,
+    }));
+
+    return NextResponse.json({ ...v, positionen });
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

@@ -12,6 +12,7 @@ interface Position {
   einheit: string;
   reserviert: boolean;
   notiz?: string | null;
+  bestelltAm?: string | null;
   artikel: { id: number; name: string; einheit: string; standardpreis: number };
 }
 
@@ -300,6 +301,22 @@ export default function AuftragsbestaetigungPage() {
                     {pos.artikel.name}
                     {pos.notiz && (
                       <div style={{ fontSize: "9pt", color: "#666" }}>{pos.notiz}</div>
+                    )}
+                    {/* Interner Beschaffungsstatus – nicht im Druck/PDF */}
+                    {pos.bestelltAm ? (
+                      <div
+                        className="print-hidden"
+                        style={{ fontSize: "8.5pt", color: "#15803d", fontWeight: 600, marginTop: "2px" }}
+                      >
+                        ✓ beim Lieferanten bestellt am {fmtDatum(pos.bestelltAm)}
+                      </div>
+                    ) : (
+                      <div
+                        className="print-hidden"
+                        style={{ fontSize: "8.5pt", color: "#b45309", marginTop: "2px" }}
+                      >
+                        ○ noch nicht bestellt
+                      </div>
                     )}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
