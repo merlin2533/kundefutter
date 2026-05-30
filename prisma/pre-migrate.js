@@ -22,6 +22,18 @@
  *   20260512060000_fix_fts5_triggers
  *   20260513000000_congruence_features
  *   20260514000000_rationsberechnung
+ *   20260530000000_ausgabe_erfasst_von
+ *   20260530000000_charge_tracking_bestellverknuepfung
+ *   20260530120000_inventur_charge_bestellung_teillieferung
+ *   20260530130000_duengebedarf_bezeichnung
+ *   20260530200000_lieferant_frachtkosten_mindestbestellwert
+ *   20260530210000_kampagne_kunden
+ *   20260530220000_lager_tracking
+ *
+ * Special fix: production DB has a failed row for
+ *   20260530220000_lieferant_frachtkosten_mindestbestellwert
+ * (renamed locally to 20260530200000_...). This script clears that failed row
+ * before prisma migrate deploy runs so P3009 is resolved.
  */
 
 const { createClient } = require("@libsql/client");
@@ -754,6 +766,167 @@ async function main() {
     log(`✓ ${MIG15} applied`);
   } else {
     log(`skip ${MIG15} (already applied)`);
+  }
+
+  // ── Special fix: resolve failed 20260530220000_lieferant_frachtkosten_mindestbestellwert ──
+  // Production DB recorded this migration as started but failed (finished_at IS NULL).
+  // The local migration was renumbered to 20260530200000_... so the name mismatches.
+  // We must clear the failed row or prisma migrate deploy throws P3009 forever.
+  const FAILED_FRACHTKOSTEN = "20260530220000_lieferant_frachtkosten_mindestbestellwert";
+  {
+    const res = await client.execute(
+      `SELECT 1 FROM "_prisma_migrations" WHERE migration_name=? AND finished_at IS NULL`,
+      [FAILED_FRACHTKOSTEN]
+    );
+    if (res.rows.length > 0) {
+      log(`Resolving failed migration: ${FAILED_FRACHTKOSTEN}`);
+      await addColumnIfMissing(client, "Lieferant", "frachtkosten", "REAL NOT NULL DEFAULT 0");
+      await addColumnIfMissing(client, "Lieferant", "mindestbestellwert", "REAL NOT NULL DEFAULT 0");
+      const failId = crypto.randomUUID();
+      const failSql = fs.readFileSync(
+        path.join(MIGRATIONS_DIR, "20260530200000_lieferant_frachtkosten_mindestbestellwert", "migration.sql"),
+        "utf8"
+      );
+      const failCs = crypto.createHash("sha256").update(failSql).digest("hex");
+      const failNow = new Date().toISOString();
+      await client.execute(
+        `DELETE FROM "_prisma_migrations" WHERE migration_name=? AND finished_at IS NULL`,
+        [FAILED_FRACHTKOSTEN]
+      );
+      await client.execute(
+        `INSERT OR IGNORE INTO "_prisma_migrations"
+           (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+         VALUES (?, ?, ?, ?, NULL, NULL, ?, 1)`,
+        [failId, failCs, failNow, FAILED_FRACHTKOSTEN, failNow]
+      );
+      log(`✓ Resolved failed migration: ${FAILED_FRACHTKOSTEN}`);
+    } else {
+      log(`skip resolve ${FAILED_FRACHTKOSTEN} (not in failed state)`);
+    }
+  }
+
+  // ── Migration 16: 20260530000000_ausgabe_erfasst_von ──────────────────────
+  const MIG16 = "20260530000000_ausgabe_erfasst_von";
+  if (!(await migrationApplied(client, MIG16))) {
+    await addColumnIfMissing(client, "Ausgabe", "erfasstVon", "TEXT");
+    await addColumnIfMissing(client, "Ausgabe", "bezahltVon", "TEXT");
+    await createIndexIfMissing(
+      client,
+      "Ausgabe_erfasstVon_idx",
+      `CREATE INDEX "Ausgabe_erfasstVon_idx" ON "Ausgabe"("erfasstVon")`
+    );
+    await recordMigration(client, MIG16);
+    log(`✓ ${MIG16} applied`);
+  } else {
+    log(`skip ${MIG16} (already applied)`);
+  }
+
+  // ── Migration 17: 20260530000000_charge_tracking_bestellverknuepfung ──────
+  const MIG17 = "20260530000000_charge_tracking_bestellverknuepfung";
+  if (!(await migrationApplied(client, MIG17))) {
+    await addColumnIfMissing(client, "Artikel", "chargePflicht", "BOOLEAN NOT NULL DEFAULT false");
+    await addColumnIfMissing(client, "Lagerbewegung", "chargeNr", "TEXT");
+    await addColumnIfMissing(
+      client,
+      "WareineingangPosition",
+      "bestellpositionId",
+      `INTEGER REFERENCES "Bestellposition"("id")`
+    );
+    await createIndexIfMissing(
+      client,
+      "WareineingangPosition_bestellpositionId_idx",
+      `CREATE INDEX "WareineingangPosition_bestellpositionId_idx" ON "WareineingangPosition"("bestellpositionId")`
+    );
+    await recordMigration(client, MIG17);
+    log(`✓ ${MIG17} applied`);
+  } else {
+    log(`skip ${MIG17} (already applied)`);
+  }
+
+  // ── Migration 18: 20260530120000_inventur_charge_bestellung_teillieferung ─
+  const MIG18 = "20260530120000_inventur_charge_bestellung_teillieferung";
+  if (!(await migrationApplied(client, MIG18))) {
+    await addColumnIfMissing(client, "InventurPosition", "chargeNr", "TEXT");
+    await addColumnIfMissing(client, "Bestellposition", "mengeGeliefert", "REAL NOT NULL DEFAULT 0");
+    await recordMigration(client, MIG18);
+    log(`✓ ${MIG18} applied`);
+  } else {
+    log(`skip ${MIG18} (already applied)`);
+  }
+
+  // ── Migration 19: 20260530130000_duengebedarf_bezeichnung ─────────────────
+  const MIG19 = "20260530130000_duengebedarf_bezeichnung";
+  if (!(await migrationApplied(client, MIG19))) {
+    await addColumnIfMissing(client, "Duengebedarf", "bezeichnung", "TEXT");
+    await recordMigration(client, MIG19);
+    log(`✓ ${MIG19} applied`);
+  } else {
+    log(`skip ${MIG19} (already applied)`);
+  }
+
+  // ── Migration 20: 20260530200000_lieferant_frachtkosten_mindestbestellwert ─
+  const MIG20 = "20260530200000_lieferant_frachtkosten_mindestbestellwert";
+  if (!(await migrationApplied(client, MIG20))) {
+    await addColumnIfMissing(client, "Lieferant", "frachtkosten", "REAL NOT NULL DEFAULT 0");
+    await addColumnIfMissing(client, "Lieferant", "mindestbestellwert", "REAL NOT NULL DEFAULT 0");
+    await recordMigration(client, MIG20);
+    log(`✓ ${MIG20} applied`);
+  } else {
+    log(`skip ${MIG20} (already applied)`);
+  }
+
+  // ── Migration 21: 20260530210000_kampagne_kunden ──────────────────────────
+  const MIG21 = "20260530210000_kampagne_kunden";
+  if (!(await migrationApplied(client, MIG21))) {
+    await addColumnIfMissing(client, "Kampagne", "zielgruppeKriterien", "TEXT");
+    await createTableIfMissing(
+      client,
+      "KampagneKunde",
+      `CREATE TABLE "KampagneKunde" (
+        "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+        "kampagneId" INTEGER NOT NULL,
+        "kundeId" INTEGER NOT NULL,
+        CONSTRAINT "KampagneKunde_kampagneId_fkey" FOREIGN KEY ("kampagneId") REFERENCES "Kampagne" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT "KampagneKunde_kundeId_fkey" FOREIGN KEY ("kundeId") REFERENCES "Kunde" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+      )`
+    );
+    await createIndexIfMissing(
+      client,
+      "KampagneKunde_kampagneId_kundeId_key",
+      `CREATE UNIQUE INDEX "KampagneKunde_kampagneId_kundeId_key" ON "KampagneKunde"("kampagneId", "kundeId")`
+    );
+    await createIndexIfMissing(
+      client,
+      "KampagneKunde_kampagneId_idx",
+      `CREATE INDEX "KampagneKunde_kampagneId_idx" ON "KampagneKunde"("kampagneId")`
+    );
+    await createIndexIfMissing(
+      client,
+      "KampagneKunde_kundeId_idx",
+      `CREATE INDEX "KampagneKunde_kundeId_idx" ON "KampagneKunde"("kundeId")`
+    );
+    await recordMigration(client, MIG21);
+    log(`✓ ${MIG21} applied`);
+  } else {
+    log(`skip ${MIG21} (already applied)`);
+  }
+
+  // ── Migration 22: 20260530220000_lager_tracking ───────────────────────────
+  const MIG22 = "20260530220000_lager_tracking";
+  if (!(await migrationApplied(client, MIG22))) {
+    await addColumnIfMissing(client, "Artikel", "lagerTracking", "BOOLEAN NOT NULL DEFAULT true");
+    // Set lagerTracking=false for service categories (idempotent guard)
+    if (await columnExists(client, "Artikel", "lagerTracking")) {
+      try {
+        await client.execute(
+          `UPDATE "Artikel" SET "lagerTracking" = false WHERE "kategorie" IN ('Beratung', 'Analysen') AND "lagerTracking" = true`
+        );
+      } catch { /* ignore */ }
+    }
+    await recordMigration(client, MIG22);
+    log(`✓ ${MIG22} applied`);
+  } else {
+    log(`skip ${MIG22} (already applied)`);
   }
 
   await client.close();
