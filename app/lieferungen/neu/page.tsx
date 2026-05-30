@@ -31,6 +31,7 @@ interface Artikel {
   mindestbestand: number;
   lieferanten?: ArtikelLieferantInfo[];
   sprengstoffvorlaeufer?: boolean;
+  chargePflicht?: boolean;
 }
 
 /** EK aus bevorzugtem Lieferanten, sonst einzigem Lieferanten, sonst 0 */
@@ -295,6 +296,16 @@ function NeueLieferungInner() {
       setError("Bitte die Bestätigung zur Sprengstoffvorläufer-Erklärung setzen.");
       return;
     }
+    const missingCharge = positionen.find((p) => {
+      if (!p.artikelId) return false;
+      const art = artikel.find((a) => a.id === Number(p.artikelId));
+      return art?.chargePflicht && !p.chargeNr.trim();
+    });
+    if (missingCharge) {
+      const art = artikel.find((a) => a.id === Number(missingCharge.artikelId));
+      setError(`Chargennummer für „${art?.name}" ist Pflichtfeld.`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -520,15 +531,18 @@ function NeueLieferungInner() {
                             required
                           />
                           <LagerAmpel art={selectedArtikel} />
-                          {/* Charge field — shown below when article is selected; Dropdown aus Wareneingang */}
+                          {/* Charge field — shown below when article is selected */}
                           {pos.artikelId !== "" && (
                             <div className="mt-1.5">
+                              {selectedArtikel?.chargePflicht && !pos.chargeNr && (
+                                <p className="text-xs text-amber-600 mb-1">⚠ Chargennummer Pflicht</p>
+                              )}
                               <ChargeInput
                                 artikelId={pos.artikelId}
                                 value={pos.chargeNr}
                                 onChange={(v) => updatePosition(idx, "chargeNr", v)}
                                 einheit={selectedArtikel?.einheit}
-                                className="w-full border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
+                                className={`w-full border rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white ${selectedArtikel?.chargePflicht && !pos.chargeNr ? "border-amber-400 bg-amber-50" : "border-gray-200"}`}
                               />
                             </div>
                           )}

@@ -177,6 +177,7 @@ model Artikel {
   aktiv                  Boolean  @default(true)
   lagerort               String?  // optional: storage location label
   liefergroesse          String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
+  chargePflicht          Boolean  @default(false) // Chargennummer beim Warenausgang Pflicht
   sprengstoffvorlaeufer  Boolean  @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
   ghsKlassen             String?  // JSON array: ["GHS05","GHS07"] — Gefahrenpiktogramme
   hSaetze                String?  // JSON: ["H302","H318"] — Hazard statements
@@ -387,19 +388,22 @@ model Wareneingang {
 }
 
 model WareineingangPosition {
-  id             Int       @id @default(autoincrement())
-  wareneingangId Int
-  artikelId      Int
-  menge          Float
-  einkaufspreis  Float
-  chargeNr       String?   // Chargen-/Losnummer (gesetzlich für Saatgut)
-  mhd            DateTime? // Mindesthaltbarkeitsdatum
+  id                Int       @id @default(autoincrement())
+  wareneingangId    Int
+  artikelId         Int
+  menge             Float
+  einkaufspreis     Float
+  chargeNr          String?   // Chargen-/Losnummer (gesetzlich für Saatgut)
+  mhd               DateTime? // Mindesthaltbarkeitsdatum
+  bestellpositionId Int?      // verknüpfte Bestellposition (erfüllt diese Bestellung)
 
-  wareneingang Wareneingang @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
-  artikel      Artikel      @relation(fields: [artikelId], references: [id])
+  wareneingang   Wareneingang  @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
+  artikel        Artikel       @relation(fields: [artikelId], references: [id])
+  bestellposition Bestellposition? @relation(fields: [bestellpositionId], references: [id])
 
   @@index([wareneingangId])
   @@index([artikelId])
+  @@index([bestellpositionId])
 }
 
 // ─── LAGERBEWEGUNG ────────────────────────────────────────────────────────────
@@ -414,6 +418,7 @@ model Lagerbewegung {
   notiz          String?
   lieferungId    Int?
   wareneingangId Int?
+  chargeNr       String?  // Chargennummer (aus Wareneingang oder Lieferung)
   lagerortVon    String?  // source location (for Umbuchung)
   lagerortNach   String?  // target location (for Umbuchung)
 
@@ -482,10 +487,11 @@ model Bestellposition {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  lieferant Lieferant  @relation(fields: [lieferantId], references: [id])
-  artikel   Artikel    @relation(fields: [artikelId], references: [id])
-  kunde     Kunde?     @relation(fields: [kundeId], references: [id])
-  lieferung Lieferung? @relation(fields: [lieferungId], references: [id])
+  lieferant             Lieferant              @relation(fields: [lieferantId], references: [id])
+  artikel               Artikel                @relation(fields: [artikelId], references: [id])
+  kunde                 Kunde?                 @relation(fields: [kundeId], references: [id])
+  lieferung             Lieferung?             @relation(fields: [lieferungId], references: [id])
+  wareineingangPos      WareineingangPosition[]
 
   @@index([lieferantId])
   @@index([artikelId])
