@@ -14,6 +14,17 @@ interface Artikel {
   id: number;
   name: string;
   einheit: string;
+  chargePflicht: boolean;
+}
+
+interface Bestellposition {
+  id: number;
+  menge: number;
+  einheit: string;
+  einkaufspreis: number;
+  notiz: string | null;
+  artikel: { id: number; name: string; artikelnummer: string };
+  kunde: { id: number; name: string; firma: string | null } | null;
 }
 
 type WEPosition = {
@@ -21,6 +32,7 @@ type WEPosition = {
   menge: number;
   einkaufspreis: number;
   chargeNr: string;
+  bestellpositionId: string;
 };
 
 const inputCls =
@@ -31,15 +43,17 @@ function WareneingangInner() {
   const searchParams = useSearchParams();
   const artikelIdParam = searchParams.get("artikelId");
   const lieferantIdParam = searchParams.get("lieferantId");
+  const bestellpositionIdParam = searchParams.get("bestellpositionId");
 
   const [lieferantenList, setLieferantenList] = useState<Lieferant[]>([]);
   const [artikelList, setArtikelList] = useState<Artikel[]>([]);
+  const [offeneBestellungen, setOffeneBestellungen] = useState<Bestellposition[]>([]);
 
   const [lieferantId, setLieferantId] = useState(lieferantIdParam ?? "");
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<WEPosition[]>([
-    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0, chargeNr: "" },
+    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" },
   ]);
   const [vorbefuelltHinweis, setVorbefuelltHinweis] = useState<string | null>(null);
 
@@ -69,8 +83,36 @@ function WareneingangInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Offene Bestellungen laden wenn Lieferant gewählt
+  useEffect(() => {
+    if (!lieferantId) {
+      setOffeneBestellungen([]);
+      return;
+    }
+    fetch(`/api/bestellliste?lieferantId=${lieferantId}&status=bestellt`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Bestellposition[]) => {
+        const list: Bestellposition[] = Array.isArray(data) ? data : [];
+        setOffeneBestellungen(list);
+        // Pre-link wenn bestellpositionId in URL
+        if (bestellpositionIdParam) {
+          const bp = list.find((b) => String(b.id) === bestellpositionIdParam);
+          if (bp) {
+            setPositionen([{
+              artikelId: String(bp.artikel.id),
+              menge: bp.menge,
+              einkaufspreis: bp.einkaufspreis,
+              chargeNr: "",
+              bestellpositionId: String(bp.id),
+            }]);
+          }
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lieferantId]);
+
   function addPosition() {
-    setPositionen([...positionen, { artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "" }]);
+    setPositionen([...positionen, { artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
   }
 
   function removePosition(idx: number) {
@@ -81,6 +123,26 @@ function WareneingangInner() {
     setPositionen(
       positionen.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
     );
+  }
+
+  function addFromBestellung(bp: Bestellposition) {
+    // prüfen ob Bestellung schon in Positionen vorhanden
+    const alreadyAdded = positionen.some((p) => p.bestellpositionId === String(bp.id));
+    if (alreadyAdded) return;
+    // leere Position ersetzen oder neue anhängen
+    const emptyIdx = positionen.findIndex((p) => !p.artikelId);
+    const newPos: WEPosition = {
+      artikelId: String(bp.artikel.id),
+      menge: bp.menge,
+      einkaufspreis: bp.einkaufspreis,
+      chargeNr: "",
+      bestellpositionId: String(bp.id),
+    };
+    if (emptyIdx >= 0) {
+      setPositionen(positionen.map((p, i) => i === emptyIdx ? newPos : p));
+    } else {
+      setPositionen([...positionen, newPos]);
+    }
   }
 
   const gesamt = positionen.reduce(
@@ -102,6 +164,17 @@ function WareneingangInner() {
       setError("Alle Positionen benötigen eine Menge > 0.");
       return;
     }
+    // Chargenpflicht prüfen
+    const missingCharge = positionen.find((p) => {
+      if (!p.artikelId) return false;
+      const art = artikelList.find((a) => String(a.id) === p.artikelId);
+      return art?.chargePflicht && !p.chargeNr.trim();
+    });
+    if (missingCharge) {
+      const art = artikelList.find((a) => String(a.id) === missingCharge.artikelId);
+      setError(`Chargennummer für „${art?.name}" ist Pflicht.`);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -119,6 +192,7 @@ function WareneingangInner() {
             menge: Number(p.menge),
             einkaufspreis: Number(p.einkaufspreis),
             chargeNr: p.chargeNr.trim() || undefined,
+            bestellpositionId: p.bestellpositionId ? Number(p.bestellpositionId) : undefined,
           })),
       }),
     });
@@ -130,6 +204,8 @@ function WareneingangInner() {
       setError(d.error ?? "Fehler beim Speichern.");
     }
   }
+
+  const linkedBestellIds = new Set(positionen.map((p) => p.bestellpositionId).filter(Boolean));
 
   return (
     <div>
@@ -191,6 +267,49 @@ function WareneingangInner() {
           </div>
         </div>
 
+        {/* Offene Bestellungen dieses Lieferanten */}
+        {offeneBestellungen.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              Offene Bestellungen ({offeneBestellungen.length})
+            </h3>
+            <div className="space-y-1.5">
+              {offeneBestellungen.map((bp) => {
+                const isLinked = linkedBestellIds.has(String(bp.id));
+                return (
+                  <div
+                    key={bp.id}
+                    className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-sm ${
+                      isLinked
+                        ? "bg-green-50 border-green-200 text-green-800"
+                        : "bg-amber-50 border-amber-200 text-amber-800"
+                    }`}
+                  >
+                    <span>
+                      <span className="font-medium">{bp.artikel.name}</span>
+                      <span className="text-xs ml-2 opacity-70">{bp.menge} {bp.einheit}</span>
+                      {bp.einkaufspreis > 0 && (
+                        <span className="text-xs ml-2 opacity-70">· {formatEuro(bp.einkaufspreis)}/{bp.einheit}</span>
+                      )}
+                      {bp.kunde && <span className="text-xs ml-2 opacity-70">· Für: {bp.kunde.firma || bp.kunde.name}</span>}
+                    </span>
+                    {isLinked ? (
+                      <span className="text-xs font-medium shrink-0">✓ Übernommen</span>
+                    ) : (
+                      <button
+                        onClick={() => addFromBestellung(bp)}
+                        className="text-xs px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-medium shrink-0"
+                      >
+                        Übernehmen
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Positionen */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -203,80 +322,92 @@ function WareneingangInner() {
             </button>
           </div>
           <div className="space-y-3">
-            {positionen.map((pos, idx) => (
-              <div
-                key={idx}
-                className="flex gap-3 items-end flex-wrap bg-gray-50 rounded-lg p-3"
-              >
-                <div className="w-full sm:flex-1 sm:min-w-[160px]">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Artikel
-                  </label>
-                  <SearchableSelect
-                    options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
-                    value={pos.artikelId}
-                    onChange={(v) => updatePosition(idx, "artikelId", v)}
-                    placeholder="-- Artikel wählen --"
-                    required
-                  />
+            {positionen.map((pos, idx) => {
+              const art = artikelList.find((a) => String(a.id) === pos.artikelId);
+              const chargePflicht = art?.chargePflicht ?? false;
+              const linkedBP = offeneBestellungen.find((b) => String(b.id) === pos.bestellpositionId);
+              return (
+                <div
+                  key={idx}
+                  className="flex gap-3 items-end flex-wrap bg-gray-50 rounded-lg p-3"
+                >
+                  {linkedBP && (
+                    <div className="w-full text-xs text-green-700 font-medium bg-green-50 border border-green-200 rounded px-2 py-1">
+                      🔗 Bestellung: {linkedBP.artikel.name} · {linkedBP.menge} {linkedBP.einheit}
+                      {linkedBP.kunde && ` · Für: ${linkedBP.kunde.firma || linkedBP.kunde.name}`}
+                    </div>
+                  )}
+                  <div className="w-full sm:flex-1 sm:min-w-[160px]">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Artikel
+                    </label>
+                    <SearchableSelect
+                      options={artikelList.map((a) => ({ value: a.id, label: a.name }))}
+                      value={pos.artikelId}
+                      onChange={(v) => updatePosition(idx, "artikelId", v)}
+                      placeholder="-- Artikel wählen --"
+                      required
+                    />
+                  </div>
+                  <div className="w-full sm:w-28">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Menge
+                    </label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={pos.menge}
+                      onChange={(e) =>
+                        updatePosition(idx, "menge", parseFloat(e.target.value) || 0)
+                      }
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="w-full sm:w-36">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Einkaufspreis (EUR)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={pos.einkaufspreis}
+                      onChange={(e) =>
+                        updatePosition(
+                          idx,
+                          "einkaufspreis",
+                          parseFloat(e.target.value) || 0
+                        )
+                      }
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="w-full sm:w-40">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Chargennummer
+                      {chargePflicht && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={pos.chargeNr}
+                      onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
+                      placeholder={chargePflicht ? "Pflichtfeld" : "Optional"}
+                      className={`${inputCls} ${chargePflicht && !pos.chargeNr.trim() ? "border-amber-400 bg-amber-50" : ""}`}
+                    />
+                  </div>
+                  {positionen.length > 1 && (
+                    <button
+                      onClick={() => removePosition(idx)}
+                      className="text-red-400 hover:text-red-600 text-lg leading-none pb-2"
+                      title="Position entfernen"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-                <div className="w-full sm:w-28">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Menge
-                  </label>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0"
-                    value={pos.menge}
-                    onChange={(e) =>
-                      updatePosition(idx, "menge", parseFloat(e.target.value) || 0)
-                    }
-                    className={inputCls}
-                  />
-                </div>
-                <div className="w-full sm:w-36">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Einkaufspreis (EUR)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={pos.einkaufspreis}
-                    onChange={(e) =>
-                      updatePosition(
-                        idx,
-                        "einkaufspreis",
-                        parseFloat(e.target.value) || 0
-                      )
-                    }
-                    className={inputCls}
-                  />
-                </div>
-                <div className="w-full sm:w-36">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Chargennummer
-                  </label>
-                  <input
-                    type="text"
-                    value={pos.chargeNr}
-                    onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
-                    placeholder="Optional"
-                    className={inputCls}
-                  />
-                </div>
-                {positionen.length > 1 && (
-                  <button
-                    onClick={() => removePosition(idx)}
-                    className="text-red-400 hover:text-red-600 text-lg leading-none pb-2"
-                    title="Position entfernen"
-                  >
-                    x
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

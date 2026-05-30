@@ -184,13 +184,21 @@ export default function BestelllistePage() {
                             </button>
                           )}
                           {pos.status === "bestellt" && (
-                            <button
-                              onClick={() => updateStatus(pos.id, "geliefert")}
-                              disabled={isUpdating}
-                              className="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg font-medium transition-colors disabled:opacity-40"
-                            >
-                              Erhalten
-                            </button>
+                            <>
+                              <Link
+                                href={`/lager/wareneingang?lieferantId=${pos.lieferant.id}&bestellpositionId=${pos.id}`}
+                                className="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg font-medium transition-colors text-center"
+                              >
+                                → Wareneingang
+                              </Link>
+                              <button
+                                onClick={() => updateStatus(pos.id, "geliefert")}
+                                disabled={isUpdating}
+                                className="text-xs text-gray-400 hover:text-green-700 disabled:opacity-40"
+                              >
+                                Manuell erhalten
+                              </button>
+                            </>
                           )}
                           {pos.status !== "geliefert" && pos.status !== "storniert" && (
                             <button

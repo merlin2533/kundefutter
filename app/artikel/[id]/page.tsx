@@ -768,6 +768,23 @@ export default function ArtikelDetailPage() {
                 />
                 <label htmlFor="aktiv" className="text-sm text-gray-700">Aktiv</label>
               </div>
+              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="chargePflicht"
+                  checked={(editForm as Record<string, unknown>).chargePflicht as boolean ?? false}
+                  onChange={(e) => setEditForm({ ...editForm, chargePflicht: e.target.checked } as typeof editForm)}
+                  className="rounded mt-0.5"
+                />
+                <div>
+                  <label htmlFor="chargePflicht" className="text-sm font-medium text-blue-800 cursor-pointer">
+                    Chargennummer Pflicht
+                  </label>
+                  <p className="text-xs text-blue-700 mt-0.5">
+                    Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz).
+                  </p>
+                </div>
+              </div>
               <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <input
                   type="checkbox"
