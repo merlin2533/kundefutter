@@ -247,8 +247,8 @@ export default function UmbuchungenPage() {
             </label>
             <input
               type="number"
-              step="0.01"
-              min="0.01"
+              step="0.001"
+              min="0.001"
               value={form.menge}
               onChange={(e) => setForm({ ...form, menge: e.target.value })}
               placeholder="0"

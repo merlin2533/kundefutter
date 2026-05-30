@@ -364,7 +364,7 @@ export default function InventurDetailPage() {
                       {isOffen ? (
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           value={v.istBestand}
                           onChange={(e) => handleChange(pos.id, "istBestand", e.target.value)}
                           onBlur={() => handleBlur(pos.id)}

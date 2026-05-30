@@ -252,7 +252,7 @@ export default function NeuerArtikelPage() {
             </label>
             <input
               type="number"
-              step="0.01"
+              step="0.001"
               min="0"
               value={form.mindestbestand}
               onChange={(e) =>
@@ -328,7 +328,7 @@ export default function NeuerArtikelPage() {
               />
               <input
                 type="number"
-                step="0.01"
+                step="0.001"
                 placeholder="Menge"
                 value={item.menge}
                 onChange={(e) => {

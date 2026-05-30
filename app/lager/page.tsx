@@ -443,7 +443,7 @@ export default function LagerPage() {
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="0.001"
                   value={korrekturForm.neuerBestand}
                   onChange={(e) => setKorrekturForm({ ...korrekturForm, neuerBestand: parseFloat(e.target.value) || 0 })}
                   className={inputCls}

@@ -183,7 +183,7 @@ function Inner() {
                         placeholder="Artikel…"
                       />
                     </td>
-                    <td className="py-1 pr-2"><input type="number" step="0.1" value={p.menge} onChange={e => setP(i, "menge", e.target.value)} className="border rounded px-2 py-1 w-24" /></td>
+                    <td className="py-1 pr-2"><input type="number" step="0.001" value={p.menge} onChange={e => setP(i, "menge", e.target.value)} className="border rounded px-2 py-1 w-24" /></td>
                     <td className="py-1 pr-2"><input type="text" value={p.einheit} onChange={e => setP(i, "einheit", e.target.value)} className="border rounded px-2 py-1 w-16" /></td>
                     <td className="py-1 pr-2"><input type="number" step="0.01" value={p.preis} onChange={e => setP(i, "preis", e.target.value)} className="border rounded px-2 py-1 w-24" /></td>
                     <td className="py-1 pr-2"><input type="checkbox" checked={p.reservieren} onChange={e => setP(i, "reservieren", e.target.checked)} /></td>

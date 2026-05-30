@@ -59,6 +59,11 @@ export function formatPercent(n: number): string {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "\u00a0%";
 }
 
+/** Mengenangabe mit bis zu 3 Nachkommastellen (z.B. 0,120 t). */
+export function formatMenge(n: number): string {
+  return n.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+}
+
 // \u2500\u2500\u2500 Datum / Zeitraum \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 /** Fr\u00fchestes Jahr, das in Auswertungs-Filtern angeboten wird. */

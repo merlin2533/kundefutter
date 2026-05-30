@@ -701,7 +701,7 @@ export default function ArtikelDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
                 <input
-                  type="number" step="0.01" min="0"
+                  type="number" step="0.001" min="0"
                   value={editForm.mindestbestand ?? 0}
                   onChange={(e) => setEditForm({ ...editForm, mindestbestand: parseFloat(e.target.value) || 0 })}
                   className={inputCls}
@@ -942,7 +942,7 @@ export default function ArtikelDetailPage() {
                   />
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     placeholder="Menge"
                     value={item.menge}
                     onChange={(e) => {
@@ -1191,7 +1191,7 @@ export default function ArtikelDetailPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestellmenge</label>
                       <input
-                        type="number" min="0"
+                        type="number" step="0.001" min="0"
                         value={lievForm.mindestbestellmenge}
                         onChange={(e) => setLievForm({ ...lievForm, mindestbestellmenge: e.target.value })}
                         className={inputCls}

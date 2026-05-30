@@ -322,7 +322,7 @@ function Inner() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Ertragsziel (dt/ha)</label>
-            <input type="number" step="1" value={eingaben.ertragsZiel} onChange={e => setE("ertragsZiel", e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Standard" />
+            <input type="number" step="0.001" value={eingaben.ertragsZiel} onChange={e => setE("ertragsZiel", e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Standard" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Vorfrucht</label>
@@ -330,11 +330,11 @@ function Inner() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">N-Min (kg/ha)</label>
-            <input type="number" step="1" value={eingaben.nMin} onChange={e => setE("nMin", e.target.value)} className="w-full border rounded px-3 py-2" placeholder={aktuelleProbe?.nMin?.toString() ?? "aus Bodenprobe"} />
+            <input type="number" step="0.001" value={eingaben.nMin} onChange={e => setE("nMin", e.target.value)} className="w-full border rounded px-3 py-2" placeholder={aktuelleProbe?.nMin?.toString() ?? "aus Bodenprobe"} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Org. N Vorjahr (kg/ha)</label>
-            <input type="number" step="1" value={eingaben.organischeDuengungVorjahrN} onChange={e => setE("organischeDuengungVorjahrN", e.target.value)} className="w-full border rounded px-3 py-2" />
+            <input type="number" step="0.001" value={eingaben.organischeDuengungVorjahrN} onChange={e => setE("organischeDuengungVorjahrN", e.target.value)} className="w-full border rounded px-3 py-2" />
           </div>
           <div className="flex items-end gap-2">
             <input id="zf" type="checkbox" checked={eingaben.zwischenfruchtAngebaut} onChange={e => setE("zwischenfruchtAngebaut", e.target.checked)} />

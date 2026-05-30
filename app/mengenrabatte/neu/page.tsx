@@ -222,7 +222,7 @@ export default function NeuerMengenrabattPage() {
             </label>
             <input
               type="number"
-              step="0.01"
+              step="0.001"
               min="0"
               value={formVonMenge}
               onChange={(e) => setFormVonMenge(e.target.value)}
