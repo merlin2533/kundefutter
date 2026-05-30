@@ -244,7 +244,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     const bestandJeCharge = lagerbewegungen.reduce<Record<string, { artikelId: number; artikelName: string; einheit: string; bestand: number }>>((acc, lb) => {
-      const key = `${lb.chargeNr}-${lb.artikelId}`;
+      const key = `${lb.chargeNr}||${lb.artikelId}`;
       if (!acc[key]) acc[key] = { artikelId: lb.artikelId, artikelName: lb.artikel.name, einheit: lb.artikel.einheit, bestand: 0 };
       acc[key].bestand += lb.menge;
       return acc;
@@ -281,7 +281,7 @@ export async function GET(req: NextRequest) {
       modus: "charge",
       wareneingaenge,
       lieferungen,
-      bestandJeCharge: Object.entries(bestandJeCharge).map(([key, v]) => ({ ...v, chargeNr: key.split("-")[0] })),
+      bestandJeCharge: Object.entries(bestandJeCharge).map(([key, v]) => ({ ...v, chargeNr: key.split("||")[0] })),
     });
   } catch (e) {
     const isDev = process.env.NODE_ENV === "development";

@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Bestellposition: Teillieferung oder vollständig geliefert
-        const bestellpositionId = positionen.find((p) => p.artikelId === pos.artikelId)?.bestellpositionId;
+        const bestellpositionId = pos.bestellpositionId;
         if (bestellpositionId && !isNaN(bestellpositionId)) {
           const bp = await tx.bestellposition.findUnique({ where: { id: bestellpositionId }, select: { menge: true, mengeGeliefert: true } });
           if (bp) {
