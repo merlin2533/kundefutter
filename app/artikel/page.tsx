@@ -47,6 +47,10 @@ function loadArtikelFilters() {
   try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
 }
 
+function loadArtikelFilters() {
+  try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
@@ -54,6 +58,7 @@ export default function ArtikelPage() {
   const [kategorienMap, setKategorienMap] = useState<Record<string, string[]>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const [search, setSearch] = useState(() => loadArtikelFilters().search ?? "");
   const [kategorie, setKategorie] = useState(() => loadArtikelFilters().kategorie ?? "alle");
   const [unterkategorie, setUnterkategorie] = useState(() => loadArtikelFilters().unterkategorie ?? "alle");
@@ -62,6 +67,10 @@ export default function ArtikelPage() {
   const [preisBis, setPreisBis] = useState(() => loadArtikelFilters().preisBis ?? "");
   const [nurSprengstoff, setNurSprengstoff] = useState(() => loadArtikelFilters().nurSprengstoff === "1");
   const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
+=======
+  const [search, setSearch] = useState<string>(() => loadArtikelFilters().search ?? "");
+  const [kategorie, setKategorie] = useState<string>(() => loadArtikelFilters().kategorie ?? "alle");
+>>>>>>> c6b5e19 (feat: Bestellliste – Lagerbestand/Lagerort + Lieferant Fracht/MBW)
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -174,6 +183,15 @@ export default function ArtikelPage() {
   }
 
   useEffect(() => {
+<<<<<<< HEAD
+=======
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie })); } catch {}
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, kategorie]);
+
+  useEffect(() => {
+>>>>>>> c6b5e19 (feat: Bestellliste – Lagerbestand/Lagerort + Lieferant Fracht/MBW)
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
