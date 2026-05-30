@@ -460,6 +460,60 @@ export default function AngebotDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Vorlage-Modal */}
+      {showVorlageModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setShowVorlageModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Als Vorlage verwenden</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Positionen aus <span className="font-medium">{angebot.nummer}</span> werden für den neuen Kunden übernommen.
+            </p>
+            <div className="mb-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Kunde <span className="text-red-500">*</span>
+              </label>
+              {vorlageKundenLoading ? (
+                <div className="text-sm text-gray-400 py-2">Lade Kunden…</div>
+              ) : (
+                <SearchableSelect
+                  options={vorlageKunden.map((k) => ({
+                    value: String(k.id),
+                    label: k.name,
+                    sub: k.firma ?? undefined,
+                  }))}
+                  value={vorlageKundeId}
+                  onChange={setVorlageKundeId}
+                  placeholder="Kunden suchen und wählen…"
+                />
+              )}
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowVorlageModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleVorlageErstellen}
+                disabled={!vorlageKundeId || vorlageWorking}
+                className="px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {vorlageWorking ? "Erstelle…" : "Angebot erstellen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
