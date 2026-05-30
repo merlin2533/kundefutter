@@ -15,12 +15,20 @@ interface Versuch {
   positionen: Position[];
 }
 
+function loadSortenFilters() {
+  try { return JSON.parse(sessionStorage.getItem("sortenversuche-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function Page() {
   const [liste, setListe] = useState<Versuch[]>([]);
-  const [filterKultur, setFilterKultur] = useState("");
-  const [filterJahr, setFilterJahr] = useState("");
-  const [filterSorte, setFilterSorte] = useState("");
+  const [filterKultur, setFilterKultur] = useState<string>(() => loadSortenFilters().filterKultur ?? "");
+  const [filterJahr, setFilterJahr] = useState<string>(() => loadSortenFilters().filterJahr ?? "");
+  const [filterSorte, setFilterSorte] = useState<string>(() => loadSortenFilters().filterSorte ?? "");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("sortenversuche-filters", JSON.stringify({ filterKultur, filterJahr, filterSorte })); } catch {}
+  }, [filterKultur, filterJahr, filterSorte]);
 
   useEffect(() => {
     fetch("/api/sortenversuche").then(r => r.ok ? r.json() : []).then(d => setListe(Array.isArray(d) ? d : [])).finally(() => setLoading(false));
@@ -38,10 +46,10 @@ export default function Page() {
   const kulturen = Array.from(new Set(liste.map(v => v.kultur))).sort();
   const jahre = Array.from(new Set(liste.map(v => v.jahr))).sort((a, b) => b - a);
 
-  // Mehrjahres-Vergleich je Sorte
+  // Mehrjahres-Vergleich je Sorte (nur aus gefilterten Versuchen)
   const sortenVergleich = useMemo(() => {
     const map = new Map<string, { sorte: string; kultur: string; ertraege: { jahr: number; ertrag: number }[] }>();
-    for (const v of liste) {
+    for (const v of gefiltert) {
       for (const p of v.positionen) {
         if (p.ertragDtHa == null) continue;
         const key = `${v.kultur}|${p.sorte}`;
@@ -56,7 +64,7 @@ export default function Page() {
         durchschnitt: s.ertraege.reduce((a, b) => a + b.ertrag, 0) / s.ertraege.length,
       }))
       .sort((a, b) => b.durchschnitt - a.durchschnitt);
-  }, [liste]);
+  }, [gefiltert]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto">

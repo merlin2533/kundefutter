@@ -53,11 +53,15 @@ function StatusBadge({ status }: { status: "bezahlt" | "ueberfaellig" | "offen" 
   return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${cls}`}>{label}</span>;
 }
 
+function loadSammelrechnungFilters() {
+  try { return JSON.parse(sessionStorage.getItem("sammelrechnungen-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function SammelrechnungenPage() {
   const [items, setItems] = useState<Sammelrechnung[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"alle" | "offen" | "bezahlt">("alle");
-  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"alle" | "offen" | "bezahlt">(() => loadSammelrechnungFilters().statusFilter ?? "alle");
+  const [search, setSearch] = useState<string>(() => loadSammelrechnungFilters().search ?? "");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
 
@@ -78,6 +82,10 @@ export default function SammelrechnungenPage() {
   }, [statusFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("sammelrechnungen-filters", JSON.stringify({ statusFilter, search })); } catch {}
+  }, [statusFilter, search]);
 
   async function markiereBezahlt(id: number) {
     setActionLoading(id);

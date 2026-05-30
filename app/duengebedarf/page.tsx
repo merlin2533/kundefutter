@@ -138,6 +138,7 @@ function Inner() {
     setSpeichern(speichernFlag);
     const payload = {
       schlagId: parseInt(schlagId, 10),
+      bezeichnung: eingaben.bezeichnung.trim() || null,
       jahr: eingaben.jahr,
       fruchtart: eingaben.fruchtart,
       ertragsZiel: eingaben.ertragsZiel || null,
