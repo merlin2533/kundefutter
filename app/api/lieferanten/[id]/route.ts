@@ -34,13 +34,30 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
+    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert } = body;
     const lieferant = await prisma.lieferant.update({
       where: { id: Number(id) },
-      data: body,
+      data: {
+        ...(name !== undefined && { name }),
+        ...(ansprechpartner !== undefined && { ansprechpartner }),
+        ...(email !== undefined && { email }),
+        ...(telefon !== undefined && { telefon }),
+        ...(strasse !== undefined && { strasse }),
+        ...(plz !== undefined && { plz }),
+        ...(ort !== undefined && { ort }),
+        ...(notizen !== undefined && { notizen }),
+        ...(aktiv !== undefined && { aktiv }),
+        ...(frachtkosten != null && { frachtkosten: Number(frachtkosten) }),
+        ...(mindestbestellwert != null && { mindestbestellwert: Number(mindestbestellwert) }),
+      },
     });
     return NextResponse.json(lieferant);
-  } catch {
-    return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
+  } catch (e) {
+    if ((e as { code?: string })?.code === "P2025") {
+      return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
+    }
+    const isDev = process.env.NODE_ENV === "development";
+    return NextResponse.json({ error: isDev && e instanceof Error ? e.message : "Fehler beim Speichern" }, { status: 500 });
   }
 }
 

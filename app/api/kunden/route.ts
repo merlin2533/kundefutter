@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
     name: true,
     firma: true,
     kategorie: true,
+    strasse: true,
     plz: true,
     ort: true,
     land: true,

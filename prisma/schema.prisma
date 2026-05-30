@@ -106,10 +106,12 @@ model Lieferant {
   strasse         String?
   plz             String?
   ort             String?
-  notizen         String?
-  aktiv           Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notizen            String?
+  frachtkosten       Float    @default(0)
+  mindestbestellwert Float    @default(0)
+  aktiv              Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   artikelZuordnungen ArtikelLieferant[]
   wareneingaenge     Wareneingang[]
@@ -124,6 +126,7 @@ model Artikel {
   artikelnummer    String   @unique
   name             String
   kategorie        String   // Futter | Duenger | Saatgut
+  unterkategorie   String?  // optionale Unterkategorie (z.B. "Kraftfutter", "Mineralfutter")
   einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
   beschreibung     String?
   standardpreis    Float    @default(0)
@@ -134,6 +137,7 @@ model Artikel {
   aktiv            Boolean  @default(true)
   lagerort         String?  // optional: storage location label
   liefergroesse    String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
+  lagerTracking    Boolean  @default(true)  // false = kein Lagerbestand (Dienstleistungen, Beratung)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

@@ -12,6 +12,8 @@ const defaultForm = {
   plz: "",
   ort: "",
   notizen: "",
+  frachtkosten: "",
+  mindestbestellwert: "",
 };
 
 const inputCls =
@@ -44,6 +46,8 @@ export default function NeuerLieferantPage() {
           plz: form.plz || undefined,
           ort: form.ort || undefined,
           notizen: form.notizen || undefined,
+          frachtkosten: form.frachtkosten ? parseFloat(form.frachtkosten) : 0,
+          mindestbestellwert: form.mindestbestellwert ? parseFloat(form.mindestbestellwert) : 0,
         }),
       });
       if (res.ok) {
@@ -164,6 +168,37 @@ export default function NeuerLieferantPage() {
               type="text"
               value={form.ort}
               onChange={(e) => setForm({ ...form, ort: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Frachtkosten (€)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={form.frachtkosten}
+              onChange={(e) => setForm({ ...form, frachtkosten: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mindestbestellwert (€)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0,00"
+              value={form.mindestbestellwert}
+              onChange={(e) => setForm({ ...form, mindestbestellwert: e.target.value })}
               className={inputCls}
             />
           </div>

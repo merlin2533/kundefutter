@@ -30,13 +30,17 @@ interface Artikel {
 
 const FALLBACK_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung"];
 
+function loadArtikelFilters() {
+  try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [kategorie, setKategorie] = useState("alle");
+  const [search, setSearch] = useState<string>(() => loadArtikelFilters().search ?? "");
+  const [kategorie, setKategorie] = useState<string>(() => loadArtikelFilters().kategorie ?? "alle");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
@@ -53,6 +57,7 @@ export default function ArtikelPage() {
   }
 
   useEffect(() => {
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie })); } catch {}
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, kategorie]);

@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
+
 interface Bestellposition {
   id: number;
   menge: number;
@@ -12,8 +14,8 @@ interface Bestellposition {
   geliefertAm: string | null;
   notiz: string | null;
   createdAt: string;
-  lieferant: { id: number; name: string; email: string | null; telefon: string | null };
-  artikel: { id: number; name: string; artikelnummer: string; einheit: string };
+  lieferant: { id: number; name: string; email: string | null; telefon: string | null; frachtkosten: number; mindestbestellwert: number };
+  artikel: { id: number; name: string; artikelnummer: string; einheit: string; kategorie: string; aktuellerBestand: number; lagerort: string | null };
   kunde: { id: number; name: string; firma: string | null } | null;
   lieferung: { id: number; datum: string } | null;
 }
@@ -108,6 +110,9 @@ export default function BestelllistePage() {
           {Object.values(grouped).map(({ lieferant, items }) => {
             const gesamtWert = items.reduce((s, i) => s + i.menge * i.einkaufspreis, 0);
             const offenCount = items.filter((i) => i.status === "offen").length;
+            const mbw = lieferant.mindestbestellwert;
+            const mbwErreicht = mbw > 0 && gesamtWert >= mbw;
+            const mbwFehlt = mbw > 0 && gesamtWert < mbw;
             return (
               <div key={lieferant.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 {/* Lieferant Header */}
@@ -116,13 +121,27 @@ export default function BestelllistePage() {
                     <Link href={`/lieferanten/${lieferant.id}`} className="font-semibold text-gray-900 hover:text-green-700">
                       {lieferant.name}
                     </Link>
-                    <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-500 mt-0.5">
                       {lieferant.telefon && <span>📞 {lieferant.telefon}</span>}
                       {lieferant.email && <a href={`mailto:${lieferant.email}`} className="hover:text-green-700">✉️ {lieferant.email}</a>}
+                      {lieferant.frachtkosten > 0 && (
+                        <span className="text-gray-600">🚚 Fracht: {lieferant.frachtkosten.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                      )}
+                      {mbw > 0 && (
+                        <span className={mbwErreicht ? "text-green-700 font-medium" : "text-amber-600 font-medium"}>
+                          {mbwErreicht ? "✓" : "!"} MBW: {mbw.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                          {mbwFehlt && <span className="ml-1 text-gray-400 font-normal">(noch {(mbw - gesamtWert).toLocaleString("de-DE", { style: "currency", currency: "EUR" })})</span>}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">{items.length} Position{items.length !== 1 ? "en" : ""} · {gesamtWert.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                    <div className="text-right">
+                      <div className={`text-sm font-semibold ${mbwErreicht ? "text-green-700" : mbwFehlt ? "text-amber-700" : "text-gray-700"}`}>
+                        {gesamtWert.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                      </div>
+                      <div className="text-xs text-gray-400">{items.length} Position{items.length !== 1 ? "en" : ""}</div>
+                    </div>
                     {offenCount > 0 && (
                       <button
                         onClick={() => Promise.all(items.filter((i) => i.status === "offen").map((i) => updateStatus(i.id, "bestellt")))}
@@ -139,6 +158,7 @@ export default function BestelllistePage() {
                   {items.map((pos) => {
                     const sc = STATUS_CONFIG[pos.status] ?? STATUS_CONFIG.offen;
                     const isUpdating = updating === pos.id;
+                    const lagerRelevant = !LAGER_KATEGORIEN_OHNE.includes(pos.artikel.kategorie);
                     return (
                       <div key={pos.id} className={`px-5 py-3 flex gap-3 items-start ${isUpdating ? "opacity-50" : ""}`}>
                         <div className="flex-1 min-w-0">
@@ -148,6 +168,16 @@ export default function BestelllistePage() {
                               {pos.artikel.name}
                             </Link>
                             <span className="text-xs text-gray-400 font-mono">{pos.artikel.artikelnummer}</span>
+                            {lagerRelevant && (
+                              pos.artikel.aktuellerBestand <= 0
+                                ? <span className="text-xs text-red-600 font-medium">● Kein Lager</span>
+                                : pos.artikel.aktuellerBestand < pos.menge
+                                ? <span className="text-xs text-amber-600 font-medium">● {pos.artikel.aktuellerBestand} {pos.artikel.einheit} (Lager)</span>
+                                : <span className="text-xs text-green-600">● {pos.artikel.aktuellerBestand} {pos.artikel.einheit}</span>
+                            )}
+                            {lagerRelevant && pos.artikel.lagerort && (
+                              <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{pos.artikel.lagerort}</span>
+                            )}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500">
                             <span className="font-medium text-gray-700">{pos.menge} {pos.einheit}</span>

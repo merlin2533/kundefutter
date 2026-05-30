@@ -21,13 +21,17 @@ interface Gutschrift {
   positionen: GutschriftPosition[];
 }
 
+function loadGutschriftFilters() {
+  try { return JSON.parse(sessionStorage.getItem("gutschriften-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function GutschriftenPage() {
   const [gutschriften, setGutschriften] = useState<Gutschrift[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("alle");
-  const [vonFilter, setVonFilter] = useState("");
-  const [bisFilter, setBisFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(() => loadGutschriftFilters().statusFilter ?? "alle");
+  const [vonFilter, setVonFilter] = useState<string>(() => loadGutschriftFilters().vonFilter ?? "");
+  const [bisFilter, setBisFilter] = useState<string>(() => loadGutschriftFilters().bisFilter ?? "");
+  const [search, setSearch] = useState<string>(() => loadGutschriftFilters().search ?? "");
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const fetchGutschriften = useCallback(async () => {
@@ -46,6 +50,10 @@ export default function GutschriftenPage() {
     const t = setTimeout(fetchGutschriften, 300);
     return () => clearTimeout(t);
   }, [fetchGutschriften]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("gutschriften-filters", JSON.stringify({ statusFilter, vonFilter, bisFilter, search })); } catch {}
+  }, [statusFilter, vonFilter, bisFilter, search]);
 
   function betrag(gs: Gutschrift): number {
     return gs.positionen.reduce((sum, p) => sum + p.menge * p.preis, 0);

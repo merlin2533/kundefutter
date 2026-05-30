@@ -16,11 +16,15 @@ interface Lieferant {
   _count?: { artikelZuordnungen: number };
 }
 
+function loadLieferantFilters() {
+  try { return JSON.parse(sessionStorage.getItem("lieferanten-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function LieferantenPage() {
   const router = useRouter();
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState<string>(() => loadLieferantFilters().search ?? "");
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
@@ -36,6 +40,10 @@ export default function LieferantenPage() {
     const t = setTimeout(fetchLieferanten, 300);
     return () => clearTimeout(t);
   }, [fetchLieferanten]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("lieferanten-filters", JSON.stringify({ search })); } catch {}
+  }, [search]);
 
   return (
     <div>
