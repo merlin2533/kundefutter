@@ -116,7 +116,7 @@ export interface KundeSchlag {
 
 export const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
 
-export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Bedarfe", "Sonderpreise", "Statistik", "Reklamationen", "Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag", "Zertifizierungen", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
+export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Bedarfe", "Sonderpreise", "Statistik", "Reklamationen", "Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag", "Zertifizierungen", "Sachkundenachweise", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
 export type Tab = (typeof TABS)[number];
 
 export const DIREKT_TABS: Tab[] = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben"];
@@ -124,7 +124,7 @@ export const DIREKT_TABS: Tab[] = ["Stammdaten", "Lieferhistorie", "CRM", "Angeb
 export const TAB_GRUPPEN: { label: string; icon: string; tabs: Tab[] }[] = [
   { label: "Vertrieb", icon: "📊", tabs: ["Bedarfe", "Sonderpreise", "Statistik", "Reklamationen"] },
   { label: "Agrar",    icon: "🌾", tabs: ["Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag"] },
-  { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Dokumente", "Vorgangskette", "Erklärungen"] },
+  { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Sachkundenachweise", "Dokumente", "Vorgangskette", "Erklärungen"] },
 ];
 
 export const inputClsSchlag =

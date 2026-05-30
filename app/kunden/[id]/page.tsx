@@ -27,6 +27,7 @@ const ErklaerungTab = nextDynamic(() => import("./tabs/ErklaerungTab"), { loadin
 const ReklamationenTab = nextDynamic(() => import("./tabs/ReklamationenTab"), { loading: tabLoading });
 const AlbrechtTab = nextDynamic(() => import("./tabs/AlbrechtTab"), { loading: tabLoading });
 const ZertifizierungenTab = nextDynamic(() => import("./tabs/ZertifizierungenTab"), { loading: tabLoading });
+const SachkundenachweiseTab = nextDynamic(() => import("./tabs/SachkundenachweiseTab"), { loading: tabLoading });
 
 const TAB_ICONS: Record<Tab, string> = {
   Stammdaten:     "🏠",
@@ -44,6 +45,7 @@ const TAB_ICONS: Record<Tab, string> = {
   Tiere:          "🐄",
   Agrarantrag:    "📜",
   Zertifizierungen: "🏅",
+  Sachkundenachweise: "📜",
   Dokumente:      "📁",
   Vorgangskette:  "🔗",
   Erklärungen:    "💡",
@@ -338,8 +340,9 @@ export default function KundeDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6" ref={navRef}>
-        <nav className="flex gap-0.5 -mb-px overflow-x-auto">
-          {/* Direkte Tabs */}
+        <nav className="flex -mb-px">
+          {/* Direkte Tabs — scrollbar, damit Dropdowns nicht geclippt werden */}
+          <div className="flex gap-0.5 overflow-x-auto min-w-0 flex-1">
           {DIREKT_TABS.map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -421,6 +424,7 @@ export default function KundeDetailPage() {
         {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} />}
         {activeTab === "Erklärungen" && <ErklaerungTab kundeId={kunde.id} />}
         {activeTab === "Zertifizierungen" && <ZertifizierungenTab kundeId={kunde.id} />}
+        {activeTab === "Sachkundenachweise" && <SachkundenachweiseTab kundeId={kunde.id} />}
       </div>
     </div>
   );
