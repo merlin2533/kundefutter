@@ -17,9 +17,11 @@ interface Bodenprobe {
   klasseP?: string | null; klasseK?: string | null; klasseMg?: string | null; klasseBor?: string | null;
 }
 interface Bedarfseintrag {
-  id: number; jahr: number; fruchtart: string; ertragsZiel: number;
+  id: number; bezeichnung?: string | null; jahr: number; fruchtart: string; ertragsZiel: number;
   nBedarf: number; pBedarf: number; kBedarf: number; mgBedarf?: number | null;
   berechnetAm: string; bodenprobe?: Bodenprobe | null;
+  vorfrucht?: string | null; notiz?: string | null;
+  parameter?: string | null; // JSON: { eingaben, rechenweg }
 }
 interface BerechnungsErgebnis {
   fruchtart: string; ertragsZiel: number; nBedarf: number; pBedarf: number;
@@ -47,6 +49,7 @@ function Inner() {
   const [schlagSpeichern, setSchlagSpeichern] = useState(false);
 
   const [eingaben, setEingaben] = useState({
+    bezeichnung: "",
     jahr: new Date().getFullYear(),
     fruchtart: "",
     ertragsZiel: "",
@@ -61,6 +64,8 @@ function Inner() {
   const [ergebnis, setErgebnis] = useState<BerechnungsErgebnis | null>(null);
   const [berechnet, setBerechnet] = useState(false);
   const [speichern, setSpeichern] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/kunden?limit=2000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
@@ -131,37 +136,80 @@ function Inner() {
     if (!schlagId) { toast.error("Schlag wählen oder anlegen"); return; }
     if (!eingaben.fruchtart) { toast.error("Fruchtart wählen"); return; }
     setSpeichern(speichernFlag);
-    const res = await fetch("/api/duengebedarf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        schlagId: parseInt(schlagId, 10),
-        jahr: eingaben.jahr,
-        fruchtart: eingaben.fruchtart,
-        ertragsZiel: eingaben.ertragsZiel || null,
-        vorfrucht: eingaben.vorfrucht || null,
-        nMin: eingaben.nMin || null,
-        organischeDuengungVorjahrN: eingaben.organischeDuengungVorjahrN || null,
-        versorgungsklasseP: eingaben.versorgungsklasseP || null,
-        versorgungsklasseK: eingaben.versorgungsklasseK || null,
-        versorgungsklasseMg: eingaben.versorgungsklasseMg || null,
-        zwischenfruchtAngebaut: eingaben.zwischenfruchtAngebaut,
-        speichern: speichernFlag,
-      }),
-    });
+    const payload = {
+      schlagId: parseInt(schlagId, 10),
+      jahr: eingaben.jahr,
+      fruchtart: eingaben.fruchtart,
+      ertragsZiel: eingaben.ertragsZiel || null,
+      vorfrucht: eingaben.vorfrucht || null,
+      nMin: eingaben.nMin || null,
+      organischeDuengungVorjahrN: eingaben.organischeDuengungVorjahrN || null,
+      versorgungsklasseP: eingaben.versorgungsklasseP || null,
+      versorgungsklasseK: eingaben.versorgungsklasseK || null,
+      versorgungsklasseMg: eingaben.versorgungsklasseMg || null,
+      zwischenfruchtAngebaut: eingaben.zwischenfruchtAngebaut,
+      speichern: speichernFlag,
+    };
+    const url = speichernFlag && editId != null ? `/api/duengebedarf?id=${editId}` : "/api/duengebedarf";
+    const method = speichernFlag && editId != null ? "PUT" : "POST";
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     setSpeichern(false);
     if (res.ok) {
       const data = await res.json();
       setErgebnis(data);
       setBerechnet(true);
       if (speichernFlag) {
-        toast.success("Bedarf gespeichert");
+        toast.success(editId != null ? "Bedarf aktualisiert" : "Bedarf gespeichert");
+        setEditId(null);
         fetch(`/api/duengebedarf?schlagId=${schlagId}`).then(r => r.json()).then(d => setHistorie(Array.isArray(d) ? d : []));
       }
     } else {
       const err = await res.json().catch(() => ({}));
       toast.error(err.error ?? "Berechnungsfehler");
     }
+  }
+
+  async function loeschenHistorie(id: number) {
+    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
+    setDeletingId(id);
+    const res = await fetch(`/api/duengebedarf?id=${id}`, { method: "DELETE" });
+    setDeletingId(null);
+    if (res.ok) {
+      toast.success("Eintrag gelöscht");
+      setHistorie(prev => prev.filter(h => h.id !== id));
+      if (editId === id) { setEditId(null); setErgebnis(null); setBerechnet(false); }
+    } else {
+      toast.error("Löschen fehlgeschlagen");
+    }
+  }
+
+  function bearbeiten(h: Bedarfseintrag) {
+    let params: typeof eingaben = { ...eingaben };
+    if (h.parameter) {
+      try {
+        const parsed = JSON.parse(h.parameter);
+        const e = parsed.eingaben ?? {};
+        params = {
+          jahr: h.jahr,
+          fruchtart: h.fruchtart,
+          ertragsZiel: e.ertragsZiel != null ? String(e.ertragsZiel) : "",
+          vorfrucht: e.vorfrucht ?? h.vorfrucht ?? "",
+          nMin: e.nMin != null ? String(e.nMin) : "",
+          organischeDuengungVorjahrN: e.organischeDuengungVorjahrN != null ? String(e.organischeDuengungVorjahrN) : "",
+          versorgungsklasseP: e.versorgungsklasseP ?? "",
+          versorgungsklasseK: e.versorgungsklasseK ?? "",
+          versorgungsklasseMg: e.versorgungsklasseMg ?? "",
+          zwischenfruchtAngebaut: !!e.zwischenfruchtAngebaut,
+        };
+      } catch { /* ignore */ }
+    } else {
+      params = { ...eingaben, jahr: h.jahr, fruchtart: h.fruchtart, vorfrucht: h.vorfrucht ?? "" };
+    }
+    setEingaben(params);
+    setEditId(h.id);
+    setErgebnis(null);
+    setBerechnet(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function setE<K extends keyof typeof eingaben>(k: K, v: typeof eingaben[K]) {
@@ -308,6 +356,12 @@ function Inner() {
         )}
       </Card>
 
+      {editId != null && (
+        <div className="mb-3 bg-blue-50 border border-blue-200 rounded p-3 flex items-center justify-between gap-3 text-sm text-blue-800">
+          <span>Bearbeitungsmodus: Eintrag wird überschrieben wenn du „Änderungen speichern" klickst.</span>
+          <button onClick={() => { setEditId(null); setErgebnis(null); setBerechnet(false); }} className="text-blue-700 hover:underline text-xs">Abbrechen</button>
+        </div>
+      )}
       <Card className="mb-4">
         <h2 className="font-semibold mb-3">Berechnungs-Parameter</h2>
         <div className="grid sm:grid-cols-3 gap-4">
@@ -344,12 +398,17 @@ function Inner() {
           <KlassenSelect label="Versorgungsklasse K" value={eingaben.versorgungsklasseK} onChange={v => setE("versorgungsklasseK", v)} />
           <KlassenSelect label="Versorgungsklasse Mg" value={eingaben.versorgungsklasseMg} onChange={v => setE("versorgungsklasseMg", v)} />
         </div>
-        <div className="flex gap-3 mt-4 justify-end">
+        <div className="flex gap-3 mt-4 justify-end flex-wrap">
+          {editId != null && (
+            <button onClick={() => { setEditId(null); setErgebnis(null); setBerechnet(false); }} className="px-4 py-2 rounded border hover:bg-gray-50 text-sm">
+              Bearbeitung abbrechen
+            </button>
+          )}
           <button onClick={() => berechnen(false)} disabled={!schlagId || !eingaben.fruchtart} className="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 disabled:opacity-40">
             Berechnen
           </button>
           <button onClick={() => berechnen(true)} disabled={speichern || !schlagId || !eingaben.fruchtart} className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800 disabled:opacity-40">
-            {speichern ? "Speichere…" : "Berechnen + Speichern"}
+            {speichern ? "Speichere…" : editId != null ? "Änderungen speichern" : "Berechnen + Speichern"}
           </button>
         </div>
       </Card>
@@ -396,17 +455,37 @@ function Inner() {
           <h2 className="font-semibold mb-3">Historie für diesen Schlag</h2>
           <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead><tr className="text-left border-b"><th className="pb-1 pr-4">Jahr</th><th className="pb-1 pr-4">Fruchtart</th><th className="pb-1 pr-4">N</th><th className="pb-1 pr-4">P₂O₅</th><th className="pb-1 pr-4">K₂O</th><th className="pb-1 pr-4">MgO</th><th className="pb-1">Berechnet am</th></tr></thead>
+            <thead><tr className="text-left border-b"><th className="pb-1 pr-4">Jahr</th><th className="pb-1 pr-4">Fruchtart</th><th className="pb-1 pr-4">N</th><th className="pb-1 pr-4">P₂O₅</th><th className="pb-1 pr-4">K₂O</th><th className="pb-1 pr-4">MgO</th><th className="pb-1 pr-4">Berechnet am</th><th className="pb-1"></th></tr></thead>
             <tbody>
               {historie.map(h => (
-                <tr key={h.id} className="border-b hover:bg-gray-50">
+                <tr key={h.id} className={`border-b hover:bg-gray-50 ${editId === h.id ? "bg-blue-50" : ""}`}>
                   <td className="py-1 pr-4">{h.jahr}</td>
-                  <td className="py-1 pr-4">{h.fruchtart}</td>
+                  <td className="py-1 pr-4">
+                    {h.fruchtart}
+                    {h.notiz && <div className="text-xs text-gray-400">{h.notiz}</div>}
+                  </td>
                   <td className="py-1 pr-4">{h.nBedarf}</td>
                   <td className="py-1 pr-4">{h.pBedarf}</td>
                   <td className="py-1 pr-4">{h.kBedarf}</td>
                   <td className="py-1 pr-4">{h.mgBedarf ?? "–"}</td>
-                  <td className="py-1">{formatDatum(h.berechnetAm)}</td>
+                  <td className="py-1 pr-4">{formatDatum(h.berechnetAm)}</td>
+                  <td className="py-1 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => bearbeiten(h)}
+                      className="text-xs text-blue-600 hover:text-blue-800 mr-2"
+                      title="Bearbeiten"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      onClick={() => loeschenHistorie(h.id)}
+                      disabled={deletingId === h.id}
+                      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
+                      title="Löschen"
+                    >
+                      {deletingId === h.id ? "…" : "Löschen"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

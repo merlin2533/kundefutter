@@ -21,10 +21,11 @@ interface Bestellposition {
   notiz: string | null;
   createdAt: string;
   lieferant: { id: number; name: string; email: string | null; telefon: string | null };
-  artikel: { id: number; name: string; artikelnummer: string; einheit: string; chargePflicht: boolean };
+  artikel: { id: number; name: string; artikelnummer: string; einheit: string; chargePflicht: boolean; standardpreis: number };
   kunde: { id: number; name: string; firma: string | null } | null;
   lieferung: { id: number; datum: string } | null;
   wareineingangPos: WEPos[];
+  kundenpreis: number | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -172,8 +173,32 @@ export default function BestelllistePage() {
                               }
                             </span>
                             {pos.einkaufspreis > 0 && (
-                              <span>{(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} ({pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit})</span>
+                              <span title="Einkaufspreis">
+                                <span className="text-gray-400">EK:</span>{" "}
+                                <span className="font-medium text-gray-700">{pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit}</span>
+                                {" "}
+                                <span className="text-gray-400">= {(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                              </span>
                             )}
+                            {(() => {
+                              const vk = pos.kundenpreis ?? pos.artikel.standardpreis;
+                              if (!vk) return null;
+                              const isKundenpreis = pos.kundenpreis != null;
+                              const marge = pos.einkaufspreis > 0 ? ((vk - pos.einkaufspreis) / vk * 100) : null;
+                              return (
+                                <span title={isKundenpreis ? "Kundenpreis (Sonderpreis)" : "Verkaufspreis (Standardpreis)"}>
+                                  <span className="text-gray-400">{isKundenpreis ? "VK*:" : "VK:"}</span>{" "}
+                                  <span className={`font-medium ${isKundenpreis ? "text-blue-700" : "text-gray-700"}`}>
+                                    {vk.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit}
+                                  </span>
+                                  {marge != null && (
+                                    <span className={`ml-1 ${marge < 0 ? "text-red-600" : marge < 10 ? "text-amber-600" : "text-green-700"}`}>
+                                      ({marge.toFixed(1)} %)
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })()}
                             {pos.artikel.chargePflicht && (
                               <span className="text-blue-600 font-medium">🔵 Charge Pflicht</span>
                             )}

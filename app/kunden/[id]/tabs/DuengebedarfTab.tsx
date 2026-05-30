@@ -17,6 +17,7 @@ interface DuengebedarfEintrag {
   mgBedarf: number | null;
   notiz: string | null;
   berechnetAm: string;
+  parameter?: string | null; // JSON: { eingaben, rechenweg }
 }
 
 const heute = new Date();
@@ -27,6 +28,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
   const [fruchtarten, setFruchtarten] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [formSchlagId, setFormSchlagId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -76,6 +78,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
 
   function oeffneForm(sl: KundeSchlag) {
     setFormSchlagId(sl.id);
+    setEditId(null);
     setError("");
     setForm({
       jahr: String(heute.getFullYear()),
@@ -88,6 +91,33 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
     });
   }
 
+  function bearbeiten(eintrag: DuengebedarfEintrag) {
+    let f = {
+      jahr: String(eintrag.jahr),
+      fruchtart: eintrag.fruchtart,
+      ertragsZiel: eintrag.ertragsZiel != null ? String(eintrag.ertragsZiel) : "",
+      vorfrucht: eintrag.vorfrucht ?? "",
+      nMin: "",
+      zwischenfruchtAngebaut: false,
+      notiz: eintrag.notiz ?? "",
+    };
+    if (eintrag.parameter) {
+      try {
+        const parsed = JSON.parse(eintrag.parameter);
+        const e = parsed.eingaben ?? {};
+        f = {
+          ...f,
+          nMin: e.nMin != null ? String(e.nMin) : "",
+          zwischenfruchtAngebaut: !!e.zwischenfruchtAngebaut,
+        };
+      } catch { /* ignore */ }
+    }
+    setForm(f);
+    setFormSchlagId(eintrag.schlagId);
+    setEditId(eintrag.id);
+    setError("");
+  }
+
   async function berechnen(e: React.FormEvent) {
     e.preventDefault();
     if (formSchlagId == null) return;
@@ -98,27 +128,27 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/duengebedarf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          schlagId: formSchlagId,
-          jahr: parseInt(form.jahr, 10) || heute.getFullYear(),
-          fruchtart: form.fruchtart.trim(),
-          ertragsZiel: form.ertragsZiel ? Number(form.ertragsZiel) : null,
-          vorfrucht: form.vorfrucht.trim() || null,
-          nMin: form.nMin ? Number(form.nMin) : null,
-          zwischenfruchtAngebaut: form.zwischenfruchtAngebaut,
-          notiz: form.notiz.trim() || null,
-          speichern: true,
-        }),
-      });
+      const payload = {
+        schlagId: formSchlagId,
+        jahr: parseInt(form.jahr, 10) || heute.getFullYear(),
+        fruchtart: form.fruchtart.trim(),
+        ertragsZiel: form.ertragsZiel ? Number(form.ertragsZiel) : null,
+        vorfrucht: form.vorfrucht.trim() || null,
+        nMin: form.nMin ? Number(form.nMin) : null,
+        zwischenfruchtAngebaut: form.zwischenfruchtAngebaut,
+        notiz: form.notiz.trim() || null,
+        speichern: true,
+      };
+      const url = editId != null ? `/api/duengebedarf?id=${editId}` : "/api/duengebedarf";
+      const method = editId != null ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Berechnung fehlgeschlagen.");
         return;
       }
       setFormSchlagId(null);
+      setEditId(null);
       await ladeEintraege(schlaegte);
     } finally {
       setSaving(false);
@@ -126,9 +156,11 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
   }
 
   async function loeschen(id: number) {
+    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
     setDeleting(id);
     try {
       await fetch(`/api/duengebedarf?id=${id}`, { method: "DELETE" });
+      if (editId === id) { setFormSchlagId(null); setEditId(null); }
       await ladeEintraege(schlaegte);
     } finally {
       setDeleting(null);
@@ -166,7 +198,10 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                 </span>
               </div>
               <button
-                onClick={() => (formSchlagId === sl.id ? setFormSchlagId(null) : oeffneForm(sl))}
+                onClick={() => {
+                  if (formSchlagId === sl.id) { setFormSchlagId(null); setEditId(null); }
+                  else oeffneForm(sl);
+                }}
                 className="text-sm px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
               >
                 {formSchlagId === sl.id ? "Abbrechen" : "+ Düngebedarf berechnen"}
@@ -174,7 +209,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
             </div>
 
             {formSchlagId === sl.id && (
-              <form onSubmit={berechnen} className="p-4 bg-gray-50 border-b border-gray-100 space-y-3">
+              <form onSubmit={berechnen} className={`p-4 border-b border-gray-100 space-y-3 ${editId != null ? "bg-blue-50" : "bg-gray-50"}`}>
                 {error && (
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
                 )}
@@ -221,11 +256,11 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => setFormSchlagId(null)}
+                  <button type="button" onClick={() => { setFormSchlagId(null); setEditId(null); }}
                     className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">Abbrechen</button>
                   <button type="submit" disabled={saving}
                     className="px-4 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-60">
-                    {saving ? "Berechne…" : "Berechnen & speichern"}
+                    {saving ? "Speichere…" : editId != null ? "Änderungen speichern" : "Berechnen & speichern"}
                   </button>
                 </div>
               </form>
@@ -248,7 +283,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {liste.map((e) => (
-                    <tr key={e.id} className="hover:bg-gray-50">
+                    <tr key={e.id} className={`hover:bg-gray-50 ${editId === e.id ? "bg-blue-50" : ""}`}>
                       <td className="px-4 py-2 text-gray-700">{e.jahr}</td>
                       <td className="px-4 py-2 text-gray-900">
                         {e.fruchtart}
@@ -258,7 +293,13 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                       <td className="px-4 py-2 text-right font-mono">{Math.round(e.pBedarf)}</td>
                       <td className="px-4 py-2 text-right font-mono">{Math.round(e.kBedarf)}</td>
                       <td className="px-4 py-2 text-right font-mono">{e.mgBedarf != null ? Math.round(e.mgBedarf) : "—"}</td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => bearbeiten(e)}
+                          className="text-xs text-blue-600 hover:text-blue-800 mr-2"
+                        >
+                          Bearbeiten
+                        </button>
                         <button
                           onClick={() => loeschen(e.id)}
                           disabled={deleting === e.id}

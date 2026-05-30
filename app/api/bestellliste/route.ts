@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         lieferant: { select: { id: true, name: true, email: true, telefon: true } },
-        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, chargePflicht: true } },
+        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, chargePflicht: true, standardpreis: true } },
         kunde: { select: { id: true, name: true, firma: true } },
         lieferung: { select: { id: true, datum: true } },
         wareineingangPos: { select: { id: true, chargeNr: true, menge: true, wareneingang: { select: { datum: true } } } },
@@ -31,7 +31,32 @@ export async function GET(req: NextRequest) {
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       take: 500,
     });
-    return NextResponse.json(positionen);
+
+    // Fetch customer-specific prices for positions that have a customer + article
+    const kundenPreisPairs = positionen
+      .filter((p) => p.kundeId != null)
+      .map((p) => ({ kundeId: p.kundeId!, artikelId: p.artikelId }));
+
+    const kundenPreise = kundenPreisPairs.length > 0
+      ? await prisma.kundeArtikelPreis.findMany({
+          where: { OR: kundenPreisPairs },
+          select: { kundeId: true, artikelId: true, preis: true, rabatt: true },
+        })
+      : [];
+
+    const kundenPreisMap = new Map(
+      kundenPreise.map((kp) => [`${kp.kundeId}-${kp.artikelId}`, kp])
+    );
+
+    const result = positionen.map((p) => {
+      const kp = p.kundeId ? kundenPreisMap.get(`${p.kundeId}-${p.artikelId}`) : undefined;
+      return {
+        ...p,
+        kundenpreis: kp ? kp.preis * (1 - kp.rabatt / 100) : null,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
