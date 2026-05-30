@@ -99,11 +99,15 @@ export default function NotificationCenter() {
   }, [load]);
 
   useEffect(() => {
-    function onDown(e: MouseEvent) {
+    function onDown(e: MouseEvent | TouchEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown as EventListener, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown as EventListener);
+    };
   }, []);
 
   async function markRead(id: number) {
@@ -159,7 +163,7 @@ export default function NotificationCenter() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 w-80 max-h-[32rem] overflow-y-auto z-[90]">
+        <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 w-80 max-w-[calc(100vw-0.5rem)] max-h-[min(32rem,calc(100svh-4.5rem))] overflow-y-auto z-[90]">
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-gray-800">Benachrichtigungen</h3>
@@ -198,7 +202,7 @@ export default function NotificationCenter() {
                     key={a.id}
                     href={`/aufgaben/${a.id}`}
                     onClick={() => setOpen(false)}
-                    className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                    className="flex flex-col px-3 py-3 sm:py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
                   >
                     <span className="text-sm font-medium text-gray-800 leading-tight">{a.betreff}</span>
                     <span className={`text-xs mt-0.5 ${isOverdue ? "text-red-600" : "text-orange-600"}`}>
@@ -221,7 +225,7 @@ export default function NotificationCenter() {
                   key={r.id}
                   href={`/lieferungen/${r.id}`}
                   onClick={() => setOpen(false)}
-                  className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                  className="flex flex-col px-3 py-3 sm:py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
                 >
                   <span className="text-sm font-medium text-gray-800 leading-tight">{r.kundeName}</span>
                   <span className="text-xs text-red-600 mt-0.5">
@@ -242,7 +246,7 @@ export default function NotificationCenter() {
                   key={a.id}
                   href={`/artikel/${a.id}`}
                   onClick={() => setOpen(false)}
-                  className="flex flex-col px-3 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                  className="flex flex-col px-3 py-3 sm:py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
                 >
                   <span className="text-sm font-medium text-gray-800 leading-tight">{a.name}</span>
                   <span className="text-xs text-red-600 mt-0.5">
@@ -283,7 +287,7 @@ export default function NotificationCenter() {
             </section>
           )}
 
-          <div className="px-3 py-2 border-t border-gray-100 flex items-center justify-between sticky bottom-0 bg-white">
+          <div className="px-3 py-3 sm:py-2 border-t border-gray-100 flex items-center justify-between sticky bottom-0 bg-white">
             <Link
               href="/aufgaben"
               onClick={() => setOpen(false)}
