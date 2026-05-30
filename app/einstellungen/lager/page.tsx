@@ -110,6 +110,16 @@ export default function LagerPage() {
         label="Kunden-Kategorien"
         placeholder="z.B. Landwirt"
       />
+      <ListenEditor
+        settingKey="system.lager_no_tracking_kategorien"
+        label="Kategorien ohne Lagerbestand"
+        placeholder="z.B. Beratung"
+      />
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-2 text-sm text-blue-800">
+        Artikel der hier eingetragenen Kategorien werden nicht im Lager geführt (Dienstleistungen, Beratung, Analysen).
+        Zusätzlich kann jeder Artikel einzeln über die Option &ldquo;Lagerbestand tracken&rdquo; im Artikelstamm deaktiviert werden.
+        Standardmäßig deaktiviert: <strong>Beratung, Analysen</strong>.
+      </div>
     </div>
   );
 }

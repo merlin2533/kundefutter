@@ -24,6 +24,7 @@ const defaultForm = {
   liefergroesse: "",
   sprengstoffvorlaeufer: false,
   chargePflicht: false,
+  lagerTracking: true,
 };
 
 export default function NeuerArtikelPage() {
@@ -434,6 +435,23 @@ export default function NeuerArtikelPage() {
             </label>
             <p className="text-xs text-orange-700 mt-0.5">
               Abgabe nur an gewerbliche Verwender. Jährliche Erklärung des Käufers erforderlich.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+          <input
+            type="checkbox"
+            id="lagerTracking"
+            checked={form.lagerTracking}
+            onChange={(e) => setForm({ ...form, lagerTracking: e.target.checked })}
+            className="rounded mt-0.5"
+          />
+          <div>
+            <label htmlFor="lagerTracking" className="text-sm font-medium text-gray-800 cursor-pointer">
+              Lagerbestand tracken
+            </label>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Deaktivieren für Dienstleistungen, Beratung und Analysen – diese werden nicht im Lager geführt.
             </p>
           </div>
         </div>

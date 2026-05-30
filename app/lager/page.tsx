@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, istLagerrelevant } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +14,7 @@ interface LagerArtikel {
   einheit: string;
   aktuellerBestand: number;
   mindestbestand: number;
+  lagerTracking: boolean;
   lieferanten: Array<{
     bevorzugt: boolean;
     lieferant: { id: number; name: string };
@@ -64,7 +65,7 @@ export default function LagerPage() {
     const res = await fetch("/api/artikel?limit=500");
     if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
-    setArtikel(Array.isArray(data) ? data : []);
+    setArtikel((Array.isArray(data) ? data : []).filter((a: LagerArtikel) => istLagerrelevant(a.kategorie, a.lagerTracking)));
     setLoading(false);
   }, []);
 
