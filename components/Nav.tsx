@@ -5,10 +5,16 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 
+interface NavChild {
+  href: string;
+  label: string;
+  section?: string;
+}
+
 interface NavGroup {
   label: string;
   href?: string;
-  children?: { href: string; label: string }[];
+  children?: NavChild[];
 }
 
 const groups: NavGroup[] = [
@@ -19,94 +25,102 @@ const groups: NavGroup[] = [
       { href: "/kunden", label: "Kundenliste" },
       { href: "/kunden/karte", label: "Karte" },
       { href: "/kundenimport", label: "Import" },
-      { href: "/crm", label: "CRM / Aktivitäten" },
-      { href: "/ki/erkennung", label: "KI-Belegerkennung" },
-      { href: "/ki/crm", label: "KI-CRM Notiz" },
-      { href: "/ki/sprache", label: "Sprachmemo → CRM" },
-      { href: "/besuchstermine", label: "Besuchstermine" },
-      { href: "/gebietsanalyse", label: "Gebietsanalyse" },
-      { href: "/agrarantraege", label: "Agraranträge (AFIG)" },
-      { href: "/mailverteiler", label: "Mailverteiler" },
-      { href: "/kampagnen", label: "Kampagnen" },
-      { href: "/kunden/bewertung", label: "Kundenbewertung" },
       { href: "/telefonmaske", label: "Telefonmaske" },
       { href: "/preisauskunft", label: "Preisauskunft" },
       { href: "/tagesansicht", label: "Tagesansicht" },
+      { href: "/mailverteiler", label: "Mailverteiler" },
+      { href: "/kampagnen", label: "Kampagnen" },
+    ],
+  },
+  {
+    label: "Vertrieb",
+    children: [
+      { href: "/crm", label: "CRM / Aktivitäten", section: "CRM" },
+      { href: "/besuchstermine", label: "Besuchstermine", section: "CRM" },
+      { href: "/aufgaben", label: "Aufgaben / TODO", section: "CRM" },
+      { href: "/angebote", label: "Angebote", section: "Aufträge" },
+      { href: "/angebot-vorlagen", label: "Angebots-Vorlagen", section: "Aufträge" },
+      { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)", section: "Aufträge" },
+      { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln", section: "Aufträge" },
+      { href: "/kontrakte", label: "Kontrakte", section: "Aufträge" },
     ],
   },
   {
     label: "Pflanze & Tier",
     children: [
-      { href: "/bodenproben", label: "Bodenproben" },
-      { href: "/bodenanalyse", label: "Albrecht-Analyse" },
-      { href: "/duengebedarf", label: "Düngebedarfsermittlung" },
-      { href: "/duev", label: "DüV-Sperrfristen" },
-      { href: "/duev/bilanz", label: "Nährstoffbilanz (DüV §8)" },
-      { href: "/sortenversuche", label: "Sortenversuche" },
-      { href: "/anbauplanung", label: "Anbauplanung" },
-      { href: "/psm", label: "PSM-Ausbringung" },
-      { href: "/spritzfenster", label: "Spritzfenster-Prognose" },
-      { href: "/sachkundenachweise", label: "Sachkundenachweise" },
-      { href: "/zertifizierungen", label: "Zertifizierungen" },
-      { href: "/rationsberechnung", label: "Rationsberechnung" },
+      { href: "/bodenproben", label: "Bodenproben", section: "Pflanze" },
+      { href: "/bodenanalyse", label: "Albrecht-Analyse", section: "Pflanze" },
+      { href: "/duengebedarf", label: "Düngebedarfsermittlung", section: "Pflanze" },
+      { href: "/duev", label: "DüV-Sperrfristen", section: "Pflanze" },
+      { href: "/duev/bilanz", label: "Nährstoffbilanz (DüV §8)", section: "Pflanze" },
+      { href: "/sortenversuche", label: "Sortenversuche", section: "Pflanze" },
+      { href: "/anbauplanung", label: "Anbauplanung", section: "Pflanze" },
+      { href: "/psm", label: "PSM-Ausbringung", section: "Pflanze" },
+      { href: "/spritzfenster", label: "Spritzfenster-Prognose", section: "Pflanze" },
+      { href: "/sachkundenachweise", label: "Sachkundenachweise", section: "Pflanze" },
+      { href: "/zertifizierungen", label: "Zertifizierungen", section: "Pflanze" },
+      { href: "/rationsberechnung", label: "Rationsberechnung", section: "Tier" },
     ],
   },
   {
-    label: "Artikel",
+    label: "Artikel & Lager",
     children: [
-      { href: "/artikel", label: "Artikelstamm" },
-      { href: "/lieferanten", label: "Lieferanten" },
-      { href: "/lager", label: "Lager" },
-      { href: "/ki/wareneingang", label: "KI-Wareneingang" },
-      { href: "/lager/umbuchungen", label: "Umbuchungen" },
-      { href: "/lager/chargen/zertifikate", label: "Chargen-Zertifikate" },
-      { href: "/lager/mhd", label: "MHD-Übersicht" },
-      { href: "/inventur", label: "Inventur" },
-      { href: "/kalkulation", label: "Preiskalkulation" },
-      { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator" },
+      { href: "/artikel", label: "Artikelstamm", section: "Artikel" },
+      { href: "/lieferanten", label: "Lieferanten", section: "Artikel" },
+      { href: "/kalkulation", label: "Preiskalkulation", section: "Artikel" },
+      { href: "/kalkulation/naehrstoffe", label: "Nährstoffkalkulator", section: "Artikel" },
+      { href: "/lager", label: "Lager", section: "Lager" },
+      { href: "/lager/umbuchungen", label: "Umbuchungen", section: "Lager" },
+      { href: "/lager/chargen/zertifikate", label: "Chargen-Zertifikate", section: "Lager" },
+      { href: "/lager/mhd", label: "MHD-Übersicht", section: "Lager" },
+      { href: "/inventur", label: "Inventur", section: "Lager" },
     ],
   },
   {
     label: "Lieferungen",
     children: [
-      { href: "/angebote", label: "Angebote" },
-      { href: "/angebot-vorlagen", label: "Angebots-Vorlagen" },
-      { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)" },
-      { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln" },
-      { href: "/aufgaben", label: "Aufgaben / TODO" },
-      { href: "/lieferungen", label: "Lieferungen" },
-      { href: "/ki/lieferung", label: "KI-Lieferung" },
-      { href: "/fahrer", label: "Fahrer-Cockpit" },
-      { href: "/einkaufszettel", label: "Einkaufszettel" },
-      { href: "/bestellliste", label: "Bestellliste" },
-      { href: "/bestellungen", label: "Lieferantenbestellungen" },
-      { href: "/kontrakte", label: "Kontrakte" },
-      { href: "/tourenplanung", label: "Tourenplanung" },
-      { href: "/anlieferungen", label: "Erzeugerabrechnung" },
+      { href: "/lieferungen", label: "Lieferungen", section: "Lieferungen" },
+      { href: "/fahrer", label: "Fahrer-Cockpit", section: "Lieferungen" },
+      { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
+      { href: "/anlieferungen", label: "Erzeugerabrechnung", section: "Lieferungen" },
+      { href: "/bestellliste", label: "Bestellliste", section: "Einkauf" },
+      { href: "/bestellungen", label: "Lieferantenbestellungen", section: "Einkauf" },
+      { href: "/einkaufszettel", label: "Einkaufszettel", section: "Einkauf" },
     ],
   },
   {
     label: "Finanzen",
     children: [
-      { href: "/rechnungen", label: "Rechnungen" },
-      { href: "/eingangsrechnungen", label: "Eingangsrechnungen (Lieferanten)" },
-      { href: "/offene-posten", label: "Offene Posten" },
-      { href: "/sammelrechnungen", label: "Sammelrechnungen" },
-      { href: "/gutschriften", label: "Gutschriften" },
-      { href: "/ausgaben", label: "Ausgabenbuch" },
-      { href: "/bankabgleich", label: "Bankabgleich" },
-      { href: "/mahnwesen", label: "Mahnwesen" },
-      { href: "/finanzen/cashflow", label: "Cashflow" },
-      { href: "/mengenrabatte", label: "Mengenrabatte" },
-      { href: "/exporte", label: "Export" },
+      { href: "/rechnungen", label: "Rechnungen", section: "Ausgangsbelege" },
+      { href: "/sammelrechnungen", label: "Sammelrechnungen", section: "Ausgangsbelege" },
+      { href: "/gutschriften", label: "Gutschriften", section: "Ausgangsbelege" },
+      { href: "/mahnwesen", label: "Mahnwesen", section: "Ausgangsbelege" },
+      { href: "/offene-posten", label: "Offene Posten", section: "Ausgangsbelege" },
+      { href: "/eingangsrechnungen", label: "Eingangsrechnungen", section: "Eingangsbelege" },
+      { href: "/ausgaben", label: "Ausgabenbuch", section: "Eingangsbelege" },
+      { href: "/bankabgleich", label: "Bankabgleich", section: "Bank" },
+      { href: "/finanzen/cashflow", label: "Cashflow", section: "Bank" },
+      { href: "/mengenrabatte", label: "Mengenrabatte", section: "Konditionen" },
+      { href: "/exporte", label: "Export", section: "Konditionen" },
     ],
   },
   {
     label: "Analyse",
     children: [
-      { href: "/statistik", label: "Statistik & Auswertungen" },
-      { href: "/prognose", label: "Prognose" },
-      { href: "/marktpreise", label: "Marktpreise" },
+      { href: "/kunden/bewertung", label: "Kundenbewertung", section: "Kunden-Analysen" },
+      { href: "/gebietsanalyse", label: "Gebietsanalyse", section: "Kunden-Analysen" },
+      { href: "/agrarantraege", label: "Agraranträge (AFIG)", section: "Kunden-Analysen" },
+      { href: "/prognose", label: "Prognose", section: "Kunden-Analysen" },
+      { href: "/statistik", label: "Statistik & Auswertungen", section: "Statistik" },
+      { href: "/statistik/abc", label: "ABC-Analyse", section: "Statistik" },
+      { href: "/statistik/saisonal", label: "Saisonale Auswertung", section: "Statistik" },
+      { href: "/statistik/deckungsbeitrag", label: "Deckungsbeitrag", section: "Statistik" },
+      { href: "/marktpreise", label: "Marktpreise", section: "Markt" },
+      { href: "/ki/erkennung", label: "KI-Belegerkennung", section: "KI-Tools" },
+      { href: "/ki/crm", label: "KI-CRM Notiz", section: "KI-Tools" },
+      { href: "/ki/sprache", label: "Sprachmemo → CRM", section: "KI-Tools" },
+      { href: "/ki/wareneingang", label: "KI-Wareneingang", section: "KI-Tools" },
+      { href: "/ki/lieferung", label: "KI-Lieferung", section: "KI-Tools" },
     ],
   },
 ];
@@ -595,6 +609,20 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
+  const children = group.children ?? [];
+  const hasSections = children.some((c) => c.section);
+
+  // Build grouped sections for rendering
+  const sections: { name: string; items: NavChild[] }[] = [];
+  if (hasSections) {
+    for (const c of children) {
+      const sName = c.section ?? "";
+      const existing = sections.find((s) => s.name === sName);
+      if (existing) existing.items.push(c);
+      else sections.push({ name: sName, items: [c] });
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -609,17 +637,38 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
         </svg>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 min-w-[150px] z-50">
-          {group.children!.map((c) => (
-            <Link
-              key={c.href}
-              href={c.href}
-              onClick={() => setOpen(false)}
-              className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
-            >
-              {c.label}
-            </Link>
-          ))}
+        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50" style={{ minWidth: "180px" }}>
+          {hasSections ? (
+            sections.map((sec, si) => (
+              <div key={sec.name}>
+                {si > 0 && <div className="mx-3 my-1 border-t border-gray-100" />}
+                <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                  {sec.name}
+                </div>
+                {sec.items.map((c) => (
+                  <Link
+                    key={c.href}
+                    href={c.href}
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+                  >
+                    {c.label}
+                  </Link>
+                ))}
+              </div>
+            ))
+          ) : (
+            children.map((c) => (
+              <Link
+                key={c.href}
+                href={c.href}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+              >
+                {c.label}
+              </Link>
+            ))
+          )}
         </div>
       )}
     </div>
