@@ -131,15 +131,15 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  if (loading) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
-  if (!data) return <div className="container mx-auto px-4 py-8 text-red-600">Bestellung nicht gefunden.</div>;
+  if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
+  if (!data) return <div className="p-8 text-red-600">Bestellung nicht gefunden.</div>;
 
   const canBestätigen = data.status === "OFFEN";
   const canAbschliessen = data.status === "BESTAETIGT" || data.status === "TEILGELIEFERT";
   const canStornieren = data.status === "OFFEN" || data.status === "BESTAETIGT";
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="max-w-4xl">
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/bestellungen" className="hover:text-green-700">Bestellungen</Link>
         <span>›</span>

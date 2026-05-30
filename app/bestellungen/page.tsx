@@ -85,7 +85,7 @@ function BestellungenListeInner() {
   }));
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Lieferantenbestellungen</h1>
         <Link
@@ -187,7 +187,7 @@ function BestellungenListeInner() {
 
 export default function BestellungenPage() {
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>}>
+    <Suspense fallback={<div className="p-8 text-gray-400">Lade…</div>}>
       <BestellungenListeInner />
     </Suspense>
   );

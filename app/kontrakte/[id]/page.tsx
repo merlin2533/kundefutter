@@ -107,8 +107,8 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
-  if (loading) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
-  if (!data) return <div className="container mx-auto px-4 py-8 text-red-600">Kontrakt nicht gefunden.</div>;
+  if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
+  if (!data) return <div className="p-8 text-red-600">Kontrakt nicht gefunden.</div>;
 
   const bis = new Date(data.gueltigBis);
   const now = new Date();
@@ -116,7 +116,7 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
   const showAblaufWarnung = data.status === "AKTIV" && diffDays <= 30;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="max-w-4xl">
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/kontrakte" className="hover:text-green-700">Kontrakte</Link>
         <span>›</span>

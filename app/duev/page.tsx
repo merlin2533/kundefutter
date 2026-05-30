@@ -94,7 +94,7 @@ export default function DuevPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl print:py-4 print:px-0">
+    <div className="max-w-4xl print:py-4 print:px-0">
       {/* Header + PDF button */}
       <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
         <h1 className="text-2xl font-bold text-gray-900">

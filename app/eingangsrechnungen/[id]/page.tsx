@@ -165,14 +165,14 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
     }
   }
 
-  if (loading) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
-  if (!data) return <div className="container mx-auto px-4 py-8 text-red-600">Eingangsrechnung nicht gefunden.</div>;
+  if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
+  if (!data) return <div className="p-8 text-red-600">Eingangsrechnung nicht gefunden.</div>;
 
   const brutto = data.betrag * (1 + data.mwst / 100);
   const isOverdue = data.status === "OFFEN" && data.faelligAm && new Date(data.faelligAm) < new Date();
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="max-w-2xl">
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/eingangsrechnungen" className="hover:text-green-700">Eingangsrechnungen</Link>
         <span>›</span>

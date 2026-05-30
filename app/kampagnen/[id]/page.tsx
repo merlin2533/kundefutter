@@ -298,12 +298,12 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
-  if (loading) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
-  if (!data) return <div className="container mx-auto px-4 py-8 text-red-600">Kampagne nicht gefunden.</div>;
+  if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
+  if (!data) return <div className="p-8 text-red-600">Kampagne nicht gefunden.</div>;
 
   if (!editing) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="max-w-4xl">
         <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link href="/kampagnen" className="hover:text-green-700">Kampagnen</Link>
           <span>›</span>

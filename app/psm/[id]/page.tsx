@@ -171,11 +171,11 @@ function PSMDetailInner({ id }: { id: string }) {
     sub: s.fruchtart ?? undefined,
   }));
 
-  if (loading) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
-  if (!data) return <div className="container mx-auto px-4 py-8 text-red-600">Ausbringung nicht gefunden.</div>;
+  if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
+  if (!data) return <div className="p-8 text-red-600">Ausbringung nicht gefunden.</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/psm" className="text-gray-500 hover:text-gray-700 text-sm">← Zurück</Link>
         <h1 className="text-2xl font-bold text-gray-900">PSM-Ausbringung</h1>
@@ -430,9 +430,9 @@ export default function PSMDetailPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     params.then((p) => setId(p.id));
   }, [params]);
-  if (!id) return <div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>;
+  if (!id) return <div className="p-8 text-gray-400">Lade…</div>;
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>}>
+    <Suspense fallback={<div className="p-8 text-gray-400">Lade…</div>}>
       <PSMDetailInner id={id} />
     </Suspense>
   );

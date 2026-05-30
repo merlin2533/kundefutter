@@ -95,7 +95,7 @@ function EingangsrechnungenListeInner() {
   const brutto = (r: Eingangsrechnung) => r.betrag * (1 + r.mwst / 100);
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Eingangsrechnungen</h1>
         <Link
@@ -204,7 +204,7 @@ function EingangsrechnungenListeInner() {
 
 export default function EingangsrechnungenPage() {
   return (
-    <Suspense fallback={<div className="container mx-auto px-4 py-8 text-gray-400">Lade…</div>}>
+    <Suspense fallback={<div className="p-8 text-gray-400">Lade…</div>}>
       <EingangsrechnungenListeInner />
     </Suspense>
   );

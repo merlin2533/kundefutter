@@ -275,6 +275,12 @@ export default function KundeDetailPage() {
               >
                 PSM-Ausbringung
               </Link>
+              <Link
+                href={`/kontrakte/neu?kundeId=${kunde.id}`}
+                className="w-full text-center text-xs px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg font-medium transition-colors"
+              >
+                + Kontrakt
+              </Link>
               <a
                 href={`/api/exporte/preisliste?kundeId=${kunde.id}`}
                 target="_blank"
