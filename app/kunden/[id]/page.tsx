@@ -361,8 +361,10 @@ export default function KundeDetailPage() {
               </button>
             );
           })}
+          </div>
 
-          {/* Dropdown-Gruppen */}
+          {/* Dropdown-Gruppen — shrink-0 damit kein Overflow-Clip */}
+          <div className="flex gap-0.5 shrink-0">
           {TAB_GRUPPEN.map((gruppe) => {
             const isGroupActive = gruppe.tabs.includes(activeTab);
             const isOpen = openDropdown === gruppe.label;
@@ -401,6 +403,7 @@ export default function KundeDetailPage() {
               </div>
             );
           })}
+          </div>
         </nav>
       </div>
 
