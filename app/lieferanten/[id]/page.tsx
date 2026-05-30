@@ -58,6 +58,7 @@ export default function LieferantDetailPage() {
   const [editForm, setEditForm] = useState<Partial<Lieferant>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const fetchLieferant = useCallback(async () => {
     setLoading(true);
@@ -112,6 +113,20 @@ export default function LieferantDetailPage() {
     }
   }
 
+  async function deleteLieferant() {
+    if (!lieferant) return;
+    if (!confirm(`Lieferant "${lieferant.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    setDeleting(true);
+    const res = await fetch(`/api/lieferanten/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/lieferanten");
+    } else {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error ?? "Fehler beim Löschen");
+      setDeleting(false);
+    }
+  }
+
   if (loading) return <p className="text-gray-400 text-sm p-6">Lade Lieferant…</p>;
   if (!lieferant) return (
     <div className="p-6">
@@ -124,12 +139,21 @@ export default function LieferantDetailPage() {
     <div>
       {/* Back + Header */}
       <div className="mb-6">
-        <button
-          onClick={() => router.push("/lieferanten")}
-          className="text-sm text-green-700 hover:text-green-900 mb-3 inline-flex items-center gap-1"
-        >
-          ← Lieferanten
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.push("/lieferanten")}
+            className="text-sm text-green-700 hover:text-green-900 mb-3 inline-flex items-center gap-1"
+          >
+            ← Lieferanten
+          </button>
+          <button
+            onClick={deleteLieferant}
+            disabled={deleting}
+            className="text-sm text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {deleting ? "Wird gelöscht…" : "Löschen"}
+          </button>
+        </div>
         <h1 className="text-2xl font-bold text-gray-900">{lieferant.name}</h1>
         {lieferant.ort && (
           <p className="text-sm text-gray-500 mt-0.5">
