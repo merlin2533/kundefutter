@@ -30,6 +30,29 @@ const ReklamationenTab = nextDynamic(() => import("./tabs/ReklamationenTab"), { 
 const AlbrechtTab = nextDynamic(() => import("./tabs/AlbrechtTab"), { loading: tabLoading });
 const ZertifizierungenTab = nextDynamic(() => import("./tabs/ZertifizierungenTab"), { loading: tabLoading });
 
+const TAB_ICONS: Record<Tab, string> = {
+  Stammdaten: "🏠",
+  Lieferhistorie: "📦",
+  CRM: "🤝",
+  Angebote: "📋",
+  Aufgaben: "✅",
+  Reklamationen: "⚠️",
+  Kontakte: "👥",
+  Bedarfe: "📊",
+  Notizen: "📝",
+  Sonderpreise: "💰",
+  Statistik: "📈",
+  Schlagkartei: "🗺️",
+  Düngebedarf: "🌱",
+  Albrecht: "🔬",
+  Tiere: "🐄",
+  Agrarantrag: "📜",
+  Zertifizierungen: "🏅",
+  Dokumente: "📁",
+  Vorgangskette: "🔗",
+  Erklärungen: "💡",
+};
+
 export default function KundeDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -307,20 +330,26 @@ export default function KundeDetailPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-1 -mb-px overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-green-600 text-green-700"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <nav className="flex gap-0.5 -mb-px overflow-x-auto">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab;
+            const icon = TAB_ICONS[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                title={tab}
+                className={`flex items-center gap-1.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors rounded-t ${
+                  isActive
+                    ? "border-green-600 text-green-700 px-3"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 px-2.5"
+                }`}
+              >
+                <span className="text-base leading-none">{icon}</span>
+                {isActive && <span>{tab}</span>}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
