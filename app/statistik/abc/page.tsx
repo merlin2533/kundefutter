@@ -128,7 +128,7 @@ export default function ABCPage() {
   useEffect(() => { laden(); }, [laden]);
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6 print:px-0 print:py-0 space-y-6">
+    <div className="max-w-screen-xl mx-auto print:px-0 print:py-0 space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-1 print:hidden">
           <Link href="/statistik" className="hover:text-green-700">Statistik</Link>

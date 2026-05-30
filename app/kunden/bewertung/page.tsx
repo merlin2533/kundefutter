@@ -82,7 +82,7 @@ export default function KundenbewertungPage() {
   const nachbesserung = daten.filter((k) => k.score < 30).length;
 
   return (
-    <main className="max-w-screen-xl mx-auto px-4 py-6">
+    <main className="max-w-screen-xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Kundenbewertung / Lead-Score</h1>
         <p className="text-sm text-gray-500 mt-1">

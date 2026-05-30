@@ -263,7 +263,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
   }
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-8">
+    <div className="max-w-screen-xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>

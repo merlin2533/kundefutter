@@ -90,7 +90,7 @@ export default function GutschriftenPage() {
   }
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-8">
+    <div className="max-w-screen-xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Gutschriften</h1>
         <Link

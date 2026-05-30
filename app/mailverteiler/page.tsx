@@ -121,7 +121,7 @@ export default function MailverteilerPage() {
   }
 
   return (
-    <main className="max-w-screen-xl mx-auto px-4 py-8">
+    <main className="max-w-screen-xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Mailverteiler</h1>
         <p className="text-sm text-gray-500 mt-0.5">

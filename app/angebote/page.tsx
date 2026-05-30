@@ -62,7 +62,7 @@ export default function AngebotePage() {
   }
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-6 sm:py-8">
+    <div className="max-w-screen-xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
