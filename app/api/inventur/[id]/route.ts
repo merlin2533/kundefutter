@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         positionen: {
           include: {
             artikel: {
-              select: { id: true, name: true, einheit: true, artikelnummer: true, aktuellerBestand: true },
+              select: { id: true, name: true, einheit: true, artikelnummer: true, aktuellerBestand: true, chargePflicht: true },
             },
           },
           orderBy: { artikel: { name: "asc" } },
@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     // Option A: update positions
     if (body.positionen) {
-      const updates = body.positionen as Array<{ id: number; istBestand: number; bemerkung?: string }>;
+      const updates = body.positionen as Array<{ id: number; istBestand: number; bemerkung?: string; chargeNr?: string }>;
 
       await prisma.$transaction(
         updates.map((p) =>
@@ -63,6 +63,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               istBestand: p.istBestand,
               differenz: p.istBestand - (inventur.positionen.find((pos) => pos.id === p.id)?.sollBestand ?? 0),
               bemerkung: p.bemerkung ?? null,
+              chargeNr: p.chargeNr ?? null,
             },
           })
         )
@@ -74,7 +75,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           positionen: {
             include: {
               artikel: {
-                select: { id: true, name: true, einheit: true, artikelnummer: true, aktuellerBestand: true },
+                select: { id: true, name: true, einheit: true, artikelnummer: true, aktuellerBestand: true, chargePflicht: true },
               },
             },
             orderBy: { artikel: { name: "asc" } },

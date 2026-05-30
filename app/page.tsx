@@ -199,6 +199,8 @@ interface DashboardData {
   letzteAktivitaeten: TimelineEntry[];
   lieferungenOhneRechnung: { id: number; datum: string; kundeId: number; kundeName: string; betrag: number; tageOhneRechnung: number }[];
   unzugeordneteUmsaetze?: number;
+  offeneBestellungen?: number;
+  bestellteBestellungen?: number;
 }
 
 // ─── Dashboard Widgets ────────────────────────────────────────────────────────
@@ -1039,6 +1041,21 @@ export default function DashboardPage() {
           <p className="text-xl sm:text-2xl font-bold mt-1">{data.kundenAktiv}</p>
           <p className="text-xs text-gray-400 mt-1 truncate">{data.offeneLieferungen} offene Lieferungen</p>
         </div>
+
+        {/* Offene Bestellungen (Einkauf) */}
+        {((data.offeneBestellungen ?? 0) > 0 || (data.bestellteBestellungen ?? 0) > 0) && (
+          <Link href="/bestellliste" className="block">
+            <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 ${(data.offeneBestellungen ?? 0) > 0 ? "border-amber-500" : "border-blue-400"} h-full hover:shadow-md transition-shadow`}>
+              <p className="text-xs sm:text-sm text-gray-500">Offene Bestellungen</p>
+              <p className="text-xl sm:text-2xl font-bold mt-1">{(data.offeneBestellungen ?? 0) + (data.bestellteBestellungen ?? 0)}</p>
+              <p className="text-xs mt-1 truncate text-gray-500">
+                {(data.offeneBestellungen ?? 0) > 0 && <span className="text-amber-600 font-medium">{data.offeneBestellungen} offen</span>}
+                {(data.offeneBestellungen ?? 0) > 0 && (data.bestellteBestellungen ?? 0) > 0 && " · "}
+                {(data.bestellteBestellungen ?? 0) > 0 && <span className="text-blue-600">{data.bestellteBestellungen} bestellt</span>}
+              </p>
+            </div>
+          </Link>
+        )}
 
         {/* Offene Bankbuchungen — nur anzeigen wenn vorhanden */}
         {(data.unzugeordneteUmsaetze ?? 0) > 0 && (

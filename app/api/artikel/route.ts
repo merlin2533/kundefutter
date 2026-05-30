@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
   try {
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
     else data.mwstSatz = 19;
+    if (data.chargePflicht !== undefined) data.chargePflicht = Boolean(data.chargePflicht);
+    else data.chargePflicht = false;
     if (data.sprengstoffvorlaeufer !== undefined) data.sprengstoffvorlaeufer = Boolean(data.sprengstoffvorlaeufer);
     else data.sprengstoffvorlaeufer = false;
 

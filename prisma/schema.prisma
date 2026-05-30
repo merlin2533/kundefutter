@@ -477,15 +477,16 @@ model Bestellposition {
   kundeId       Int?      // Rückverfolgbarkeit: welcher Kunde
   lieferungId   Int?      // Rückverfolgbarkeit: welche Lieferung
   angebotId     Int?      // Rückverfolgbarkeit: welches Angebot
-  menge         Float
-  einheit       String    @default("kg")
-  einkaufspreis Float     @default(0)
-  status        String    @default("offen") // offen | bestellt | geliefert | storniert
-  bestelltAm    DateTime?
-  geliefertAm   DateTime?
-  notiz         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  menge            Float
+  mengeGeliefert   Float     @default(0) // Summe bereits gelieferter Mengen (Teillieferungen)
+  einheit          String    @default("kg")
+  einkaufspreis    Float     @default(0)
+  status           String    @default("offen") // offen | bestellt | teilgeliefert | geliefert | storniert
+  bestelltAm       DateTime?
+  geliefertAm      DateTime?
+  notiz            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   lieferant             Lieferant              @relation(fields: [lieferantId], references: [id])
   artikel               Artikel                @relation(fields: [artikelId], references: [id])
@@ -521,6 +522,7 @@ model InventurPosition {
   istBestand  Float?   // counted value
   differenz   Float?   // computed: istBestand - sollBestand
   bemerkung   String?
+  chargeNr    String?  // Chargennummer bei der Zählung (für chargenpflichtige Artikel)
 
   @@index([inventurId])
   @@index([artikelId])

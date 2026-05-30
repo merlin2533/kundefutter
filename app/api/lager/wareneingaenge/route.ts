@@ -120,13 +120,22 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Bestellposition als geliefert markieren
+        // Bestellposition: Teillieferung oder vollständig geliefert
         const bestellpositionId = positionen.find((p) => p.artikelId === pos.artikelId)?.bestellpositionId;
         if (bestellpositionId && !isNaN(bestellpositionId)) {
-          await tx.bestellposition.update({
-            where: { id: bestellpositionId },
-            data: { status: "geliefert", geliefertAm: new Date() },
-          });
+          const bp = await tx.bestellposition.findUnique({ where: { id: bestellpositionId }, select: { menge: true, mengeGeliefert: true } });
+          if (bp) {
+            const neueMengeGeliefert = bp.mengeGeliefert + pos.menge;
+            const vollstaendig = neueMengeGeliefert >= bp.menge;
+            await tx.bestellposition.update({
+              where: { id: bestellpositionId },
+              data: {
+                mengeGeliefert: neueMengeGeliefert,
+                status: vollstaendig ? "geliefert" : "teilgeliefert",
+                geliefertAm: vollstaendig ? new Date() : undefined,
+              },
+            });
+          }
         }
 
         const artLief = artLiefMap.get(pos.artikelId);
