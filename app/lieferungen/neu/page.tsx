@@ -381,8 +381,8 @@ function NeueLieferungInner() {
             </div>
           )}
 
-          {/* Kunde + Datum — two columns on wider screens */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Kunde + Datum + Status — drei Spalten */}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_160px] gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Kunde <span className="text-red-500">*</span>
@@ -409,11 +409,37 @@ function NeueLieferungInner() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Notiz — kompakt, einzeilig */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notiz <span className="text-xs font-normal text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={notiz}
+              onChange={(e) => setNotiz(e.target.value)}
+              placeholder="z. B. Lieferwunsch, Besonderheiten…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
           </div>
 
           {/* Streckengeschäft Toggle */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={istStreckengeschaeft}
@@ -423,19 +449,12 @@ function NeueLieferungInner() {
                 }}
                 className="w-4 h-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
               />
-              <span className="text-sm font-medium text-gray-700">
-                Streckengeschäft (Lieferant liefert direkt an Kunden — kein Lagerabgang)
-              </span>
+              <span className="text-sm text-gray-700">Streckengeschäft <span className="text-gray-400 font-normal">(kein Lagerabgang)</span></span>
             </label>
             {istStreckengeschaeft && (
-              <div className="space-y-2 pl-7">
-                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  Bei Streckengeschäft wird kein Lagerabgang gebucht. Die Rechnung wird trotzdem durch Sie ausgestellt.
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Direktlieferant <span className="text-red-500">*</span>
-                  </label>
+              <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+                <span className="text-sm text-gray-700 whitespace-nowrap">Direktlieferant <span className="text-red-500">*</span></span>
+                <div className="flex-1">
                   <SearchableSelect
                     options={lieferanten.map((l) => ({
                       value: l.id,
@@ -443,7 +462,7 @@ function NeueLieferungInner() {
                     }))}
                     value={streckenLieferantId}
                     onChange={(v) => setStreckenLieferantId(v ? Number(v) : "")}
-                    placeholder="Direktlieferant auswählen…"
+                    placeholder="Lieferant auswählen…"
                     required={istStreckengeschaeft}
                   />
                 </div>
@@ -643,33 +662,6 @@ function NeueLieferungInner() {
                   </span>
                 )}
               </span>
-            </div>
-          </div>
-
-          {/* Notiz + Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notiz</label>
-              <textarea
-                rows={2}
-                value={notiz}
-                onChange={(e) => setNotiz(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 
