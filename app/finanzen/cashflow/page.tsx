@@ -146,11 +146,19 @@ export default function CashflowPage() {
 
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Cashflow-Übersicht</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Offene Forderungen und Verbindlichkeiten im Überblick
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cashflow-Übersicht</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Offene Forderungen und Verbindlichkeiten im Überblick
+          </p>
+        </div>
+        <Link
+          href="/statistik/liquiditaet"
+          className="text-sm text-green-700 hover:text-green-800 underline underline-offset-2 whitespace-nowrap"
+        >
+          → Liquiditätsanalyse &amp; Trend
+        </Link>
       </div>
 
       {error && (
