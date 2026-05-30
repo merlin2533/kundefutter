@@ -17,6 +17,7 @@ export default function NeueAusgabePage() {
   const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
   const [saving, setSaving] = useState(false);
   const [fehler, setFehler] = useState("");
+  const [loginUser, setLoginUser] = useState("");
 
   const heute = new Date().toISOString().slice(0, 10);
   const [datum, setDatum] = useState(heute);
@@ -30,6 +31,7 @@ export default function NeueAusgabePage() {
   const [notiz, setNotiz] = useState("");
   const [privaterAusleger, setPrivaterAusleger] = useState(false);
   const [ausleger, setAusleger] = useState("");
+  const [erfasstVon, setErfasstVon] = useState("");
 
   // Beleg upload state
   const [belegFile, setBelegFile] = useState<File | null>(null);
@@ -39,6 +41,9 @@ export default function NeueAusgabePage() {
   const [kiHinweis, setKiHinweis] = useState("");
 
   useEffect(() => {
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.benutzername) { setLoginUser(d.benutzername); setErfasstVon(d.benutzername); }
+    }).catch(() => {});
     fetch("/api/lieferanten").then(r => r.ok ? r.json() : []).then(d => setLieferanten(Array.isArray(d) ? d : []));
     fetch("/api/einstellungen?prefix=ausgaben.")
       .then((r) => r.json())
@@ -117,7 +122,8 @@ export default function NeueAusgabePage() {
         lieferantId: lieferantId || null,
         bezahltAm: bezahltHeute ? new Date().toISOString() : null,
         notiz: notiz || null,
-        ausleger: privaterAusleger ? (ausleger.trim() || "Ich") : null,
+        ausleger: privaterAusleger ? (ausleger.trim() || loginUser || "Ich") : null,
+        erfasstVon: erfasstVon.trim() || null,
       }),
     });
 
@@ -264,7 +270,10 @@ export default function NeueAusgabePage() {
 
         <div className="border rounded p-3 bg-orange-50 space-y-2">
           <label className="flex items-center gap-2 text-sm cursor-pointer font-medium text-orange-800">
-            <input type="checkbox" checked={privaterAusleger} onChange={e => setPrivaterAusleger(e.target.checked)} />
+            <input type="checkbox" checked={privaterAusleger} onChange={e => {
+            setPrivaterAusleger(e.target.checked);
+            if (e.target.checked && !ausleger) setAusleger(loginUser);
+          }} />
             Privat ausgelegt – Erstattung ausstehend
           </label>
           {privaterAusleger && (
@@ -282,7 +291,15 @@ export default function NeueAusgabePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Notiz</label>
+          <div>
+          <label className="block text-sm font-medium mb-1">Erfasst von</label>
+          <input type="text" value={erfasstVon} onChange={e => setErfasstVon(e.target.value)}
+            placeholder="Benutzername / Name"
+            className="w-full border rounded px-3 py-2 text-sm" />
+          <p className="text-xs text-gray-400 mt-0.5">Vorbelegt mit dem eingeloggten Benutzer. Änderbar für Erfassung im Namen einer anderen Person.</p>
+        </div>
+
+        <label className="block text-sm font-medium mb-1">Notiz</label>
           <textarea value={notiz} onChange={e => setNotiz(e.target.value)} rows={2}
             className="w-full border rounded px-3 py-2 text-sm" />
         </div>

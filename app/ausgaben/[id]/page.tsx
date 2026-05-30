@@ -30,6 +30,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [notiz, setNotiz] = useState("");
   const [ausleger, setAusleger] = useState("");
   const [privaterAusleger, setPrivaterAusleger] = useState(false);
+  const [erfasstVon, setErfasstVon] = useState("");
+  const [loginUser, setLoginUser] = useState("");
 
   // Beleg state
   const [belegPfad, setBelegPfad] = useState<string>("");
@@ -56,11 +58,13 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         setBezahltAm(a.bezahltAm?.slice(0, 10) ?? "");
         setNotiz(a.notiz ?? "");
         if (a.ausleger) { setAusleger(a.ausleger); setPrivaterAusleger(true); }
+        setErfasstVon(a.erfasstVon ?? "");
         setBelegPfad(a.belegPfad ?? "");
         setBelegDateiname(a.belegDateiname ?? "");
         setLaden(false);
       });
     });
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.benutzername) setLoginUser(d.benutzername); }).catch(() => {});
     fetch("/api/lieferanten").then(r => r.ok ? r.json() : []).then(d => setLieferanten(Array.isArray(d) ? d : []));
     fetch("/api/einstellungen?prefix=ausgaben.")
       .then((r) => r.json())
@@ -188,7 +192,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         lieferantId: lieferantId || null,
         bezahltAm: bezahltAm || null,
         notiz: notiz || null,
-        ausleger: privaterAusleger ? (ausleger.trim() || "Ich") : null,
+        ausleger: privaterAusleger ? (ausleger.trim() || loginUser || "Ich") : null,
+        erfasstVon: erfasstVon.trim() || null,
       }),
     });
     setSaving(false);
@@ -398,6 +403,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
             <input type="checkbox" checked={privaterAusleger} onChange={e => {
               setPrivaterAusleger(e.target.checked);
               if (!e.target.checked) setAusleger("");
+              else if (!ausleger) setAusleger(loginUser);
             }} />
             Privat ausgelegt – Erstattung ausstehend
           </label>
@@ -418,6 +424,13 @@ export default function AusgabeDetailPage({ params }: Ctx) {
               )}
             </div>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Erfasst von</label>
+          <input type="text" value={erfasstVon} onChange={e => setErfasstVon(e.target.value)}
+            placeholder="Benutzername / Name"
+            className="w-full border rounded px-3 py-2 text-sm" />
         </div>
 
         <div>

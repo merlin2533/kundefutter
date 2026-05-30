@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -57,8 +58,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const token = req.cookies.get(SESSION_COOKIE)?.value;
+    const session = token ? await verifySession(token) : null;
     const body = await req.json();
-    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger } = body;
+    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger, erfasstVon, bezahltVon } = body;
 
     if (!beschreibung || betragNetto === undefined) {
       return NextResponse.json({ error: "Beschreibung und Betrag sind erforderlich" }, { status: 400 });
@@ -87,6 +90,8 @@ export async function POST(req: NextRequest) {
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,
         notiz: notiz || null,
         ausleger: ausleger ? String(ausleger).trim() : null,
+        erfasstVon: erfasstVon ? String(erfasstVon).trim() : (session?.benutzername ?? null),
+        bezahltVon: bezahltVon ? String(bezahltVon).trim() : null,
       },
       include: { lieferant: { select: { id: true, name: true } } },
     });
