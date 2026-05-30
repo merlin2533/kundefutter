@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,10 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
+    const token = req.cookies.get(SESSION_COOKIE)?.value;
+    const session = token ? await verifySession(token) : null;
     const body = await req.json();
-    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger } = body;
+    const { datum, belegNr, beschreibung, betragNetto, mwstSatz, kategorie, lieferantId, bezahltAm, notiz, ausleger, erfasstVon, bezahltVon } = body;
 
     if (betragNetto !== undefined) {
       const betrag = parseFloat(betragNetto);
@@ -65,6 +68,17 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     if (bezahltAm !== undefined) data.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;
     if (notiz !== undefined) data.notiz = notiz || null;
     if (ausleger !== undefined) data.ausleger = ausleger ? String(ausleger).trim() : null;
+    if (erfasstVon !== undefined) data.erfasstVon = erfasstVon ? String(erfasstVon).trim() : null;
+    // Wenn bezahltAm gesetzt wird und bezahltVon nicht explizit übergeben: Session-User setzen
+    if (bezahltAm !== undefined && bezahltAm) {
+      data.bezahltVon = bezahltVon ? String(bezahltVon).trim() : (session?.benutzername ?? null);
+    } else if (bezahltVon !== undefined) {
+      data.bezahltVon = bezahltVon ? String(bezahltVon).trim() : null;
+    }
+    // Wenn bezahltAm auf null gesetzt wird: bezahltVon löschen
+    if (bezahltAm !== undefined && !bezahltAm) {
+      data.bezahltVon = null;
+    }
 
     const ausgabe = await prisma.ausgabe.update({
       where: { id },
