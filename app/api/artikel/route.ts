@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
     else data.chargePflicht = false;
     if (data.sprengstoffvorlaeufer !== undefined) data.sprengstoffvorlaeufer = Boolean(data.sprengstoffvorlaeufer);
     else data.sprengstoffvorlaeufer = false;
+    if (data.lagerTracking !== undefined) data.lagerTracking = Boolean(data.lagerTracking);
+    else data.lagerTracking = true;
 
     // Nummer-Vergabe und Create in einer Transaktion, damit parallele POSTs
     // keine doppelten Artikelnummern erzeugen.

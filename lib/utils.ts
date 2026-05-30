@@ -28,6 +28,28 @@ export function lagerStatus(
   return "gruen";
 }
 
+// Kategorien, für die kein Lagerbestand geführt wird (Dienstleistungen)
+// Wird durch Einstellung "system.lager_no_tracking_kategorien" ergänzt.
+export const NICHT_LAGER_KATEGORIEN = ["Beratung", "Analysen"];
+
+/**
+ * Prüft ob ein Artikel lagerrelevant ist.
+ * @param kategorie  Artikel-Kategorie
+ * @param lagerTracking  Artikel-spezifisches Flag; false = immer deaktiviert
+ * @param extraKategorien  Zusätzliche Kategorien aus Einstellungen
+ */
+export function istLagerrelevant(
+  kategorie: string,
+  lagerTracking?: boolean,
+  extraKategorien?: string[]
+): boolean {
+  if (lagerTracking === false) return false;
+  const alle = extraKategorien
+    ? [...NICHT_LAGER_KATEGORIEN, ...extraKategorien]
+    : NICHT_LAGER_KATEGORIEN;
+  return !alle.includes(kategorie);
+}
+
 function naechsteNummer(prefix: string, letzte: string | null): string {
   const jahr = new Date().getFullYear();
   if (!letzte) return `${prefix}-${jahr}-0001`;

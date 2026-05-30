@@ -56,6 +56,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
     ...(body.chargePflicht !== undefined ? { chargePflicht: Boolean(body.chargePflicht) } : {}),
     ...(body.sprengstoffvorlaeufer !== undefined ? { sprengstoffvorlaeufer: Boolean(body.sprengstoffvorlaeufer) } : {}),
+    ...(body.lagerTracking !== undefined ? { lagerTracking: Boolean(body.lagerTracking) } : {}),
     ...(body.ghsKlassen !== undefined ? { ghsKlassen: body.ghsKlassen ? String(body.ghsKlassen) : null } : {}),
     ...(body.hSaetze !== undefined ? { hSaetze: body.hSaetze ? String(body.hSaetze) : null } : {}),
     ...(body.pSaetze !== undefined ? { pSaetze: body.pSaetze ? String(body.pSaetze) : null } : {}),

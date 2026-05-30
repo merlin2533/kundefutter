@@ -182,6 +182,7 @@ model Artikel {
   liefergroesse          String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
   chargePflicht          Boolean  @default(false) // Chargennummer beim Warenausgang Pflicht
   sprengstoffvorlaeufer  Boolean  @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
+  lagerTracking          Boolean  @default(true)  // false = kein Lagerbestand (Dienstleistungen, Beratung)
   ghsKlassen             String?  // JSON array: ["GHS05","GHS07"] — Gefahrenpiktogramme
   hSaetze                String?  // JSON: ["H302","H318"] — Hazard statements
   pSaetze                String?  // JSON: ["P260","P280"] — Precautionary statements

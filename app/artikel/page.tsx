@@ -43,6 +43,10 @@ interface LieferantOption {
   name: string;
 }
 
+function loadArtikelFilters() {
+  try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+}
+
 export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
@@ -50,13 +54,13 @@ export default function ArtikelPage() {
   const [kategorienMap, setKategorienMap] = useState<Record<string, string[]>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [kategorie, setKategorie] = useState("alle");
-  const [unterkategorie, setUnterkategorie] = useState("alle");
-  const [lieferantId, setLieferantId] = useState("");
-  const [preisVon, setPreisVon] = useState("");
-  const [preisBis, setPreisBis] = useState("");
-  const [nurSprengstoff, setNurSprengstoff] = useState(false);
+  const [search, setSearch] = useState(() => loadArtikelFilters().search ?? "");
+  const [kategorie, setKategorie] = useState(() => loadArtikelFilters().kategorie ?? "alle");
+  const [unterkategorie, setUnterkategorie] = useState(() => loadArtikelFilters().unterkategorie ?? "alle");
+  const [lieferantId, setLieferantId] = useState(() => loadArtikelFilters().lieferantId ?? "");
+  const [preisVon, setPreisVon] = useState(() => loadArtikelFilters().preisVon ?? "");
+  const [preisBis, setPreisBis] = useState(() => loadArtikelFilters().preisBis ?? "");
+  const [nurSprengstoff, setNurSprengstoff] = useState(() => loadArtikelFilters().nurSprengstoff === "1");
   const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
@@ -106,24 +110,10 @@ export default function ArtikelPage() {
     }
   }
 
-  // Restore filters from sessionStorage on mount (preserves state on back navigation)
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>;
-      if (saved.search !== undefined) setSearch(saved.search);
-      if (saved.kategorie !== undefined) setKategorie(saved.kategorie);
-      if (saved.unterkategorie !== undefined) setUnterkategorie(saved.unterkategorie);
-      if (saved.lieferantId !== undefined) setLieferantId(saved.lieferantId);
-      if (saved.preisVon !== undefined) setPreisVon(saved.preisVon);
-      if (saved.preisBis !== undefined) setPreisBis(saved.preisBis);
-      if (saved.nurSprengstoff !== undefined) setNurSprengstoff(saved.nurSprengstoff === "1");
-    } catch { /* ignore */ }
-  }, []);
-
   // Persist filters to sessionStorage on change
   useEffect(() => {
     try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch { /* ignore */ }
-  }, [search, kategorie, unterkategorie]);
+  }, [search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
     setPage(1);
@@ -137,6 +127,13 @@ export default function ArtikelPage() {
   }, [page]);
 
   useEffect(() => {
+    setUnterkategorie("alle");
+  }, [kategorie]);
+
+  // Reset subcategory when user explicitly changes category (not on initial mount)
+  const kategorieInitRef = useRef(true);
+  useEffect(() => {
+    if (kategorieInitRef.current) { kategorieInitRef.current = false; return; }
     setUnterkategorie("alle");
   }, [kategorie]);
 
