@@ -68,12 +68,16 @@ function dayLabel(d: string) {
   return formatDate(d);
 }
 
+function loadBesuchsTermineFilters() {
+  try { return JSON.parse(sessionStorage.getItem("besuchstermine-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function BesuchstermineListPage() {
   const { showToast } = useToast();
   const [termine, setTermine] = useState<Besuchstermin[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState<string>(() => loadBesuchsTermineFilters().search ?? "");
 
   const fetchTermine = useCallback(async () => {
     setLoading(true);
@@ -87,6 +91,10 @@ export default function BesuchstermineListPage() {
       setLoading(false);
     }
   }, [showToast]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("besuchstermine-filters", JSON.stringify({ search })); } catch {}
+  }, [search]);
 
   useEffect(() => {
     fetchTermine();
