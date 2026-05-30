@@ -40,6 +40,7 @@ interface KiPosition {
   menge: number;
   einheit: string;
   einzelpreis?: number;
+  chargeNr?: string;
 }
 
 interface KiErgebnis {
@@ -56,6 +57,7 @@ interface MatchedPosition {
   artikelId: string;
   menge: number;
   einkaufspreis: number;
+  chargeNr: string;
   konfidenz: Konfidenz;
 }
 
@@ -290,6 +292,7 @@ function KiWareneingangWizard() {
           artikelId,
           menge: ki.menge ?? 1,
           einkaufspreis: ki.einzelpreis ?? 0,
+          chargeNr: ki.chargeNr ?? "",
           konfidenz,
         };
       });
@@ -429,6 +432,7 @@ function KiWareneingangWizard() {
         artikelId: parseInt(p.artikelId, 10),
         menge: p.menge,
         einkaufspreis: p.einkaufspreis,
+        chargeNr: p.chargeNr.trim() || undefined,
       }));
     if (bookPositionen.length === 0) {
       setBookError("Keine gültigen Positionen zum Buchen.");
@@ -611,6 +615,7 @@ function KiWareneingangWizard() {
                           <th className="px-3 py-2 text-left hidden sm:table-cell">Artikelnr.</th>
                           <th className="px-3 py-2 text-right">Menge</th>
                           <th className="px-3 py-2 text-left hidden sm:table-cell">Einheit</th>
+                          <th className="px-3 py-2 text-left hidden md:table-cell">Charge</th>
                           <th className="px-3 py-2 text-right hidden sm:table-cell">EK-Preis</th>
                         </tr>
                       </thead>
@@ -624,6 +629,9 @@ function KiWareneingangWizard() {
                             <td className="px-3 py-2 text-right">{p.menge}</td>
                             <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
                               {p.einheit}
+                            </td>
+                            <td className="px-3 py-2 text-gray-500 hidden md:table-cell">
+                              {p.chargeNr ?? "—"}
                             </td>
                             <td className="px-3 py-2 text-right hidden sm:table-cell">
                               {p.einzelpreis != null
@@ -794,6 +802,23 @@ function KiWareneingangWizard() {
                               })
                             }
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                          />
+                        </div>
+
+                        {/* Charge */}
+                        <div className="sm:col-span-4">
+                          <label className="block text-xs text-gray-500 mb-1">
+                            Chargennummer{" "}
+                            <span className="text-gray-400">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={pos.chargeNr}
+                            onChange={(e) =>
+                              updatePosition(idx, { chargeNr: e.target.value })
+                            }
+                            placeholder="z.B. LOT-2024-001"
+                            className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                           />
                         </div>
                       </div>
@@ -1052,6 +1077,7 @@ function KiWareneingangWizard() {
                   <tr>
                     <th className="px-3 py-2 text-left">Artikel</th>
                     <th className="px-3 py-2 text-right">Menge</th>
+                    <th className="px-3 py-2 text-left hidden md:table-cell">Charge</th>
                     <th className="px-3 py-2 text-right hidden sm:table-cell">EK-Preis</th>
                     <th className="px-3 py-2 text-right">Summe</th>
                   </tr>
@@ -1069,6 +1095,9 @@ function KiWareneingangWizard() {
                         <td className="px-3 py-2 text-right">
                           {pos.menge} {a?.einheit ?? pos.ki.einheit}
                         </td>
+                        <td className="px-3 py-2 text-gray-500 hidden md:table-cell">
+                          {pos.chargeNr.trim() || "—"}
+                        </td>
                         <td className="px-3 py-2 text-right hidden sm:table-cell">
                           {pos.einkaufspreis.toFixed(2)} €
                         </td>
@@ -1084,7 +1113,7 @@ function KiWareneingangWizard() {
                     <td colSpan={2} className="px-3 py-2 text-right font-semibold text-gray-700 text-sm sm:hidden">
                       Gesamt
                     </td>
-                    <td colSpan={3} className="px-3 py-2 text-right font-bold text-gray-900 hidden sm:table-cell">
+                    <td colSpan={4} className="px-3 py-2 text-right font-bold text-gray-900 hidden sm:table-cell">
                       Gesamtsumme
                     </td>
                     <td className="px-3 py-2 text-right font-bold text-gray-900">

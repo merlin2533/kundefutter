@@ -394,12 +394,13 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
       "artikelnummer": "Artikelnummer falls vorhanden",
       "menge": 100,
       "einheit": "kg|t|Sack|Liter|Stück",
-      "einzelpreis": 12.50
+      "einzelpreis": 12.50,
+      "chargeNr": "Chargennummer/Losnummer falls vorhanden (z.B. LOT-123, CH-2024-001)"
     }
   ]
 }
 
-Wenn ein Feld nicht erkennbar ist, setze null. Extrahiere ALLE Positionen.`,
+Wenn ein Feld nicht erkennbar ist, setze null. Extrahiere ALLE Positionen. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.`,
 
   lieferung: `Du bist ein Experte für die Analyse von Bestellungen und Aufträgen in der Agrarbranche.
 Analysiere das Bild und extrahiere Kunden- und Artikelinformationen.
