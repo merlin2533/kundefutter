@@ -62,8 +62,14 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
 ### Rechnungswesen & Finanzen
 - Automatische, transaktionssichere Rechnungsnummervergabe
 - Zahlungsziel, Bezahlt-Markierung, Zahlungsdatum
-- **Mahnwesen**: Überfälligkeitsliste mit Tagen seit Fälligkeit
+- **Mahnwesen**: Überfälligkeitsliste mit Tagen seit Fälligkeit, konfigurierbaren Fristen
+- **Offene Posten**: alle unbezahlten Rechnungen mit Mahnstufe und Fälligkeitsampel
 - **Sammelrechnungen** über mehrere Lieferungen
+- **Eingangsrechnungen**: Lieferantenrechnungen erfassen und verwalten
+- **Bankabgleich**: CSV/MT940-Import, automatische Zuordnungsvorschläge
+- **Cashflow-Übersicht**: monatliche Ein-/Ausgaben, 12-Monats-Liquiditätsvorschau
+- **Gutschriften** (Reklamation, Retoure, Preiskorrektur)
+- ZUGFeRD/Factur-X XML: maschinell lesbare E-Rechnungen
 - Massenexport (ZIP mit Rechnungen / Lieferscheinen)
 
 ### CRM & Aufgaben
@@ -84,6 +90,42 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
 - Eurostat-Preisindizes für Agrarrohstoffe (Input + Output, quartalsweise)
 - Cache mit 7-Tage-Gültigkeit, On-Demand-Aktualisierung
 
+### Pflanzenbau & Agrar
+- **Bodenproben** je Schlag mit Nährstoffwerten (pH, P2O5, K2O, Mg, Humus, NMin)
+- **Albrecht-Analyse**: ideale Bodenverhältnisse und Zufuhrempfehlungen
+- **Düngebedarfsermittlung** nach DüV Anlage 4 (N, P, K, Mg) mit Vorfrucht/Nmin-Abzug
+- **DüV-Sperrfristen**: Ampelansicht wann auf welchem Schlag gedüngt werden darf
+- **Nährstoffbilanz (DüV §8)**: flächenbezogene N- und P-Bilanz
+- **PSM-Ausbringungsdokumentation**: Mittel, Schlag, Aufwandmenge, Datum
+- **Spritzfenster-Prognose**: wetterbasierte Empfehlung für Pflanzenschutz
+- **Sortenversuche**: Kulturen, Sorten, Erträge, Bonituren, Mehrjahresvergleich
+- **Anbauplanung**: Jahresplanung je Schlag mit Kulturen und Mengen
+
+### Tierhaltung & Rationsberechnung
+- Tierbestand je Kunde (Rind, Schwein, Geflügel, Pferd, Schaf, Ziege)
+- **Rationsberechnung** mit Nährstoffbilanz (ME/NEL, Protein, Mineralstoffe)
+- Modus einfach / detailliert (Grundfutter / Ausgleich / Leistungsfutter)
+- XLS-Export der Rationsberechnung
+
+### Einkauf & Lieferantenbestellungen
+- **Bestellliste**: offene Bestellpositionen gruppiert nach Lieferant (mit Fracht/MBW)
+- **Lieferantenbestellungen**: vollständiger Workflow OFFEN→BESTÄTIGT→GELIEFERT
+- Direkter Link "Wareneingang buchen" aus der Bestellung
+- **Eingangsrechnungen**: Lieferantenrechnungen verwalten
+- **Kontrakte**: Liefervereinbarungen mit Abruf-Tracking
+
+### Qualitätsmanagement & Compliance
+- **Reklamationen**: Betreff, Kategorie, Priorität, Status, Lösungszeit-Tracking
+  - Direkte Erstellung aus der Lieferung heraus
+- **Zertifizierungen** je Kunde (AMA, BIO, QS, GlobalG.A.P., …) mit Ablaufdatum
+- **Sachkundenachweise** mit Ablaufüberwachung
+- **Chargen-Zertifikate**: Qualitätsdokumente je Charge
+
+### Marketing & Vertrieb
+- **Kampagnen**: Zeitraum, Rabatt, Artikel; Potenzialanalyse je Kampagne
+- **Vorbestellungen (Frühbezug)**: Saison-Bestellungen mit automatischer Rabattstaffel
+- **Angebots-Vorlagen**: Wiederverwertbare Vorlagen für häufige Angebote
+
 ### Agraranträge (AFIG)
 - Import der agrarzahlungen.de-CSV (bis 250 MB, Streaming)
 - Suche nach Empfänger, Betriebsnummer, PLZ
@@ -98,7 +140,10 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
 - **Lieferschein-Erkennung per Foto** (`/ki/wareneingang`)
 - **Bestellungs-Erkennung** aus Bild (`/ki/lieferung`)
 - **CRM-Notizen** aus Foto/Sprache (`/ki/crm`)
+- **Belegerkennung** für Ausgaben-OCR
+- **Churn-Risiko-Analyse** je Kunde
 - **Inhaltsstoff-Recherche**: KI schlägt Inhaltsstoffe eines Produktes vor
+- **MQTT-Automatisierung**: eingehende Nachrichten per KI verarbeiten
 - Benutzerdefinierte Prompts je Feature konfigurierbar
 - Kostentracking (Tokens, Kosten in Cent) in der Datenbank
 
