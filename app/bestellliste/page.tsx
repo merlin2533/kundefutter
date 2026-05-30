@@ -21,7 +21,7 @@ interface Bestellposition {
   notiz: string | null;
   createdAt: string;
   lieferant: { id: number; name: string; email: string | null; telefon: string | null; frachtkosten: number; mindestbestellwert: number };
-  artikel: { id: number; name: string; artikelnummer: string; einheit: string; chargePflicht: boolean; standardpreis: number; aktuellerBestand: number; lagerort: string | null };
+  artikel: { id: number; name: string; artikelnummer: string; einheit: string; kategorie: string; chargePflicht: boolean; standardpreis: number; aktuellerBestand: number; lagerort: string | null };
   kunde: { id: number; name: string; firma: string | null } | null;
   lieferung: { id: number; datum: string } | null;
   wareineingangPos: WEPos[];
