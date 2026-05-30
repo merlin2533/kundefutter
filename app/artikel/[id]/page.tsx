@@ -644,6 +644,47 @@ export default function ArtikelDetailPage() {
         );
       })()}
 
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {!istAnalyseProdukt && (
+          <div className={`rounded-xl border p-3 shadow-sm ${
+            status === "kritisch" ? "bg-red-50 border-red-200" :
+            status === "niedrig" ? "bg-amber-50 border-amber-200" :
+            "bg-white border-gray-200"
+          }`}>
+            <p className="text-xs font-medium text-gray-500 mb-0.5">Lagerbestand</p>
+            <p className={`text-xl font-bold ${status === "kritisch" ? "text-red-700" : status === "niedrig" ? "text-amber-700" : "text-gray-900"}`}>
+              {artikel.aktuellerBestand.toLocaleString("de-DE")}
+              <span className="text-sm font-normal text-gray-500 ml-1">{artikel.einheit}</span>
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">Min: {artikel.mindestbestand} {artikel.einheit}</p>
+          </div>
+        )}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <p className="text-xs font-medium text-gray-500 mb-0.5">Verkaufspreis</p>
+          <p className="text-xl font-bold text-gray-900">{formatEuro(artikel.standardpreis)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{artikel.mwstSatz}% MwSt · {artikel.einheit}</p>
+        </div>
+        {marge !== null && (
+          <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+            <p className="text-xs font-medium text-gray-500 mb-0.5">Marge</p>
+            <p className={`text-xl font-bold ${marge >= 20 ? "text-green-700" : marge >= 10 ? "text-amber-600" : "text-red-600"}`}>
+              {Math.round(marge * 10) / 10}%
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              EK: {formatEuro((artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0])?.einkaufspreis ?? 0)}
+            </p>
+          </div>
+        )}
+        <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
+          <p className="text-xs font-medium text-gray-500 mb-0.5">Lieferanten</p>
+          <p className="text-xl font-bold text-gray-900">{artikel.lieferanten.length}</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">
+            {artikel.lieferanten.find((l) => l.bevorzugt)?.lieferant.name ?? artikel.lieferanten[0]?.lieferant.name ?? "—"}
+          </p>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 gap-1 flex-wrap overflow-x-auto">
         {TABS.map((t) => (
@@ -882,69 +923,96 @@ export default function ArtikelDetailPage() {
             </div>
           ) : (
             <div>
-              <dl className="divide-y divide-gray-100">
-                {(() => {
-                  const istAnalyse = istAnalyseArtikel(artikel.kategorie);
-                  const rows: [string, string | null][] = [
-                    ["Artikelnummer", artikel.artikelnummer],
-                    ["Kategorie", artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie],
-                  ];
-                  if (artikel.unterkategorie) rows.push(["Kultur", artikel.unterkategorie]);
-                  rows.push(
-                    ["Einheit", artikel.einheit],
-                    ["Standardpreis", formatEuro(artikel.standardpreis)],
-                    ["Preisstand", artikel.preisStand ? formatDatum(artikel.preisStand) : "—"],
-                    ["MwSt-Satz", artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"],
-                  );
-                  if (!istAnalyse) {
-                    rows.push(
-                      ["Aktueller Bestand", `${artikel.aktuellerBestand} ${artikel.einheit}`],
-                      ["Mindestbestand", `${artikel.mindestbestand} ${artikel.einheit}`],
-                      ["Status", null],
-                    );
-                  }
-                  rows.push(
-                    ["Beschreibung", artikel.beschreibung ?? "—"],
-                    ["Liefergröße", artikel.liefergroesse ?? "—"],
-                    ["Aktiv", artikel.aktiv ? "Ja" : "Nein"],
-                    ["Abgabebeschränkung", null],
-                  );
-                  return rows.map(([label, value]) => (
-                    <div key={label} className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
-                      <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">{label}</dt>
-                      <dd className="text-sm text-gray-900">
-                        {label === "Status" ? <LagerBadge status={status} /> :
-                         label === "Abgabebeschränkung" ? (
-                           artikel.sprengstoffvorlaeufer ? (
-                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-orange-100 text-orange-800 border border-orange-300 rounded text-xs font-medium">
-                               ⚠ Sprengstoffvorläufer (EU-VO 2019/1148)
-                             </span>
-                           ) : <span className="text-gray-400">—</span>
-                         ) : value}
-                      </dd>
+              {/* Section: Stammdaten */}
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Stammdaten</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-gray-100 sm:divide-y-0">
+                  {[
+                    { label: "Artikelnummer", value: <span className="font-mono text-gray-900">{artikel.artikelnummer}</span> },
+                    { label: "Kategorie", value: <span className="text-gray-900">{artikel.kategorie === "Duenger" ? "Dünger" : artikel.kategorie}{artikel.unterkategorie ? ` · ${artikel.unterkategorie}` : ""}</span> },
+                    { label: "Einheit", value: <span className="text-gray-900">{artikel.einheit}</span> },
+                    { label: "Status", value: artikel.aktiv
+                      ? <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-green-100 text-green-800 border border-green-200 rounded font-medium">Aktiv</span>
+                      : <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-600 border border-gray-200 rounded font-medium">Inaktiv</span>
+                    },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100 last:border-0">
+                      <dt className="w-36 flex-shrink-0 text-sm text-gray-500">{label}</dt>
+                      <dd className="text-sm flex-1">{value}</dd>
                     </div>
-                  ));
-                })()}
-                <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
-                  <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Lagerort</dt>
-                  <dd className="text-sm text-gray-900">
-                    {artikel.lagerort ? (
-                      <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">
-                        {artikel.lagerort}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </dd>
+                  ))}
                 </div>
-                {marge !== null && (
-                  <div className="py-3 flex flex-col sm:flex-row gap-1 sm:gap-4">
-                    <dt className="w-44 flex-shrink-0 text-sm font-medium text-gray-500">Marge</dt>
-                    <dd><MargeBadge pct={Math.round(marge * 10) / 10} /></dd>
+              </div>
+
+              {/* Section: Preise */}
+              <div className="mb-6">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Preise & Steuern</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-gray-100 sm:divide-y-0">
+                  {[
+                    { label: "Standardpreis", value: <span className="font-mono font-semibold text-gray-900">{formatEuro(artikel.standardpreis)}</span> },
+                    { label: "MwSt-Satz", value: <span className="text-gray-900">{artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"}</span> },
+                    { label: "Preisstand", value: <span className="text-gray-900">{artikel.preisStand ? formatDatum(artikel.preisStand) : "—"}</span> },
+                    ...(marge !== null ? [{ label: "Marge", value: <MargeBadge pct={Math.round(marge * 10) / 10} /> }] : []),
+                  ].map(({ label, value }) => (
+                    <div key={label} className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100 last:border-0">
+                      <dt className="w-36 flex-shrink-0 text-sm text-gray-500">{label}</dt>
+                      <dd className="text-sm flex-1">{value}</dd>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section: Lager (nicht für Analyse-Produkte) */}
+              {!istAnalyseProdukt && (
+                <div className="mb-6">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Lager</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-gray-100 sm:divide-y-0">
+                    {[
+                      { label: "Bestand", value: <span className="text-gray-900">{artikel.aktuellerBestand} {artikel.einheit}</span> },
+                      { label: "Lager-Status", value: <LagerBadge status={status} /> },
+                      { label: "Mindestbestand", value: <span className="text-gray-900">{artikel.mindestbestand} {artikel.einheit}</span> },
+                      { label: "Lagerort", value: artikel.lagerort
+                        ? <span className="px-2 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">{artikel.lagerort}</span>
+                        : <span className="text-gray-400">—</span>
+                      },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100 last:border-0">
+                        <dt className="w-36 flex-shrink-0 text-sm text-gray-500">{label}</dt>
+                        <dd className="text-sm flex-1">{value}</dd>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </dl>
-              <div className="mt-5 flex justify-end">
+                </div>
+              )}
+
+              {/* Section: Weitere Infos */}
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Weitere Informationen</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-gray-100 sm:divide-y-0">
+                  <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
+                    <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Liefergröße</dt>
+                    <dd className="text-sm text-gray-900">{artikel.liefergroesse || "—"}</dd>
+                  </div>
+                  <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
+                    <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Abgabebeschränkung</dt>
+                    <dd className="text-sm">
+                      {artikel.sprengstoffvorlaeufer ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-orange-100 text-orange-800 border border-orange-300 rounded text-xs font-medium">
+                          ⚠ Sprengstoffvorläufer (EU-VO 2019/1148)
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </dd>
+                  </div>
+                  {artikel.beschreibung && (
+                    <div className="py-2.5 flex gap-3 items-start sm:col-span-2">
+                      <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Beschreibung</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-line">{artikel.beschreibung}</dd>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end border-t border-gray-100 pt-4">
                 <button
                   onClick={() => setEditing(true)}
                   className="px-4 py-2.5 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium w-full sm:w-auto"
@@ -1319,47 +1387,93 @@ export default function ArtikelDetailPage() {
 
       {/* ── Tab: Preishistorie ───────────────────────────────────────────────── */}
       {tab === "preishistorie" && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+        <div className="space-y-4">
           {loadingPreis ? (
-            <p className="p-6 text-gray-400 text-sm">Lade Preishistorie…</p>
+            <p className="text-gray-400 text-sm p-4">Lade Preishistorie…</p>
           ) : preishistorie.length === 0 ? (
-            <p className="p-6 text-gray-400 text-sm">Keine Preisänderungen vorhanden.</p>
+            <p className="text-gray-400 text-sm p-4">Keine Preisänderungen vorhanden.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {[
-                    { label: "Datum", cls: "" },
-                    { label: "Alter Preis", cls: "hidden sm:table-cell" },
-                    { label: "Neuer Preis", cls: "" },
-                    { label: "Differenz", cls: "" },
-                  ].map((h) => (
-                    <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
-                      {h.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {preishistorie.map((p) => {
-                  const diff = p.neuerPreis - p.alterPreis;
-                  const diffCls = diff > 0 ? "text-red-600" : diff < 0 ? "text-green-700" : "text-gray-500";
-                  return (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        {formatDatum(p.geaendertAm)}
-                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">vorher: {formatEuro(p.alterPreis)}</div>
-                      </td>
-                      <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
-                      <td className="px-4 py-3 font-mono">{formatEuro(p.neuerPreis)}</td>
-                      <td className={`px-4 py-3 font-mono font-medium ${diffCls}`}>
-                        {diff > 0 ? "+" : ""}{formatEuro(diff)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <>
+              {/* Toggle + Summary */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span><span className="font-semibold text-gray-900">{preishistorie.length}</span> Änderungen</span>
+                  {preishistorie.length >= 1 && (() => {
+                    const sorted = [...preishistorie].sort((a, b) => new Date(a.geaendertAm).getTime() - new Date(b.geaendertAm).getTime());
+                    const start = sorted[0].alterPreis;
+                    const end = sorted[sorted.length - 1].neuerPreis;
+                    const diff = end - start;
+                    const pct = start > 0 ? (diff / start) * 100 : 0;
+                    return (
+                      <span className={diff > 0 ? "text-red-600" : diff < 0 ? "text-green-700" : "text-gray-500"}>
+                        {diff > 0 ? "▲" : diff < 0 ? "▼" : "="} {Math.abs(pct).toFixed(1)}% gesamt
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                  <button
+                    onClick={() => setPreisView("grafik")}
+                    className={`px-3 py-1.5 font-medium transition-colors ${preisView === "grafik" ? "bg-green-800 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    Grafik
+                  </button>
+                  <button
+                    onClick={() => setPreisView("tabelle")}
+                    className={`px-3 py-1.5 font-medium transition-colors ${preisView === "tabelle" ? "bg-green-800 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                  >
+                    Tabelle
+                  </button>
+                </div>
+              </div>
+
+              {preisView === "grafik" && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                  <PreisChart data={preishistorie} formatEuroFn={formatEuro} formatDatumFn={formatDatum} />
+                  <p className="text-xs text-gray-400 text-center mt-2">Hover über Datenpunkte für Details</p>
+                </div>
+              )}
+
+              {preisView === "tabelle" && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        {[
+                          { label: "Datum", cls: "" },
+                          { label: "Alter Preis", cls: "hidden sm:table-cell" },
+                          { label: "Neuer Preis", cls: "" },
+                          { label: "Differenz", cls: "" },
+                        ].map((h) => (
+                          <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${h.cls}`}>
+                            {h.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {[...preishistorie].sort((a, b) => new Date(b.geaendertAm).getTime() - new Date(a.geaendertAm).getTime()).map((p) => {
+                        const diff = p.neuerPreis - p.alterPreis;
+                        const diffCls = diff > 0 ? "text-red-600" : diff < 0 ? "text-green-700" : "text-gray-500";
+                        return (
+                          <tr key={p.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3">
+                              {formatDatum(p.geaendertAm)}
+                              <div className="sm:hidden text-xs text-gray-500 mt-0.5">vorher: {formatEuro(p.alterPreis)}</div>
+                            </td>
+                            <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
+                            <td className="px-4 py-3 font-mono font-medium">{formatEuro(p.neuerPreis)}</td>
+                            <td className={`px-4 py-3 font-mono font-medium ${diffCls}`}>
+                              {diff > 0 ? "+" : ""}{formatEuro(diff)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

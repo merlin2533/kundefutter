@@ -70,6 +70,7 @@ const QUICK_LINKS = [
   { href: "/statistik/lieferanten", icon: "🚚", title: "Lieferanten" },
   { href: "/statistik/lager", icon: "🏭", title: "Lager" },
   { href: "/statistik/reklamationen", icon: "⚠️", title: "Reklamationen" },
+  { href: "/statistik/liquiditaet", icon: "💧", title: "Liquidität" },
   { href: "/prognose", icon: "🔮", title: "Prognose" },
   { href: "/marktpreise", icon: "📈", title: "Marktpreise" },
 ];

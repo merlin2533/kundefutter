@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
@@ -191,6 +192,7 @@ function Inner() {
         const parsed = JSON.parse(h.parameter);
         const e = parsed.eingaben ?? {};
         params = {
+          bezeichnung: h.bezeichnung ?? "",
           jahr: h.jahr,
           fruchtart: h.fruchtart,
           ertragsZiel: e.ertragsZiel != null ? String(e.ertragsZiel) : "",
@@ -204,7 +206,7 @@ function Inner() {
         };
       } catch { /* ignore */ }
     } else {
-      params = { ...eingaben, jahr: h.jahr, fruchtart: h.fruchtart, vorfrucht: h.vorfrucht ?? "" };
+      params = { ...eingaben, bezeichnung: h.bezeichnung ?? "", jahr: h.jahr, fruchtart: h.fruchtart, vorfrucht: h.vorfrucht ?? "" };
     }
     setEingaben(params);
     setEditId(h.id);
@@ -366,6 +368,16 @@ function Inner() {
       <Card className="mb-4">
         <h2 className="font-semibold mb-3">Berechnungs-Parameter</h2>
         <div className="grid sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-3">
+            <label className="block text-sm font-medium mb-1">Bezeichnung (optional)</label>
+            <input
+              type="text"
+              value={eingaben.bezeichnung}
+              onChange={e => setE("bezeichnung", e.target.value)}
+              className="w-full border rounded px-3 py-2"
+              placeholder="z. B. Frühjahr 2026 – Winterweizen Schlag Nord"
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">Fruchtart *</label>
             <SearchableSelect
@@ -453,30 +465,52 @@ function Inner() {
 
       {historie.length > 0 && (
         <Card>
-          <h2 className="font-semibold mb-3">Historie für diesen Schlag</h2>
+          <h2 className="font-semibold mb-3">Gespeicherte Berechnungen für diesen Schlag</h2>
           <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead><tr className="text-left border-b"><th className="pb-1 pr-4">Jahr</th><th className="pb-1 pr-4">Fruchtart</th><th className="pb-1 pr-4">N</th><th className="pb-1 pr-4">P₂O₅</th><th className="pb-1 pr-4">K₂O</th><th className="pb-1 pr-4">MgO</th><th className="pb-1 pr-4">Berechnet am</th><th className="pb-1"></th></tr></thead>
+            <thead>
+              <tr className="text-left border-b">
+                <th className="pb-1 pr-4">Jahr</th>
+                <th className="pb-1 pr-4">Bezeichnung / Fruchtart</th>
+                <th className="pb-1 pr-4">N</th>
+                <th className="pb-1 pr-4">P₂O₅</th>
+                <th className="pb-1 pr-4">K₂O</th>
+                <th className="pb-1 pr-4">MgO</th>
+                <th className="pb-1 pr-4">Berechnet am</th>
+                <th className="pb-1"></th>
+              </tr>
+            </thead>
             <tbody>
               {historie.map(h => (
                 <tr key={h.id} className={`border-b hover:bg-gray-50 ${editId === h.id ? "bg-blue-50" : ""}`}>
                   <td className="py-1 pr-4">{h.jahr}</td>
                   <td className="py-1 pr-4">
-                    {h.fruchtart}
+                    {h.bezeichnung
+                      ? <><span className="font-medium">{h.bezeichnung}</span><div className="text-xs text-gray-500">{h.fruchtart}</div></>
+                      : h.fruchtart
+                    }
                     {h.notiz && <div className="text-xs text-gray-400">{h.notiz}</div>}
                   </td>
-                  <td className="py-1 pr-4">{h.nBedarf}</td>
-                  <td className="py-1 pr-4">{h.pBedarf}</td>
-                  <td className="py-1 pr-4">{h.kBedarf}</td>
-                  <td className="py-1 pr-4">{h.mgBedarf ?? "–"}</td>
+                  <td className="py-1 pr-4">{Math.round(h.nBedarf)}</td>
+                  <td className="py-1 pr-4">{Math.round(h.pBedarf)}</td>
+                  <td className="py-1 pr-4">{Math.round(h.kBedarf)}</td>
+                  <td className="py-1 pr-4">{h.mgBedarf != null ? Math.round(h.mgBedarf) : "–"}</td>
                   <td className="py-1 pr-4">{formatDatum(h.berechnetAm)}</td>
                   <td className="py-1 text-right whitespace-nowrap">
+                    <Link
+                      href={`/duengebedarf/${h.id}/druck`}
+                      target="_blank"
+                      className="text-xs text-gray-500 hover:text-gray-800 mr-3"
+                      title="Drucken"
+                    >
+                      Drucken
+                    </Link>
                     <button
                       onClick={() => bearbeiten(h)}
                       className="text-xs text-blue-600 hover:text-blue-800 mr-2"
-                      title="Bearbeiten"
+                      title="Parameter laden und bearbeiten"
                     >
-                      Bearbeiten
+                      Laden
                     </button>
                     <button
                       onClick={() => loeschenHistorie(h.id)}

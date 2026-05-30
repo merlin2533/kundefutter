@@ -66,6 +66,7 @@ export const ARTIKEL_ALIAS = {
   ],
   beschreibung: ["Beschreibung", "Bemerkung", "Notiz"],
   lieferant: ["Bevorzugter Lieferant", "Lieferant", "Lieferantenname", "Hersteller"],
+  mindestbestellmenge: ["Mindestbestellmenge", "Min. Bestellmenge", "Mindestmenge", "MOQ", "Min-Menge"],
 } as const;
 
 // ── Spalten-Aliasse für Kunden-Import-Vorlagen ──────────────────────────────

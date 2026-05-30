@@ -7,6 +7,7 @@ import { KundeSchlag, inputClsSchlag } from "../_shared";
 interface DuengebedarfEintrag {
   id: number;
   schlagId: number;
+  bezeichnung: string | null;
   jahr: number;
   fruchtart: string;
   ertragsZiel: number | null;
@@ -17,7 +18,7 @@ interface DuengebedarfEintrag {
   mgBedarf: number | null;
   notiz: string | null;
   berechnetAm: string;
-  parameter?: string | null; // JSON: { eingaben, rechenweg }
+  parameter?: string | null;
 }
 
 const heute = new Date();
@@ -33,6 +34,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
   const [form, setForm] = useState({
+    bezeichnung: "",
     jahr: String(heute.getFullYear()),
     fruchtart: "",
     ertragsZiel: "",
@@ -81,6 +83,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
     setEditId(null);
     setError("");
     setForm({
+      bezeichnung: "",
       jahr: String(heute.getFullYear()),
       fruchtart: sl.fruchtart ?? "",
       ertragsZiel: "",
@@ -93,6 +96,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
 
   function bearbeiten(eintrag: DuengebedarfEintrag) {
     let f = {
+      bezeichnung: eintrag.bezeichnung ?? "",
       jahr: String(eintrag.jahr),
       fruchtart: eintrag.fruchtart,
       ertragsZiel: eintrag.ertragsZiel != null ? String(eintrag.ertragsZiel) : "",
@@ -130,6 +134,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
     try {
       const payload = {
         schlagId: formSchlagId,
+        bezeichnung: form.bezeichnung.trim() || null,
         jahr: parseInt(form.jahr, 10) || heute.getFullYear(),
         fruchtart: form.fruchtart.trim(),
         ertragsZiel: form.ertragsZiel ? Number(form.ertragsZiel) : null,
@@ -181,39 +186,68 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">
-        Düngebedarfsermittlung je Schlag (DüV Anlage 4). Versorgungsklassen werden
-        aus der jüngsten Bodenprobe des Schlags abgeleitet, sofern vorhanden.
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          Düngebedarfsermittlung je Schlag (DüV Anlage 4). Versorgungsklassen werden
+          aus der jüngsten Bodenprobe des Schlags abgeleitet, sofern vorhanden.
+        </p>
+        <Link
+          href={`/duengebedarf?kundeId=${kundeId}`}
+          className="text-xs text-green-700 hover:underline whitespace-nowrap ml-4"
+        >
+          Vollansicht öffnen →
+        </Link>
+      </div>
 
       {schlaegte.map((sl) => {
         const liste = eintraege[sl.id] ?? [];
         return (
           <div key={sl.id} className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-wrap">
               <div>
                 <span className="font-medium text-gray-900">{sl.name}</span>
                 <span className="text-xs text-gray-500 ml-2">
                   {sl.flaeche} ha{sl.fruchtart ? ` · ${sl.fruchtart}` : ""}
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  if (formSchlagId === sl.id) { setFormSchlagId(null); setEditId(null); }
-                  else oeffneForm(sl);
-                }}
-                className="text-sm px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
-              >
-                {formSchlagId === sl.id ? "Abbrechen" : "+ Düngebedarf berechnen"}
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/duengebedarf?kundeId=${kundeId}&schlagId=${sl.id}`}
+                  className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 px-2 py-1 rounded"
+                >
+                  Vollansicht
+                </Link>
+                <button
+                  onClick={() => {
+                    if (formSchlagId === sl.id) { setFormSchlagId(null); setEditId(null); }
+                    else oeffneForm(sl);
+                  }}
+                  className="text-sm px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap"
+                >
+                  {formSchlagId === sl.id ? "Abbrechen" : "+ Düngebedarf berechnen"}
+                </button>
+              </div>
             </div>
 
             {formSchlagId === sl.id && (
               <form onSubmit={berechnen} className={`p-4 border-b border-gray-100 space-y-3 ${editId != null ? "bg-blue-50" : "bg-gray-50"}`}>
+                {editId != null && (
+                  <p className="text-xs text-blue-700 font-medium">Bearbeitungsmodus – Eintrag wird überschrieben</p>
+                )}
                 {error && (
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Bezeichnung (optional)</label>
+                    <input
+                      type="text"
+                      value={form.bezeichnung}
+                      onChange={(e) => setForm({ ...form, bezeichnung: e.target.value })}
+                      className={inputClsSchlag}
+                      placeholder="z. B. Frühjahr 2026 – Winterweizen Nordfläche"
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Jahr</label>
                     <input type="number" min="2000" max="2100" value={form.jahr}
@@ -273,7 +307,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Jahr</th>
-                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Fruchtart</th>
+                    <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Bezeichnung / Fruchtart</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">N</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">P₂O₅</th>
                     <th className="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">K₂O</th>
@@ -282,30 +316,42 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {liste.map((e) => (
-                    <tr key={e.id} className={`hover:bg-gray-50 ${editId === e.id ? "bg-blue-50" : ""}`}>
-                      <td className="px-4 py-2 text-gray-700">{e.jahr}</td>
+                  {liste.map((entry) => (
+                    <tr key={entry.id} className={`hover:bg-gray-50 ${editId === entry.id ? "bg-blue-50" : ""}`}>
+                      <td className="px-4 py-2 text-gray-700">{entry.jahr}</td>
                       <td className="px-4 py-2 text-gray-900">
-                        {e.fruchtart}
-                        {e.notiz && <div className="text-xs text-gray-400">{e.notiz}</div>}
+                        {entry.bezeichnung
+                          ? <><span className="font-medium">{entry.bezeichnung}</span><div className="text-xs text-gray-500">{entry.fruchtart}</div></>
+                          : entry.fruchtart
+                        }
+                        {entry.notiz && <div className="text-xs text-gray-400">{entry.notiz}</div>}
                       </td>
-                      <td className="px-4 py-2 text-right font-mono">{Math.round(e.nBedarf)}</td>
-                      <td className="px-4 py-2 text-right font-mono">{Math.round(e.pBedarf)}</td>
-                      <td className="px-4 py-2 text-right font-mono">{Math.round(e.kBedarf)}</td>
-                      <td className="px-4 py-2 text-right font-mono">{e.mgBedarf != null ? Math.round(e.mgBedarf) : "—"}</td>
+                      <td className="px-4 py-2 text-right font-mono">{Math.round(entry.nBedarf)}</td>
+                      <td className="px-4 py-2 text-right font-mono">{Math.round(entry.pBedarf)}</td>
+                      <td className="px-4 py-2 text-right font-mono">{Math.round(entry.kBedarf)}</td>
+                      <td className="px-4 py-2 text-right font-mono">{entry.mgBedarf != null ? Math.round(entry.mgBedarf) : "—"}</td>
                       <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <Link
+                          href={`/duengebedarf/${entry.id}/druck`}
+                          target="_blank"
+                          className="text-xs text-gray-500 hover:text-gray-800 mr-3"
+                          title="Drucken"
+                        >
+                          Drucken
+                        </Link>
                         <button
-                          onClick={() => bearbeiten(e)}
+                          onClick={() => bearbeiten(entry)}
                           className="text-xs text-blue-600 hover:text-blue-800 mr-2"
+                          title="Parameter laden und bearbeiten"
                         >
                           Bearbeiten
                         </button>
                         <button
-                          onClick={() => loeschen(e.id)}
-                          disabled={deleting === e.id}
+                          onClick={() => loeschen(entry.id)}
+                          disabled={deleting === entry.id}
                           className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
                         >
-                          {deleting === e.id ? "…" : "Löschen"}
+                          {deleting === entry.id ? "…" : "Löschen"}
                         </button>
                       </td>
                     </tr>
@@ -318,10 +364,8 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
       })}
 
       <p className="text-xs text-gray-400">
-        Hinweis: Werte sind DüV-orientierte Bedarfswerte in kg/ha. Die ausführliche
-        interaktive Berechnung steht unter{" "}
-        <Link href="/duengebedarf" className="underline hover:text-gray-600">Düngebedarfsermittlung</Link>{" "}
-        zur Verfügung.
+        Werte sind DüV-orientierte Bedarfswerte in kg/ha. Ausführliche interaktive Berechnung:{" "}
+        <Link href={`/duengebedarf?kundeId=${kundeId}`} className="underline hover:text-gray-600">Düngebedarfsermittlung öffnen</Link>.
       </p>
     </div>
   );

@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
     const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
     const lieferantName = pickCol(row, ...ARTIKEL_ALIAS.lieferant);
     const einkaufspreis = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.einkaufspreis));
+    const mindestbestellmengeRaw = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestellmenge));
+    const mindestbestellmenge = mindestbestellmengeRaw > 0 ? mindestbestellmengeRaw : 1;
 
     const artikelnummer = pickCol(row, ...ARTIKEL_ALIAS.artikelnummer) || undefined;
 
@@ -118,7 +120,7 @@ export async function POST(req: NextRequest) {
                 lieferantId,
                 lieferantenArtNr: artikelnummer ?? null,
                 einkaufspreis: einkaufspreis ?? 0,
-                mindestbestellmenge: 1,
+                mindestbestellmenge,
                 lieferzeitTage: 7,
                 bevorzugt: true,
               },

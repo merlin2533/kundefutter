@@ -195,7 +195,7 @@ export default function LieferungenPage() {
   }
 
   async function markiereGeliefert(id: number) {
-    if (!confirm("Lieferung als geliefert markieren? Der Lagerbestand wird gebucht.")) return;
+    if (!confirm("Auftrag als geliefert bestätigen und Lieferschein erstellen? Der Lagerbestand wird gebucht.")) return;
     setStatusChangingId(id);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
@@ -225,18 +225,18 @@ export default function LieferungenPage() {
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <span className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Lieferungen</h1>
+          <h1 className="text-2xl font-bold">Aufträge & Lieferscheine</h1>
           <Link href="/hilfe#lieferungen" title="Hilfe: Lieferungen & Angebote" className="text-gray-400 hover:text-green-700 transition-colors" tabIndex={-1}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           </Link>
         </span>
         <Link
           href="/lieferungen/neu"
-          title="Neue Lieferung"
+          title="Neuer Auftrag"
           className="inline-flex items-center gap-1.5 bg-green-800 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-auto text-center"
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neue Lieferung</span>
+          <span className="hidden sm:inline">Neuer Auftrag</span>
         </Link>
       </div>
 
@@ -252,7 +252,7 @@ export default function LieferungenPage() {
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            {t === "liste" ? "Lieferungen" : "Wiederkehrend"}
+            {t === "liste" ? "Aufträge & Lieferscheine" : "Wiederkehrend"}
           </button>
         ))}
       </div>
@@ -262,17 +262,22 @@ export default function LieferungenPage() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
             <div className="flex gap-1 flex-wrap">
-              {["alle", "geplant", "geliefert", "storniert"].map((s) => (
+              {([
+                { value: "alle", label: "Alle" },
+                { value: "geplant", label: "Aufträge" },
+                { value: "geliefert", label: "Lieferscheine" },
+                { value: "storniert", label: "Storniert" },
+              ] as const).map((s) => (
                 <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors capitalize ${
-                    statusFilter === s
+                  key={s.value}
+                  onClick={() => setStatusFilter(s.value)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    statusFilter === s.value
                       ? "bg-green-800 text-white border-green-800"
                       : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
                 >
-                  {s}
+                  {s.label}
                 </button>
               ))}
             </div>
@@ -302,11 +307,11 @@ export default function LieferungenPage() {
 
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
             {loading ? (
-              <p className="p-6 text-gray-400 text-sm">Lade Lieferungen…</p>
+              <p className="p-6 text-gray-400 text-sm">Lade…</p>
             ) : fetchError ? (
               <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
             ) : lieferungen.length === 0 ? (
-              <p className="p-6 text-gray-400 text-sm">Keine Lieferungen gefunden.</p>
+              <p className="p-6 text-gray-400 text-sm">Keine Aufträge / Lieferscheine gefunden.</p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -383,7 +388,7 @@ export default function LieferungenPage() {
                                 onClick={() => markiereGeliefert(l.id)}
                                 disabled={statusChangingId === l.id}
                                 className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors disabled:opacity-50"
-                                title="Als geliefert markieren"
+                                title="Als Lieferschein bestätigen"
                               >
                                 {statusChangingId === l.id ? (
                                   <span className="w-4 h-4 flex items-center justify-center text-xs">…</span>
@@ -406,7 +411,7 @@ export default function LieferungenPage() {
                                 onClick={() => handleDelete(l.id)}
                                 disabled={deletingId === l.id}
                                 className="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-800 rounded transition-colors disabled:opacity-50"
-                                title="Lieferung löschen"
+                                title="Auftrag löschen"
                               >
                                 {deletingId === l.id ? <span className="w-4 h-4 flex items-center justify-center text-xs">…</span> : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>}
                               </button>

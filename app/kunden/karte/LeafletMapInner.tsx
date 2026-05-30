@@ -34,6 +34,7 @@ interface Kunde {
   name: string;
   firma?: string;
   kategorie: string;
+  strasse?: string;
   plz?: string;
   ort?: string;
   land: string;
@@ -73,7 +74,8 @@ export default function LeafletMapInner({ kunden, visibleKategorien }: Props) {
             <div className="text-sm min-w-[160px]">
               <p className="font-semibold text-gray-800">{k.name}</p>
               {k.firma && <p className="text-gray-500 text-xs">{k.firma}</p>}
-              <p className="text-gray-500 text-xs mt-1">
+              {k.strasse && <p className="text-gray-500 text-xs mt-0.5">{k.strasse}</p>}
+              <p className="text-gray-500 text-xs mt-0.5">
                 {[k.plz, k.ort].filter(Boolean).join(" ") || k.land}
               </p>
               <p className="text-xs mt-1">

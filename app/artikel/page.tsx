@@ -50,8 +50,11 @@ export default function ArtikelPage() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewRows, setPreviewRows] = useState<Record<string, string>[] | null>(null);
-  const [previewCols, setPreviewCols] = useState<{ name: string; erkannt: boolean }[]>([]);
+  const [vorschauLoading, setVorschauLoading] = useState(false);
+  const [vorschau, setVorschau] = useState<{
+    plan: { zeile: number; name: string; aktion: "neu" | "aktualisieren" | "überspringen"; details: string[] }[];
+    summary: { neu: number; aktualisieren: number; ueberspringen: number; neueLieferanten: number };
+  } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -178,35 +181,23 @@ export default function ArtikelPage() {
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Parse preview client-side using a simple CSV reader for CSV files
-    // For XLSX we just store the file and show a simple preview prompt
     setPreviewFile(file);
     setImportResult(null);
+    setVorschau(null);
+    setVorschauLoading(true);
 
-    // Use FileReader to get first lines for preview (CSV only; XLSX needs server)
-    if (file.name.endsWith(".csv")) {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(Boolean);
-      if (lines.length > 0) {
-        const sep = lines[0].includes(";") ? ";" : ",";
-        const headers = lines[0].split(sep).map((h) => h.trim().replace(/^["']|["']$/g, ""));
-        // Check which headers are recognised by ARTIKEL_ALIAS
-        const allAliases = Object.values(ARTIKEL_ALIAS).flat().map((a) => a.toLowerCase().replace(/[\s_\-()]/g, ""));
-        const cols = headers.map((h) => ({
-          name: h,
-          erkannt: allAliases.includes(h.toLowerCase().replace(/[\s_\-()]/g, "")),
-        }));
-        setPreviewCols(cols);
-        const dataRows = lines.slice(1, 6).map((line) => {
-          const vals = line.split(sep).map((v) => v.trim().replace(/^["']|["']$/g, ""));
-          return Object.fromEntries(headers.map((h, i) => [h, vals[i] ?? ""]));
-        });
-        setPreviewRows(dataRows);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/artikel/import/vorschau", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setVorschau(data);
       }
-    } else {
-      // XLSX: show minimal info, let server parse
-      setPreviewCols([]);
-      setPreviewRows([]);
+    } catch {
+      // Vorschau nicht verfügbar — Import trotzdem erlauben
+    } finally {
+      setVorschauLoading(false);
     }
   }
 
@@ -215,8 +206,7 @@ export default function ArtikelPage() {
     setImporting(true);
     setImportResult(null);
     setPreviewFile(null);
-    setPreviewRows(null);
-    setPreviewCols([]);
+    setVorschau(null);
     const fd = new FormData();
     fd.append("file", previewFile);
     try {
@@ -272,6 +262,15 @@ export default function ArtikelPage() {
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
             <span className="hidden sm:inline">Exportieren</span>
+          </a>
+          <a
+            href="/api/artikel/import/vorlage"
+            download
+            title="Import-Vorlage herunterladen"
+            className="inline-flex items-center gap-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-auto text-center"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">Vorlage</span>
           </a>
           <button
             onClick={() => importRef.current?.click()}

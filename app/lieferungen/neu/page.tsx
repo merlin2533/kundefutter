@@ -112,8 +112,8 @@ function MargeBadge({ pct }: { pct: number }) {
 }
 
 const STATUS_OPTIONS = [
-  { value: "geplant", label: "Geplant" },
-  { value: "geliefert", label: "Geliefert" },
+  { value: "geplant", label: "Auftrag (geplant)" },
+  { value: "geliefert", label: "Lieferschein (sofort geliefert)" },
 ];
 
 function NeueLieferungInner() {
@@ -349,7 +349,7 @@ function NeueLieferungInner() {
   if (loading) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-6">Neue Lieferung</h1>
+        <h1 className="text-2xl font-bold mb-6">Neuer Auftrag</h1>
         <p className="text-gray-400 text-sm">Lade Daten...</p>
       </div>
     );
@@ -358,7 +358,7 @@ function NeueLieferungInner() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold">Neue Lieferung</h1>
+        <h1 className="text-2xl font-bold">Neuer Auftrag</h1>
         <Link
           href="/lieferungen"
           className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -689,7 +689,7 @@ function NeueLieferungInner() {
 
 export default function NeueLieferungPage() {
   return (
-    <Suspense fallback={<div><h1 className="text-2xl font-bold mb-6">Neue Lieferung</h1><p className="text-gray-400 text-sm">Lade…</p></div>}>
+    <Suspense fallback={<div><h1 className="text-2xl font-bold mb-6">Neuer Auftrag</h1><p className="text-gray-400 text-sm">Lade…</p></div>}>
       <NeueLieferungInner />
     </Suspense>
   );

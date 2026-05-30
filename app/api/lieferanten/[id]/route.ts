@@ -37,10 +37,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv } = body;
+    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert } = body;
     const lieferant = await prisma.lieferant.update({
       where: { id: Number(id) },
-      data: { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv },
+      data: {
+        name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv,
+        frachtkosten: frachtkosten != null ? Number(frachtkosten) : undefined,
+        mindestbestellwert: mindestbestellwert != null ? Number(mindestbestellwert) : undefined,
+      },
     });
     return NextResponse.json(lieferant);
   } catch (e) {

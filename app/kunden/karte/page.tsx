@@ -46,29 +46,20 @@ const DynamicMap = dynamic(() => import("./LeafletMapInner"), { ssr: false });
 
 // ─── Geocoding helpers ────────────────────────────────────────────────────────
 
-async function geocodeAddress(kunde: Kunde): Promise<{ lat: number; lng: number } | null> {
-  const parts = [kunde.strasse, kunde.plz, kunde.ort, kunde.land].filter(Boolean);
-  if (parts.length === 0) return null;
-  const q = encodeURIComponent(parts.join(", "));
+/** Geocodiert einen einzelnen Kunden über die Server-API (Nominatim/OSM). */
+async function geocodeKunde(kundeId: number): Promise<{ lat: number; lng: number } | null> {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`,
-      { headers: { "Accept-Language": "de" } }
-    );
+    const res = await fetch("/api/kunden/adress-validierung", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kundeId }),
+    });
+    if (!res.ok) return null;
     const data = await res.json();
-    if (data.length === 0) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    return data.lat != null ? { lat: data.lat, lng: data.lng } : null;
   } catch {
     return null;
   }
-}
-
-async function saveCoords(kundeId: number, lat: number, lng: number) {
-  await fetch(`/api/kunden/${kundeId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lng }),
-  });
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -81,21 +72,36 @@ export default function KundenKartePage() {
   );
   const [geocodingId, setGeocodingId] = useState<number | null>(null);
   const [geocodeError, setGeocodeError] = useState<Record<number, string>>({});
+  const [backgroundGeocoding, setBackgroundGeocoding] = useState(false);
 
   const fetchKunden = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/kunden");
       const data: Kunde[] = await res.json();
-      setAlleKunden(data);
+      setAlleKunden(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchKunden();
+  // Auto-Batch-Geocodierung im Hintergrund beim ersten Laden
+  const runBackgroundGeocoding = useCallback(async () => {
+    setBackgroundGeocoding(true);
+    try {
+      await fetch("/api/kunden/adress-validierung?batch=1");
+      await fetchKunden();
+    } finally {
+      setBackgroundGeocoding(false);
+    }
   }, [fetchKunden]);
+
+  useEffect(() => {
+    fetchKunden().then(() => {
+      // Kurze Verzögerung damit Karte erst lädt, dann Geocoding im Hintergrund
+      setTimeout(runBackgroundGeocoding, 1500);
+    });
+  }, [fetchKunden, runBackgroundGeocoding]);
 
   function toggleKategorie(k: string) {
     setVisibleKategorien((prev) => {
@@ -109,13 +115,12 @@ export default function KundenKartePage() {
   async function handleGeocode(kunde: Kunde) {
     setGeocodingId(kunde.id);
     setGeocodeError((prev) => { const n = { ...prev }; delete n[kunde.id]; return n; });
-    const coords = await geocodeAddress(kunde);
+    const coords = await geocodeKunde(kunde.id);
     if (!coords) {
-      setGeocodeError((prev) => ({ ...prev, [kunde.id]: "Adresse nicht gefunden" }));
+      setGeocodeError((prev) => ({ ...prev, [kunde.id]: "Adresse nicht gefunden (OSM/Nominatim)" }));
       setGeocodingId(null);
       return;
     }
-    await saveCoords(kunde.id, coords.lat, coords.lng);
     setGeocodingId(null);
     await fetchKunden();
   }
@@ -178,6 +183,9 @@ export default function KundenKartePage() {
               </div>
               <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
                 {mitKoordinaten.length} von {alleKunden.length} Kunden auf der Karte
+                {backgroundGeocoding && (
+                  <span className="block mt-1 text-blue-500">Geocodierung läuft…</span>
+                )}
               </div>
             </div>
           </div>

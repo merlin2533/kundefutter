@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
         plz: body.plz ?? null,
         ort: body.ort ?? null,
         notizen: body.notizen ?? null,
+        frachtkosten: body.frachtkosten != null ? Number(body.frachtkosten) : 0,
+        mindestbestellwert: body.mindestbestellwert != null ? Number(body.mindestbestellwert) : 0,
       },
     });
     return NextResponse.json(lieferant, { status: 201 });

@@ -36,6 +36,8 @@ interface Lieferant {
   plz?: string | null;
   ort?: string | null;
   notizen?: string | null;
+  frachtkosten: number;
+  mindestbestellwert: number;
   artikelZuordnungen: ArtikelZuordnung[];
   wareneingaenge: Wareneingang[];
 }
@@ -72,6 +74,8 @@ export default function LieferantDetailPage() {
       plz: data.plz ?? "",
       ort: data.ort ?? "",
       notizen: data.notizen ?? "",
+      frachtkosten: data.frachtkosten,
+      mindestbestellwert: data.mindestbestellwert,
     });
     setLoading(false);
   }, [id]);
@@ -94,6 +98,8 @@ export default function LieferantDetailPage() {
         plz: editForm.plz || undefined,
         ort: editForm.ort || undefined,
         notizen: editForm.notizen || undefined,
+        frachtkosten: editForm.frachtkosten ?? 0,
+        mindestbestellwert: editForm.mindestbestellwert ?? 0,
       }),
     });
     setSaving(false);
@@ -232,6 +238,30 @@ export default function LieferantDetailPage() {
                     className={`${inputCls} resize-none`}
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frachtkosten (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.frachtkosten ?? 0}
+                      onChange={(e) => setEditForm({ ...editForm, frachtkosten: parseFloat(e.target.value) || 0 })}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestellwert (€)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={editForm.mindestbestellwert ?? 0}
+                      onChange={(e) => setEditForm({ ...editForm, mindestbestellwert: parseFloat(e.target.value) || 0 })}
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     onClick={() => { setEditing(false); setSaveError(""); }}
@@ -256,6 +286,8 @@ export default function LieferantDetailPage() {
                   ["Telefon", lieferant.telefon],
                   ["Straße", lieferant.strasse],
                   ["PLZ / Ort", [lieferant.plz, lieferant.ort].filter(Boolean).join(" ")],
+                  ["Frachtkosten", lieferant.frachtkosten > 0 ? lieferant.frachtkosten.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"],
+                  ["Mindestbestellwert", lieferant.mindestbestellwert > 0 ? lieferant.mindestbestellwert.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"],
                   ["Notizen", lieferant.notizen],
                 ].map(([label, value]) => (
                   <div key={label as string}>

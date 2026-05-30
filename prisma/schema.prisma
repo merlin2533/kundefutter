@@ -65,6 +65,7 @@ model Kunde {
   portalZugang         KundePortalZugang?
   anbauplaene          Anbauplan[]
   zertifizierungen     Zertifizierung[]
+  kampagnen            KampagneKunde[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -145,10 +146,12 @@ model Lieferant {
   strasse         String?
   plz             String?
   ort             String?
-  notizen         String?
-  aktiv           Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notizen            String?
+  frachtkosten       Float    @default(0)
+  mindestbestellwert Float    @default(0)
+  aktiv              Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   artikelZuordnungen ArtikelLieferant[]
   wareneingaenge     Wareneingang[]
@@ -930,17 +933,19 @@ model KontraktPosition {
 // ─── KAMPAGNEN / AKTIONSPREISE ────────────────────────────────────────────────
 
 model Kampagne {
-  id            Int       @id @default(autoincrement())
-  name          String
-  beschreibung  String?
-  von           DateTime
-  bis           DateTime
-  rabattProzent Float?
-  aktiv         Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                   Int       @id @default(autoincrement())
+  name                 String
+  beschreibung         String?
+  von                  DateTime
+  bis                  DateTime
+  rabattProzent        Float?
+  aktiv                Boolean   @default(true)
+  zielgruppeKriterien  String?   // JSON: { ort?, plz?, kategorie?, tag?, bedarfArtikelId?, bedarfKategorie?, letzteKaufMonate? }
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   artikel KampagneArtikel[]
+  kunden  KampagneKunde[]
 
   @@index([aktiv])
   @@index([bis])
@@ -958,6 +963,19 @@ model KampagneArtikel {
   @@unique([kampagneId, artikelId])
   @@index([kampagneId])
   @@index([artikelId])
+}
+
+model KampagneKunde {
+  id         Int      @id @default(autoincrement())
+  kampagneId Int
+  kundeId    Int
+
+  kampagne   Kampagne @relation(fields: [kampagneId], references: [id], onDelete: Cascade)
+  kunde      Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+
+  @@unique([kampagneId, kundeId])
+  @@index([kampagneId])
+  @@index([kundeId])
 }
 
 // ─── REKLAMATIONSMANAGEMENT ───────────────────────────────────────────────────
@@ -1178,6 +1196,7 @@ model Bodenprobe {
 model Duengebedarf {
   id            Int       @id @default(autoincrement())
   schlagId      Int
+  bezeichnung   String?                   // Frei wählbarer Name der Berechnung
   jahr          Int                       // Düngejahr
   fruchtart     String                    // Snapshot zum Berechnungszeitpunkt
   ertragsZiel   Float?                    // dt/ha
@@ -1187,7 +1206,7 @@ model Duengebedarf {
   pBedarf       Float                     // kg P2O5/ha
   kBedarf       Float                     // kg K2O/ha
   mgBedarf      Float?                    // kg MgO/ha
-  parameter     String?                   // JSON: Berechnungs-Snapshot (Eingaben)
+  parameter     String?                   // JSON: Berechnungs-Snapshot (Eingaben + Rechenweg)
   notiz         String?
   berechnetAm   DateTime  @default(now())
 
