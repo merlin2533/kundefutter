@@ -2,17 +2,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-interface WEPos {
-  id: number;
-  chargeNr: string | null;
-  menge: number;
-  wareneingang: { datum: string } | null;
-}
+const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
 
 interface Bestellposition {
   id: number;
   menge: number;
-  mengeGeliefert: number;
   einheit: string;
   einkaufspreis: number;
   status: string;
@@ -21,30 +15,27 @@ interface Bestellposition {
   notiz: string | null;
   createdAt: string;
   lieferant: { id: number; name: string; email: string | null; telefon: string | null; frachtkosten: number; mindestbestellwert: number };
-  artikel: { id: number; name: string; artikelnummer: string; einheit: string; kategorie: string; chargePflicht: boolean; standardpreis: number; aktuellerBestand: number; lagerort: string | null };
+  artikel: { id: number; name: string; artikelnummer: string; einheit: string; kategorie: string; aktuellerBestand: number; lagerort: string | null };
   kunde: { id: number; name: string; firma: string | null } | null;
   lieferung: { id: number; datum: string } | null;
-  wareineingangPos: WEPos[];
-  kundenpreis: number | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  offen:          { label: "Offen",          color: "bg-yellow-100 text-yellow-800" },
-  bestellt:       { label: "Bestellt",       color: "bg-blue-100 text-blue-800" },
-  teilgeliefert:  { label: "Teilgeliefert",  color: "bg-purple-100 text-purple-800" },
-  geliefert:      { label: "Geliefert",      color: "bg-green-100 text-green-800" },
-  storniert:      { label: "Storniert",      color: "bg-gray-100 text-gray-500" },
+  offen:     { label: "Offen",     color: "bg-yellow-100 text-yellow-800" },
+  bestellt:  { label: "Bestellt",  color: "bg-blue-100 text-blue-800" },
+  geliefert: { label: "Geliefert", color: "bg-green-100 text-green-800" },
+  storniert: { label: "Storniert", color: "bg-gray-100 text-gray-500" },
 };
 
 export default function BestelllistePage() {
   const [positionen, setPositionen] = useState<Bestellposition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "aktiv" | "alle">("aktiv");
+  const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "alle">("offen");
   const [updating, setUpdating] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
-    const param = statusFilter === "aktiv" ? "aktiv" : statusFilter === "alle" ? "alle" : statusFilter;
+    const param = statusFilter === "alle" ? "alle" : statusFilter;
     const res = await fetch(`/api/bestellliste?status=${param}`);
     const data = await res.json();
     setPositionen(Array.isArray(data) ? data : []);
@@ -93,19 +84,14 @@ export default function BestelllistePage() {
             {totalBestellt > 0 && <span className="text-blue-700 font-medium">{totalBestellt} bestellt</span>}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {([
-            { key: "aktiv", label: "Aktiv (Offen + Bestellt)" },
-            { key: "offen", label: "Offen" },
-            { key: "bestellt", label: "Bestellt" },
-            { key: "alle", label: "Alle" },
-          ] as const).map(({ key, label }) => (
+        <div className="flex gap-1">
+          {(["offen", "bestellt", "alle"] as const).map((f) => (
             <button
-              key={key}
-              onClick={() => setStatusFilter(key)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${statusFilter === key ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors capitalize ${statusFilter === f ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
             >
-              {label}
+              {f === "offen" ? "Offen" : f === "bestellt" ? "Bestellt" : "Alle"}
             </button>
           ))}
         </div>
@@ -124,8 +110,9 @@ export default function BestelllistePage() {
           {Object.values(grouped).map(({ lieferant, items }) => {
             const gesamtWert = items.reduce((s, i) => s + i.menge * i.einkaufspreis, 0);
             const offenCount = items.filter((i) => i.status === "offen").length;
-            const mbwErreicht = lieferant.mindestbestellwert > 0 && gesamtWert >= lieferant.mindestbestellwert;
-            const mbwFehlt = lieferant.mindestbestellwert > 0 && gesamtWert < lieferant.mindestbestellwert;
+            const mbw = lieferant.mindestbestellwert;
+            const mbwErreicht = mbw > 0 && gesamtWert >= mbw;
+            const mbwFehlt = mbw > 0 && gesamtWert < mbw;
             return (
               <div key={lieferant.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 {/* Lieferant Header */}
@@ -140,10 +127,10 @@ export default function BestelllistePage() {
                       {lieferant.frachtkosten > 0 && (
                         <span className="text-gray-600">🚚 Fracht: {lieferant.frachtkosten.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
                       )}
-                      {lieferant.mindestbestellwert > 0 && (
-                        <span className={mbwErreicht ? "text-green-600 font-medium" : "text-amber-600 font-medium"}>
-                          {mbwErreicht ? "✓" : "!"} MBW: {lieferant.mindestbestellwert.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                          {mbwFehlt && <span className="ml-1 text-gray-400">(noch {(lieferant.mindestbestellwert - gesamtWert).toLocaleString("de-DE", { style: "currency", currency: "EUR" })})</span>}
+                      {mbw > 0 && (
+                        <span className={mbwErreicht ? "text-green-700 font-medium" : "text-amber-600 font-medium"}>
+                          {mbwErreicht ? "✓" : "!"} MBW: {mbw.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                          {mbwFehlt && <span className="ml-1 text-gray-400 font-normal">(noch {(mbw - gesamtWert).toLocaleString("de-DE", { style: "currency", currency: "EUR" })})</span>}
                         </span>
                       )}
                     </div>
@@ -171,6 +158,7 @@ export default function BestelllistePage() {
                   {items.map((pos) => {
                     const sc = STATUS_CONFIG[pos.status] ?? STATUS_CONFIG.offen;
                     const isUpdating = updating === pos.id;
+                    const lagerRelevant = !LAGER_KATEGORIEN_OHNE.includes(pos.artikel.kategorie);
                     return (
                       <div key={pos.id} className={`px-5 py-3 flex gap-3 items-start ${isUpdating ? "opacity-50" : ""}`}>
                         <div className="flex-1 min-w-0">
@@ -180,52 +168,21 @@ export default function BestelllistePage() {
                               {pos.artikel.name}
                             </Link>
                             <span className="text-xs text-gray-400 font-mono">{pos.artikel.artikelnummer}</span>
-                            {pos.artikel.aktuellerBestand <= 0
-                              ? <span className="text-xs text-red-600 font-medium">● Kein Lager</span>
-                              : pos.artikel.aktuellerBestand < pos.menge
-                              ? <span className="text-xs text-amber-600 font-medium">● Lager: {pos.artikel.aktuellerBestand} {pos.artikel.einheit}</span>
-                              : <span className="text-xs text-green-600">● {pos.artikel.aktuellerBestand} {pos.artikel.einheit}</span>
-                            }
-                            {pos.artikel.lagerort && (
+                            {lagerRelevant && (
+                              pos.artikel.aktuellerBestand <= 0
+                                ? <span className="text-xs text-red-600 font-medium">● Kein Lager</span>
+                                : pos.artikel.aktuellerBestand < pos.menge
+                                ? <span className="text-xs text-amber-600 font-medium">● {pos.artikel.aktuellerBestand} {pos.artikel.einheit} (Lager)</span>
+                                : <span className="text-xs text-green-600">● {pos.artikel.aktuellerBestand} {pos.artikel.einheit}</span>
+                            )}
+                            {lagerRelevant && pos.artikel.lagerort && (
                               <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{pos.artikel.lagerort}</span>
                             )}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500">
-                            <span className="font-medium text-gray-700">
-                              {pos.mengeGeliefert > 0 && pos.mengeGeliefert < pos.menge
-                                ? <>{pos.mengeGeliefert}/{pos.menge} {pos.einheit} <span className="text-purple-600">(Teillieferung)</span></>
-                                : <>{pos.menge} {pos.einheit}</>
-                              }
-                            </span>
+                            <span className="font-medium text-gray-700">{pos.menge} {pos.einheit}</span>
                             {pos.einkaufspreis > 0 && (
-                              <span title="Einkaufspreis">
-                                <span className="text-gray-400">EK:</span>{" "}
-                                <span className="font-medium text-gray-700">{pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit}</span>
-                                {" "}
-                                <span className="text-gray-400">= {(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
-                              </span>
-                            )}
-                            {(() => {
-                              const vk = pos.kundenpreis ?? pos.artikel.standardpreis;
-                              if (!vk) return null;
-                              const isKundenpreis = pos.kundenpreis != null;
-                              const marge = pos.einkaufspreis > 0 ? ((vk - pos.einkaufspreis) / vk * 100) : null;
-                              return (
-                                <span title={isKundenpreis ? "Kundenpreis (Sonderpreis)" : "Verkaufspreis (Standardpreis)"}>
-                                  <span className="text-gray-400">{isKundenpreis ? "VK*:" : "VK:"}</span>{" "}
-                                  <span className={`font-medium ${isKundenpreis ? "text-blue-700" : "text-gray-700"}`}>
-                                    {vk.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit}
-                                  </span>
-                                  {marge != null && (
-                                    <span className={`ml-1 ${marge < 0 ? "text-red-600" : marge < 10 ? "text-amber-600" : "text-green-700"}`}>
-                                      ({marge.toFixed(1)} %)
-                                    </span>
-                                  )}
-                                </span>
-                              );
-                            })()}
-                            {pos.artikel.chargePflicht && (
-                              <span className="text-blue-600 font-medium">🔵 Charge Pflicht</span>
+                              <span>{(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} ({pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit})</span>
                             )}
                             {pos.kunde && (
                               <Link href={`/kunden/${pos.kunde.id}`} className="hover:text-green-700">
@@ -242,17 +199,7 @@ export default function BestelllistePage() {
                             <p className="text-xs text-blue-600 mt-0.5">Bestellt: {new Date(pos.bestelltAm).toLocaleDateString("de-DE")}</p>
                           )}
                           {pos.geliefertAm && (
-                            <p className="text-xs text-green-600 mt-0.5">Vollständig geliefert: {new Date(pos.geliefertAm).toLocaleDateString("de-DE")}</p>
-                          )}
-                          {pos.wareineingangPos.length > 0 && (
-                            <div className="mt-1 space-y-0.5">
-                              {pos.wareineingangPos.map((wp) => (
-                                <p key={wp.id} className="text-xs text-gray-500">
-                                  📦 {wp.wareneingang ? new Date(wp.wareneingang.datum).toLocaleDateString("de-DE") : "—"} · {wp.menge} {pos.einheit}
-                                  {wp.chargeNr && <span className="text-blue-600 font-mono ml-1">· Charge: {wp.chargeNr}</span>}
-                                </p>
-                              ))}
-                            </div>
+                            <p className="text-xs text-green-600 mt-0.5">Geliefert: {new Date(pos.geliefertAm).toLocaleDateString("de-DE")}</p>
                           )}
                           {pos.notiz && <p className="text-xs text-gray-500 mt-0.5 italic">{pos.notiz}</p>}
                         </div>
@@ -267,21 +214,13 @@ export default function BestelllistePage() {
                             </button>
                           )}
                           {pos.status === "bestellt" && (
-                            <>
-                              <Link
-                                href={`/lager/wareneingang?lieferantId=${pos.lieferant.id}&bestellpositionId=${pos.id}`}
-                                className="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg font-medium transition-colors text-center"
-                              >
-                                → Wareneingang
-                              </Link>
-                              <button
-                                onClick={() => updateStatus(pos.id, "geliefert")}
-                                disabled={isUpdating}
-                                className="text-xs text-gray-400 hover:text-green-700 disabled:opacity-40"
-                              >
-                                Manuell erhalten
-                              </button>
-                            </>
+                            <button
+                              onClick={() => updateStatus(pos.id, "geliefert")}
+                              disabled={isUpdating}
+                              className="text-xs px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg font-medium transition-colors disabled:opacity-40"
+                            >
+                              Erhalten
+                            </button>
                           )}
                           {pos.status !== "geliefert" && pos.status !== "storniert" && (
                             <button

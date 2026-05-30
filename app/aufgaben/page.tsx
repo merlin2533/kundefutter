@@ -78,6 +78,10 @@ export default function AufgabenPage() {
     return () => clearTimeout(t);
   }, [fetchAufgaben]);
 
+  useEffect(() => {
+    try { sessionStorage.setItem("aufgaben-filters", JSON.stringify({ status, prioritaet, tagFilter })); } catch {}
+  }, [status, prioritaet, tagFilter]);
+
   async function toggleErledigt(a: Aufgabe) {
     setToggling(a.id);
     // Optimistic update: flip the flag immediately

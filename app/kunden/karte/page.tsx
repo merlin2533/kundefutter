@@ -46,7 +46,7 @@ const DynamicMap = dynamic(() => import("./LeafletMapInner"), { ssr: false });
 
 // ─── Geocoding helpers ────────────────────────────────────────────────────────
 
-/** Geocodiert einen einzelnen Kunden über die Server-API (Nominatim/OSM). */
+/** Geocodiert einen einzelnen Kunden via Server-API (Nominatim/OSM, Rate-Limit serverseitig). */
 async function geocodeKunde(kundeId: number): Promise<{ lat: number; lng: number } | null> {
   try {
     const res = await fetch("/api/kunden/adress-validierung", {
@@ -78,14 +78,14 @@ export default function KundenKartePage() {
     setLoading(true);
     try {
       const res = await fetch("/api/kunden");
-      const data: Kunde[] = await res.json();
+      const data = await res.json();
       setAlleKunden(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Auto-Batch-Geocodierung im Hintergrund beim ersten Laden
+  /** Batch-Geocodierung im Hintergrund: geocodiert bis zu 50 Kunden mit Adresse aber ohne Koordinaten. */
   const runBackgroundGeocoding = useCallback(async () => {
     setBackgroundGeocoding(true);
     try {
@@ -98,10 +98,11 @@ export default function KundenKartePage() {
 
   useEffect(() => {
     fetchKunden().then(() => {
-      // Kurze Verzögerung damit Karte erst lädt, dann Geocoding im Hintergrund
+      // Leichte Verzögerung damit die Karte zuerst rendert, dann Geocoding im Hintergrund
       setTimeout(runBackgroundGeocoding, 1500);
     });
-  }, [fetchKunden, runBackgroundGeocoding]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleKategorie(k: string) {
     setVisibleKategorien((prev) => {

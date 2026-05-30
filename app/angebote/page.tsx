@@ -37,34 +37,23 @@ function loadAngeboteFilters() {
 export default function AngebotePage() {
   const [angebote, setAngebote] = useState<AngebotListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(() => loadAngeboteFilters().statusFilter ?? "alle");
   const [search, setSearch] = useState<string>(() => loadAngeboteFilters().search ?? "");
   const [searchInput, setSearchInput] = useState<string>(() => loadAngeboteFilters().search ?? "");
 
   useEffect(() => {
-    try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch {}
-  }, [statusFilter, search]);
-
-  useEffect(() => {
     setLoading(true);
-    setFetchError(null);
     const params = new URLSearchParams();
     if (statusFilter !== "alle") params.set("status", statusFilter);
     if (search) params.set("search", search);
     fetch(`/api/angebote?${params.toString()}`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const d = await r.json().catch(() => ({})) as { error?: string };
-          setFetchError(d.error ?? `Serverfehler ${r.status}`);
-          setAngebote([]);
-        } else {
-          const d = await r.json();
-          setAngebote(Array.isArray(d) ? d : []);
-        }
-      })
-      .catch(() => setFetchError("Netzwerkfehler – Seite neu laden"))
-      .finally(() => setLoading(false));
+      .then((r) => r.json())
+      .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [statusFilter, search]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch {}
   }, [statusFilter, search]);
 
   function handleSearch(e: React.FormEvent) {
@@ -87,11 +76,9 @@ export default function AngebotePage() {
         </div>
         <Link
           href="/angebote/neu"
-          title="Neues Angebot"
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap"
         >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neues Angebot</span>
+          + Neues Angebot
         </Link>
       </div>
 
@@ -144,8 +131,6 @@ export default function AngebotePage() {
       {/* Table */}
       {loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
-      ) : fetchError ? (
-        <div className="text-center py-16 text-red-600 text-sm">⚠ {fetchError}</div>
       ) : angebote.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl text-gray-400">
           <p className="text-3xl mb-2">📋</p>

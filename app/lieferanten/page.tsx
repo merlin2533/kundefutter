@@ -16,33 +16,24 @@ interface Lieferant {
   _count?: { artikelZuordnungen: number };
 }
 
+function loadLieferantFilters() {
+  try { return JSON.parse(sessionStorage.getItem("lieferanten-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function LieferantenPage() {
   const router = useRouter();
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [search, setSearch] = useState<string>(() => loadLieferantFilters().search ?? "");
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
-    setFetchError(null);
     const params = new URLSearchParams();
     if (search) params.set("search", search);
-    try {
-      const res = await fetch(`/api/lieferanten?${params}`);
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({})) as { error?: string };
-        setFetchError(d.error ?? `Serverfehler ${res.status}`);
-        setLieferanten([]);
-      } else {
-        const data = await res.json();
-        setLieferanten(Array.isArray(data) ? data : []);
-      }
-    } catch {
-      setFetchError("Netzwerkfehler – Seite neu laden");
-    } finally {
-      setLoading(false);
-    }
+    const res = await fetch(`/api/lieferanten?${params}`);
+    const data = await res.json();
+    setLieferanten(data);
+    setLoading(false);
   }, [search]);
 
   useEffect(() => {
@@ -50,17 +41,19 @@ export default function LieferantenPage() {
     return () => clearTimeout(t);
   }, [fetchLieferanten]);
 
+  useEffect(() => {
+    try { sessionStorage.setItem("lieferanten-filters", JSON.stringify({ search })); } catch {}
+  }, [search]);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Lieferanten</h1>
         <Link
           href="/lieferanten/neu"
-          title="Neuer Lieferant"
-          className="inline-flex items-center gap-1.5 bg-green-800 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-auto text-center"
+          className="bg-green-800 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto text-center"
         >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neuer Lieferant</span>
+          + Neuer Lieferant
         </Link>
       </div>
 
@@ -79,8 +72,6 @@ export default function LieferantenPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade Lieferanten…</p>
-        ) : fetchError ? (
-          <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
         ) : lieferanten.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">Keine Lieferanten gefunden.</p>
         ) : (
