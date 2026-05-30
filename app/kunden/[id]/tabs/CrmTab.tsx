@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import NotizenTab from "./NotizenTab";
 
 interface Aktivitaet {
   id: number;
@@ -218,6 +219,10 @@ export default function CrmTab({ kundeId, autoOpen }: { kundeId: number; autoOpe
           })}
         </div>
       )}
+      <div className="border-t border-gray-200 pt-6 mt-6">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">📝 Notizen</h3>
+        <NotizenTab kundeId={kundeId} />
+      </div>
     </div>
   );
 }
