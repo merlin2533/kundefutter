@@ -151,7 +151,7 @@ function WareneingangInner() {
     0
   );
 
-  async function handleSubmit() {
+  async function handleSubmit(andNew = false) {
     if (!lieferantId) {
       setError("Bitte einen Lieferanten wählen.");
       return;
@@ -199,7 +199,14 @@ function WareneingangInner() {
     });
     setSaving(false);
     if (res.ok) {
-      router.push("/lager");
+      if (andNew) {
+        setPositionen([{ artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
+        setNotiz("");
+        setError("");
+        setVorbefuelltHinweis("✓ Wareneingang gespeichert – neuer Wareneingang bereit.");
+      } else {
+        router.push("/lager");
+      }
     } else {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? "Fehler beim Speichern.");
@@ -221,8 +228,8 @@ function WareneingangInner() {
       </div>
 
       {vorbefuelltHinweis && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-          <span className="font-semibold">Vorlage:</span> {vorbefuelltHinweis} — Bitte Menge und Preis eintragen.
+        <div className={`mb-4 rounded-lg px-4 py-3 text-sm ${vorbefuelltHinweis.startsWith("✓") ? "bg-green-50 border border-green-200 text-green-800" : "bg-amber-50 border border-amber-200 text-amber-800"}`}>
+          {vorbefuelltHinweis.startsWith("✓") ? vorbefuelltHinweis : <><span className="font-semibold">Vorlage:</span> {vorbefuelltHinweis} — Bitte Menge und Preis eintragen.</>}
         </div>
       )}
 
@@ -354,7 +361,7 @@ function WareneingangInner() {
                   </div>
                   <div className="w-full sm:w-28">
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Menge
+                      Menge{art?.einheit ? <span className="ml-1 text-gray-400">({art.einheit})</span> : ""}
                     </label>
                     <input
                       type="number"
@@ -431,7 +438,14 @@ function WareneingangInner() {
             Abbrechen
           </Link>
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(true)}
+            disabled={saving}
+            className="w-full sm:w-auto px-4 py-2 text-sm rounded-lg border border-green-700 text-green-800 hover:bg-green-50 font-medium disabled:opacity-60"
+          >
+            {saving ? "Speichern..." : "Speichern & Weiterer"}
+          </button>
+          <button
+            onClick={() => handleSubmit(false)}
             disabled={saving}
             className="w-full sm:w-auto px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-60"
           >
