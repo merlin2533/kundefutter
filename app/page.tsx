@@ -368,7 +368,7 @@ const SCHNELLZUGRIFF = [
   { href: "/kunden/neu", label: "Neuer Kunde", icon: "👤", color: "bg-purple-50 border-purple-200 hover:bg-purple-100" },
   { href: "/crm", label: "CRM Aktivität", icon: "💬", color: "bg-orange-50 border-orange-200 hover:bg-orange-100" },
   { href: "/tourenplanung", label: "Tourenplanung", icon: "🗺️", color: "bg-yellow-50 border-yellow-200 hover:bg-yellow-100" },
-  { href: "/prognose", label: "Bestellvorschlag", icon: "📊", color: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
+  { href: "/bestellliste", label: "Bestellliste", icon: "🛒", color: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
   { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100" },
   { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100" },
 ];
@@ -1082,8 +1082,8 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            <Link href="/lieferungen" className="text-xs text-green-700 hover:underline">
-              Alle Rechnungen →
+            <Link href="/mahnwesen" className="text-xs text-green-700 hover:underline">
+              Mahnwesen →
             </Link>
           </div>
           {data.faelligeRechnungen.length === 0 ? (
@@ -1109,7 +1109,7 @@ export default function DashboardPage() {
                 return (
                   <Link
                     key={r.id}
-                    href={`/kunden/${r.kundeId}`}
+                    href={`/lieferungen/${r.id}`}
                     className={`flex items-center justify-between p-2 rounded-lg border transition-colors hover:opacity-90 ${rowColor}`}
                   >
                     <div className="min-w-0 flex-1">
