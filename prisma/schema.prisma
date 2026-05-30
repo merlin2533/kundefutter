@@ -748,6 +748,8 @@ model Ausgabe {
   belegPfad      String?   // Relativer Pfad zur hochgeladenen Belegdatei (z.B. /uploads/belege/2026/20260403_42_RE-2026-1234.jpg)
   belegDateiname String?   // Originaler Dateiname des Belegs
   ausleger       String?   // Name der Person, die privat ausgelegt hat (null = Firmenzahlung)
+  erfasstVon     String?   // Benutzername der erfassenden Person
+  bezahltVon     String?   // Benutzername der Person, die als bezahlt markiert hat
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -755,6 +757,7 @@ model Ausgabe {
   @@index([lieferantId])
   @@index([kategorie])
   @@index([ausleger])
+  @@index([erfasstVon])
 }
 
 // ─── BANKABGLEICH (Kontoauszug-Import & Zahlungszuordnung) ───────────────────
