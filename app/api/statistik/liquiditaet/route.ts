@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       where: {
         datum: { gte: von, lte: bis },
       },
-      select: { datum: true, betrag: true },
+      select: { datum: true, betragNetto: true },
       take: 5000,
     });
 
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       if (!a.datum) continue;
       const monat = a.datum.toISOString().substring(0, 7);
       const entry = monatMap.get(monat) ?? { einnahmen: 0, ausgaben: 0 };
-      entry.ausgaben += a.betrag;
+      entry.ausgaben += a.betragNetto;
       monatMap.set(monat, entry);
     }
 
