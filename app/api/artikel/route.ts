@@ -11,12 +11,28 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const aktiv = searchParams.get("aktiv");
 
+  const lieferantId = searchParams.get("lieferantId");
+  const preisVon = searchParams.get("preisVon");
+  const preisBis = searchParams.get("preisBis");
+  const nurSprengstoff = searchParams.get("sprengstoffvorlaeufer");
+
   const where: Record<string, unknown> = {};
   if (kategorie) where.kategorie = kategorie;
   if (unterkategorie) where.unterkategorie = unterkategorie;
   // Standardmäßig nur aktive Artikel anzeigen; explizit ?aktiv=false für inaktive, ?aktiv=alle für alle
   if (aktiv === null) where.aktiv = true;
   else if (aktiv !== "alle") where.aktiv = aktiv === "true";
+  if (lieferantId) {
+    const lid = parseInt(lieferantId, 10);
+    if (!isNaN(lid)) where.lieferanten = { some: { lieferantId: lid } };
+  }
+  if (preisVon || preisBis) {
+    const preis: Record<string, number> = {};
+    if (preisVon) { const v = parseFloat(preisVon); if (!isNaN(v)) preis.gte = v; }
+    if (preisBis) { const v = parseFloat(preisBis); if (!isNaN(v)) preis.lte = v; }
+    if (Object.keys(preis).length > 0) where.standardpreis = preis;
+  }
+  if (nurSprengstoff === "1") where.sprengstoffvorlaeufer = true;
   if (search) {
     where.OR = [
       { name: { contains: search } },

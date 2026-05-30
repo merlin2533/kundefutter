@@ -34,7 +34,13 @@ interface Artikel {
   beschreibung?: string | null;
   aktiv: boolean;
   lagerort?: string | null;
+  sprengstoffvorlaeufer: boolean;
   lieferanten: ArtikelLieferant[];
+}
+
+interface LieferantOption {
+  id: number;
+  name: string;
 }
 
 export default function ArtikelPage() {
@@ -46,6 +52,11 @@ export default function ArtikelPage() {
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
   const [unterkategorie, setUnterkategorie] = useState("alle");
+  const [lieferantId, setLieferantId] = useState("");
+  const [preisVon, setPreisVon] = useState("");
+  const [preisBis, setPreisBis] = useState("");
+  const [nurSprengstoff, setNurSprengstoff] = useState(false);
+  const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -69,6 +80,10 @@ export default function ArtikelPage() {
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
     if (unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
+    if (lieferantId) params.set("lieferantId", lieferantId);
+    if (preisVon) params.set("preisVon", preisVon);
+    if (preisBis) params.set("preisBis", preisBis);
+    if (nurSprengstoff) params.set("sprengstoffvorlaeufer", "1");
     params.set("limit", String(PAGE_SIZE));
     params.set("page", String(pageNum));
     try {
@@ -97,19 +112,23 @@ export default function ArtikelPage() {
       if (saved.search !== undefined) setSearch(saved.search);
       if (saved.kategorie !== undefined) setKategorie(saved.kategorie);
       if (saved.unterkategorie !== undefined) setUnterkategorie(saved.unterkategorie);
+      if (saved.lieferantId !== undefined) setLieferantId(saved.lieferantId);
+      if (saved.preisVon !== undefined) setPreisVon(saved.preisVon);
+      if (saved.preisBis !== undefined) setPreisBis(saved.preisBis);
+      if (saved.nurSprengstoff !== undefined) setNurSprengstoff(saved.nurSprengstoff === "1");
     } catch { /* ignore */ }
   }, []);
 
   // Persist filters to sessionStorage on change
   useEffect(() => {
-    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie })); } catch { /* ignore */ }
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch { /* ignore */ }
   }, [search, kategorie, unterkategorie]);
 
   useEffect(() => {
     setPage(1);
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, kategorie, unterkategorie]);
+  }, [search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
     if (page > 1) load(page);
@@ -163,6 +182,13 @@ export default function ArtikelPage() {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
         setSystemSettings(d);
       })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/lieferanten?limit=500")
+      .then((r) => r.ok ? r.json() : [])
+      .then((d: unknown) => { if (Array.isArray(d)) setLieferanten(d as LieferantOption[]); })
       .catch(() => {});
   }, []);
 
@@ -435,6 +461,63 @@ export default function ArtikelPage() {
         </div>
       </div>
 
+      {/* Zusätzliche Filter: Lieferant, Preis, Sprengstoffvorläufer */}
+      <div className="flex flex-wrap gap-3 mb-4 -mt-2">
+        {lieferanten.length > 0 && (
+          <select
+            value={lieferantId}
+            onChange={(e) => setLieferantId(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+          >
+            <option value="">Alle Lieferanten</option>
+            {lieferanten.map((l) => (
+              <option key={l.id} value={String(l.id)}>{l.name}</option>
+            ))}
+          </select>
+        )}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="number"
+            placeholder="Preis von €"
+            value={preisVon}
+            onChange={(e) => setPreisVon(e.target.value)}
+            min={0}
+            step={0.01}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-28 focus:outline-none focus:ring-2 focus:ring-green-700"
+          />
+          <span className="text-gray-400 text-sm">–</span>
+          <input
+            type="number"
+            placeholder="bis €"
+            value={preisBis}
+            onChange={(e) => setPreisBis(e.target.value)}
+            min={0}
+            step={0.01}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-green-700"
+          />
+        </div>
+        <button
+          onClick={() => setNurSprengstoff((v) => !v)}
+          title="Nur Sprengstoffvorläufer anzeigen"
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            nurSprengstoff
+              ? "bg-orange-600 text-white border-orange-600"
+              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+          Sprengstoffvorläufer
+        </button>
+        {(lieferantId || preisVon || preisBis || nurSprengstoff) && (
+          <button
+            onClick={() => { setLieferantId(""); setPreisVon(""); setPreisBis(""); setNurSprengstoff(false); }}
+            className="text-xs text-gray-500 hover:text-red-600 underline self-center"
+          >
+            Filter zurücksetzen
+          </button>
+        )}
+      </div>
+
       {aktuelleUnterkategorien.length > 0 && (
         <div className="flex gap-1 flex-wrap mb-5 -mt-2">
           <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Unterkat.:</span>
@@ -540,7 +623,18 @@ export default function ArtikelPage() {
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{a.artikelnummer}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">
-                      {a.name}
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
+                        {a.name}
+                        {a.sprengstoffvorlaeufer && (
+                          <span
+                            title="Sprengstoffvorläufer (EU-VO 2019/1148)"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200 shrink-0"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                            SV
+                          </span>
+                        )}
+                      </span>
                       <div className="sm:hidden text-xs text-gray-500 mt-0.5">
                         {kategorieMitKultur} · {formatEuro(a.standardpreis)}
                       </div>
