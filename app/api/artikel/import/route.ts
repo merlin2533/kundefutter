@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
                     lieferantId,
                     lieferantenArtNr: finalNummer,
                     einkaufspreis: einkaufspreis ?? 0,
-                    mindestbestellmenge: 1,
+                    mindestbestellmenge,
                     lieferzeitTage: 7,
                     bevorzugt: true,
                   }],

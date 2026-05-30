@@ -1003,6 +1003,16 @@ export default function ArtikelDetailPage() {
                       ) : <span className="text-gray-400">—</span>}
                     </dd>
                   </div>
+                  <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
+                    <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Chargenpflicht</dt>
+                    <dd className="text-sm">
+                      {artikel.chargePflicht ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-300 rounded text-xs font-medium">
+                          Chargennummer erforderlich
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </dd>
+                  </div>
                   {artikel.beschreibung && (
                     <div className="py-2.5 flex gap-3 items-start sm:col-span-2">
                       <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Beschreibung</dt>

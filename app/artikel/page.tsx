@@ -11,7 +11,6 @@ import {
   parseListSetting,
   getUnterkategorienKey,
 } from "@/lib/auswahllisten";
-import { ARTIKEL_ALIAS } from "@/lib/import-utils";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
 interface ArtikelLieferant {
@@ -296,63 +295,98 @@ export default function ArtikelPage() {
       {/* Import Vorschau */}
       {previewFile && !importing && (
         <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <div className="font-semibold text-blue-800 mb-1">Vorschau: {previewFile.name}</div>
-              {previewCols.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-1.5">
-                  {previewCols.map((c) => (
-                    <span key={c.name} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${c.erkannt ? "bg-green-50 border-green-200 text-green-700" : "bg-gray-50 border-gray-200 text-gray-500"}`}>
-                      {c.erkannt ? "✓" : "?"} {c.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {previewRows && previewRows.length > 0 && (
-                <div className="overflow-x-auto max-w-full">
-                  <table className="text-xs border border-gray-200 rounded">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        {previewCols.map((c) => (
-                          <th key={c.name} className={`px-2 py-1 text-left font-medium border-r last:border-0 ${c.erkannt ? "text-green-700" : "text-gray-400"}`}>{c.name}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewRows.map((row, i) => (
-                        <tr key={i} className="border-t border-gray-100">
-                          {previewCols.map((c) => (
-                            <td key={c.name} className="px-2 py-1 border-r last:border-0 text-gray-700 max-w-[120px] truncate">{row[c.name] ?? ""}</td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p className="text-xs text-gray-400 mt-1">Vorschau: erste {previewRows.length} Datenzeilen</p>
-                </div>
-              )}
-              {previewFile.name.match(/\.(xlsx|xls)$/i) && (
-                <p className="text-blue-700 text-xs">Excel-Datei — Vorschau nur nach Import verfügbar. Spalten werden automatisch erkannt.</p>
-              )}
+          <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+            <div className="font-semibold text-blue-800">
+              Import-Vorschau: {previewFile.name}
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <button
-                onClick={() => { setPreviewFile(null); setPreviewRows(null); setPreviewCols([]); if (importRef.current) importRef.current.value = ""; }}
+                onClick={() => { setPreviewFile(null); setVorschau(null); if (importRef.current) importRef.current.value = ""; }}
                 className="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-600 text-xs hover:bg-gray-50"
               >
                 Abbrechen
               </button>
               <button
                 onClick={doImport}
-                className="px-4 py-1.5 rounded bg-green-700 text-white text-xs font-medium hover:bg-green-800"
+                disabled={vorschauLoading}
+                className="px-4 py-1.5 rounded bg-green-700 text-white text-xs font-medium hover:bg-green-800 disabled:opacity-60"
               >
                 Jetzt importieren
               </button>
             </div>
           </div>
+
+          {vorschauLoading && (
+            <div className="flex items-center gap-2 text-blue-700 text-xs py-2">
+              <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin shrink-0" />
+              Datei wird analysiert…
+            </div>
+          )}
+
+          {vorschau && !vorschauLoading && (
+            <>
+              {/* Zusammenfassung */}
+              <div className="flex flex-wrap gap-3 mb-3">
+                {vorschau.summary.neu > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                    + {vorschau.summary.neu} neu anlegen
+                  </span>
+                )}
+                {vorschau.summary.aktualisieren > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    ~ {vorschau.summary.aktualisieren} aktualisieren
+                  </span>
+                )}
+                {vorschau.summary.ueberspringen > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                    — {vorschau.summary.ueberspringen} überspringen
+                  </span>
+                )}
+                {vorschau.summary.neueLieferanten > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+                    {vorschau.summary.neueLieferanten} neue Lieferanten
+                  </span>
+                )}
+              </div>
+
+              {/* Detailplan */}
+              <div className="overflow-y-auto max-h-64 rounded border border-blue-100 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-1.5 text-left font-medium text-gray-500 w-12">Zeile</th>
+                      <th className="px-3 py-1.5 text-left font-medium text-gray-500">Artikel</th>
+                      <th className="px-3 py-1.5 text-left font-medium text-gray-500 w-28">Aktion</th>
+                      <th className="px-3 py-1.5 text-left font-medium text-gray-500">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vorschau.plan.map((z) => (
+                      <tr key={z.zeile} className="border-t border-gray-100">
+                        <td className="px-3 py-1.5 text-gray-400 font-mono">{z.zeile}</td>
+                        <td className="px-3 py-1.5 font-medium text-gray-800 max-w-[180px] truncate" title={z.name}>{z.name}</td>
+                        <td className="px-3 py-1.5">
+                          {z.aktion === "neu" && (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">+ neu</span>
+                          )}
+                          {z.aktion === "aktualisieren" && (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">~ update</span>
+                          )}
+                          {z.aktion === "überspringen" && (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">— skip</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-1.5 text-gray-500 text-xs">{z.details.join(" · ")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
           <div className="mt-2 text-xs text-blue-600">
-            Duplikate (gleicher Name) werden aktualisiert statt neu angelegt.{" "}
-            <a href="/hilfe/import" className="underline hover:text-blue-800">Import-Anleitung</a>
+            Vorhandene Artikel (gleicher Name) werden aktualisiert, nicht doppelt angelegt.
           </div>
         </div>
       )}

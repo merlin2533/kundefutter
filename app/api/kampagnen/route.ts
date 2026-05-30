@@ -6,9 +6,18 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const aktiv = searchParams.get("aktiv");
+  const kundeId = searchParams.get("kundeId");
 
   const where: Record<string, unknown> = {};
   if (aktiv !== null) where.aktiv = aktiv === "true";
+
+  // If filtering by kundeId: only campaigns where this customer is a member
+  if (kundeId) {
+    const kId = parseInt(kundeId, 10);
+    if (!isNaN(kId)) {
+      where.kunden = { some: { kundeId: kId } };
+    }
+  }
 
   try {
     const list = await prisma.kampagne.findMany({
@@ -19,6 +28,7 @@ export async function GET(req: NextRequest) {
             artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true } },
           },
         },
+        _count: { select: { kunden: true } },
       },
       orderBy: { bis: "desc" },
       take: 200,
@@ -43,6 +53,7 @@ export async function POST(req: NextRequest) {
   if (!body.bis) return NextResponse.json({ error: "bis erforderlich" }, { status: 400 });
 
   const artikelRaw = Array.isArray(body.artikel) ? body.artikel : [];
+  const kundenRaw = Array.isArray(body.kunden) ? body.kunden : [];
 
   try {
     const kampagne = await prisma.kampagne.create({
@@ -53,12 +64,20 @@ export async function POST(req: NextRequest) {
         bis: new Date(body.bis),
         rabattProzent: body.rabattProzent != null ? Number(body.rabattProzent) : null,
         aktiv: body.aktiv !== undefined ? Boolean(body.aktiv) : true,
+        zielgruppeKriterien: body.zielgruppeKriterien ? JSON.stringify(body.zielgruppeKriterien) : null,
         artikel: {
           create: artikelRaw
             .filter((a: { artikelId?: unknown }) => a.artikelId)
             .map((a: { artikelId: unknown; sonderpreis?: unknown }) => ({
               artikelId: parseInt(String(a.artikelId), 10),
               sonderpreis: a.sonderpreis != null ? Number(a.sonderpreis) : null,
+            })),
+        },
+        kunden: {
+          create: kundenRaw
+            .filter((k: { kundeId?: unknown }) => k.kundeId)
+            .map((k: { kundeId: unknown }) => ({
+              kundeId: parseInt(String(k.kundeId), 10),
             })),
         },
       },
@@ -68,6 +87,12 @@ export async function POST(req: NextRequest) {
             artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true } },
           },
         },
+        kunden: {
+          include: {
+            kunde: { select: { id: true, name: true, firma: true, ort: true, kategorie: true } },
+          },
+        },
+        _count: { select: { kunden: true } },
       },
     });
     return NextResponse.json(kampagne, { status: 201 });

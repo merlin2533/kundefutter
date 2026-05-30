@@ -19,6 +19,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
             artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true, kategorie: true } },
           },
         },
+        kunden: {
+          include: {
+            kunde: { select: { id: true, name: true, firma: true, ort: true, kategorie: true } },
+          },
+          orderBy: { kunde: { name: "asc" } },
+        },
+        _count: { select: { kunden: true } },
       },
     });
     if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -48,8 +55,36 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (body.bis !== undefined) data.bis = new Date(body.bis);
   if (body.rabattProzent !== undefined) data.rabattProzent = body.rabattProzent != null ? Number(body.rabattProzent) : null;
   if (body.aktiv !== undefined) data.aktiv = Boolean(body.aktiv);
+  if (body.zielgruppeKriterien !== undefined) {
+    data.zielgruppeKriterien = body.zielgruppeKriterien ? JSON.stringify(body.zielgruppeKriterien) : null;
+  }
 
   try {
+    // Handle artikel update if provided
+    if (Array.isArray(body.artikel)) {
+      await prisma.kampagneArtikel.deleteMany({ where: { kampagneId: nId } });
+      data.artikel = {
+        create: body.artikel
+          .filter((a: { artikelId?: unknown }) => a.artikelId)
+          .map((a: { artikelId: unknown; sonderpreis?: unknown }) => ({
+            artikelId: parseInt(String(a.artikelId), 10),
+            sonderpreis: a.sonderpreis != null ? Number(a.sonderpreis) : null,
+          })),
+      };
+    }
+
+    // Handle kunden update if provided
+    if (Array.isArray(body.kunden)) {
+      await prisma.kampagneKunde.deleteMany({ where: { kampagneId: nId } });
+      data.kunden = {
+        create: body.kunden
+          .filter((k: { kundeId?: unknown }) => k.kundeId)
+          .map((k: { kundeId: unknown }) => ({
+            kundeId: parseInt(String(k.kundeId), 10),
+          })),
+      };
+    }
+
     const record = await prisma.kampagne.update({
       where: { id: nId },
       data,
@@ -59,6 +94,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
             artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true } },
           },
         },
+        kunden: {
+          include: {
+            kunde: { select: { id: true, name: true, firma: true, ort: true, kategorie: true } },
+          },
+          orderBy: { kunde: { name: "asc" } },
+        },
+        _count: { select: { kunden: true } },
       },
     });
     return NextResponse.json(record);
