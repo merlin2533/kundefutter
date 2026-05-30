@@ -15,6 +15,7 @@ interface ArtikelRaw {
   standardpreis: number;
   aktuellerBestand: number;
   mindestbestand: number;
+  kategorie?: string;
 }
 
 interface KundeRaw {
@@ -22,6 +23,11 @@ interface KundeRaw {
   name: string;
   firma?: string;
   ort?: string;
+}
+
+interface LieferantRaw {
+  id: number;
+  name: string;
 }
 
 interface KiPosition {
@@ -44,6 +50,17 @@ interface ZuordnungsPosition {
   menge: number;
   verkaufspreis: number;
   konfidenz: "hoch" | "mittel" | "niedrig" | "keine";
+  showNeuForm?: boolean;
+}
+
+interface NeuArtikelForm {
+  name: string;
+  artikelnummer: string;
+  einheit: string;
+  kategorie: string;
+  standardpreis: string;
+  lieferantId: string;
+  kiInhaltsstoffe: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -73,7 +90,6 @@ function matchArtikel(
 ): { artikel: ArtikelRaw | null; konfidenz: ZuordnungsPosition["konfidenz"] } {
   if (!artikel.length) return { artikel: null, konfidenz: "keine" };
 
-  // 1. Exakter Artikelnummer-Match
   if (kiPos.artikelnummer) {
     const exact = artikel.find(
       (a) => a.artikelnummer.toLowerCase() === kiPos.artikelnummer!.toLowerCase()
@@ -83,13 +99,11 @@ function matchArtikel(
 
   const nameLower = kiPos.name.toLowerCase();
 
-  // 2. Name enthält (bidirektional)
   const nameContains = artikel.find(
     (a) => a.name.toLowerCase().includes(nameLower) || nameLower.includes(a.name.toLowerCase())
   );
   if (nameContains) return { artikel: nameContains, konfidenz: "mittel" };
 
-  // 3. Teilwort-Match
   const words = nameLower.split(/\s+/).filter((w) => w.length > 2);
   for (const word of words) {
     const partial = artikel.find((a) => a.name.toLowerCase().includes(word));
@@ -107,22 +121,22 @@ function matchKunde(
 
   const search = (kiKunde.firma || kiKunde.name).toLowerCase();
 
-  // Exakter Match
   const exact = kunden.find(
     (k) => k.name.toLowerCase() === search || (k.firma && k.firma.toLowerCase() === search)
   );
   if (exact) return { kunde: exact, konfidenz: "hoch" };
 
-  // Enthält-Match auf Name oder Firma (bidirektional, min 3 Zeichen)
-  const containsMatch = search.length >= 3 ? kunden.find(
-    (k) =>
-      k.name.toLowerCase().includes(search) ||
-      (k.firma && k.firma.toLowerCase().includes(search)) ||
-      search.includes(k.name.toLowerCase())
-  ) : null;
+  const containsMatch =
+    search.length >= 3
+      ? kunden.find(
+          (k) =>
+            k.name.toLowerCase().includes(search) ||
+            (k.firma && k.firma.toLowerCase().includes(search)) ||
+            search.includes(k.name.toLowerCase())
+        )
+      : null;
   if (containsMatch) return { kunde: containsMatch, konfidenz: "mittel" };
 
-  // Teilwort
   const words = search.split(/\s+/).filter((w) => w.length > 2);
   for (const word of words) {
     const partial = kunden.find(
@@ -212,6 +226,214 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
+// ─── Inline Artikel-Schnellanlage ─────────────────────────────────────────────
+
+const DEFAULT_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
+const DEFAULT_EINHEITEN = ["kg", "t", "l", "ml", "Stück", "Sack", "Big Bag", "Ballen", "Palette", "m²", "ha"];
+
+function NeuArtikelInline({
+  kiName,
+  kiEinheit,
+  lieferanten,
+  onCreated,
+  onCancel,
+}: {
+  kiName: string;
+  kiEinheit?: string;
+  lieferanten: LieferantRaw[];
+  onCreated: (artikel: ArtikelRaw) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<NeuArtikelForm>({
+    name: kiName,
+    artikelnummer: "",
+    einheit: kiEinheit ?? "kg",
+    kategorie: "Futter",
+    standardpreis: "",
+    lieferantId: "",
+    kiInhaltsstoffe: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [kiSearching, setKiSearching] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleKiInhaltsstoffe() {
+    setKiSearching(true);
+    try {
+      const res = await fetch("/api/ki/inhaltsstoffe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: form.name, kategorie: form.kategorie }),
+      });
+      if (!res.ok) throw new Error("KI-Suche fehlgeschlagen");
+      // Inhaltsstoffe werden beim Anlegen mitgegeben — hier nur als Info
+      setForm((f) => ({ ...f, kiInhaltsstoffe: true }));
+    } catch {
+      setError("KI-Suche nicht verfügbar");
+    } finally {
+      setKiSearching(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const body: Record<string, unknown> = {
+        name: form.name.trim(),
+        einheit: form.einheit,
+        kategorie: form.kategorie,
+        standardpreis: parseFloat(form.standardpreis) || 0,
+        aktuellerBestand: 0,
+        mindestbestand: 0,
+        mwstSatz: 19,
+      };
+      if (form.artikelnummer) body.artikelnummer = form.artikelnummer;
+      if (form.lieferantId) {
+        body.lieferanten = [{ lieferantId: parseInt(form.lieferantId, 10), einkaufspreis: 0 }];
+      }
+
+      const res = await fetch("/api/artikel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Anlegen fehlgeschlagen");
+      }
+      const neuArtikel = await res.json();
+      onCreated({
+        id: neuArtikel.id,
+        name: neuArtikel.name,
+        artikelnummer: neuArtikel.artikelnummer ?? "",
+        einheit: neuArtikel.einheit,
+        standardpreis: neuArtikel.standardpreis ?? 0,
+        aktuellerBestand: 0,
+        mindestbestand: 0,
+        kategorie: neuArtikel.kategorie,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
+      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Neuen Artikel anlegen</p>
+
+      {error && (
+        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Artikelname *</label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Artikelnummer</label>
+          <input
+            value={form.artikelnummer}
+            onChange={(e) => setForm((f) => ({ ...f, artikelnummer: e.target.value }))}
+            placeholder="Autom. vergeben"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+          <select
+            value={form.kategorie}
+            onChange={(e) => setForm((f) => ({ ...f, kategorie: e.target.value }))}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {DEFAULT_KATEGORIEN.map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Einheit</label>
+          <input
+            list="einheiten-list-neu"
+            value={form.einheit}
+            onChange={(e) => setForm((f) => ({ ...f, einheit: e.target.value }))}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <datalist id="einheiten-list-neu">
+            {DEFAULT_EINHEITEN.map((e) => <option key={e} value={e} />)}
+          </datalist>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Standardpreis (€)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.standardpreis}
+            onChange={(e) => setForm((f) => ({ ...f, standardpreis: e.target.value }))}
+            placeholder="0.00"
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Lieferant zuordnen</label>
+          <select
+            value={form.lieferantId}
+            onChange={(e) => setForm((f) => ({ ...f, lieferantId: e.target.value }))}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— kein Lieferant —</option>
+            {lieferanten.map((l) => (
+              <option key={l.id} value={String(l.id)}>{l.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <button
+          type="button"
+          onClick={handleKiInhaltsstoffe}
+          disabled={kiSearching || !form.name}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 transition-colors"
+        >
+          {kiSearching ? (
+            <span className="w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full animate-spin" />
+          ) : "🤖"}
+          {form.kiInhaltsstoffe ? "Inhaltsstoffe werden ergänzt ✓" : "KI-Inhaltsstoffe suchen"}
+        </button>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !form.name.trim()}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+          >
+            {saving && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Anlegen & zuordnen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function KiLieferungWizard() {
@@ -230,14 +452,46 @@ function KiLieferungWizard() {
   // Step 3
   const [artikel, setArtikel] = useState<ArtikelRaw[]>([]);
   const [kunden, setKunden] = useState<KundeRaw[]>([]);
+  const [lieferanten, setLieferanten] = useState<LieferantRaw[]>([]);
   const [kundeId, setKundeId] = useState("");
   const [kundKonfidenz, setKundKonfidenz] = useState<ZuordnungsPosition["konfidenz"]>("keine");
   const [positionen, setPositionen] = useState<ZuordnungsPosition[]>([]);
   const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [lieferStatus, setLieferStatus] = useState<"geplant" | "geliefert">("geplant");
+  const [kundenSonderpreise, setKundenSonderpreise] = useState<Record<number, number>>({});
 
   // Step 4
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [erstellteId, setErstellteId] = useState<number | null>(null);
+  const [bestelllisteAnlegen, setBestelllisteAnlegen] = useState(false);
+  const [bestelllisteErledigt, setBestelllisteErledigt] = useState(false);
+
+  // ── Sonderpreise laden ────────────────────────────────────────────────────
+
+  async function ladeSonderpreise(kid: string) {
+    if (!kid) { setKundenSonderpreise({}); return; }
+    try {
+      const res = await fetch(`/api/kunden/${kid}/preise`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const map: Record<number, number> = {};
+      const list = Array.isArray(data) ? data : (data.preise ?? []);
+      for (const p of list) {
+        if (p.artikelId && p.preis != null) map[p.artikelId] = p.preis;
+      }
+      setKundenSonderpreise(map);
+      // Preise aktualisieren
+      setPositionen((prev) =>
+        prev.map((pos) => {
+          if (!pos.artikelId) return pos;
+          const aid = parseInt(pos.artikelId, 10);
+          if (map[aid] != null) return { ...pos, verkaufspreis: map[aid] };
+          return pos;
+        })
+      );
+    } catch { /* ignore */ }
+  }
 
   // ── Step 1 → 2: Analyse ───────────────────────────────────────────────────
 
@@ -247,53 +501,65 @@ function KiLieferungWizard() {
     setAnalyzeError("");
 
     try {
-      // Fetch Artikel + Kunden in parallel while analyzing
-      const [artikelRes, kundenRes, analyzeRes] = await Promise.all([
+      const [artikelRes, kundenRes, lieferantenRes, analyzeRes] = await Promise.all([
         fetch("/api/artikel?limit=500"),
         fetch("/api/kunden?limit=500"),
+        fetch("/api/lieferanten?limit=200"),
         fetch("/api/ki/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: imagePreview.includes(",") ? imagePreview.split(",")[1] : imagePreview, feature: "lieferung" }),
+          body: JSON.stringify({
+            image: imagePreview.includes(",") ? imagePreview.split(",")[1] : imagePreview,
+            feature: "lieferung",
+          }),
         }),
       ]);
 
       const artikelData = artikelRes.ok ? await artikelRes.json() : [];
       const kundenData = kundenRes.ok ? await kundenRes.json() : [];
+      const lieferantenData = lieferantenRes.ok ? await lieferantenRes.json() : [];
       const analyzeData = await analyzeRes.json();
 
       if (!analyzeRes.ok) throw new Error(analyzeData.error || "KI-Analyse fehlgeschlagen");
 
-      const artikelList: ArtikelRaw[] = Array.isArray(artikelData) ? artikelData : (artikelData.artikel ?? []);
-      const kundenList: KundeRaw[] = Array.isArray(kundenData) ? kundenData : (kundenData.kunden ?? []);
+      const artikelList: ArtikelRaw[] = Array.isArray(artikelData)
+        ? artikelData
+        : (artikelData.artikel ?? []);
+      const kundenList: KundeRaw[] = Array.isArray(kundenData)
+        ? kundenData
+        : (kundenData.kunden ?? []);
+      const lieferantenList: LieferantRaw[] = Array.isArray(lieferantenData)
+        ? lieferantenData
+        : (lieferantenData.lieferanten ?? []);
 
       setArtikel(artikelList);
       setKunden(kundenList);
+      setLieferanten(lieferantenList);
 
       const ergebnis: KiErgebnis = analyzeData.ergebnis;
       setKiErgebnis(ergebnis);
 
       if (ergebnis.datum) setDatum(ergebnis.datum.slice(0, 10));
 
-      // Auto-match Kunde
       const { kunde: matchedKunde, konfidenz: kk } = matchKunde(ergebnis.kunde, kundenList);
       setKundeId(matchedKunde ? String(matchedKunde.id) : "");
       setKundKonfidenz(matchedKunde ? kk : "keine");
 
-      // Auto-match Artikel
       const zugeordnet: ZuordnungsPosition[] = ergebnis.positionen.map((pos) => {
         const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList);
         return {
           kiPosition: pos,
           artikelId: matchedArtikel ? String(matchedArtikel.id) : "",
           menge: pos.menge,
-          verkaufspreis:
-            pos.einzelpreis ??
-            (matchedArtikel ? matchedArtikel.standardpreis : 0),
+          verkaufspreis: pos.einzelpreis ?? (matchedArtikel ? matchedArtikel.standardpreis : 0),
           konfidenz: matchedArtikel ? konfidenz : "keine",
         };
       });
       setPositionen(zugeordnet);
+
+      if (matchedKunde) {
+        ladeSonderpreise(String(matchedKunde.id));
+      }
 
       setStep(2);
     } catch (err: unknown) {
@@ -308,20 +574,67 @@ function KiLieferungWizard() {
     runAnalysis();
   }
 
-  // ── Step 3: update position ────────────────────────────────────────────────
+  // ── Step 3: position updates ──────────────────────────────────────────────
 
-  function updatePosition(idx: number, field: "artikelId" | "menge" | "verkaufspreis", val: string | number) {
+  function updatePosition(
+    idx: number,
+    field: "artikelId" | "menge" | "verkaufspreis",
+    val: string | number
+  ) {
     setPositionen((prev) =>
       prev.map((p, i) => {
         if (i !== idx) return p;
         const updated = { ...p, [field]: val };
-        // When artikelId changes, update price from artikel list
         if (field === "artikelId") {
           const found = artikel.find((a) => String(a.id) === String(val));
-          updated.verkaufspreis = found ? found.standardpreis : 0;
+          const aid = found ? found.id : null;
+          const sonderpreis = aid != null ? kundenSonderpreise[aid] : undefined;
+          updated.verkaufspreis =
+            sonderpreis != null ? sonderpreis : found ? found.standardpreis : 0;
           updated.konfidenz = found ? "hoch" : "keine";
+          updated.showNeuForm = false;
         }
         return updated;
+      })
+    );
+  }
+
+  function toggleNeuForm(idx: number, show: boolean) {
+    setPositionen((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, showNeuForm: show } : p))
+    );
+  }
+
+  function deletePosition(idx: number) {
+    setPositionen((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  function addPosition() {
+    setPositionen((prev) => [
+      ...prev,
+      {
+        kiPosition: { name: "", menge: 1 },
+        artikelId: "",
+        menge: 1,
+        verkaufspreis: 0,
+        konfidenz: "keine",
+      },
+    ]);
+  }
+
+  function onArtikelCreated(idx: number, neu: ArtikelRaw) {
+    setArtikel((prev) => [...prev, neu]);
+    setPositionen((prev) =>
+      prev.map((p, i) => {
+        if (i !== idx) return p;
+        const sonderpreis = kundenSonderpreise[neu.id];
+        return {
+          ...p,
+          artikelId: String(neu.id),
+          verkaufspreis: sonderpreis != null ? sonderpreis : neu.standardpreis,
+          konfidenz: "hoch",
+          showNeuForm: false,
+        };
       })
     );
   }
@@ -342,7 +655,7 @@ function KiLieferungWizard() {
         body: JSON.stringify({
           kundeId: parseInt(kundeId, 10),
           datum: datum ? new Date(datum + "T00:00:00").toISOString() : new Date().toISOString(),
-          status: "geplant",
+          status: lieferStatus,
           positionen: validPositionen.map((p) => ({
             artikelId: parseInt(p.artikelId, 10),
             menge: p.menge,
@@ -354,12 +667,43 @@ function KiLieferungWizard() {
         const d = await res.json();
         throw new Error(d.error || "Fehler beim Anlegen");
       }
-      router.push("/lieferungen");
+      const neu = await res.json();
+      setErstellteId(neu.id ?? null);
+
+      // Prüfen ob Artikel mit niedrigem/keinem Bestand vorhanden
+      const niedrig = validPositionen.some((p) => {
+        const art = artikel.find((a) => String(a.id) === p.artikelId);
+        return art && art.aktuellerBestand <= art.mindestbestand;
+      });
+      setBestelllisteAnlegen(niedrig);
+
+      setStep(4 as number);
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleBestelllisteAnlegen() {
+    const validPositionen = positionen.filter((p) => p.artikelId);
+    const niedrigeArtikel = validPositionen.filter((p) => {
+      const art = artikel.find((a) => String(a.id) === p.artikelId);
+      return art && art.aktuellerBestand <= art.mindestbestand;
+    });
+
+    for (const pos of niedrigeArtikel) {
+      await fetch("/api/bestellliste", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artikelId: parseInt(pos.artikelId, 10),
+          menge: pos.menge,
+          status: "offen",
+        }),
+      });
+    }
+    setBestelllisteErledigt(true);
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -382,12 +726,19 @@ function KiLieferungWizard() {
     .filter((p) => p.artikelId)
     .reduce((sum, p) => sum + p.menge * p.verkaufspreis, 0);
 
+  const niedrigeBestandArtikel = positionen
+    .filter((p) => p.artikelId)
+    .filter((p) => {
+      const art = artikel.find((a) => String(a.id) === p.artikelId);
+      return art && art.aktuellerBestand <= art.mindestbestand;
+    });
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6 text-gray-900">KI-Lieferung anlegen</h1>
-      <Stepper current={step} />
+      <Stepper current={step > 3 ? 4 : step} />
 
       {/* ─── Step 1: Upload ─────────────────────────────────────────────── */}
       {step === 0 && (
@@ -444,7 +795,6 @@ function KiLieferungWizard() {
 
           {!analyzing && kiErgebnis && (
             <>
-              {/* Erkannter Kunde */}
               <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-100">
                 <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
                   Erkannter Kunde
@@ -458,7 +808,6 @@ function KiLieferungWizard() {
                 )}
               </div>
 
-              {/* Erkannte Positionen */}
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                 Erkannte Positionen
               </p>
@@ -536,16 +885,17 @@ function KiLieferungWizard() {
           <h2 className="text-lg font-semibold mb-5 text-gray-800">Zuordnung prüfen</h2>
 
           {/* Kunde */}
-          <div className="mb-6 p-4 rounded-lg border border-gray-200 bg-gray-50">
+          <div className="mb-5 p-4 rounded-lg border border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Kunde
-              </p>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kunde</p>
               <KonfidenzBadge k={kundKonfidenz} />
             </div>
             {kiErgebnis && (
               <p className="text-xs text-gray-400 mb-2">
-                KI erkannt: <span className="font-medium text-gray-600">{kiErgebnis.kunde.firma ?? kiErgebnis.kunde.name}</span>
+                KI erkannt:{" "}
+                <span className="font-medium text-gray-600">
+                  {kiErgebnis.kunde.firma ?? kiErgebnis.kunde.name}
+                </span>
               </p>
             )}
             <SearchableSelect
@@ -554,40 +904,91 @@ function KiLieferungWizard() {
               onChange={(v) => {
                 setKundeId(v);
                 setKundKonfidenz(v ? "hoch" : "keine");
+                ladeSonderpreise(v);
               }}
               placeholder="Kunde auswählen…"
               allowClear
             />
           </div>
 
-          {/* Datum */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lieferdatum</label>
-            <input
-              type="date"
-              value={datum}
-              onChange={(e) => setDatum(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 w-full sm:w-48"
-            />
+          {/* Datum + Status */}
+          <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lieferdatum</label>
+              <input
+                type="date"
+                value={datum}
+                onChange={(e) => setDatum(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <div className="flex gap-2">
+                {(["geplant", "geliefert"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setLieferStatus(s)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                      lieferStatus === s
+                        ? s === "geliefert"
+                          ? "bg-green-600 text-white border-green-600"
+                          : "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {s === "geplant" ? "Geplant" : "Geliefert"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Positionen */}
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Artikel-Positionen
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Artikel-Positionen
+            </p>
+            <button
+              type="button"
+              onClick={addPosition}
+              className="text-xs text-green-600 hover:text-green-700 font-medium"
+            >
+              + Position hinzufügen
+            </button>
+          </div>
+
           <div className="space-y-4">
             {positionen.map((pos, idx) => {
               const gefundenerArtikel = artikel.find((a) => String(a.id) === pos.artikelId);
+              const hatSonderpreis =
+                gefundenerArtikel && kundenSonderpreise[gefundenerArtikel.id] != null;
+
               return (
                 <div key={idx} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{pos.kiPosition.name}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {pos.kiPosition.name || <span className="text-gray-400 italic">Neue Position</span>}
+                      </p>
                       {pos.kiPosition.artikelnummer && (
                         <p className="text-xs text-gray-400">Nr: {pos.kiPosition.artikelnummer}</p>
                       )}
                     </div>
-                    <KonfidenzBadge k={pos.konfidenz} />
+                    <div className="flex items-center gap-2 ml-2">
+                      <KonfidenzBadge k={pos.konfidenz} />
+                      <button
+                        type="button"
+                        onClick={() => deletePosition(idx)}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                        title="Position entfernen"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -604,17 +1005,24 @@ function KiLieferungWizard() {
                         allowClear
                       />
                       {gefundenerArtikel && (
-                        <div className="mt-1">{lagerAmpel(gefundenerArtikel)}</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          {lagerAmpel(gefundenerArtikel)}
+                          {hatSonderpreis && (
+                            <span className="text-xs text-purple-600 font-medium">★ Sonderpreis</span>
+                          )}
+                        </div>
                       )}
-                      {!pos.artikelId && (
-                        <a
-                          href="/artikel/neu"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                      {!pos.artikelId && !pos.showNeuForm && (
+                        <button
+                          type="button"
+                          onClick={() => toggleNeuForm(idx, true)}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-1 inline-flex items-center gap-1"
                         >
-                          + Neuen Artikel anlegen
-                        </a>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Neuen Artikel anlegen
+                        </button>
                       )}
                     </div>
 
@@ -639,6 +1047,9 @@ function KiLieferungWizard() {
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">
                         VK-Preis (€)
+                        {hatSonderpreis && (
+                          <span className="ml-1 text-purple-600">★</span>
+                        )}
                       </label>
                       <input
                         type="number"
@@ -652,10 +1063,27 @@ function KiLieferungWizard() {
                       />
                     </div>
                   </div>
+
+                  {/* Inline Neu-Anlage */}
+                  {pos.showNeuForm && (
+                    <NeuArtikelInline
+                      kiName={pos.kiPosition.name}
+                      kiEinheit={pos.kiPosition.einheit}
+                      lieferanten={lieferanten}
+                      onCreated={(neu) => onArtikelCreated(idx, neu)}
+                      onCancel={() => toggleNeuForm(idx, false)}
+                    />
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {positionen.length === 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm">
+              Keine Positionen — klicke auf &quot;+ Position hinzufügen&quot;
+            </div>
+          )}
 
           <div className="mt-6 flex justify-between gap-3">
             <button
@@ -680,7 +1108,6 @@ function KiLieferungWizard() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold mb-5 text-gray-800">Zusammenfassung</h2>
 
-          {/* Kopfdaten */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -705,13 +1132,36 @@ function KiLieferungWizard() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
                 Status
               </p>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                Geplant
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                  lieferStatus === "geliefert"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-blue-100 text-blue-800"
+                }`}
+              >
+                {lieferStatus === "geliefert" ? "Geliefert" : "Geplant"}
               </span>
             </div>
           </div>
 
-          {/* Positionen-Tabelle */}
+          {/* Warnung niedrige Bestände */}
+          {niedrigeBestandArtikel.length > 0 && (
+            <div className="mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-2">
+              <svg className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              <div className="text-xs text-amber-800">
+                <span className="font-semibold">
+                  {niedrigeBestandArtikel.length} Artikel mit niedrigem/keinem Bestand:
+                </span>{" "}
+                {niedrigeBestandArtikel
+                  .map((p) => artikel.find((a) => String(a.id) === p.artikelId)?.name)
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto rounded-lg border border-gray-200 mb-4">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
@@ -728,12 +1178,15 @@ function KiLieferungWizard() {
                   .map((pos, i) => {
                     const art = artikel.find((a) => String(a.id) === pos.artikelId);
                     const summe = pos.menge * pos.verkaufspreis;
+                    const isNiedrig =
+                      art && art.aktuellerBestand <= art.mindestbestand;
                     return (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-4 py-2.5">
                           <p className="font-medium text-gray-900">{art?.name ?? pos.kiPosition.name}</p>
-                          {art && (
-                            <p className="text-xs text-gray-400">{art.artikelnummer}</p>
+                          {art && <p className="text-xs text-gray-400">{art.artikelnummer}</p>}
+                          {isNiedrig && (
+                            <span className="text-xs text-amber-600">⚠ Niedriger Bestand</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
@@ -785,6 +1238,81 @@ function KiLieferungWizard() {
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               )}
               Lieferung anlegen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Step 5: Erfolg ─────────────────────────────────────────────── */}
+      {step === (4 as number) && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Lieferung angelegt!</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Die Lieferung wurde erfolgreich erstellt.
+          </p>
+
+          {/* Bestellliste-Hinweis */}
+          {bestelllisteAnlegen && !bestelllisteErledigt && (
+            <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-left">
+              <p className="text-sm font-semibold text-amber-800 mb-1">
+                ⚠ {niedrigeBestandArtikel.length} Artikel mit niedrigem/keinem Bestand
+              </p>
+              <p className="text-xs text-amber-700 mb-3">
+                {niedrigeBestandArtikel
+                  .map((p) => artikel.find((a) => String(a.id) === p.artikelId)?.name)
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <button
+                onClick={handleBestelllisteAnlegen}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+              >
+                Automatisch zur Bestellliste hinzufügen
+              </button>
+            </div>
+          )}
+
+          {bestelllisteErledigt && (
+            <div className="mb-6 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700">
+              ✓ Artikel wurden zur Bestellliste hinzugefügt
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {erstellteId && (
+              <button
+                onClick={() => router.push(`/lieferungen/${erstellteId}`)}
+                className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors"
+              >
+                Zur Lieferung
+              </button>
+            )}
+            <button
+              onClick={() => router.push("/lieferungen")}
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              Alle Lieferungen
+            </button>
+            <button
+              onClick={() => {
+                setStep(0);
+                setImageFile(null);
+                setImagePreview("");
+                setKiErgebnis(null);
+                setPositionen([]);
+                setKundeId("");
+                setErstellteId(null);
+                setBestelllisteAnlegen(false);
+                setBestelllisteErledigt(false);
+              }}
+              className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            >
+              Neue Lieferung
             </button>
           </div>
         </div>
