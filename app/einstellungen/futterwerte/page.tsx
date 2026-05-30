@@ -85,7 +85,7 @@ export default function FutterwertePage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="mb-2">
         <Link href="/einstellungen" className="text-sm text-gray-500 hover:underline">← Einstellungen</Link>
       </div>

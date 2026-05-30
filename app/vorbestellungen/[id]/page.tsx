@@ -72,7 +72,7 @@ export default function DetailPage() {
   const total = summe - rabatt;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="flex flex-wrap justify-between items-start mb-4 gap-3">
         <div>
           <Link href="/vorbestellungen" className="text-sm text-gray-500 hover:underline">← Vorbestellungen</Link>

@@ -146,13 +146,21 @@ export default function LieferantDetailPage() {
           >
             ← Lieferanten
           </button>
-          <button
-            onClick={deleteLieferant}
-            disabled={deleting}
-            className="text-sm text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {deleting ? "Wird gelöscht…" : "Löschen"}
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/bestellungen/neu?lieferantId=${id}`}
+              className="text-sm text-green-700 hover:text-green-900 border border-green-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              + Bestellung
+            </a>
+            <button
+              onClick={deleteLieferant}
+              disabled={deleting}
+              className="text-sm text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Wird gelöscht…" : "Löschen"}
+            </button>
+          </div>
         </div>
         <h1 className="text-2xl font-bold text-gray-900">{lieferant.name}</h1>
         {lieferant.ort && (

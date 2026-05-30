@@ -67,7 +67,7 @@ export default function Page() {
   }, [gefiltert]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
         <h1 className="text-2xl font-bold">🌾 Sortenversuche / Demoflächen</h1>
         <Link href="/sortenversuche/neu" title="Neuer Versuch" className="inline-flex items-center gap-1.5 bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded hover:bg-green-800">

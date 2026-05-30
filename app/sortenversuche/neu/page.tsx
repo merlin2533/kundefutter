@@ -123,7 +123,7 @@ export default function NeuPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">🌾 Neuer Sortenversuch</h1>
       <form onSubmit={speichern} className="space-y-4">
         <Card>

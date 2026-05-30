@@ -48,7 +48,7 @@ export default function BankabgleichImportPage() {
   }
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
+    <div className="max-w-xl mx-auto">
       {/* Breadcrumb / Zurück */}
       <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
         <Link href="/bankabgleich" className="hover:text-green-700">

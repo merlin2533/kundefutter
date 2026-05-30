@@ -113,7 +113,7 @@ function AusgabenContent() {
   const offenBrutto = ausgaben.filter(a => !a.bezahltAm).reduce((s, a) => s + a.betragNetto * (1 + a.mwstSatz / 100), 0);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Ausgabenbuch</h1>
         <Link href="/ausgaben/neu" title="Neue Ausgabe" className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-2.5 sm:px-4 py-2 rounded hover:bg-blue-700 text-sm">

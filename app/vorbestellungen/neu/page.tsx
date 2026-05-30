@@ -112,7 +112,7 @@ function Inner() {
   const rabattWert = rabattProzent ? summe * (Number(rabattProzent) / 100) : 0;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">📋 Neue Vorbestellung</h1>
       <form onSubmit={speichern} className="space-y-4">
         <Card>

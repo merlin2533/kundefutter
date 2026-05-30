@@ -52,7 +52,7 @@ export default function Page() {
     .reduce((sum, v) => sum + v.positionen.reduce((s, p) => s + p.menge * (p.preis ?? p.artikel.standardpreis), 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
         <h1 className="text-2xl font-bold">📋 Vorbestellungen (Frühbezug)</h1>
         <div className="flex gap-2">

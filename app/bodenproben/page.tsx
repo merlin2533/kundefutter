@@ -82,7 +82,7 @@ export default function BodenprobenSeite() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <div className="flex flex-wrap justify-between items-center mb-6 gap-3">
         <h1 className="text-2xl font-bold">🧪 Bodenproben</h1>
         <div className="flex gap-2">

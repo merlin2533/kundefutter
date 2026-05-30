@@ -62,7 +62,7 @@ export default function Page() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto">
       <div className="mb-4">
         <Link href="/einstellungen" className="text-sm text-gray-500 hover:underline">← Einstellungen</Link>
       </div>
