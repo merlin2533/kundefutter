@@ -42,13 +42,17 @@ function isUeberfaellig(faelligAm: string | null, erledigt: boolean) {
   return new Date(faelligAm) < new Date();
 }
 
+function loadAufgabenFilters() {
+  try { return JSON.parse(sessionStorage.getItem("aufgaben-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function AufgabenPage() {
   const { showToast } = useToast();
   const [aufgaben, setAufgaben] = useState<Aufgabe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<"offen" | "erledigt" | "alle">("offen");
-  const [prioritaet, setPrioritaet] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
+  const [status, setStatus] = useState<"offen" | "erledigt" | "alle">(() => loadAufgabenFilters().status ?? "offen");
+  const [prioritaet, setPrioritaet] = useState<string>(() => loadAufgabenFilters().prioritaet ?? "");
+  const [tagFilter, setTagFilter] = useState<string>(() => loadAufgabenFilters().tagFilter ?? "");
   const [toggling, setToggling] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
@@ -63,6 +67,10 @@ export default function AufgabenPage() {
     const data = await res.json();
     setAufgaben(Array.isArray(data) ? data : []);
     setLoading(false);
+  }, [status, prioritaet, tagFilter]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("aufgaben-filters", JSON.stringify({ status, prioritaet, tagFilter })); } catch {}
   }, [status, prioritaet, tagFilter]);
 
   useEffect(() => {

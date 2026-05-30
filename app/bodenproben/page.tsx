@@ -44,12 +44,20 @@ function klassenBadge(k?: string | null) {
   return <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${farben[k] ?? "bg-gray-100 text-gray-700"}`}>{k}</span>;
 }
 
+function loadBodenprobenFilters() {
+  try { return JSON.parse(sessionStorage.getItem("bodenproben-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function BodenprobenSeite() {
   const [proben, setProben] = useState<Bodenprobe[]>([]);
-  const [filterLabor, setFilterLabor] = useState("");
-  const [filterSchlag, setFilterSchlag] = useState("");
-  const [filterKunde, setFilterKunde] = useState("");
+  const [filterLabor, setFilterLabor] = useState<string>(() => loadBodenprobenFilters().filterLabor ?? "");
+  const [filterSchlag, setFilterSchlag] = useState<string>(() => loadBodenprobenFilters().filterSchlag ?? "");
+  const [filterKunde, setFilterKunde] = useState<string>(() => loadBodenprobenFilters().filterKunde ?? "");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("bodenproben-filters", JSON.stringify({ filterLabor, filterSchlag, filterKunde })); } catch {}
+  }, [filterLabor, filterSchlag, filterKunde]);
 
   useEffect(() => {
     fetch("/api/bodenproben")

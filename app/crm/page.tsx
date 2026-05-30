@@ -38,12 +38,16 @@ const TYP_META: Record<string, { label: string; color: string; icon: string }> =
 
 const TYPEN_KEYS = Object.keys(TYP_META);
 
+function loadCrmFilters() {
+  try { return JSON.parse(sessionStorage.getItem("crm-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function CrmPage() {
-  const [mainTab, setMainTab] = useState<"liste" | "kalender">("liste");
+  const [mainTab, setMainTab] = useState<"liste" | "kalender">(() => loadCrmFilters().mainTab ?? "liste");
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typFilter, setTypFilter] = useState("alle");
-  const [searchText, setSearchText] = useState("");
+  const [typFilter, setTypFilter] = useState<string>(() => loadCrmFilters().typFilter ?? "alle");
+  const [searchText, setSearchText] = useState<string>(() => loadCrmFilters().searchText ?? "");
   const [deleting, setDeleting] = useState<number | null>(null);
 
   // Wiedervorlage
@@ -70,6 +74,10 @@ export default function CrmPage() {
   }, []);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("crm-filters", JSON.stringify({ mainTab, typFilter, searchText })); } catch {}
+  }, [mainTab, typFilter, searchText]);
 
   useEffect(() => {
     if (!kundenLoaded) {

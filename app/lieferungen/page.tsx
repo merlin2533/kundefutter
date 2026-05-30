@@ -37,16 +37,20 @@ interface WiederkehrendBedarf {
   ueberfaellig: boolean;
 }
 
+function loadLieferungFilters() {
+  try { return JSON.parse(sessionStorage.getItem("lieferung-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function LieferungenPage() {
-  const [tab, setTab] = useState<"liste" | "wiederkehrend">("liste");
+  const [tab, setTab] = useState<"liste" | "wiederkehrend">(() => loadLieferungFilters().tab ?? "liste");
 
   // List state
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("alle");
-  const [vonFilter, setVonFilter] = useState("");
-  const [bisFilter, setBisFilter] = useState("");
-  const [kundeSearch, setKundeSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(() => loadLieferungFilters().statusFilter ?? "alle");
+  const [vonFilter, setVonFilter] = useState<string>(() => loadLieferungFilters().vonFilter ?? "");
+  const [bisFilter, setBisFilter] = useState<string>(() => loadLieferungFilters().bisFilter ?? "");
+  const [kundeSearch, setKundeSearch] = useState<string>(() => loadLieferungFilters().kundeSearch ?? "");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -88,6 +92,10 @@ export default function LieferungenPage() {
     const t = setTimeout(fetchLieferungen, 300);
     return () => clearTimeout(t);
   }, [fetchLieferungen]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, vonFilter, bisFilter, kundeSearch })); } catch {}
+  }, [tab, statusFilter, vonFilter, bisFilter, kundeSearch]);
 
   useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
 

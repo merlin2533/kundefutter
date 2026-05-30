@@ -17,11 +17,19 @@ interface Vorbestellung {
   positionen: Position[];
 }
 
+function loadVorbestellungFilters() {
+  try { return JSON.parse(sessionStorage.getItem("vorbestellung-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function Page() {
   const [liste, setListe] = useState<Vorbestellung[]>([]);
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterSaison, setFilterSaison] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>(() => loadVorbestellungFilters().filterStatus ?? "");
+  const [filterSaison, setFilterSaison] = useState<string>(() => loadVorbestellungFilters().filterSaison ?? "");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("vorbestellung-filters", JSON.stringify({ filterStatus, filterSaison })); } catch {}
+  }, [filterStatus, filterSaison]);
 
   useEffect(() => {
     fetch("/api/vorbestellungen").then(r => r.ok ? r.json() : []).then(d => setListe(Array.isArray(d) ? d : [])).finally(() => setLoading(false));

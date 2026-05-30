@@ -30,13 +30,21 @@ const STATUS_FARBEN: Record<string, string> = {
   ABGELAUFEN: "bg-red-200 text-red-900 font-semibold",
 };
 
+function loadAngeboteFilters() {
+  try { return JSON.parse(sessionStorage.getItem("angebote-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function AngebotePage() {
   const [angebote, setAngebote] = useState<AngebotListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("alle");
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(() => loadAngeboteFilters().statusFilter ?? "alle");
+  const [search, setSearch] = useState<string>(() => loadAngeboteFilters().search ?? "");
+  const [searchInput, setSearchInput] = useState<string>(() => loadAngeboteFilters().search ?? "");
+
+  useEffect(() => {
+    try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch {}
+  }, [statusFilter, search]);
 
   useEffect(() => {
     setLoading(true);

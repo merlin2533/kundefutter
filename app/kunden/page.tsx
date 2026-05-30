@@ -29,11 +29,15 @@ interface Kunde {
 
 const PAGE_LIMIT = 100;
 
+function loadKundenFilters() {
+  try { return JSON.parse(sessionStorage.getItem("kunden-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function KundenPage() {
   const [kunden, setKunden] = useState<Kunde[]>([]);
-  const [search, setSearch] = useState("");
-  const [nurAktiv, setNurAktiv] = useState(true);
-  const [tagFilter, setTagFilter] = useState("");
+  const [search, setSearch] = useState<string>(() => loadKundenFilters().search ?? "");
+  const [nurAktiv, setNurAktiv] = useState<boolean>(() => loadKundenFilters().nurAktiv ?? true);
+  const [tagFilter, setTagFilter] = useState<string>(() => loadKundenFilters().tagFilter ?? "");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
@@ -69,6 +73,11 @@ export default function KundenPage() {
     } finally {
       setLoading(false);
     }
+  }, [search, nurAktiv, tagFilter]);
+
+  // Persist filters to sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem("kunden-filters", JSON.stringify({ search, nurAktiv, tagFilter })); } catch {}
   }, [search, nurAktiv, tagFilter]);
 
   // Reset to page 1 when filters change

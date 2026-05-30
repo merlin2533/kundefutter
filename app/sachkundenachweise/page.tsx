@@ -12,11 +12,19 @@ interface Eintrag {
   kunde?: { id: number; name: string; firma?: string | null };
 }
 
+function loadSachkundeFilters() {
+  try { return JSON.parse(sessionStorage.getItem("sachkunde-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function Page() {
   const [liste, setListe] = useState<Eintrag[]>([]);
-  const [filterTyp, setFilterTyp] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"alle" | "gueltig" | "ablaufend" | "abgelaufen">("alle");
+  const [filterTyp, setFilterTyp] = useState<string>(() => loadSachkundeFilters().filterTyp ?? "");
+  const [filterStatus, setFilterStatus] = useState<"alle" | "gueltig" | "ablaufend" | "abgelaufen">(() => loadSachkundeFilters().filterStatus ?? "alle");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("sachkunde-filters", JSON.stringify({ filterTyp, filterStatus })); } catch {}
+  }, [filterTyp, filterStatus]);
 
   useEffect(() => {
     fetch("/api/sachkundenachweise")
