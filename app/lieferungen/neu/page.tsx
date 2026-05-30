@@ -75,6 +75,25 @@ function LagerAmpel({ art }: { art: Artikel | undefined }) {
   );
 }
 
+interface KampagneArtikelInfo {
+  artikelId: number;
+  artikelName: string;
+  einheit: string;
+  standardpreis: number;
+  sonderpreis: number | null;
+  bedarfMenge: number | null;
+}
+
+interface KundeKampagne {
+  id: number;
+  name: string;
+  beschreibung: string | null;
+  von: string;
+  bis: string;
+  rabattProzent: number | null;
+  artikel: KampagneArtikelInfo[];
+}
+
 interface NewPosition {
   artikelId: number | "";
   menge: string;
@@ -140,6 +159,8 @@ function NeueLieferungInner() {
   const [error, setError] = useState("");
   const [erklaerungOk, setErklaerungOk] = useState<boolean | null>(null);
   const [erklaerungBestaetigt, setErklaerungBestaetigt] = useState(false);
+  const [kampagnen, setKampagnen] = useState<KundeKampagne[]>([]);
+  const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -210,6 +231,15 @@ function NeueLieferungInner() {
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Aktive Kampagnen für den ausgewählten Kunden laden
+  useEffect(() => {
+    if (!kundeId) { setKampagnen([]); return; }
+    fetch(`/api/kampagnen/fuer-kunde?kundeId=${kundeId}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setKampagnen(Array.isArray(d) ? d : []))
+      .catch(() => setKampagnen([]));
+  }, [kundeId]);
 
   // Wenn Kunde oder Positionen wechseln: prüfen ob Sprengstoffvorläufer betroffen
   // und ob für diesen Kunden eine gültige Jahreserklärung vorliegt.
@@ -469,6 +499,92 @@ function NeueLieferungInner() {
               </div>
             )}
           </div>
+
+          {/* Aktive Kampagnen */}
+          {kampagnen.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
+              <div className="px-4 py-2 border-b border-amber-200 bg-amber-100 flex items-center gap-2">
+                <span className="text-amber-700 text-sm font-semibold">Aktive Kampagnen für diesen Kunden</span>
+                <span className="text-xs bg-amber-200 text-amber-800 rounded-full px-1.5 py-0.5">{kampagnen.length}</span>
+              </div>
+              <div className="divide-y divide-amber-100">
+                {kampagnen.map((kamp) => {
+                  const expanded = kampagneExpanded[kamp.id] ?? false;
+                  return (
+                    <div key={kamp.id} className="px-4 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <span className="text-sm font-medium text-gray-900">{kamp.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            bis {new Date(kamp.bis).toLocaleDateString("de-DE")}
+                          </span>
+                          {kamp.rabattProzent != null && (
+                            <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">{kamp.rabattProzent}% Rabatt</span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setKampagneExpanded((prev) => ({ ...prev, [kamp.id]: !expanded }))}
+                          className="text-xs text-amber-700 hover:text-amber-900 font-medium whitespace-nowrap"
+                        >
+                          {expanded ? "Einklappen" : `${kamp.artikel.length} Artikel anzeigen`}
+                        </button>
+                      </div>
+                      {expanded && kamp.artikel.length > 0 && (
+                        <div className="mt-2 space-y-1.5">
+                          {kamp.artikel.map((ka) => {
+                            const art = artikel.find((a) => a.id === ka.artikelId);
+                            const ek = art ? resolveEK(art) : 0;
+                            const vk = ka.sonderpreis ?? ka.standardpreis;
+                            return (
+                              <div key={ka.artikelId} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-2 border border-amber-100 gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium text-gray-800">{ka.artikelName}</span>
+                                  {ka.bedarfMenge != null && (
+                                    <span className="ml-2 text-gray-500">Bedarf: {ka.bedarfMenge} {ka.einheit}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0">
+                                  {ka.sonderpreis != null ? (
+                                    <span className="text-green-700 font-semibold">{ka.sonderpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                                  ) : (
+                                    <span className="text-gray-500">{ka.standardpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPositionen((prev) => {
+                                        // If last position is empty, replace it
+                                        const last = prev[prev.length - 1];
+                                        const newPos = {
+                                          artikelId: ka.artikelId,
+                                          menge: ka.bedarfMenge != null ? String(ka.bedarfMenge) : "1",
+                                          verkaufspreis: String(vk),
+                                          einkaufspreis: String(ek),
+                                          chargeNr: "",
+                                        };
+                                        if (last && last.artikelId === "") {
+                                          return [...prev.slice(0, -1), newPos];
+                                        }
+                                        return [...prev, newPos];
+                                      });
+                                    }}
+                                    className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
+                                  >
+                                    Übernehmen
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Sprengstoffvorläufer-Warnung */}
           {erklaerungOk === true && (

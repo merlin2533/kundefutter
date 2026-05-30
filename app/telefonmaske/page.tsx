@@ -17,6 +17,24 @@ interface Bedarf {
   artikel: { id: number; name: string; einheit: string };
 }
 
+interface KampagneArtikelInfo {
+  artikelId: number;
+  artikelName: string;
+  einheit: string;
+  standardpreis: number;
+  sonderpreis: number | null;
+  bedarfMenge: number | null;
+}
+
+interface KundeKampagne {
+  id: number;
+  name: string;
+  von: string;
+  bis: string;
+  rabattProzent: number | null;
+  artikel: KampagneArtikelInfo[];
+}
+
 interface TelefonmaskeKunde {
   id: number;
   name: string;
@@ -28,6 +46,7 @@ interface TelefonmaskeKunde {
   letzteLiferung: { datum: string; artikel: string[] } | null;
   offeneRechnungen: { anzahl: number; summe: number };
   bedarfe: Bedarf[];
+  kampagnen: KundeKampagne[];
 }
 
 export default function TelefonmaskePage() {
@@ -35,6 +54,7 @@ export default function TelefonmaskePage() {
   const [results, setResults] = useState<TelefonmaskeKunde[]>([]);
   const [loading, setLoading] = useState(false);
   const [erfasst, setErfasst] = useState<Record<number, boolean>>({});
+  const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -262,6 +282,68 @@ export default function TelefonmaskePage() {
                   )}
                 </div>
               </div>
+
+              {/* Aktive Kampagnen */}
+              {k.kampagnen && k.kampagnen.length > 0 && (
+                <div className="mt-3 border-t border-gray-100 pt-3">
+                  <button
+                    onClick={() => setKampagneExpanded((prev) => ({ ...prev, [k.id]: !prev[k.id] }))}
+                    className="flex items-center gap-2 text-sm text-amber-700 font-medium hover:text-amber-900 transition-colors"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    {k.kampagnen.length} aktive Kampagne{k.kampagnen.length !== 1 ? "n" : ""}
+                    <span className="text-xs font-normal text-amber-600 ml-1">
+                      {kampagneExpanded[k.id] ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {kampagneExpanded[k.id] && (
+                    <div className="mt-2 space-y-2">
+                      {k.kampagnen.map((kamp) => (
+                        <div key={kamp.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold text-amber-900">{kamp.name}</span>
+                            <span className="text-xs text-amber-600">bis {new Date(kamp.bis).toLocaleDateString("de-DE")}</span>
+                          </div>
+                          {kamp.rabattProzent != null && (
+                            <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full mr-1">{kamp.rabattProzent}% Rabatt</span>
+                          )}
+                          {kamp.artikel.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {kamp.artikel.map((ka) => (
+                                <div key={ka.artikelId} className="flex items-center justify-between text-xs bg-white rounded px-2 py-1.5 border border-amber-100 gap-2">
+                                  <span className="text-gray-800 font-medium">{ka.artikelName}</span>
+                                  <div className="flex items-center gap-3 shrink-0 text-right">
+                                    {ka.bedarfMenge != null && (
+                                      <span className="text-gray-500">Bedarf: <strong>{ka.bedarfMenge}</strong> {ka.einheit}</span>
+                                    )}
+                                    {ka.sonderpreis != null ? (
+                                      <span className="text-green-700 font-bold">
+                                        {ka.sonderpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400">
+                                        {ka.standardpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                                      </span>
+                                    )}
+                                    <Link
+                                      href={`/lieferungen/neu?kundeId=${k.id}`}
+                                      className="text-xs px-2 py-0.5 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                                    >
+                                      Auftrag
+                                    </Link>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
