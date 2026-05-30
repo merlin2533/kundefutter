@@ -83,6 +83,8 @@ const groups: NavGroup[] = [
     label: "Lieferungen",
     children: [
       { href: "/lieferungen", label: "Lieferungen", section: "Lieferungen" },
+      { href: "/sammelbestellung", label: "Sammelbestellung", section: "Lieferungen" },
+      { href: "/streckengeschaeft", label: "Streckengeschäfte", section: "Lieferungen" },
       { href: "/ki/lieferung", label: "KI-Lieferung", section: "Lieferungen" },
       { href: "/fahrer", label: "Fahrer-Cockpit", section: "Lieferungen" },
       { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
@@ -187,7 +189,6 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/kontrakte": "Kontrakte",
   "/bestellungen": "Lieferantenbestellungen",
   "/eingangsrechnungen": "Eingangsrechnungen",
-  "/einkaufszettel": "Einkaufszettel",
   "/offene-posten": "Offene Posten",
   "/anbauplanung": "Anbauplanung",
   "/bodenanalyse": "Albrecht-Analyse",
@@ -212,6 +213,8 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/einstellungen/email-import": "E-Mail Import",
   "/einstellungen/cron": "Cron-Verwaltung",
   "/einstellungen/marktpreise": "Marktpreise-Einstellungen",
+  "/sammelbestellung": "Sammelbestellung",
+  "/streckengeschaeft": "Streckengeschäfte",
 };
 
 function getPageTitle(pathname: string): string {
