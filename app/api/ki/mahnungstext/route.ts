@@ -66,6 +66,21 @@ ${rechnungenText}
 Verfasse den Mahntext gemäß den Stufenregeln.`;
 
     const cfg = await getAiConfig();
+
+    // Konfigurationscheck – user-facing Fehlermeldung (kein isDev-Guard nötig)
+    if (cfg.provider === "openai" && !cfg.openaiKey) {
+      return NextResponse.json(
+        { error: "OpenAI API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." },
+        { status: 422 }
+      );
+    }
+    if (cfg.provider === "anthropic" && !cfg.anthropicKey) {
+      return NextResponse.json(
+        { error: "Anthropic API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." },
+        { status: 422 }
+      );
+    }
+
     const result = await analyzeText(userText, prompt, "mahnungstext", cfg);
     const p = parseJsonFromText(result.raw);
 
