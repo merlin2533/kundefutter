@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import { Lieferung, statusBadge, ANGEBOT_STATUS_LABELS, ANGEBOT_STATUS_FARBEN } from "../_shared";
+import { Lieferung, statusBadge, lieferungTotal, ANGEBOT_STATUS_LABELS, ANGEBOT_STATUS_FARBEN } from "../_shared";
 
 interface VorgangAngebot {
   id: number;
@@ -16,6 +16,9 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
   const [angebote, setAngebote] = useState<VorgangAngebot[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const heute = new Date();
+  heute.setHours(0, 0, 0, 0);
+
   useEffect(() => {
     fetch(`/api/angebote?kundeId=${kundeId}`)
       .then((r) => r.json())
@@ -23,7 +26,6 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
       .catch(() => setLoading(false));
   }, [kundeId]);
 
-  // Match Lieferungen zu Angeboten via Notiz-Text
   function findLinkedLieferungen(angebot: VorgangAngebot): Lieferung[] {
     return lieferungen.filter((l) =>
       l.notiz && (
@@ -33,7 +35,6 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
     );
   }
 
-  // Lieferungen ohne Angebots-Referenz
   const unlinkedLieferungen = lieferungen.filter((l) =>
     !angebote.some((a) => l.notiz && l.notiz.includes(a.nummer))
   );
@@ -50,6 +51,121 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
     if (l.rechnungNr) return "bg-yellow-400 border-yellow-400 text-white";
     if (l.status === "geliefert") return "bg-blue-400 border-blue-400 text-white";
     return "bg-gray-200 border-gray-300 text-gray-400";
+  }
+
+  function zahlungsInfo(l: Lieferung): { label: string; cls: string; faelligText: string } {
+    if (!l.rechnungNr || l.status !== "geliefert") {
+      return { label: "", cls: "", faelligText: "" };
+    }
+    if (l.bezahltAm) {
+      return {
+        label: "Bezahlt",
+        cls: "bg-green-100 text-green-700",
+        faelligText: `am ${formatDatum(l.bezahltAm)}`,
+      };
+    }
+    const tage = l.zahlungsziel ?? 30;
+    const basisDatum = l.rechnungDatum ?? l.datum;
+    const faellig = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
+    const isUeberfaellig = heute > faellig;
+    return {
+      label: isUeberfaellig ? "Überfällig" : "Offen",
+      cls: isUeberfaellig ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700",
+      faelligText: `Fällig: ${formatDatum(faellig.toISOString())}`,
+    };
+  }
+
+  function LieferungCard({ l }: { l: Lieferung }) {
+    const hatRechnung = !!l.rechnungNr;
+    const hatBezahlt = !!l.bezahltAm;
+    const total = lieferungTotal(l);
+    const zInfo = zahlungsInfo(l);
+    const posSummary = l.positionen
+      .map((p) => `${p.menge} ${p.artikel.einheit} ${p.artikel.name}`)
+      .join(" · ");
+
+    return (
+      <div className="space-y-2">
+        {/* Lieferung Step */}
+        <div className="flex items-start gap-3">
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${lieferungStepColor(l)}`}>
+            L
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <a href={`/lieferungen/${l.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
+                Lieferung #{l.id}
+              </a>
+              {statusBadge(l.status)}
+              <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
+              <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
+              <a
+                href={`/lieferungen/${l.id}/lieferschein`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-1.5 py-0.5 whitespace-nowrap"
+                title="Lieferschein öffnen"
+              >
+                📄 Lieferschein
+              </a>
+            </div>
+            {posSummary && (
+              <p className="text-xs text-gray-500 mt-0.5 truncate" title={posSummary}>
+                {posSummary}
+              </p>
+            )}
+            {l.notiz && (
+              <p className="text-xs text-gray-400 mt-0.5 truncate italic">{l.notiz}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Rechnung Step */}
+        <div className="ml-3 border-l-2 border-gray-100 pl-5 pt-1">
+          <div className="flex items-start gap-3">
+            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${stepColor(hatBezahlt, hatRechnung && !hatBezahlt)}`}>
+              R
+            </div>
+            <div className="flex-1 min-w-0">
+              {hatRechnung ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a
+                    href={`/lieferungen/${l.id}/rechnung`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-gray-800 hover:text-green-700"
+                  >
+                    Rechnung {l.rechnungNr}
+                  </a>
+                  {l.rechnungDatum && (
+                    <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>
+                  )}
+                  {zInfo.label && (
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${zInfo.cls}`}>
+                      {zInfo.label}
+                    </span>
+                  )}
+                  {zInfo.faelligText && (
+                    <span className="text-xs text-gray-400">{zInfo.faelligText}</span>
+                  )}
+                </div>
+              ) : l.status === "geliefert" ? (
+                <a
+                  href={`/lieferungen/${l.id}/rechnung`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-green-700 hover:underline"
+                >
+                  + Rechnung erstellen
+                </a>
+              ) : (
+                <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) return <p className="text-sm text-gray-400">Lade Vorgangskette…</p>;
@@ -116,58 +232,10 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
 
                 {/* Verbindungslinie + Lieferungen */}
                 {linkedLief.length > 0 && (
-                  <div className="ml-3.5 mt-1 border-l-2 border-gray-200 pl-6 space-y-3 pt-2">
-                    {linkedLief.map((l) => {
-                      const hatRechnung = !!l.rechnungNr;
-                      const hatBezahlt = !!l.bezahltAm;
-                      const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-                      return (
-                        <div key={l.id}>
-                          {/* Lieferung Step */}
-                          <div className="flex items-start gap-3">
-                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${lieferungStepColor(l)}`}>
-                              L
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <a href={`/lieferungen/${l.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
-                                  Lieferung #{l.id}
-                                </a>
-                                {statusBadge(l.status)}
-                                <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
-                                <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Rechnung Step */}
-                          <div className="mt-1 ml-3 border-l-2 border-gray-100 pl-5 space-y-2 pt-2">
-                            <div className="flex items-start gap-3">
-                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${stepColor(hatBezahlt, hatRechnung && !hatBezahlt)}`}>
-                                R
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                {hatRechnung ? (
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <a href={`/lieferungen/${l.id}/rechnung`} target="_blank" className="text-sm font-medium text-gray-800 hover:text-green-700">
-                                      Rechnung {l.rechnungNr}
-                                    </a>
-                                    {l.rechnungDatum && <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>}
-                                    {hatBezahlt ? (
-                                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Bezahlt</span>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">Offen</span>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="ml-3.5 mt-2 border-l-2 border-gray-200 pl-6 space-y-4 pt-2">
+                    {linkedLief.map((l) => (
+                      <LieferungCard key={l.id} l={l} />
+                    ))}
                   </div>
                 )}
               </div>
@@ -180,58 +248,11 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
       {unlinkedLieferungen.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Direkte Lieferungen (ohne Angebot)</p>
-          {unlinkedLieferungen.map((l) => {
-            const hatRechnung = !!l.rechnungNr;
-            const hatBezahlt = !!l.bezahltAm;
-            const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-            return (
-              <div key={l.id} className="border border-gray-200 rounded-xl p-4 bg-white">
-                {/* Lieferung */}
-                <div className="flex items-start gap-3">
-                  <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${lieferungStepColor(l)}`}>
-                    L
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <a href={`/lieferungen/${l.id}`} className="text-sm font-semibold text-gray-800 hover:text-green-700">
-                        Lieferung #{l.id}
-                      </a>
-                      {statusBadge(l.status)}
-                      <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
-                      <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
-                    </div>
-                    {l.notiz && <p className="text-xs text-gray-500 mt-0.5 truncate">{l.notiz}</p>}
-                  </div>
-                </div>
-
-                {/* Rechnung */}
-                <div className="mt-2 ml-3.5 border-l-2 border-gray-100 pl-5 pt-1">
-                  <div className="flex items-start gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold flex-shrink-0 ${stepColor(hatBezahlt, hatRechnung && !hatBezahlt)}`}>
-                      R
-                    </div>
-                    <div className="flex-1">
-                      {hatRechnung ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <a href={`/lieferungen/${l.id}/rechnung`} target="_blank" className="text-sm font-medium text-gray-800 hover:text-green-700">
-                            {l.rechnungNr}
-                          </a>
-                          {l.rechnungDatum && <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>}
-                          {hatBezahlt ? (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Bezahlt</span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">Offen</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {unlinkedLieferungen.map((l) => (
+            <div key={l.id} className="border border-gray-200 rounded-xl p-4 bg-white">
+              <LieferungCard l={l} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -239,15 +260,19 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
       <div className="flex gap-4 flex-wrap text-xs text-gray-500 pt-2 border-t border-gray-100">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
-          Abgeschlossen / Bezahlt
+          Bezahlt / Abgeschlossen
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-yellow-400 inline-block" />
-          In Bearbeitung
+          Rechnung offen
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-gray-200 inline-block" />
-          Ausstehend
+          <span className="w-3 h-3 rounded-full bg-blue-400 inline-block" />
+          Geliefert, ohne Rechnung
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-red-400 inline-block" />
+          Storniert
         </span>
         <span className="flex items-center gap-1.5">
           <span className="font-bold text-gray-600">A</span> = Angebot,

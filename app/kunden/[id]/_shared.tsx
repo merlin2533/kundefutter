@@ -122,9 +122,9 @@ export type Tab = (typeof TABS)[number];
 export const DIREKT_TABS: Tab[] = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben"];
 
 export const TAB_GRUPPEN: { label: string; icon: string; tabs: Tab[] }[] = [
-  { label: "Vertrieb", icon: "📊", tabs: ["Bedarfe", "Sonderpreise", "Statistik", "Reklamationen"] },
+  { label: "Vertrieb", icon: "📊", tabs: ["Bedarfe", "Sonderpreise", "Statistik", "Vorgangskette", "Reklamationen"] },
   { label: "Agrar",    icon: "🌾", tabs: ["Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag"] },
-  { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Sachkundenachweise", "Dokumente", "Vorgangskette", "Erklärungen"] },
+  { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Sachkundenachweise", "Dokumente", "Erklärungen"] },
 ];
 
 export const inputClsSchlag =

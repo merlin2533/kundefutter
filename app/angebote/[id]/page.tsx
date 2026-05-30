@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface ArtikelInfo {
   id: number;
@@ -75,6 +76,13 @@ export default function AngebotDetailPage() {
   const [notiz, setNotiz] = useState("");
   const [gueltigBis, setGueltigBis] = useState("");
 
+  // Vorlage modal
+  const [showVorlageModal, setShowVorlageModal] = useState(false);
+  const [vorlageKunden, setVorlageKunden] = useState<{ id: number; name: string; firma: string | null }[]>([]);
+  const [vorlageKundeId, setVorlageKundeId] = useState("");
+  const [vorlageKundenLoading, setVorlageKundenLoading] = useState(false);
+  const [vorlageWorking, setVorlageWorking] = useState(false);
+
   useEffect(() => {
     fetchAngebot();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +146,50 @@ export default function AngebotDetailPage() {
 
   async function handleSaveNotiz() {
     await handleUpdate({ notiz: notiz.trim() || null, gueltigBis: gueltigBis || null });
+  }
+
+  function openVorlageModal() {
+    setVorlageKundeId("");
+    setShowVorlageModal(true);
+    if (vorlageKunden.length === 0) {
+      setVorlageKundenLoading(true);
+      fetch("/api/kunden?aktiv=true&limit=500")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setVorlageKunden(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => setVorlageKundenLoading(false));
+    }
+  }
+
+  async function handleVorlageErstellen() {
+    if (!vorlageKundeId || !angebot) return;
+    setVorlageWorking(true);
+    try {
+      const res = await fetch("/api/angebote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kundeId: Number(vorlageKundeId),
+          gueltigBis: angebot.gueltigBis,
+          notiz: angebot.notiz,
+          positionen: angebot.positionen.map((p) => ({
+            artikelId: p.artikelId,
+            menge: p.menge,
+            preis: p.preis,
+            rabatt: p.rabatt,
+            einheit: p.einheit,
+            notiz: p.notiz,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler beim Erstellen");
+      router.push(`/angebote/${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Erstellen der Vorlage");
+      setVorlageWorking(false);
+      setShowVorlageModal(false);
+    }
   }
 
   async function handleDelete() {
@@ -215,6 +267,13 @@ export default function AngebotDetailPage() {
           >
             Drucken / PDF
           </Link>
+          <button
+            onClick={openVorlageModal}
+            className="w-full sm:w-auto px-3 py-2 sm:py-1.5 border border-blue-300 text-blue-700 text-sm rounded-lg hover:bg-blue-50 transition-colors"
+            title="Dieses Angebot als Vorlage für einen anderen Kunden verwenden"
+          >
+            Als Vorlage verwenden
+          </button>
           {isOffen && (
             <>
               <button

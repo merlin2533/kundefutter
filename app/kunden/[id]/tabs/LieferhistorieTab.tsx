@@ -7,8 +7,6 @@ import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
 
 export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [lieferscheinModal, setLieferscheinModal] = useState<Lieferung | null>(null);
-  const [rechnungModal, setRechnungModal] = useState<Lieferung | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sammelrechnungLoading, setSammelrechnungLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -17,6 +15,8 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
 
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
+
+  const emailKontakt = kunde.kontakte.find((k) => k.typ === "email");
 
   function zahlungsStatus(l: Lieferung): { label: string; cls: string } {
     if (l.status !== "geliefert") return { label: "—", cls: "text-gray-400" };
@@ -80,7 +80,6 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
     }
   }
 
-  // Only deliveries with status=geliefert and no invoice yet are eligible
   const sammelrechnungFaehig = (l: Lieferung) =>
     l.status === "geliefert" && !l.rechnungNr && !l.sammelrechnungId;
 
@@ -226,6 +225,16 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
               const zStatus = zahlungsStatus(l);
               const isLoading = actionLoading === l.id;
 
+              const emailHref = emailKontakt && l.rechnungNr
+                ? (() => {
+                    const subject = encodeURIComponent(`Rechnung ${l.rechnungNr}`);
+                    const body = encodeURIComponent(
+                      `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung ${l.rechnungNr} vom ${formatDatum(l.datum)} über ${formatEuro(total)}.\n\nMit freundlichen Grüßen`
+                    );
+                    return `mailto:${emailKontakt.wert}?subject=${subject}&body=${body}`;
+                  })()
+                : null;
+
               return (
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="hidden md:table-cell px-3 py-2.5 text-center">
@@ -251,25 +260,43 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
                   </td>
                   <td className="px-3 py-2.5">{statusBadge(l.status)}</td>
 
-                  {/* Lieferschein */}
+                  {/* Lieferschein — direkter Link, kein Modal */}
                   <td className="hidden lg:table-cell px-3 py-2.5">
-                    <button
-                      onClick={() => setLieferscheinModal(l)}
+                    <a
+                      href={`/lieferungen/${l.id}/lieferschein`}
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-xs px-2 py-1 border border-gray-300 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
                     >
                       📄 Lieferschein
-                    </button>
+                    </a>
                   </td>
 
-                  {/* Rechnung */}
+                  {/* Rechnung — direkter Link + Datum + E-Mail-Icon */}
                   <td className="hidden md:table-cell px-3 py-2.5">
                     {l.rechnungNr ? (
-                      <button
-                        onClick={() => setRechnungModal(l)}
-                        className="text-xs px-2 py-1 border border-green-300 text-green-700 rounded hover:bg-green-50 transition-colors whitespace-nowrap"
-                      >
-                        🧾 {l.rechnungNr}
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <a
+                          href={`/lieferungen/${l.id}/rechnung`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs px-2 py-1 border border-green-300 text-green-700 rounded hover:bg-green-50 transition-colors whitespace-nowrap"
+                        >
+                          🧾 {l.rechnungNr}
+                        </a>
+                        {l.rechnungDatum && (
+                          <span className="text-xs text-gray-400">{formatDatum(l.rechnungDatum)}</span>
+                        )}
+                        {emailHref && (
+                          <a
+                            href={emailHref}
+                            className="text-xs text-blue-500 hover:text-blue-700"
+                            title="Per E-Mail senden"
+                          >
+                            📧
+                          </a>
+                        )}
+                      </div>
                     ) : l.status === "geliefert" ? (
                       <button
                         onClick={() => rechnungErstellen(l)}
@@ -315,91 +342,6 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
           </tbody>
         </table>
       </div>
-
-      {/* Lieferschein Modal */}
-      {lieferscheinModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold mb-3">Lieferschein erstellen</h2>
-            <p className="text-sm text-gray-600 mb-1">
-              Lieferung vom <strong>{formatDatum(lieferscheinModal.datum)}</strong>
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              {lieferscheinModal.positionen.length} Position(en) · {formatEuro(lieferungTotal(lieferscheinModal))}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setLieferscheinModal(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Abbrechen
-              </button>
-              <a
-                href={`/lieferungen/${lieferscheinModal.id}/lieferschein`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setLieferscheinModal(null)}
-                className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
-              >
-                🖨 Lieferschein drucken
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rechnung Modal */}
-      {rechnungModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold mb-3">Rechnung</h2>
-            <p className="text-sm text-gray-600 mb-1">
-              Rechnungsnr.: <strong>{rechnungModal.rechnungNr}</strong>
-            </p>
-            <p className="text-sm text-gray-600 mb-1">
-              Lieferung vom <strong>{formatDatum(rechnungModal.datum)}</strong>
-            </p>
-            <p className="text-sm text-gray-600 mb-4">
-              Betrag: <strong>{formatEuro(lieferungTotal(rechnungModal))}</strong>
-            </p>
-            <div className="flex justify-end gap-2 flex-wrap">
-              <button
-                onClick={() => setRechnungModal(null)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Schließen
-              </button>
-              {(() => {
-                const emailKontakt = kunde.kontakte.find((k) => k.typ === "email");
-                if (!emailKontakt) return null;
-                const rechnungNr = rechnungModal.rechnungNr ?? "";
-                const datum = formatDatum(rechnungModal.datum);
-                const betrag = formatEuro(lieferungTotal(rechnungModal));
-                const subject = encodeURIComponent(`Rechnung ${rechnungNr}`);
-                const body = encodeURIComponent(
-                  `Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie die Rechnung ${rechnungNr} vom ${datum} über ${betrag}.\n\nMit freundlichen Grüßen`
-                );
-                return (
-                  <a
-                    href={`mailto:${emailKontakt.wert}?subject=${subject}&body=${body}`}
-                    onClick={() => setRechnungModal(null)}
-                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-                  >
-                    📧 Per E-Mail senden
-                  </a>
-                );
-              })()}
-              <Link
-                href={`/lieferungen/${rechnungModal.id}/rechnung`}
-                onClick={() => setRechnungModal(null)}
-                className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
-              >
-                🧾 Rechnung öffnen
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
