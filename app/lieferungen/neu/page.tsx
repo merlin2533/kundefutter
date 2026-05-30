@@ -597,11 +597,20 @@ function NeueLieferungInner() {
             <div className="p-3 bg-orange-50 border border-orange-300 rounded-lg space-y-2">
               <div className="flex items-start gap-2 text-sm text-orange-900">
                 <span className="text-base leading-none">⚠</span>
-                <span>
-                  <strong>Achtung:</strong> Diese Lieferung enthält Sprengstoffvorläufer (EU-VO 2019/1148).
-                  Für diesen Kunden liegt <strong>keine gültige Erklärung</strong> für {new Date().getFullYear()} vor.
-                  Bitte zuerst im Kunden-Tab &quot;Erklärungen&quot; die Jahreserklärung erfassen.
-                </span>
+                <div className="flex-1">
+                  <p><strong>Achtung:</strong> Diese Lieferung enthält Sprengstoffvorläufer (EU-VO 2019/1148).
+                  Für diesen Kunden liegt <strong>keine gültige Erklärung</strong> für {new Date().getFullYear()} vor.</p>
+                  {kundeId && (
+                    <Link
+                      href={`/kunden/${kundeId}?tab=Erkl%C3%A4rungen`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-1.5 px-3 py-1 text-xs font-medium bg-orange-700 hover:bg-orange-800 text-white rounded-lg transition-colors"
+                    >
+                      Erklärung jetzt erfassen →
+                    </Link>
+                  )}
+                </div>
               </div>
               <label className="flex items-center gap-2 text-sm text-orange-900 cursor-pointer">
                 <input
