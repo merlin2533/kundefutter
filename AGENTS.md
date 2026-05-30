@@ -129,6 +129,31 @@ FruehbezugsStaffel  — Rabattregeln (saison, kategorie?, artikelId?, bestellfri
 KundeTier           — Tier/Tiergruppe je Kunde (tierart, nutzungsart, anzahl, gewicht, leistung) — Basis Rationsberechnung
 Rationsberechnung   — gespeicherte Futterration (tierart, nutzungsart, modus, kundeId?/kundeTierId? optional, parameter JSON-Snapshot)
 Aufgabe             — TODO/Wiedervorlage (betreff, faelligAm, erledigt, prioritaet, typ, kundeId?)
+Reklamation         — Kundenbeschwerden (nummer, betreff, kategorie, prioritaet, status OFFEN/IN_BEARBEITUNG/GELOEST/GESCHLOSSEN, kundeId, lieferungId?)
+Kampagne            — Marketingkampagnen (name, von, bis, rabattProzent, aktiv)
+KampagneArtikel     — M:N Artikel↔Kampagne
+KampagneKunde       — M:N Kunden↔Kampagne
+Kontrakt            — Liefervereinbarungen (nummer, gueltigVon, gueltigBis, status, kundeId)
+KontraktPosition    — Mengen-Abrufe je Kontrakt (artikel, menge, mengeAbgerufen)
+PsmAusbringung      — PSM-Ausbringungsdokumentation (mittel, datum, menge, schlagId, kundeId)
+Zertifizierung      — Kundenzertifizierungen (typ z.B. AMA/BIO/QS, gueltigBis, kundeId)
+BodenanalyseAlbrecht— Albrecht-Analysen je KundeSchlag
+Anbauplan           — Jahres-/Saisonplanung je Schlag (kultur, flaeche, saison, menge)
+EingangsRechnung    — Lieferantenrechnungen (nummer, datum, faelligAm, betrag, mwst, status OFFEN/BEZAHLT/STORNIERT, lieferantId)
+Bestellung          — Lieferantenbestellungen (nummer, datum, status OFFEN/BESTAETIGT/TEILGELIEFERT/ABGESCHLOSSEN/STORNIERT, lieferantId)
+BestellungPosition  — Positionen je Bestellung (artikel, menge, mengeGeliefert, preis)
+AngebotVorlage      — Wiederverwendbare Angebotsvorlagen (name, positionen)
+AngebotVorlagePosition
+Anlieferung         — Erzeugerbis-/Abrechnung (erzeuger, datum, artikel, menge, preis)
+ChargenZertifikat   — Zertifikate je Charge (chargeNr, typ, datei)
+Benachrichtigung    — System-Alerts (typ, text, gelesen, faelligAm)
+KundePortalZugang   — Login-Daten fürs Kunden-Portal (username, passwortHash)
+Teilzahlung         — Teilzahlungen zu Lieferungen (betrag, datum, notiz)
+Umsatzziel          — Umsatzziele (monat/jahr, ziel, ist-Vergleich)
+MqttRegel           — MQTT-Automatisierungsregeln (topic, bedingung, aktion, ki-Verarbeitung)
+PegelstandCache     — Pegelstand-Daten (station, wert, einheit, zeitpunkt)
+EinkaufStatus       — Interner Bestell-/Lieferstatus je BestelllistenPosition
+KundeSprengstoffErklaerung — Sprengstoffvorläufer-Erklärungen je Kunde
 ```
 
 ### Einstellung Key-Konventionen
@@ -166,12 +191,13 @@ app/
 │   ├── bewertung/page.tsx      Kundenbewertung (RFM-Analyse, KPI-Cards)
 │   ├── karte/page.tsx          Karte (Geocoding, Cluster)
 │   └── [id]/page.tsx           Kundendetail
-│       TABS: Stammdaten | Kontakte | Bedarfe | Sonderpreise |
-│             Statistik | Lieferhistorie | CRM | Notizen | Agrarantrag |
-│             Schlagkartei | Tiere | Angebote | Aufgaben
+│       DIREKT_TABS: Stammdaten | Lieferhistorie | CRM | Angebote | Aufgaben
+│       GRUPPEN-TABS: Vertrieb (Bedarfe, Sonderpreise, Statistik, Vorgangskette, Reklamationen)
+│                     Agrar (Schlagkartei, Düngebedarf, Albrecht, Tiere, Agrarantrag)
+│                     Mehr (Zertifizierungen, Sachkundenachweise, Dokumente, Erklärungen)
 │       Tiere-Tab: Tierbestand erfassen + "Ration berechnen" → /rationsberechnung
 │       Schnellübersicht-Strip: Kontakt, Adresse, Offener Betrag, Letzte Lieferung,
-│             Schnellaktionen (inkl. Rückruf planen)
+│             Schnellaktionen: Neue Lieferung, CRM, PSM-Ausbringung, + Kontrakt, Preisliste, Rückruf
 │   └── [id]/mappe/page.tsx     Kundenmappe HTML-Druck
 │   └── [id]/aktivitaet/page.tsx  CRM-Aktivität direkt erfassen
 ├── kundenimport/page.tsx       Erweiterter Kunden-Import (Schritt-für-Schritt UI)
@@ -250,9 +276,59 @@ app/
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx           Inventur-Detail (Positionen, Abschluss)
 ├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant)
+├── bestellungen/               Lieferantenbestellungen (OFFEN→BESTAETIGT→TEILGELIEFERT→ABGESCHLOSSEN)
+│   ├── page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx           Detail + "→ Wareneingang buchen" Button
+├── eingangsrechnungen/         Lieferantenrechnungen (OFFEN/BEZAHLT/STORNIERT)
+│   ├── page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── einkaufszettel/page.tsx     Schnell-Einkaufszettel
+├── anlieferungen/              Erzeugerabrechnung
+│   ├── page.tsx
+│   └── neu/page.tsx
+├── kampagnen/                  Marketingkampagnen mit Potenzialanalyse
+│   ├── page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── reklamationen/              Beschwerdemanagement
+│   ├── page.tsx
+│   ├── neu/page.tsx            (nimmt kundeId + lieferungId aus URL)
+│   └── [id]/page.tsx
+├── kontrakte/                  Liefervereinbarungen mit Abruf-Tracking
+│   ├── page.tsx
+│   ├── neu/page.tsx            (nimmt kundeId aus URL)
+│   └── [id]/page.tsx
+├── psm/                        PSM-Ausbringungsdokumentation
+│   ├── page.tsx
+│   ├── neu/page.tsx            (nimmt kundeId aus URL)
+│   └── [id]/page.tsx
+├── zertifizierungen/           Kundenzertifizierungen (AMA, BIO, QS, …)
+│   ├── page.tsx
+│   ├── neu/page.tsx
+│   └── [id]/page.tsx
+├── spritzfenster/page.tsx      Wetterbasierte Spritzfenster-Prognose
+├── anbauplanung/               Jahres-/Saisonplanung je Schlag
+│   ├── page.tsx
+│   └── neu/page.tsx
+├── bodenanalyse/               Albrecht-Analyse (ideale Bodenverhältnisse)
+│   ├── page.tsx
+│   └── neu/page.tsx
+├── duev/                       DüV-Sperrfristen und Nährstoffbilanz
+│   ├── page.tsx                Ampelansicht Sperrfristen
+│   └── bilanz/page.tsx         Nährstoffbilanz (DüV §8)
+├── offene-posten/page.tsx      Offene Posten mit Mahnstufen-Filter
+├── finanzen/
+│   └── cashflow/page.tsx       Cashflow-Übersicht + Liquiditätsvorschau
 ├── preislisten-import/page.tsx Preislisten-Import (EK-Update via CSV/Excel)
-├── kalkulation/page.tsx        Preiskalkulation (Marge, Verkaufspreis aus EK)
+├── kalkulation/
+│   ├── page.tsx                Preiskalkulation (Marge, Verkaufspreis aus EK)
+│   └── naehrstoffe/page.tsx    Nährstoffkalkulator
 ├── mengenrabatte/
+│   ├── page.tsx
+│   └── neu/page.tsx
+├── angebot-vorlagen/           Wiederverwendbare Angebotsvorlagen
 │   ├── page.tsx
 │   └── neu/page.tsx
 ├── crm/page.tsx                CRM + Kalender-Tab (Besuchsplanung)
@@ -262,20 +338,46 @@ app/
 ├── gebietsanalyse/page.tsx
 ├── prognose/page.tsx
 ├── statistik/page.tsx          Statistik (Umsatz/Marge Charts, Kunden-/Artikel-Statistik)
+│   ├── uebersicht/page.tsx     Statistik-Dashboard
+│   ├── kunden/page.tsx         Kundenauswertung
+│   ├── artikel/page.tsx        Artikelauswertung
+│   ├── abc/page.tsx            ABC-Analyse
+│   ├── saisonal/page.tsx       Saisonale Auswertung
+│   ├── deckungsbeitrag/page.tsx Deckungsbeitrags-Analyse
+│   ├── budget/page.tsx         Budgetplanung
+│   ├── angebote/page.tsx       Angebots-Conversion
+│   ├── crm/page.tsx            CRM-Aktivitäten-Statistik
+│   ├── vorbestellungen/page.tsx Vorbestellungs-Auswertung
+│   ├── aging/page.tsx          Offene-Posten-Aging
+│   ├── ausgaben/page.tsx       Ausgaben-Auswertung
+│   ├── lieferanten/page.tsx    Lieferanten/Einkauf-Statistik
+│   ├── lager/page.tsx          Lager-Auswertung
+│   ├── reklamationen/page.tsx  Reklamations-Statistik
+│   └── liquiditaet/page.tsx    Liquiditätsanalyse (12-Monats-Vorschau)
 ├── analyse/
-│   ├── abc/page.tsx            ABC-Analyse (Kunden + Artikel)
-│   ├── deckungsbeitrag/page.tsx  Deckungsbeitrags-Analyse
-│   └── saisonal/page.tsx       Saisonale Auswertung
+│   ├── abc/page.tsx            → redirect /statistik/abc
+│   ├── deckungsbeitrag/page.tsx → redirect /statistik/deckungsbeitrag
+│   └── saisonal/page.tsx       → redirect /statistik/saisonal
 ├── audit/page.tsx              Änderungshistorie (AuditLog, Filter nach Entität/Aktion)
 ├── exporte/page.tsx
 ├── qr/[id]/page.tsx            QR-Lieferschein-Scan (öffentlich, kein Login)
+├── portal/                     Kunden-Portal (öffentlich/eigenständige Authentifizierung)
+│   ├── page.tsx                Portal-Dashboard
+│   ├── login/page.tsx
+│   ├── bestellung/page.tsx
+│   ├── lieferscheine/page.tsx
+│   └── rechnungen/page.tsx
 ├── ki/
 │   ├── page.tsx                KI-Übersicht
 │   ├── wareneingang/page.tsx   Lieferschein-Erkennung per Foto
 │   ├── lieferung/page.tsx      Bestellungs-Erkennung
-│   └── crm/page.tsx            CRM-Notizen aus Bild/Sprache
-├── fahrer/page.tsx             Fahrer-Cockpit (Tourenübersicht, Unterschrift auf Lieferschein)
-├── hilfe/page.tsx              Hilfe-Seite (Feature-Übersicht, Anker-Links)
+│   ├── crm/page.tsx            CRM-Notizen aus Bild/Sprache
+│   └── erkennung/page.tsx      Allgemeine Belegerkennung
+├── fahrer/
+│   ├── page.tsx                Fahrer-Cockpit (Tourenübersicht, Unterschrift auf Lieferschein)
+│   └── standorte/page.tsx      Fahrer-Standort-Tracking
+├── onboarding/page.tsx         Ersteinrichtungs-Assistent
+├── hilfe/page.tsx              Hilfe-Seite (Feature-Übersicht, alle Bereiche)
 ├── einstellungen/
 │   ├── page.tsx                Kachelübersicht
 │   ├── firma/page.tsx
@@ -304,7 +406,17 @@ app/
 │   │   ├── page.tsx            Import-Übersicht
 │   │   ├── kunden/page.tsx     Kunden-Import UI
 │   │   └── preisliste/page.tsx Preislisten-Import Einstellungen
-│   └── artikel-import/page.tsx Artikel-Import-Konfiguration
+│   ├── artikel-import/page.tsx Artikel-Import-Konfiguration
+│   ├── mahnwesen/page.tsx      Mahnwesen-Konfiguration (Fristen, Gebühren, Zinssatz)
+│   ├── marktpreise/page.tsx    Marktpreise-Cache-Verwaltung
+│   ├── portal/page.tsx         Kunden-Portal-Zugangsdaten
+│   ├── sicherheit/page.tsx     Passwort-Richtlinie
+│   ├── benachrichtigungen/page.tsx  System-Alert-Schwellwerte
+│   ├── loeschzentrum/page.tsx  Duplikate, Datenbereinigung, FTS-Rebuild
+│   ├── gdpr/page.tsx           DSGVO (Art. 15–17)
+│   ├── mqtt/page.tsx           MQTT-Automatisierungsregeln + KI
+│   ├── email-import/page.tsx   Eingehende E-Mails (Resend) + KI-Verarbeitung
+│   └── cron/page.tsx           Cron-Jobs überwachen + manuell auslösen
 ├── manifest.ts
 ├── icon.tsx
 └── apple-icon.tsx
@@ -458,12 +570,65 @@ app/
 
 -- Kalkulation --
 /api/kalkulation                GET(?artikelId,?lieferantId,?marge)
+/api/kalkulation/naehrstoffe    POST — Nährstoffkalkulator
+
+-- Kampagnen --
+/api/kampagnen                  GET(?aktiv), POST
+/api/kampagnen/[id]             GET, PUT, DELETE
+/api/kampagnen/[id]/artikel     GET, POST, DELETE?artikelId=
+/api/kampagnen/[id]/kunden      GET, POST
+/api/kampagnen/[id]/potenzial   GET — nicht zugeordnete Kunden mit Umsatz
+
+-- Reklamationen --
+/api/reklamationen              GET(?kundeId,?status,?prioritaet), POST
+/api/reklamationen/[id]         GET, PUT, DELETE
+
+-- Kontrakte --
+/api/kontrakte                  GET(?kundeId,?status), POST
+/api/kontrakte/[id]             GET, PUT, DELETE
+
+-- PSM-Ausbringung --
+/api/psm                        GET(?kundeId,?von,?bis), POST
+/api/psm/[id]                   GET, PUT, DELETE
+
+-- Zertifizierungen --
+/api/zertifizierungen           GET(?kundeId,?abgelaufen), POST
+/api/zertifizierungen/[id]      GET, PUT, DELETE
+
+-- Anbauplanung --
+/api/anbauplanung               GET(?kundeId,?saison,?schlagId), POST
+/api/anbauplanung/[id]          GET, PUT, DELETE
+
+-- Bodenanalyse (Albrecht) --
+/api/bodenanalyse               GET(?schlagId,?kundeId), POST
+/api/bodenanalyse/[id]          GET, PUT, DELETE
+
+-- DüV / Nährstoffbilanz --
+/api/duev/sperrfristen          GET(?kundeId,?schlagId,?datum) — Sperrfristampel
+/api/duev/bilanz                GET(?kundeId,?jahr) — Nährstoffbilanz
+
+-- Einkauf / Lieferantenbestellungen --
+/api/bestellungen               GET(?lieferantId,?status), POST (auto Nummer)
+/api/bestellungen/[id]          GET, PUT({aktion:"bestätigen"|"abschliessen"|"stornieren"}|{positionen[]}), DELETE
+/api/eingangsrechnungen         GET(?lieferantId,?status), POST
+/api/eingangsrechnungen/[id]    GET, PUT, DELETE
+/api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
+/api/anlieferungen              GET(?lieferantId), POST
+/api/anlieferungen/[id]         GET, PUT, DELETE
+
+-- Offene Posten --
+/api/offene-posten              GET(?mahnstufe) — aggregiert aus Lieferungen
+
+-- Finanzen / Cashflow --
+/api/finanzen/cashflow          GET(?von,?bis) — monatliche Ein-/Ausgaben + Trend
 
 -- Analyse --
 /api/analyse/abc                GET(?von,?bis) — ABC-Analyse Kunden + Artikel
 /api/analyse/deckungsbeitrag    GET(?von,?bis,?kundeId,?artikelId)
 /api/analyse/saisonal           GET(?von,?bis,?gruppeNach)
 /api/statistik                  GET(?von,?bis,?granularitaet)
+/api/statistik/budget           GET, POST — Budgetplanung
+/api/statistik/reklamationen    GET(?von,?bis) — Reklamations-KPIs
 
 -- Audit / Änderungshistorie --
 /api/audit                      GET(?entitaet,?entitaetId,?aktion,?von,?bis,?limit)
