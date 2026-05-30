@@ -478,6 +478,7 @@ export default function AngebotDetailPage() {
             <div className="mb-5">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Kunde <span className="text-red-500">*</span>
+                <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
               </label>
               {vorlageKundenLoading ? (
                 <div className="text-sm text-gray-400 py-2">Lade Kunden…</div>

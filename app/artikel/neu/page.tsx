@@ -23,6 +23,7 @@ const defaultForm = {
   lagerort: "",
   liefergroesse: "",
   sprengstoffvorlaeufer: false,
+  chargePflicht: false,
 };
 
 export default function NeuerArtikelPage() {
@@ -406,8 +407,8 @@ export default function NeuerArtikelPage() {
           <input
             type="checkbox"
             id="chargePflicht"
-            checked={(form as Record<string, unknown>).chargePflicht as boolean ?? false}
-            onChange={(e) => setForm({ ...form, chargePflicht: e.target.checked } as typeof form)}
+            checked={form.chargePflicht}
+            onChange={(e) => setForm({ ...form, chargePflicht: e.target.checked })}
             className="rounded mt-0.5"
           />
           <div>

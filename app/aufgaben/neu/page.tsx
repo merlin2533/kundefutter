@@ -28,8 +28,9 @@ function NeueAufgabeForm() {
 
   useEffect(() => {
     fetch("/api/kunden?limit=500&aktiv=true")
-      .then((r) => r.ok ? r.json() : {})
-      .then((d) => { const data = d as { data?: Kunde[] }; setKunden(data.data ?? []); });
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setKunden(Array.isArray(d) ? d : []))
+      .catch(() => {});
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -42,37 +43,43 @@ function NeueAufgabeForm() {
       ? JSON.stringify(tagsInput.split(",").map((t) => t.trim()).filter(Boolean))
       : "[]";
 
-    const res = await fetch("/api/aufgaben", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        betreff: betreff.trim(),
-        beschreibung: beschreibung.trim() || null,
-        faelligAm: faelligAm || null,
-        prioritaet,
-        tags,
-        typ,
-        kundeId: kundeId ? Number(kundeId) : null,
-      }),
-    });
+    try {
+      const res = await fetch("/api/aufgaben", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          betreff: betreff.trim(),
+          beschreibung: beschreibung.trim() || null,
+          faelligAm: faelligAm || null,
+          prioritaet,
+          tags,
+          typ,
+          kundeId: kundeId ? Number(kundeId) : null,
+        }),
+      });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setError(err.error ?? "Fehler beim Speichern");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setError((err as { error?: string }).error ?? "Fehler beim Speichern");
+        return;
+      }
+
+      if (prefilledKundeId) {
+        router.push(`/kunden/${prefilledKundeId}?tab=Aufgaben`);
+      } else {
+        router.push("/aufgaben");
+      }
+    } catch {
+      setError("Netzwerkfehler – bitte erneut versuchen");
+    } finally {
       setSaving(false);
-      return;
-    }
-
-    if (prefilledKundeId) {
-      router.push(`/kunden/${prefilledKundeId}?tab=Aufgaben`);
-    } else {
-      router.push("/aufgaben");
     }
   }
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
-    label: k.firma ? `${k.name} (${k.firma})` : k.name,
+    label: k.name,
+    sub: k.firma ?? undefined,
   }));
 
   return (

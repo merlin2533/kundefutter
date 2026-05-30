@@ -68,6 +68,7 @@ interface Artikel {
   lagerort?: string | null;
   liefergroesse?: string | null;
   sprengstoffvorlaeufer: boolean;
+  chargePflicht: boolean;
   inhaltsstoffe: Inhaltsstoff[];
   lieferanten: ArtikelLieferant[];
   dokumente: Dokument[];
@@ -91,6 +92,64 @@ const FALLBACK_EINHEITEN = ["kg", "t", "dt", "Sack", "Liter", "Stück", "BigBag"
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
 
+// ─── Preishistorie SVG Chart ──────────────────────────────────────────────────
+
+function PreisChart({ data, formatEuroFn, formatDatumFn }: {
+  data: PreishistorieEntry[];
+  formatEuroFn: (v: number) => string;
+  formatDatumFn: (v: string) => string;
+}) {
+  const sorted = [...data].sort((a, b) => new Date(a.geaendertAm).getTime() - new Date(b.geaendertAm).getTime());
+  if (sorted.length === 0) return null;
+
+  const series: { date: string; price: number }[] = [
+    { date: sorted[0].geaendertAm, price: sorted[0].alterPreis },
+    ...sorted.map((e) => ({ date: e.geaendertAm, price: e.neuerPreis })),
+  ];
+
+  const W = 560, H = 200, PL = 68, PR = 16, PT = 16, PB = 48;
+  const plotW = W - PL - PR, plotH = H - PT - PB;
+  const prices = series.map((s) => s.price);
+  const minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.12 || Math.max(minP * 0.08, 0.5);
+  const minY = minP - pad, maxY = maxP + pad;
+  const toX = (i: number) => PL + (i / Math.max(series.length - 1, 1)) * plotW;
+  const toY = (price: number) => PT + (1 - (price - minY) / (maxY - minY)) * plotH;
+  const pts = series.map((s, i) => ({ x: toX(i), y: toY(s.price), date: s.date, price: s.price }));
+  const polyline = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const overallDiff = series[series.length - 1].price - series[0].price;
+  const color = overallDiff > 0 ? "#dc2626" : overallDiff < 0 ? "#16a34a" : "#6b7280";
+  const yTicks = [0, 1, 2, 3].map((i) => ({ y: toY(minY + (i / 3) * (maxY - minY)), price: minY + (i / 3) * (maxY - minY) }));
+  const step = Math.max(1, Math.ceil(series.length / 6));
+  const xIdxs = series.reduce<number[]>((a, _, i) => { if (i % step === 0 || i === series.length - 1) a.push(i); return a; }, []);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" className="select-none" style={{ maxHeight: 220 }}>
+      {yTicks.map((t, i) => (
+        <g key={i}>
+          <line x1={PL} y1={t.y} x2={W - PR} y2={t.y} stroke="#f3f4f6" strokeWidth="1" />
+          <text x={PL - 6} y={t.y + 4} textAnchor="end" fontSize="10" fill="#9ca3af">{formatEuroFn(t.price)}</text>
+        </g>
+      ))}
+      <polygon points={`${PL},${PT + plotH} ${polyline} ${pts[pts.length - 1].x.toFixed(1)},${(PT + plotH).toFixed(1)}`} fill={color} opacity="0.07" />
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="4.5" fill="white" stroke={color} strokeWidth="2" />
+          <title>{formatDatumFn(p.date)}: {formatEuroFn(p.price)}</title>
+        </g>
+      ))}
+      {xIdxs.map((idx) => (
+        <text key={idx} x={pts[idx].x} y={H - 6} textAnchor="middle" fontSize="9" fill="#9ca3af">
+          {new Date(series[idx].date).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+        </text>
+      ))}
+      <line x1={PL} y1={PT} x2={PL} y2={PT + plotH} stroke="#e5e7eb" strokeWidth="1" />
+      <line x1={PL} y1={PT + plotH} x2={W - PR} y2={PT + plotH} stroke="#e5e7eb" strokeWidth="1" />
+    </svg>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ArtikelDetailPage() {
@@ -113,6 +172,7 @@ export default function ArtikelDetailPage() {
   // Preishistorie
   const [preishistorie, setPreishistorie] = useState<PreishistorieEntry[]>([]);
   const [loadingPreis, setLoadingPreis] = useState(false);
+  const [preisView, setPreisView] = useState<"grafik" | "tabelle">("grafik");
 
   // Lieferanten modal
   const [showLiefModal, setShowLiefModal] = useState(false);
@@ -171,6 +231,7 @@ export default function ArtikelDetailPage() {
       lagerort: data.lagerort ?? "",
       liefergroesse: data.liefergroesse ?? "",
       sprengstoffvorlaeufer: data.sprengstoffvorlaeufer ?? false,
+      chargePflicht: data.chargePflicht ?? false,
     });
     setLoading(false);
   }, [id]);
@@ -772,8 +833,8 @@ export default function ArtikelDetailPage() {
                 <input
                   type="checkbox"
                   id="chargePflicht"
-                  checked={(editForm as Record<string, unknown>).chargePflicht as boolean ?? false}
-                  onChange={(e) => setEditForm({ ...editForm, chargePflicht: e.target.checked } as typeof editForm)}
+                  checked={editForm.chargePflicht ?? false}
+                  onChange={(e) => setEditForm({ ...editForm, chargePflicht: e.target.checked })}
                   className="rounded mt-0.5"
                 />
                 <div>
