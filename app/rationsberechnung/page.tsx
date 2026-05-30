@@ -305,13 +305,13 @@ function RationsInner() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Lebendgewicht (kg)</label>
-            <input type="number" value={gewicht} onChange={(e) => setGewicht(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="z.B. 650" />
+            <input type="number" step="0.001" value={gewicht} onChange={(e) => setGewicht(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="z.B. 650" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Leistung {tierart && meta?.tierarten.find((t) => t.key === tierart)?.leistungLabel ? `(${meta.tierarten.find((t) => t.key === tierart)!.leistungLabel})` : ""}
             </label>
-            <input type="number" value={leistung} onChange={(e) => setLeistung(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="z.B. 28" />
+            <input type="number" step="0.001" value={leistung} onChange={(e) => setLeistung(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="z.B. 28" />
           </div>
           {istMilchvieh && (
             <>
@@ -374,7 +374,7 @@ function RationsInner() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs text-gray-500 mb-1">TM-Gehalt g/kg</label>
-                  <input type="number" value={p.tmGehalt} onChange={(e) => setPos(i, { tmGehalt: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm" placeholder={p.typ === "standard" ? "auto" : "880"} disabled={p.typ === "standard"} />
+                  <input type="number" step="0.001" value={p.tmGehalt} onChange={(e) => setPos(i, { tmGehalt: e.target.value })} className="w-full border rounded px-2 py-1.5 text-sm" placeholder={p.typ === "standard" ? "auto" : "880"} disabled={p.typ === "standard"} />
                 </div>
                 <div className="sm:col-span-1">
                   {modus === "detail" && (

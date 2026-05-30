@@ -226,7 +226,7 @@ function WareneingangInner() {
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     value={pos.menge}
                     onChange={(e) =>

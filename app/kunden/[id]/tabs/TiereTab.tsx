@@ -143,11 +143,11 @@ export default function TiereTab({ kundeId }: { kundeId: number }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Ø Lebendgewicht (kg)</label>
-                <input type="number" value={form.gewicht} onChange={(e) => setForm({ ...form, gewicht: e.target.value })} className={inputClsSchlag} placeholder="z.B. 650" />
+                <input type="number" step="0.001" value={form.gewicht} onChange={(e) => setForm({ ...form, gewicht: e.target.value })} className={inputClsSchlag} placeholder="z.B. 650" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Leistung</label>
-                <input type="number" value={form.leistung} onChange={(e) => setForm({ ...form, leistung: e.target.value })} className={inputClsSchlag} placeholder="z.B. 28" />
+                <input type="number" step="0.001" value={form.leistung} onChange={(e) => setForm({ ...form, leistung: e.target.value })} className={inputClsSchlag} placeholder="z.B. 28" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Leistungs-Einheit</label>

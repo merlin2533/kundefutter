@@ -278,7 +278,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const body = positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const artikelZelle = `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
-    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 2 });
+    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
     const base = [
       String(i + 1),
       artikelZelle,

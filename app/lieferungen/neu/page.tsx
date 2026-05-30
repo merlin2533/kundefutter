@@ -538,7 +538,7 @@ function NeueLieferungInner() {
                         <td className="px-3 py-2">
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.001"
                             min="0"
                             value={pos.menge}
                             onChange={(e) => updatePosition(idx, "menge", e.target.value)}

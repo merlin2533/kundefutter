@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, formatDatum, addTage } from "@/lib/utils";
+import { formatEuro, formatDatum, addTage, formatMenge } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
@@ -526,7 +526,7 @@ export default function RechnungPrintPage() {
                   </div>
                 </td>
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
-                  {p.menge}
+                  {formatMenge(p.menge)}
                 </td>
                 <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>

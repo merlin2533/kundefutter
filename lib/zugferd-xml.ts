@@ -49,6 +49,11 @@ function fmt2(n: number): string {
   return n.toFixed(2);
 }
 
+/** Mengenangabe mit 3 Nachkommastellen (BilledQuantity erlaubt Dezimalstellen). */
+function fmtQty(n: number): string {
+  return n.toFixed(3);
+}
+
 function fmtDate102(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -186,7 +191,7 @@ export function generateZugferdXml(data: ZugferdData): string {
           </ram:NetPriceProductTradePrice>
         </ram:SpecifiedLineTradeAgreement>
         <ram:SpecifiedLineTradeDelivery>
-          <ram:BilledQuantity unitCode="${unitCode(p.einheit)}">${fmt2(p.menge)}</ram:BilledQuantity>
+          <ram:BilledQuantity unitCode="${unitCode(p.einheit)}">${fmtQty(p.menge)}</ram:BilledQuantity>
         </ram:SpecifiedLineTradeDelivery>
         <ram:SpecifiedLineTradeSettlement>
           <ram:ApplicableTradeTax>

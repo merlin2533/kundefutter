@@ -669,8 +669,8 @@ export default function TourenplanungPage() {
               <label className="block text-xs text-gray-500 mb-1">Menge</label>
               <input
                 type="number"
-                step="0.01"
-                min="0.01"
+                step="0.001"
+                min="0.001"
                 value={schnellMenge}
                 onChange={(e) => setSchnellMenge(parseFloat(e.target.value) || 1)}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
