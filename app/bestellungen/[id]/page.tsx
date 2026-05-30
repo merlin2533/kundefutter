@@ -157,6 +157,14 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {(data.status === "BESTAETIGT" || data.status === "TEILGELIEFERT") && data.lieferant && (
+            <Link
+              href={`/lager/wareneingang?lieferantId=${data.lieferant.id}`}
+              className="px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 border border-green-300 text-sm font-medium rounded-lg transition-colors"
+            >
+              → Wareneingang buchen
+            </Link>
+          )}
           {canBestätigen && (
             <button
               onClick={() => handleStatusChange("bestätigen")}

@@ -28,7 +28,7 @@ function NeuInner() {
   const [error, setError] = useState("");
 
   const [kundeId, setKundeId] = useState(searchParams.get("kundeId") ?? "");
-  const [lieferungId, setLieferungId] = useState("");
+  const [lieferungId, setLieferungId] = useState(searchParams.get("lieferungId") ?? "");
   const [betreff, setBetreff] = useState("");
   const [beschreibung, setBeschreibung] = useState("");
   const [kategorie, setKategorie] = useState("Qualitaet");
@@ -42,12 +42,21 @@ function NeuInner() {
       .catch(() => {});
   }, []);
 
+  const initialLieferungId = searchParams.get("lieferungId") ?? "";
   useEffect(() => {
     if (!kundeId) { setLieferungen([]); setLieferungId(""); return; }
     fetch(`/api/lieferungen?kundeId=${kundeId}&limit=50`)
       .then((r) => r.ok ? r.json() : [])
-      .then((d) => setLieferungen(Array.isArray(d) ? d : d.lieferungen ?? []))
+      .then((d) => {
+        const list = Array.isArray(d) ? d : d.lieferungen ?? [];
+        setLieferungen(list);
+        // Pre-select from URL only on first load; reset if customer changes
+        if (initialLieferungId && list.some((l: { id: number }) => String(l.id) === initialLieferungId)) {
+          setLieferungId(initialLieferungId);
+        }
+      })
       .catch(() => setLieferungen([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kundeId]);
 
   async function handleSubmit(e: React.FormEvent) {
