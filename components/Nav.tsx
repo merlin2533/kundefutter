@@ -45,7 +45,6 @@ const groups: NavGroup[] = [
       { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)", section: "Aufträge" },
       { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln", section: "Aufträge" },
       { href: "/kontrakte", label: "Kontrakte", section: "Aufträge" },
-      { href: "/ki/wareneingang", label: "KI-Wareneingang", section: "KI" },
       { href: "/ki/lieferung", label: "KI-Lieferung", section: "KI" },
     ],
   },
@@ -78,6 +77,7 @@ const groups: NavGroup[] = [
       { href: "/lager/chargen/zertifikate", label: "Chargen-Zertifikate", section: "Lager" },
       { href: "/lager/mhd", label: "MHD-Übersicht", section: "Lager" },
       { href: "/inventur", label: "Inventur", section: "Lager" },
+      { href: "/ki/wareneingang", label: "KI-Wareneingang", section: "KI" },
     ],
   },
   {
