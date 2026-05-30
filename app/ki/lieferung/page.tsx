@@ -736,7 +736,7 @@ function KiLieferungWizard() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6">
+    <div className="max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-gray-900">KI-Lieferung anlegen</h1>
       <Stepper current={step > 3 ? 4 : step} />
 
@@ -1327,7 +1327,7 @@ export default function KiLieferungPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-3xl mx-auto px-4 py-6">
+        <div className="max-w-3xl mx-auto">
           <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6" />
           <div className="h-64 bg-white rounded-xl border border-gray-200 animate-pulse" />
         </div>

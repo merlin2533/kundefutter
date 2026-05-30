@@ -100,7 +100,7 @@ export default function NeuerKundePage() {
     "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600";
 
   return (
-    <div className="max-w-xl mx-auto py-8 px-4">
+    <div className="max-w-xl mx-auto">
       <Link
         href="/kunden"
         className="text-green-700 hover:text-green-900 text-sm mb-4 inline-block"

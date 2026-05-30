@@ -227,7 +227,7 @@ export default function NaehrstoffkalkulatorPage() {
     : null;
 
   return (
-    <div className="max-w-screen-lg mx-auto px-4 py-8">
+    <div className="max-w-screen-lg mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Nährstoffgehalt-Kalkulator</h1>
         <p className="text-sm text-gray-500 mt-0.5">

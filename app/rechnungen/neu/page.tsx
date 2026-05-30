@@ -168,7 +168,7 @@ export default function NeueRechnungPage() {
   }
 
   return (
-    <main className="max-w-screen-lg mx-auto px-4 py-8">
+    <main className="max-w-screen-lg mx-auto">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-4">
         <Link href="/rechnungen" className="hover:underline text-green-700">Rechnungen</Link>

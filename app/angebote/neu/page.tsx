@@ -289,7 +289,7 @@ function NeuesAngebotForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+    <div className="max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/angebote" className="hover:text-green-700">Angebote</Link>

@@ -99,7 +99,7 @@ function NeueSammelrechnungForm() {
   }));
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/sammelrechnungen" className="text-gray-400 hover:text-gray-600 text-sm">
           ← Zurück

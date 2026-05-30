@@ -490,7 +490,7 @@ function KiWareneingangWizard() {
   // ---- Render --------------------------------------------------------------
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-2 text-gray-900">KI-Wareneingang</h1>
       <p className="text-gray-500 text-sm mb-6">
         Laden Sie ein Foto eines Lieferscheins hoch — die KI erkennt automatisch Artikel, Mengen und Preise.

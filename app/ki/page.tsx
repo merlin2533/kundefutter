@@ -35,7 +35,7 @@ const KI_KACHELN = [
 
 export default function KiUebersichtPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">KI-Assistenten</h1>
       <p className="text-gray-500 text-sm mb-8">
         Nutzen Sie künstliche Intelligenz zur schnellen Erfassung von Belegen und Notizen.

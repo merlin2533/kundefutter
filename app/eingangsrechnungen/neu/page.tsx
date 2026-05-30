@@ -152,7 +152,7 @@ function EingangsrechnungNeuInner() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
+    <div className="max-w-2xl mx-auto">
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/eingangsrechnungen" className="hover:text-green-700">
           Eingangsrechnungen

@@ -58,7 +58,7 @@ export default function CronVerwaltungPage() {
   const lastRun = status?.startedAt ? new Date(status.startedAt) : null;
 
   return (
-    <div className="max-w-3xl mx-auto py-6 px-4 sm:px-6">
+    <div className="max-w-3xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link href="/einstellungen" className="text-gray-400 hover:text-gray-600 text-sm">← Einstellungen</Link>
       </div>

@@ -263,7 +263,7 @@ function KiCrmWizard() {
   const selectedKunde = kunden.find((k) => String(k.id) === kundeId);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-2 text-gray-900">KI-CRM Notiz</h1>
       <p className="text-gray-500 text-sm mb-6">Dokument hochladen, KI analysiert und erstellt automatisch eine CRM-Aktivität.</p>
 
@@ -571,7 +571,7 @@ export default function KiCrmPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
           <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-6" />
           <div className="bg-white rounded-xl border border-gray-200 p-6 h-64 animate-pulse" />
         </div>

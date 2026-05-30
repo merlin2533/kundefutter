@@ -131,7 +131,7 @@ export default function EinkaufszettelPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="max-w-5xl mx-auto">
       <style>{`@media print { .print-hidden { display: none !important; } @page { margin: 1.5cm; size: A4; } }`}</style>
 
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
