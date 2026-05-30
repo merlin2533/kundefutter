@@ -29,6 +29,8 @@ export async function GET() {
     letzteAngeboteRaw,
     letzteAufgabenErledigtRaw,
     lieferungenOhneRechnungRaw,
+    offeneBestellungenCount,
+    bestellteBestellungenCount,
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
@@ -162,6 +164,8 @@ export async function GET() {
       orderBy: { datum: "asc" },
       take: 20,
     }),
+    prisma.bestellposition.count({ where: { status: "offen" } }),
+    prisma.bestellposition.count({ where: { status: { in: ["bestellt", "teilgeliefert"] } } }),
   ]);
 
   const umsatzMonat = geliefertDiesenMonat.reduce((sum, l) => {
@@ -477,6 +481,8 @@ export async function GET() {
     lieferungenOhneRechnung,
     unzugeordneteUmsaetze,
     benachrichtigungenUngelesen,
+    offeneBestellungen: offeneBestellungenCount,
+    bestellteBestellungen: bestellteBestellungenCount,
   });
   } catch (e) {
     console.error("Dashboard API error:", e);

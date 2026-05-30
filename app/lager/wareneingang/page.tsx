@@ -23,6 +23,7 @@ interface Bestellposition {
   einheit: string;
   einkaufspreis: number;
   notiz: string | null;
+  status: string;
   artikel: { id: number; name: string; artikelnummer: string };
   kunde: { id: number; name: string; firma: string | null } | null;
 }
@@ -89,7 +90,7 @@ function WareneingangInner() {
       setOffeneBestellungen([]);
       return;
     }
-    fetch(`/api/bestellliste?lieferantId=${lieferantId}&status=bestellt`)
+    fetch(`/api/bestellliste?lieferantId=${lieferantId}&status=aktiv`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: Bestellposition[]) => {
         const list: Bestellposition[] = Array.isArray(data) ? data : [];
@@ -271,7 +272,7 @@ function WareneingangInner() {
         {offeneBestellungen.length > 0 && (
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">
-              Offene Bestellungen ({offeneBestellungen.length})
+              Offene / Bestellte Positionen ({offeneBestellungen.length})
             </h3>
             <div className="space-y-1.5">
               {offeneBestellungen.map((bp) => {
@@ -282,7 +283,9 @@ function WareneingangInner() {
                     className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg border text-sm ${
                       isLinked
                         ? "bg-green-50 border-green-200 text-green-800"
-                        : "bg-amber-50 border-amber-200 text-amber-800"
+                        : bp.status === "offen"
+                        ? "bg-yellow-50 border-yellow-200 text-yellow-800"
+                        : "bg-blue-50 border-blue-200 text-blue-800"
                     }`}
                   >
                     <span>

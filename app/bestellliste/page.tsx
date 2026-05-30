@@ -2,9 +2,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+interface WEPos {
+  id: number;
+  chargeNr: string | null;
+  menge: number;
+  wareneingang: { datum: string } | null;
+}
+
 interface Bestellposition {
   id: number;
   menge: number;
+  mengeGeliefert: number;
   einheit: string;
   einkaufspreis: number;
   status: string;
@@ -13,27 +21,29 @@ interface Bestellposition {
   notiz: string | null;
   createdAt: string;
   lieferant: { id: number; name: string; email: string | null; telefon: string | null };
-  artikel: { id: number; name: string; artikelnummer: string; einheit: string };
+  artikel: { id: number; name: string; artikelnummer: string; einheit: string; chargePflicht: boolean };
   kunde: { id: number; name: string; firma: string | null } | null;
   lieferung: { id: number; datum: string } | null;
+  wareineingangPos: WEPos[];
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  offen:     { label: "Offen",     color: "bg-yellow-100 text-yellow-800" },
-  bestellt:  { label: "Bestellt",  color: "bg-blue-100 text-blue-800" },
-  geliefert: { label: "Geliefert", color: "bg-green-100 text-green-800" },
-  storniert: { label: "Storniert", color: "bg-gray-100 text-gray-500" },
+  offen:          { label: "Offen",          color: "bg-yellow-100 text-yellow-800" },
+  bestellt:       { label: "Bestellt",       color: "bg-blue-100 text-blue-800" },
+  teilgeliefert:  { label: "Teilgeliefert",  color: "bg-purple-100 text-purple-800" },
+  geliefert:      { label: "Geliefert",      color: "bg-green-100 text-green-800" },
+  storniert:      { label: "Storniert",      color: "bg-gray-100 text-gray-500" },
 };
 
 export default function BestelllistePage() {
   const [positionen, setPositionen] = useState<Bestellposition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "alle">("offen");
+  const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "aktiv" | "alle">("aktiv");
   const [updating, setUpdating] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
-    const param = statusFilter === "alle" ? "alle" : statusFilter;
+    const param = statusFilter === "aktiv" ? "aktiv" : statusFilter === "alle" ? "alle" : statusFilter;
     const res = await fetch(`/api/bestellliste?status=${param}`);
     const data = await res.json();
     setPositionen(Array.isArray(data) ? data : []);
@@ -83,13 +93,18 @@ export default function BestelllistePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-1">
-          {(["offen", "bestellt", "alle"] as const).map((f) => (
+          {([
+            { key: "aktiv", label: "Aktiv (Offen + Bestellt)" },
+            { key: "offen", label: "Offen" },
+            { key: "bestellt", label: "Bestellt" },
+            { key: "alle", label: "Alle" },
+          ] as const).map(({ key, label }) => (
             <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors capitalize ${statusFilter === f ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
+              key={key}
+              onClick={() => setStatusFilter(key)}
+              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${statusFilter === key ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`}
             >
-              {f === "offen" ? "Offen" : f === "bestellt" ? "Bestellt" : "Alle"}
+              {label}
             </button>
           ))}
         </div>
@@ -150,9 +165,17 @@ export default function BestelllistePage() {
                             <span className="text-xs text-gray-400 font-mono">{pos.artikel.artikelnummer}</span>
                           </div>
                           <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500">
-                            <span className="font-medium text-gray-700">{pos.menge} {pos.einheit}</span>
+                            <span className="font-medium text-gray-700">
+                              {pos.mengeGeliefert > 0 && pos.mengeGeliefert < pos.menge
+                                ? <>{pos.mengeGeliefert}/{pos.menge} {pos.einheit} <span className="text-purple-600">(Teillieferung)</span></>
+                                : <>{pos.menge} {pos.einheit}</>
+                              }
+                            </span>
                             {pos.einkaufspreis > 0 && (
                               <span>{(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} ({pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit})</span>
+                            )}
+                            {pos.artikel.chargePflicht && (
+                              <span className="text-blue-600 font-medium">🔵 Charge Pflicht</span>
                             )}
                             {pos.kunde && (
                               <Link href={`/kunden/${pos.kunde.id}`} className="hover:text-green-700">
@@ -169,7 +192,17 @@ export default function BestelllistePage() {
                             <p className="text-xs text-blue-600 mt-0.5">Bestellt: {new Date(pos.bestelltAm).toLocaleDateString("de-DE")}</p>
                           )}
                           {pos.geliefertAm && (
-                            <p className="text-xs text-green-600 mt-0.5">Geliefert: {new Date(pos.geliefertAm).toLocaleDateString("de-DE")}</p>
+                            <p className="text-xs text-green-600 mt-0.5">Vollständig geliefert: {new Date(pos.geliefertAm).toLocaleDateString("de-DE")}</p>
+                          )}
+                          {pos.wareineingangPos.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {pos.wareineingangPos.map((wp) => (
+                                <p key={wp.id} className="text-xs text-gray-500">
+                                  📦 {wp.wareneingang ? new Date(wp.wareneingang.datum).toLocaleDateString("de-DE") : "—"} · {wp.menge} {pos.einheit}
+                                  {wp.chargeNr && <span className="text-blue-600 font-mono ml-1">· Charge: {wp.chargeNr}</span>}
+                                </p>
+                              ))}
+                            </div>
                           )}
                           {pos.notiz && <p className="text-xs text-gray-500 mt-0.5 italic">{pos.notiz}</p>}
                         </div>

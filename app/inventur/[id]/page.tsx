@@ -15,11 +15,12 @@ interface Position {
   id: number;
   inventurId: number;
   artikelId: number;
-  artikel: ArtikelInfo;
+  artikel: ArtikelInfo & { chargePflicht?: boolean };
   sollBestand: number;
   istBestand: number | null;
   differenz: number | null;
   bemerkung: string | null;
+  chargeNr: string | null;
 }
 
 interface Inventur {
@@ -60,7 +61,7 @@ export default function InventurDetailPage() {
   const [inventur, setInventur] = useState<Inventur | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("alle");
-  const [localValues, setLocalValues] = useState<Record<number, { istBestand: string; bemerkung: string }>>({});
+  const [localValues, setLocalValues] = useState<Record<number, { istBestand: string; bemerkung: string; chargeNr: string }>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -76,11 +77,12 @@ export default function InventurDetailPage() {
       const data: Inventur = await res.json();
       setInventur(data);
       // initialize local values
-      const init: Record<number, { istBestand: string; bemerkung: string }> = {};
+      const init: Record<number, { istBestand: string; bemerkung: string; chargeNr: string }> = {};
       for (const pos of data.positionen) {
         init[pos.id] = {
           istBestand: pos.istBestand !== null ? String(pos.istBestand) : "",
           bemerkung: pos.bemerkung ?? "",
+          chargeNr: pos.chargeNr ?? "",
         };
       }
       setLocalValues(init);
@@ -92,7 +94,7 @@ export default function InventurDetailPage() {
     fetchInventur();
   }, [fetchInventur]);
 
-  function handleChange(posId: number, field: "istBestand" | "bemerkung", value: string) {
+  function handleChange(posId: number, field: "istBestand" | "bemerkung" | "chargeNr", value: string) {
     setLocalValues((prev) => ({
       ...prev,
       [posId]: { ...prev[posId], [field]: value },
@@ -112,7 +114,7 @@ export default function InventurDetailPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        positionen: [{ id: posId, istBestand, bemerkung: v.bemerkung || undefined }],
+        positionen: [{ id: posId, istBestand, bemerkung: v.bemerkung || undefined, chargeNr: v.chargeNr || undefined }],
       }),
     });
     // Refresh to get updated differenz
@@ -137,9 +139,10 @@ export default function InventurDetailPage() {
           id: pos.id,
           istBestand: parseFloat(v.istBestand),
           bemerkung: v.bemerkung || undefined,
+          chargeNr: v.chargeNr || undefined,
         };
       })
-      .filter(Boolean) as Array<{ id: number; istBestand: number; bemerkung?: string }>;
+      .filter(Boolean) as Array<{ id: number; istBestand: number; bemerkung?: string; chargeNr?: string }>;
 
     if (positionen.length === 0) {
       setSaveError("Keine Ist-Bestände zum Speichern.");
@@ -337,7 +340,7 @@ export default function InventurDetailPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Art.-Nr.", "Artikel", "Einheit", "Soll-Bestand", "Ist-Bestand", "Differenz", "Bemerkung"].map((h) => (
+                {["Art.-Nr.", "Artikel", "Einheit", "Soll-Bestand", "Ist-Bestand", "Differenz", "Charge", "Bemerkung"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide"
@@ -381,6 +384,20 @@ export default function InventurDetailPage() {
                     </td>
                     <td className="px-4 py-2">
                       <DifferenzCell diff={pos.differenz} />
+                    </td>
+                    <td className="px-4 py-2">
+                      {isOffen ? (
+                        <input
+                          type="text"
+                          value={v.chargeNr}
+                          onChange={(e) => handleChange(pos.id, "chargeNr", e.target.value)}
+                          onBlur={() => handleBlur(pos.id)}
+                          placeholder={pos.artikel.chargePflicht ? "Pflicht" : "—"}
+                          className={`w-32 border rounded px-2 py-1 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-green-700 ${pos.artikel.chargePflicht && !v.chargeNr ? "border-amber-400 bg-amber-50" : "border-gray-300"}`}
+                        />
+                      ) : (
+                        <span className="text-blue-600 font-mono text-xs">{pos.chargeNr ?? <span className="text-gray-400">—</span>}</span>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       {isOffen ? (

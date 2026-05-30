@@ -160,17 +160,38 @@ export async function GET(req: NextRequest) {
           artikel: { id: artikel.id, name: artikel.name, einheit: artikel.einheit },
         }));
 
+      // Lagerbewegungen nach Charge (aktueller Bestand je Charge)
+      const lagerbewByCharge = await prisma.lagerbewegung.findMany({
+        where: {
+          artikelId,
+          chargeNr: { not: null },
+          ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
+        },
+        select: { chargeNr: true, menge: true, typ: true },
+        take: 2000,
+      });
+      const chargeBestand: Record<string, number> = {};
+      for (const lb of lagerbewByCharge) {
+        if (!lb.chargeNr) continue;
+        chargeBestand[lb.chargeNr] = (chargeBestand[lb.chargeNr] ?? 0) + lb.menge;
+      }
+      const bestandJeCharge = Object.entries(chargeBestand)
+        .map(([chargeNr, bestand]) => ({ chargeNr, bestand: Math.round(bestand * 1000) / 1000 }))
+        .filter((c) => c.bestand > 0)
+        .sort((a, b) => b.bestand - a.bestand);
+
       return NextResponse.json({
         modus: "artikel",
         artikel,
         kunden,
         lieferungen,
         wareneingaenge,
+        bestandJeCharge,
       });
     }
 
     // ── Charge-Modus ────────────────────────────────────────────────────────
-    const [lieferpositionen, wareneingangPos] = await Promise.all([
+    const [lieferpositionen, wareneingangPos, lagerbewegungen] = await Promise.all([
       prisma.lieferposition.findMany({
         where: {
           chargeNr: { contains: charge },
@@ -209,7 +230,25 @@ export async function GET(req: NextRequest) {
           artikel: { select: { id: true, name: true, einheit: true } },
         },
       }),
+      prisma.lagerbewegung.findMany({
+        where: {
+          chargeNr: { contains: charge },
+          ...(hasDatum ? { datum: datumFilter } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          artikel: { select: { id: true, name: true, einheit: true } },
+        },
+      }),
     ]);
+
+    const bestandJeCharge = lagerbewegungen.reduce<Record<string, { artikelId: number; artikelName: string; einheit: string; bestand: number }>>((acc, lb) => {
+      const key = `${lb.chargeNr}||${lb.artikelId}`;
+      if (!acc[key]) acc[key] = { artikelId: lb.artikelId, artikelName: lb.artikel.name, einheit: lb.artikel.einheit, bestand: 0 };
+      acc[key].bestand += lb.menge;
+      return acc;
+    }, {});
 
     const lieferungen = lieferpositionen
       .filter((pos) => pos.lieferung)
@@ -238,7 +277,12 @@ export async function GET(req: NextRequest) {
         artikel: p.artikel,
       }));
 
-    return NextResponse.json({ modus: "charge", wareneingaenge, lieferungen });
+    return NextResponse.json({
+      modus: "charge",
+      wareneingaenge,
+      lieferungen,
+      bestandJeCharge: Object.entries(bestandJeCharge).map(([key, v]) => ({ ...v, chargeNr: key.split("||")[0] })),
+    });
   } catch (e) {
     const isDev = process.env.NODE_ENV === "development";
     console.error("Chargen GET error:", e);

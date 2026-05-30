@@ -25,6 +25,7 @@ interface ArtikelOption {
   einheit: string;
   aktuellerBestand: number;
   mindestbestand: number;
+  chargePflicht?: boolean;
   lieferanten?: { einkaufspreis: number; bevorzugt: boolean }[];
 }
 
@@ -338,6 +339,8 @@ export default function LieferungDetailPage() {
     if (!addPosArtikelId) { setAddPosError("Bitte einen Artikel wählen."); return; }
     const menge = parseFloat(addPosMenge.replace(",", "."));
     if (isNaN(menge) || menge <= 0) { setAddPosError("Ungültige Menge."); return; }
+    const selArt = artikelListe.find((a) => String(a.id) === addPosArtikelId);
+    if (selArt?.chargePflicht && !addPosCharge.trim()) { setAddPosError(`Chargennummer für „${selArt.name}" ist Pflichtfeld.`); return; }
     setAddPosSaving(true);
     setAddPosError("");
     try {
@@ -1221,14 +1224,26 @@ export default function LieferungDetailPage() {
                     />
                   </div>
                   <div className="w-48">
-                    <label className="block text-xs text-gray-500 mb-1">Charge (opt.)</label>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Charge
+                      {artikelListe.find((a) => String(a.id) === addPosArtikelId)?.chargePflicht
+                        ? <span className="text-red-500 ml-1">*</span>
+                        : <span className="text-gray-400 ml-1">(opt.)</span>}
+                    </label>
+                    {artikelListe.find((a) => String(a.id) === addPosArtikelId)?.chargePflicht && !addPosCharge && (
+                      <p className="text-xs text-amber-600 mb-1">⚠ Chargennummer Pflicht</p>
+                    )}
                     <ChargeInput
                       artikelId={addPosArtikelId}
                       value={addPosCharge}
                       onChange={setAddPosCharge}
                       einheit={artikelListe.find((a) => String(a.id) === addPosArtikelId)?.einheit}
                       placeholder="CH-2026-001"
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                      className={`w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700 ${
+                        artikelListe.find((a) => String(a.id) === addPosArtikelId)?.chargePflicht && !addPosCharge
+                          ? "border-amber-400 bg-amber-50"
+                          : "border-gray-300"
+                      }`}
                     />
                   </div>
                 </div>

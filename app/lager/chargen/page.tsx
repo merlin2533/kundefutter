@@ -38,18 +38,28 @@ interface KundenAggregation {
   chargen: string[];
 }
 
+interface BestandJeCharge {
+  chargeNr: string;
+  bestand: number;
+  artikelId?: number;
+  artikelName?: string;
+  einheit?: string;
+}
+
 interface ArtikelResult {
   modus: "artikel";
   artikel: { id: number; name: string; einheit: string; kategorie: string };
   kunden: KundenAggregation[];
   lieferungen: ChargeLieferung[];
   wareneingaenge: ChargeWareneingang[];
+  bestandJeCharge: BestandJeCharge[];
 }
 
 interface ChargeResult {
   modus: "charge";
   wareneingaenge: ChargeWareneingang[];
   lieferungen: ChargeLieferung[];
+  bestandJeCharge: BestandJeCharge[];
 }
 
 type Result = ArtikelResult | ChargeResult;
@@ -350,6 +360,40 @@ export default function RueckverfolgungPage() {
               >
                 CSV exportieren
               </button>
+            </div>
+          )}
+
+          {/* Aktueller Lagerbestand je Charge */}
+          {result.bestandJeCharge && result.bestandJeCharge.length > 0 && (
+            <div>
+              <h2 className="text-base font-semibold text-gray-800 mb-3">
+                Lagerbestand je Charge
+              </h2>
+              <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Chargennummer</th>
+                      {result.modus === "charge" && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Artikel</th>}
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Bestand</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {result.bestandJeCharge.map((c, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 font-mono text-sm text-blue-700">{c.chargeNr}</td>
+                        {result.modus === "charge" && <td className="px-4 py-2.5 text-gray-700 hidden md:table-cell">{c.artikelName ?? "—"}</td>}
+                        <td className="px-4 py-2.5 text-right font-medium text-gray-900">
+                          {c.bestand.toLocaleString("de-DE", { maximumFractionDigits: 3 })}
+                          {(result.modus === "artikel" ? result.artikel.einheit : c.einheit) && (
+                            <span className="text-gray-400 text-xs ml-1">{result.modus === "artikel" ? result.artikel.einheit : c.einheit}</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

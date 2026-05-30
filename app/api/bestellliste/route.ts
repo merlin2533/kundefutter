@@ -15,17 +15,18 @@ export async function GET(req: NextRequest) {
     if (isNaN(id)) return NextResponse.json({ error: "Ungültige lieferantId" }, { status: 400 });
     where.lieferantId = id;
   }
-  if (status && status !== "alle") where.status = status;
-  else if (!status) where.status = { in: ["offen", "bestellt"] }; // default: aktive
+  if (status === "aktiv" || !status) where.status = { in: ["offen", "bestellt", "teilgeliefert"] };
+  else if (status !== "alle") where.status = status;
 
   try {
     const positionen = await prisma.bestellposition.findMany({
       where,
       include: {
         lieferant: { select: { id: true, name: true, email: true, telefon: true } },
-        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } },
+        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, chargePflicht: true } },
         kunde: { select: { id: true, name: true, firma: true } },
         lieferung: { select: { id: true, datum: true } },
+        wareineingangPos: { select: { id: true, chargeNr: true, menge: true, wareneingang: { select: { datum: true } } } },
       },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       take: 500,
