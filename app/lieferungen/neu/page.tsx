@@ -386,6 +386,7 @@ function NeueLieferungInner() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Kunde <span className="text-red-500">*</span>
+                <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
               </label>
               <SearchableSelect
                 options={kunden.map((k) => ({

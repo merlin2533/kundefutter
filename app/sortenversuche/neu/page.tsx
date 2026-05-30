@@ -185,7 +185,10 @@ export default function NeuPage() {
               <input type="number" step="0.01" value={form.flaeche} onChange={e => setForm({ ...form, flaeche: e.target.value })} className="w-full border rounded px-3 py-2" />
             </div>
             <div className="sm:col-span-3">
-              <label className="block text-sm font-medium mb-1">Kunde (optional)</label>
+              <label className="block text-sm font-medium mb-1">
+                Kunde (optional)
+                <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
+              </label>
               <SearchableSelect
                 options={kunden.map(k => ({ value: String(k.id), label: k.firma ? `${k.firma} (${k.name})` : k.name }))}
                 value={form.kundeId}

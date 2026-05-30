@@ -181,7 +181,10 @@ export default function NeueRechnungPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
         {/* Kunde */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Kunde *</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Kunde <span className="text-red-500">*</span>
+            <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
+          </label>
           <SearchableSelect
             options={kunden.map((k) => ({
               value: k.id,

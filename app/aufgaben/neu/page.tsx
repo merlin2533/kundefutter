@@ -153,7 +153,10 @@ function NeueAufgabeForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Kunde (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Kunde (optional)
+              <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
+            </label>
             <SearchableSelect
               options={kundenOptions}
               value={kundeId}
