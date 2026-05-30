@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
-import { validateSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const session = await validateSession();
+  const session = await getCurrentUser();
   if (!session) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const isDev = process.env.NODE_ENV === "development";

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -17,9 +17,27 @@ interface KampagneArtikel {
   sonderpreis: string;
 }
 
+interface Kunde {
+  id: number;
+  name: string;
+  firma: string | null;
+  ort: string | null;
+  kategorie: string;
+}
+
+interface ZielgruppeKriterien {
+  ort: string;
+  plz: string;
+  kategorie: string;
+  tag: string;
+  bedarfArtikelId: string;
+  letzteKaufMonate: string;
+}
+
 function KampagneNeuInner() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
+  const [alleKunden, setAlleKunden] = useState<Kunde[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,11 +50,23 @@ function KampagneNeuInner() {
   const [rabattProzent, setRabattProzent] = useState("");
   const [kampagneArtikel, setKampagneArtikel] = useState<KampagneArtikel[]>([]);
 
+  // Zielgruppe state
+  const [kriterien, setKriterien] = useState<ZielgruppeKriterien>({
+    ort: "", plz: "", kategorie: "", tag: "", bedarfArtikelId: "", letzteKaufMonate: "",
+  });
+  const [selectedKunden, setSelectedKunden] = useState<Kunde[]>([]);
+  const [suchvorschau, setSuchvorschau] = useState<Kunde[]>([]);
+  const [loadingVorschau, setLoadingVorschau] = useState(false);
+  const [manuellerKundeId, setManuellerKundeId] = useState("");
+
   useEffect(() => {
-    fetch("/api/artikel?limit=500")
-      .then((r) => r.json())
-      .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/artikel?limit=500").then((r) => r.json()).catch(() => []),
+      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch(() => []),
+    ]).then(([artData, kundenData]) => {
+      setArtikel(Array.isArray(artData) ? artData : []);
+      setAlleKunden(Array.isArray(kundenData) ? kundenData : []);
+    });
   }, []);
 
   const artikelOptions = artikel.map((a) => ({
@@ -44,6 +74,57 @@ function KampagneNeuInner() {
     label: a.name,
     sub: [a.artikelnummer, a.einheit].filter(Boolean).join(" · "),
   }));
+
+  const kundenOptions = alleKunden
+    .filter((k) => !selectedKunden.some((s) => s.id === k.id))
+    .map((k) => ({
+      value: k.id,
+      label: k.firma ? `${k.firma} (${k.name})` : k.name,
+      sub: k.ort ?? undefined,
+    }));
+
+  const suchematchKunden = useCallback(() => {
+    setLoadingVorschau(true);
+    const params = new URLSearchParams({ aktiv: "true", limit: "200", kontakte: "false" });
+    if (kriterien.ort) params.set("ort", kriterien.ort);
+    if (kriterien.plz) params.set("plz", kriterien.plz);
+    if (kriterien.kategorie) params.set("kategorie", kriterien.kategorie);
+    if (kriterien.tag) params.set("tag", kriterien.tag);
+
+    fetch(`/api/kunden?${params}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Kunde[]) => {
+        let results: Kunde[] = Array.isArray(data) ? data : [];
+        // letzteKaufMonate filter is client-side approximation for preview
+        setSuchvorschau(results.filter((k) => !selectedKunden.some((s) => s.id === k.id)));
+      })
+      .catch(() => setSuchvorschau([]))
+      .finally(() => setLoadingVorschau(false));
+  }, [kriterien, selectedKunden]);
+
+  function alleAusKriterienHinzufuegen() {
+    const neu = suchvorschau.filter((k) => !selectedKunden.some((s) => s.id === k.id));
+    setSelectedKunden((prev) => [...prev, ...neu]);
+    setSuchvorschau([]);
+  }
+
+  function kundeAusVorschauHinzufuegen(kunde: Kunde) {
+    setSelectedKunden((prev) => [...prev, kunde]);
+    setSuchvorschau((prev) => prev.filter((k) => k.id !== kunde.id));
+  }
+
+  function manuellenKundeHinzufuegen(idStr: string) {
+    const id = parseInt(idStr, 10);
+    if (isNaN(id)) return;
+    const kunde = alleKunden.find((k) => k.id === id);
+    if (!kunde || selectedKunden.some((s) => s.id === id)) return;
+    setSelectedKunden((prev) => [...prev, kunde]);
+    setManuellerKundeId("");
+  }
+
+  function kundeEntfernen(id: number) {
+    setSelectedKunden((prev) => prev.filter((k) => k.id !== id));
+  }
 
   function addArtikel() {
     setKampagneArtikel((prev) => [...prev, { artikelId: "", sonderpreis: "" }]);
@@ -78,6 +159,10 @@ function KampagneNeuInner() {
     setError("");
     try {
       const validArtikel = kampagneArtikel.filter((a) => a.artikelId);
+      const kriterienObj = Object.values(kriterien).some((v) => v)
+        ? Object.fromEntries(Object.entries(kriterien).filter(([, v]) => v))
+        : null;
+
       const res = await fetch("/api/kampagnen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,10 +172,12 @@ function KampagneNeuInner() {
           von,
           bis,
           rabattProzent: rabattProzent ? parseFloat(rabattProzent) : null,
+          zielgruppeKriterien: kriterienObj,
           artikel: validArtikel.map((a) => ({
             artikelId: parseInt(a.artikelId, 10),
             sonderpreis: a.sonderpreis ? parseFloat(a.sonderpreis) : null,
           })),
+          kunden: selectedKunden.map((k) => ({ kundeId: k.id })),
         }),
       });
       const data = await res.json();
@@ -101,6 +188,8 @@ function KampagneNeuInner() {
       setSaving(false);
     }
   }
+
+  const KATEGORIEN = ["Landwirt", "Händler", "Genossenschaft", "Lohnunternehmer", "Sonstige"];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
@@ -113,6 +202,7 @@ function KampagneNeuInner() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Kampagne erstellen</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Kampagnendaten */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
           <h2 className="text-base font-semibold text-gray-900">Kampagnendaten</h2>
 
@@ -232,6 +322,161 @@ function KampagneNeuInner() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Zielgruppe */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
+          <h2 className="text-base font-semibold text-gray-900">Zielgruppe (Kunden)</h2>
+          <p className="text-xs text-gray-500">Kunden nach Kriterien suchen oder manuell hinzufügen.</p>
+
+          {/* Criteria filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Ort</label>
+              <input
+                type="text"
+                value={kriterien.ort}
+                onChange={(e) => setKriterien({ ...kriterien, ort: e.target.value })}
+                placeholder="z.B. Münster"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">PLZ</label>
+              <input
+                type="text"
+                value={kriterien.plz}
+                onChange={(e) => setKriterien({ ...kriterien, plz: e.target.value })}
+                placeholder="z.B. 48"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
+              <select
+                value={kriterien.kategorie}
+                onChange={(e) => setKriterien({ ...kriterien, kategorie: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-600"
+              >
+                <option value="">Alle</option>
+                {KATEGORIEN.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tag</label>
+              <input
+                type="text"
+                value={kriterien.tag}
+                onChange={(e) => setKriterien({ ...kriterien, tag: e.target.value })}
+                placeholder="z.B. vip"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Bedarf-Artikel</label>
+              <SearchableSelect
+                options={artikelOptions}
+                value={kriterien.bedarfArtikelId}
+                onChange={(v) => setKriterien({ ...kriterien, bedarfArtikelId: v })}
+                placeholder="Beliebig"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={suchematchKunden}
+                disabled={loadingVorschau}
+                className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {loadingVorschau ? "Suche…" : "Kunden suchen"}
+              </button>
+            </div>
+          </div>
+
+          {/* Search preview */}
+          {suchvorschau.length > 0 && (
+            <div className="border border-blue-200 rounded-lg bg-blue-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-blue-800">{suchvorschau.length} Kunden gefunden</p>
+                <button
+                  type="button"
+                  onClick={alleAusKriterienHinzufuegen}
+                  className="text-xs px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Alle hinzufügen
+                </button>
+              </div>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {suchvorschau.map((k) => (
+                  <div key={k.id} className="flex items-center justify-between text-xs bg-white rounded px-2 py-1 border border-blue-100">
+                    <span className="text-gray-800">{k.firma ? `${k.firma} (${k.name})` : k.name} {k.ort && <span className="text-gray-400">— {k.ort}</span>}</span>
+                    <button
+                      type="button"
+                      onClick={() => kundeAusVorschauHinzufuegen(k)}
+                      className="text-green-700 hover:text-green-900 font-medium ml-2 shrink-0"
+                    >
+                      +
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Manual add */}
+          <div className="flex gap-2 items-end pt-1">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Kunde manuell hinzufügen</label>
+              <SearchableSelect
+                options={kundenOptions}
+                value={manuellerKundeId}
+                onChange={(v) => setManuellerKundeId(v)}
+                placeholder="Kunde suchen…"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => manuellenKundeHinzufuegen(manuellerKundeId)}
+              disabled={!manuellerKundeId}
+              className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors"
+            >
+              Hinzufügen
+            </button>
+          </div>
+
+          {/* Selected customers */}
+          {selectedKunden.length > 0 ? (
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-700">{selectedKunden.length} Kunden ausgewählt</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedKunden([])}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Alle entfernen
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-gray-100">
+                {selectedKunden.map((k) => (
+                  <div key={k.id} className="flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50">
+                    <span className="text-gray-800">{k.firma ? `${k.firma} (${k.name})` : k.name}
+                      {k.ort && <span className="text-gray-400 text-xs ml-1">— {k.ort}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => kundeEntfernen(k.id)}
+                      className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Noch keine Kunden ausgewählt.</p>
           )}
         </div>
 

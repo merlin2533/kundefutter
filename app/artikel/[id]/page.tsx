@@ -648,12 +648,12 @@ export default function ArtikelDetailPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {!istAnalyseProdukt && (
           <div className={`rounded-xl border p-3 shadow-sm ${
-            status === "kritisch" ? "bg-red-50 border-red-200" :
-            status === "niedrig" ? "bg-amber-50 border-amber-200" :
+            status === "rot" ? "bg-red-50 border-red-200" :
+            status === "gelb" ? "bg-amber-50 border-amber-200" :
             "bg-white border-gray-200"
           }`}>
             <p className="text-xs font-medium text-gray-500 mb-0.5">Lagerbestand</p>
-            <p className={`text-xl font-bold ${status === "kritisch" ? "text-red-700" : status === "niedrig" ? "text-amber-700" : "text-gray-900"}`}>
+            <p className={`text-xl font-bold ${status === "rot" ? "text-red-700" : status === "gelb" ? "text-amber-700" : "text-gray-900"}`}>
               {artikel.aktuellerBestand.toLocaleString("de-DE")}
               <span className="text-sm font-normal text-gray-500 ml-1">{artikel.einheit}</span>
             </p>

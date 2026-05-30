@@ -45,7 +45,6 @@ const groups: NavGroup[] = [
       { href: "/vorbestellungen", label: "Vorbestellungen (Frühbezug)", section: "Aufträge" },
       { href: "/einstellungen/fruehbezug", label: "Frühbezugs-Staffeln", section: "Aufträge" },
       { href: "/kontrakte", label: "Kontrakte", section: "Aufträge" },
-      { href: "/ki/lieferung", label: "KI-Lieferung", section: "KI" },
     ],
   },
   {
@@ -84,6 +83,7 @@ const groups: NavGroup[] = [
     label: "Lieferungen",
     children: [
       { href: "/lieferungen", label: "Lieferungen", section: "Lieferungen" },
+      { href: "/ki/lieferung", label: "KI-Lieferung", section: "Lieferungen" },
       { href: "/fahrer", label: "Fahrer-Cockpit", section: "Lieferungen" },
       { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
       { href: "/anlieferungen", label: "Erzeugerabrechnung", section: "Lieferungen" },
