@@ -47,6 +47,7 @@ export default function ArtikelPage() {
   const router = useRouter();
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
+  const [kategorienMap, setKategorienMap] = useState<Record<string, string[]>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -192,16 +193,22 @@ export default function ArtikelPage() {
       .catch(() => {});
   }, []);
 
-  const aktuelleUnterkategorien =
-    systemSettings !== null
-      ? kategorie !== "alle"
-        ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
-        : [...new Set(
-            kategorien.flatMap((k) =>
-              parseListSetting(systemSettings!, getUnterkategorienKey(k), DEFAULT_UNTERKATEGORIEN[k] ?? [])
-            )
-          )].sort()
-      : [];
+  useEffect(() => {
+    fetch("/api/artikel/kategorien")
+      .then((r) => r.ok ? r.json() : {})
+      .then((d: Record<string, string[]>) => setKategorienMap(d))
+      .catch(() => {});
+  }, []);
+
+  const aktuelleUnterkategorien = (() => {
+    if (kategorie === "alle") return [];
+    // Merge: configured list from system settings + actual DB values
+    const fromSettings = systemSettings !== null
+      ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
+      : DEFAULT_UNTERKATEGORIEN[kategorie] ?? [];
+    const fromDb = kategorienMap[kategorie] ?? [];
+    return [...new Set([...fromSettings, ...fromDb])].sort();
+  })();
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -444,21 +451,28 @@ export default function ArtikelPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-700"
         />
-        <div className="flex gap-1 flex-wrap">
-          {["alle", ...kategorien].map((k) => (
-            <button
-              key={k}
-              onClick={() => setKategorie(k)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                kategorie === k
-                  ? "bg-green-800 text-white border-green-800"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {k === "alle" ? "Alle" : k === "Duenger" ? "Dünger" : k}
-            </button>
+        <select
+          value={kategorie}
+          onChange={(e) => setKategorie(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+        >
+          <option value="alle">Alle Kategorien</option>
+          {kategorien.map((k) => (
+            <option key={k} value={k}>{k === "Duenger" ? "Dünger" : k}</option>
           ))}
-        </div>
+        </select>
+        {aktuelleUnterkategorien.length > 0 && (
+          <select
+            value={unterkategorie}
+            onChange={(e) => setUnterkategorie(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+          >
+            <option value="alle">Alle Unterkategorien</option>
+            {aktuelleUnterkategorien.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Zusätzliche Filter: Lieferant, Preis, Sprengstoffvorläufer */}
@@ -518,24 +532,6 @@ export default function ArtikelPage() {
         )}
       </div>
 
-      {aktuelleUnterkategorien.length > 0 && (
-        <div className="flex gap-1 flex-wrap mb-5 -mt-2">
-          <span className="text-xs uppercase tracking-wide text-gray-500 self-center mr-1">Unterkat.:</span>
-          {["alle", ...aktuelleUnterkategorien].map((u) => (
-            <button
-              key={u}
-              onClick={() => setUnterkategorie(u)}
-              className={`px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                unterkategorie === u
-                  ? "bg-green-700 text-white border-green-700"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {u === "alle" ? "Alle" : u}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Ergebnis-Info */}
       {!loading && !fetchError && total > 0 && (

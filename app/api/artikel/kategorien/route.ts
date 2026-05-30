@@ -3,22 +3,40 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 
-// GET → Statistik: Anzahl Artikel je Kategorie
-export async function GET() {
+// GET → distinct unterkategorien je kategorie: { [kategorie]: string[] }
+// ?format=flat → legacy: { [kategorie]: count }
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const flat = searchParams.get("format") === "flat";
+
   try {
-    const grouped = await prisma.artikel.groupBy({
-      by: ["kategorie"],
-      _count: { _all: true },
-    });
-    const result: Record<string, number> = {};
-    for (const g of grouped) {
-      result[g.kategorie] = g._count._all;
+    if (flat) {
+      const grouped = await prisma.artikel.groupBy({
+        by: ["kategorie"],
+        _count: { _all: true },
+      });
+      const result: Record<string, number> = {};
+      for (const g of grouped) result[g.kategorie] = g._count._all;
+      return NextResponse.json(result);
     }
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
-      },
+
+    const rows = await prisma.artikel.findMany({
+      where: { aktiv: true },
+      select: { kategorie: true, unterkategorie: true },
+      distinct: ["kategorie", "unterkategorie"],
+      orderBy: [{ kategorie: "asc" }, { unterkategorie: "asc" }],
     });
+
+    const map: Record<string, Set<string>> = {};
+    for (const r of rows) {
+      if (!map[r.kategorie]) map[r.kategorie] = new Set();
+      if (r.unterkategorie) map[r.kategorie].add(r.unterkategorie);
+    }
+    const result: Record<string, string[]> = {};
+    for (const [kat, set] of Object.entries(map)) {
+      result[kat] = Array.from(set).sort();
+    }
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
