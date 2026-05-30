@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         lieferant: { select: { id: true, name: true, email: true, telefon: true, frachtkosten: true, mindestbestellwert: true } },
-        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, chargePflicht: true, standardpreis: true, aktuellerBestand: true, lagerort: true } },
+        artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, kategorie: true, chargePflicht: true, standardpreis: true, aktuellerBestand: true, lagerort: true } },
         kunde: { select: { id: true, name: true, firma: true } },
         lieferung: { select: { id: true, datum: true } },
         wareineingangPos: { select: { id: true, chargeNr: true, menge: true, wareneingang: { select: { datum: true } } } },
