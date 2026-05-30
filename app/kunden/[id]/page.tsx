@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import nextDynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DriveOrdner from "@/components/DriveOrdner";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import { Kunde, Tab, TABS, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
+import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
 
 // ─── Tabs — lazy-geladen, damit nur der aktive Tab im Bundle landet ──────────
 const tabLoading = () => <p className="text-sm text-gray-400">Lade…</p>;
 const StammdatenTab = nextDynamic(() => import("./tabs/StammdatenTab"), { loading: tabLoading });
-const KontakteTab = nextDynamic(() => import("./tabs/KontakteTab"), { loading: tabLoading });
 const BedarfeTab = nextDynamic(() => import("./tabs/BedarfeTab"), { loading: tabLoading });
 const SonderpreiseTab = nextDynamic(() => import("./tabs/SonderpreiseTab"), { loading: tabLoading });
 const StatistikTab = nextDynamic(() => import("./tabs/StatistikTab"), { loading: tabLoading });
 const LieferhistorieTab = nextDynamic(() => import("./tabs/LieferhistorieTab"), { loading: tabLoading });
 const CrmTab = nextDynamic(() => import("./tabs/CrmTab"), { loading: tabLoading });
-const NotizenTab = nextDynamic(() => import("./tabs/NotizenTab"), { loading: tabLoading });
 const AgrarantragTab = nextDynamic(() => import("./tabs/AgrarantragTab"), { loading: tabLoading });
 const SchlagkarteiTab = nextDynamic(() => import("./tabs/SchlagkarteiTab"), { loading: tabLoading });
 const DuengebedarfTab = nextDynamic(() => import("./tabs/DuengebedarfTab"), { loading: tabLoading });
@@ -31,26 +29,24 @@ const AlbrechtTab = nextDynamic(() => import("./tabs/AlbrechtTab"), { loading: t
 const ZertifizierungenTab = nextDynamic(() => import("./tabs/ZertifizierungenTab"), { loading: tabLoading });
 
 const TAB_ICONS: Record<Tab, string> = {
-  Stammdaten: "🏠",
+  Stammdaten:     "🏠",
   Lieferhistorie: "📦",
-  CRM: "🤝",
-  Angebote: "📋",
-  Aufgaben: "✅",
-  Reklamationen: "⚠️",
-  Kontakte: "👥",
-  Bedarfe: "📊",
-  Notizen: "📝",
-  Sonderpreise: "💰",
-  Statistik: "📈",
-  Schlagkartei: "🗺️",
-  Düngebedarf: "🌱",
-  Albrecht: "🔬",
-  Tiere: "🐄",
-  Agrarantrag: "📜",
+  CRM:            "🤝",
+  Angebote:       "📋",
+  Aufgaben:       "✅",
+  Bedarfe:        "📊",
+  Sonderpreise:   "💰",
+  Statistik:      "📈",
+  Reklamationen:  "⚠️",
+  Schlagkartei:   "🗺️",
+  Düngebedarf:    "🌱",
+  Albrecht:       "🔬",
+  Tiere:          "🐄",
+  Agrarantrag:    "📜",
   Zertifizierungen: "🏅",
-  Dokumente: "📁",
-  Vorgangskette: "🔗",
-  Erklärungen: "💡",
+  Dokumente:      "📁",
+  Vorgangskette:  "🔗",
+  Erklärungen:    "💡",
 };
 
 export default function KundeDetailPage() {
@@ -62,6 +58,8 @@ export default function KundeDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
   const [crmAutoOpen, setCrmAutoOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
 
   // Rückruf planen
   const [showRueckruf, setShowRueckruf] = useState(false);
@@ -121,6 +119,16 @@ export default function KundeDetailPage() {
   useEffect(() => {
     fetchKunde();
   }, [fetchKunde]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   if (loading) {
     return <p className="text-gray-400 mt-8 text-sm">Lade Kunde…</p>;
@@ -329,25 +337,65 @@ export default function KundeDetailPage() {
       })()}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 mb-6" ref={navRef}>
         <nav className="flex gap-0.5 -mb-px overflow-x-auto">
-          {TABS.map((tab) => {
+          {/* Direkte Tabs */}
+          {DIREKT_TABS.map((tab) => {
             const isActive = activeTab === tab;
-            const icon = TAB_ICONS[tab];
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setOpenDropdown(null); }}
                 title={tab}
-                className={`flex items-center gap-1.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors rounded-t ${
+                className={`flex items-center gap-1.5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                   isActive
                     ? "border-green-600 text-green-700 px-3"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 px-2.5"
                 }`}
               >
-                <span className="text-base leading-none">{icon}</span>
-                {isActive && <span>{tab}</span>}
+                <span className="text-base leading-none">{TAB_ICONS[tab]}</span>
+                <span>{tab}</span>
               </button>
+            );
+          })}
+
+          {/* Dropdown-Gruppen */}
+          {TAB_GRUPPEN.map((gruppe) => {
+            const isGroupActive = gruppe.tabs.includes(activeTab);
+            const isOpen = openDropdown === gruppe.label;
+            return (
+              <div key={gruppe.label} className="relative">
+                <button
+                  onClick={() => setOpenDropdown(isOpen ? null : gruppe.label)}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    isGroupActive
+                      ? "border-green-600 text-green-700"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="text-base leading-none">{gruppe.icon}</span>
+                  <span>{isGroupActive ? activeTab : gruppe.label}</span>
+                  <span className="text-xs opacity-60">▾</span>
+                </button>
+                {isOpen && (
+                  <div className="absolute top-full left-0 z-50 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]">
+                    {gruppe.tabs.map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => { setActiveTab(tab); setOpenDropdown(null); }}
+                        className={`w-full text-left flex items-center gap-2 px-4 py-2 text-sm transition-colors ${
+                          activeTab === tab
+                            ? "bg-green-50 text-green-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span>{TAB_ICONS[tab]}</span>
+                        <span>{tab}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
@@ -356,13 +404,11 @@ export default function KundeDetailPage() {
       {/* Tab Content */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         {activeTab === "Stammdaten" && <StammdatenTab kunde={kunde} onRefresh={fetchKunde} />}
-        {activeTab === "Kontakte" && <KontakteTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Bedarfe" && <BedarfeTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Sonderpreise" && <SonderpreiseTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Statistik" && <StatistikTab kunde={kunde} />}
         {activeTab === "Lieferhistorie" && <LieferhistorieTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} autoOpen={crmAutoOpen} />}
-        {activeTab === "Notizen" && <NotizenTab kundeId={kunde.id} />}
         {activeTab === "Agrarantrag" && <AgrarantragTab kundeId={kunde.id} />}
         {activeTab === "Schlagkartei" && <SchlagkarteiTab kundeId={kunde.id} lat={kunde.lat} lng={kunde.lng} />}
         {activeTab === "Düngebedarf" && <DuengebedarfTab kundeId={kunde.id} />}

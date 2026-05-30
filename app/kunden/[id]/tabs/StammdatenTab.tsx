@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import { Kunde, KundeNotiz, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
+import KontakteTab from "./KontakteTab";
 
 export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -347,6 +348,10 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
               {wettbSaving ? "Speichern…" : "Speichern"}
             </button>
           </div>
+        </div>
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">👥 Kontakte</h3>
+          <KontakteTab kunde={kunde} onRefresh={onRefresh} />
         </div>
       </div>
     );

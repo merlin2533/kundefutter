@@ -116,8 +116,16 @@ export interface KundeSchlag {
 
 export const KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
 
-export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Reklamationen", "Kontakte", "Bedarfe", "Notizen", "Sonderpreise", "Statistik", "Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag", "Zertifizierungen", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
+export const TABS = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben", "Bedarfe", "Sonderpreise", "Statistik", "Reklamationen", "Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag", "Zertifizierungen", "Dokumente", "Vorgangskette", "Erklärungen"] as const;
 export type Tab = (typeof TABS)[number];
+
+export const DIREKT_TABS: Tab[] = ["Stammdaten", "Lieferhistorie", "CRM", "Angebote", "Aufgaben"];
+
+export const TAB_GRUPPEN: { label: string; icon: string; tabs: Tab[] }[] = [
+  { label: "Vertrieb", icon: "📊", tabs: ["Bedarfe", "Sonderpreise", "Statistik", "Reklamationen"] },
+  { label: "Agrar",    icon: "🌾", tabs: ["Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag"] },
+  { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Dokumente", "Vorgangskette", "Erklärungen"] },
+];
 
 export const inputClsSchlag =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";
