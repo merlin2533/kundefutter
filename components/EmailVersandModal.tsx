@@ -60,7 +60,12 @@ export default function EmailVersandModal({
   const [empfaenger, setEmpfaenger] = useState("");
   const [cc, setCc] = useState("");
   const [defaultCcLoaded, setDefaultCcLoaded] = useState(false);
+  const [validierungsFehler, setValidierungsFehler] = useState("");
   const firstInputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+
+  function isValidEmail(e: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+  }
 
   const emails = emailKontakte.filter((k) => k.wert.includes("@"));
 
@@ -82,6 +87,15 @@ export default function EmailVersandModal({
   if (!open) return null;
 
   async function handleSend() {
+    setValidierungsFehler("");
+    if (!isValidEmail(empfaenger)) {
+      setValidierungsFehler("Ungültige E-Mail-Adresse.");
+      return;
+    }
+    if (cc.trim() && !isValidEmail(cc)) {
+      setValidierungsFehler("Ungültige CC-Adresse.");
+      return;
+    }
     await onSend(empfaenger.trim(), cc.trim());
   }
 
@@ -155,9 +169,9 @@ export default function EmailVersandModal({
           </div>
         </div>
 
-        {fehler && (
+        {(validierungsFehler || fehler) && (
           <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {fehler}
+            {validierungsFehler || fehler}
           </div>
         )}
 
@@ -170,7 +184,7 @@ export default function EmailVersandModal({
           </button>
           <button
             onClick={handleSend}
-            disabled={loading || !empfaenger.trim()}
+            disabled={loading || !isValidEmail(empfaenger)}
             className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-60 font-medium"
           >
             {loading ? "Sendet…" : "Senden"}
