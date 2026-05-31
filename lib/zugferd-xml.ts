@@ -288,3 +288,116 @@ ${lineItems}
 
   return xml;
 }
+
+// ── Factur-X BASIC-WL (Without Lines) für Eingangsrechnungen ──────────────────
+// Seller = Lieferant, Buyer = eigene Firma
+// Keine IncludedSupplyChainTradeLineItem erforderlich
+
+export interface ZugferdSimpleData {
+  rechnungNr: string;
+  datum: Date;
+  faelligAm?: Date;
+  seller: {
+    name: string;
+    strasse?: string;
+    plz?: string;
+    ort?: string;
+    ustIdNr?: string;
+  };
+  buyer: {
+    name: string;
+    strasse?: string;
+    plz?: string;
+    ort?: string;
+    ustIdNr?: string;
+    steuernummer?: string;
+    iban?: string;
+    bic?: string;
+  };
+  betragNetto: number;
+  mwstSatz: number; // 0 | 7 | 19
+}
+
+export function generateZugferdXmlSimple(d: ZugferdSimpleData): string {
+  const mwstBetrag = d.betragNetto * (d.mwstSatz / 100);
+  const brutto = d.betragNetto + mwstBetrag;
+  const cat = mwstCategory(d.mwstSatz);
+
+  const faellig = d.faelligAm ?? new Date(d.datum.getTime() + 30 * 86400000);
+
+  function addrBlock(p: { strasse?: string; plz?: string; ort?: string }): string {
+    if (!p.strasse && !p.plz && !p.ort) return "";
+    return `
+        <ram:PostalTradeAddress>${p.strasse ? `\n          <ram:LineOne>${esc(p.strasse)}</ram:LineOne>` : ""}${p.plz ? `\n          <ram:PostcodeCode>${esc(p.plz)}</ram:PostcodeCode>` : ""}${p.ort ? `\n          <ram:CityName>${esc(p.ort)}</ram:CityName>` : ""}
+          <ram:CountryID>DE</ram:CountryID>
+        </ram:PostalTradeAddress>`;
+  }
+
+  const sellerTaxReg = d.seller.ustIdNr
+    ? `\n          <ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(d.seller.ustIdNr)}</ram:ID></ram:SpecifiedTaxRegistration>`
+    : "";
+
+  let buyerTaxReg = "";
+  if (d.buyer.ustIdNr) buyerTaxReg += `\n          <ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(d.buyer.ustIdNr)}</ram:ID></ram:SpecifiedTaxRegistration>`;
+  if (d.buyer.steuernummer) buyerTaxReg += `\n          <ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(d.buyer.steuernummer)}</ram:ID></ram:SpecifiedTaxRegistration>`;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice
+  xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+
+  <rsm:ExchangedDocumentContext>
+    <ram:GuidelineSpecifiedDocumentContextParameter>
+      <ram:ID>urn:factur-x.eu:1p0:basicwl</ram:ID>
+    </ram:GuidelineSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ram:ID>${esc(d.rechnungNr)}</ram:ID>
+    <ram:TypeCode>380</ram:TypeCode>
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">${fmtDate102(d.datum)}</udt:DateTimeString>
+    </ram:IssueDateTime>
+  </rsm:ExchangedDocument>
+
+  <rsm:SupplyChainTradeTransaction>
+
+    <ram:ApplicableHeaderTradeAgreement>
+      <ram:SellerTradeParty>
+        <ram:Name>${esc(d.seller.name)}</ram:Name>${addrBlock(d.seller)}${sellerTaxReg}
+      </ram:SellerTradeParty>
+      <ram:BuyerTradeParty>
+        <ram:Name>${esc(d.buyer.name)}</ram:Name>${addrBlock(d.buyer)}${buyerTaxReg}
+      </ram:BuyerTradeParty>
+    </ram:ApplicableHeaderTradeAgreement>
+
+    <ram:ApplicableHeaderTradeDelivery/>
+
+    <ram:ApplicableHeaderTradeSettlement>
+      <ram:PaymentReference>${esc(d.rechnungNr)}</ram:PaymentReference>
+      <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+      <ram:ApplicableTradeTax>
+        <ram:CalculatedAmount>${fmt2(mwstBetrag)}</ram:CalculatedAmount>
+        <ram:TypeCode>VAT</ram:TypeCode>
+        <ram:BasisAmount>${fmt2(d.betragNetto)}</ram:BasisAmount>
+        <ram:CategoryCode>${cat}</ram:CategoryCode>
+        <ram:RateApplicablePercent>${fmt2(d.mwstSatz)}</ram:RateApplicablePercent>
+      </ram:ApplicableTradeTax>
+      <ram:SpecifiedTradePaymentTerms>
+        <ram:DueDateDateTime>
+          <udt:DateTimeString format="102">${fmtDate102(faellig)}</udt:DateTimeString>
+        </ram:DueDateDateTime>
+      </ram:SpecifiedTradePaymentTerms>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:LineTotalAmount>${fmt2(d.betragNetto)}</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount>${fmt2(d.betragNetto)}</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="EUR">${fmt2(mwstBetrag)}</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>${fmt2(brutto)}</ram:GrandTotalAmount>
+        <ram:DuePayableAmount>${fmt2(brutto)}</ram:DuePayableAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>`;
+}

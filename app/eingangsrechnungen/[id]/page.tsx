@@ -201,6 +201,15 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
                   Als bezahlt markieren
                 </button>
               )}
+              <a
+                href={`/api/exporte/eingangsrechnung-zugferd?id=${data.id}`}
+                download
+                className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200 inline-flex items-center gap-1.5"
+                title="ZUGFeRD / Factur-X XML herunterladen"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                ZUGFeRD
+              </a>
               <button
                 onClick={() => setEditing(true)}
                 className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium rounded-lg transition-colors border border-blue-200"

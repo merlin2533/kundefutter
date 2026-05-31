@@ -101,25 +101,34 @@ export default function StatistikAusgabenPage() {
               Betriebsausgaben nach Kategorie und Monat im gewählten Zeitraum.
             </p>
           </div>
-          <button
-            onClick={() =>
-              data &&
-              downloadCSV(
-                "statistik-ausgaben",
-                ["Kategorie", "Netto (EUR)", "Brutto (EUR)", "Anteil (%)"],
-                data.nachKategorie.map((k) => [
-                  k.kategorie,
-                  k.netto,
-                  k.brutto,
-                  k.anteilProzent,
-                ])
-              )
-            }
-            disabled={!data}
-            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            CSV-Export
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/exporte/ausgaben?von=${jahr}-${vonMonat}-01&bis=${jahr}-${bisMonat}-31`}
+              download
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              PDF-Export
+            </a>
+            <button
+              onClick={() =>
+                data &&
+                downloadCSV(
+                  "statistik-ausgaben",
+                  ["Kategorie", "Netto (EUR)", "Brutto (EUR)", "Anteil (%)"],
+                  data.nachKategorie.map((k) => [
+                    k.kategorie,
+                    k.netto,
+                    k.brutto,
+                    k.anteilProzent,
+                  ])
+                )
+              }
+              disabled={!data}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              CSV-Export
+            </button>
+          </div>
         </div>
       </div>
 
