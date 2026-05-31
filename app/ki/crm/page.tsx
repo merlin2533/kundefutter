@@ -116,19 +116,18 @@ function KiCrmWizard() {
 
   // Load Kunden on mount
   useEffect(() => {
-    fetch("/api/kunden?limit=500")
-      .then((r) => r.json())
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+      .then((r) => r.ok ? r.json() : [])
       .then((data) => {
-        const list: Kunde[] = Array.isArray(data) ? data : (data.kunden ?? []);
-        setKunden(list);
+        setKunden(Array.isArray(data) ? data : []);
       })
       .catch(() => {});
   }, []);
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
-    label: k.name,
-    sub: [k.firma, k.ort].filter(Boolean).join(", "),
+    label: k.firma ? `${k.firma} (${k.name})` : k.name,
+    sub: k.ort ?? undefined,
   }));
 
   // Voice transcript state

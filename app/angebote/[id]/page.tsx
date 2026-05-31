@@ -163,7 +163,7 @@ export default function AngebotDetailPage() {
     setShowVorlageModal(true);
     if (vorlageKunden.length === 0) {
       setVorlageKundenLoading(true);
-      fetch("/api/kunden?aktiv=true&limit=500")
+      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setVorlageKunden(Array.isArray(d) ? d : []))
         .catch(() => {})
@@ -543,8 +543,7 @@ export default function AngebotDetailPage() {
                 <SearchableSelect
                   options={vorlageKunden.map((k) => ({
                     value: String(k.id),
-                    label: k.name,
-                    sub: k.firma ?? undefined,
+                    label: k.firma ? `${k.firma} (${k.name})` : k.name,
                   }))}
                   value={vorlageKundeId}
                   onChange={setVorlageKundeId}

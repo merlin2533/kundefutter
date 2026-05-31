@@ -81,15 +81,14 @@ export default function PreisauskunftPage() {
 
   // Load kunde options
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true")
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         if (Array.isArray(data)) {
           setKundeOptions(
             data.map((k: { id: number; name: string; firma: string | null }) => ({
               value: String(k.id),
-              label: k.name,
-              sub: k.firma ?? undefined,
+              label: k.firma ? `${k.firma} (${k.name})` : k.name,
             }))
           );
         }

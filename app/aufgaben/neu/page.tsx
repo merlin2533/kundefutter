@@ -27,7 +27,7 @@ function NeueAufgabeForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500&aktiv=true")
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -78,8 +78,7 @@ function NeueAufgabeForm() {
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
-    label: k.name,
-    sub: k.firma ?? undefined,
+    label: k.firma ? `${k.firma} (${k.name})` : k.name,
   }));
 
   return (

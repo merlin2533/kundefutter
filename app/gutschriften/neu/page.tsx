@@ -62,8 +62,8 @@ function NeueGutschriftForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true")
-      .then((r) => r.json())
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+      .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
     fetch("/api/artikel?aktiv=true")
@@ -116,8 +116,7 @@ function NeueGutschriftForm() {
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
-    label: k.name,
-    sub: k.firma ?? undefined,
+    label: k.firma ? `${k.firma} (${k.name})` : k.name,
   }));
 
   const lieferungOptions = lieferungen.map((l) => ({

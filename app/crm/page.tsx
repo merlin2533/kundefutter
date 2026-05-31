@@ -81,7 +81,7 @@ export default function CrmPage() {
 
   useEffect(() => {
     if (!kundenLoaded) {
-      fetch("/api/kunden?aktiv=true")
+      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
         .then((r) => r.ok ? r.json() : [])
         .then((d) => { setKunden(Array.isArray(d) ? d : []); setKundenLoaded(true); });
     }

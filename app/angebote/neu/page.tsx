@@ -136,7 +136,7 @@ function NeuesAngebotForm() {
   }
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=500")
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -200,8 +200,7 @@ function NeuesAngebotForm() {
 
   const kundenOptions = kunden.map((k) => ({
     value: String(k.id),
-    label: k.name,
-    sub: k.firma ?? undefined,
+    label: k.firma ? `${k.firma} (${k.name})` : k.name,
   }));
 
   const artikelOptions = artikel.map((a) => ({

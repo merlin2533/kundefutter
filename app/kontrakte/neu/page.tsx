@@ -44,9 +44,9 @@ function KontraktNeuInner() {
   ]);
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=500")
-      .then((r) => r.json())
-      .then((d) => setKunden(Array.isArray(d) ? d : (d.kunden ?? [])))
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+      .then((r) => r.ok ? r.json() : [])
+      .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
     fetch("/api/artikel?limit=500")
       .then((r) => r.json())
