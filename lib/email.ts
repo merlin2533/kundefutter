@@ -44,7 +44,7 @@ export async function loadEmailConfig(): Promise<EmailConfig> {
     provider,
     fromAddress,
     smtpHost: map["smtp.host"],
-    smtpPort: map["smtp.port"] ? Number(map["smtp.port"]) : 587,
+    smtpPort: (() => { const p = parseInt(map["smtp.port"] ?? "", 10); return isNaN(p) ? 587 : p; })(),
     smtpSecure: map["smtp.secure"] === "true",
     smtpUser: map["smtp.user"],
     smtpPass: map["smtp.password"],

@@ -1041,6 +1041,7 @@ model Benachrichtigung {
   @@index([gelesen])
   @@index([createdAt])
   @@index([typ])
+  @@index([kundeId])
 }
 
 // ─── EINGANGSRECHNUNGEN (Lieferanten) ─────────────────────────────────────────

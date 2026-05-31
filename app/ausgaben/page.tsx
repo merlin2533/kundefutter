@@ -63,6 +63,11 @@ function AusgabenContent() {
   const [nurAuslagen, setNurAuslagen] = useState(false);
   const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
 
+  // Bulk-Selektion
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkKategorie, setBulkKategorie] = useState("");
+  const [bulkWorking, setBulkWorking] = useState(false);
+
   useEffect(() => {
     fetch("/api/einstellungen?prefix=ausgaben.")
       .then((r) => r.json())
@@ -93,6 +98,67 @@ function AusgabenContent() {
   }
 
   useEffect(() => { laden(); }, [von, bis, kategorie, buchungstyp, zahlungsweg, nurUnbezahlt, nurAuslagen]);
+
+  function toggleSelect(id: number) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === ausgaben.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(ausgaben.map(a => a.id)));
+    }
+  }
+
+  async function handleBulkBezahlt() {
+    if (selected.size === 0) return;
+    if (!confirm(`${selected.size} Ausgaben als bezahlt markieren?`)) return;
+    setBulkWorking(true);
+    for (const id of selected) {
+      await fetch(`/api/ausgaben/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
+      });
+    }
+    setBulkWorking(false);
+    setSelected(new Set());
+    laden();
+  }
+
+  async function handleBulkKategorisieren() {
+    if (selected.size === 0 || !bulkKategorie) return;
+    if (!confirm(`${selected.size} Ausgaben auf Kategorie "${bulkKategorie}" setzen?`)) return;
+    setBulkWorking(true);
+    for (const id of selected) {
+      await fetch(`/api/ausgaben/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kategorie: bulkKategorie }),
+      });
+    }
+    setBulkWorking(false);
+    setSelected(new Set());
+    setBulkKategorie("");
+    laden();
+  }
+
+  async function handleBulkLoeschen() {
+    if (selected.size === 0) return;
+    if (!confirm(`${selected.size} Ausgaben wirklich löschen?`)) return;
+    setBulkWorking(true);
+    for (const id of selected) {
+      await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
+    }
+    setBulkWorking(false);
+    setSelected(new Set());
+    laden();
+  }
 
   async function markiereAbgeschlossen(id: number) {
     await fetch(`/api/ausgaben/${id}`, {
@@ -205,6 +271,35 @@ function AusgabenContent() {
         )}
       </div>
 
+      {/* Bulk-Aktionsleiste */}
+      {selected.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <span className="text-sm font-medium text-blue-800">{selected.size} ausgewählt</span>
+          <button onClick={handleBulkBezahlt} disabled={bulkWorking}
+            className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
+            {bulkWorking ? "…" : "Als bezahlt markieren"}
+          </button>
+          <div className="flex items-center gap-1">
+            <select value={bulkKategorie} onChange={e => setBulkKategorie(e.target.value)}
+              className="border rounded px-2 py-1 text-xs">
+              <option value="">Kategorie wählen…</option>
+              {kategorienList.map(k => <option key={k}>{k}</option>)}
+            </select>
+            <button onClick={handleBulkKategorisieren} disabled={bulkWorking || !bulkKategorie}
+              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+              Kategorisieren
+            </button>
+          </div>
+          <button onClick={handleBulkLoeschen} disabled={bulkWorking}
+            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">
+            Löschen
+          </button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-blue-600 hover:underline">
+            Auswahl aufheben
+          </button>
+        </div>
+      )}
+
       {/* Tabelle */}
       <div className="bg-white border rounded overflow-x-auto">
         {loading ? (
@@ -215,6 +310,12 @@ function AusgabenContent() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="px-3 py-2 w-8">
+                  <input type="checkbox"
+                    checked={ausgaben.length > 0 && selected.size === ausgaben.length}
+                    onChange={toggleSelectAll}
+                    className="cursor-pointer" />
+                </th>
                 <th className="text-left px-3 py-2">Datum</th>
                 <th className="text-left px-3 py-2 hidden sm:table-cell">Beleg-Nr.</th>
                 <th className="text-left px-3 py-2">Beschreibung</th>
@@ -235,7 +336,13 @@ function AusgabenContent() {
                 const mwstBetrag = a.betragNetto * (a.mwstSatz / 100);
                 const brutto = a.betragNetto + mwstBetrag;
                 return (
-                  <tr key={a.id} className="hover:bg-gray-50">
+                  <tr key={a.id} className={`hover:bg-gray-50 ${selected.has(a.id) ? "bg-blue-50" : ""}`}>
+                    <td className="px-3 py-2 w-8" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox"
+                        checked={selected.has(a.id)}
+                        onChange={() => toggleSelect(a.id)}
+                        className="cursor-pointer" />
+                    </td>
                     <td className="px-3 py-2 whitespace-nowrap">{formatDatum(a.datum)}</td>
                     <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">{a.belegNr ?? "—"}</td>
                     <td className="px-3 py-2 font-medium">

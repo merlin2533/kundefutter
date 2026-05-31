@@ -136,7 +136,7 @@ export default function SammelrechnungenPage() {
   const anzahlUeberfaellig = items.filter((sr) => getStatus(sr) === "ueberfaellig").length;
 
   return (
-    <div className="max-w-screen-xl mx-auto px-4 py-4 sm:py-8">
+    <div className="max-w-screen-xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
