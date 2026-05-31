@@ -30,6 +30,7 @@ const groups: NavGroup[] = [
       { href: "/tagesansicht", label: "Tagesansicht", section: "Kunden" },
       { href: "/mailverteiler", label: "Mailverteiler", section: "Kunden" },
       { href: "/kampagnen", label: "Kampagnen", section: "Kunden" },
+      { href: "/crm", label: "CRM / Aktivitäten", section: "Kunden" },
       { href: "/ki/crm", label: "KI-CRM Notiz", section: "KI" },
       { href: "/ki/sprache", label: "Sprachmemo → CRM", section: "KI" },
     ],
@@ -37,7 +38,6 @@ const groups: NavGroup[] = [
   {
     label: "Vertrieb",
     children: [
-      { href: "/crm", label: "CRM / Aktivitäten", section: "CRM" },
       { href: "/besuchstermine", label: "Besuchstermine", section: "CRM" },
       { href: "/aufgaben", label: "Aufgaben / TODO", section: "CRM" },
       { href: "/angebote", label: "Angebote", section: "Aufträge" },
