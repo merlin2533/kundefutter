@@ -137,6 +137,12 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex gap-2 flex-wrap">
           {data.status === "AKTIV" && (
             <>
+              <Link
+                href={`/lieferungen/neu?kundeId=${data.kundeId}`}
+                className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-sm font-medium rounded-lg transition-colors"
+              >
+                + Abruf / Lieferung
+              </Link>
               <button
                 onClick={() => { if (confirm("Kontrakt abschließen?")) handleAktion("abschliessen"); }}
                 disabled={saving}
