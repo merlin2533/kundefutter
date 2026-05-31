@@ -37,6 +37,9 @@ export default function EmailEinstellungenPage() {
   const [msg, setMsg] = useState("");
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState("");
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [sendingTestMail, setSendingTestMail] = useState(false);
+  const [testMailResult, setTestMailResult] = useState("");
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [smtpPasswordVisible, setSmtpPasswordVisible] = useState(false);
 
@@ -86,6 +89,31 @@ export default function EmailEinstellungenPage() {
     const ok = await saveAll();
     setMsg(ok ? "Gespeichert." : "Fehler beim Speichern.");
     setSaving(false);
+  }
+
+  async function sendTestMail() {
+    if (!testEmailTo) return;
+    setSendingTestMail(true);
+    setTestMailResult("");
+    const saved = await saveAll();
+    if (!saved) {
+      setTestMailResult("✗ Fehler beim Speichern der Einstellungen");
+      setSendingTestMail(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/einstellungen/email-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmailTo }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      setTestMailResult(data.ok ? "✓ Test-Mail gesendet" : `✗ Fehler: ${data.error ?? "Unbekannt"}`);
+    } catch {
+      setTestMailResult("✗ Versand fehlgeschlagen");
+    } finally {
+      setSendingTestMail(false);
+    }
   }
 
   async function testConnection() {
@@ -255,6 +283,31 @@ export default function EmailEinstellungenPage() {
               Die Domain dieser Adresse muss in Resend als verifizierte Domain eingetragen sein
               (SPF/DKIM-DNS-Einträge). Ansonsten wird der Versand von Resend abgelehnt.
             </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Test-E-Mail senden</label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={testEmailTo}
+                placeholder="empfaenger@example.com"
+                onChange={(e) => setTestEmailTo(e.target.value)}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <button
+                type="button"
+                onClick={sendTestMail}
+                disabled={sendingTestMail || !testEmailTo}
+                className="px-3 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {sendingTestMail ? "Sendet…" : "Test senden"}
+              </button>
+            </div>
+            {testMailResult && (
+              <p className={`text-xs mt-1 ${testMailResult.startsWith("✓") ? "text-green-700" : "text-red-600"}`}>
+                {testMailResult}
+              </p>
+            )}
           </div>
         </div>
       )}
