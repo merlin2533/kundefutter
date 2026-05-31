@@ -12,33 +12,16 @@ export async function GET() {
 
     const files: { filename: string; size: number; created: string }[] = [];
 
-    {
-      const entries = fs.readdirSync(backupDir);
-      for (const entry of entries) {
-        if (!entry.endsWith(".db")) continue;
-        const filePath = path.join(backupDir, entry);
-        const stat = fs.statSync(filePath);
-        files.push({
-          filename: entry,
-          size: stat.size,
-          created: stat.birthtime.toISOString(),
-        });
-      }
-    }
-
-    // Also check /data for any .db.bak files
-    if (fs.existsSync("/data")) {
-      const entries = fs.readdirSync("/data");
-      for (const entry of entries) {
-        if (!entry.endsWith(".db.bak")) continue;
-        const filePath = path.join("/data", entry);
-        const stat = fs.statSync(filePath);
-        files.push({
-          filename: entry,
-          size: stat.size,
-          created: stat.birthtime.toISOString(),
-        });
-      }
+    const entries = fs.readdirSync(backupDir);
+    for (const entry of entries) {
+      if (!entry.endsWith(".db")) continue;
+      const filePath = path.join(backupDir, entry);
+      const stat = fs.statSync(filePath);
+      files.push({
+        filename: entry,
+        size: stat.size,
+        created: stat.mtime.toISOString(),
+      });
     }
 
     files.sort(

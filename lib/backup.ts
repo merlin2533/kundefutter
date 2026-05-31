@@ -21,7 +21,7 @@ function ensureBackupDir(): string {
   return dir;
 }
 
-function getDbPath(): string {
+export function getDbPath(): string {
   const dbUrl = process.env.DATABASE_URL ?? "";
   const match = dbUrl.match(/file:(.+)/);
   if (match) {
@@ -74,7 +74,7 @@ export async function createBackup(prefix = "backup"): Promise<BackupEntry> {
 
   fs.copyFileSync(dbPath, destPath);
   const stat = fs.statSync(destPath);
-  return { filename, size: stat.size, created: stat.birthtime.toISOString() };
+  return { filename, size: stat.size, created: stat.mtime.toISOString() };
 }
 
 /** Behält nur die neuesten `keep` automatischen Backups, löscht ältere. */
@@ -122,6 +122,49 @@ export async function runAutoBackupIfDue(): Promise<BackupEntry | null> {
   const entry = await createBackup("auto");
   pruneAutoBackups(cfg.aufbewahrung);
   return entry;
+}
+
+/**
+ * Stellt die Datenbank aus einer Backup-Datei wieder her.
+ * Erstellt zuerst ein Sicherungs-Backup, dann wird die DB ersetzt.
+ * Nach erfolgreichem Restore muss der Prozess neu gestartet werden.
+ */
+export async function restoreFromFile(sourcePath: string): Promise<{ sicherung: string }> {
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Quelldatei nicht gefunden: ${sourcePath}`);
+  }
+
+  const dbPath = getDbPath();
+
+  // Sicherungs-Backup der aktuellen DB erstellen
+  let sicherungsEntry: BackupEntry;
+  try {
+    sicherungsEntry = await createBackup("vor-restore");
+  } catch (err) {
+    throw new Error(`Konnte kein Sicherungs-Backup erstellen: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // WAL-Puffer leeren und Verbindung trennen
+  try {
+    await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");
+  } catch {
+    // Ignorieren – DB ist vielleicht read-only oder bereits getrennt
+  }
+
+  await prisma.$disconnect();
+
+  // WAL/SHM-Dateien der alten DB entfernen (verhindern Inkonsistenz)
+  for (const suffix of ["-wal", "-shm"]) {
+    const f = dbPath + suffix;
+    if (fs.existsSync(f)) {
+      try { fs.unlinkSync(f); } catch { /* ignorieren */ }
+    }
+  }
+
+  // Datenbank-Datei ersetzen
+  fs.copyFileSync(sourcePath, dbPath);
+
+  return { sicherung: sicherungsEntry.filename };
 }
 
 let schedulerStarted = false;
