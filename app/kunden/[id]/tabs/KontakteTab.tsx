@@ -17,7 +17,7 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ vorname: "", nachname: "", label: "", typ: "telefon", wert: "" });
+  const [editForm, setEditForm] = useState({ vorname: "", nachname: "", label: "", typ: "telefon", wert: "", rechnungsEmail: false, lieferscheinEmail: false });
 
   // Visitenkarten-Scanner
   const [kiLoading, setKiLoading] = useState(false);
@@ -123,9 +123,9 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
     }
   }
 
-  function startEdit(k: { id: number; typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null }) {
+  function startEdit(k: { id: number; typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean | null; lieferscheinEmail?: boolean | null }) {
     setEditingId(k.id);
-    setEditForm({ vorname: k.vorname ?? "", nachname: k.nachname ?? "", label: k.label ?? "", typ: k.typ, wert: k.wert });
+    setEditForm({ vorname: k.vorname ?? "", nachname: k.nachname ?? "", label: k.label ?? "", typ: k.typ, wert: k.wert, rechnungsEmail: k.rechnungsEmail ?? false, lieferscheinEmail: k.lieferscheinEmail ?? false });
   }
 
   async function handleSaveEdit(e: React.FormEvent) {
@@ -133,11 +133,17 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
     if (!editForm.wert.trim()) return;
     setSaving(true);
     try {
-      const newKontakte = kunde.kontakte.map((k) =>
-        k.id === editingId
-          ? { typ: editForm.typ, wert: editForm.wert.trim(), label: editForm.label.trim() || undefined, vorname: editForm.vorname.trim() || undefined, nachname: editForm.nachname.trim() || undefined, rechnungsEmail: k.rechnungsEmail, lieferscheinEmail: k.lieferscheinEmail }
-          : { typ: k.typ, wert: k.wert, label: k.label, vorname: k.vorname, nachname: k.nachname, rechnungsEmail: k.rechnungsEmail, lieferscheinEmail: k.lieferscheinEmail }
-      );
+      const newKontakte = kunde.kontakte.map((k) => {
+        if (k.id === editingId) {
+          return { typ: editForm.typ, wert: editForm.wert.trim(), label: editForm.label.trim() || undefined, vorname: editForm.vorname.trim() || undefined, nachname: editForm.nachname.trim() || undefined, rechnungsEmail: editForm.rechnungsEmail, lieferscheinEmail: editForm.lieferscheinEmail };
+        }
+        // Nur ein Kontakt pro Rolle — anderen deaktivieren wenn dieser aktiviert wird
+        return {
+          typ: k.typ, wert: k.wert, label: k.label, vorname: k.vorname, nachname: k.nachname,
+          rechnungsEmail: editForm.rechnungsEmail ? false : k.rechnungsEmail,
+          lieferscheinEmail: editForm.lieferscheinEmail ? false : k.lieferscheinEmail,
+        };
+      });
       const res = await fetch(`/api/kunden/${kunde.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kontakte: newKontakte }) });
       if (!res.ok) throw new Error();
       setEditingId(null);
@@ -264,6 +270,26 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
                         />
                       </div>
                     </div>
+                    {editForm.typ === "email" && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, rechnungsEmail: !editForm.rechnungsEmail })}
+                          title="Als Rechnungs-E-Mail markieren"
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${editForm.rechnungsEmail ? "bg-green-100 border-green-500 text-green-800 font-medium" : "border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-700"}`}
+                        >
+                          Rechnung
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, lieferscheinEmail: !editForm.lieferscheinEmail })}
+                          title="Als Lieferschein-E-Mail markieren"
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${editForm.lieferscheinEmail ? "bg-blue-100 border-blue-500 text-blue-800 font-medium" : "border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-700"}`}
+                        >
+                          Lieferschein
+                        </button>
+                      </div>
+                    )}
                     <div className="flex gap-2 justify-end">
                       <button
                         type="button"
