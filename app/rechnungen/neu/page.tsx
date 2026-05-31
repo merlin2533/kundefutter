@@ -44,9 +44,9 @@ export default function NeueRechnungPage() {
 
   // Kunden + Standard-Zahlungsziel laden
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true")
-      .then((r) => r.json())
-      .then(setKunden)
+    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setKunden(Array.isArray(data) ? data : []))
       .catch(() => {});
     fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
       .then((r) => r.json())
@@ -188,8 +188,7 @@ export default function NeueRechnungPage() {
           <SearchableSelect
             options={kunden.map((k) => ({
               value: k.id,
-              label: k.name,
-              sub: k.firma ?? undefined,
+              label: k.firma ? `${k.firma} (${k.name})` : k.name,
             }))}
             value={kundeId}
             onChange={setKundeId}
