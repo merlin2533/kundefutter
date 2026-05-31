@@ -286,6 +286,7 @@ export default function DeckungsbeitragPage() {
   const [monatlichLoading, setMonatlichLoading] = useState(false);
   const [monatlichError, setMonatlichError] = useState<string | null>(null);
   const [selectedArtikelId, setSelectedArtikelId] = useState<number | null>(null);
+  const [selectedMonat, setSelectedMonat] = useState<string | null>(null);
   const [auftragSortField, setAuftragSortField] = useState<AuftragSortField>("datum");
   const [auftragSortDir, setAuftragSortDir] = useState<SortDir>("desc");
 
@@ -388,16 +389,20 @@ export default function DeckungsbeitragPage() {
     return <span className="text-green-700 ml-1">{auftragSortDir === "asc" ? "↑" : "↓"}</span>;
   }
 
-  const sortedAuftraege = monatlichData
-    ? [...monatlichData.auftraege].sort((a, b) => {
-        const av = a[auftragSortField];
-        const bv = b[auftragSortField];
-        if (typeof av === "string") {
-          return auftragSortDir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
-        }
-        return auftragSortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
-      })
+  const filteredAuftraege = monatlichData
+    ? (selectedMonat
+        ? monatlichData.auftraege.filter(a => a.monat === selectedMonat)
+        : monatlichData.auftraege)
     : [];
+
+  const sortedAuftraege = [...filteredAuftraege].sort((a, b) => {
+    const av = a[auftragSortField];
+    const bv = b[auftragSortField];
+    if (typeof av === "string") {
+      return auftragSortDir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
+    }
+    return auftragSortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+  });
 
   return (
     <div className="max-w-screen-xl mx-auto print:px-0 print:py-0">
@@ -516,6 +521,28 @@ export default function DeckungsbeitragPage() {
 
           {data && !loading && (
             <>
+              {/* Mindestmarge-Warnung */}
+              {(() => {
+                const unterMindest = sortedItems.filter(i => i.dbMarge < data.schwellwertKritisch);
+                if (unterMindest.length === 0) return null;
+                return (
+                  <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600 text-lg">⚠</span>
+                      <span className="text-sm text-red-700 font-medium">
+                        {unterMindest.length} {typ === "artikel" ? "Artikel" : "Kunden"} unter Mindestmarge ({data.schwellwertKritisch} %)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => downloadCSV(unterMindest, `mindestmarge-${typ}`)}
+                      className="text-xs px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Problemliste exportieren
+                    </button>
+                  </div>
+                );
+              })()}
+
               {sortedItems.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 print:grid-cols-4 print:gap-2">
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -654,7 +681,10 @@ export default function DeckungsbeitragPage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 border-b border-gray-100">
                         <tr>
-                          <th className="px-4 py-3 text-left font-medium text-gray-600">Monat</th>
+                          <th className="px-4 py-3 text-left font-medium text-gray-600">
+                            Monat
+                            <span className="ml-1 text-xs font-normal text-gray-400">(klicken → filtert Aufträge)</span>
+                          </th>
                           <th className="px-4 py-3 text-right font-medium text-gray-600">Umsatz</th>
                           <th className="px-4 py-3 text-right font-medium text-gray-500 hidden sm:table-cell">Einkauf</th>
                           <th className="px-4 py-3 text-right font-semibold text-gray-700">Deckungsbeitrag</th>
@@ -663,8 +693,22 @@ export default function DeckungsbeitragPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {monatlichData.gesamt.map(m => (
-                          <tr key={m.monat} className="hover:bg-gray-50">
-                            <td className="px-4 py-2.5 font-medium text-gray-700">{formatMonat(m.monat)}</td>
+                          <tr
+                            key={m.monat}
+                            className={`cursor-pointer transition-colors ${
+                              selectedMonat === m.monat
+                                ? "bg-blue-50 border-l-4 border-blue-500"
+                                : "hover:bg-gray-50 border-l-4 border-transparent"
+                            }`}
+                            onClick={() => {
+                              setSelectedMonat(m.monat === selectedMonat ? null : m.monat);
+                              setTimeout(() => document.getElementById("auftraege-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                            }}
+                          >
+                            <td className="px-4 py-2.5 font-medium text-gray-700">
+                              {formatMonat(m.monat)}
+                              {selectedMonat === m.monat && <span className="ml-2 text-xs text-blue-600 font-normal">● gefiltert</span>}
+                            </td>
                             <td className="px-4 py-2.5 text-right font-mono text-gray-600">{formatEuro(m.umsatz)}</td>
                             <td className="px-4 py-2.5 text-right font-mono text-gray-500 hidden sm:table-cell">{formatEuro(m.einkauf)}</td>
                             <td className={`px-4 py-2.5 text-right font-mono font-semibold ${margeColor(m.dbMarge)}`}>
@@ -686,19 +730,38 @@ export default function DeckungsbeitragPage() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h2 className="text-base font-semibold text-gray-800 mb-3">Top-Artikel Monatsverlauf</h2>
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {monatlichData.topArtikel.map(a => (
-                      <button
-                        key={a.id}
-                        onClick={() => setSelectedArtikelId(a.id === selectedArtikelId ? null : a.id)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                          selectedArtikelId === a.id
-                            ? "bg-green-700 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        {a.name}
-                      </button>
-                    ))}
+                    {monatlichData.topArtikel.map(a => {
+                      const letzterDB = a.monate[a.monate.length - 1]?.deckungsbeitrag ?? 0;
+                      const vorletzterDB = a.monate[a.monate.length - 2]?.deckungsbeitrag ?? null;
+                      const trend = vorletzterDB === null ? null
+                        : letzterDB > vorletzterDB ? "up"
+                        : letzterDB < vorletzterDB ? "down"
+                        : "flat";
+                      const isSelected = selectedArtikelId === a.id;
+                      return (
+                        <button
+                          key={a.id}
+                          onClick={() => setSelectedArtikelId(isSelected ? null : a.id)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                            isSelected
+                              ? "bg-green-700 text-white"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                          title={vorletzterDB !== null ? `Vormonat: ${formatEuro(vorletzterDB)} → ${formatEuro(letzterDB)}` : undefined}
+                        >
+                          {a.name}
+                          {trend === "up" && (
+                            <span className={isSelected ? "text-green-200" : "text-green-600"}>▲</span>
+                          )}
+                          {trend === "down" && (
+                            <span className={isSelected ? "text-red-200" : "text-red-500"}>▼</span>
+                          )}
+                          {trend === "flat" && (
+                            <span className={isSelected ? "text-gray-200" : "text-gray-400"}>–</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                   {selectedArtikelId ? (
                     (() => {
@@ -716,10 +779,26 @@ export default function DeckungsbeitragPage() {
               )}
 
               {/* Sektion 3: Pro Auftrag */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-gray-800">Pro Auftrag (Lieferung)</h2>
-                  <span className="text-xs text-gray-400">{monatlichData.auftraege.length} Aufträge</span>
+              <div id="auftraege-section" className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden scroll-mt-4">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-semibold text-gray-800">Pro Auftrag (Lieferung)</h2>
+                    {selectedMonat && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                        {formatMonat(selectedMonat)}
+                        <button
+                          onClick={() => setSelectedMonat(null)}
+                          className="hover:text-blue-900 font-bold leading-none"
+                          title="Filter entfernen"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {sortedAuftraege.length}{selectedMonat && monatlichData.auftraege.length !== sortedAuftraege.length ? ` von ${monatlichData.auftraege.length}` : ""} Aufträge
+                  </span>
                 </div>
                 {monatlichData.auftraege.length === 0 ? (
                   <div className="py-12 text-center text-gray-400">Keine Aufträge im gewählten Zeitraum</div>

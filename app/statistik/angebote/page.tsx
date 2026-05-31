@@ -12,9 +12,19 @@ interface StatusRow {
   wert: number;
 }
 
+interface FunnelRow {
+  label: string;
+  anzahl: number;
+  wert: number;
+  prozent: number;
+}
+
 interface Data {
   nachStatus: StatusRow[];
   annahmequote: number;
+  pipeline: { wert: number; annahmequote: number; offenWert: number };
+  funnel: FunnelRow[];
+  wertBaender: { band: string; anzahl: number; annahmequote: number }[];
   summe: {
     anzahl: number;
     gesamtwert: number;
@@ -68,6 +78,9 @@ export default function StatistikAngebotePage() {
 
   const nachStatus = Array.isArray(data?.nachStatus) ? data!.nachStatus : [];
   const maxWert = nachStatus.length > 0 ? Math.max(...nachStatus.map((s) => s.wert), 1) : 1;
+  const funnel = Array.isArray(data?.funnel) ? data!.funnel : [];
+  const wertBaender = Array.isArray(data?.wertBaender) ? data!.wertBaender : [];
+  const maxFunnelAnzahl = funnel.length > 0 ? Math.max(...funnel.map(f => f.anzahl), 1) : 1;
 
   return (
     <div className="space-y-6">
@@ -117,7 +130,7 @@ export default function StatistikAngebotePage() {
 
       {data && (
         <>
-          {/* KPI-Karten */}
+          {/* KPI-Karten – Reihe 1 */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Angebote gesamt</p>
@@ -140,6 +153,64 @@ export default function StatistikAngebotePage() {
               <p className="text-xs text-gray-400 mt-0.5">Gesamt: {formatEuro(data.summe.gesamtwert)}</p>
             </div>
           </div>
+
+          {/* Pipeline-Karte + Win-Rate Bänder */}
+          {data.pipeline && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Pipeline-Wert (gewichtet)</p>
+                <p className="text-2xl font-bold mt-1 text-blue-800">{formatEuro(data.pipeline.wert)}</p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {formatEuro(data.pipeline.offenWert)} offen × {formatPercent(data.pipeline.annahmequote)} Quote
+                </p>
+              </div>
+              {wertBaender.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Win-Rate nach Wert</p>
+                  <div className="space-y-2">
+                    {wertBaender.map((b) => (
+                      <div key={b.band} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-600 w-28 shrink-0">{b.band}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 rounded-full ${b.annahmequote >= 60 ? "bg-green-500" : b.annahmequote >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                            style={{ width: `${b.annahmequote}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-mono font-semibold text-gray-700 w-12 text-right">{formatPercent(b.annahmequote)}</span>
+                        <span className="text-xs text-gray-400">({b.anzahl})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Funnel-Chart */}
+          {funnel.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4">Angebots-Funnel</h2>
+              <div className="space-y-2">
+                {funnel.map((f, i) => {
+                  const w = maxFunnelAnzahl > 0 ? Math.max(10, (f.anzahl / maxFunnelAnzahl) * 100) : 10;
+                  const colors = ["bg-blue-400", "bg-amber-400", "bg-orange-400", "bg-green-500"];
+                  return (
+                    <div key={f.label} className="flex items-center gap-3">
+                      <span className="text-xs font-medium text-gray-600 w-24 shrink-0">{f.label}</span>
+                      <div className="flex-1">
+                        <div className={`${colors[i] ?? "bg-gray-400"} rounded-lg h-8 flex items-center px-3 transition-all`}
+                          style={{ width: `${w}%` }}>
+                          <span className="text-white text-xs font-semibold whitespace-nowrap">{f.anzahl} · {formatEuro(f.wert)}</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400 w-10 text-right">{f.prozent} %</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Status-Aufschlüsselung */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
 
     type StatusRow = { status: string; anzahl: number; wert: number | null };
     type GesamtRow = { anzahl: number; gesamtwert: number | null; angenommenWert: number | null };
+    type WertBandRow = { band: string; anzahl: number; angenommenAnzahl: number };
 
-    const [nachStatusRaw, gesamtRaw] = await Promise.all([
+    const [nachStatusRaw, gesamtRaw, wertBaenderRaw] = await Promise.all([
       prisma.$queryRawUnsafe<StatusRow[]>(
         `SELECT
            a.status,
@@ -43,6 +44,30 @@ export async function GET(req: NextRequest) {
         vonIso,
         bisIso
       ),
+      // Win-Rate nach Wert-Bändern
+      prisma.$queryRawUnsafe<WertBandRow[]>(
+        `SELECT
+           CASE
+             WHEN wert < 500 THEN '< 500 EUR'
+             WHEN wert < 2000 THEN '500–2.000 EUR'
+             ELSE '> 2.000 EUR'
+           END as band,
+           COUNT(*) as anzahl,
+           SUM(CASE WHEN a.status = 'ANGENOMMEN' THEN 1 ELSE 0 END) as angenommenAnzahl
+         FROM (
+           SELECT a.id, a.status,
+                  CAST(SUM(ap.menge * ap.preis * (1.0 - ap.rabatt / 100.0)) AS REAL) as wert
+           FROM Angebot a
+           LEFT JOIN AngebotPosition ap ON ap.angebotId = a.id
+           WHERE a.datum >= ? AND a.datum < ?
+             AND a.status IN ('ANGENOMMEN', 'ABGELEHNT')
+           GROUP BY a.id, a.status
+         ) sub
+         GROUP BY band
+         ORDER BY MIN(wert)`,
+        vonIso,
+        bisIso
+      ),
     ]);
 
     const r2 = (n: number | null | undefined) => Math.round((n ?? 0) * 100) / 100;
@@ -60,14 +85,36 @@ export async function GET(req: NextRequest) {
 
     const angenommenAnzahl = nachStatus.find((s) => s.status === "ANGENOMMEN")?.anzahl ?? 0;
     const abgelehntAnzahl = nachStatus.find((s) => s.status === "ABGELEHNT")?.anzahl ?? 0;
+    const offenAnzahl = nachStatus.find((s) => s.status === "OFFEN")?.anzahl ?? 0;
+    const offenWert = nachStatus.find((s) => s.status === "OFFEN")?.wert ?? 0;
     const nenner = angenommenAnzahl + abgelehntAnzahl;
     const annahmequote = nenner > 0 ? Math.round((angenommenAnzahl / nenner) * 1000) / 10 : 0;
-
     const durchschnittswert = anzahlGesamt > 0 ? r2(gesamtwert / anzahlGesamt) : 0;
+
+    // Pipeline-Wert: OFFEN Wert × historische Annahmequote
+    const pipelineWert = r2(offenWert * (annahmequote / 100));
+
+    // Funnel-Daten
+    const entschiedenAnzahl = angenommenAnzahl + abgelehntAnzahl;
+    const funnel = [
+      { label: "Erstellt", anzahl: anzahlGesamt, wert: gesamtwert, prozent: 100 },
+      { label: "Offen", anzahl: offenAnzahl, wert: offenWert, prozent: anzahlGesamt > 0 ? Math.round((offenAnzahl / anzahlGesamt) * 100) : 0 },
+      { label: "Entschieden", anzahl: entschiedenAnzahl, wert: r2(angenommenWert + (nachStatus.find(s => s.status === "ABGELEHNT")?.wert ?? 0)), prozent: anzahlGesamt > 0 ? Math.round((entschiedenAnzahl / anzahlGesamt) * 100) : 0 },
+      { label: "Angenommen", anzahl: angenommenAnzahl, wert: angenommenWert, prozent: anzahlGesamt > 0 ? Math.round((angenommenAnzahl / anzahlGesamt) * 100) : 0 },
+    ];
+
+    const wertBaender = wertBaenderRaw.map((b) => ({
+      band: b.band,
+      anzahl: Number(b.anzahl) || 0,
+      annahmequote: Number(b.anzahl) > 0 ? Math.round((Number(b.angenommenAnzahl) / Number(b.anzahl)) * 1000) / 10 : 0,
+    }));
 
     return NextResponse.json({
       nachStatus,
       annahmequote,
+      pipeline: { wert: pipelineWert, annahmequote, offenWert },
+      funnel,
+      wertBaender,
       summe: {
         anzahl: anzahlGesamt,
         gesamtwert,
