@@ -13,6 +13,7 @@ interface BesuchKunde {
   strasse: string | null;
   lat: number | null;
   lng: number | null;
+  kontakte?: { wert: string }[];
 }
 
 interface Besuchstermin {
@@ -78,6 +79,7 @@ export default function BesuchstermineListPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [search, setSearch] = useState<string>(() => loadBesuchsTermineFilters().search ?? "");
+  const [emailState, setEmailState] = useState<Record<number, { offen: boolean; empfaenger: string; loading: boolean; erfolg: string; fehler: string }>>({});
 
   const fetchTermine = useCallback(async () => {
     setLoading(true);
@@ -218,10 +220,11 @@ export default function BesuchstermineListPage() {
                   {dayTermine.map((t) => (
                     <div
                       key={t.id}
-                      className={`bg-white rounded-xl border shadow-sm px-4 py-3 flex items-start gap-4 ${
+                      className={`bg-white rounded-xl border shadow-sm ${
                         isHeuteGroup ? "border-green-200" : "border-gray-200"
                       }`}
                     >
+                      <div className="px-4 py-3 flex items-start gap-4">
                       <div className="text-2xl mt-0.5">🏠</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
@@ -270,6 +273,25 @@ export default function BesuchstermineListPage() {
                           CRM
                         </Link>
                         <button
+                          onClick={() => {
+                            const tid = t.id;
+                            setEmailState((prev) => ({
+                              ...prev,
+                              [tid]: {
+                                offen: !prev[tid]?.offen,
+                                empfaenger: prev[tid]?.offen
+                                  ? (prev[tid]?.empfaenger ?? "")
+                                  : (prev[tid]?.empfaenger || t.kunde.kontakte?.[0]?.wert || ""),
+                                loading: false, erfolg: "", fehler: "",
+                              },
+                            }));
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200"
+                          title="Besuchstermin-Erinnerung per E-Mail senden"
+                        >
+                          ✉ Erinnerung
+                        </button>
+                        <button
                           onClick={() => handleDelete(t.id)}
                           disabled={deleting === t.id}
                           className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 disabled:opacity-50"
@@ -278,6 +300,58 @@ export default function BesuchstermineListPage() {
                           {deleting === t.id ? "…" : "Löschen"}
                         </button>
                       </div>
+                      </div>
+                    {emailState[t.id]?.offen && (
+                      <div className="px-4 pt-2 pb-3 bg-teal-50 border-t border-teal-100 rounded-b-xl">
+                        <p className="text-xs font-medium text-teal-800 mb-2">Besuchstermin-Erinnerung per E-Mail senden</p>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <input
+                            type="email"
+                            value={emailState[t.id]?.empfaenger ?? ""}
+                            onChange={(ev) => setEmailState((prev) => ({ ...prev, [t.id]: { ...prev[t.id], empfaenger: ev.target.value } }))}
+                            placeholder="empfaenger@example.com"
+                            className="border border-teal-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 w-56"
+                          />
+                          <button
+                            disabled={emailState[t.id]?.loading || !emailState[t.id]?.empfaenger}
+                            onClick={async () => {
+                              const tid = t.id;
+                              setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: true, fehler: "", erfolg: "" } }));
+                              try {
+                                const res = await fetch("/api/exporte/besuchserinnerung/mail", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ aktivitaetId: tid, empfaenger: emailState[tid]?.empfaenger }),
+                                });
+                                const data = await res.json() as { ok?: boolean; error?: string };
+                                if (data.ok) {
+                                  setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: false, erfolg: `Versendet an ${prev[tid]?.empfaenger}`, offen: false } }));
+                                } else {
+                                  setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: false, fehler: data.error ?? "Versand fehlgeschlagen" } }));
+                                }
+                              } catch {
+                                setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: false, fehler: "Versand fehlgeschlagen" } }));
+                              }
+                            }}
+                            className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded font-medium disabled:opacity-50"
+                          >
+                            {emailState[t.id]?.loading ? "Sendet…" : "Senden"}
+                          </button>
+                          <button
+                            onClick={() => setEmailState((prev) => ({ ...prev, [t.id]: { ...prev[t.id], offen: false } }))}
+                            className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+                          >
+                            Abbrechen
+                          </button>
+                          {emailState[t.id]?.fehler && <span className="text-xs text-red-600">{emailState[t.id].fehler}</span>}
+                        </div>
+                      </div>
+                    )}
+                    {emailState[t.id]?.erfolg && !emailState[t.id]?.offen && (
+                      <div className="px-4 py-2 bg-teal-50 border-t border-teal-100 rounded-b-xl text-xs text-teal-700">
+                        {emailState[t.id].erfolg}
+                      </div>
+                    )}
                     </div>
                   ))}
                 </div>

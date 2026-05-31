@@ -17,7 +17,7 @@ interface FirmaEinstellungen {
 
 interface MahnwesenEintrag {
   lieferung: { id: number; datum: string; notiz: string | null };
-  kunde: { id: number; name: string; firma: string | null };
+  kunde: { id: number; name: string; firma: string | null; kontakte?: { wert: string }[] };
   rechnungNr: string | null;
   rechnungDatum: string;
   betrag: number;
@@ -481,7 +481,13 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                               const lid = e.lieferung.id;
                               setEmailState((prev) => ({
                                 ...prev,
-                                [lid]: { offen: !prev[lid]?.offen, empfaenger: prev[lid]?.empfaenger ?? "", loading: false, erfolg: "", fehler: "" },
+                                [lid]: {
+                                  offen: !prev[lid]?.offen,
+                                  empfaenger: prev[lid]?.offen
+                                    ? (prev[lid]?.empfaenger ?? "")
+                                    : (prev[lid]?.empfaenger || e.kunde.kontakte?.[0]?.wert || ""),
+                                  loading: false, erfolg: "", fehler: "",
+                                },
                               }));
                             }}
                             className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"

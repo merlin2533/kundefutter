@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
             strasse: true,
             lat: true,
             lng: true,
+            kontakte: { where: { typ: "email" }, select: { wert: true }, take: 1 },
           },
         },
       },
