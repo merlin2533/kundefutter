@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import EmailVersandModal from "@/components/EmailVersandModal";
 
 interface ArtikelInfo {
   id: number;
@@ -40,7 +41,7 @@ interface Angebot {
     strasse: string | null;
     plz: string | null;
     ort: string | null;
-    kontakte?: { typ: string; wert: string }[];
+    kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[];
   };
   positionen: AngebotPosition[];
 }
@@ -78,8 +79,7 @@ export default function AngebotDetailPage() {
   const [gueltigBis, setGueltigBis] = useState("");
 
   // E-Mail-Versand
-  const [emailOffen, setEmailOffen] = useState(false);
-  const [emailEmpfaenger, setEmailEmpfaenger] = useState("");
+  const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
@@ -104,8 +104,6 @@ export default function AngebotDetailPage() {
         setAngebot(d);
         setNotiz(d.notiz ?? "");
         setGueltigBis(d.gueltigBis ? d.gueltigBis.split("T")[0] : "");
-        const emailK = d.kunde?.kontakte?.find((k: { typ: string; wert: string }) => k.typ === "email");
-        if (emailK) setEmailEmpfaenger(emailK.wert);
         setLoading(false);
       })
       .catch((e: unknown) => { setError(e instanceof Error ? e.message : "Ladefehler"); setLoading(false); });
@@ -278,7 +276,7 @@ export default function AngebotDetailPage() {
             Drucken / PDF
           </Link>
           <button
-            onClick={() => { setEmailOffen((v) => !v); setEmailErfolg(""); setEmailFehler(""); }}
+            onClick={() => { setEmailModalOffen(true); setEmailErfolg(""); setEmailFehler(""); }}
             className="w-full sm:w-auto px-3 py-2 sm:py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors"
           >
             Angebot per E-Mail
@@ -324,46 +322,33 @@ export default function AngebotDetailPage() {
         </div>
       </div>
 
-      {/* Inline E-Mail-Versand */}
-      {emailOffen && (
-        <div className="mb-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
-          <p className="text-sm font-medium text-teal-800 mb-2">Angebot per E-Mail senden (PDF-Anhang)</p>
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="email"
-              value={emailEmpfaenger}
-              onChange={(e) => setEmailEmpfaenger(e.target.value)}
-              placeholder="empfaenger@example.com"
-              className="border border-teal-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64"
-            />
-            <button
-              disabled={emailLoading || !emailEmpfaenger}
-              onClick={async () => {
-                setEmailLoading(true); setEmailErfolg(""); setEmailFehler("");
-                try {
-                  const res = await fetch("/api/exporte/angebot/mail", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ angebotId: angebot.id, empfaenger: emailEmpfaenger }),
-                  });
-                  const data = await res.json() as { ok?: boolean; error?: string };
-                  if (data.ok) { setEmailErfolg(`Versendet an ${emailEmpfaenger}`); setEmailOffen(false); }
-                  else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-                } catch { setEmailFehler("Versand fehlgeschlagen"); }
-                finally { setEmailLoading(false); }
-              }}
-              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-            >
-              {emailLoading ? "Sendet…" : "Senden"}
-            </button>
-            <button onClick={() => setEmailOffen(false)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
-            {emailFehler && <span className="text-sm text-red-600 w-full">{emailFehler}</span>}
-          </div>
-        </div>
-      )}
-      {emailErfolg && !emailOffen && (
+      {emailErfolg && (
         <div className="mb-4 text-sm text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{emailErfolg}</div>
       )}
+      <EmailVersandModal
+        open={emailModalOffen}
+        onClose={() => setEmailModalOffen(false)}
+        title={`Angebot ${angebot.nummer} versenden`}
+        kundenname={angebot.kunde.firma ?? angebot.kunde.name}
+        emailKontakte={(angebot.kunde.kontakte ?? []).filter((k) => k.typ === "email")}
+        docType="angebot"
+        loading={emailLoading}
+        fehler={emailFehler || undefined}
+        onSend={async (empfaenger, cc) => {
+          setEmailLoading(true); setEmailFehler("");
+          try {
+            const res = await fetch("/api/exporte/angebot/mail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ angebotId: angebot.id, empfaenger, cc }),
+            });
+            const data = await res.json() as { ok?: boolean; error?: string };
+            if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
+            else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
+          } catch { setEmailFehler("Versand fehlgeschlagen"); }
+          finally { setEmailLoading(false); }
+        }}
+      />
 
       {/* Lieferung + Rechnung links if angenommen */}
       {(lieferungId || angebot.status === "ANGENOMMEN") && (

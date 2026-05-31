@@ -24,6 +24,7 @@ export type EmailConfig = {
   fromAddress: string;
   replyTo?: string;
   bcc?: string;
+  cc?: string;
   smtpHost?: string;
   smtpPort: number;
   smtpSecure: boolean;
@@ -56,6 +57,7 @@ export async function loadEmailConfig(): Promise<EmailConfig> {
     fromAddress,
     replyTo: map["email.reply_to"] || undefined,
     bcc: map["email.bcc"] || undefined,
+    cc: map["email.cc"] || undefined,
     smtpHost: map["smtp.host"],
     smtpPort: (() => { const p = parseInt(map["smtp.port"] ?? "", 10); return isNaN(p) ? 587 : p; })(),
     smtpSecure: map["smtp.secure"] === "true",
@@ -67,6 +69,7 @@ export async function loadEmailConfig(): Promise<EmailConfig> {
 
 export type SendEmailArgs = {
   to: string;
+  cc?: string;
   subject: string;
   text: string;
   html: string;
@@ -91,12 +94,16 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
   await enforceRateLimit();
 
   try {
+    // CC: args.cc takes priority, falls back to global email.cc setting
+    const effectiveCc = args.cc || cfg.cc || undefined;
+
     if (cfg.provider === "resend") {
       if (!cfg.resendApiKey) throw new Error("Resend API-Key fehlt");
       const client = new Resend(cfg.resendApiKey);
       const res = await client.emails.send({
         from,
         to: args.to,
+        cc: effectiveCc ? [effectiveCc] : undefined,
         subject: args.subject,
         text: args.text,
         html: args.html,
@@ -119,6 +126,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
       await transporter.sendMail({
         from,
         to: args.to,
+        cc: effectiveCc,
         replyTo: cfg.replyTo,
         bcc: cfg.bcc,
         subject: args.subject,

@@ -14,6 +14,8 @@ export interface KundeKontakt {
   label?: string;
   vorname?: string;
   nachname?: string;
+  rechnungsEmail?: boolean;
+  lieferscheinEmail?: boolean;
 }
 
 export interface Artikel {

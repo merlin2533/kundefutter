@@ -9,6 +9,7 @@ type Values = {
   "email.from": string;
   "email.reply_to": string;
   "email.info": string;
+  "email.cc": string;
   "email.bcc": string;
   "email.digest": string;
   "cron.digest.besuchstermine": string;
@@ -30,6 +31,7 @@ const DEFAULTS: Values = {
   "email.from": "",
   "email.reply_to": "",
   "email.info": "",
+  "email.cc": "",
   "email.bcc": "",
   "email.digest": "",
   "cron.digest.besuchstermine": "0",
@@ -81,6 +83,7 @@ export default function EmailEinstellungenPage() {
           "email.from": d["email.from"] ?? "",
           "email.reply_to": d["email.reply_to"] ?? "",
           "email.info": d["email.info"] ?? "",
+          "email.cc": d["email.cc"] ?? "",
           "email.bcc": d["email.bcc"] ?? "",
           "email.digest": d["email.digest"] ?? "",
           "cron.digest.besuchstermine": d["cron.digest.besuchstermine"] ?? "0",
@@ -240,6 +243,19 @@ export default function EmailEinstellungenPage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
           <p className="text-xs text-gray-500 mt-1">Wird auf Rechnungen, Angeboten und anderen Dokumenten als Kontaktadresse angezeigt</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Standard-CC <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="email"
+            value={values["email.cc"]}
+            placeholder="buchhaltung@ihrefirma.de"
+            onChange={(e) => updateField("email.cc", e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">Standard-CC beim Versand von Rechnungen, Angeboten, Lieferscheinen und Mahnungen — im Versand-Dialog änderbar</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

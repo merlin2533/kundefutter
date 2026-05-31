@@ -5,6 +5,7 @@ import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import EmailVersandModal from "@/components/EmailVersandModal";
 
 interface Position {
   id: number;
@@ -42,7 +43,7 @@ interface Lieferung {
   skontoProzent?: number | null;
   skontoTage?: number | null;
   skontoGenutzt?: boolean | null;
-  kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string }[] };
+  kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   positionen: Position[];
 }
 
@@ -109,8 +110,7 @@ export default function LieferungDetailPage() {
   const [notizEditValue, setNotizEditValue] = useState<string>("");
 
   // E-Mail-Versand
-  const [emailOffen, setEmailOffen] = useState(false);
-  const [emailEmpfaenger, setEmailEmpfaenger] = useState("");
+  const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
@@ -141,8 +141,6 @@ export default function LieferungDetailPage() {
     setRechnungNrEdit(data.rechnungNr ?? "");
     setRechnungNrEditing(false);
     setRechnungNrError("");
-    const emailKontakt = data.kunde?.kontakte?.find((k: { typ: string; wert: string }) => k.typ === "email");
-    if (emailKontakt) setEmailEmpfaenger(emailKontakt.wert);
     setSkontoProzentEdit(String(data.skontoProzent ?? ""));
     setSkontoTageEdit(String(data.skontoTage ?? ""));
     setSkontoGenutztEdit(!!data.skontoGenutzt);
@@ -979,7 +977,7 @@ export default function LieferungDetailPage() {
             )}
             {lieferung.rechnungNr && (
               <button
-                onClick={() => { setEmailOffen((v) => !v); setEmailErfolg(""); setEmailFehler(""); }}
+                onClick={() => { setEmailModalOffen(true); setEmailErfolg(""); setEmailFehler(""); }}
                 className="p-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
                 title="Rechnung per E-Mail senden"
               >
@@ -998,46 +996,33 @@ export default function LieferungDetailPage() {
           </div>
         </div>
 
-        {/* Inline E-Mail-Versand Rechnung */}
-        {emailOffen && lieferung.rechnungNr && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm font-medium text-gray-700 mb-2">Rechnung per E-Mail senden</p>
-            <div className="flex flex-wrap gap-2 items-center">
-              <input
-                type="email"
-                value={emailEmpfaenger}
-                onChange={(e) => setEmailEmpfaenger(e.target.value)}
-                placeholder="empfaenger@example.com"
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64"
-              />
-              <button
-                disabled={emailLoading || !emailEmpfaenger}
-                onClick={async () => {
-                  setEmailLoading(true); setEmailErfolg(""); setEmailFehler("");
-                  try {
-                    const res = await fetch("/api/exporte/rechnung/mail", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ lieferungId: lieferung.id, empfaenger: emailEmpfaenger }),
-                    });
-                    const data = await res.json() as { ok?: boolean; error?: string };
-                    if (data.ok) { setEmailErfolg(`Versendet an ${emailEmpfaenger}`); setEmailOffen(false); }
-                    else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-                  } catch { setEmailFehler("Versand fehlgeschlagen"); }
-                  finally { setEmailLoading(false); }
-                }}
-                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-              >
-                {emailLoading ? "Sendet…" : "Senden"}
-              </button>
-              <button onClick={() => setEmailOffen(false)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
-              {emailFehler && <span className="text-sm text-red-600 w-full">{emailFehler}</span>}
-            </div>
-          </div>
-        )}
-        {emailErfolg && !emailOffen && (
+        {emailErfolg && (
           <div className="mt-3 text-sm text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{emailErfolg}</div>
         )}
+        <EmailVersandModal
+          open={emailModalOffen}
+          onClose={() => setEmailModalOffen(false)}
+          title={`Rechnung ${lieferung.rechnungNr} versenden`}
+          kundenname={lieferung.kunde.firma ?? lieferung.kunde.name}
+          emailKontakte={(lieferung.kunde.kontakte ?? []).filter((k) => k.typ === "email")}
+          docType="rechnung"
+          loading={emailLoading}
+          fehler={emailFehler || undefined}
+          onSend={async (empfaenger, cc) => {
+            setEmailLoading(true); setEmailFehler("");
+            try {
+              const res = await fetch("/api/exporte/rechnung/mail", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lieferungId: lieferung.id, empfaenger, cc }),
+              });
+              const data = await res.json() as { ok?: boolean; error?: string };
+              if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
+              else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
+            } catch { setEmailFehler("Versand fehlgeschlagen"); }
+            finally { setEmailLoading(false); }
+          }}
+        />
       </div>
 
       {/* Positions table */}

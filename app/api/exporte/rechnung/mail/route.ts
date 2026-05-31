@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // Body: { lieferungId: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { lieferungId?: unknown; empfaenger?: unknown };
+    const body = (await req.json()) as { lieferungId?: unknown; empfaenger?: unknown; cc?: unknown };
     const lieferungId = Number(body.lieferungId);
     if (!Number.isInteger(lieferungId) || lieferungId <= 0) {
       return NextResponse.json({ error: "Ungültige lieferungId" }, { status: 400 });
@@ -136,12 +136,16 @@ export async function POST(req: NextRequest) {
       xmlFilename,
     });
 
+    const ccAdresse = typeof body.cc === "string" && body.cc.trim() ? body.cc.trim() : undefined;
+
     await sendEmail({
       to: empfaenger,
+      cc: ccAdresse,
       subject,
       text,
       html,
       fromName: firma.name,
+      feature: "rechnung",
       attachments: [
         { filename: pdfFilename, content: pdfBuffer, contentType: "application/pdf" },
         { filename: xmlFilename, content: Buffer.from(zugferdXml, "utf-8"), contentType: "application/xml" },
