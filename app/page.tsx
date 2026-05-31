@@ -207,30 +207,31 @@ interface DashboardData {
 
 type WidgetId =
   | "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende"
-  | "wetter" | "besuchstermine" | "sachkundenachweise" | "reklamationen_kritisch"
+  | "wetter" | "besuchstermine" | "sachkundenachweise" | "sprengstoff_nachweise" | "reklamationen_kritisch"
   | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung";
 
 const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
-  { id: "matif", label: "MATIF-Futures", icon: "📈" },
+  { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️" },
+  { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
   { id: "wiedervorlagen", label: "Wiedervorlagen", icon: "🔁" },
   { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
-  { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
-  { id: "pegelstaende", label: "Pegelstände", icon: "🌊" },
-  { id: "wetter", label: "5-Tage-Wetter", icon: "🌤️" },
-  { id: "besuchstermine", label: "Besuchstermine", icon: "📅" },
   { id: "sachkundenachweise", label: "Ablaufende Sachkundenachweise", icon: "🎓" },
-  { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️" },
+  { id: "besuchstermine", label: "Besuchstermine", icon: "📅" },
   { id: "budget", label: "Budget-Fortschritt", icon: "🎯" },
   { id: "angebote_pipeline", label: "Angebots-Pipeline", icon: "📊" },
   { id: "vorbestellungen", label: "Offene Vorbestellungen", icon: "🌱" },
+  { id: "matif", label: "MATIF-Futures", icon: "📈" },
+  { id: "wetter", label: "5-Tage-Wetter", icon: "🌤️" },
+  { id: "pegelstaende", label: "Pegelstände", icon: "🌊" },
+  { id: "sprengstoff_nachweise", label: "Sprengstoff-Nachweise (ablaufend)", icon: "💥" },
   { id: "personal_abrechnung", label: "Personal-Abrechnungen", icon: "👥" },
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = [
-  "kpis", "matif", "wiedervorlagen", "kein_kontakt", "benachrichtigungen",
-  "wetter", "besuchstermine", "sachkundenachweise", "reklamationen_kritisch",
-  "budget", "angebote_pipeline", "vorbestellungen",
+  "kpis", "reklamationen_kritisch", "benachrichtigungen", "wiedervorlagen", "kein_kontakt",
+  "sachkundenachweise", "sprengstoff_nachweise", "besuchstermine", "budget", "angebote_pipeline", "vorbestellungen",
+  "matif", "wetter",
 ];
 
 function useDashboardWidgets() {
@@ -905,6 +906,102 @@ function SachkundenachweiseWidget() {
                   </span>
                 </div>
               </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Sprengstoff-Nachweise Widget ─────────────────────────────────────────────
+
+function SprengstoffNachweiseWidget() {
+  const [items, setItems] = useState<SachkundenachweisDash[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [taskCreated, setTaskCreated] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    fetch("/api/sachkundenachweise?ablaufendIn=90&typ=Sprengstoff-Sachkunde")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function aufgabeErstellen(item: SachkundenachweisDash) {
+    const name = item.kunde.firma ?? item.kunde.name;
+    const faelligAm = item.gueltigBis
+      ? new Date(new Date(item.gueltigBis).getTime() - 30 * 86400000).toISOString()
+      : new Date().toISOString();
+    const res = await fetch("/api/aufgaben", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        betreff: `Sprengstoff-Sachkunde erneuern: ${name}`,
+        typ: "aufgabe",
+        prioritaet: "hoch",
+        faelligAm,
+        kundeId: item.kundeId,
+      }),
+    });
+    if (res.ok) setTaskCreated((prev) => ({ ...prev, [item.id]: true }));
+  }
+
+  function tageRest(bis: string | null): number {
+    if (!bis) return 999;
+    return Math.ceil((new Date(bis).getTime() - Date.now()) / 86400000);
+  }
+
+  function ampelColor(tage: number): string {
+    if (tage <= 0) return "text-red-700 bg-red-100";
+    if (tage <= 30) return "text-red-700 bg-red-100";
+    if (tage <= 60) return "text-yellow-700 bg-yellow-100";
+    return "text-amber-700 bg-amber-100";
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">Sprengstoff-Sachkunde</h2>
+          {items.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold">{items.length}</span>
+          )}
+        </div>
+        <Link href="/sachkundenachweise?typ=Sprengstoff-Sachkunde" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? (
+        <p className="text-sm text-gray-400">Wird geladen…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine Sprengstoff-Nachweise laufen in 90 Tagen ab</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const tage = tageRest(item.gueltigBis);
+            return (
+              <div key={item.id} className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors gap-2">
+                <Link href={`/kunden/${item.kundeId}?tab=Mehr`} className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.kunde.firma ?? item.kunde.name}</p>
+                  <p className="text-xs text-gray-500">{item.gueltigBis ? new Date(item.gueltigBis).toLocaleDateString("de-DE") : "Kein Datum"}</p>
+                </Link>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColor(tage)}`}>
+                    {tage <= 0 ? "Abgelaufen" : `${tage} Tage`}
+                  </span>
+                  {taskCreated[item.id] ? (
+                    <span className="text-xs text-green-600 font-medium">✓ Aufgabe</span>
+                  ) : (
+                    <button
+                      onClick={() => aufgabeErstellen(item)}
+                      title="Aufgabe erstellen"
+                      className="text-xs px-2 py-0.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-200 rounded transition-colors"
+                    >
+                      + Aufgabe
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
@@ -1631,6 +1728,14 @@ export default function DashboardPage() {
         )}
       </div>}
 
+      {/* Handlungsbedarf: Kritische Reklamationen + System-Benachrichtigungen */}
+      {(widgetAktiv("reklamationen_kritisch") || widgetAktiv("benachrichtigungen")) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {widgetAktiv("reklamationen_kritisch") && <ReklamationenKritischWidget />}
+          {widgetAktiv("benachrichtigungen") && <BenachrichtigungenWidget />}
+        </div>
+      )}
+
       {/* Mittlere Reihe: Fällige Rechnungen + Lager-Ampel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         {/* Fällige Rechnungen */}
@@ -1910,6 +2015,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Compliance + Besuchsplanung */}
+      {(widgetAktiv("sachkundenachweise") || widgetAktiv("sprengstoff_nachweise") || widgetAktiv("besuchstermine")) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
+          {widgetAktiv("sachkundenachweise") && <SachkundenachweiseWidget />}
+          {widgetAktiv("sprengstoff_nachweise") && <SprengstoffNachweiseWidget />}
+          {widgetAktiv("besuchstermine") && <BesuchstermineWidget />}
+        </div>
+      )}
+
       {/* Reihe: Top Kunden + Schnellzugriff + Markttrend */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Top Kunden */}
@@ -2033,29 +2147,7 @@ export default function DashboardPage() {
         </Card>}
       </div>
 
-      {/* System-Benachrichtigungen Widget */}
-      {widgetAktiv("benachrichtigungen") && (
-        <div className="mt-6">
-          <BenachrichtigungenWidget />
-        </div>
-      )}
-
-      {/* Pegelstände Widget */}
-      {widgetAktiv("pegelstaende") && (
-        <div className="mt-6">
-          <PegelstaendeWidget />
-        </div>
-      )}
-
-      {/* Neue Widgets Reihe 1: Wetter + Besuchstermine */}
-      {(widgetAktiv("wetter") || widgetAktiv("besuchstermine")) && (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {widgetAktiv("wetter") && <WetterWidget />}
-          {widgetAktiv("besuchstermine") && <BesuchstermineWidget />}
-        </div>
-      )}
-
-      {/* Neue Widgets Reihe 2: Budget + Angebots-Pipeline + Vorbestellungen */}
+      {/* Planung: Budget + Angebots-Pipeline + Vorbestellungen */}
       {(widgetAktiv("budget") || widgetAktiv("angebote_pipeline") || widgetAktiv("vorbestellungen")) && (
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {widgetAktiv("budget") && <BudgetWidget />}
@@ -2064,11 +2156,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Neue Widgets Reihe 3: Sachkundenachweise + Kritische Reklamationen */}
-      {(widgetAktiv("sachkundenachweise") || widgetAktiv("reklamationen_kritisch")) && (
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {widgetAktiv("sachkundenachweise") && <SachkundenachweiseWidget />}
-          {widgetAktiv("reklamationen_kritisch") && <ReklamationenKritischWidget />}
+      {/* Wetter */}
+      {widgetAktiv("wetter") && (
+        <div className="mt-6">
+          <WetterWidget />
+        </div>
+      )}
+
+      {/* Pegelstände */}
+      {widgetAktiv("pegelstaende") && (
+        <div className="mt-6">
+          <PegelstaendeWidget />
         </div>
       )}
 
