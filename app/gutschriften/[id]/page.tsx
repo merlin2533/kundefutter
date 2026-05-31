@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { GutschriftStatusBadge } from "@/components/Badge";
+import EmailVersandModal from "@/components/EmailVersandModal";
 
 interface GutschriftPosition {
   id: number;
@@ -22,7 +23,7 @@ interface Gutschrift {
   status: string;
   notiz?: string | null;
   createdAt: string;
-  kunde: { id: number; name: string; firma?: string | null; kontakte?: { typ: string; wert: string }[] };
+  kunde: { id: number; name: string; firma?: string | null; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   lieferung?: {
     id: number;
     datum: string;
@@ -42,8 +43,7 @@ export default function GutschriftDetailPage() {
   const [error, setError] = useState("");
 
   // E-Mail-Versand
-  const [emailOffen, setEmailOffen] = useState(false);
-  const [emailEmpfaenger, setEmailEmpfaenger] = useState("");
+  const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
@@ -55,8 +55,6 @@ export default function GutschriftDetailPage() {
         if (d.error) setError(d.error);
         else {
           setGutschrift(d);
-          const emailK = d.kunde?.kontakte?.find((k: { typ: string; wert: string }) => k.typ === "email");
-          if (emailK) setEmailEmpfaenger(emailK.wert);
         }
       })
       .catch(() => setError("Fehler beim Laden"))
@@ -143,7 +141,7 @@ export default function GutschriftDetailPage() {
             PDF herunterladen
           </a>
           <button
-            onClick={() => { setEmailOffen((v) => !v); setEmailErfolg(""); setEmailFehler(""); }}
+            onClick={() => { setEmailModalOffen(true); setEmailErfolg(""); setEmailFehler(""); }}
             className="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors"
           >
             Per E-Mail senden
@@ -182,46 +180,33 @@ export default function GutschriftDetailPage() {
         </div>
       )}
 
-      {/* Inline E-Mail-Versand */}
-      {emailOffen && (
-        <div className="mb-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
-          <p className="text-sm font-medium text-teal-800 mb-2">Gutschrift per E-Mail senden (PDF-Anhang)</p>
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="email"
-              value={emailEmpfaenger}
-              onChange={(e) => setEmailEmpfaenger(e.target.value)}
-              placeholder="empfaenger@example.com"
-              className="border border-teal-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64"
-            />
-            <button
-              disabled={emailLoading || !emailEmpfaenger}
-              onClick={async () => {
-                setEmailLoading(true); setEmailErfolg(""); setEmailFehler("");
-                try {
-                  const res = await fetch("/api/exporte/gutschrift/mail", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ gutschriftId: gutschrift.id, empfaenger: emailEmpfaenger }),
-                  });
-                  const data = await res.json() as { ok?: boolean; error?: string };
-                  if (data.ok) { setEmailErfolg(`Versendet an ${emailEmpfaenger}`); setEmailOffen(false); }
-                  else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-                } catch { setEmailFehler("Versand fehlgeschlagen"); }
-                finally { setEmailLoading(false); }
-              }}
-              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-            >
-              {emailLoading ? "Sendet…" : "Senden"}
-            </button>
-            <button onClick={() => setEmailOffen(false)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
-            {emailFehler && <span className="text-sm text-red-600 w-full">{emailFehler}</span>}
-          </div>
-        </div>
-      )}
-      {emailErfolg && !emailOffen && (
+      {emailErfolg && (
         <div className="mb-4 text-sm text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{emailErfolg}</div>
       )}
+      <EmailVersandModal
+        open={emailModalOffen}
+        onClose={() => setEmailModalOffen(false)}
+        title={`Gutschrift ${gutschrift.nummer} versenden`}
+        kundenname={gutschrift.kunde.firma ?? gutschrift.kunde.name}
+        emailKontakte={(gutschrift.kunde.kontakte ?? []).filter((k) => k.typ === "email")}
+        docType="gutschrift"
+        loading={emailLoading}
+        fehler={emailFehler || undefined}
+        onSend={async (empfaenger, cc) => {
+          setEmailLoading(true); setEmailFehler("");
+          try {
+            const res = await fetch("/api/exporte/gutschrift/mail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ gutschriftId: gutschrift.id, empfaenger, cc }),
+            });
+            const data = await res.json() as { ok?: boolean; error?: string };
+            if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
+            else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
+          } catch { setEmailFehler("Versand fehlgeschlagen"); }
+          finally { setEmailLoading(false); }
+        }}
+      />
 
       {/* Info card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">

@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
+import EmailVersandModal from "@/components/EmailVersandModal";
 
 interface FirmaEinstellungen {
   name: string;
@@ -17,7 +18,7 @@ interface FirmaEinstellungen {
 
 interface MahnwesenEintrag {
   lieferung: { id: number; datum: string; notiz: string | null };
-  kunde: { id: number; name: string; firma: string | null; kontakte?: { wert: string }[] };
+  kunde: { id: number; name: string; firma: string | null; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   rechnungNr: string | null;
   rechnungDatum: string;
   betrag: number;
@@ -65,8 +66,11 @@ export default function MahnwesenPage() {
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaFehler, setSepaFehler] = useState("");
 
-  // E-Mail-Versand je Zeile: lieferungId → { offen, empfaenger, loading, erfolg, fehler }
-  const [emailState, setEmailState] = useState<Record<number, { offen: boolean; empfaenger: string; loading: boolean; erfolg: string; fehler: string }>>({});
+  // E-Mail-Versand via Modal
+  const [emailModalEintrag, setEmailModalEintrag] = useState<MahnwesenEintrag | null>(null);
+  const [emailModalLoading, setEmailModalLoading] = useState(false);
+  const [emailModalFehler, setEmailModalFehler] = useState("");
+  const [emailErfolg, setEmailErfolg] = useState<Record<number, string>>({});
   const [firma, setFirma] = useState<FirmaEinstellungen>({
     name: "", adresse: "", plz: "", ort: "", tel: "", email: "", iban: "", bic: "",
   });
@@ -477,19 +481,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                             Drucken
                           </button>
                           <button
-                            onClick={() => {
-                              const lid = e.lieferung.id;
-                              setEmailState((prev) => ({
-                                ...prev,
-                                [lid]: {
-                                  offen: !prev[lid]?.offen,
-                                  empfaenger: prev[lid]?.offen
-                                    ? (prev[lid]?.empfaenger ?? "")
-                                    : (prev[lid]?.empfaenger || e.kunde.kontakte?.[0]?.wert || ""),
-                                  loading: false, erfolg: "", fehler: "",
-                                },
-                              }));
-                            }}
+                            onClick={() => { setEmailModalEintrag(e); setEmailModalFehler(""); }}
                             className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
                             title="Mahnung per E-Mail senden"
                           >
@@ -505,47 +497,9 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         </div>
                       </td>
                     </tr>
-                    {emailState[e.lieferung.id]?.offen && (
+                    {emailErfolg[e.lieferung.id] && (
                       <tr className="bg-teal-50 border-b border-teal-100">
-                        <td colSpan={10} className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2 items-center">
-                            <span className="text-xs font-medium text-teal-800">Mahnung per E-Mail senden:</span>
-                            <input
-                              type="email"
-                              value={emailState[e.lieferung.id]?.empfaenger ?? ""}
-                              onChange={(ev) => setEmailState((prev) => ({ ...prev, [e.lieferung.id]: { ...prev[e.lieferung.id], empfaenger: ev.target.value } }))}
-                              placeholder="empfaenger@example.com"
-                              className="border border-teal-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-teal-500 w-56"
-                            />
-                            <button
-                              disabled={emailState[e.lieferung.id]?.loading || !emailState[e.lieferung.id]?.empfaenger}
-                              onClick={async () => {
-                                const lid = e.lieferung.id;
-                                setEmailState((prev) => ({ ...prev, [lid]: { ...prev[lid], loading: true, fehler: "", erfolg: "" } }));
-                                try {
-                                  const res = await fetch("/api/exporte/mahnung/mail", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ lieferungId: lid, mahnstufe: e.mahnstufe, empfaenger: emailState[lid]?.empfaenger }),
-                                  });
-                                  const data = await res.json() as { ok?: boolean; error?: string };
-                                  if (data.ok) setEmailState((prev) => ({ ...prev, [lid]: { ...prev[lid], loading: false, erfolg: `Versendet an ${prev[lid]?.empfaenger}`, offen: false } }));
-                                  else setEmailState((prev) => ({ ...prev, [lid]: { ...prev[lid], loading: false, fehler: data.error ?? "Versand fehlgeschlagen" } }));
-                                } catch { setEmailState((prev) => ({ ...prev, [lid]: { ...prev[lid], loading: false, fehler: "Versand fehlgeschlagen" } })); }
-                              }}
-                              className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded font-medium disabled:opacity-50"
-                            >
-                              {emailState[e.lieferung.id]?.loading ? "Sendet…" : "Senden"}
-                            </button>
-                            <button onClick={() => setEmailState((prev) => ({ ...prev, [e.lieferung.id]: { ...prev[e.lieferung.id], offen: false } }))} className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50">Abbrechen</button>
-                            {emailState[e.lieferung.id]?.fehler && <span className="text-xs text-red-600">{emailState[e.lieferung.id].fehler}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {emailState[e.lieferung.id]?.erfolg && !emailState[e.lieferung.id]?.offen && (
-                      <tr className="bg-teal-50 border-b border-teal-100">
-                        <td colSpan={10} className="px-4 py-2 text-xs text-teal-700">{emailState[e.lieferung.id].erfolg}</td>
+                        <td colSpan={10} className="px-4 py-2 text-xs text-teal-700">{emailErfolg[e.lieferung.id]}</td>
                       </tr>
                     )}
                     </Fragment>
@@ -730,6 +684,38 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
           </div>
         </div>
       )}
+    {/* Mahnung E-Mail Modal */}
+    {emailModalEintrag && (
+      <EmailVersandModal
+        open={true}
+        onClose={() => { setEmailModalEintrag(null); setEmailModalFehler(""); }}
+        title={`Mahnung ${emailModalEintrag.rechnungNr ?? ""} versenden`}
+        kundenname={emailModalEintrag.kunde.firma ?? emailModalEintrag.kunde.name}
+        emailKontakte={(emailModalEintrag.kunde.kontakte ?? []).filter((k) => k.typ === "email")}
+        docType="mahnung"
+        loading={emailModalLoading}
+        fehler={emailModalFehler || undefined}
+        onSend={async (empfaenger, cc) => {
+          const lid = emailModalEintrag.lieferung.id;
+          setEmailModalLoading(true); setEmailModalFehler("");
+          try {
+            const res = await fetch("/api/exporte/mahnung/mail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ lieferungId: lid, mahnstufe: emailModalEintrag.mahnstufe, empfaenger, cc }),
+            });
+            const data = await res.json() as { ok?: boolean; error?: string };
+            if (data.ok) {
+              setEmailErfolg((prev) => ({ ...prev, [lid]: `Versendet an ${empfaenger}` }));
+              setEmailModalEintrag(null);
+            } else {
+              setEmailModalFehler(data.error ?? "Versand fehlgeschlagen");
+            }
+          } catch { setEmailModalFehler("Versand fehlgeschlagen"); }
+          finally { setEmailModalLoading(false); }
+        }}
+      />
+    )}
     </div>
   );
 }
