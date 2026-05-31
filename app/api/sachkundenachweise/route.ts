@@ -18,10 +18,12 @@ export async function GET(req: NextRequest) {
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
   const abgelaufen = searchParams.get("abgelaufen") === "1";
   const ablaufendIn = parseInt(searchParams.get("ablaufendIn") ?? "", 10);
+  const typFilter = searchParams.get("typ");
 
   try {
-    const where: { kundeId?: number; gueltigBis?: { lt?: Date; lte?: Date; gte?: Date } } = {};
+    const where: { kundeId?: number; typ?: string; gueltigBis?: { lt?: Date; lte?: Date; gte?: Date } } = {};
     if (!isNaN(kundeId)) where.kundeId = kundeId;
+    if (typFilter && TYPEN_WHITELIST.has(typFilter)) where.typ = typFilter;
 
     const now = new Date();
     if (abgelaufen) {
