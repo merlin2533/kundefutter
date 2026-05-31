@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { KpiCard, Card } from "@/components/Card";
 import Link from "next/link";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 
 interface ChurnKunde {
@@ -205,7 +205,10 @@ interface DashboardData {
 
 // ─── Dashboard Widgets ────────────────────────────────────────────────────────
 
-type WidgetId = "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende";
+type WidgetId =
+  | "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende"
+  | "wetter" | "besuchstermine" | "sachkundenachweise" | "reklamationen_kritisch"
+  | "budget" | "angebote_pipeline" | "vorbestellungen";
 
 const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
@@ -214,27 +217,44 @@ const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
   { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
   { id: "pegelstaende", label: "Pegelstände", icon: "🌊" },
+  { id: "wetter", label: "5-Tage-Wetter", icon: "🌤️" },
+  { id: "besuchstermine", label: "Besuchstermine", icon: "📅" },
+  { id: "sachkundenachweise", label: "Ablaufende Sachkundenachweise", icon: "🎓" },
+  { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️" },
+  { id: "budget", label: "Budget-Fortschritt", icon: "🎯" },
+  { id: "angebote_pipeline", label: "Angebots-Pipeline", icon: "📊" },
+  { id: "vorbestellungen", label: "Offene Vorbestellungen", icon: "🌱" },
 ];
 
-const DEFAULT_WIDGETS: WidgetId[] = ["kpis", "matif", "wiedervorlagen", "kein_kontakt", "benachrichtigungen"];
+const DEFAULT_WIDGETS: WidgetId[] = [
+  "kpis", "matif", "wiedervorlagen", "kein_kontakt", "benachrichtigungen",
+  "wetter", "besuchstermine", "sachkundenachweise", "reklamationen_kritisch",
+  "budget", "angebote_pipeline", "vorbestellungen",
+];
 
 function useDashboardWidgets() {
   const [aktiv, setAktiv] = useState<WidgetId[]>(DEFAULT_WIDGETS);
   const [loaded, setLoaded] = useState(false);
+  const [widgetKey, setWidgetKey] = useState("dashboard.widgets");
 
   useEffect(() => {
-    fetch("/api/einstellungen?prefix=dashboard.")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((d: Record<string, string>) => {
-        const raw = d["dashboard.widgets"];
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              setAktiv(parsed as WidgetId[]);
+    // Erst User-ID laden, dann user-spezifischen Widget-Key lesen
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me: { id: number } | null) => {
+        const key = me?.id ? `dashboard.widgets.${me.id}` : "dashboard.widgets";
+        setWidgetKey(key);
+        return fetch(`/api/einstellungen?prefix=${encodeURIComponent(key)}`)
+          .then((r) => (r.ok ? r.json() : {}))
+          .then((d: Record<string, string>) => {
+            const raw = d[key];
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) setAktiv(parsed as WidgetId[]);
+              } catch { /* use default */ }
             }
-          } catch { /* use default */ }
-        }
+          });
       })
       .catch(() => { /* use default */ })
       .finally(() => setLoaded(true));
@@ -243,11 +263,10 @@ function useDashboardWidgets() {
   function toggleWidget(id: WidgetId) {
     setAktiv((prev) => {
       const next = prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id];
-      // Persist async
       fetch("/api/einstellungen", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "dashboard.widgets", value: JSON.stringify(next) }),
+        body: JSON.stringify({ key: widgetKey, value: JSON.stringify(next) }),
       }).catch(() => {});
       return next;
     });
@@ -697,6 +716,478 @@ function CrmSchnellWidget() {
         </form>
       )}
     </div>
+  );
+}
+
+// ─── Wetter Widget ────────────────────────────────────────────────────────────
+
+interface WetterTag {
+  datum: string;
+  maxTemp: number;
+  minTemp: number;
+  niederschlag: number;
+  beschreibung: string;
+  icon: string;
+}
+
+function WetterWidget() {
+  const [tage, setTage] = useState<WetterTag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const h = new Date();
+  const wetterHeuteDatum = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-${String(h.getDate()).padStart(2, "0")}`;
+
+  useEffect(() => {
+    fetch("/api/wetter")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setTage(Array.isArray(d) ? d : []))
+      .catch(() => setTage([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">5-Tage-Wetter</h2>
+        <Link href="/spritzfenster" className="text-xs text-green-700 hover:underline">Spritzfenster →</Link>
+      </div>
+      {loading ? (
+        <div className="flex gap-2">
+          {[...Array(5)].map((_, i) => <div key={i} className="flex-1 h-20 bg-gray-100 rounded-lg animate-pulse" />)}
+        </div>
+      ) : tage.length === 0 ? (
+        <p className="text-sm text-gray-400">Wetterdaten nicht verfügbar</p>
+      ) : (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {tage.map((t) => {
+            const wochentag = new Date(t.datum).toLocaleDateString("de-DE", { weekday: "short" });
+            const istHeute = t.datum === wetterHeuteDatum;
+            return (
+              <div key={t.datum} className={`flex-1 min-w-[60px] flex flex-col items-center gap-0.5 p-2 rounded-lg border ${istHeute ? "bg-green-50 border-green-200" : "border-gray-100"}`}>
+                <span className="text-xs font-medium text-gray-500">{istHeute ? "Heute" : wochentag}</span>
+                <span className="text-xl leading-none">{t.icon}</span>
+                <span className="text-xs font-semibold text-gray-800">{t.maxTemp}°</span>
+                <span className="text-xs text-gray-400">{t.minTemp}°</span>
+                {t.niederschlag > 0 && (
+                  <span className="text-xs text-blue-500">💧{t.niederschlag}mm</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Besuchstermine Widget ────────────────────────────────────────────────────
+
+interface BesuchsterminItem {
+  id: number;
+  betreff: string;
+  datum: string;
+  kundeId: number;
+  kunde: { id: number; name: string; firma: string | null };
+}
+
+function BesuchstermineWidget() {
+  const [termine, setTermine] = useState<BesuchsterminItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const besuchHeuteStr = new Date().toDateString();
+
+  useEffect(() => {
+    const in7Tagen = addTage(new Date(), 7);
+    fetch("/api/besuchstermine")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: BesuchsterminItem[]) => {
+        if (!Array.isArray(d)) { setTermine([]); return; }
+        setTermine(d.filter((t) => new Date(t.datum) <= in7Tagen).slice(0, 8));
+      })
+      .catch(() => setTermine([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">Besuchstermine (7 Tage)</h2>
+        <Link href="/besuchstermine" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : termine.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine Besuchstermine in den nächsten 7 Tagen</p>
+      ) : (
+        <div className="space-y-2">
+          {termine.map((t) => {
+            const d = new Date(t.datum);
+            const istHeute = d.toDateString() === besuchHeuteStr;
+            return (
+              <Link key={t.id} href={`/kunden/${t.kundeId}`}
+                className={`flex items-center justify-between p-2 rounded-lg border transition-colors hover:opacity-90 ${istHeute ? "border-green-200 bg-green-50" : "border-gray-100"}`}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{t.kunde.firma ?? t.kunde.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{t.betreff}</p>
+                </div>
+                <span className={`text-xs shrink-0 ml-2 font-medium ${istHeute ? "text-green-700" : "text-gray-400"}`}>
+                  {istHeute ? "Heute" : d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" })}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Sachkundenachweise Widget ────────────────────────────────────────────────
+
+interface SachkundenachweisDash {
+  id: number;
+  typ: string;
+  gueltigBis: string | null;
+  kundeId: number;
+  kunde: { id: number; name: string; firma: string | null };
+}
+
+function SachkundenachweiseWidget() {
+  const [items, setItems] = useState<SachkundenachweisDash[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/sachkundenachweise?ablaufendIn=60")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setItems(Array.isArray(d) ? d.slice(0, 8) : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function tageRest(bis: string | null): number {
+    if (!bis) return 999;
+    return Math.ceil((new Date(bis).getTime() - Date.now()) / 86400000);
+  }
+
+  function ampelColor(tage: number): string {
+    if (tage <= 14) return "text-red-700 bg-red-100";
+    if (tage <= 30) return "text-yellow-700 bg-yellow-100";
+    return "text-amber-700 bg-amber-100";
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">Ablaufende Sachkundenachweise</h2>
+          {items.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-white text-xs font-bold">{items.length}</span>
+          )}
+        </div>
+        <Link href="/sachkundenachweise" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : items.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine Nachweise laufen in 60 Tagen ab</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const tage = tageRest(item.gueltigBis);
+            return (
+              <Link key={item.id} href={`/kunden/${item.kundeId}?tab=Mehr`}
+                className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.kunde.firma ?? item.kunde.name}</p>
+                  <p className="text-xs text-gray-500 truncate">{item.typ}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {item.gueltigBis && (
+                    <span className="text-xs text-gray-400">{formatDatum(item.gueltigBis)}</span>
+                  )}
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColor(tage)}`}>
+                    {tage <= 0 ? "Abgelaufen" : `${tage} Tage`}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Reklamationen Kritisch Widget ───────────────────────────────────────────
+
+interface ReklamationDash {
+  id: number;
+  nummer: string;
+  betreff: string;
+  prioritaet: string;
+  kundeId: number;
+  kunde: { id: number; name: string; firma: string | null };
+}
+
+const REKLAM_PRIO_BADGE: Record<string, string> = {
+  kritisch: "bg-red-100 text-red-700",
+  hoch: "bg-orange-100 text-orange-700",
+};
+
+const ANGEBOT_STATUS_COLOR: Record<string, string> = {
+  OFFEN: "bg-blue-400",
+  ANGENOMMEN: "bg-green-500",
+  ABGELEHNT: "bg-red-400",
+  ABGELAUFEN: "bg-gray-300",
+};
+
+function ReklamationenKritischWidget() {
+  const [items, setItems] = useState<ReklamationDash[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/reklamationen?status=OFFEN")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: ReklamationDash[]) => {
+        if (!Array.isArray(d)) { setItems([]); return; }
+        setItems(d.filter((r) => r.prioritaet === "hoch" || r.prioritaet === "kritisch").slice(0, 8));
+      })
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">Kritische Reklamationen</h2>
+          {items.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold">{items.length}</span>
+          )}
+        </div>
+        <Link href="/reklamationen" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : items.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine offenen kritischen Reklamationen</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((r) => (
+            <Link key={r.id} href={`/reklamationen/${r.id}`}
+              className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-gray-800 truncate">{r.betreff}</p>
+                <p className="text-xs text-gray-500 truncate">{r.kunde.firma ?? r.kunde.name}</p>
+              </div>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ml-2 ${REKLAM_PRIO_BADGE[r.prioritaet] ?? "bg-gray-100 text-gray-600"}`}>
+                {r.prioritaet}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Budget Widget ────────────────────────────────────────────────────────────
+
+interface BudgetGesamt {
+  zielBetrag: number;
+  istBetrag: number;
+  erreichungProzent: number | null;
+}
+
+interface BudgetData {
+  gesamt: BudgetGesamt;
+  monatsUebersicht: { monat: number; istBetrag: number; zielBetrag: number }[];
+}
+
+function BudgetWidget() {
+  const [data, setData] = useState<BudgetData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const now = new Date();
+  const jahr = now.getFullYear();
+  const monat = now.getMonth() + 1;
+
+  useEffect(() => {
+    fetch(`/api/budget?jahr=${jahr}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setData(d ?? null))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const prozent = data?.gesamt.erreichungProzent ?? 0;
+  const aktuellerMonat = data?.monatsUebersicht.find((m) => m.monat === monat);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">Budget-Fortschritt {jahr}</h2>
+        <Link href="/statistik/budget" className="text-xs text-green-700 hover:underline">Details →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : !data || data.gesamt.zielBetrag === 0 ? (
+        <div>
+          <p className="text-sm text-gray-400 mb-2">Kein Jahresbudget hinterlegt</p>
+          <Link href="/statistik/budget" className="text-xs text-green-700 hover:underline font-medium">Budget anlegen →</Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Ist: {formatEuro(data.gesamt.istBetrag)}</span>
+              <span>Ziel: {formatEuro(data.gesamt.zielBetrag)}</span>
+            </div>
+            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${prozent >= 100 ? "bg-green-500" : prozent >= 75 ? "bg-blue-500" : prozent >= 50 ? "bg-amber-400" : "bg-red-400"}`}
+                style={{ width: `${Math.min(prozent, 100)}%` }}
+              />
+            </div>
+            <p className={`text-xs mt-1 font-medium ${prozent >= 100 ? "text-green-700" : prozent >= 75 ? "text-blue-700" : "text-gray-500"}`}>
+              {prozent.toFixed(1)} % erreicht
+            </p>
+          </div>
+          {aktuellerMonat && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-500 mb-1">Aktueller Monat</p>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-700 font-medium">{formatEuro(aktuellerMonat.istBetrag)}</span>
+                {aktuellerMonat.zielBetrag > 0 && (
+                  <span className="text-gray-400">/ {formatEuro(aktuellerMonat.zielBetrag)}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Angebots-Pipeline Widget ─────────────────────────────────────────────────
+
+interface AngebotePipelineData {
+  pipeline: { wert: number; annahmequote: number; offenWert: number };
+  nachStatus: { status: string; anzahl: number; wert: number }[];
+  summe: { anzahl: number };
+}
+
+function AngebotePipelineWidget() {
+  const [data, setData] = useState<AngebotePipelineData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const jetzt = new Date();
+    const vonDate = new Date(jetzt.getFullYear(), jetzt.getMonth() - 2, 1);
+    const von = `${vonDate.getFullYear()}-${String(vonDate.getMonth() + 1).padStart(2, "0")}`;
+    const bis = `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, "0")}`;
+    fetch(`/api/statistik/angebote?von=${von}&bis=${bis}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setData(d ?? null))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const gesamtwert = data?.nachStatus.reduce((s, x) => s + x.wert, 0) ?? 0;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-semibold">Angebots-Pipeline</h2>
+        <Link href="/statistik/angebote" className="text-xs text-green-700 hover:underline">Details →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : !data ? (
+        <p className="text-sm text-gray-400">Keine Angebotsdaten</p>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500">Pipeline-Wert</p>
+              <p className="text-lg font-bold text-blue-700">{formatEuro(data.pipeline.wert)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Annahmequote</p>
+              <p className="text-lg font-bold text-green-700">{data.pipeline.annahmequote.toFixed(0)} %</p>
+            </div>
+          </div>
+          {data.nachStatus.length > 0 && (
+            <div className="space-y-1.5">
+              {data.nachStatus.map((s) => (
+                <div key={s.status}>
+                  <div className="flex justify-between text-xs text-gray-500 mb-0.5">
+                    <span>{s.status}</span>
+                    <span>{s.anzahl} · {formatEuro(s.wert)}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${ANGEBOT_STATUS_COLOR[s.status] ?? "bg-gray-400"}`}
+                      style={{ width: `${gesamtwert > 0 ? (s.wert / gesamtwert) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Vorbestellungen Widget ───────────────────────────────────────────────────
+
+interface VorbestellungDash {
+  id: number;
+  saison: string;
+  bestellfrist: string | null;
+  kundeId: number;
+  kunde: { id: number; name: string; firma: string | null };
+  positionen: { id: number }[];
+}
+
+function VorbestellungenWidget() {
+  const [items, setItems] = useState<VorbestellungDash[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vorbestellungen?status=OFFEN")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setItems(Array.isArray(d) ? d.slice(0, 8) : []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">Offene Vorbestellungen</h2>
+          {items.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-600 text-white text-xs font-bold">{items.length}</span>
+          )}
+        </div>
+        <Link href="/vorbestellungen" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : items.length === 0 ? (
+        <p className="text-sm text-gray-400">Keine offenen Vorbestellungen</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((v) => {
+            const frist = v.bestellfrist ? new Date(v.bestellfrist) : null;
+            const fristNah = frist && frist.getTime() - Date.now() < 7 * 86400000;
+            return (
+              <Link key={v.id} href={`/vorbestellungen/${v.id}`}
+                className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{v.kunde.firma ?? v.kunde.name}</p>
+                  <p className="text-xs text-gray-500">{v.saison} · {v.positionen.length} Position{v.positionen.length !== 1 ? "en" : ""}</p>
+                </div>
+                {frist && (
+                  <span className={`text-xs shrink-0 ml-2 font-medium ${fristNah ? "text-red-600" : "text-gray-400"}`}>
+                    bis {formatDatum(v.bestellfrist!)}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -1482,6 +1973,31 @@ export default function DashboardPage() {
       {widgetAktiv("pegelstaende") && (
         <div className="mt-6">
           <PegelstaendeWidget />
+        </div>
+      )}
+
+      {/* Neue Widgets Reihe 1: Wetter + Besuchstermine */}
+      {(widgetAktiv("wetter") || widgetAktiv("besuchstermine")) && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {widgetAktiv("wetter") && <WetterWidget />}
+          {widgetAktiv("besuchstermine") && <BesuchstermineWidget />}
+        </div>
+      )}
+
+      {/* Neue Widgets Reihe 2: Budget + Angebots-Pipeline + Vorbestellungen */}
+      {(widgetAktiv("budget") || widgetAktiv("angebote_pipeline") || widgetAktiv("vorbestellungen")) && (
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {widgetAktiv("budget") && <BudgetWidget />}
+          {widgetAktiv("angebote_pipeline") && <AngebotePipelineWidget />}
+          {widgetAktiv("vorbestellungen") && <VorbestellungenWidget />}
+        </div>
+      )}
+
+      {/* Neue Widgets Reihe 3: Sachkundenachweise + Kritische Reklamationen */}
+      {(widgetAktiv("sachkundenachweise") || widgetAktiv("reklamationen_kritisch")) && (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {widgetAktiv("sachkundenachweise") && <SachkundenachweiseWidget />}
+          {widgetAktiv("reklamationen_kritisch") && <ReklamationenKritischWidget />}
         </div>
       )}
 
