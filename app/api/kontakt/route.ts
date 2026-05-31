@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { verifyToken, generateToken } from "./csrf/route";
+import { verifyToken, generateToken } from "@/lib/csrf";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

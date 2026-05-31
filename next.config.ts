@@ -6,6 +6,15 @@ const buildId = randomUUID();
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["leaflet", "react-leaflet"],
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      crypto: false,
+    };
+    return config;
+  },
   env: {
     NEXT_PUBLIC_BUILD_ID: buildId,
   },

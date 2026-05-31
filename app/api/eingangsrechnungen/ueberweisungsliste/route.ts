@@ -22,7 +22,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            firma: true,
             iban: true,
             bic: true,
             kontoinhaber: true,
@@ -43,10 +42,10 @@ export async function GET(req: NextRequest) {
       brutto: Math.round(r.betrag * (1 + r.mwst / 100) * 100) / 100,
       notiz: r.notiz,
       lieferantId: r.lieferantId,
-      lieferantName: r.lieferant?.firma ?? r.lieferant?.name ?? "—",
+      lieferantName: r.lieferant?.name ?? "—",
       iban: r.lieferant?.iban ?? null,
       bic: r.lieferant?.bic ?? null,
-      kontoinhaber: r.lieferant?.kontoinhaber ?? r.lieferant?.firma ?? r.lieferant?.name ?? null,
+      kontoinhaber: r.lieferant?.kontoinhaber ?? r.lieferant?.name ?? null,
       ibanFehlt: !r.lieferant?.iban,
       ueberfaellig: r.faelligAm ? new Date(r.faelligAm) < new Date() : false,
     }));
