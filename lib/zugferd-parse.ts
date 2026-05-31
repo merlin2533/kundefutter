@@ -7,6 +7,8 @@ export interface ZugferdParsed {
   datum: string | null;       // ISO: YYYY-MM-DD
   faelligAm: string | null;  // ISO: YYYY-MM-DD
   lieferantName: string | null;
+  iban: string | null;
+  bic: string | null;
   betragNetto: number | null;
   mwstBetrag: number | null;
   mwstSatz: number | null;
@@ -148,11 +150,28 @@ export function parseZugferdXml(xml: string): ZugferdParsed {
     }
   }
 
+  // IBAN aus CreditorFinancialAccount (ZUGFeRD 2.x) oder PayeeFinancialAccount
+  const ibanRaw =
+    extractInContext(xml, "SpecifiedCreditorFinancialAccount", "IBANID") ??
+    extractInContext(xml, "PayeeSpecifiedCreditorFinancialAccount", "IBANID") ??
+    extractInContext(xml, "PayeeFinancialAccount", "IBANID") ??
+    extractTag(xml, "IBANID");
+  const iban = ibanRaw ? ibanRaw.replace(/\s/g, "").toUpperCase() : null;
+
+  // BIC aus CreditorFinancialInstitution
+  const bicRaw =
+    extractInContext(xml, "SpecifiedCreditorFinancialInstitution", "BICID") ??
+    extractInContext(xml, "PayeeSpecifiedCreditorFinancialInstitution", "BICID") ??
+    extractTag(xml, "BICID");
+  const bic = bicRaw ? bicRaw.replace(/\s/g, "").toUpperCase() : null;
+
   return {
     rechnungNummer,
     datum,
     faelligAm,
     lieferantName,
+    iban,
+    bic,
     betragNetto: betragNetto !== null && !isNaN(betragNetto) ? betragNetto : null,
     mwstBetrag: mwstBetrag !== null && !isNaN(mwstBetrag) ? mwstBetrag : null,
     mwstSatz,

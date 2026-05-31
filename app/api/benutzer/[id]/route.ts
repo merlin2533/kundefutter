@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { ALL_PERMISSIONS } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 
@@ -28,8 +29,6 @@ function parseId(raw: string): number | null {
   if (isNaN(id) || id <= 0) return null;
   return id;
 }
-
-import { ALL_PERMISSIONS } from "@/lib/permissions";
 
 async function aktiveAdminsAusserDiesem(id: number): Promise<number> {
   return prisma.benutzer.count({
@@ -87,7 +86,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     data.email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
   }
   if (typeof body?.rolle === "string") {
-    if (!ROLLEN.includes(body.rolle as (typeof ROLLEN)[number])) {
+    if (!body.rolle || body.rolle.length < 2) {
       return NextResponse.json({ error: "Ungültige Rolle" }, { status: 400 });
     }
     if (me.id === id && body.rolle !== "admin") {

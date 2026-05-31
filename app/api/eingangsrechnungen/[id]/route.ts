@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const record = await prisma.eingangsRechnung.findUnique({
       where: { id: nId },
       include: {
-        lieferant: { select: { id: true, name: true, email: true, telefon: true, ort: true } },
+        lieferant: { select: { id: true, name: true, firma: true, email: true, telefon: true, ort: true, iban: true, bic: true, kontoinhaber: true } },
       },
     });
     if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -43,6 +43,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   if (body.aktion === "bezahlen") {
     data.status = "BEZAHLT";
+    data.zahlungsDatum = new Date();
   } else {
     if (body.status !== undefined) {
       if (!GUELTIGE_STATUS.includes(body.status)) return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 });

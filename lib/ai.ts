@@ -580,6 +580,8 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
   "mwstSatz": 19,
   "betragBrutto": 146.91,
   "lieferant": "Name des Rechnungsstellers (falls erkennbar, sonst null)",
+  "iban": "IBAN des Zahlungsempfängers (z.B. DE89370400440532013000, Leerzeichen entfernen, nur wenn eindeutig erkennbar, sonst null)",
+  "bic": "BIC/SWIFT-Code der Bank (z.B. COBADEFFXXX, nur wenn angegeben, sonst null)",
   "kategorie": "Eine der folgenden Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf | Telefon/Internet | Versicherung | Miete | Sonstige"
 }
 
@@ -588,6 +590,7 @@ Regeln:
 - "betragNetto" und "betragBrutto" als Dezimalzahl mit Punkt (kein €-Zeichen).
 - Wenn Netto nicht direkt angegeben: berechne aus Brutto und MwSt.
 - "faelligAm": Berechne aus Rechnungsdatum + Zahlungsziel (z.B. "30 Tage netto" → datum + 30 Tage). Falls kein Zahlungsziel angegeben: null.
+- "iban": Leerzeichen aus IBAN entfernen. Nur setzen wenn eindeutig als IBAN erkennbar (beginnt mit 2-Buchstaben-Ländercode + Ziffern).
 - "kategorie" anhand des Inhalts einordnen (z.B. Dünger/Futter → Wareneinkauf, Reparatur → Betriebsbedarf).
 - Fehlende Felder auf null setzen, niemals erfinden.`,
 

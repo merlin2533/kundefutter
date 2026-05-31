@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
 
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
+    // IBAN validieren: muss mit 2-Buchstaben-Ländercode beginnen, dann Ziffern
+    const ibanRaw = typeof p.iban === "string" ? p.iban.replace(/\s/g, "").toUpperCase() : null;
+    const iban = ibanRaw && /^[A-Z]{2}[0-9A-Z]{10,30}$/.test(ibanRaw) ? ibanRaw : null;
+    const bic = typeof p.bic === "string" && p.bic.trim() ? p.bic.trim().toUpperCase() : null;
+
     return NextResponse.json({
       datum: typeof p.datum === "string" && datePattern.test(p.datum) ? p.datum : null,
       belegNr: typeof p.belegNr === "string" ? p.belegNr : null,
@@ -67,6 +72,8 @@ export async function POST(req: NextRequest) {
       mwstSatz,
       kategorie,
       lieferant: typeof p.lieferant === "string" ? p.lieferant : null,
+      iban,
+      bic,
       tokensIn: result.tokensIn,
       tokensOut: result.tokensOut,
     });
