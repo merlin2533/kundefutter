@@ -43,6 +43,7 @@ export const SACHKONTEN_SKR03: Record<string, string> = {
   "Telefon/Internet": "4920",
   Versicherung: "4360",
   Miete: "4210",
+  Personal: "4120",   // Löhne und Gehälter
   Sonstige: "4900",
 };
 
@@ -55,6 +56,7 @@ export const SACHKONTEN_SKR04: Record<string, string> = {
   "Telefon/Internet": "6805",
   Versicherung: "6310",
   Miete: "6130",
+  Personal: "6010",   // Löhne und Gehälter
   Sonstige: "6800",
 };
 
@@ -173,5 +175,25 @@ export function getGegenkonto(
  */
 export function getBuSchluessel(buchungstyp: string): string {
   return buchungstyp === "Bewirtung" ? "9" : "";
+}
+
+// ─── Lohnbuchhaltung ──────────────────────────────────────────────────────────
+
+/**
+ * Aufwandskonto für Lohnzahlungen.
+ * SKR03: 4120 Gehälter | 4110 Löhne
+ * SKR04: 6010 Löhne und Gehälter
+ */
+export function lohnKonto(typ: string, kontenrahmen: "SKR03" | "SKR04"): string {
+  if (kontenrahmen === "SKR04") return "6010";
+  return typ === "festgehalt" ? "4120" : "4110";
+}
+
+/**
+ * Bank-Gegenkonto für ausgezahlte Löhne (Girokonto).
+ * SKR03: 1200 | SKR04: 1800
+ */
+export function lohnGegenkonto(kontenrahmen: "SKR03" | "SKR04"): string {
+  return kontenrahmen === "SKR04" ? "1800" : "1200";
 }
 

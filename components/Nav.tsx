@@ -116,6 +116,7 @@ const groups: NavGroup[] = [
       { href: "/personal", label: "Mitarbeiter", section: "Stammdaten" },
       { href: "/personal/abrechnungen", label: "Abrechnungen", section: "Abrechnung" },
       { href: "/personal/ueberweisungsliste", label: "Überweisungsliste", section: "Abrechnung" },
+      { href: "/personal/jahresuebersicht", label: "Jahresübersicht", section: "Auswertung" },
     ],
   },
   {
@@ -226,6 +227,7 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/personal": "Mitarbeiter",
   "/personal/abrechnungen": "Gehaltsabrechnungen",
   "/personal/ueberweisungsliste": "Überweisungsliste",
+  "/personal/jahresuebersicht": "Personalkosten-Jahresübersicht",
 };
 
 function getPageTitle(pathname: string): string {
