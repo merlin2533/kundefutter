@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import { downloadCSV } from "@/lib/csv";
 
@@ -15,10 +16,19 @@ interface MonatRow {
   anzahl: number;
 }
 
+interface DormantKunde {
+  kundeId: number;
+  name: string;
+  firma: string | null;
+  letzteAktivitaet: string | null;
+  umsatz12M: number;
+}
+
 interface Data {
   nachTyp: TypRow[];
   nachMonat: MonatRow[];
   offeneAufgaben: number;
+  dormantKunden: DormantKunde[];
   summe: { anzahl: number };
 }
 
@@ -69,6 +79,7 @@ export default function StatistikCrmPage() {
 
   const nachTyp = Array.isArray(data?.nachTyp) ? data!.nachTyp : [];
   const nachMonat = Array.isArray(data?.nachMonat) ? data!.nachMonat : [];
+  const dormantKunden = Array.isArray(data?.dormantKunden) ? data!.dormantKunden : [];
   const maxTypAnzahl = nachTyp.length > 0 ? Math.max(...nachTyp.map((t) => t.anzahl), 1) : 1;
   const maxMonatAnzahl = nachMonat.length > 0 ? Math.max(...nachMonat.map((m) => m.anzahl), 1) : 1;
 
@@ -117,7 +128,7 @@ export default function StatistikCrmPage() {
       {data && (
         <>
           {/* KPI-Karten */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Aktivitäten gesamt</p>
               <p className="text-2xl font-bold mt-1 text-gray-900">{data.summe.anzahl}</p>
@@ -129,6 +140,13 @@ export default function StatistikCrmPage() {
                 {data.offeneAufgaben}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">Nicht erledigt, mit Fälligkeitsdatum</p>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Inaktive Kunden (&gt; 60 Tage)</p>
+              <p className={`text-2xl font-bold mt-1 ${dormantKunden.length > 0 ? "text-red-600" : "text-green-700"}`}>
+                {dormantKunden.length}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Mit Umsatz in letzten 12 Monaten</p>
             </div>
           </div>
 
@@ -189,6 +207,60 @@ export default function StatistikCrmPage() {
               </div>
             )}
           </div>
+
+          {/* Inaktive Kunden (Dormant) */}
+          {dormantKunden.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-amber-200 bg-amber-50">
+                <h2 className="text-sm font-semibold text-amber-800">Inaktive Kunden (&gt; 60 Tage kein Kontakt)</h2>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  {dormantKunden.length} Kunden mit Umsatz in den letzten 12 Monaten ohne CRM-Aktivität
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Kunde</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Umsatz (12 M)</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Letzter Kontakt</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Aktion</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {dormantKunden.map((k) => (
+                      <tr key={k.kundeId} className="hover:bg-amber-50">
+                        <td className="px-4 py-2.5">
+                          <Link href={`/kunden/${k.kundeId}`} className="text-green-700 hover:underline font-medium">
+                            {k.firma ? `${k.firma} (${k.name})` : k.name}
+                          </Link>
+                          <div className="sm:hidden text-xs text-gray-400 mt-0.5">
+                            {formatEuro(k.umsatz12M)} Umsatz
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-gray-700 hidden sm:table-cell">
+                          {formatEuro(k.umsatz12M)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-gray-500 text-xs hidden md:table-cell">
+                          {k.letzteAktivitaet
+                            ? new Date(k.letzteAktivitaet).toLocaleDateString("de-DE")
+                            : "Kein Eintrag"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <Link
+                            href={`/kunden/${k.kundeId}/aktivitaet`}
+                            className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded hover:bg-amber-200 transition-colors whitespace-nowrap"
+                          >
+                            Kontakt erfassen
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

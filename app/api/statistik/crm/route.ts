@@ -19,8 +19,12 @@ export async function GET(req: NextRequest) {
     type MonatRow = { monat: string; anzahl: number };
     type OffeneRow = { anzahl: number };
     type GesamtRow = { anzahl: number };
+    type DormantRow = { kundeId: number; name: string; firma: string | null; letzteAktivitaet: string | null; umsatz12M: number | null };
 
-    const [nachTypRaw, nachMonatRaw, offeneRaw, gesamtRaw] = await Promise.all([
+    const vor12MonateIso = new Date(new Date().getFullYear(), new Date().getMonth() - 12, 1).toISOString();
+    const vor60TageIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [nachTypRaw, nachMonatRaw, offeneRaw, gesamtRaw, dormantRaw] = await Promise.all([
       prisma.$queryRawUnsafe<TypRow[]>(
         `SELECT
            typ,
@@ -55,6 +59,26 @@ export async function GET(req: NextRequest) {
         vonIso,
         bisIso
       ),
+      // Dormant-Kunden: letzte Aktivität > 60 Tage + Umsatz in letzten 12 Monaten > 0
+      prisma.$queryRawUnsafe<DormantRow[]>(
+        `SELECT k.id as kundeId, k.name, k.firma,
+                MAX(ka.datum) as letzteAktivitaet,
+                CAST(COALESCE((
+                  SELECT SUM(lp.menge * lp.verkaufspreis)
+                  FROM Lieferung l
+                  JOIN Lieferposition lp ON lp.lieferungId = l.id
+                  WHERE l.kundeId = k.id AND l.status = 'geliefert' AND l.datum >= ?
+                ), 0) AS REAL) as umsatz12M
+         FROM Kunde k
+         LEFT JOIN KundeAktivitaet ka ON ka.kundeId = k.id
+         WHERE k.aktiv = 1
+         GROUP BY k.id
+         HAVING (letzteAktivitaet IS NULL OR letzteAktivitaet < ?) AND umsatz12M > 0
+         ORDER BY umsatz12M DESC
+         LIMIT 50`,
+        vor12MonateIso,
+        vor60TageIso
+      ),
     ]);
 
     const nachTyp = nachTypRaw.map((row) => ({
@@ -70,10 +94,19 @@ export async function GET(req: NextRequest) {
     const offeneAufgaben = Number(offeneRaw[0]?.anzahl ?? 0);
     const anzahl = Number(gesamtRaw[0]?.anzahl ?? 0);
 
+    const dormantKunden = dormantRaw.map((d) => ({
+      kundeId: Number(d.kundeId),
+      name: d.name,
+      firma: d.firma ?? null,
+      letzteAktivitaet: d.letzteAktivitaet ?? null,
+      umsatz12M: Math.round((Number(d.umsatz12M) || 0) * 100) / 100,
+    }));
+
     return NextResponse.json({
       nachTyp,
       nachMonat,
       offeneAufgaben,
+      dormantKunden,
       summe: { anzahl },
     });
   } catch (e) {

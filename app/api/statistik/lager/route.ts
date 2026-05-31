@@ -18,8 +18,10 @@ export async function GET(req: NextRequest) {
     type LagerwertRow = { lagerwert: number | null };
     type UnterMindestRow = { id: number; name: string; aktuellerBestand: number; mindestbestand: number; einheit: string };
     type BewegungRow = { typ: string; anzahl: number; mengeSumme: number | null };
+    type SlowMoverRow = { id: number; name: string; aktuellerBestand: number; standardpreis: number; einheit: string; letzteBewegung: string | null };
+    type AusgabenWertRow = { ausgabenWert: number | null };
 
-    const [lagerwertRows, unterMindestRows, bewegungRows] = await Promise.all([
+    const [lagerwertRows, unterMindestRows, bewegungRows, slowMoverRows, ausgabenWertRows] = await Promise.all([
       // Lagerwert: Snapshot aller aktiven Artikel (aktuellerBestand * standardpreis)
       prisma.$queryRawUnsafe<LagerwertRow[]>(
         `SELECT CAST(SUM(aktuellerBestand * standardpreis) AS REAL) as lagerwert
@@ -48,6 +50,29 @@ export async function GET(req: NextRequest) {
          ORDER BY typ`,
         vonIso, bisIso
       ),
+      // Slow-Mover: aktive Artikel mit Bestand > 0 und letzter Bewegung > 90 Tage
+      prisma.$queryRawUnsafe<SlowMoverRow[]>(
+        `SELECT a.id, a.name,
+                CAST(a.aktuellerBestand AS REAL) as aktuellerBestand,
+                CAST(a.standardpreis AS REAL) as standardpreis,
+                a.einheit,
+                MAX(lb.datum) as letzteBewegung
+         FROM Artikel a
+         LEFT JOIN Lagerbewegung lb ON lb.artikelId = a.id
+         WHERE a.aktiv = 1 AND a.aktuellerBestand > 0
+         GROUP BY a.id
+         HAVING letzteBewegung IS NULL OR letzteBewegung < date('now', '-90 days')
+         ORDER BY a.aktuellerBestand * a.standardpreis DESC
+         LIMIT 50`
+      ),
+      // Ausgaben-Wert im Zeitraum (für Turnover-Berechnung)
+      prisma.$queryRawUnsafe<AusgabenWertRow[]>(
+        `SELECT CAST(SUM(ABS(lb.menge) * a.standardpreis) AS REAL) as ausgabenWert
+         FROM Lagerbewegung lb
+         JOIN Artikel a ON a.id = lb.artikelId
+         WHERE lb.datum >= ? AND lb.datum < ? AND lb.typ = 'ausgang'`,
+        vonIso, bisIso
+      ),
     ]);
 
     const r2 = (n: number | null | undefined) => Math.round((n ?? 0) * 100) / 100;
@@ -70,10 +95,27 @@ export async function GET(req: NextRequest) {
 
     const anzahlBewegungen = bewegungenNachTyp.reduce((s, b) => s + b.anzahl, 0);
 
+    const slowMover = slowMoverRows.map((a) => ({
+      id: Number(a.id),
+      name: a.name,
+      bestand: r2(a.aktuellerBestand),
+      lagerwert: r2(a.aktuellerBestand * a.standardpreis),
+      einheit: a.einheit,
+      letzteBewegung: a.letzteBewegung ?? null,
+    }));
+
+    const ausgabenWert = r2(ausgabenWertRows[0]?.ausgabenWert ?? 0);
+    // Turnover-Ratio: Abgangswert im Zeitraum / aktueller Lagerwert
+    const turnoverRatio = lagerwert > 0 ? r2(ausgabenWert / lagerwert) : 0;
+    const slowMoverLagerwert = r2(slowMover.reduce((s, a) => s + a.lagerwert, 0));
+
     return NextResponse.json({
       lagerwert,
       artikelUnterMindest,
       bewegungenNachTyp,
+      slowMover,
+      turnoverRatio,
+      slowMoverLagerwert,
       summe: {
         anzahlBewegungen,
       },

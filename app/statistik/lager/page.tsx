@@ -20,10 +20,22 @@ interface BewegungRow {
   mengeSumme: number;
 }
 
+interface SlowMoverRow {
+  id: number;
+  name: string;
+  bestand: number;
+  lagerwert: number;
+  einheit: string;
+  letzteBewegung: string | null;
+}
+
 interface Data {
   lagerwert: number;
   artikelUnterMindest: ArtikelUnterMindest[];
   bewegungenNachTyp: BewegungRow[];
+  slowMover: SlowMoverRow[];
+  turnoverRatio: number;
+  slowMoverLagerwert: number;
   summe: { anzahlBewegungen: number };
 }
 
@@ -65,6 +77,7 @@ export default function StatistikLagerPage() {
 
   const artikelUnterMindest = Array.isArray(data?.artikelUnterMindest) ? data!.artikelUnterMindest : [];
   const bewegungenNachTyp = Array.isArray(data?.bewegungenNachTyp) ? data!.bewegungenNachTyp : [];
+  const slowMover = Array.isArray(data?.slowMover) ? data!.slowMover : [];
 
   return (
     <div className="space-y-6">
@@ -118,7 +131,7 @@ export default function StatistikLagerPage() {
       {data && (
         <>
           {/* KPI-Karten */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lagerwert (aktuell)</p>
               <p className="text-2xl font-bold mt-1 text-green-700">{formatEuro(data.lagerwert)}</p>
@@ -134,7 +147,68 @@ export default function StatistikLagerPage() {
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lagerbewegungen (Zeitraum)</p>
               <p className="text-2xl font-bold mt-1 text-gray-900">{data.summe.anzahlBewegungen}</p>
             </div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Lagerumschlag</p>
+              <p className={`text-2xl font-bold mt-1 ${data.turnoverRatio >= 2 ? "text-green-700" : data.turnoverRatio >= 1 ? "text-amber-600" : "text-red-600"}`}>
+                {data.turnoverRatio.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Abgangswert / Lagerwert im Zeitraum</p>
+            </div>
           </div>
+
+          {/* Slow-Mover */}
+          {slowMover.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-700">Slow Mover (&gt; 90 Tage keine Bewegung)</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {slowMover.length} Artikel · Gebundener Lagerwert: {formatEuro(data.slowMoverLagerwert)}
+                    {data.lagerwert > 0 && (
+                      <span className="ml-1">
+                        ({Math.round((data.slowMoverLagerwert / data.lagerwert) * 100)} % des Gesamtlagerwerts)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artikel</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Bestand</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Lagerwert</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Letzte Bewegung</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {slowMover.map((a) => (
+                      <tr key={a.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5">
+                          <Link href={`/artikel/${a.id}`} className="text-green-700 hover:underline font-medium">
+                            {a.name}
+                          </Link>
+                          <div className="md:hidden text-xs text-gray-400 mt-0.5">
+                            {a.letzteBewegung ? new Date(a.letzteBewegung).toLocaleDateString("de-DE") : "Nie"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-amber-700">
+                          {a.bestand.toLocaleString("de-DE")} {a.einheit}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-gray-600 hidden sm:table-cell">
+                          {formatEuro(a.lagerwert)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-gray-500 text-xs hidden md:table-cell">
+                          {a.letzteBewegung ? new Date(a.letzteBewegung).toLocaleDateString("de-DE") : "Nie"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Bewegungen nach Typ */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
