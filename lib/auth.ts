@@ -47,7 +47,8 @@ export async function signSession(payload: SessionPayload): Promise<string> {
     .sign(getSessionSecret());
 }
 
-export async function verifySession(token: string): Promise<SessionPayload | null> {
+export async function verifySession(token: string | undefined): Promise<SessionPayload | null> {
+  if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSessionSecret(), {
       algorithms: ["HS256"],
