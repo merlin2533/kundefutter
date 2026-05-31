@@ -268,17 +268,17 @@ export function requirePermission(user: CurrentUser | null, key: string): NextRe
 /**
  * Entfernt sensible EK-Preis-Felder aus einem Artikel-Objekt wenn die Permission fehlt.
  */
-export function filterArtikelFelder<T extends Record<string, unknown>>(
-  obj: T,
+export function filterArtikelFelder(
+  obj: Record<string, unknown>,
   user: CurrentUser,
-): T {
+): Record<string, unknown> {
   if (hasPermission(user, P.FELD_ARTIKEL_EINKAUFSPREIS)) return obj;
-  const result = { ...obj };
+  const result: Record<string, unknown> = { ...obj };
   delete result.einkaufsPreis;
   delete result.einkaufsPreisNetto;
   if (Array.isArray(result.lieferanten)) {
     result.lieferanten = (result.lieferanten as Record<string, unknown>[]).map((l) => {
-      const lCopy = { ...l };
+      const lCopy: Record<string, unknown> = { ...l };
       delete lCopy.einkaufsPreis;
       return lCopy;
     });

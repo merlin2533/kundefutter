@@ -2,6 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
+import { usePermission } from "@/lib/user-context";
+import { P } from "@/lib/permissions";
 import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import DriveOrdner from "@/components/DriveOrdner";
@@ -156,6 +158,8 @@ function PreisChart({ data, formatEuroFn, formatDatumFn }: {
 export default function ArtikelDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const canSeeEk = usePermission(P.FELD_ARTIKEL_EINKAUFSPREIS);
+  const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
@@ -583,7 +587,7 @@ export default function ArtikelDetailPage() {
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {!istAnalyseProdukt && <LagerBadge status={status} />}
-            {marge !== null && <MargeBadge pct={Math.round(marge * 10) / 10} />}
+            {marge !== null && canSeeMarge && <MargeBadge pct={Math.round(marge * 10) / 10} />}
             {!artikel.aktiv && (
               <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">
                 inaktiv
@@ -623,7 +627,7 @@ export default function ArtikelDetailPage() {
                 {bevorzugterLief && (
                   <p className="text-xs text-amber-700 mt-1">
                     Bevorzugter Lieferant: <span className="font-medium">{bevorzugterLief.lieferant.name}</span>
-                    {bevorzugterLief.einkaufspreis > 0 && (
+                    {canSeeEk && bevorzugterLief.einkaufspreis > 0 && (
                       <span className="ml-1">· EK: {formatEuro(bevorzugterLief.einkaufspreis)} / {artikel.einheit}</span>
                     )}
                     {bevorzugterLief.mindestbestellmenge && (
@@ -667,15 +671,17 @@ export default function ArtikelDetailPage() {
           <p className="text-xl font-bold text-gray-900">{formatEuro(artikel.standardpreis)}</p>
           <p className="text-xs text-gray-400 mt-0.5">{artikel.mwstSatz}% MwSt · {artikel.einheit}</p>
         </div>
-        {marge !== null && (
+        {marge !== null && canSeeMarge && (
           <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
             <p className="text-xs font-medium text-gray-500 mb-0.5">Marge</p>
             <p className={`text-xl font-bold ${marge >= 20 ? "text-green-700" : marge >= 10 ? "text-amber-600" : "text-red-600"}`}>
               {Math.round(marge * 10) / 10}%
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              EK: {formatEuro((artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0])?.einkaufspreis ?? 0)}
-            </p>
+            {canSeeEk && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                EK: {formatEuro((artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0])?.einkaufspreis ?? 0)}
+              </p>
+            )}
           </div>
         )}
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
@@ -1224,7 +1230,7 @@ export default function ArtikelDetailPage() {
                     {[
                       { label: "Lieferant", cls: "" },
                       { label: "ArtNr beim Lieferant", cls: "hidden md:table-cell" },
-                      { label: "Einkaufspreis", cls: "" },
+                      ...(canSeeEk ? [{ label: "Einkaufspreis", cls: "" }] : []),
                       { label: "Mindestbestellmenge", cls: "hidden lg:table-cell" },
                       { label: "Lieferzeit (Tage)", cls: "hidden lg:table-cell" },
                       { label: "Bevorzugt", cls: "" },
@@ -1244,6 +1250,7 @@ export default function ArtikelDetailPage() {
                         <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.lieferantenArtNr ?? ""}</div>
                       </td>
                       <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-gray-500">{l.lieferantenArtNr ?? "—"}</td>
+                      {canSeeEk && (
                       <td className="px-4 py-3 font-mono">
                         {editEkLiefId === l.id ? (
                           <input
@@ -1271,6 +1278,7 @@ export default function ArtikelDetailPage() {
                           </button>
                         )}
                       </td>
+                      )}
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.mindestbestellmenge ?? "—"}</td>
                       <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{l.lieferzeitTage ?? "—"}</td>
                       <td className="px-4 py-3">

@@ -6,6 +6,8 @@ import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import { usePermission } from "@/lib/user-context";
+import { P } from "@/lib/permissions";
 
 interface Position {
   id: number;
@@ -57,6 +59,8 @@ interface Teilzahlung {
 export default function LieferungDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const canSeeEk = usePermission(P.FELD_LIEFERUNG_EINKAUFSWERT);
+  const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
 
   const [lieferung, setLieferung] = useState<Lieferung | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1050,7 +1054,7 @@ export default function LieferungDetailPage() {
         <table className="w-full min-w-[700px] text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {["Artikel", "Charge", "Menge", "Einheit", "VK", "Rabatt", "EK", "Marge €", "Marge %", "Notiz / Auftragsnr."].map((h) => (
+              {["Artikel", "Charge", "Menge", "Einheit", "VK", "Rabatt", ...(canSeeEk ? ["EK"] : []), ...(canSeeMarge ? ["Marge €", "Marge %"] : []), "Notiz / Auftragsnr."].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   {h}
                 </th>
@@ -1175,11 +1179,9 @@ export default function LieferungDetailPage() {
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>
-                  <td className="px-4 py-3 font-mono">{formatEuro(margeEuro)}</td>
-                  <td className="px-4 py-3">
-                    <MargeBadge pct={margePct} />
-                  </td>
+                  {canSeeEk && <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>}
+                  {canSeeMarge && <td className="px-4 py-3 font-mono">{formatEuro(margeEuro)}</td>}
+                  {canSeeMarge && <td className="px-4 py-3"><MargeBadge pct={margePct} /></td>}
                   {/* Notiz / Auftragsnr. – inline edit */}
                   <td className="px-4 py-3 text-xs text-gray-600">
                     {notizEditId === pos.id ? (
@@ -1223,11 +1225,9 @@ export default function LieferungDetailPage() {
             <tr>
               <td colSpan={5} className="px-4 py-3 font-semibold text-gray-700">Gesamt</td>
               <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtUmsatz)}</td>
-              <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtEinkauf)}</td>
-              <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtMarge)}</td>
-              <td className="px-4 py-3">
-                <MargeBadge pct={gesamtMargePct} />
-              </td>
+              {canSeeEk && <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtEinkauf)}</td>}
+              {canSeeMarge && <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtMarge)}</td>}
+              {canSeeMarge && <td className="px-4 py-3"><MargeBadge pct={gesamtMargePct} /></td>}
               <td className="px-4 py-3" />
               {lieferung.status === "geplant" && <td />}
             </tr>
