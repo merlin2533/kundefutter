@@ -240,7 +240,7 @@ function AusgabenContent() {
                     <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">{a.belegNr ?? "—"}</td>
                     <td className="px-3 py-2 font-medium">
                       {a.beschreibung}
-                      <div className="sm:hidden text-xs text-gray-400">{a.kategorie}</div>
+                      <div className="sm:hidden text-xs text-gray-400">{a.kategorie}{a.belegNr ? ` · ${a.belegNr}` : ""}</div>
                       <div className="md:hidden mt-0.5">
                         <span className={`text-xs px-1.5 py-0.5 rounded ${BUCHUNGSTYP_COLORS[a.buchungstyp] ?? "bg-gray-100 text-gray-600"}`}>{a.buchungstyp}</span>
                       </div>

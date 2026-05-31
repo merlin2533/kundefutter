@@ -42,12 +42,22 @@ interface AufgabeResult {
   erledigt: boolean;
 }
 
+interface AusgabeResult {
+  id: number;
+  beschreibung: string;
+  kategorie: string | null;
+  betragNetto: number;
+  datum: string;
+  buchungstyp: string | null;
+}
+
 interface SearchResults {
   kunden: KundeResult[];
   artikel: ArtikelResult[];
   lieferungen: LieferungResult[];
   angebote: AngebotResult[];
   aufgaben: AufgabeResult[];
+  ausgaben: AusgabeResult[];
 }
 
 type ResultItem =
@@ -55,7 +65,8 @@ type ResultItem =
   | { type: "artikel"; data: ArtikelResult }
   | { type: "lieferung"; data: LieferungResult }
   | { type: "angebot"; data: AngebotResult }
-  | { type: "aufgabe"; data: AufgabeResult };
+  | { type: "aufgabe"; data: AufgabeResult }
+  | { type: "ausgabe"; data: AusgabeResult };
 
 function getHref(item: ResultItem): string {
   switch (item.type) {
@@ -64,6 +75,7 @@ function getHref(item: ResultItem): string {
     case "lieferung":  return `/lieferungen/${item.data.id}`;
     case "angebot":    return `/angebote/${item.data.id}`;
     case "aufgabe":    return `/aufgaben/${item.data.id}`;
+    case "ausgabe":    return `/ausgaben/${item.data.id}`;
   }
 }
 
@@ -74,6 +86,7 @@ function flattenResults(results: SearchResults): ResultItem[] {
   for (const l of results.lieferungen) items.push({ type: "lieferung", data: l });
   for (const a of (results.angebote ?? [])) items.push({ type: "angebot", data: a });
   for (const t of (results.aufgaben ?? [])) items.push({ type: "aufgabe", data: t });
+  for (const x of (results.ausgaben ?? [])) items.push({ type: "ausgabe", data: x });
   return items;
 }
 
@@ -118,11 +131,20 @@ function AufgabeIcon() {
   );
 }
 
+function AusgabeIcon() {
+  return (
+    <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  );
+}
+
 function ResultIcon({ type }: { type: ResultItem["type"] }) {
   if (type === "kunde")     return <KundeIcon />;
   if (type === "artikel")   return <ArtikelIcon />;
   if (type === "angebot")   return <AngebotIcon />;
   if (type === "aufgabe")   return <AufgabeIcon />;
+  if (type === "ausgabe")   return <AusgabeIcon />;
   return <LieferungIcon />;
 }
 
@@ -131,6 +153,7 @@ function ResultPrimary({ item }: { item: ResultItem }) {
   if (item.type === "artikel") return <span className="font-medium text-gray-900">{item.data.name}</span>;
   if (item.type === "angebot") return <span className="font-medium text-gray-900">{item.data.nummer}</span>;
   if (item.type === "aufgabe") return <span className={`font-medium ${item.data.erledigt ? "line-through text-gray-400" : "text-gray-900"}`}>{item.data.betreff}</span>;
+  if (item.type === "ausgabe") return <span className="font-medium text-gray-900">{item.data.beschreibung}</span>;
   const l = item.data as LieferungResult;
   const kundenname = l.kunde?.firma || l.kunde?.name || "–";
   return <span className="font-medium text-gray-900">{kundenname}</span>;
@@ -156,6 +179,13 @@ function ResultSecondary({ item }: { item: ResultItem }) {
   if (item.type === "aufgabe") {
     const t = item.data;
     return <span className="text-gray-500 text-sm">{t.faelligAm ? `Fällig: ${new Date(t.faelligAm).toLocaleDateString("de-DE")}` : "Keine Fälligkeit"}</span>;
+  }
+  if (item.type === "ausgabe") {
+    const x = item.data;
+    const betrag = x.betragNetto.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+    const date = x.datum ? new Date(x.datum).toLocaleDateString("de-DE") : "–";
+    const parts = [x.kategorie, x.buchungstyp].filter(Boolean).join(" · ");
+    return <span className="text-gray-500 text-sm">{betrag} · {date}{parts ? ` · ${parts}` : ""}</span>;
   }
   const l = item.data as LieferungResult;
   const date = l.datum ? new Date(l.datum).toLocaleDateString("de-DE") : "–";
@@ -401,7 +431,7 @@ export default function SearchPalette() {
         setResults(data);
         setActiveIndex(0);
       } catch {
-        setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [] });
+        setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [], ausgaben: [] });
       } finally {
         setLoading(false);
       }
@@ -470,6 +500,7 @@ export default function SearchPalette() {
       { label: "Lieferungen", type: "lieferung" as const, typParam: "lieferungen", items: flatItems.filter((i) => i.type === "lieferung") },
       { label: "Angebote",    type: "angebot" as const,  typParam: "angebote",    items: flatItems.filter((i) => i.type === "angebot") },
       { label: "Aufgaben",    type: "aufgabe" as const,  typParam: "aufgaben",    items: flatItems.filter((i) => i.type === "aufgabe") },
+      { label: "Ausgaben",    type: "ausgabe" as const,  typParam: "ausgaben",    items: flatItems.filter((i) => i.type === "ausgabe") },
     ] as Section[]
   ).filter((s) => s.items.length > 0);
 

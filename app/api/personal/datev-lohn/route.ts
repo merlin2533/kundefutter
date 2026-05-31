@@ -1,25 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAppName } from "@/lib/appinfo";
-import { lohnKonto, lohnGegenkonto } from "@/lib/datev";
+import {
+  lohnKonto,
+  lohnGegenkonto,
+  datevQ as q,
+  datevBelegdatum as belegdatum,
+  datevLeistungsdatum as leistungsdatumFmt,
+  DATEV_COL_HEADERS,
+  buildDatevHeaderLine,
+} from "@/lib/datev";
 
 export const dynamic = "force-dynamic";
 
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function belegdatum(date: Date): string {
-  return `${pad2(date.getDate())}${pad2(date.getMonth() + 1)}`;
-}
-
-function leistungsdatumFmt(date: Date): string {
-  return `${pad2(date.getDate())}${pad2(date.getMonth() + 1)}${date.getFullYear()}`;
-}
-
-function q(val: string): string {
-  return `"${val.replace(/"/g, '""')}"`;
-}
+function pad2(n: number): string { return String(n).padStart(2, "0"); }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -55,69 +49,50 @@ export async function GET(req: NextRequest) {
 
     const wjStart = new Date(von.getFullYear(), wjBeginnMonat - 1, 1);
     const wjStartStr = wjStart.toISOString().slice(0, 10).replace(/-/g, "");
+    const vonDatum = von.toISOString().slice(0, 10).replace(/-/g, "");
+    const bisDatum = bis.toISOString().slice(0, 10).replace(/-/g, "");
 
+    // AUSGEZAHLT + ABGERECHNET: beide gehören in die Lohnbuchhaltung
+    // Datum-Fallback: letzter Tag des Abrechnungsmonats (für ABGERECHNET ohne zahlungsDatum)
     const abrechnungen = await prisma.gehaltsabrechnung.findMany({
       where: {
-        status: "AUSGEZAHLT",
-        zahlungsDatum: { gte: von, lte: bis },
+        status: { in: ["AUSGEZAHLT", "ABGERECHNET"] },
+        OR: [
+          { zahlungsDatum: { gte: von, lte: bis } },
+          {
+            zahlungsDatum: null,
+            updatedAt: { gte: von, lte: bis },
+          },
+        ],
       },
       select: {
         monat: true,
         jahr: true,
         netto: true,
+        status: true,
         zahlungsDatum: true,
         mitarbeiter: {
           select: { vorname: true, nachname: true, typ: true, kostenstelle: true },
         },
       },
-      orderBy: { zahlungsDatum: "asc" },
+      orderBy: [{ jahr: "asc" }, { monat: "asc" }],
       take: 5000,
     });
 
-    const exportDatum = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const vonDatum = von.toISOString().slice(0, 10).replace(/-/g, "");
-    const bisDatum = bis.toISOString().slice(0, 10).replace(/-/g, "");
-
-    const headerLine = [
-      q("EXTF"), "700", "21", q("Buchungsstapel"), "9",
-      exportDatum + "000000", "", q(appName), "", "",
-      beraternummer, mandantennummer, wjStartStr, "4",
-      vonDatum, bisDatum,
-      q(`DATEV-Lohn-Export ${appName}`), "", "1", "0", "0", "EUR",
-      "", "", kontenrahmen, "", "", "",
-    ].join(";");
-
-    const colHeaders = [
-      "Umsatz (ohne Soll/Haben-Kz)", "Soll/Haben-Kennzeichen", "WKZ Umsatz",
-      "Kurs", "Basis-Umsatz", "WKZ Basis-Umsatz",
-      "Konto", "Gegenkonto (ohne BU-Schlüssel)", "BU-Schlüssel",
-      "Belegdatum", "Belegfeld 1", "Belegfeld 2", "Skonto", "Buchungstext",
-      "Postensperre", "Diverse Adressnummer", "Geschäftspartnerbank",
-      "Sachverhalt", "Zinssperre", "Beleglink",
-      "Beleginfo - Art 1", "Beleginfo - Inhalt 1",
-      "Beleginfo - Art 2", "Beleginfo - Inhalt 2",
-      "Beleginfo - Art 3", "Beleginfo - Inhalt 3",
-      "Beleginfo - Art 4", "Beleginfo - Inhalt 4",
-      "Beleginfo - Art 5", "Beleginfo - Inhalt 5",
-      "Beleginfo - Art 6", "Beleginfo - Inhalt 6",
-      "Beleginfo - Art 7", "Beleginfo - Inhalt 7",
-      "Beleginfo - Art 8", "Beleginfo - Inhalt 8",
-      "Kostenrechnung - Kostenstelle 1", "Kostenrechnung - Kostenmenge 1",
-      "Kostenrechnung - Kostenstelle 2", "Kostenrechnung - Kostenmenge 2",
-      "Kostenrechnung - Kostenstelle 3", "Kostenrechnung - Kostenmenge 3",
-      "KOST1 - Auftragsnummer", "KOST2 - Auftragsnummer", "Kost-Datum",
-      "SEPA-Mandatsreferenz", "Skontosperre", "Gesellschaftername",
-      "Beteiligtennummer", "Identifikationsnummer", "Zeichnernummer",
-      "Postensperre bis", "Bezeichnung SoBil-Sachverhalt",
-      "Kennzeichen SoBil-Buchung", "Festschreibung",
-      "Leistungsdatum", "Datum Zuord. Steuerperiode", "Fälligkeit",
-      "Generalumkehr (GU)", "Steuersatz", "Land",
-      "Abrechnungsreferenz", "BVV-Position (Betriebsvermögensvergleich)",
-      "EU-Land u. UStID", "EU-Steuersatz",
-    ].map(q).join(";");
+    const headerLine = buildDatevHeaderLine({
+      appName,
+      beraternummer,
+      mandantennummer,
+      kontenrahmen,
+      wjStartStr,
+      vonDatum,
+      bisDatum,
+      bezeichnung: `DATEV-Lohn-Export ${appName}`,
+    });
 
     const dataLines = abrechnungen.map((a) => {
-      const datum = a.zahlungsDatum!;
+      // Zahlungsdatum oder letzter Tag des Abrechnungsmonats
+      const datum = a.zahlungsDatum ?? new Date(a.jahr, a.monat, 0);
       const ma = a.mitarbeiter;
       const buchungstext = `Gehalt ${ma.vorname} ${ma.nachname} ${pad2(a.monat)}/${a.jahr}`.substring(0, 60);
       const fields: string[] = [
@@ -155,7 +130,7 @@ export async function GET(req: NextRequest) {
       return fields.join(";");
     });
 
-    const csvContent = [headerLine, colHeaders, ...dataLines].join("\r\n");
+    const csvContent = [headerLine, DATEV_COL_HEADERS, ...dataLines].join("\r\n");
     const filename = `DATEV-Lohn-${vonDatum}-${bisDatum}.csv`;
 
     return new NextResponse("\uFEFF" + csvContent, {

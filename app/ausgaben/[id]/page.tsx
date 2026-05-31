@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
-import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, SACHKONTEN_SKR03, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
+import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -18,6 +18,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
   const [kostenstellenList, setKostenstellenList] = useState<string[]>([]);
   const [sachkontoMap, setSachkontoMap] = useState<Record<string, string>>({});
+  const [kontenrahmen, setKontenrahmen] = useState<"SKR03" | "SKR04">("SKR03");
   const [saving, setSaving] = useState(false);
   const [fehler, setFehler] = useState("");
   const [laden, setLaden] = useState(true);
@@ -96,31 +97,34 @@ export default function AusgabeDetailPage({ params }: Ctx) {
     });
     fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.benutzername) setLoginUser(d.benutzername); }).catch(() => {});
     fetch("/api/lieferanten").then(r => r.ok ? r.json() : []).then(d => setLieferanten(Array.isArray(d) ? d : []));
-    fetch("/api/einstellungen?prefix=ausgaben.")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d["ausgaben.kategorien"]) {
-          try {
-            const parsed = JSON.parse(d["ausgaben.kategorien"]);
-            if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
-          } catch { /* ignore */ }
-        }
-        if (d["ausgaben.kostenstellen"]) {
-          try { setKostenstellenList(JSON.parse(d["ausgaben.kostenstellen"]) ?? []); } catch { /* ignore */ }
-        }
-        if (d["ausgaben.sachkonten"]) {
-          try { setSachkontoMap(JSON.parse(d["ausgaben.sachkonten"]) ?? {}); } catch { /* ignore */ }
-        }
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/einstellungen?prefix=ausgaben.").then(r => r.json()),
+      fetch("/api/einstellungen?prefix=datev.").then(r => r.json()),
+    ]).then(([d, dv]) => {
+      if (d["ausgaben.kategorien"]) {
+        try {
+          const parsed = JSON.parse(d["ausgaben.kategorien"]);
+          if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
+        } catch { /* ignore */ }
+      }
+      if (d["ausgaben.kostenstellen"]) {
+        try { setKostenstellenList(JSON.parse(d["ausgaben.kostenstellen"]) ?? []); } catch { /* ignore */ }
+      }
+      if (d["ausgaben.sachkonten"]) {
+        try { setSachkontoMap(JSON.parse(d["ausgaben.sachkonten"]) ?? {}); } catch { /* ignore */ }
+      }
+      if (dv["datev.sachkontenrahmen"] === "SKR04") setKontenrahmen("SKR04");
+    }).catch(() => {});
   }, []);
 
   // Auto-suggest Sachkonto nur wenn nicht bereits manuell gesetzt
   useEffect(() => {
     if (sachkontoManual.current || laden) return;
-    const typeOverride = BUCHUNGSTYP_KONTEN_SKR03[buchungstyp as Buchungstyp];
-    setSachkonto(typeOverride ?? sachkontoMap[kategorie] ?? SACHKONTEN_SKR03[kategorie] ?? "");
-  }, [buchungstyp, kategorie, sachkontoMap, laden]);
+    const typeMap = kontenrahmen === "SKR04" ? BUCHUNGSTYP_KONTEN_SKR04 : BUCHUNGSTYP_KONTEN_SKR03;
+    const katMap = kontenrahmen === "SKR04" ? SACHKONTEN_SKR04 : SACHKONTEN_SKR03;
+    const typeOverride = typeMap[buchungstyp as Buchungstyp];
+    setSachkonto(typeOverride ?? sachkontoMap[kategorie] ?? katMap[kategorie] ?? "");
+  }, [buchungstyp, kategorie, sachkontoMap, kontenrahmen, laden]);
 
   // Kilometerpauschale
   useEffect(() => {
@@ -416,7 +420,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         {buchungstyp === "Reisekosten" && (
           <div className="border border-sky-200 rounded p-4 bg-sky-50 space-y-3">
             <h3 className="text-sm font-semibold text-sky-800">Reisekosten-Details</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-sky-700 mb-1">Reiseziel</label>
                 <input value={reiseZiel} onChange={e => setReiseZiel(e.target.value)}
@@ -527,7 +531,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         {/* DATEV Buchungskonten */}
         <div className="border rounded p-4 bg-gray-50 space-y-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Buchungskonto (DATEV)</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Zahlungsweg</label>
               <select value={zahlungsweg} onChange={e => setZahlungsweg(e.target.value)}

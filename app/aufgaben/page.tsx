@@ -122,7 +122,7 @@ export default function AufgabenPage() {
   const ueberfaelligCount = aufgaben.filter((a) => isUeberfaellig(a.faelligAm, a.erledigt)).length;
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-0">
+    <div>
       <div className="flex items-center justify-between mb-6 gap-3">
         <div>
           <span className="flex items-center gap-2">

@@ -195,7 +195,7 @@ export default function CrmPage() {
   const overdueCount = items.filter((i) => i.faelligAm && !i.erledigt && new Date(i.faelligAm) < new Date()).length;
 
   return (
-    <div className="space-y-6 px-4 sm:px-6 py-4 sm:py-0">
+    <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <span className="flex items-center gap-2">

@@ -6,23 +6,14 @@ import {
   getSachkonto,
   getGegenkonto,
   getBuSchluessel,
+  datevQ as q,
+  datevBelegdatum as belegdatum,
+  datevLeistungsdatum as leistungsdatumFmt,
+  DATEV_COL_HEADERS,
+  buildDatevHeaderLine,
 } from "@/lib/datev";
 
 export const dynamic = "force-dynamic";
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-/** Format date as DDMM for DATEV Belegdatum */
-function belegdatum(date: Date): string {
-  return `${pad2(date.getDate())}${pad2(date.getMonth() + 1)}`;
-}
-
-/** Escape and quote a text field for CSV */
-function q(val: string): string {
-  return `"${val.replace(/"/g, '""')}"`;
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -158,11 +149,6 @@ export async function GET(req: NextRequest) {
   const baseUrl = host ? `${proto}://${host}` : "";
 
   const rows: DatevRow[] = [];
-
-  /** Format date as DDMMYYYY for DATEV Leistungsdatum */
-  function leistungsdatumFmt(date: Date): string {
-    return `${pad2(date.getDate())}${pad2(date.getMonth() + 1)}${date.getFullYear()}`;
-  }
 
   // ── Einnahmen (Lieferungen) ──────────────────────────────────────────────
   for (const lief of lieferungen) {
@@ -305,112 +291,22 @@ export async function GET(req: NextRequest) {
   }
 
   // Build DATEV CSV
-  // DATEV format: UTF-8 with BOM, semicolon delimiter
-  const exportDatum = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const vonDatum = von.toISOString().slice(0, 10).replace(/-/g, "");
   const bisDatum = bis.toISOString().slice(0, 10).replace(/-/g, "");
   const wjStartStr = wjStart.toISOString().slice(0, 10).replace(/-/g, "");
 
-  // DATEV header line (Metadaten)
-  const headerLine = [
-    q("EXTF"),         // Kennzeichen
-    "700",             // Versionsnummer (DATEV Format 700)
-    "21",              // Datenkategorie: 21 = Buchungsstapel
-    q("Buchungsstapel"),
-    "9",               // Formatversion
-    exportDatum + "000000", // Erstellt am (YYYYMMDDHHmmss)
-    "",                // Importiert
-    q(appName),  // Herkunft
-    "",                // Exportiert von
-    "",                // Importiert von
-    beraternummer,     // Beraternummer
-    mandantennummer,   // Mandantennummer
-    wjStartStr,        // WJ-Beginn (YYYYMMDD)
-    "4",               // Sachkontenlänge
-    vonDatum,          // Datum von
-    bisDatum,          // Datum bis
-    q(`DATEV-Export ${appName}`), // Bezeichnung
-    "",                // Diktatkürzel
-    "1",               // Buchungstyp: 1 = Finanzbuchhaltung
-    "0",               // Rechnungslegungszweck
-    "0",               // Festschreibung
-    "EUR",             // WKZ
-    "",                // Derivatskennzeichen
-    "",                // SKR
-    kontenrahmen,      // Kontierungsfeld
-    "",                // Anlagenbuchhaltung
-    "",                // Anlagennummer
-    "",                // Kostenstelle
-  ].join(";");
+  const headerLine = buildDatevHeaderLine({
+    appName,
+    beraternummer,
+    mandantennummer,
+    kontenrahmen,
+    wjStartStr,
+    vonDatum,
+    bisDatum,
+    bezeichnung: `DATEV-Export ${appName}`,
+  });
 
-  // Column headers line
-  const colHeaders = [
-    "Umsatz (ohne Soll/Haben-Kz)",
-    "Soll/Haben-Kennzeichen",
-    "WKZ Umsatz",
-    "Kurs",
-    "Basis-Umsatz",
-    "WKZ Basis-Umsatz",
-    "Konto",
-    "Gegenkonto (ohne BU-Schlüssel)",
-    "BU-Schlüssel",
-    "Belegdatum",
-    "Belegfeld 1",
-    "Belegfeld 2",
-    "Skonto",
-    "Buchungstext",
-    "Postensperre",
-    "Diverse Adressnummer",
-    "Geschäftspartnerbank",
-    "Sachverhalt",
-    "Zinssperre",
-    "Beleglink",
-    "Beleginfo - Art 1",
-    "Beleginfo - Inhalt 1",
-    "Beleginfo - Art 2",
-    "Beleginfo - Inhalt 2",
-    "Beleginfo - Art 3",
-    "Beleginfo - Inhalt 3",
-    "Beleginfo - Art 4",
-    "Beleginfo - Inhalt 4",
-    "Beleginfo - Art 5",
-    "Beleginfo - Inhalt 5",
-    "Beleginfo - Art 6",
-    "Beleginfo - Inhalt 6",
-    "Beleginfo - Art 7",
-    "Beleginfo - Inhalt 7",
-    "Beleginfo - Art 8",
-    "Beleginfo - Inhalt 8",
-    "Kostenrechnung - Kostenstelle 1",
-    "Kostenrechnung - Kostenmenge 1",
-    "Kostenrechnung - Kostenstelle 2",
-    "Kostenrechnung - Kostenmenge 2",
-    "Kostenrechnung - Kostenstelle 3",
-    "Kostenrechnung - Kostenmenge 3",
-    "KOST1 - Auftragsnummer",
-    "KOST2 - Auftragsnummer",
-    "Kost-Datum",
-    "SEPA-Mandatsreferenz",
-    "Skontosperre",
-    "Gesellschaftername",
-    "Beteiligtennummer",
-    "Identifikationsnummer",
-    "Zeichnernummer",
-    "Postensperre bis",
-    "Bezeichnung SoBil-Sachverhalt",
-    "Kennzeichen SoBil-Buchung",
-    "Festschreibung",
-    "Leistungsdatum",
-    "Datum Zuord. Steuerperiode",
-    "Fälligkeit",
-    "Generalumkehr (GU)",
-    "Steuersatz",
-    "Land",
-    "Abrechnungsreferenz",
-    "BVV-Position (Betriebsvermögensvergleich)",
-    "EU-Land u. UStID",
-    "EU-Steuersatz",
-  ].map(q).join(";");
+  const colHeaders = DATEV_COL_HEADERS;
 
   // Data rows
   // Column count: 64 fields (index 0-63)

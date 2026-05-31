@@ -36,6 +36,14 @@ interface Sammelrechnung {
   kunde: { id: number; name: string; firma: string | null } | null;
 }
 
+interface Ausgabe {
+  id: number;
+  betragNetto: number;
+  mwstSatz: number;
+  bezahltAm: string | null;
+  kategorie: string;
+}
+
 function tageDiff(dateStr: string | null): number {
   if (!dateStr) return 0;
   const diff = Math.floor(
@@ -57,6 +65,7 @@ export default function CashflowPage() {
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [eingangsrechnungen, setEingangsrechnungen] = useState<Eingangsrechnung[]>([]);
   const [sammelrechnungen, setSammelrechnungen] = useState<Sammelrechnung[]>([]);
+  const [ausgaben, setAusgaben] = useState<Ausgabe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -65,10 +74,11 @@ export default function CashflowPage() {
       setLoading(true);
       setError("");
       try {
-        const [lRes, eRes, sRes] = await Promise.all([
+        const [lRes, eRes, sRes, aRes] = await Promise.all([
           fetch("/api/lieferungen?status=geliefert&limit=500"),
           fetch("/api/eingangsrechnungen?status=OFFEN&limit=500"),
           fetch("/api/sammelrechnungen?limit=500"),
+          fetch("/api/ausgaben?limit=500"),
         ]);
         if (lRes.ok) {
           const d = await lRes.json();
@@ -81,6 +91,10 @@ export default function CashflowPage() {
         if (sRes.ok) {
           const d = await sRes.json();
           setSammelrechnungen(Array.isArray(d) ? d : []);
+        }
+        if (aRes.ok) {
+          const d = await aRes.json();
+          setAusgaben(Array.isArray(d) ? d : []);
         }
       } catch {
         setError("Fehler beim Laden der Cashflow-Daten.");
@@ -127,7 +141,14 @@ export default function CashflowPage() {
     0
   );
 
-  const nettoCashflow = forderungGesamt - verbindlichkeitGesamt;
+  // Ausgaben brutto (unbezahlte)
+  const ausgabenOffen = ausgaben.filter((a) => a.bezahltAm === null);
+  const ausgabenBrutto = ausgabenOffen.reduce(
+    (s, a) => s + a.betragNetto * (1 + (a.mwstSatz ?? 0) / 100),
+    0
+  );
+
+  const nettoCashflow = forderungGesamt - verbindlichkeitGesamt - ausgabenBrutto;
 
   // Sort Forderungen: älteste zuerst
   const sortedForderungen = [...offeneForderungen].sort(
@@ -172,7 +193,7 @@ export default function CashflowPage() {
       ) : (
         <>
           {/* KPI-Leiste */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <KpiCard
               label="Offene Forderungen gesamt"
               value={formatEuro(forderungGesamt)}
@@ -191,6 +212,12 @@ export default function CashflowPage() {
               sub={`${eingangsrechnungen.length} Eingangsrechnungen offen`}
               color="orange"
             />
+            <KpiCard
+              label="Offene Ausgaben (Brutto)"
+              value={formatEuro(ausgabenBrutto)}
+              sub={`${ausgabenOffen.length} unbezahlte Ausgaben`}
+              color="orange"
+            />
           </div>
 
           {/* Cashflow-Saldo */}
@@ -203,7 +230,7 @@ export default function CashflowPage() {
           >
             <div>
               <p className="text-sm font-medium text-gray-600">
-                Netto-Cashflow-Position (Forderungen − Verbindlichkeiten)
+                Netto-Cashflow-Position (Forderungen − Verbindlichkeiten − Ausgaben)
               </p>
               <p
                 className={`text-3xl font-bold mt-1 ${

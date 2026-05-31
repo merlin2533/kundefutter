@@ -126,10 +126,6 @@ export default function ArtikelPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  useEffect(() => {
-    setUnterkategorie("alle");
-  }, [kategorie]);
-
   // Reset subcategory when user explicitly changes category (not on initial mount)
   const kategorieInitRef = useRef(true);
   useEffect(() => {

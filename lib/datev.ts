@@ -177,6 +177,82 @@ export function getBuSchluessel(buchungstyp: string): string {
   return buchungstyp === "Bewirtung" ? "9" : "";
 }
 
+// ─── DATEV CSV Formatierungshilfen ────────────────────────────────────────────
+
+/** Quote und escape einen CSV-Feldwert für DATEV */
+export function datevQ(val: string): string {
+  return `"${val.replace(/"/g, '""')}"`;
+}
+
+function _p(n: number): string { return String(n).padStart(2, "0"); }
+
+/** DATEV Belegdatum-Format DDMM */
+export function datevBelegdatum(date: Date): string {
+  return `${_p(date.getDate())}${_p(date.getMonth() + 1)}`;
+}
+
+/** DATEV Leistungsdatum-Format DDMMYYYY */
+export function datevLeistungsdatum(date: Date): string {
+  return `${_p(date.getDate())}${_p(date.getMonth() + 1)}${date.getFullYear()}`;
+}
+
+/** Fertig formatierte Spaltenköpfe-Zeile für DATEV-Buchungsstapel (65 Spalten) */
+export const DATEV_COL_HEADERS = [
+  "Umsatz (ohne Soll/Haben-Kz)", "Soll/Haben-Kennzeichen", "WKZ Umsatz",
+  "Kurs", "Basis-Umsatz", "WKZ Basis-Umsatz",
+  "Konto", "Gegenkonto (ohne BU-Schlüssel)", "BU-Schlüssel",
+  "Belegdatum", "Belegfeld 1", "Belegfeld 2", "Skonto", "Buchungstext",
+  "Postensperre", "Diverse Adressnummer", "Geschäftspartnerbank",
+  "Sachverhalt", "Zinssperre", "Beleglink",
+  "Beleginfo - Art 1", "Beleginfo - Inhalt 1",
+  "Beleginfo - Art 2", "Beleginfo - Inhalt 2",
+  "Beleginfo - Art 3", "Beleginfo - Inhalt 3",
+  "Beleginfo - Art 4", "Beleginfo - Inhalt 4",
+  "Beleginfo - Art 5", "Beleginfo - Inhalt 5",
+  "Beleginfo - Art 6", "Beleginfo - Inhalt 6",
+  "Beleginfo - Art 7", "Beleginfo - Inhalt 7",
+  "Beleginfo - Art 8", "Beleginfo - Inhalt 8",
+  "Kostenrechnung - Kostenstelle 1", "Kostenrechnung - Kostenmenge 1",
+  "Kostenrechnung - Kostenstelle 2", "Kostenrechnung - Kostenmenge 2",
+  "Kostenrechnung - Kostenstelle 3", "Kostenrechnung - Kostenmenge 3",
+  "KOST1 - Auftragsnummer", "KOST2 - Auftragsnummer", "Kost-Datum",
+  "SEPA-Mandatsreferenz", "Skontosperre", "Gesellschaftername",
+  "Beteiligtennummer", "Identifikationsnummer", "Zeichnernummer",
+  "Postensperre bis", "Bezeichnung SoBil-Sachverhalt",
+  "Kennzeichen SoBil-Buchung", "Festschreibung",
+  "Leistungsdatum", "Datum Zuord. Steuerperiode", "Fälligkeit",
+  "Generalumkehr (GU)", "Steuersatz", "Land",
+  "Abrechnungsreferenz", "BVV-Position (Betriebsvermögensvergleich)",
+  "EU-Land u. UStID", "EU-Steuersatz",
+].map(datevQ).join(";");
+
+interface DatevHeaderOpts {
+  appName: string;
+  beraternummer: string;
+  mandantennummer: string;
+  kontenrahmen: string;
+  /** YYYYMMDD */
+  wjStartStr: string;
+  /** YYYYMMDD */
+  vonDatum: string;
+  /** YYYYMMDD */
+  bisDatum: string;
+  bezeichnung: string;
+}
+
+/** Erzeugt die DATEV-Metadaten-Kopfzeile (erste Zeile im Buchungsstapel) */
+export function buildDatevHeaderLine(opts: DatevHeaderOpts): string {
+  const exportDatum = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return [
+    datevQ("EXTF"), "700", "21", datevQ("Buchungsstapel"), "9",
+    `${exportDatum}000000`, "", datevQ(opts.appName), "", "",
+    opts.beraternummer, opts.mandantennummer, opts.wjStartStr, "4",
+    opts.vonDatum, opts.bisDatum,
+    datevQ(opts.bezeichnung), "", "1", "0", "0", "EUR",
+    "", "", opts.kontenrahmen, "", "", "",
+  ].join(";");
+}
+
 // ─── Lohnbuchhaltung ──────────────────────────────────────────────────────────
 
 /**

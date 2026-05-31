@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         where,
         include: { kunde: { select: { id: true, name: true, firma: true } } },
         orderBy: { faelligAm: "asc" },
+        take: 2000,
       });
       return NextResponse.json(items);
     }
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
     const items = await prisma.kundeAktivitaet.findMany({
       where: { kundeId: Number(kundeId) },
       orderBy: { datum: "desc" },
+      take: 500,
     });
     return NextResponse.json(items);
   } catch {

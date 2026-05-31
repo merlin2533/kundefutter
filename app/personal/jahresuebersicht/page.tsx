@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { getJahreListeNum, MONATE_KURZ } from "@/lib/utils";
 
@@ -25,6 +25,7 @@ export default function JahresuebersichtPage() {
   const [jahr, setJahr] = useState(now.getFullYear());
   const [data, setData] = useState<Abrechnung[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kostenstelleFilter, setKostenstelleFilter] = useState("alle");
 
   useEffect(() => {
     setLoading(true);
@@ -34,23 +35,34 @@ export default function JahresuebersichtPage() {
       .finally(() => setLoading(false));
   }, [jahr]);
 
-  // Group by mitarbeiterId, preserve insertion order (sorted by API)
-  const maMap = new Map<number, { ma: Abrechnung["mitarbeiter"]; entries: Map<number, Abrechnung> }>();
-  for (const entry of data) {
-    if (!maMap.has(entry.mitarbeiterId)) {
-      maMap.set(entry.mitarbeiterId, { ma: entry.mitarbeiter, entries: new Map() });
+  // Group by mitarbeiterId (memoized — only recomputes when data changes)
+  const allRows = useMemo(() => {
+    const maMap = new Map<number, { ma: Abrechnung["mitarbeiter"]; entries: Map<number, Abrechnung> }>();
+    for (const entry of data) {
+      if (!maMap.has(entry.mitarbeiterId)) {
+        maMap.set(entry.mitarbeiterId, { ma: entry.mitarbeiter, entries: new Map() });
+      }
+      maMap.get(entry.mitarbeiterId)!.entries.set(entry.monat, entry);
     }
-    maMap.get(entry.mitarbeiterId)!.entries.set(entry.monat, entry);
-  }
-  const rows = Array.from(maMap.values()).sort((a, b) =>
-    a.ma.nachname.localeCompare(b.ma.nachname, "de")
+    return Array.from(maMap.values()).sort((a, b) => a.ma.nachname.localeCompare(b.ma.nachname, "de"));
+  }, [data]);
+
+  const kostenstellen = useMemo(
+    () => Array.from(new Set(allRows.map((r) => r.ma.kostenstelle).filter(Boolean) as string[])).sort(),
+    [allRows]
   );
 
-  const monthSums = Array.from({ length: 12 }, (_, i) =>
-    rows.reduce((sum, row) => sum + (row.entries.get(i + 1)?.netto ?? 0), 0)
+  const rows = useMemo(
+    () => (kostenstelleFilter === "alle" ? allRows : allRows.filter((r) => r.ma.kostenstelle === kostenstelleFilter)),
+    [allRows, kostenstelleFilter]
+  );
+
+  const monthSums = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => rows.reduce((sum, row) => sum + (row.entries.get(i + 1)?.netto ?? 0), 0)),
+    [rows]
   );
   const grandTotal = monthSums.reduce((s, v) => s + v, 0);
-  const bruttoTotal = data.reduce((s, a) => s + a.brutto, 0);
+  const bruttoTotal = useMemo(() => rows.reduce((s, r) => s + Array.from(r.entries.values()).reduce((rs, e) => rs + e.brutto, 0), 0), [rows]);
 
   function handleCsvExport() {
     const headers = ["Mitarbeiter", "Typ", "Kostenstelle", ...MONATE_KURZ, "Jahressumme (Netto)", "Jahressumme (Brutto)"];
@@ -115,17 +127,27 @@ export default function JahresuebersichtPage() {
         </div>
       </div>
 
-      {/* Jahr-Filter */}
-      <div className="flex gap-3 mb-4">
+      {/* Filter */}
+      <div className="flex flex-wrap gap-3 mb-4">
         <select
           value={jahr}
-          onChange={(e) => setJahr(parseInt(e.target.value, 10))}
+          onChange={(e) => { setJahr(parseInt(e.target.value, 10)); setKostenstelleFilter("alle"); }}
           className="border rounded-lg px-3 py-2 text-sm"
         >
           {getJahreListeNum().map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
+        {kostenstellen.length > 0 && (
+          <select
+            value={kostenstelleFilter}
+            onChange={(e) => setKostenstelleFilter(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="alle">Alle Kostenstellen</option>
+            {kostenstellen.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        )}
       </div>
 
       {/* KPI Strip */}

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2)
-    return NextResponse.json({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [] });
+    return NextResponse.json({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [], ausgaben: [] });
 
   const takeParam = parseInt(req.nextUrl.searchParams.get("take") ?? "5", 10);
   const take = isNaN(takeParam) || takeParam < 1 ? 5 : Math.min(takeParam, 100);
@@ -49,6 +49,19 @@ export async function GET(req: NextRequest) {
     take,
   });
 
+  const ausgabenPromise = prisma.ausgabe.findMany({
+    where: {
+      OR: [
+        { beschreibung: { contains: q } },
+        { belegNr: { contains: q } },
+        { kategorie: { contains: q } },
+      ],
+    },
+    select: { id: true, beschreibung: true, kategorie: true, betragNetto: true, datum: true, buchungstyp: true },
+    take: 5,
+    orderBy: { datum: "desc" },
+  });
+
   const aufgabenPromise = prisma.aufgabe.findMany({
     where: {
       OR: [
@@ -71,7 +84,7 @@ export async function GET(req: NextRequest) {
   try {
     const ftsQuery = q + "*";
 
-    const [kundenFts, artikelFts, lieferungen, angebote, aufgaben] = await Promise.all([
+    const [kundenFts, artikelFts, lieferungen, angebote, aufgaben, ausgaben] = await Promise.all([
       prisma.$queryRawUnsafe<
         { id: number; name: string; firma: string | null; plz: string | null; ort: string | null }[]
       >(
@@ -97,12 +110,13 @@ export async function GET(req: NextRequest) {
       lieferungenPromise,
       angebotePromise,
       aufgabenPromise,
+      ausgabenPromise,
     ]);
 
-    return NextResponse.json({ kunden: kundenFts, artikel: artikelFts, lieferungen, angebote, aufgaben });
+    return NextResponse.json({ kunden: kundenFts, artikel: artikelFts, lieferungen, angebote, aufgaben, ausgaben });
   } catch {
     // FTS5 tables not available yet — fall back to original contains-based search
-    const [kunden, artikel, lieferungen, angebote, aufgaben] = await Promise.all([
+    const [kunden, artikel, lieferungen, angebote, aufgaben, ausgaben] = await Promise.all([
       prisma.kunde.findMany({
         where: {
           aktiv: true,
@@ -131,8 +145,9 @@ export async function GET(req: NextRequest) {
       lieferungenPromise,
       angebotePromise,
       aufgabenPromise,
+      ausgabenPromise,
     ]);
 
-    return NextResponse.json({ kunden, artikel, lieferungen, angebote, aufgaben });
+    return NextResponse.json({ kunden, artikel, lieferungen, angebote, aufgaben, ausgaben });
   }
 }
