@@ -47,6 +47,8 @@ const OPENAI_MODELS = [
   { value: "gpt-5", label: "GPT-5" },
   { value: "gpt-5-mini", label: "GPT-5 Mini" },
   { value: "gpt-5-nano", label: "GPT-5 Nano" },
+  { value: "o3", label: "o3 (Reasoning)" },
+  { value: "o4-mini", label: "o4-mini (Reasoning)" },
   { value: "gpt-4.1", label: "GPT-4.1" },
   { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
   { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
@@ -55,14 +57,16 @@ const OPENAI_MODELS = [
 ];
 
 const ANTHROPIC_MODELS = [
-  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
+  { value: "claude-opus-4-5", label: "Claude Opus 4.5" },
   { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet 4.5" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
 ];
 
 const DEFAULT_MODELL: Record<"openai" | "anthropic", string> = {
-  openai: "gpt-4o",
-  anthropic: "claude-haiku-4-5-20251001",
+  openai: "gpt-4.1",
+  anthropic: "claude-sonnet-4-6",
 };
 
 export default function KiEinstellungenPage() {
