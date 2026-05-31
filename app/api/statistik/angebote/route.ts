@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
              ELSE '> 2.000 EUR'
            END as band,
            COUNT(*) as anzahl,
-           SUM(CASE WHEN a.status = 'ANGENOMMEN' THEN 1 ELSE 0 END) as angenommenAnzahl
+           SUM(CASE WHEN sub.status = 'ANGENOMMEN' THEN 1 ELSE 0 END) as angenommenAnzahl
          FROM (
            SELECT a.id, a.status,
                   CAST(SUM(ap.menge * ap.preis * (1.0 - ap.rabatt / 100.0)) AS REAL) as wert
