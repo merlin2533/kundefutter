@@ -15,22 +15,13 @@ export async function GET(req: NextRequest) {
     const vonIso = vonDate.toISOString();
     const bisIso = bisDate.toISOString();
 
-    type KatRow = {
-      kategorie: string;
-      netto: number | null;
-      brutto: number | null;
-    };
-    type MonatRow = {
-      monat: string;
-      brutto: number | null;
-    };
-    type SummeRow = {
-      netto: number | null;
-      brutto: number | null;
-      anzahl: number;
-    };
+    type KatRow = { kategorie: string; netto: number | null; brutto: number | null };
+    type MonatRow = { monat: string; brutto: number | null };
+    type SummeRow = { netto: number | null; brutto: number | null; anzahl: number };
+    type BuchtypRow = { buchungstyp: string; netto: number | null; brutto: number | null; anzahl: number };
+    type ReiseRow = { totalKm: number | null; totalPauschale: number | null };
 
-    const [nachKategorieRaw, nachMonatRaw, summeRaw] = await Promise.all([
+    const [nachKategorieRaw, nachMonatRaw, summeRaw, nachBuchungstypRaw, reiseSummaryRaw] = await Promise.all([
       prisma.$queryRawUnsafe<KatRow[]>(
         `SELECT
            kategorie,
@@ -41,8 +32,7 @@ export async function GET(req: NextRequest) {
          GROUP BY kategorie
          ORDER BY brutto DESC
          LIMIT 100`,
-        vonIso,
-        bisIso
+        vonIso, bisIso
       ),
       prisma.$queryRawUnsafe<MonatRow[]>(
         `SELECT
@@ -53,8 +43,7 @@ export async function GET(req: NextRequest) {
          GROUP BY monat
          ORDER BY monat ASC
          LIMIT 120`,
-        vonIso,
-        bisIso
+        vonIso, bisIso
       ),
       prisma.$queryRawUnsafe<SummeRow[]>(
         `SELECT
@@ -63,8 +52,27 @@ export async function GET(req: NextRequest) {
            COUNT(*) AS anzahl
          FROM Ausgabe
          WHERE datum >= ? AND datum < ?`,
-        vonIso,
-        bisIso
+        vonIso, bisIso
+      ),
+      prisma.$queryRawUnsafe<BuchtypRow[]>(
+        `SELECT
+           COALESCE(buchungstyp, 'Betriebsausgabe') AS buchungstyp,
+           CAST(SUM(betragNetto) AS REAL)                             AS netto,
+           CAST(SUM(betragNetto * (1.0 + mwstSatz / 100.0)) AS REAL) AS brutto,
+           COUNT(*) AS anzahl
+         FROM Ausgabe
+         WHERE datum >= ? AND datum < ?
+         GROUP BY buchungstyp
+         ORDER BY brutto DESC`,
+        vonIso, bisIso
+      ),
+      prisma.$queryRawUnsafe<ReiseRow[]>(
+        `SELECT
+           CAST(SUM(reiseKm) AS REAL) AS totalKm,
+           CAST(SUM(CASE WHEN reiseKilometerpauschale = 1 THEN betragNetto ELSE 0 END) AS REAL) AS totalPauschale
+         FROM Ausgabe
+         WHERE buchungstyp = 'Reisekosten' AND datum >= ? AND datum < ?`,
+        vonIso, bisIso
       ),
     ]);
 
@@ -91,9 +99,23 @@ export async function GET(req: NextRequest) {
       brutto: r2(m.brutto),
     }));
 
+    const nachBuchungstyp = nachBuchungstypRaw.map(b => ({
+      buchungstyp: b.buchungstyp,
+      netto: r2(b.netto),
+      brutto: r2(b.brutto),
+      anzahl: Number(b.anzahl),
+    }));
+
+    const rr = reiseSummaryRaw[0];
+
     return NextResponse.json({
       nachKategorie,
       nachMonat,
+      nachBuchungstyp,
+      reisekosten: {
+        totalKm: r2(rr?.totalKm),
+        totalPauschale: r2(rr?.totalPauschale),
+      },
       summe: {
         netto: r2(s?.netto),
         brutto: gesamtBrutto,

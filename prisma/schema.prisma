@@ -762,6 +762,20 @@ model Ausgabe {
   ausleger       String?   // Name der Person, die privat ausgelegt hat (null = Firmenzahlung)
   erfasstVon     String?   // Benutzername der erfassenden Person
   bezahltVon     String?   // Benutzername der Person, die als bezahlt markiert hat
+  // ── DATEV / Buchungskonten ────────────────────────────────────────────────
+  buchungstyp             String   @default("Betriebsausgabe")
+  // "Betriebsausgabe"|"Privatentnahme"|"Privateinlage"|"Reisekosten"|"Bewirtung"
+  sachkonto               String?  // DATEV Sachkontonummer z.B. "4660" — auto-befüllt, überschreibbar
+  kostenstelle            String?  // Kostenstelle (Freitext)
+  zahlungsweg             String?  // "Bar"|"Überweisung"|"EC"|"Kreditkarte"|"Privat"
+  // ── Reisekosten ───────────────────────────────────────────────────────────
+  reiseZiel               String?
+  reiseKm                 Float?
+  reiseKilometerpauschale Boolean  @default(false) // true → betragNetto = km × 0,30 €
+  reiseZweck              String?
+  // ── Bewirtungskosten ──────────────────────────────────────────────────────
+  bewirtungTeilnehmer     String?  // Anwesende Personen
+  bewirtungZweck          String?  // Geschäftlicher Anlass
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -770,6 +784,9 @@ model Ausgabe {
   @@index([kategorie])
   @@index([ausleger])
   @@index([erfasstVon])
+  @@index([buchungstyp])
+  @@index([zahlungsweg])
+  @@index([kostenstelle])
 }
 
 // ─── BANKABGLEICH (Kontoauszug-Import & Zahlungszuordnung) ───────────────────
@@ -1612,4 +1629,95 @@ model MqttRegel {
   updatedAt    DateTime @updatedAt
 
   @@index([aktiv])
+}
+
+// ─── PERSONAL / HR ───────────────────────────────────────────────────────────
+
+model Mitarbeiter {
+  id                 Int       @id @default(autoincrement())
+  vorname            String
+  nachname           String
+  typ                String    @default("festgehalt")  // "festgehalt"|"minijob"|"stundenbasis"
+  eintrittsdatum     DateTime
+  austrittsdatum     DateTime?
+  aktiv              Boolean   @default(true)
+  email              String?
+  telefon            String?
+  iban               String?
+  bic                String?
+  kontoinhaber       String?
+  grundgehalt        Float?    // monatl. brutto, typ=festgehalt
+  minijobPauschale   Float?    // typ=minijob
+  stundenlohn        Float?    // EUR/h, typ=stundenbasis
+  wochenstunden      Float?
+  urlaubstageProJahr Int       @default(0)
+  kostenstelle       String?
+  notiz              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  arbeitsstunden  Arbeitsstunde[]
+  abrechnungen    Gehaltsabrechnung[]
+  urlaubsantraege Urlaubsantrag[]
+
+  @@index([aktiv])
+  @@index([typ])
+}
+
+model Arbeitsstunde {
+  id            Int         @id @default(autoincrement())
+  mitarbeiterId Int
+  datum         DateTime
+  stunden       Float
+  art           String      @default("arbeit")  // "arbeit"|"urlaub"|"krank"|"feiertag"
+  notiz         String?
+  createdAt     DateTime    @default(now())
+
+  mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  @@index([mitarbeiterId])
+  @@index([datum])
+  @@index([mitarbeiterId, datum])
+}
+
+model Gehaltsabrechnung {
+  id            Int         @id @default(autoincrement())
+  mitarbeiterId Int
+  monat         Int         // 1-12
+  jahr          Int
+  stundenGesamt Float?      // nur stundenbasis
+  brutto        Float
+  netto         Float
+  abzuege       Float       @default(0)
+  notiz         String?
+  status        String      @default("OFFEN")  // "OFFEN"|"ABGERECHNET"|"AUSGEZAHLT"
+  zahlungsDatum DateTime?
+  ausgabeId     Int?        @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Restrict)
+
+  @@unique([mitarbeiterId, monat, jahr])
+  @@index([status])
+  @@index([mitarbeiterId])
+  @@index([jahr, monat])
+}
+
+model Urlaubsantrag {
+  id            Int         @id @default(autoincrement())
+  mitarbeiterId Int
+  von           DateTime
+  bis           DateTime
+  tage          Float
+  status        String      @default("BEANTRAGT")  // "BEANTRAGT"|"GENEHMIGT"|"ABGELEHNT"
+  notiz         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
+
+  @@index([mitarbeiterId])
+  @@index([status])
+  @@index([von, bis])
 }

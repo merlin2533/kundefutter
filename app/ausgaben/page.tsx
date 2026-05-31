@@ -3,7 +3,18 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Sonstige"];
+const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
+
+const BUCHUNGSTYPEN_FILTER = ["Betriebsausgabe", "Privatentnahme", "Privateinlage", "Reisekosten", "Bewirtung"];
+const ZAHLUNGSWEGE_FILTER = ["Bar", "Überweisung", "EC", "Kreditkarte", "Privat"];
+
+const BUCHUNGSTYP_COLORS: Record<string, string> = {
+  Betriebsausgabe: "bg-gray-100 text-gray-700",
+  Privatentnahme:  "bg-blue-100 text-blue-700",
+  Privateinlage:   "bg-teal-100 text-teal-700",
+  Reisekosten:     "bg-sky-100 text-sky-700",
+  Bewirtung:       "bg-amber-100 text-amber-700",
+};
 
 interface Ausgabe {
   id: number;
@@ -13,6 +24,10 @@ interface Ausgabe {
   betragNetto: number;
   mwstSatz: number;
   kategorie: string;
+  buchungstyp: string;
+  sachkonto: string | null;
+  zahlungsweg: string | null;
+  kostenstelle: string | null;
   lieferant: { id: number; name: string } | null;
   bezahltAm: string | null;
   notiz: string | null;
@@ -45,6 +60,8 @@ function AusgabenContent() {
   const [von, setVon] = useState(searchParams.get("von") ?? firstOfMonth);
   const [bis, setBis] = useState(searchParams.get("bis") ?? todayStr);
   const [kategorie, setKategorie] = useState(searchParams.get("kategorie") ?? "Alle");
+  const [buchungstyp, setBuchungstyp] = useState("Alle");
+  const [zahlungsweg, setZahlungsweg] = useState("Alle");
   const [nurUnbezahlt, setNurUnbezahlt] = useState(false);
   const [nurAuslagen, setNurAuslagen] = useState(false);
   const [kategorienList, setKategorienList] = useState<string[]>(FALLBACK_AUSGABEN_KAT);
@@ -69,6 +86,8 @@ function AusgabenContent() {
     if (von) params.set("von", von);
     if (bis) params.set("bis", bis);
     if (kategorie && kategorie !== "Alle") params.set("kategorie", kategorie);
+    if (buchungstyp && buchungstyp !== "Alle") params.set("buchungstyp", buchungstyp);
+    if (zahlungsweg && zahlungsweg !== "Alle") params.set("zahlungsweg", zahlungsweg);
     if (nurUnbezahlt) params.set("unbezahlt", "true");
     if (nurAuslagen) params.set("nurAuslagen", "true");
     const res = await fetch(`/api/ausgaben?${params}`);
@@ -76,7 +95,7 @@ function AusgabenContent() {
     setLoading(false);
   }
 
-  useEffect(() => { laden(); }, [von, bis, kategorie, nurUnbezahlt, nurAuslagen]);
+  useEffect(() => { laden(); }, [von, bis, kategorie, buchungstyp, zahlungsweg, nurUnbezahlt, nurAuslagen]);
 
   async function alsBezahlt(id: number) {
     await fetch(`/api/ausgaben/${id}`, {
@@ -142,6 +161,22 @@ function AusgabenContent() {
             {kategorienList.map(k => <option key={k}>{k}</option>)}
           </select>
         </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Buchungstyp</label>
+          <select value={buchungstyp} onChange={e => setBuchungstyp(e.target.value)}
+            className="border rounded px-2 py-1 text-sm">
+            <option>Alle</option>
+            {BUCHUNGSTYPEN_FILTER.map(bt => <option key={bt}>{bt}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Zahlungsweg</label>
+          <select value={zahlungsweg} onChange={e => setZahlungsweg(e.target.value)}
+            className="border rounded px-2 py-1 text-sm">
+            <option>Alle</option>
+            {ZAHLUNGSWEGE_FILTER.map(z => <option key={z}>{z}</option>)}
+          </select>
+        </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer pb-1">
           <input type="checkbox" checked={nurUnbezahlt} onChange={e => setNurUnbezahlt(e.target.checked)} />
           Nur unbezahlte
@@ -195,14 +230,15 @@ function AusgabenContent() {
                 <th className="text-left px-3 py-2">Datum</th>
                 <th className="text-left px-3 py-2 hidden sm:table-cell">Beleg-Nr.</th>
                 <th className="text-left px-3 py-2">Beschreibung</th>
-                <th className="text-left px-3 py-2 hidden md:table-cell">Kategorie</th>
-                <th className="text-left px-3 py-2 hidden lg:table-cell">Lieferant</th>
+                <th className="text-left px-3 py-2 hidden md:table-cell">Kategorie / Typ</th>
+                <th className="text-left px-3 py-2 hidden lg:table-cell">Zahlungsweg / Konto</th>
+                <th className="text-left px-3 py-2 hidden xl:table-cell">Lieferant</th>
                 <th className="text-right px-3 py-2">Netto</th>
                 <th className="text-right px-3 py-2 hidden sm:table-cell">MwSt</th>
                 <th className="text-right px-3 py-2">Brutto</th>
-                <th className="text-left px-3 py-2 hidden md:table-cell">Bezahlt / Erstattet</th>
-                <th className="text-left px-3 py-2 hidden lg:table-cell">Ausgelegt von</th>
-                <th className="text-left px-3 py-2 hidden xl:table-cell">Erfasst von</th>
+                <th className="text-left px-3 py-2 hidden lg:table-cell">Bezahlt / Erstattet</th>
+                <th className="text-left px-3 py-2 hidden xl:table-cell">Ausgelegt von</th>
+                <th className="text-left px-3 py-2 hidden 2xl:table-cell">Erfasst von</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -217,6 +253,9 @@ function AusgabenContent() {
                     <td className="px-3 py-2 font-medium">
                       {a.beschreibung}
                       <div className="sm:hidden text-xs text-gray-400">{a.kategorie}</div>
+                      <div className="md:hidden mt-0.5">
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${BUCHUNGSTYP_COLORS[a.buchungstyp] ?? "bg-gray-100 text-gray-600"}`}>{a.buchungstyp}</span>
+                      </div>
                       {a.ausleger && (
                         <div className="lg:hidden text-xs text-orange-600 mt-0.5">👤 {a.ausleger}</div>
                       )}
@@ -225,15 +264,27 @@ function AusgabenContent() {
                       )}
                     </td>
                     <td className="px-3 py-2 hidden md:table-cell">
-                      <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">{a.kategorie}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs w-fit">{a.kategorie}</span>
+                        {a.buchungstyp && a.buchungstyp !== "Betriebsausgabe" && (
+                          <span className={`text-xs px-2 py-0.5 rounded w-fit ${BUCHUNGSTYP_COLORS[a.buchungstyp] ?? "bg-gray-100 text-gray-600"}`}>{a.buchungstyp}</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-3 py-2 text-gray-600 hidden lg:table-cell">{a.lieferant?.name ?? "—"}</td>
+                    <td className="px-3 py-2 hidden lg:table-cell">
+                      <div className="flex flex-col gap-0.5">
+                        {a.zahlungsweg && <span className="text-xs text-gray-600">{a.zahlungsweg}</span>}
+                        {a.sachkonto && <span className="text-xs font-mono text-gray-400">{a.sachkonto}</span>}
+                        {a.kostenstelle && <span className="text-xs text-gray-400">{a.kostenstelle}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-gray-600 hidden xl:table-cell">{a.lieferant?.name ?? "—"}</td>
                     <td className="px-3 py-2 text-right">{formatEuro(a.betragNetto)}</td>
                     <td className="px-3 py-2 text-right text-gray-500 hidden sm:table-cell">
                       {a.mwstSatz}% / {formatEuro(mwstBetrag)}
                     </td>
                     <td className="px-3 py-2 text-right font-medium">{formatEuro(brutto)}</td>
-                    <td className="px-3 py-2 hidden md:table-cell">
+                    <td className="px-3 py-2 hidden lg:table-cell">
                       {a.bezahltAm ? (
                         <span className="text-green-600 text-xs">
                           {a.ausleger ? "Erstattet" : "Bezahlt"} {formatDatum(a.bezahltAm)}
@@ -251,14 +302,14 @@ function AusgabenContent() {
                         </button>
                       )}
                     </td>
-                    <td className="px-3 py-2 hidden lg:table-cell">
+                    <td className="px-3 py-2 hidden xl:table-cell">
                       {a.ausleger ? (
                         <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-medium">
                           👤 {a.ausleger}
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 hidden xl:table-cell">
+                    <td className="px-3 py-2 hidden 2xl:table-cell">
                       {a.erfasstVon ? (
                         <span className="text-xs text-gray-500">{a.erfasstVon}</span>
                       ) : null}

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAppName } from "@/lib/appinfo";
+import {
+  erloeseKonto,
+  getSachkonto,
+  getGegenkonto,
+  getBuSchluessel,
+} from "@/lib/datev";
 
 export const dynamic = "force-dynamic";
 
@@ -16,51 +22,6 @@ function belegdatum(date: Date): string {
 /** Escape and quote a text field for CSV */
 function q(val: string): string {
   return `"${val.replace(/"/g, '""')}"`;
-}
-
-/** Revenue account by VAT rate */
-function erloeseKonto(mwstSatz: number, kontenrahmen: string): string {
-  if (kontenrahmen === "SKR04") {
-    if (mwstSatz === 19) return "4400";
-    if (mwstSatz === 7) return "4300";
-    return "4200";
-  }
-  // SKR03
-  if (mwstSatz === 19) return "8400";
-  if (mwstSatz === 7) return "8300";
-  return "8000";
-}
-
-/** Expense account by category */
-function aufwandsKonto(kategorie: string, kontenrahmen: string): string {
-  if (kontenrahmen === "SKR04") {
-    switch (kategorie) {
-      case "Wareneinkauf":     return "5200";
-      case "Betriebsbedarf":   return "6300";
-      case "Fahrtkosten":      return "6520";
-      case "Bürobedarf":       return "6815";
-      case "Telefon/Internet": return "6805";
-      case "Versicherung":     return "6310";
-      case "Miete":            return "6130";
-      default:                 return "6800";
-    }
-  }
-  // SKR03
-  switch (kategorie) {
-    case "Wareneinkauf":     return "3200";
-    case "Betriebsbedarf":   return "4200";
-    case "Fahrtkosten":      return "4530";
-    case "Bürobedarf":       return "4930";
-    case "Telefon/Internet": return "4920";
-    case "Versicherung":     return "4360";
-    case "Miete":            return "4210";
-    default:                 return "4900";
-  }
-}
-
-/** Creditor account: 70000 + lieferantId, or fixed 70000 for unknown */
-function kreditorenKonto(lieferantId: number | null): string {
-  return String(70000 + (lieferantId ?? 0));
 }
 
 export async function GET(req: NextRequest) {
@@ -163,6 +124,12 @@ export async function GET(req: NextRequest) {
         kategorie: true,
         lieferantId: true,
         belegPfad: true,
+        buchungstyp: true,
+        sachkonto: true,
+        zahlungsweg: true,
+        kostenstelle: true,
+        reiseZiel: true,
+        bewirtungZweck: true,
       },
       orderBy: { datum: "asc" },
     }),
@@ -182,6 +149,7 @@ export async function GET(req: NextRequest) {
     beleglink: string;   // URL zum Belegscan (DATEV Beleglink Feld)
     leistungsdatum: string; // DDMMYYYY
     steuersatz: string;  // e.g. "19"
+    kostenstelle: string; // DATEV Feld 36
   }
 
   // Base URL for Beleglink (e.g. http://194.164.59.48:8080)
@@ -218,7 +186,7 @@ export async function GET(req: NextRequest) {
         sollHaben: "S",
         wkz: "EUR",
         konto,
-        gegenkonto: erloeseKonto(satz, kontenrahmen),
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"),
         buSchluessel: "",
         belegdatum: belegdatum(rechnungDatum),
         belegfeld1: lief.rechnungNr ?? "",
@@ -226,6 +194,7 @@ export async function GET(req: NextRequest) {
         beleglink: "",
         leistungsdatum: leistungsdatumFmt(rechnungDatum),
         steuersatz: String(satz),
+        kostenstelle: "",
       });
     }
   }
@@ -254,7 +223,7 @@ export async function GET(req: NextRequest) {
         sollHaben: "S",
         wkz: "EUR",
         konto,
-        gegenkonto: erloeseKonto(satz, kontenrahmen),
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"),
         buSchluessel: "",
         belegdatum: belegdatum(rechnungDatum),
         belegfeld1: sr.rechnungNr ?? "",
@@ -262,6 +231,7 @@ export async function GET(req: NextRequest) {
         beleglink: "",
         leistungsdatum: leistungsdatumFmt(rechnungDatum),
         steuersatz: String(satz),
+        kostenstelle: "",
       });
     }
   }
@@ -287,7 +257,7 @@ export async function GET(req: NextRequest) {
         sollHaben: "H",
         wkz: "EUR",
         konto,
-        gegenkonto: erloeseKonto(satz, kontenrahmen),
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"),
         buSchluessel: "",
         belegdatum: belegdatum(datum),
         belegfeld1: gs.nummer,
@@ -295,27 +265,42 @@ export async function GET(req: NextRequest) {
         beleglink: "",
         leistungsdatum: leistungsdatumFmt(datum),
         steuersatz: String(satz),
+        kostenstelle: "",
       });
     }
   }
 
-  // ── Ausgaben (Betriebsausgaben / Eingangsrechnungen) ─────────────────────
+  // ── Ausgaben (Betriebsausgaben / Privatentnahmen / Reisekosten / Bewirtung) ─
+  const kr = kontenrahmen as "SKR03" | "SKR04";
   for (const ausg of ausgaben) {
-    const brutto = ausg.betragNetto * (1 + ausg.mwstSatz / 100);
+    const bt = ausg.buchungstyp ?? "Betriebsausgabe";
+    const isPrivat = bt === "Privatentnahme" || bt === "Privateinlage";
+    const mwst = isPrivat ? 0 : ausg.mwstSatz;
+    const brutto = ausg.betragNetto * (1 + mwst / 100);
     const beleglink = ausg.belegPfad && baseUrl ? `${baseUrl}${ausg.belegPfad}` : "";
+
+    // Buchungstext: mit Kontext anreichern
+    let buchungstext = ausg.beschreibung;
+    if (bt === "Reisekosten" && ausg.reiseZiel)
+      buchungstext = `${buchungstext} [${ausg.reiseZiel}]`;
+    if (bt === "Bewirtung" && ausg.bewirtungZweck)
+      buchungstext = `${buchungstext} [${ausg.bewirtungZweck}]`;
+    buchungstext = buchungstext.substring(0, 60);
+
     rows.push({
       umsatz: Math.round(brutto * 100) / 100,
       sollHaben: "H",
       wkz: "EUR",
-      konto: aufwandsKonto(ausg.kategorie, kontenrahmen),
-      gegenkonto: kreditorenKonto(ausg.lieferantId),
-      buSchluessel: "",
+      konto: getSachkonto(ausg.kategorie, bt, kr, ausg.sachkonto),
+      gegenkonto: getGegenkonto(ausg.zahlungsweg, ausg.lieferantId, kr, bt),
+      buSchluessel: getBuSchluessel(bt),
       belegdatum: belegdatum(ausg.datum),
       belegfeld1: (ausg.belegNr ?? "").substring(0, 36),
-      buchungstext: ausg.beschreibung.substring(0, 60),
+      buchungstext,
       beleglink,
       leistungsdatum: leistungsdatumFmt(ausg.datum),
-      steuersatz: String(ausg.mwstSatz),
+      steuersatz: String(mwst),
+      kostenstelle: ausg.kostenstelle ?? "",
     });
   }
 
@@ -455,7 +440,8 @@ export async function GET(req: NextRequest) {
       r.beleglink ? q(r.beleglink) : "", // 19 Beleglink
       "", "", "", "", "", "", "", "", "", "", // 20-29 Beleginfo Art/Inhalt 1-5
       "", "", "", "", "", "",               // 30-35 Beleginfo Art/Inhalt 6-8
-      "", "", "", "", "", "",               // 36-41 Kostenrechnung Kostenstelle/Kostenmenge 1-3
+      r.kostenstelle ? q(r.kostenstelle) : "", // 36 Kostenrechnung - Kostenstelle 1
+      "", "", "", "", "",                   // 37-41 Kostenmenge 1, Kostenstelle 2-3, Kostenmenge 2-3
       "", "",                              // 42-43 KOST1/KOST2-Auftragsnummer
       "",                                  // 44 Kost-Datum
       "",                                  // 45 SEPA-Mandatsreferenz

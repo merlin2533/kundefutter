@@ -18,9 +18,18 @@ interface MonatRow {
   brutto: number;
 }
 
+interface BuchtypRow {
+  buchungstyp: string;
+  netto: number;
+  brutto: number;
+  anzahl: number;
+}
+
 interface Data {
   nachKategorie: KategorieRow[];
   nachMonat: MonatRow[];
+  nachBuchungstyp: BuchtypRow[];
+  reisekosten: { totalKm: number; totalPauschale: number };
   summe: {
     netto: number;
     brutto: number;
@@ -223,6 +232,71 @@ export default function StatistikAusgabenPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Reisekosten-KPI-Strip */}
+          {data.reisekosten.totalKm > 0 && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                <p className="text-xs font-medium text-sky-600 uppercase tracking-wide">
+                  Reise-km gesamt
+                </p>
+                <p className="text-2xl font-bold mt-1 text-sky-800">
+                  {data.reisekosten.totalKm.toLocaleString("de-DE")} km
+                </p>
+              </div>
+              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4">
+                <p className="text-xs font-medium text-sky-600 uppercase tracking-wide">
+                  Kilometerpauschale (0,30 €/km)
+                </p>
+                <p className="text-2xl font-bold mt-1 text-sky-800">
+                  {formatEuro(data.reisekosten.totalPauschale)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Ausgaben nach Buchungstyp */}
+          {data.nachBuchungstyp.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-700">
+                Ausgaben nach Buchungstyp
+              </h2>
+              {data.nachBuchungstyp.map((b) => {
+                const anteil =
+                  data.summe.brutto > 0
+                    ? (b.brutto / data.summe.brutto) * 100
+                    : 0;
+                return (
+                  <div key={b.buchungstyp}>
+                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                      <span className="font-medium">
+                        {b.buchungstyp}
+                        <span className="text-gray-400 font-normal ml-1">
+                          ({b.anzahl})
+                        </span>
+                      </span>
+                      <span>
+                        {anteil.toLocaleString("de-DE", {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}{" "}
+                        % ·{" "}
+                        <span className="font-semibold">
+                          {formatEuro(b.brutto)}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-blue-500"
+                        style={{ width: `${Math.min(100, anteil)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
