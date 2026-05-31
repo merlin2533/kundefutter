@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { autoGeocodeKunde } from "@/lib/geocoding";
 export const dynamic = "force-dynamic";
 
 
@@ -135,6 +136,12 @@ export async function POST(req: NextRequest) {
       },
       include: { kontakte: true },
     });
+
+    // Auto-Geocodierung im Hintergrund wenn Adresse vorhanden aber keine Koordinaten
+    if (!kunde.lat && kunde.strasse && kunde.ort) {
+      void autoGeocodeKunde(prisma, kunde.id);
+    }
+
     return NextResponse.json(kunde, { status: 201 });
   } catch (err) {
     console.error("Kunden POST error:", err);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
+import { autoGeocodeKunde } from "@/lib/geocoding";
 export const dynamic = "force-dynamic";
 
 
@@ -110,6 +111,20 @@ export async function PUT(req: NextRequest, { params }: Params) {
         ["name", "firma", "kategorie", "plz", "ort"]
       );
     }
+
+    // Auto-Geocodierung: wenn Adresse geändert oder noch keine Koordinaten, im Hintergrund neu geocodieren
+    const adresseGeaendert = (strasse !== undefined || plz !== undefined || ort !== undefined);
+    const hatAdresse = !!(kunde.strasse && kunde.ort);
+    if (hatAdresse && (!kunde.lat || adresseGeaendert)) {
+      // Bei Adressänderung: Versuchszähler zurücksetzen damit eine neue Suche stattfindet
+      if (adresseGeaendert && kunde.lat == null) {
+        void prisma.kunde.update({ where: { id: Number(id) }, data: { geocodeVersuche: 0 } })
+          .then(() => autoGeocodeKunde(prisma, Number(id)));
+      } else if (!kunde.lat) {
+        void autoGeocodeKunde(prisma, Number(id));
+      }
+    }
+
     return NextResponse.json(kunde);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

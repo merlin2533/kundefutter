@@ -194,7 +194,7 @@ export default function KundenKartePage() {
           {/* Map */}
           <div className="flex-1 min-w-0 space-y-4">
             <div
-              className="rounded-xl overflow-hidden border border-gray-200 shadow-sm"
+              className="rounded-xl overflow-hidden border border-gray-200 shadow-sm isolate"
               style={{ height: "520px" }}
             >
               <DynamicMap

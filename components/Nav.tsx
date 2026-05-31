@@ -760,7 +760,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="bg-green-800 text-white shadow-md">
+    <header className="bg-green-800 text-white shadow-md relative z-[1000]">
       <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
         {/* Logo */}
         <div className="flex-shrink-0">

@@ -150,6 +150,9 @@ model Lieferant {
   plz             String?
   ort             String?
   notizen            String?
+  iban               String?
+  bic                String?
+  kontoinhaber       String?
   frachtkosten       Float    @default(0)
   mindestbestellwert Float    @default(0)
   aktiv              Boolean  @default(true)
@@ -1074,7 +1077,8 @@ model EingangsRechnung {
   faelligAm   DateTime?
   betrag      Float
   mwst        Float     @default(19)
-  status      String    @default("OFFEN")  // OFFEN|BEZAHLT|STORNIERT
+  status        String    @default("OFFEN")  // OFFEN|BEZAHLT|STORNIERT
+  zahlungsDatum DateTime?
   belegpfad   String?
   notiz       String?
   createdAt   DateTime  @default(now())
