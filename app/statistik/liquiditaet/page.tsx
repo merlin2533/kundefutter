@@ -42,6 +42,7 @@ interface LiquiditaetData {
     passiva: { verbindlichkeiten: number; gesamt: number };
     eigenkapital: number;
   };
+  personalkosten?: number;
   kpi: {
     cashflowAktuell: number;
     cashflowVormonat: number;
@@ -806,6 +807,15 @@ function LiquiditaetInner() {
               </div>
             </div>
             <BilanzTabelle bilanz={data.bilanz} />
+            {data.personalkosten !== undefined && data.personalkosten > 0 && (
+              <div className="mt-4 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium text-purple-800">Plankosten Personal / Monat</span>
+                  <p className="text-xs text-purple-500 mt-0.5">Summe aktiver Mitarbeiter (Schätzung)</p>
+                </div>
+                <span className="text-lg font-bold font-mono text-purple-700">{formatEuro(data.personalkosten)}</span>
+              </div>
+            )}
           </div>
 
           {/* Quick Links */}

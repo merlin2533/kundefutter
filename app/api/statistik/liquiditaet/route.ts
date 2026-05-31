@@ -63,6 +63,20 @@ export async function GET(req: NextRequest) {
       take: 5000,
     });
 
+    // 6. Personalkosten (monatliche Plankosten aus aktiven Mitarbeitern)
+    const aktiveMitarbeiter = await prisma.mitarbeiter.findMany({
+      where: { aktiv: true },
+      select: { typ: true, grundgehalt: true, minijobPauschale: true, stundenlohn: true, wochenstunden: true },
+      take: 500,
+    });
+    function monatlichePersonalkosten(m: { typ: string; grundgehalt: number | null; minijobPauschale: number | null; stundenlohn: number | null; wochenstunden: number | null }): number {
+      if (m.typ === "festgehalt") return m.grundgehalt ?? 0;
+      if (m.typ === "minijob") return m.minijobPauschale ?? 0;
+      if (m.typ === "stundenbasis") return (m.stundenlohn ?? 0) * (m.wochenstunden ?? 0) * 4.33;
+      return 0;
+    }
+    const personalkosten = Math.round(aktiveMitarbeiter.reduce((s, m) => s + monatlichePersonalkosten(m), 0) * 100) / 100;
+
     // ── Aggregation nach Monat ────────────────────────────────────────────────
 
     const monatMap = new Map<string, { einnahmen: number; ausgaben: number }>();
@@ -212,6 +226,7 @@ export async function GET(req: NextRequest) {
         },
         eigenkapital: Math.round(eigenkapital * 100) / 100,
       },
+      personalkosten,
       kpi: {
         cashflowAktuell: Math.round(cashflowAktuell * 100) / 100,
         cashflowVormonat: Math.round(cashflowVormonat * 100) / 100,

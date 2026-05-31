@@ -12,6 +12,7 @@ const KATEGORIEN = [
   "Telefon/Internet",
   "Versicherung",
   "Miete",
+  "Personal",
   "Sonstige",
 ];
 

@@ -208,7 +208,7 @@ interface DashboardData {
 type WidgetId =
   | "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende"
   | "wetter" | "besuchstermine" | "sachkundenachweise" | "reklamationen_kritisch"
-  | "budget" | "angebote_pipeline" | "vorbestellungen";
+  | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung";
 
 const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
@@ -224,6 +224,7 @@ const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
   { id: "budget", label: "Budget-Fortschritt", icon: "🎯" },
   { id: "angebote_pipeline", label: "Angebots-Pipeline", icon: "📊" },
   { id: "vorbestellungen", label: "Offene Vorbestellungen", icon: "🌱" },
+  { id: "personal_abrechnung", label: "Personal-Abrechnungen", icon: "👥" },
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = [
@@ -1191,6 +1192,77 @@ function VorbestellungenWidget() {
   );
 }
 
+interface PersonalOffen {
+  id: number;
+  vorname: string;
+  nachname: string;
+  typ: string;
+}
+
+function PersonalAbrechnungWidget() {
+  const [offene, setOffene] = useState<PersonalOffen[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const now = new Date();
+    fetch(`/api/personal/abrechnungen/offen?monat=${now.getMonth() + 1}&jahr=${now.getFullYear()}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setOffene(Array.isArray(d) ? d : []))
+      .catch(() => setOffene([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const now = new Date();
+  const tag = now.getDate();
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">Gehaltsabrechnungen</h2>
+          {offene.length > 0 && (
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold ${tag > 15 ? "bg-orange-500" : "bg-amber-400"}`}>
+              {offene.length}
+            </span>
+          )}
+        </div>
+        <Link href="/personal/abrechnungen" className="text-xs text-green-700 hover:underline">Abrechnungen →</Link>
+      </div>
+      {loading ? <p className="text-sm text-gray-400">Wird geladen…</p> : offene.length === 0 ? (
+        <p className="text-sm text-gray-400">Alle Mitarbeiter haben eine Abrechnung für diesen Monat.</p>
+      ) : (
+        <>
+          {tag > 15 && (
+            <div className="mb-2 text-xs text-orange-600 font-medium">
+              Monatsmitte überschritten — Abrechnungen ausstehend!
+            </div>
+          )}
+          <div className="space-y-1.5">
+            {offene.slice(0, 6).map((m) => (
+              <Link
+                key={m.id}
+                href={`/personal/${m.id}?tab=abrechnung`}
+                className="flex items-center justify-between p-2 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+              >
+                <span className="text-sm text-gray-800">{m.vorname} {m.nachname}</span>
+                <span className="text-xs text-gray-400">{m.typ === "festgehalt" ? "Festgehalt" : m.typ === "minijob" ? "Minijob" : "Stunden"}</span>
+              </Link>
+            ))}
+            {offene.length > 6 && (
+              <p className="text-xs text-gray-400 text-center">+ {offene.length - 6} weitere</p>
+            )}
+          </div>
+          <div className="mt-3">
+            <Link href="/personal/abrechnungen/neu" className="text-xs text-green-700 hover:underline">
+              Abrechnungen erstellen →
+            </Link>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   return hour < 12 ? "Guten Morgen" : hour < 17 ? "Guten Tag" : "Guten Abend";
@@ -2018,6 +2090,13 @@ export default function DashboardPage() {
               <span className="text-orange-600 font-medium text-sm shrink-0">Jetzt auslösen →</span>
             </div>
           </Link>
+        </div>
+      )}
+
+      {/* Personal-Abrechnungen Widget */}
+      {widgetAktiv("personal_abrechnung") && (
+        <div className="mt-6">
+          <PersonalAbrechnungWidget />
         </div>
       )}
 

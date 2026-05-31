@@ -111,6 +111,14 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: "Personal",
+    children: [
+      { href: "/personal", label: "Mitarbeiter", section: "Stammdaten" },
+      { href: "/personal/abrechnungen", label: "Abrechnungen", section: "Abrechnung" },
+      { href: "/personal/ueberweisungsliste", label: "Überweisungsliste", section: "Abrechnung" },
+    ],
+  },
+  {
     label: "Analyse",
     children: [
       { href: "/kunden/bewertung", label: "Kundenbewertung", section: "Kunden-Analysen" },
@@ -215,6 +223,9 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/einstellungen/marktpreise": "Marktpreise-Einstellungen",
   "/sammelbestellung": "Sammelbestellung",
   "/streckengeschaeft": "Streckengeschäfte",
+  "/personal": "Mitarbeiter",
+  "/personal/abrechnungen": "Gehaltsabrechnungen",
+  "/personal/ueberweisungsliste": "Überweisungsliste",
 };
 
 function getPageTitle(pathname: string): string {
