@@ -307,6 +307,14 @@ export default function KundeDetailPage() {
                   📞 Rückruf planen
                 </button>
               )}
+              {email && (
+                <a
+                  href={`mailto:${email.wert}`}
+                  className="w-full text-center text-xs px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg font-medium transition-colors"
+                >
+                  ✉ E-Mail schreiben
+                </a>
+              )}
               {showRueckruf && !rueckrufSuccess && (
                 <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 space-y-2">
                   <div>

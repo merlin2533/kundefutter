@@ -86,7 +86,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
       subject: args.subject,
       text: args.text,
       html: args.html,
-      reply_to: cfg.replyTo,
+      replyTo: cfg.replyTo,
       bcc: cfg.bcc ? [cfg.bcc] : undefined,
       attachments: args.attachments?.map((a) => ({
         filename: a.filename,
