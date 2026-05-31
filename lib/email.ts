@@ -100,7 +100,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         subject: args.subject,
         text: args.text,
         html: args.html,
-        replyTo: cfg.replyTo,
+        reply_to: cfg.replyTo,
         bcc: cfg.bcc ? [cfg.bcc] : undefined,
         attachments: args.attachments?.map((a) => ({
           filename: a.filename,
@@ -164,7 +164,16 @@ export async function verifyEmailConfig(): Promise<void> {
     if (!cfg.resendApiKey) throw new Error("Resend API-Key fehlt");
     const client = new Resend(cfg.resendApiKey);
     const res = await client.domains.list();
-    if (res.error) throw new Error(res.error.message ?? "Resend-API-Key ungültig");
+    if (res.error) {
+      // A 403/forbidden error means the key exists but only has sending_access (not full_access).
+      // That is still a valid key — treat it as OK.
+      const name = (res.error as { name?: string }).name ?? "";
+      const msg = res.error.message ?? "";
+      if (/forbidden|not_authorized|403/i.test(name) || /forbidden|not_authorized|403/i.test(msg)) {
+        return;
+      }
+      throw new Error(msg || "Resend-API-Key ungültig");
+    }
     return;
   }
   if (!cfg.smtpHost) throw new Error("SMTP-Host nicht konfiguriert");
