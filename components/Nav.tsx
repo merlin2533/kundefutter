@@ -60,6 +60,7 @@ const groups: NavGroup[] = [
       { href: "/psm", label: "PSM-Ausbringung", section: "Pflanze" },
       { href: "/spritzfenster", label: "Spritzfenster-Prognose", section: "Pflanze" },
       { href: "/sachkundenachweise", label: "Sachkundenachweise", section: "Pflanze" },
+      { href: "/sachkundenachweise?typ=Sprengstoff-Sachkunde", label: "Sprengstoff-Nachweise", section: "Pflanze" },
       { href: "/zertifizierungen", label: "Zertifizierungen", section: "Pflanze" },
       { href: "/rationsberechnung", label: "Rationsberechnung", section: "Tier" },
     ],

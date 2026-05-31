@@ -22,6 +22,13 @@ export default function Page() {
   const [filterStatus, setFilterStatus] = useState<"alle" | "gueltig" | "ablaufend" | "abgelaufen">(() => loadSachkundeFilters().filterStatus ?? "alle");
   const [loading, setLoading] = useState(true);
 
+  // URL-param ?typ= überschreibt den gespeicherten Filter beim ersten Laden
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const typ = params.get("typ");
+    if (typ) setFilterTyp(typ);
+  }, []);
+
   useEffect(() => {
     try { sessionStorage.setItem("sachkunde-filters", JSON.stringify({ filterTyp, filterStatus })); } catch {}
   }, [filterTyp, filterStatus]);
