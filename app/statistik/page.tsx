@@ -451,7 +451,9 @@ export default function StatistikPage() {
                         <td className="py-2.5 min-w-0">
                           <div className="flex items-baseline gap-1.5 min-w-0">
                             <span className="text-xs text-gray-400 shrink-0">#{i + 1}</span>
-                            <span className="truncate">{a.name}</span>
+                            <Link href={`/statistik/artikel?search=${encodeURIComponent(a.name)}`} className="truncate text-green-700 hover:underline">
+                              {a.name}
+                            </Link>
                           </div>
                           <div className="sm:hidden text-xs text-gray-500 mt-0.5 pl-5 tabular-nums">
                             {a.menge.toLocaleString("de-DE")} Einh.
@@ -490,7 +492,9 @@ export default function StatistikPage() {
                         <td className="py-2.5 min-w-0">
                           <div className="flex items-baseline gap-1.5 min-w-0">
                             <span className="text-xs text-gray-400 shrink-0">#{i + 1}</span>
-                            <span className="truncate">{k.name}</span>
+                            <Link href={`/kunden/${k.kundeId}`} className="truncate text-green-700 hover:underline">
+                              {k.name}
+                            </Link>
                           </div>
                           <div className="sm:hidden text-xs text-gray-500 mt-0.5 pl-5 tabular-nums">
                             {k.anzahl} Lieferung{k.anzahl !== 1 ? "en" : ""}

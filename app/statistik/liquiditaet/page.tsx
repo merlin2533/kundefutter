@@ -21,9 +21,22 @@ interface TrendPunkt {
   trendNetto: number;
 }
 
+interface PrognosePunkt {
+  monat: string;
+  netto: number;
+}
+
+interface Warnung {
+  typ: "ok" | "warnung" | "kritisch";
+  message: string;
+  monateBisNull: number | null;
+}
+
 interface LiquiditaetData {
   monatlicherCashflow: MonatsCashflow[];
   trend: TrendPunkt[];
+  prognose: PrognosePunkt[];
+  warnung: Warnung;
   bilanz: {
     aktiva: { forderungen: number; lagerwert: number; gesamt: number };
     passiva: { verbindlichkeiten: number; gesamt: number };
@@ -53,7 +66,7 @@ function formatMonatKurz(m: string): string {
 
 // ─── Cashflow-Chart (SVG) ─────────────────────────────────────────────────────
 
-function CashflowChart({ data }: { data: MonatsCashflow[] }) {
+function CashflowChart({ data, prognose }: { data: MonatsCashflow[]; prognose?: PrognosePunkt[] }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   if (data.length === 0) {
@@ -73,15 +86,17 @@ function CashflowChart({ data }: { data: MonatsCashflow[] }) {
   const CW = W - PL - PR;
   const CH = H - PT - PB;
 
+  const totalCols = data.length + (prognose?.length ?? 0);
   const maxWert = Math.max(
     ...data.map((d) => Math.max(d.einnahmen, d.ausgaben)),
+    ...(prognose ?? []).map((p) => Math.abs(p.netto)),
     1
   );
   const minKumulativ = Math.min(...data.map((d) => d.kumulativ), 0);
   const maxKumulativ = Math.max(...data.map((d) => d.kumulativ), 0);
 
-  const barW = Math.min(28, CW / data.length / 2 - 2);
-  const step = CW / data.length;
+  const step = CW / Math.max(totalCols, 1);
+  const barW = Math.min(28, step / 2 - 2);
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => maxWert * f);
 
@@ -115,6 +130,12 @@ function CashflowChart({ data }: { data: MonatsCashflow[] }) {
           <span className="w-6 h-0.5 bg-blue-500 inline-block" />
           Kumulativer Cashflow
         </span>
+        {prognose && prognose.length > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm bg-green-100 border border-dashed border-green-400 inline-block" />
+            Prognose (3 Monate)
+          </span>
+        )}
       </div>
 
       <svg
@@ -192,6 +213,40 @@ function CashflowChart({ data }: { data: MonatsCashflow[] }) {
                 transform={`rotate(-30 ${cx} ${PT + CH + 14})`}
               >
                 {formatMonatKurz(d.monat)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Prognose-Balken (gestrichelt) */}
+        {prognose && prognose.map((p, i) => {
+          const idx = data.length + i;
+          const cx = PL + idx * step + step / 2;
+          const netH = Math.max(2, (Math.abs(p.netto) / maxWert) * CH);
+          const isPos = p.netto >= 0;
+          return (
+            <g key={`prog-${p.monat}`}>
+              <rect
+                x={cx - barW / 2}
+                y={PT + CH - (isPos ? netH : 0)}
+                width={barW}
+                height={netH}
+                fill={isPos ? "#bbf7d0" : "#fecaca"}
+                rx={2}
+                stroke={isPos ? "#86efac" : "#fca5a5"}
+                strokeWidth={1}
+                strokeDasharray="3 2"
+                opacity={0.85}
+              />
+              <text
+                x={cx}
+                y={PT + CH + 14}
+                textAnchor="middle"
+                fontSize={9}
+                fill="#9ca3af"
+                transform={`rotate(-30 ${cx} ${PT + CH + 14})`}
+              >
+                {formatMonatKurz(p.monat)}
               </text>
             </g>
           );
@@ -516,7 +571,7 @@ function LiquiditaetInner() {
       {data && kpi && (
         <>
           {/* KPI-Kacheln */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                 Cashflow aktueller Monat
@@ -579,7 +634,47 @@ function LiquiditaetInner() {
               </p>
               <p className="text-xs text-gray-400 mt-0.5">Eingangsrechnungen offen</p>
             </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Prognose (3 Monate)
+              </p>
+              <p
+                className={`text-2xl font-bold mt-1 ${
+                  data.warnung?.typ === "ok"
+                    ? "text-green-700"
+                    : data.warnung?.typ === "kritisch"
+                    ? "text-red-600"
+                    : "text-amber-600"
+                }`}
+              >
+                {data.warnung?.typ === "ok"
+                  ? "Stabil"
+                  : data.warnung?.monateBisNull
+                  ? `${data.warnung.monateBisNull} Mon.`
+                  : "Rückläufig"}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {data.warnung?.typ === "ok" ? "Positiver Ausblick" : "bis Nulllinie"}
+              </p>
+            </div>
           </div>
+
+          {/* Prognose-Warnung */}
+          {data.warnung && data.warnung.typ !== "ok" && (
+            <div
+              className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${
+                data.warnung.typ === "kritisch"
+                  ? "bg-red-50 border-red-300 text-red-800"
+                  : "bg-amber-50 border-amber-300 text-amber-800"
+              }`}
+            >
+              <span className="text-xl flex-shrink-0">
+                {data.warnung.typ === "kritisch" ? "🔴" : "⚠️"}
+              </span>
+              <span className="text-sm font-medium">{data.warnung.message}</span>
+            </div>
+          )}
 
           {/* Cashflow-Chart */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -592,7 +687,7 @@ function LiquiditaetInner() {
             <p className="text-xs text-gray-400 mb-4">
               Blaue Linie: kumulativer Cashflow im Zeitraum (rechte Skala)
             </p>
-            <CashflowChart data={data.monatlicherCashflow} />
+            <CashflowChart data={data.monatlicherCashflow} prognose={data.prognose} />
           </div>
 
           {/* Cashflow-Tabelle */}
