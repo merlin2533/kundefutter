@@ -18,10 +18,27 @@ const KATEGORIEN = [
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { image } = body as { image?: string };
+    let image: string | undefined;
+
+    const contentType = req.headers.get("content-type") ?? "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      if (!file) {
+        return NextResponse.json({ error: "Keine Datei übergeben" }, { status: 400 });
+      }
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      const mime = file.type || "application/octet-stream";
+      image = `data:${mime};base64,${base64}`;
+    } else {
+      const body = await req.json();
+      image = (body as { image?: string }).image;
+    }
+
     if (!image) {
-      return NextResponse.json({ error: "Kein Bild übergeben" }, { status: 400 });
+      return NextResponse.json({ error: "Kein Bild/PDF übergeben" }, { status: 400 });
     }
 
     // Allow custom prompt override from settings
@@ -38,11 +55,15 @@ export async function POST(req: NextRequest) {
     const mwstRaw = Number(p.mwstSatz ?? 19);
     const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
 
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
     return NextResponse.json({
-      datum: typeof p.datum === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.datum) ? p.datum : null,
+      datum: typeof p.datum === "string" && datePattern.test(p.datum) ? p.datum : null,
       belegNr: typeof p.belegNr === "string" ? p.belegNr : null,
+      faelligAm: typeof p.faelligAm === "string" && datePattern.test(p.faelligAm) ? p.faelligAm : null,
       beschreibung: typeof p.beschreibung === "string" ? p.beschreibung.substring(0, 80) : null,
       betragNetto: typeof p.betragNetto === "number" ? Math.round(p.betragNetto * 100) / 100 : null,
+      betragBrutto: typeof p.betragBrutto === "number" ? Math.round(p.betragBrutto * 100) / 100 : null,
       mwstSatz,
       kategorie,
       lieferant: typeof p.lieferant === "string" ? p.lieferant : null,

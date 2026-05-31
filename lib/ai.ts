@@ -81,11 +81,16 @@ export async function analyzeImage(
   config?: AiConfig
 ): Promise<AiAnalyzeResult> {
   const cfg = config || (await getAiConfig());
+  const isPdf = detectIsPdf(base64Image);
 
   if (cfg.provider === "anthropic") {
-    return analyzeWithAnthropic(base64Image, systemPrompt, feature, cfg);
+    return isPdf
+      ? analyzeWithAnthropicPdf(base64Image, systemPrompt, feature, cfg)
+      : analyzeWithAnthropic(base64Image, systemPrompt, feature, cfg);
   }
-  return analyzeWithOpenAI(base64Image, systemPrompt, feature, cfg);
+  return isPdf
+    ? analyzeWithOpenAIPdf(base64Image, systemPrompt, feature, cfg)
+    : analyzeWithOpenAI(base64Image, systemPrompt, feature, cfg);
 }
 
 // ─── OpenAI ──────────────────────────────────────────────────────────────────
@@ -199,6 +204,104 @@ async function analyzeWithAnthropic(
   }
 }
 
+// ─── PDF: Anthropic (natives document-Format) ────────────────────────────────
+
+async function analyzeWithAnthropicPdf(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
+
+  const client = new Anthropic({ apiKey: cfg.anthropicKey });
+
+  const cleanBase64 = base64Image.startsWith("data:")
+    ? (base64Image.split(",")[1] ?? "")
+    : base64Image;
+  if (!cleanBase64) throw new Error("Ungültiges PDF-Format");
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfBlock: any = {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: cleanBase64 },
+    };
+
+    const response = await client.messages.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          content: [pdfBlock, { type: "text", text: "Analysiere dieses Dokument und extrahiere die relevanten Informationen als JSON." }] as any,
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
+    const tokensIn = response.usage?.input_tokens || 0;
+    const tokensOut = response.usage?.output_tokens || 0;
+
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic PDF Fehler");
+    throw err;
+  }
+}
+
+// ─── PDF: OpenAI (Responses API) ─────────────────────────────────────────────
+
+async function analyzeWithOpenAIPdf(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.openaiKey) throw new Error("OpenAI API-Key nicht konfiguriert");
+
+  const client = new OpenAI({ apiKey: cfg.openaiKey });
+
+  const cleanBase64 = base64Image.startsWith("data:")
+    ? (base64Image.split(",")[1] ?? "")
+    : base64Image;
+  const dataUrl = `data:application/pdf;base64,${cleanBase64}`;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const responses = (client as any).responses;
+    const response = await responses.create({
+      model: cfg.modell,
+      instructions: systemPrompt,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_file", filename: "rechnung.pdf", file_data: dataUrl },
+            { type: "input_text", text: "Analysiere dieses Dokument und extrahiere die relevanten Informationen als JSON." },
+          ],
+        },
+      ],
+    });
+
+    const text: string = response.output_text ?? "{}";
+    const tokensIn: number = response.usage?.input_tokens ?? 0;
+    const tokensOut: number = response.usage?.output_tokens ?? 0;
+
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "OpenAI PDF Fehler");
+    throw err;
+  }
+}
+
 // ─── Text analysieren (Spracheingabe) ────────────────────────────────────────
 
 export async function analyzeText(
@@ -296,12 +399,19 @@ function detectMediaType(base64: string): string {
   if (base64.startsWith("data:image/png")) return "image/png";
   if (base64.startsWith("data:image/webp")) return "image/webp";
   if (base64.startsWith("data:image/gif")) return "image/gif";
+  if (base64.startsWith("data:application/pdf")) return "application/pdf";
   if (base64.startsWith("data:")) return "image/jpeg";
   // Raw Base64: Magic Bytes prüfen
   if (base64.startsWith("iVBOR")) return "image/png";
   if (base64.startsWith("R0lGO")) return "image/gif";
   if (base64.startsWith("UklGR")) return "image/webp";
+  // PDF magic bytes (%PDF- in base64 = JVBERi0)
+  if (base64.startsWith("JVBERi0")) return "application/pdf";
   return "image/jpeg";
+}
+
+function detectIsPdf(base64: string): boolean {
+  return detectMediaType(base64) === "application/pdf";
 }
 
 function parseJsonFromText(text: string): Record<string, unknown> {
@@ -458,12 +568,13 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 Wenn ein Feld nicht erkennbar ist, setze null.`,
 
   beleg: `Du bist ein Buchhalter-Assistent für ein Agrarunternehmen.
-Analysiere das Foto einer Eingangsrechnung / eines Kassenbelegs und extrahiere alle buchungsrelevanten Daten.
+Analysiere das Foto oder PDF einer Eingangsrechnung / eines Kassenbelegs und extrahiere alle buchungsrelevanten Daten.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 {
   "datum": "Rechnungsdatum im Format YYYY-MM-DD (falls erkennbar, sonst null)",
   "belegNr": "Rechnungsnummer / Belegnummer des Lieferanten (falls erkennbar, sonst null)",
+  "faelligAm": "Fälligkeitsdatum im Format YYYY-MM-DD (aus Zahlungsziel, Fälligkeitsvermerk oder Zahlungskonditionen berechnet, sonst null)",
   "beschreibung": "Kurze, prägnante Beschreibung des Kaufgegenstands (max. 80 Zeichen)",
   "betragNetto": 123.45,
   "mwstSatz": 19,
@@ -476,6 +587,7 @@ Regeln:
 - "mwstSatz" muss 0, 7 oder 19 sein. Wenn mehrere Sätze auf dem Beleg, wähle den dominanten.
 - "betragNetto" und "betragBrutto" als Dezimalzahl mit Punkt (kein €-Zeichen).
 - Wenn Netto nicht direkt angegeben: berechne aus Brutto und MwSt.
+- "faelligAm": Berechne aus Rechnungsdatum + Zahlungsziel (z.B. "30 Tage netto" → datum + 30 Tage). Falls kein Zahlungsziel angegeben: null.
 - "kategorie" anhand des Inhalts einordnen (z.B. Dünger/Futter → Wareneinkauf, Reparatur → Betriebsbedarf).
 - Fehlende Felder auf null setzen, niemals erfinden.`,
 
