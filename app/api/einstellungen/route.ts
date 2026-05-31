@@ -18,6 +18,7 @@ const ALLOWED_PREFIXES = [
   "resend.",
   "alert.",
   "artikel.",
+  "cron.",
 ];
 
 export async function GET(req: NextRequest) {
@@ -43,7 +44,11 @@ export async function GET(req: NextRequest) {
         result[e.key] = e.value;
       }
     }
-    return NextResponse.json(result);
+    // Nicht aus dem Browser-Cache bedienen – sonst zeigt die Einstellungsseite
+    // nach dem Speichern beim Neuladen veraltete Werte (z.B. Checkbox-Zustände).
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

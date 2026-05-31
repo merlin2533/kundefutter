@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface Lieferposition {
@@ -61,6 +62,7 @@ function loadRechnungFilters() {
 }
 
 export default function RechnungenPage() {
+  const router = useRouter();
   const [rechnungen, setRechnungen] = useState<Rechnung[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>(() => loadRechnungFilters().filter ?? "alle");
@@ -235,11 +237,13 @@ export default function RechnungenPage() {
                 return (
                   <React.Fragment key={r.id}>
                     <tr
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isExpanded ? "bg-green-50" : ""}`}
+                      onClick={() => router.push(`/lieferungen/${r.id}/rechnung`)}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
+                      title="Rechnung öffnen"
                     >
                       <td
                         className="px-3 py-3 text-gray-400 text-xs text-center cursor-pointer hover:text-gray-700"
-                        onClick={() => setExpanded(isExpanded ? null : r.id)}
+                        onClick={(e) => { e.stopPropagation(); setExpanded(isExpanded ? null : r.id); }}
                         title="Positionen anzeigen"
                       >
                         {isExpanded ? "▲" : "▼"}
