@@ -62,23 +62,13 @@ export default function RechnungPrintPage() {
   const [mailSending, setMailSending] = useState(false);
   const [mailMsg, setMailMsg] = useState("");
 
-  function downloadMitZugferd() {
-    // PDF herunterladen
+  function downloadPdf() {
     const a = document.createElement("a");
     a.href = `/api/exporte/rechnung?lieferungId=${id}`;
     a.download = "";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // ZUGFeRD XML kurz verzögert herunterladen
-    setTimeout(() => {
-      const b = document.createElement("a");
-      b.href = `/api/exporte/zugferd?lieferungId=${id}`;
-      b.download = "";
-      document.body.appendChild(b);
-      b.click();
-      document.body.removeChild(b);
-    }, 600);
   }
 
   async function loadLieferung(): Promise<Lieferung | null> {
@@ -288,11 +278,15 @@ export default function RechnungPrintPage() {
     <>
       <style>{`
         @media print {
-          @page {
-            margin: 2cm;
-            size: A4;
-          }
+          @page { margin: 2cm; size: A4 portrait; }
           .print-hidden { display: none !important; }
+          body { margin: 0 !important; padding: 0 !important; }
+          main { padding: 0 !important; max-width: 100% !important; }
+          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+          tr { page-break-inside: avoid; break-inside: avoid; }
+          .no-break { page-break-inside: avoid; break-inside: avoid; }
+          .no-break-before { page-break-before: avoid; break-before: avoid; }
+          thead { display: table-header-group; }
         }
       `}</style>
 
@@ -314,22 +308,12 @@ export default function RechnungPrintPage() {
         </button>
         {lieferung?.rechnungNr && (
           <button
-            onClick={downloadMitZugferd}
+            onClick={downloadPdf}
             className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
-            title="PDF + ZUGFeRD XML herunterladen"
+            title="PDF herunterladen (ZUGFeRD/Factur-X eingebettet)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           </button>
-        )}
-        {lieferung?.rechnungNr && (
-          <a
-            href={`/api/exporte/zugferd?lieferungId=${id}`}
-            className="px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-1.5"
-            title="E-Rechnung (ZUGFeRD/Factur-X XML) herunterladen"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            E-Rechnung (XML)
-          </a>
         )}
         <button
           onClick={handleTeilen}
@@ -338,19 +322,6 @@ export default function RechnungPrintPage() {
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
         </button>
-        {lieferung?.rechnungNr && (
-          <button
-            onClick={handleMailSenden}
-            disabled={mailSending}
-            className="p-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors"
-            title="Per E-Mail senden"
-          >
-            {mailSending
-              ? <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-              : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-            }
-          </button>
-        )}
         {lieferung?.rechnungNr && (
           <button
             onClick={handleMailSenden}
@@ -546,7 +517,7 @@ export default function RechnungPrintPage() {
         </table>
 
         {/* Betragsblock */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "32px" }}>
+        <div className="no-break-before no-break" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "32px" }}>
           <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "260px" }}>
             <tbody>
               <tr>
@@ -596,6 +567,7 @@ export default function RechnungPrintPage() {
 
         {/* Zahlungsinfo */}
         <div
+          className="no-break"
           style={{
             backgroundColor: "#f9f9f9",
             border: "1px solid #ddd",
@@ -641,21 +613,6 @@ export default function RechnungPrintPage() {
             </div>
           )}
         </div>
-
-        {/* Notiz zur Lieferung */}
-        {lieferung.notiz && lieferung.notiz.trim().length > 0 && (
-          <div
-            style={{
-              marginBottom: "16px",
-              fontSize: "9pt",
-              color: "#555",
-              fontStyle: "italic",
-              whiteSpace: "pre-line",
-            }}
-          >
-            Hinweis: {lieferung.notiz}
-          </div>
-        )}
 
         {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
         <div

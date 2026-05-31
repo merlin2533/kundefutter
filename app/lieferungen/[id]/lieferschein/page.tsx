@@ -359,8 +359,15 @@ export default function LieferscheinPage() {
     <>
       <style>{`
         @media print {
-          @page { margin: 2cm; size: A4; }
+          @page { margin: 2cm; size: A4 portrait; }
           .print-hidden { display: none !important; }
+          body { margin: 0 !important; padding: 0 !important; }
+          main { padding: 0 !important; max-width: 100% !important; }
+          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+          tr { page-break-inside: avoid; break-inside: avoid; }
+          .no-break { page-break-inside: avoid; break-inside: avoid; }
+          .no-break-before { page-break-before: avoid; break-before: avoid; }
+          thead { display: table-header-group; }
         }
       `}</style>
 
