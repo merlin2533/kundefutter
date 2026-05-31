@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const firma = await ladeFirmaDaten();
 
     const xml = generateZugferdXmlSimple({
-      rechnungNr: rechnung.nummer,
+      rechnungNr: rechnung.nummer ?? "",
       datum: new Date(rechnung.datum),
       faelligAm: rechnung.faelligAm ? new Date(rechnung.faelligAm) : undefined,
       seller: {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       mwstSatz: rechnung.mwst,
     });
 
-    const filename = `eingangsrechnung-${rechnung.nummer.replace(/[^a-zA-Z0-9-]/g, "_")}-zugferd.xml`;
+    const filename = `eingangsrechnung-${(rechnung.nummer ?? "unbekannt").replace(/[^a-zA-Z0-9-]/g, "_")}-zugferd.xml`;
 
     return new NextResponse(xml, {
       headers: {
