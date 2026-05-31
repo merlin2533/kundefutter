@@ -8,6 +8,8 @@ import SearchPalette from "@/components/SearchPalette";
 import { ToastProvider } from "@/components/ToastProvider";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import { getAppName } from "@/lib/appinfo";
+import { getCurrentUser } from "@/lib/auth";
+import { UserProvider } from "@/lib/user-context";
 
 export async function generateMetadata(): Promise<Metadata> {
   const appName = await getAppName();
@@ -33,7 +35,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const appName = await getAppName();
+  const [appName, currentUser] = await Promise.all([getAppName(), getCurrentUser()]);
   return (
     <html lang="de" className="h-full">
       <head>
@@ -43,17 +45,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="min-h-full flex flex-col">
-        <ServiceWorkerRegistration />
-        <InstallPrompt />
-        <SearchPalette />
-        <KeyboardShortcuts />
-        <Nav />
-        <Breadcrumbs />
-        <ToastProvider>
-          <main className="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
-            {children}
-          </main>
-        </ToastProvider>
+        <UserProvider user={currentUser}>
+          <ServiceWorkerRegistration />
+          <InstallPrompt />
+          <SearchPalette />
+          <KeyboardShortcuts />
+          <Nav />
+          <Breadcrumbs />
+          <ToastProvider>
+            <main className="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
+              {children}
+            </main>
+          </ToastProvider>
+        </UserProvider>
       </body>
     </html>
   );

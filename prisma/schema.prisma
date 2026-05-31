@@ -22,6 +22,7 @@ model Kunde {
   land             String   @default("Deutschland")
   lat              Float?
   lng              Float?
+  geocodeVersuche  Int      @default(0)  // Anzahl gescheiterter Geocoding-Versuche; >= 2 → kein weiterer Auto-Versuch
   notizen          String?
   tags             String   @default("[]")  // JSON array of tag strings
   ustIdNr          String?  // USt-Identifikationsnummer (für ZUGFeRD E-Rechnung)
@@ -833,21 +834,38 @@ model KiNutzung {
   @@index([zeitpunkt, feature])
 }
 
-// ─── BENUTZER ─────────────────────────────────────────────────────────────────
+// ─── BENUTZER & ROLLEN ────────────────────────────────────────────────────────
+
+model Rolle {
+  id             Int       @id @default(autoincrement())
+  name           String    @unique   // "admin" | "buero" | "verkauf" | "lager" | "fahrer" | "buchhalter" | "readonly"
+  bezeichnung    String              // Anzeigename "Außendienst / Verkauf"
+  beschreibung   String?
+  berechtigungen String    @default("[]") // JSON-Array der Permission-IDs
+  istSystem      Boolean   @default(false) // System-Rollen können nicht gelöscht werden
+  erstelltAm     DateTime  @default(now())
+  geaendertAm    DateTime  @updatedAt
+
+  benutzer Benutzer[]
+}
 
 model Benutzer {
-  id           Int       @id @default(autoincrement())
-  benutzername String    @unique
-  passwortHash String
-  name         String
-  email        String?
-  rolle        String    @default("benutzer") // "admin" | "benutzer"
-  aktiv        Boolean   @default(true)
-  letzterLogin DateTime?
-  erstelltAm   DateTime  @default(now())
-  geaendertAm  DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  benutzername   String    @unique
+  passwortHash   String
+  name           String
+  email          String?
+  rolle          String    @default("benutzer") // legacy label + Fallback
+  rolleId        Int?
+  rolleRef       Rolle?    @relation(fields: [rolleId], references: [id])
+  berechtigungen String    @default("[]") // JSON — individuelle Overrides (additiv zur Rolle)
+  aktiv          Boolean   @default(true)
+  letzterLogin   DateTime?
+  erstelltAm     DateTime  @default(now())
+  geaendertAm    DateTime  @updatedAt
 
   @@index([aktiv])
+  @@index([rolleId])
 }
 
 // ─── PSM-AUSBRINGUNG (Pflanzenschutz) ─────────────────────────────────────────

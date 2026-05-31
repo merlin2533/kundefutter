@@ -53,7 +53,6 @@ export type RechnungMailData = {
   kundenAnrede?: string | null;
   firma: FirmaDaten;
   pdfFilename: string;
-  xmlFilename: string;
 };
 
 function fmtDatum(d: Date): string {
@@ -77,7 +76,7 @@ export function rechnungSubject(rechnungNr: string, firmenname: string, datum: D
 }
 
 export function rechnungEmail(data: RechnungMailData): { subject: string; text: string; html: string } {
-  const { rechnungNr, rechnungDatum, faelligAm, bruttoBetrag, kundenAnrede, firma, pdfFilename, xmlFilename } = data;
+  const { rechnungNr, rechnungDatum, faelligAm, bruttoBetrag, kundenAnrede, firma, pdfFilename } = data;
   const subject = rechnungSubject(rechnungNr, firma.name, rechnungDatum);
   const anrede = kundenAnrede?.trim()
     ? `Sehr geehrte/r ${kundenAnrede.trim()},`
@@ -86,7 +85,7 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
   const text = [
     anrede,
     "",
-    "anbei erhalten Sie Ihre Rechnung als PDF sowie als strukturierte E-Rechnung (ZUGFeRD / Factur-X XML).",
+    "anbei erhalten Sie Ihre Rechnung als PDF (ZUGFeRD / Factur-X E-Rechnung eingebettet).",
     "",
     `Rechnungsnummer: ${rechnungNr}`,
     `Rechnungsdatum:  ${fmtDatum(rechnungDatum)}`,
@@ -94,8 +93,7 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
     faelligAm ? `Fällig am:       ${fmtDatum(faelligAm)}` : "",
     "",
     "Anhänge:",
-    `• ${pdfFilename} – Rechnung (PDF)`,
-    `• ${xmlFilename} – E-Rechnung (ZUGFeRD / Factur-X XML)`,
+    `• ${pdfFilename} – Rechnung (PDF mit eingebetteter ZUGFeRD / Factur-X E-Rechnung)`,
     ...(firma.iban
       ? [
           "",
@@ -164,7 +162,7 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
       <tr><td style="padding:28px 32px 8px 32px;">
         <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
         <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
-          anbei erhalten Sie Ihre Rechnung als PDF sowie als strukturierte E-Rechnung (ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;XML).
+          anbei erhalten Sie Ihre Rechnung als PDF (ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;E-Rechnung eingebettet).
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
           ${zeile("Rechnungsnummer", rechnungNr)}
@@ -174,8 +172,7 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
         </table>
         <div style="margin:0 0 8px 0;padding:12px 16px;background:#f0fdf4;border-left:3px solid #166534;border-radius:4px;font-size:13px;color:#14532d;line-height:1.6;">
           <b>Anhänge</b><br>
-          ${escapeHtml(pdfFilename)} &mdash; Rechnung (PDF)<br>
-          ${escapeHtml(xmlFilename)} &mdash; E-Rechnung (ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;XML)
+          ${escapeHtml(pdfFilename)} &mdash; Rechnung (PDF mit eingebetteter ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;E-Rechnung)
         </div>
         ${bankHtml}
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>

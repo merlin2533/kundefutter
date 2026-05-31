@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { StatusBadge, MargeBadge } from "@/components/Badge";
+import { MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
 
@@ -322,7 +322,7 @@ export default function LieferungenPage() {
                       { label: "Positionen", cls: "hidden md:table-cell" },
                       { label: "Gesamtumsatz", cls: "hidden sm:table-cell" },
                       { label: "Gesamtmarge", cls: "hidden lg:table-cell" },
-                      { label: "Status", cls: "" },
+                      { label: "Vorgangskette", cls: "" },
                       { label: "Aktionen", cls: "" },
                     ].map((h) => (
                       <th key={h.label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h.cls}`}>
@@ -356,14 +356,68 @@ export default function LieferungenPage() {
                           <MargeBadge pct={margePct} />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <StatusBadge status={l.status} />
-                            {l.istStreckengeschaeft && (
-                              <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 whitespace-nowrap">
-                                🔀 Strecke
+                          <div className="flex items-center gap-1 flex-wrap text-xs">
+                            {/* Schritt 1: Auftrag — immer vorhanden */}
+                            <Link
+                              href={`/lieferungen/${l.id}`}
+                              title="Auftrag anzeigen"
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors whitespace-nowrap"
+                            >
+                              ✓ Auftrag
+                            </Link>
+                            <span className="text-gray-300">›</span>
+                            {/* Schritt 2: Lieferschein */}
+                            {l.status === "storniert" ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-red-100 text-red-700 border border-red-200 whitespace-nowrap">
+                                ✕ Storniert
                               </span>
+                            ) : l.status === "geliefert" ? (
+                              <Link
+                                href={`/lieferungen/${l.id}/lieferschein`}
+                                title="Lieferschein anzeigen"
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors whitespace-nowrap"
+                              >
+                                ✓ Lieferschein
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={() => markiereGeliefert(l.id)}
+                                disabled={statusChangingId === l.id}
+                                title="Als geliefert bestätigen"
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors whitespace-nowrap disabled:opacity-50"
+                              >
+                                {statusChangingId === l.id ? "…" : "○"} Lieferschein
+                              </button>
+                            )}
+                            {l.status !== "storniert" && (
+                              <>
+                                <span className="text-gray-300">›</span>
+                                {/* Schritt 3: Rechnung */}
+                                {l.rechnungNr ? (
+                                  <Link
+                                    href={`/lieferungen/${l.id}/rechnung`}
+                                    title={`Rechnung ${l.rechnungNr} anzeigen`}
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors whitespace-nowrap"
+                                  >
+                                    ✓ Rechnung
+                                  </Link>
+                                ) : (
+                                  <Link
+                                    href={`/lieferungen/${l.id}`}
+                                    title="Rechnung erstellen"
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-gray-50 text-gray-500 border border-gray-300 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                                  >
+                                    ○ Rechnung
+                                  </Link>
+                                )}
+                              </>
                             )}
                           </div>
+                          {l.istStreckengeschaeft && (
+                            <span className="mt-0.5 hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                              🔀 Strecke
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-0.5">
@@ -374,38 +428,6 @@ export default function LieferungenPage() {
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </Link>
-                            {l.status !== "storniert" && (
-                              <Link
-                                href={`/lieferungen/${l.id}/lieferschein`}
-                                className="p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded transition-colors"
-                                title="Lieferschein"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                              </Link>
-                            )}
-                            {l.status === "geplant" && (
-                              <button
-                                onClick={() => markiereGeliefert(l.id)}
-                                disabled={statusChangingId === l.id}
-                                className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors disabled:opacity-50"
-                                title="Als Lieferschein bestätigen"
-                              >
-                                {statusChangingId === l.id ? (
-                                  <span className="w-4 h-4 flex items-center justify-center text-xs">…</span>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                )}
-                              </button>
-                            )}
-                            {l.rechnungNr && (
-                              <Link
-                                href={`/lieferungen/${l.id}/rechnung`}
-                                className="p-1.5 text-green-800 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
-                                title="Rechnung öffnen"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                              </Link>
-                            )}
                             {l.status !== "geliefert" && (
                               <button
                                 onClick={() => handleDelete(l.id)}

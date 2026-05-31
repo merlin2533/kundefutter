@@ -76,6 +76,10 @@ export type CurrentUser = {
   name: string;
   email: string | null;
   rolle: string;
+  rolleId: number | null;
+  rolleBezeichnung: string | null;    // Anzeigename der zugewiesenen Rolle
+  rolleBerechtigungen: string[];      // Berechtigungen aus der Rolle (geparst)
+  berechtigungen: string[];           // individuelle Overrides (geparst)
   aktiv: boolean;
 };
 
@@ -94,13 +98,39 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         name: true,
         email: true,
         rolle: true,
+        rolleId: true,
+        berechtigungen: true,
         aktiv: true,
+        rolleRef: {
+          select: { bezeichnung: true, berechtigungen: true },
+        },
       },
     });
     if (!user || !user.aktiv) return null;
-    return user;
+    return {
+      id: user.id,
+      benutzername: user.benutzername,
+      name: user.name,
+      email: user.email,
+      rolle: user.rolle,
+      rolleId: user.rolleId,
+      rolleBezeichnung: user.rolleRef?.bezeichnung ?? null,
+      rolleBerechtigungen: parseJson(user.rolleRef?.berechtigungen),
+      berechtigungen: parseJson(user.berechtigungen),
+      aktiv: user.aktiv,
+    };
   } catch {
     return null;
+  }
+}
+
+function parseJson(raw: string | undefined | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
 }
 

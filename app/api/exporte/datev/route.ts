@@ -13,9 +13,15 @@ import {
   buildDatevHeaderLine,
 } from "@/lib/datev";
 
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_DATEV);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const vonStr = searchParams.get("von");
   const bisStr = searchParams.get("bis");

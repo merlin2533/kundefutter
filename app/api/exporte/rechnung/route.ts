@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
-import { generiereRechnungPdf } from "@/lib/pdfGenerator";
+import { generiereRechnungPdfMitZugferd } from "@/lib/pdfGenerator";
 export const dynamic = "force-dynamic";
 
 
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
     }
 
-    const pdfBuffer = await generiereRechnungPdf(lieferungId);
+    const pdfBuffer = await generiereRechnungPdfMitZugferd(lieferungId);
     const filename = `rechnung-${lieferung.rechnungNr?.replace(/[^A-Za-z0-9\-_]/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`;
 
     return new Response(new Uint8Array(pdfBuffer), {

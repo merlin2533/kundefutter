@@ -5,8 +5,6 @@ import { getCurrentUser, hashPassword } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
 
-const ROLLEN = ["admin", "benutzer"] as const;
-
 async function passwortMinLaenge(): Promise<number> {
   try {
     const s = await prisma.einstellung.findUnique({ where: { key: "system.passwort_minlaenge" } });
@@ -23,9 +21,11 @@ const SELECT = {
   name: true,
   email: true,
   rolle: true,
+  rolleId: true,
   aktiv: true,
   letzterLogin: true,
   erstelltAm: true,
+  rolleRef: { select: { id: true, name: true, bezeichnung: true } },
 } as const;
 
 export async function GET() {
@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
   if (!name) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   }
-  if (!ROLLEN.includes(rolle as (typeof ROLLEN)[number])) {
+  // rolle ist jetzt ein freier String — nur Grundvalidierung
+  if (!rolle || rolle.length < 2) {
     return NextResponse.json({ error: "Ungültige Rolle" }, { status: 400 });
   }
 

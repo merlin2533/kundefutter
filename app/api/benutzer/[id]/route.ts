@@ -7,17 +7,20 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
-const ROLLEN = ["admin", "benutzer"] as const;
-
 const SELECT = {
   id: true,
   benutzername: true,
   name: true,
   email: true,
   rolle: true,
+  rolleId: true,
+  berechtigungen: true,
   aktiv: true,
   letzterLogin: true,
   erstelltAm: true,
+  rolleRef: {
+    select: { id: true, name: true, bezeichnung: true, berechtigungen: true },
+  },
 } as const;
 
 function parseId(raw: string): number | null {
@@ -25,6 +28,8 @@ function parseId(raw: string): number | null {
   if (isNaN(id) || id <= 0) return null;
   return id;
 }
+
+import { ALL_PERMISSIONS } from "@/lib/permissions";
 
 async function aktiveAdminsAusserDiesem(id: number): Promise<number> {
   return prisma.benutzer.count({
@@ -122,6 +127,27 @@ export async function PUT(req: NextRequest, ctx: Params) {
     }
     data.aktiv = body.aktiv;
   }
+  // rolleId: Zuweisung einer DB-Rolle (optional)
+  if (body?.rolleId !== undefined) {
+    if (body.rolleId === null) {
+      data.rolleRef = { disconnect: true };
+    } else {
+      const rolleIdNum = parseInt(String(body.rolleId), 10);
+      if (isNaN(rolleIdNum) || rolleIdNum <= 0) {
+        return NextResponse.json({ error: "Ungültige Rollen-ID" }, { status: 400 });
+      }
+      data.rolleRef = { connect: { id: rolleIdNum } };
+    }
+  }
+
+  // berechtigungen: individuelle Overrides (additive JSON-Array)
+  if (Array.isArray(body?.berechtigungen)) {
+    const valid = (body.berechtigungen as unknown[]).filter(
+      (p): p is string => typeof p === "string" && (p === "*" || ALL_PERMISSIONS.includes(p)),
+    );
+    data.berechtigungen = JSON.stringify(valid);
+  }
+
   if (typeof body?.passwort === "string" && body.passwort.length > 0) {
     let minLaenge = 8;
     try {

@@ -8,6 +8,8 @@ import { formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
+import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
+import { embedZugferdInPdf } from "@/lib/zugferd-embed";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -807,6 +809,73 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
 
   zeichneDokumentFooter(doc, footerSpalten);
   return Buffer.from(doc.output("arraybuffer"));
+}
+
+/**
+ * Wie generiereRechnungPdf, aber mit eingebettetem ZUGFeRD / Factur-X XML (PDF/A-3b).
+ * Gibt ein einzelnes PDF zurück, das die strukturierte E-Rechnung enthält.
+ */
+export async function generiereRechnungPdfMitZugferd(lieferungId: number): Promise<Buffer> {
+  const lieferung = await prisma.lieferung.findUnique({
+    where: { id: lieferungId },
+    include: {
+      kunde: { include: { kontakte: true } },
+      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+    },
+  });
+  if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
+  if (!lieferung.rechnungNr) throw new Error("Lieferung hat noch keine Rechnungsnummer");
+
+  const firma = await ladeFirmaDaten();
+
+  const firmaEinstellungen = await prisma.einstellung.findMany({
+    where: { key: { startsWith: "firma." } },
+  });
+  const firmaCfg: Record<string, string> = {};
+  for (const e of firmaEinstellungen) firmaCfg[e.key] = e.value;
+
+  const rechnungDatum = lieferung.rechnungDatum
+    ? new Date(lieferung.rechnungDatum)
+    : new Date(lieferung.datum);
+  const zahlungsziel = lieferung.zahlungsziel ?? 30;
+
+  const zugferdData: ZugferdData = {
+    rechnungNr: lieferung.rechnungNr,
+    datum: rechnungDatum,
+    zahlungsziel,
+    firma: {
+      name: firmaCfg["firma.name"] ?? firmaCfg["firma.firmenname"] ?? firma.name,
+      strasse: firmaCfg["firma.strasse"] ?? firmaCfg["firma.adresse"] ?? firma.strasse,
+      plz: firmaCfg["firma.plz"] ?? "",
+      ort: firmaCfg["firma.ort"] ?? "",
+      ustIdNr: firmaCfg["firma.ustIdNr"] || firmaCfg["firma.ustidnr"] || undefined,
+      steuernummer: firmaCfg["firma.steuernummer"] || firmaCfg["firma.steuernr"] || undefined,
+      iban: firmaCfg["firma.iban"] || undefined,
+      bic: firmaCfg["firma.bic"] || undefined,
+      bank: firmaCfg["firma.bank"] || firmaCfg["firma.bankname"] || undefined,
+    },
+    kunde: {
+      name: lieferung.kunde.name,
+      firma: lieferung.kunde.firma ?? undefined,
+      strasse: lieferung.kunde.strasse ?? undefined,
+      plz: lieferung.kunde.plz ?? undefined,
+      ort: lieferung.kunde.ort ?? undefined,
+      ustIdNr: (lieferung.kunde as { ustIdNr?: string | null }).ustIdNr ?? undefined,
+    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    positionen: (lieferung.positionen as any[]).map((p) => ({
+      bezeichnung: p.artikel.name,
+      menge: p.menge,
+      einheit: p.artikel.einheit,
+      einzelpreis: p.verkaufspreis,
+      mwstSatz: p.artikel.mwstSatz ?? 19,
+      rabattProzent: p.rabattProzent ?? 0,
+    })),
+  };
+
+  const zugferdXml = generateZugferdXml(zugferdData);
+  const pdfBuffer = await generiereRechnungPdf(lieferungId);
+  return embedZugferdInPdf(pdfBuffer, zugferdXml, lieferung.rechnungNr, rechnungDatum);
 }
 
 /**

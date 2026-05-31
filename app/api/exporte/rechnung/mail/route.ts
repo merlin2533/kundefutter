@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
-import { generiereRechnungPdf } from "@/lib/pdfGenerator";
-import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
+import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { generiereRechnungPdfMitZugferd } from "@/lib/pdfGenerator";
 import { sendEmail } from "@/lib/email";
 import { rechnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
@@ -50,55 +49,14 @@ export async function POST(req: NextRequest) {
 
     const firma = await ladeFirmaDaten();
 
-    // ── PDF + ZUGFeRD XML generieren ───────────────────────────────────────────
-    const pdfBuffer = await generiereRechnungPdf(lieferungId);
-
-    const firmaEinstellungen = await prisma.einstellung.findMany({
-      where: { key: { startsWith: "firma." } },
-    });
-    const firmaCfg: Record<string, string> = {};
-    for (const e of firmaEinstellungen) firmaCfg[e.key] = e.value;
+    // ── PDF mit eingebettetem ZUGFeRD XML generieren ───────────────────────────
+    const pdfBuffer = await generiereRechnungPdfMitZugferd(lieferungId);
 
     const rechnungDatum = lieferung.rechnungDatum
       ? new Date(lieferung.rechnungDatum)
       : new Date(lieferung.datum);
     const zahlungsziel = lieferung.zahlungsziel ?? 30;
     const faelligAm = new Date(rechnungDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
-
-    const zugferdData: ZugferdData = {
-      rechnungNr: lieferung.rechnungNr,
-      datum: rechnungDatum,
-      zahlungsziel,
-      firma: {
-        name: firmaCfg["firma.name"] ?? firmaCfg["firma.firmenname"] ?? firma.name,
-        strasse: firmaCfg["firma.strasse"] ?? firmaCfg["firma.adresse"] ?? firma.strasse,
-        plz: firmaCfg["firma.plz"] ?? "",
-        ort: firmaCfg["firma.ort"] ?? "",
-        ustIdNr: firmaCfg["firma.ustIdNr"] || firmaCfg["firma.ustidnr"] || undefined,
-        steuernummer: firmaCfg["firma.steuernummer"] || firmaCfg["firma.steuernr"] || undefined,
-        iban: firmaCfg["firma.iban"] || undefined,
-        bic: firmaCfg["firma.bic"] || undefined,
-        bank: firmaCfg["firma.bank"] || firmaCfg["firma.bankname"] || undefined,
-      },
-      kunde: {
-        name: lieferung.kunde.name,
-        firma: lieferung.kunde.firma ?? undefined,
-        strasse: lieferung.kunde.strasse ?? undefined,
-        plz: lieferung.kunde.plz ?? undefined,
-        ort: lieferung.kunde.ort ?? undefined,
-        ustIdNr: (lieferung.kunde as { ustIdNr?: string | null }).ustIdNr ?? undefined,
-      },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      positionen: (lieferung.positionen as any[]).map((p) => ({
-        bezeichnung: p.artikel.name,
-        menge: p.menge,
-        einheit: p.artikel.einheit,
-        einzelpreis: p.verkaufspreis,
-        mwstSatz: p.artikel.mwstSatz ?? 19,
-        rabattProzent: p.rabattProzent ?? 0,
-      })),
-    };
-    const zugferdXml = generateZugferdXml(zugferdData);
 
     // ── Bruttobetrag berechnen (für Mail-Übersicht) ─────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -114,7 +72,6 @@ export async function POST(req: NextRequest) {
     const bruttoBetrag = nettoGesamt + mwstGesamt;
 
     const pdfFilename = `Rechnung_${lieferung.rechnungNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`;
-    const xmlFilename = `RE-${lieferung.rechnungNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.xml`;
 
     // ── Kunden-Anrede aus erstem Email-Kontakt mit Vor-/Nachname ableiten ──────
     const kontaktMitName = lieferung.kunde.kontakte.find(
@@ -133,7 +90,6 @@ export async function POST(req: NextRequest) {
       kundenAnrede,
       firma,
       pdfFilename,
-      xmlFilename,
     });
 
     const ccAdresse = typeof body.cc === "string" && body.cc.trim() ? body.cc.trim() : undefined;
@@ -148,7 +104,6 @@ export async function POST(req: NextRequest) {
       feature: "rechnung",
       attachments: [
         { filename: pdfFilename, content: pdfBuffer, contentType: "application/pdf" },
-        { filename: xmlFilename, content: Buffer.from(zugferdXml, "utf-8"), contentType: "application/xml" },
       ],
     });
 
@@ -157,7 +112,7 @@ export async function POST(req: NextRequest) {
         kundeId: lieferung.kundeId,
         typ: "email",
         betreff: `Rechnung ${lieferung.rechnungNr} versendet`,
-        inhalt: `PDF + ZUGFeRD XML an ${empfaenger} verschickt.`,
+        inhalt: `ZUGFeRD-PDF (Factur-X eingebettet) an ${empfaenger} verschickt.`,
         datum: new Date(),
         erledigt: true,
       },

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 
@@ -55,6 +57,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (deny) return deny;
+
   let body;
   try {
     body = await req.json();

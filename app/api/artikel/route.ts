@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+import { getCurrentUser } from "@/lib/auth";
+import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 
@@ -66,7 +68,11 @@ export async function GET(req: NextRequest) {
       }),
       prisma.artikel.count({ where }),
     ]);
-    return NextResponse.json(artikel, {
+    const me = await getCurrentUser();
+    const filtered = me && !hasPermission(me, P.FELD_ARTIKEL_EINKAUFSPREIS)
+      ? (artikel as Record<string, unknown>[]).map((a) => filterArtikelFelder(a, me))
+      : artikel;
+    return NextResponse.json(filtered, {
       headers: { "X-Total-Count": String(total) },
     });
   } catch (e) {

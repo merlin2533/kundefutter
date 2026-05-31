@@ -26,7 +26,24 @@ export async function GET(req: NextRequest) {
       orderBy: [{ bestelldatum: "desc" }],
       take: 500,
     });
-    return NextResponse.json(liste);
+
+    // Lieferungsdaten für Vorgangskette nachladen (lieferungId ist kein Prisma-Relation)
+    const lieferungIds = liste.map(v => v.lieferungId).filter(Boolean) as number[];
+    const lieferungenMap = new Map<number, { id: number; status: string; rechnungNr: string | null }>();
+    if (lieferungIds.length > 0) {
+      const lieferungen = await prisma.lieferung.findMany({
+        where: { id: { in: lieferungIds } },
+        select: { id: true, status: true, rechnungNr: true },
+      });
+      for (const l of lieferungen) lieferungenMap.set(l.id, l);
+    }
+
+    const result = liste.map(v => ({
+      ...v,
+      lieferung: v.lieferungId ? (lieferungenMap.get(v.lieferungId) ?? null) : null,
+    }));
+
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

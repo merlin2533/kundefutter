@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+import { getCurrentUser } from "@/lib/auth";
+import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
   const { id } = await params;
   try {
     const artikel = await prisma.artikel.findUnique({
@@ -23,7 +26,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
       },
     });
     if (!artikel) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    return NextResponse.json(artikel);
+    // EK-Preis-Filterung: sensible Felder nur für berechtigte User
+    const result = me && !hasPermission(me, P.FELD_ARTIKEL_EINKAUFSPREIS)
+      ? filterArtikelFelder(artikel as Record<string, unknown>, me)
+      : artikel;
+    return NextResponse.json(result);
   } catch (e) {
     console.error("Artikel [id] GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

@@ -5,6 +5,8 @@ import { naechsteRechnungsnummer, formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -204,6 +206,10 @@ function buildRechnungPdf(
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_BULK);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const typ = searchParams.get("typ"); // "rechnung" | "lieferschein"
   const kundeId = searchParams.get("kundeId");
