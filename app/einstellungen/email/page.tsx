@@ -63,6 +63,9 @@ export default function EmailEinstellungenPage() {
   const [smtpPasswordVisible, setSmtpPasswordVisible] = useState(false);
   // Track which sensitive fields were modified by the user in this session
   const touchedSensitive = useRef<Set<keyof Values>>(new Set());
+  // Ob bereits ein Secret hinterlegt ist (der Wert selbst wird nie ins Formular geladen)
+  const [hasSmtpPassword, setHasSmtpPassword] = useState(false);
+  const [hasResendKey, setHasResendKey] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -88,11 +91,15 @@ export default function EmailEinstellungenPage() {
           "smtp.port": d["smtp.port"] ?? "587",
           "smtp.secure": d["smtp.secure"] ?? "false",
           "smtp.user": d["smtp.user"] ?? "",
-          "smtp.password": d["smtp.password"] ?? "",
+          // Secrets bewusst NICHT ins Formular laden – verhindert, dass der
+          // (maskierte) Wert angezeigt und beim Speichern zurückgeschrieben wird.
+          "smtp.password": "",
           "smtp.from": d["smtp.from"] ?? "",
-          "resend.api_key": d["resend.api_key"] ?? "",
+          "resend.api_key": "",
           "resend.from": d["resend.from"] ?? "",
         });
+        setHasSmtpPassword(Boolean(d["smtp.password"]));
+        setHasResendKey(Boolean(d["resend.api_key"]));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -320,15 +327,17 @@ export default function EmailEinstellungenPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Passwort
-              {!touchedSensitive.current.has("smtp.password") && values["smtp.password"] && (
+              {hasSmtpPassword && !touchedSensitive.current.has("smtp.password") && (
                 <span className="ml-2 text-xs font-normal text-amber-600">Gespeichert — leer lassen um beizubehalten</span>
               )}
             </label>
             <div className="relative">
               <input
                 type={smtpPasswordVisible ? "text" : "password"}
+                name="smtp-password"
+                autoComplete="new-password"
                 value={values["smtp.password"]}
-                placeholder={values["smtp.password"] && !touchedSensitive.current.has("smtp.password") ? "••••••••" : ""}
+                placeholder={hasSmtpPassword && !touchedSensitive.current.has("smtp.password") ? "•••••••• (gespeichert)" : ""}
                 onChange={(e) => updateField("smtp.password", e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
@@ -365,15 +374,17 @@ export default function EmailEinstellungenPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Resend API-Key
-              {!touchedSensitive.current.has("resend.api_key") && values["resend.api_key"] && (
+              {hasResendKey && !touchedSensitive.current.has("resend.api_key") && (
                 <span className="ml-2 text-xs font-normal text-amber-600">Gespeichert — leer lassen um beizubehalten</span>
               )}
             </label>
             <div className="relative">
               <input
                 type={apiKeyVisible ? "text" : "password"}
+                name="resend-api-key"
+                autoComplete="new-password"
                 value={values["resend.api_key"]}
-                placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                placeholder={hasResendKey && !touchedSensitive.current.has("resend.api_key") ? "•••••••• (gespeichert — leer lassen zum Beibehalten)" : "re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
                 onChange={(e) => updateField("resend.api_key", e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-12 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
               />
