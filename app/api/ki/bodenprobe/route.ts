@@ -1,55 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiConfig, analyzeImage, PROMPTS } from "@/lib/ai";
+import { PROMPTS, KOSTEN_MAP } from "@/lib/ai";
+import { analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ki-document";
 import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
-import Anthropic from "@anthropic-ai/sdk";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
 export const dynamic = "force-dynamic";
-
-// ─── Helper: Parse JSON from text ────────────────────────────────────────────
-
-function parseJsonFromText(text: string): Record<string, unknown> {
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (match) {
-      try { return JSON.parse(match[1]); } catch { /* fall through */ }
-    }
-    const braceMatch = text.match(/\{[\s\S]*\}/);
-    if (braceMatch) {
-      try { return JSON.parse(braceMatch[0]); } catch { /* fall through */ }
-    }
-    return { rawText: text };
-  }
-}
-
-// ─── Helper: Log KI usage manually (for direct Anthropic PDF calls) ──────────
-
-async function logKiNutzung(
-  provider: string, modell: string, feature: string,
-  tokensIn: number, tokensOut: number, erfolgreich: boolean, fehler?: string
-) {
-  const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
-    "claude-sonnet-4-20250514": { input: 300, output: 1500 },
-    "claude-haiku-4-5-20251001": { input: 80, output: 400 },
-    "claude-opus-4-20250514": { input: 1500, output: 7500 },
-  };
-  const rate = KOSTEN_MAP[modell];
-  const kostenCent = rate
-    ? Math.round((tokensIn * rate.input + tokensOut * rate.output) / 1_000_000)
-    : 0;
-
-  try {
-    await prisma.kiNutzung.create({
-      data: { provider, modell, feature, tokensIn, tokensOut, kostenCent, erfolgreich, fehler },
-    });
-  } catch {
-    // Logging errors are non-fatal
-  }
-}
 
 // ─── Main POST handler ────────────────────────────────────────────────────────
 
@@ -68,8 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Datei zu groß (max. 30 MB)" }, { status: 413 });
     }
 
-    const isPdf = file.type === "application/pdf";
-    if (!isPdf && !file.type.startsWith("image/")) {
+    if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "Nur PDF oder Bilddateien erlaubt" },
         { status: 400 }
@@ -81,8 +37,6 @@ export async function POST(req: NextRequest) {
       where: { key: "ki.prompt.bodenprobe" },
     });
     const prompt = promptRow?.value?.trim() || PROMPTS.bodenprobe;
-
-    const cfg = await getAiConfig();
 
     // ── Save file to disk (for belegPfad) ──────────────────────────────────
     const timestamp = Date.now();
@@ -99,86 +53,19 @@ export async function POST(req: NextRequest) {
     const belegName = file.name;
 
     // ── Analyse via KI ──────────────────────────────────────────────────────
-    let raw = "";
-    let tokensIn = 0;
-    let tokensOut = 0;
-
-    if (isPdf && cfg.provider === "anthropic") {
-      // Anthropic native PDF support — send PDF directly as document block
-      if (!cfg.anthropicKey) {
-        return NextResponse.json({ error: "Anthropic API-Key nicht konfiguriert" }, { status: 500 });
-      }
-
-      const base64Pdf = Buffer.from(bytes).toString("base64");
-      const client = new Anthropic({ apiKey: cfg.anthropicKey });
-
-      try {
-        const response = await client.messages.create({
-          model: cfg.modell,
-          // 15+ Proben mit allen Feldern + Empfehlungstabelle brauchen reichlich Output-Budget
-          max_tokens: 16000,
-          system: prompt,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: {
-                    type: "base64",
-                    media_type: "application/pdf",
-                    data: base64Pdf,
-                  },
-                },
-                {
-                  type: "text",
-                  text: "Analysiere diesen Bodenproben-Laborbericht und extrahiere alle Werte als JSON.",
-                },
-              ] as Parameters<typeof client.messages.create>[0]["messages"][0]["content"],
-            },
-          ],
-        });
-
-        const textBlock = response.content.find((b) => b.type === "text");
-        raw = textBlock && "text" in textBlock ? textBlock.text : "{}";
-        tokensIn = response.usage?.input_tokens || 0;
-        tokensOut = response.usage?.output_tokens || 0;
-
-        await logKiNutzung(cfg.provider, cfg.modell, "bodenprobe", tokensIn, tokensOut, true);
-      } catch (err) {
-        await logKiNutzung(
-          cfg.provider, cfg.modell, "bodenprobe", 0, 0, false,
-          err instanceof Error ? err.message : "Anthropic Fehler"
-        );
-        throw err;
-      }
-    } else if (isPdf && cfg.provider === "openai") {
-      // OpenAI does not natively support PDF — return helpful error
-      return NextResponse.json(
-        { error: "PDF-Erkennung benötigt Anthropic als KI-Provider. Bitte in Einstellungen → KI auf Anthropic wechseln, oder ein Bild hochladen." },
-        { status: 422 }
-      );
-    } else {
-      // Image path — use existing analyzeImage
-      const base64 = Buffer.from(bytes).toString("base64");
-      const dataUrl = `data:${file.type};base64,${base64}`;
-      const result = await analyzeImage(dataUrl, prompt, "bodenprobe", cfg);
-      raw = result.raw;
-      tokensIn = result.tokensIn;
-      tokensOut = result.tokensOut;
-    }
+    // 15+ Proben mit allen Feldern + Empfehlungstabelle brauchen reichlich Output-Budget
+    const kiResult = await analyzeDocumentFile(file, prompt, "bodenprobe", {
+      maxTokens: 16000,
+      userText: "Analysiere diesen Bodenproben-Laborbericht und extrahiere alle Werte als JSON.",
+    });
+    const raw = kiResult.raw;
+    const tokensIn = kiResult.tokensIn;
+    const tokensOut = kiResult.tokensOut;
+    const cfg = kiResult.cfg;
 
     // ── Parse and sanitize result ───────────────────────────────────────────
     const parsed = parseJsonFromText(raw);
 
-    function strOrNull(v: unknown): string | null {
-      return typeof v === "string" && v.trim() ? v.trim() : null;
-    }
-    function numOrNull(v: unknown): number | null {
-      if (v == null || v === "") return null;
-      const n = Number(v);
-      return isNaN(n) ? null : n;
-    }
     function klasseOrNull(v: unknown): string | null {
       const s = strOrNull(v);
       return s && ["A", "B", "C", "D", "E", "F"].includes(s.toUpperCase()) ? s.toUpperCase() : null;
@@ -266,19 +153,8 @@ export async function POST(req: NextRequest) {
       hinweis,
     } : null;
 
-    const kostenCent = (() => {
-      const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
-        "gpt-4o": { input: 250, output: 1000 },
-        "gpt-4o-mini": { input: 15, output: 60 },
-        "gpt-4.1": { input: 200, output: 800 },
-        "gpt-4.1-mini": { input: 40, output: 160 },
-        "claude-sonnet-4-20250514": { input: 300, output: 1500 },
-        "claude-haiku-4-5-20251001": { input: 80, output: 400 },
-        "claude-opus-4-20250514": { input: 1500, output: 7500 },
-      };
-      const rate = KOSTEN_MAP[cfg.modell];
-      return rate ? Math.round((tokensIn * rate.input + tokensOut * rate.output) / 1_000_000) : 0;
-    })();
+    const rate = KOSTEN_MAP[cfg.modell];
+    const kostenCent = rate ? Math.round((tokensIn * rate.input + tokensOut * rate.output) / 1_000_000) : 0;
 
     return NextResponse.json({
       auftrag,

@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfig, analyzeImage, PROMPTS } from "@/lib/ai";
+import { parseJsonFromText, strOrNull } from "@/lib/ki-document";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
-
-function parseJsonFromText(text: string): Record<string, unknown> {
-  try { return JSON.parse(text); } catch { /* fall */ }
-  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (match) { try { return JSON.parse(match[1]); } catch { /* fall */ } }
-  const brace = text.match(/\{[\s\S]*\}/);
-  if (brace) { try { return JSON.parse(brace[0]); } catch { /* fall */ } }
-  return {};
-}
 
 export async function POST(req: NextRequest) {
   const isDev = process.env.NODE_ENV === "development";
@@ -33,9 +25,6 @@ export async function POST(req: NextRequest) {
     const result = await analyzeImage(dataUrl, prompt, "visitenkarte", cfg);
 
     const p = parseJsonFromText(result.raw);
-    function strOrNull(v: unknown): string | null {
-      return typeof v === "string" && v.trim() ? v.trim() : null;
-    }
     const data = {
       vorname: strOrNull(p.vorname),
       nachname: strOrNull(p.nachname),

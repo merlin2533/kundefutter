@@ -20,7 +20,7 @@ export interface AiAnalyzeResult {
 
 // ─── Kosten pro 1M Tokens (in Cent) ─────────────────────────────────────────
 
-const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
+export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
   "gpt-4o":             { input: 250, output: 1000 },
   "gpt-4o-mini":        { input: 15,  output: 60 },
   "gpt-4.1":            { input: 200, output: 800 },

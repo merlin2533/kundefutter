@@ -2,7 +2,7 @@
 // Kapselt: Anthropic-Native-PDF-Pfad, OpenAI-PDF-Fehlermeldung, Bild-Pfad via analyzeImage(),
 // strukturiertes Token/Kosten-Logging in KiNutzung.
 
-import { getAiConfig, analyzeImage, type AiConfig } from "@/lib/ai";
+import { getAiConfig, analyzeImage, KOSTEN_MAP, type AiConfig } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -12,16 +12,6 @@ export interface KiDocResult {
   tokensOut: number;
   cfg: AiConfig;
 }
-
-const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
-  "gpt-4o": { input: 250, output: 1000 },
-  "gpt-4o-mini": { input: 15, output: 60 },
-  "gpt-4.1": { input: 200, output: 800 },
-  "gpt-4.1-mini": { input: 40, output: 160 },
-  "claude-sonnet-4-20250514": { input: 300, output: 1500 },
-  "claude-haiku-4-5-20251001": { input: 80, output: 400 },
-  "claude-opus-4-20250514": { input: 1500, output: 7500 },
-};
 
 async function logKi(provider: string, modell: string, feature: string,
                      tokensIn: number, tokensOut: number, ok: boolean, fehler?: string) {
