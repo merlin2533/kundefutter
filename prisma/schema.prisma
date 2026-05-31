@@ -1722,3 +1722,21 @@ model Urlaubsantrag {
   @@index([status])
   @@index([von, bis])
 }
+
+// ─── MAIL-LOG ──────────────────────────────────────────────────────────────────
+
+model MailLog {
+  id          Int      @id @default(autoincrement())
+  zeitpunkt   DateTime @default(now())
+  empfaenger  String
+  betreff     String
+  textBody    String?
+  htmlBody    String?
+  status      String   @default("gesendet")  // "gesendet" | "fehler"
+  fehler      String?
+  feature     String?  // "rechnung" | "digest" | "mahnung" | "angebot" …
+  anhangNamen String?  // JSON-Array Dateinamen
+
+  @@index([zeitpunkt])
+  @@index([status])
+}

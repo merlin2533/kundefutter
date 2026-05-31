@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
@@ -382,8 +382,8 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {gefiltert.map((e) => (
+                    <Fragment key={e.lieferung.id}>
                     <tr
-                      key={e.lieferung.id}
                       className={`hover:brightness-95 transition-all ${
                         e.mahnstufe === 3
                           ? "bg-red-50"
@@ -548,6 +548,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         <td colSpan={10} className="px-4 py-2 text-xs text-teal-700">{emailState[e.lieferung.id].erfolg}</td>
                       </tr>
                     )}
+                    </Fragment>
                   ))}
                 </tbody>
                 {/* Footer: Gesamtsumme der angezeigten Zeilen */}

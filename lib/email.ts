@@ -2,6 +2,15 @@ import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
+// Rate limiter: max 5 E-Mails/Sekunde = min. 200ms Abstand
+const MIN_INTERVAL_MS = 200;
+let _lastEmailTime = 0;
+async function enforceRateLimit() {
+  const wait = MIN_INTERVAL_MS - (Date.now() - _lastEmailTime);
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  _lastEmailTime = Date.now();
+}
+
 export type EmailProvider = "smtp" | "resend";
 
 export type EmailAttachment = {
@@ -63,6 +72,7 @@ export type SendEmailArgs = {
   html: string;
   attachments?: EmailAttachment[];
   fromName?: string;
+  feature?: string;
 };
 
 function buildFromHeader(cfg: EmailConfig, fromName?: string): string {
@@ -76,44 +86,76 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
     throw new Error("Absender-Adresse nicht konfiguriert (Einstellungen → E-Mail)");
   }
   const from = buildFromHeader(cfg, args.fromName);
+  const anhangNamen = JSON.stringify(args.attachments?.map((a) => a.filename) ?? []);
 
-  if (cfg.provider === "resend") {
-    if (!cfg.resendApiKey) throw new Error("Resend API-Key fehlt");
-    const client = new Resend(cfg.resendApiKey);
-    const res = await client.emails.send({
-      from,
-      to: args.to,
-      subject: args.subject,
-      text: args.text,
-      html: args.html,
-      replyTo: cfg.replyTo,
-      bcc: cfg.bcc ? [cfg.bcc] : undefined,
-      attachments: args.attachments?.map((a) => ({
-        filename: a.filename,
-        content: a.content.toString("base64"),
-      })),
-    });
-    if (res.error) throw new Error(res.error.message ?? "Resend-Versand fehlgeschlagen");
-    return;
+  await enforceRateLimit();
+
+  try {
+    if (cfg.provider === "resend") {
+      if (!cfg.resendApiKey) throw new Error("Resend API-Key fehlt");
+      const client = new Resend(cfg.resendApiKey);
+      const res = await client.emails.send({
+        from,
+        to: args.to,
+        subject: args.subject,
+        text: args.text,
+        html: args.html,
+        replyTo: cfg.replyTo,
+        bcc: cfg.bcc ? [cfg.bcc] : undefined,
+        attachments: args.attachments?.map((a) => ({
+          filename: a.filename,
+          content: a.content.toString("base64"),
+        })),
+      });
+      if (res.error) throw new Error(res.error.message ?? "Resend-Versand fehlgeschlagen");
+    } else {
+      if (!cfg.smtpHost) throw new Error("SMTP-Host nicht konfiguriert");
+      const transporter = nodemailer.createTransport({
+        host: cfg.smtpHost,
+        port: cfg.smtpPort,
+        secure: cfg.smtpSecure,
+        auth: cfg.smtpUser ? { user: cfg.smtpUser, pass: cfg.smtpPass ?? "" } : undefined,
+      });
+      await transporter.sendMail({
+        from,
+        to: args.to,
+        replyTo: cfg.replyTo,
+        bcc: cfg.bcc,
+        subject: args.subject,
+        text: args.text,
+        html: args.html,
+        attachments: args.attachments,
+      });
+    }
+
+    // Log erfolgreichen Versand
+    await prisma.mailLog.create({
+      data: {
+        empfaenger: args.to,
+        betreff: args.subject,
+        textBody: args.text,
+        htmlBody: args.html,
+        status: "gesendet",
+        feature: args.feature ?? null,
+        anhangNamen,
+      },
+    }).catch(() => {}); // Log-Fehler nie nach oben werfen
+  } catch (err) {
+    // Log fehlgeschlagenen Versand
+    await prisma.mailLog.create({
+      data: {
+        empfaenger: args.to,
+        betreff: args.subject,
+        textBody: args.text,
+        htmlBody: args.html,
+        status: "fehler",
+        fehler: err instanceof Error ? err.message : String(err),
+        feature: args.feature ?? null,
+        anhangNamen,
+      },
+    }).catch(() => {});
+    throw err;
   }
-
-  if (!cfg.smtpHost) throw new Error("SMTP-Host nicht konfiguriert");
-  const transporter = nodemailer.createTransport({
-    host: cfg.smtpHost,
-    port: cfg.smtpPort,
-    secure: cfg.smtpSecure,
-    auth: cfg.smtpUser ? { user: cfg.smtpUser, pass: cfg.smtpPass ?? "" } : undefined,
-  });
-  await transporter.sendMail({
-    from,
-    to: args.to,
-    replyTo: cfg.replyTo,
-    bcc: cfg.bcc,
-    subject: args.subject,
-    text: args.text,
-    html: args.html,
-    attachments: args.attachments,
-  });
 }
 
 export async function verifyEmailConfig(): Promise<void> {

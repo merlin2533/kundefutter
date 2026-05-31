@@ -10,6 +10,14 @@ export type AngebotMailData = {
   pdfFilename: string;
 };
 
+export type DigestData = {
+  besuchstermine: { kundeId: number; kundeName: string; betreff: string; datum: string }[];
+  aufgaben: { id: number; betreff: string; faelligAm: string; prioritaet: string; kundeName?: string | null }[];
+  mahnwesen: { kundeName: string; rechnungNr: string | null; betrag: number; tageUeberfaellig: number }[];
+  sachkunde: { kundeName: string; typ: string; gueltigBis: string; tageVerblieben: number }[];
+  firma: FirmaDaten;
+};
+
 export type GutschriftMailData = {
   gutschriftNr: string;
   gutschriftDatum: Date;
@@ -546,3 +554,12 @@ export function besuchserinnerungEmail(data: BesuchserinnerungMailData): { subje
 
   return { subject, text, html };
 }
+
+
+export type DigestData = {
+  besuchstermine: { kundeId: number; kundeName: string; betreff: string; datum: string }[];
+  aufgaben: { id: number; betreff: string; faelligAm: string; prioritaet: string; kundeName?: string | null }[];
+  mahnwesen: { kundeName: string; rechnungNr: string | null; betrag: number; tageUeberfaellig: number }[];
+  sachkunde: { kundeName: string; typ: string; gueltigBis: string; tageVerblieben: number }[];
+  firma: FirmaDaten;
+};
