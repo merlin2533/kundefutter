@@ -79,7 +79,6 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     if (beschreibung !== undefined) data.beschreibung = String(beschreibung).trim();
     if (resolvedBetrag !== undefined) data.betragNetto = resolvedBetrag;
     if (mwstSatz !== undefined) data.mwstSatz = isPrivat ? 0 : parseFloat(mwstSatz);
-    if (isPrivat) data.mwstSatz = 0;
     if (kategorie !== undefined) data.kategorie = kategorie;
     if (lieferantId !== undefined) data.lieferantId = lieferantId ? parseInt(lieferantId, 10) : null;
     if (bezahltAm !== undefined) data.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;
@@ -111,10 +110,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     if (sachkonto !== undefined) {
       data.sachkonto = sachkonto || null;
     } else if (kategorie !== undefined || bt !== undefined) {
-      // Bestehenden Datensatz laden für aktuelle Werte
-      const existing = await prisma.ausgabe.findUnique({ where: { id }, select: { kategorie: true, buchungstyp: true } });
+      const [existing, kontenrahmen] = await Promise.all([
+        prisma.ausgabe.findUnique({ where: { id }, select: { kategorie: true, buchungstyp: true } }),
+        getKontenrahmen(),
+      ]);
       if (existing) {
-        const kontenrahmen = await getKontenrahmen();
         data.sachkonto = getSachkonto(
           kategorie ?? existing.kategorie,
           bt ?? existing.buchungstyp,

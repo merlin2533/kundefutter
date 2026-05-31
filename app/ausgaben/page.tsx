@@ -1,12 +1,10 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
-
-const BUCHUNGSTYPEN_FILTER = ["Betriebsausgabe", "Privatentnahme", "Privateinlage", "Reisekosten", "Bewirtung"];
-const ZAHLUNGSWEGE_FILTER = ["Bar", "Überweisung", "EC", "Kreditkarte", "Privat"];
 
 const BUCHUNGSTYP_COLORS: Record<string, string> = {
   Betriebsausgabe: "bg-gray-100 text-gray-700",
@@ -47,7 +45,6 @@ function formatDatum(d: string) {
 }
 
 function AusgabenContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [ausgaben, setAusgaben] = useState<Ausgabe[]>([]);
@@ -97,16 +94,7 @@ function AusgabenContent() {
 
   useEffect(() => { laden(); }, [von, bis, kategorie, buchungstyp, zahlungsweg, nurUnbezahlt, nurAuslagen]);
 
-  async function alsBezahlt(id: number) {
-    await fetch(`/api/ausgaben/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
-    });
-    laden();
-  }
-
-  async function alsErstattet(id: number) {
+  async function markiereAbgeschlossen(id: number) {
     await fetch(`/api/ausgaben/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -166,7 +154,7 @@ function AusgabenContent() {
           <select value={buchungstyp} onChange={e => setBuchungstyp(e.target.value)}
             className="border rounded px-2 py-1 text-sm">
             <option>Alle</option>
-            {BUCHUNGSTYPEN_FILTER.map(bt => <option key={bt}>{bt}</option>)}
+            {BUCHUNGSTYPEN.map(bt => <option key={bt}>{bt}</option>)}
           </select>
         </div>
         <div>
@@ -174,7 +162,7 @@ function AusgabenContent() {
           <select value={zahlungsweg} onChange={e => setZahlungsweg(e.target.value)}
             className="border rounded px-2 py-1 text-sm">
             <option>Alle</option>
-            {ZAHLUNGSWEGE_FILTER.map(z => <option key={z}>{z}</option>)}
+            {ZAHLUNGSWEGE.map(z => <option key={z}>{z}</option>)}
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm cursor-pointer pb-1">
@@ -291,12 +279,12 @@ function AusgabenContent() {
                           {a.bezahltVon && <span className="ml-1 text-gray-400">({a.bezahltVon})</span>}
                         </span>
                       ) : a.ausleger ? (
-                        <button onClick={() => alsErstattet(a.id)}
+                        <button onClick={() => markiereAbgeschlossen(a.id)}
                           className="text-xs text-orange-600 hover:underline">
                           Als erstattet
                         </button>
                       ) : (
-                        <button onClick={() => alsBezahlt(a.id)}
+                        <button onClick={() => markiereAbgeschlossen(a.id)}
                           className="text-xs text-blue-600 hover:underline">
                           Als bezahlt
                         </button>

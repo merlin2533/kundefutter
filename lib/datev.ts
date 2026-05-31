@@ -175,8 +175,3 @@ export function getBuSchluessel(buchungstyp: string): string {
   return buchungstyp === "Bewirtung" ? "9" : "";
 }
 
-/**
- * Standardmäßige Sachkonto-Vorschläge je Kategorie (für UI-Anzeige, SKR03).
- * Wird in den Einstellungen als Placeholder angezeigt.
- */
-export const SACHKONTEN_SKR03_DEFAULTS = SACHKONTEN_SKR03;

@@ -3,10 +3,9 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
-import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, SACHKONTEN_SKR03_DEFAULTS } from "@/lib/datev";
+import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, SACHKONTEN_SKR03, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
-const KILOMETERPAUSCHALE = 0.30;
 
 interface Lieferant { id: number; name: string }
 
@@ -119,20 +118,15 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   // Auto-suggest Sachkonto nur wenn nicht bereits manuell gesetzt
   useEffect(() => {
     if (sachkontoManual.current || laden) return;
-    const suggestion =
-      buchungstyp === "Privatentnahme" ? "1800" :
-      buchungstyp === "Privateinlage"  ? "1890" :
-      buchungstyp === "Bewirtung"      ? "4654" :
-      buchungstyp === "Reisekosten"    ? "4530" :
-      sachkontoMap[kategorie] ?? SACHKONTEN_SKR03_DEFAULTS[kategorie] ?? "";
-    setSachkonto(suggestion);
+    const typeOverride = BUCHUNGSTYP_KONTEN_SKR03[buchungstyp as Buchungstyp];
+    setSachkonto(typeOverride ?? sachkontoMap[kategorie] ?? SACHKONTEN_SKR03[kategorie] ?? "");
   }, [buchungstyp, kategorie, sachkontoMap, laden]);
 
   // Kilometerpauschale
   useEffect(() => {
     if (buchungstyp === "Reisekosten" && reiseKilometerpauschale && reiseKm) {
       const km = parseFloat(reiseKm);
-      if (!isNaN(km)) setBetragNetto((km * KILOMETERPAUSCHALE).toFixed(2));
+      if (!isNaN(km)) setBetragNetto((km * KILOMETERPAUSCHALE_EUR).toFixed(2));
     }
   }, [buchungstyp, reiseKilometerpauschale, reiseKm]);
 
@@ -342,10 +336,9 @@ export default function AusgabeDetailPage({ params }: Ctx) {
                 imageName={belegName}
                 onRemove={() => {
                   setBelegFile(null);
-                  setBelegPreview(belegPfad ? "" : "");
+                  setBelegPreview("");
                   setBelegName("");
                   setKiHinweis("");
-                  if (belegPfad) setBelegPreview("");
                 }}
                 maxResolution={1200}
               />
@@ -450,7 +443,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
                   className="w-full border rounded px-2 py-1 text-sm" />
                 {reiseKm && (
                   <p className="text-xs text-sky-700 mt-1">
-                    Betrag netto: {(parseFloat(reiseKm) * KILOMETERPAUSCHALE).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (wird automatisch gesetzt)
+                    Betrag netto: {(parseFloat(reiseKm) * KILOMETERPAUSCHALE_EUR).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (wird automatisch gesetzt)
                   </p>
                 )}
               </div>

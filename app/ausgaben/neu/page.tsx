@@ -3,10 +3,9 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
-import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, SACHKONTEN_SKR03_DEFAULTS } from "@/lib/datev";
+import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, SACHKONTEN_SKR03, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
-const KILOMETERPAUSCHALE = 0.30;
 
 interface Lieferant {
   id: number;
@@ -86,20 +85,15 @@ export default function NeueAusgabePage() {
   // Auto-suggest Sachkonto wenn Buchungstyp oder Kategorie wechselt
   useEffect(() => {
     if (sachkontoManual.current) return;
-    const suggestion =
-      buchungstyp === "Privatentnahme" ? "1800" :
-      buchungstyp === "Privateinlage"  ? "1890" :
-      buchungstyp === "Bewirtung"      ? "4654" :
-      buchungstyp === "Reisekosten"    ? "4530" :
-      sachkontoMap[kategorie] ?? SACHKONTEN_SKR03_DEFAULTS[kategorie] ?? "";
-    setSachkonto(suggestion);
+    const typeOverride = BUCHUNGSTYP_KONTEN_SKR03[buchungstyp as Buchungstyp];
+    setSachkonto(typeOverride ?? sachkontoMap[kategorie] ?? SACHKONTEN_SKR03[kategorie] ?? "");
   }, [buchungstyp, kategorie, sachkontoMap]);
 
   // Kilometerpauschale: betrag auto berechnen
   useEffect(() => {
     if (buchungstyp === "Reisekosten" && reiseKilometerpauschale && reiseKm) {
       const km = parseFloat(reiseKm);
-      if (!isNaN(km)) setBetragNetto((km * KILOMETERPAUSCHALE).toFixed(2));
+      if (!isNaN(km)) setBetragNetto((km * KILOMETERPAUSCHALE_EUR).toFixed(2));
     }
   }, [buchungstyp, reiseKilometerpauschale, reiseKm]);
 
@@ -333,7 +327,7 @@ export default function NeueAusgabePage() {
                   className="w-full border rounded px-2 py-1 text-sm" />
                 {reiseKm && (
                   <p className="text-xs text-sky-700 mt-1">
-                    Betrag netto: {(parseFloat(reiseKm) * KILOMETERPAUSCHALE).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (wird automatisch gesetzt)
+                    Betrag netto: {(parseFloat(reiseKm) * KILOMETERPAUSCHALE_EUR).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (wird automatisch gesetzt)
                   </p>
                 )}
               </div>
@@ -477,7 +471,6 @@ export default function NeueAusgabePage() {
         </div>
 
         <div>
-          <div>
           <label className="block text-sm font-medium mb-1">Erfasst von</label>
           <input type="text" value={erfasstVon} onChange={e => setErfasstVon(e.target.value)}
             placeholder="Benutzername / Name"
@@ -485,7 +478,8 @@ export default function NeueAusgabePage() {
           <p className="text-xs text-gray-400 mt-0.5">Vorbelegt mit dem eingeloggten Benutzer.</p>
         </div>
 
-        <label className="block text-sm font-medium mb-1 mt-3">Notiz</label>
+        <div>
+          <label className="block text-sm font-medium mb-1">Notiz</label>
           <textarea value={notiz} onChange={e => setNotiz(e.target.value)} rows={2}
             className="w-full border rounded px-3 py-2 text-sm" />
         </div>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import { SACHKONTEN_SKR03_DEFAULTS, ZAHLUNGSWEGE } from "@/lib/datev";
+import { SACHKONTEN_SKR03, ZAHLUNGSWEGE } from "@/lib/datev";
 
 const DEFAULT_KATEGORIEN = [
   "Wareneinkauf",
@@ -212,7 +212,7 @@ export default function AusgabenEinstellungenPage() {
                 type="text"
                 value={sachkontoMap[kat] ?? ""}
                 onChange={e => setSachkontoMap(prev => ({ ...prev, [kat]: e.target.value }))}
-                placeholder={SACHKONTEN_SKR03_DEFAULTS[kat] ?? "4900"}
+                placeholder={SACHKONTEN_SKR03[kat] ?? "4900"}
                 className="w-28 border rounded px-2 py-1 text-sm text-right font-mono"
               />
             </div>

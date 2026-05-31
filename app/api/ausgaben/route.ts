@@ -106,6 +106,8 @@ export async function POST(req: NextRequest) {
       sachkonto || null
     );
 
+    const lieferantIdNum = lieferantId ? parseInt(lieferantId, 10) : null;
+
     const ausgabe = await prisma.ausgabe.create({
       data: {
         datum: datum ? new Date(datum) : new Date(),
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
         betragNetto: betrag,
         mwstSatz: mwst,
         kategorie: kategorie || "Sonstige",
-        lieferantId: lieferantId ? (isNaN(parseInt(lieferantId, 10)) ? null : parseInt(lieferantId, 10)) : null,
+        lieferantId: lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null,
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,
         notiz: notiz || null,
         ausleger: ausleger ? String(ausleger).trim() : null,
