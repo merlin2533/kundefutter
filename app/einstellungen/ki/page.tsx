@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 type KiStatistik = {
   gesamt: {
@@ -82,6 +82,8 @@ export default function KiEinstellungenPage() {
   const [anthropicKey, setAnthropicKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
+  // Track whether API keys were changed by the user — only save if touched
+  const touchedKeys = useRef<Set<string>>(new Set());
 
   // Prompt-Verwaltung
   const [prompts, setPrompts] = useState<Record<string, string>>({});
@@ -165,8 +167,8 @@ export default function KiEinstellungenPage() {
         "ki.modell_anthropic": modellAnthropic,
         // ki.modell bleibt als Abwärtskompatibilität = Modell des aktiven Providers
         "ki.modell": provider === "openai" ? modellOpenai : modellAnthropic,
-        "ki.openai_key": openaiKey,
-        "ki.anthropic_key": anthropicKey,
+        ...(touchedKeys.current.has("ki.openai_key") ? { "ki.openai_key": openaiKey } : {}),
+        ...(touchedKeys.current.has("ki.anthropic_key") ? { "ki.anthropic_key": anthropicKey } : {}),
       };
       for (const [key, value] of Object.entries(settings)) {
         const res = await fetch("/api/einstellungen", {
@@ -280,7 +282,7 @@ export default function KiEinstellungenPage() {
                   <input
                     type={showOpenaiKey ? "text" : "password"}
                     value={openaiKey}
-                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    onChange={(e) => { setOpenaiKey(e.target.value); touchedKeys.current.add("ki.openai_key"); }}
                     placeholder="sk-..."
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -302,7 +304,7 @@ export default function KiEinstellungenPage() {
                   <input
                     type={showAnthropicKey ? "text" : "password"}
                     value={anthropicKey}
-                    onChange={(e) => setAnthropicKey(e.target.value)}
+                    onChange={(e) => { setAnthropicKey(e.target.value); touchedKeys.current.add("ki.anthropic_key"); }}
                     placeholder="sk-ant-..."
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                   />

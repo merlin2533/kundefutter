@@ -72,7 +72,7 @@ const SECTIONS: Section[] = [
       { href: "/einstellungen/artikel-import", icon: "🌿", title: "Artikel-Stammdaten", description: "marstall & BvG Agrar Artikel manuell importieren" },
       { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
       { href: "/einstellungen/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Cache-Gültigkeit und Daten-Aktualisierung" },
-      { href: "/einstellungen/email", icon: "✉️", title: "E-Mail-Versand", description: "SMTP oder Resend für Rechnungsversand (PDF + ZUGFeRD)" },
+      { href: "/einstellungen/email", icon: "✉️", title: "Mail", description: "Absenderadressen, SMTP/Resend, Info-Adresse, BCC und Mailversand-Konfiguration" },
       { href: "/einstellungen/google-drive", icon: "☁️", title: "Google Drive", description: "Dokumente für Kunden und Artikel in Drive ablegen" },
       { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
     ],
