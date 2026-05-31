@@ -22,6 +22,11 @@ const JOB_META: Record<string, { label: string; beschreibung: string; icon: stri
     icon: "≋",
     beschreibung: "Wasserstandsmessungen von WSV Pegelonline aktualisieren",
   },
+  digest: {
+    label: "Digest-E-Mail",
+    icon: "📧",
+    beschreibung: "Tagesübersicht (Besuchstermine, Aufgaben, Mahnwesen, Sachkunde) an konfigurierte Admin-Adresse (alle 6h)",
+  },
 };
 
 function formatDauer(ms: number) {
@@ -113,8 +118,7 @@ export default function CronVerwaltungPage() {
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Registrierte Jobs</h2>
 
-        {/* Pegelstände-Job (immer anzeigen) */}
-        {(["pegelstaende"] as const).map((jobId) => {
+        {(["pegelstaende", "digest"] as const).map((jobId) => {
           const meta = JOB_META[jobId];
           const result = status?.jobs.find((j) => j.job === jobId);
           return (
@@ -173,9 +177,16 @@ export default function CronVerwaltungPage() {
 
               <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
                 <span>Intervall: alle 30 Minuten (Docker-Hintergrundprozess)</span>
-                <Link href="/einstellungen/pegelstaende" className="text-green-700 hover:underline">
-                  Stationen konfigurieren →
-                </Link>
+                {jobId === "pegelstaende" && (
+                  <Link href="/einstellungen/pegelstaende" className="text-green-700 hover:underline">
+                    Stationen konfigurieren →
+                  </Link>
+                )}
+                {jobId === "digest" && (
+                  <Link href="/einstellungen/email" className="text-green-700 hover:underline">
+                    Digest konfigurieren →
+                  </Link>
+                )}
               </div>
             </div>
           );

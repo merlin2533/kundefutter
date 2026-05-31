@@ -10,6 +10,11 @@ type Values = {
   "email.reply_to": string;
   "email.info": string;
   "email.bcc": string;
+  "email.digest": string;
+  "cron.digest.besuchstermine": string;
+  "cron.digest.aufgaben": string;
+  "cron.digest.mahnwesen": string;
+  "cron.digest.sachkunde": string;
   "smtp.host": string;
   "smtp.port": string;
   "smtp.secure": string;
@@ -26,6 +31,11 @@ const DEFAULTS: Values = {
   "email.reply_to": "",
   "email.info": "",
   "email.bcc": "",
+  "email.digest": "",
+  "cron.digest.besuchstermine": "0",
+  "cron.digest.aufgaben": "0",
+  "cron.digest.mahnwesen": "0",
+  "cron.digest.sachkunde": "0",
   "smtp.host": "",
   "smtp.port": "587",
   "smtp.secure": "false",
@@ -59,15 +69,21 @@ export default function EmailEinstellungenPage() {
       fetch("/api/einstellungen?prefix=email.").then((r) => r.json()),
       fetch("/api/einstellungen?prefix=smtp.").then((r) => r.json()),
       fetch("/api/einstellungen?prefix=resend.").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=cron.digest.").then((r) => r.json()),
     ])
-      .then(([e, s, r]: [Record<string, string>, Record<string, string>, Record<string, string>]) => {
-        const d = { ...e, ...s, ...r };
+      .then(([e, s, r, c]: [Record<string, string>, Record<string, string>, Record<string, string>, Record<string, string>]) => {
+        const d = { ...e, ...s, ...r, ...c };
         setValues({
           "email.provider": d["email.provider"] === "resend" ? "resend" : "smtp",
           "email.from": d["email.from"] ?? "",
           "email.reply_to": d["email.reply_to"] ?? "",
           "email.info": d["email.info"] ?? "",
           "email.bcc": d["email.bcc"] ?? "",
+          "email.digest": d["email.digest"] ?? "",
+          "cron.digest.besuchstermine": d["cron.digest.besuchstermine"] ?? "0",
+          "cron.digest.aufgaben": d["cron.digest.aufgaben"] ?? "0",
+          "cron.digest.mahnwesen": d["cron.digest.mahnwesen"] ?? "0",
+          "cron.digest.sachkunde": d["cron.digest.sachkunde"] ?? "0",
           "smtp.host": d["smtp.host"] ?? "",
           "smtp.port": d["smtp.port"] ?? "587",
           "smtp.secure": d["smtp.secure"] ?? "false",
@@ -421,6 +437,46 @@ export default function EmailEinstellungenPage() {
           </div>
         </div>
       )}
+
+      {/* Automatische Digest-Mails */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-800">Automatische Digest-Mails</h2>
+          <p className="text-xs text-gray-500 mt-1">Wird automatisch alle 6 Stunden versendet (über den Cron-Job).</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Empfänger-Adresse</label>
+          <input
+            type="email"
+            value={values["email.digest"]}
+            onChange={(e) => updateField("email.digest", e.target.value)}
+            placeholder="admin@ihrefirma.de"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">Leer lassen = kein Digest wird gesendet.</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-700">Enthaltene Bereiche</p>
+          {(
+            [
+              ["cron.digest.besuchstermine", "Besuchstermine heute"],
+              ["cron.digest.aufgaben", "Fällige Aufgaben heute"],
+              ["cron.digest.mahnwesen", "Überfällige Rechnungen"],
+              ["cron.digest.sachkunde", "Ablaufende Sachkundenachweise (90 Tage)"],
+            ] as [keyof Values, string][]
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={values[key] === "1"}
+                onChange={(e) => updateField(key, e.target.checked ? "1" : "0")}
+                className="rounded text-green-600 focus:ring-green-500"
+              />
+              <span className="text-sm text-gray-700">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center">
         <button

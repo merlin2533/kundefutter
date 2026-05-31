@@ -556,10 +556,74 @@ export function besuchserinnerungEmail(data: BesuchserinnerungMailData): { subje
 }
 
 
-export type DigestData = {
-  besuchstermine: { kundeId: number; kundeName: string; betreff: string; datum: string }[];
-  aufgaben: { id: number; betreff: string; faelligAm: string; prioritaet: string; kundeName?: string | null }[];
-  mahnwesen: { kundeName: string; rechnungNr: string | null; betrag: number; tageUeberfaellig: number }[];
-  sachkunde: { kundeName: string; typ: string; gueltigBis: string; tageVerblieben: number }[];
-  firma: FirmaDaten;
-};
+export function digestEmail(data: DigestData): { subject: string; text: string; html: string } {
+  const { besuchstermine, aufgaben, mahnwesen, sachkunde, firma } = data;
+  const heute = new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const subject = `Tages-Digest ${new Date().toLocaleDateString("de-DE")} – ${firma.name}`;
+
+  function fmtEuroLocal(n: number): string {
+    return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+  }
+
+  function tableSection(title: string, rows: string[], emptyMsg: string): string {
+    if (rows.length === 0) {
+      return `<h3 style="margin:24px 0 4px 0;font-size:14px;color:#6b7280;">${escapeHtml(title)}</h3><p style="margin:0 0 8px 0;font-size:13px;color:#9ca3af;font-style:italic;">${emptyMsg}</p>`;
+    }
+    return `<h3 style="margin:24px 0 8px 0;font-size:14px;color:#374151;">${escapeHtml(title)} <span style="font-weight:normal;color:#6b7280;">(${rows.length})</span></h3><table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">${rows.join("")}</table>`;
+  }
+
+  const besuchRows = besuchstermine.map(
+    (b) => `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 8px;color:#374151;">${escapeHtml(b.kundeName)}</td><td style="padding:6px 8px;color:#374151;">${escapeHtml(b.betreff)}</td></tr>`
+  );
+  const aufgabeRows = aufgaben.map(
+    (a) => `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 8px;color:#374151;">${escapeHtml(a.betreff)}</td><td style="padding:6px 8px;color:#6b7280;">${a.kundeName ? escapeHtml(a.kundeName) : "–"}</td><td style="padding:6px 8px;color:${a.prioritaet === "kritisch" ? "#dc2626" : a.prioritaet === "hoch" ? "#d97706" : "#374151"};">${escapeHtml(a.prioritaet)}</td></tr>`
+  );
+  const mahnRows = mahnwesen.map(
+    (m) => `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 8px;color:#374151;">${escapeHtml(m.kundeName)}</td><td style="padding:6px 8px;color:#374151;">${m.rechnungNr ? escapeHtml(m.rechnungNr) : "–"}</td><td style="padding:6px 8px;font-weight:600;color:#dc2626;">${fmtEuroLocal(m.betrag)}</td><td style="padding:6px 8px;color:#dc2626;">${m.tageUeberfaellig} Tage</td></tr>`
+  );
+  const sachkundeRows = sachkunde.map(
+    (s) => `<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:6px 8px;color:#374151;">${escapeHtml(s.kundeName)}</td><td style="padding:6px 8px;color:#374151;">${escapeHtml(s.typ)}</td><td style="padding:6px 8px;color:${s.tageVerblieben <= 0 ? "#dc2626" : s.tageVerblieben <= 30 ? "#d97706" : "#374151"};">${s.tageVerblieben <= 0 ? "Abgelaufen" : `${s.tageVerblieben} Tage`}</td></tr>`
+  );
+
+  const gesamt = besuchstermine.length + aufgaben.length + mahnwesen.length + sachkunde.length;
+  const bodyContent = gesamt === 0
+    ? `<p style="color:#6b7280;font-size:14px;">Heute gibt es nichts Besonderes zu berichten. Alles ist auf dem neuesten Stand.</p>`
+    : `${tableSection("Besuchstermine heute", besuchRows, "Keine Besuchstermine geplant")}${tableSection("Fällige Aufgaben heute", aufgabeRows, "Keine fälligen Aufgaben")}${tableSection("Überfällige Rechnungen", mahnRows, "Keine überfälligen Rechnungen")}${tableSection("Ablaufende Sachkundenachweise (nächste 90 Tage)", sachkundeRows, "Keine ablaufenden Sachkundenachweise")}`;
+
+  const html = `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>${subject}</title></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+  <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;">
+    <tr><td style="padding:24px 32px;background:#14532d;">
+      <h1 style="margin:0;font-size:18px;color:#ffffff;font-weight:700;">${escapeHtml(firma.name)}</h1>
+      <p style="margin:4px 0 0 0;font-size:13px;color:#bbf7d0;">Tages-Digest – ${escapeHtml(heute)}</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px;">${bodyContent}
+      <p style="margin:32px 0 0 0;font-size:12px;color:#9ca3af;">Diese Zusammenfassung wird automatisch alle 6 Stunden von ${escapeHtml(firma.name)} gesendet.</p>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>`;
+
+  const textParts: string[] = [`TAGES-DIGEST – ${heute}\n${firma.name}\n${"=".repeat(50)}`];
+  if (besuchstermine.length > 0) {
+    textParts.push(`\nBESUCHSTERMINE HEUTE (${besuchstermine.length}):`);
+    besuchstermine.forEach((b) => textParts.push(`  - ${b.kundeName}: ${b.betreff}`));
+  }
+  if (aufgaben.length > 0) {
+    textParts.push(`\nFÄLLIGE AUFGABEN (${aufgaben.length}):`);
+    aufgaben.forEach((a) => textParts.push(`  - [${a.prioritaet}] ${a.betreff}${a.kundeName ? ` (${a.kundeName})` : ""}`));
+  }
+  if (mahnwesen.length > 0) {
+    textParts.push(`\nÜBERFÄLLIGE RECHNUNGEN (${mahnwesen.length}):`);
+    mahnwesen.forEach((m) => textParts.push(`  - ${m.kundeName}: ${m.rechnungNr ?? "–"} | ${fmtEuroLocal(m.betrag)} | ${m.tageUeberfaellig} Tage`));
+  }
+  if (sachkunde.length > 0) {
+    textParts.push(`\nABLAUFENDE SACHKUNDENACHWEISE (${sachkunde.length}):`);
+    sachkunde.forEach((s) => textParts.push(`  - ${s.kundeName}: ${s.typ} | ${s.tageVerblieben <= 0 ? "Abgelaufen" : `${s.tageVerblieben} Tage`}`));
+  }
+  if (gesamt === 0) textParts.push("\nHeute gibt es nichts Besonderes zu berichten.");
+  const text = textParts.join("\n");
+
+  return { subject, text, html };
+}

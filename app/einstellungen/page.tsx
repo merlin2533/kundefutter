@@ -73,6 +73,7 @@ const SECTIONS: Section[] = [
       { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
       { href: "/einstellungen/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Cache-Gültigkeit und Daten-Aktualisierung" },
       { href: "/einstellungen/email", icon: "✉️", title: "Mail", description: "Absenderadressen, SMTP/Resend, Info-Adresse, BCC und Mailversand-Konfiguration" },
+      { href: "/einstellungen/mail-log", icon: "📋", title: "Mail-Log", description: "Alle versendeten E-Mails einsehen, HTML-Vorschau, erneut senden und löschen" },
       { href: "/einstellungen/google-drive", icon: "☁️", title: "Google Drive", description: "Dokumente für Kunden und Artikel in Drive ablegen" },
       { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
     ],
