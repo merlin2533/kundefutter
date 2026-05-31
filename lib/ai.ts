@@ -21,13 +21,21 @@ export interface AiAnalyzeResult {
 // ─── Kosten pro 1M Tokens (in Cent) ─────────────────────────────────────────
 
 export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
+  // ─ OpenAI ─
+  "gpt-5":              { input: 125, output: 1000 },
+  "gpt-5-mini":         { input: 25,  output: 200 },
+  "gpt-5-nano":         { input: 5,   output: 40 },
   "gpt-4o":             { input: 250, output: 1000 },
   "gpt-4o-mini":        { input: 15,  output: 60 },
   "gpt-4.1":            { input: 200, output: 800 },
   "gpt-4.1-mini":       { input: 40,  output: 160 },
   "gpt-4.1-nano":       { input: 10,  output: 40 },
-  "claude-sonnet-4-20250514":   { input: 300, output: 1500 },
-  "claude-haiku-4-5-20251001": { input: 80,  output: 400 },
+  // ─ Anthropic (aktuell) ─
+  "claude-opus-4-8":            { input: 1500, output: 7500 },
+  "claude-sonnet-4-6":          { input: 300,  output: 1500 },
+  "claude-haiku-4-5-20251001":  { input: 100,  output: 500 },
+  // ─ Anthropic (Legacy – für historische Nutzungslogs) ─
+  "claude-sonnet-4-20250514":   { input: 300,  output: 1500 },
   "claude-opus-4-20250514":     { input: 1500, output: 7500 },
 };
 
@@ -50,9 +58,15 @@ export async function getAiConfig(): Promise<AiConfig> {
   const raw = map["ki.provider"];
   const provider = (raw === "openai" || raw === "anthropic") ? raw : "openai";
 
+  // Modell wird pro Provider gepflegt; Fallback auf altes globales ki.modell,
+  // dann auf den Provider-Standard.
+  const providerModell = provider === "openai" ? map["ki.modell_openai"] : map["ki.modell_anthropic"];
+  const defaultModell = provider === "openai" ? "gpt-4o" : "claude-haiku-4-5-20251001";
+  const modell = providerModell || map["ki.modell"] || defaultModell;
+
   return {
     provider,
-    modell: map["ki.modell"] || "gpt-4o",
+    modell,
     openaiKey: map["ki.openai_key"],
     anthropicKey: map["ki.anthropic_key"],
   };

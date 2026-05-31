@@ -44,18 +44,26 @@ const PROMPT_FEATURES = [
 ];
 
 const OPENAI_MODELS = [
-  { value: "gpt-4o", label: "GPT-4o" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+  { value: "gpt-5", label: "GPT-5" },
+  { value: "gpt-5-mini", label: "GPT-5 Mini" },
+  { value: "gpt-5-nano", label: "GPT-5 Nano" },
   { value: "gpt-4.1", label: "GPT-4.1" },
   { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
   { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
 ];
 
 const ANTHROPIC_MODELS = [
-  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+  { value: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-  { value: "claude-opus-4-20250514", label: "Claude Opus 4" },
 ];
+
+const DEFAULT_MODELL: Record<"openai" | "anthropic", string> = {
+  openai: "gpt-4o",
+  anthropic: "claude-haiku-4-5-20251001",
+};
 
 export default function KiEinstellungenPage() {
   const [statistik, setStatistik] = useState<KiStatistik | null>(null);
@@ -63,7 +71,9 @@ export default function KiEinstellungenPage() {
   const [statistikError, setStatistikError] = useState<string | null>(null);
 
   const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
-  const [modell, setModell] = useState("gpt-4o");
+  // Modell wird pro Provider getrennt gepflegt
+  const [modellOpenai, setModellOpenai] = useState(DEFAULT_MODELL.openai);
+  const [modellAnthropic, setModellAnthropic] = useState(DEFAULT_MODELL.anthropic);
   const [openaiKey, setOpenaiKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
@@ -88,8 +98,18 @@ export default function KiEinstellungenPage() {
       const res = await fetch("/api/einstellungen?prefix=ki.");
       if (!res.ok) throw new Error();
       const data = await res.json();
-      if (data["ki.provider"]) setProvider(data["ki.provider"] as "openai" | "anthropic");
-      if (data["ki.modell"]) setModell(data["ki.modell"]);
+      const loadedProvider = (data["ki.provider"] as "openai" | "anthropic") || "openai";
+      if (data["ki.provider"]) setProvider(loadedProvider);
+      // Pro-Provider-Modell laden; Fallback auf altes globales ki.modell (Migration)
+      const legacy = data["ki.modell"];
+      setModellOpenai(
+        data["ki.modell_openai"] ||
+          (loadedProvider === "openai" && legacy ? legacy : DEFAULT_MODELL.openai)
+      );
+      setModellAnthropic(
+        data["ki.modell_anthropic"] ||
+          (loadedProvider === "anthropic" && legacy ? legacy : DEFAULT_MODELL.anthropic)
+      );
       if (data["ki.openai_key"]) setOpenaiKey(data["ki.openai_key"]);
       if (data["ki.anthropic_key"]) setAnthropicKey(data["ki.anthropic_key"]);
       // Prompts laden
@@ -126,15 +146,9 @@ export default function KiEinstellungenPage() {
     fetchStatistik();
   }, []);
 
-  // Wenn Provider wechselt, erstes Modell des Providers setzen
-  useEffect(() => {
-    const models = provider === "openai" ? OPENAI_MODELS : ANTHROPIC_MODELS;
-    const currentValid = models.some((m) => m.value === modell);
-    if (!currentValid) {
-      setModell(models[0].value);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider]);
+  // Aktives Modell + Setter abhängig vom gewählten Provider
+  const modell = provider === "openai" ? modellOpenai : modellAnthropic;
+  const setModell = provider === "openai" ? setModellOpenai : setModellAnthropic;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -143,7 +157,10 @@ export default function KiEinstellungenPage() {
     try {
       const settings: Record<string, string> = {
         "ki.provider": provider,
-        "ki.modell": modell,
+        "ki.modell_openai": modellOpenai,
+        "ki.modell_anthropic": modellAnthropic,
+        // ki.modell bleibt als Abwärtskompatibilität = Modell des aktiven Providers
+        "ki.modell": provider === "openai" ? modellOpenai : modellAnthropic,
         "ki.openai_key": openaiKey,
         "ki.anthropic_key": anthropicKey,
       };
@@ -326,20 +343,29 @@ export default function KiEinstellungenPage() {
             </div>
           </div>
 
-          {/* Modell-Auswahl */}
+          {/* Modell-Auswahl (pro Provider, Freitext + Vorschläge) */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Modell</h2>
-            <select
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Standardmodell ({provider === "openai" ? "OpenAI" : "Anthropic"})
+            </h2>
+            <input
+              list="ki-modell-list"
               value={modell}
               onChange={(e) => setModell(e.target.value)}
+              placeholder={DEFAULT_MODELL[provider]}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
+            />
+            <datalist id="ki-modell-list">
               {currentModels.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
               ))}
-            </select>
+            </datalist>
+            <p className="text-xs text-gray-400 mt-1">
+              Vorschläge auswählen oder eigene Modell-ID eintragen. Je Provider wird ein
+              eigenes Standardmodell gespeichert.
+            </p>
           </div>
 
           {/* Verbindungstest */}

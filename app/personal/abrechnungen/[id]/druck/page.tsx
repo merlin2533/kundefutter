@@ -72,7 +72,7 @@ export default function GehaltszettelDruckPage({ params }: Params) {
   if (!abrechnung) return <div className="p-8 text-center text-red-500">Abrechnung nicht gefunden.</div>;
 
   const ma = abrechnung.mitarbeiter;
-  const monatName = MONATE[abrechnung.monat - 1];
+  const monatName = MONATE[abrechnung.monat - 1]?.label ?? "";
 
   return (
     <div className="min-h-screen bg-white p-0">
