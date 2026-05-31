@@ -48,8 +48,8 @@ export async function loadEmailConfig(): Promise<EmailConfig> {
   const provider: EmailProvider = map["email.provider"] === "resend" ? "resend" : "smtp";
   const fromAddress =
     provider === "resend"
-      ? map["resend.from"] ?? ""
-      : map["smtp.from"] ?? map["smtp.user"] ?? "";
+      ? map["resend.from"] ?? map["email.from"] ?? ""
+      : map["smtp.from"] ?? map["smtp.user"] ?? map["email.from"] ?? "";
 
   return {
     provider,
@@ -162,6 +162,8 @@ export async function verifyEmailConfig(): Promise<void> {
   const cfg = await loadEmailConfig();
   if (cfg.provider === "resend") {
     if (!cfg.resendApiKey) throw new Error("Resend API-Key fehlt");
+    if (!cfg.fromAddress) throw new Error("Absender-Adresse nicht konfiguriert (Einstellungen → E-Mail → Absender-Adresse)");
+
     const client = new Resend(cfg.resendApiKey);
     const res = await client.domains.list();
     if (res.error) {

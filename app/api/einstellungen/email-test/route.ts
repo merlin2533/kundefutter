@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
     await verifyEmailConfig();
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const isDev = process.env.NODE_ENV === "development";
-    const msg = isDev && err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
+    // Email settings is an admin-only page — expose the real error to help diagnose config issues
+    const msg = err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
