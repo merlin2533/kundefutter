@@ -1203,16 +1203,15 @@ function PersonalAbrechnungWidget() {
   const [offene, setOffene] = useState<PersonalOffen[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const now = new Date();
+
   useEffect(() => {
-    const now = new Date();
     fetch(`/api/personal/abrechnungen/offen?monat=${now.getMonth() + 1}&jahr=${now.getFullYear()}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setOffene(Array.isArray(d) ? d : []))
       .catch(() => setOffene([]))
       .finally(() => setLoading(false));
-  }, []);
-
-  const now = new Date();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const tag = now.getDate();
 
   return (

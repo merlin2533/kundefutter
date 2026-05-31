@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { MONATE_KURZ, getJahreListeNum } from "@/lib/utils";
 
-const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONATE = MONATE_KURZ;
 const STATUS_COLOR: Record<string, string> = {
   OFFEN: "bg-amber-100 text-amber-800",
   ABGERECHNET: "bg-blue-100 text-blue-800",
@@ -114,7 +115,7 @@ export default function AbrechnungenPage() {
           onChange={(e) => setJahr(parseInt(e.target.value, 10))}
           className="border rounded-lg px-3 py-2 text-sm"
         >
-          {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+          {getJahreListeNum().map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
         <select
           value={statusFilter}

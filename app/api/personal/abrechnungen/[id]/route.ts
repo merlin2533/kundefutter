@@ -50,45 +50,45 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
     // Aktion: "auszahlen" = ABGERECHNET -> AUSGEZAHLT + Ausgabe erstellen
     if (aktion === "auszahlen") {
-      const abrechnung = await prisma.gehaltsabrechnung.findUnique({
-        where: { id: numId },
-        include: { mitarbeiter: true },
-      });
-      if (!abrechnung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-      if (abrechnung.status === "AUSGEZAHLT") {
-        return NextResponse.json({ error: "Abrechnung wurde bereits ausgezahlt" }, { status: 409 });
-      }
-
       const zd = zahlungsDatum ? new Date(zahlungsDatum) : new Date();
-      const mm = String(abrechnung.monat).padStart(2, "0");
-      const beschreibung = `Gehalt ${abrechnung.mitarbeiter.vorname} ${abrechnung.mitarbeiter.nachname} ${mm}/${abrechnung.jahr}`;
 
-      // Ausgabe erstellen + Abrechnung in einer Transaktion aktualisieren
-      const [ausgabe, updatedAbrechnung] = await prisma.$transaction(async (tx) => {
-        const newAusgabe = await tx.ausgabe.create({
-          data: {
-            datum: zd,
-            beschreibung,
-            betragNetto: abrechnung.netto,
-            mwstSatz: 0,
-            kategorie: "Personal",
-            bezahltAm: zd,
-            notiz: `Gehaltsabrechnung ID ${numId}`,
-          },
-        });
-        const updAbr = await tx.gehaltsabrechnung.update({
-          where: { id: numId },
-          data: {
-            status: "AUSGEZAHLT",
-            zahlungsDatum: zd,
-            ausgabeId: newAusgabe.id,
-          },
-          include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true } } },
-        });
-        return [newAusgabe, updAbr];
-      });
+      try {
+        const result = await prisma.$transaction(async (tx) => {
+          const abrechnung = await tx.gehaltsabrechnung.findUnique({
+            where: { id: numId },
+            include: { mitarbeiter: true },
+          });
+          if (!abrechnung) throw Object.assign(new Error("NOT_FOUND"), { code: "NOT_FOUND" });
+          if (abrechnung.status === "AUSGEZAHLT") throw Object.assign(new Error("ALREADY_PAID"), { code: "ALREADY_PAID" });
 
-      return NextResponse.json({ abrechnung: updatedAbrechnung, ausgabe });
+          const mm = String(abrechnung.monat).padStart(2, "0");
+          const beschreibung = `Gehalt ${abrechnung.mitarbeiter.vorname} ${abrechnung.mitarbeiter.nachname} ${mm}/${abrechnung.jahr}`;
+
+          const newAusgabe = await tx.ausgabe.create({
+            data: {
+              datum: zd,
+              beschreibung,
+              betragNetto: abrechnung.netto,
+              mwstSatz: 0,
+              kategorie: "Personal",
+              bezahltAm: zd,
+              notiz: `Gehaltsabrechnung ID ${numId}`,
+            },
+          });
+          const updAbr = await tx.gehaltsabrechnung.update({
+            where: { id: numId },
+            data: { status: "AUSGEZAHLT", zahlungsDatum: zd, ausgabeId: newAusgabe.id },
+            include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true } } },
+          });
+          return { abrechnung: updAbr, ausgabe: newAusgabe };
+        });
+        return NextResponse.json(result);
+      } catch (txErr) {
+        const e = txErr as { code?: string };
+        if (e.code === "NOT_FOUND") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+        if (e.code === "ALREADY_PAID") return NextResponse.json({ error: "Abrechnung wurde bereits ausgezahlt" }, { status: 409 });
+        throw txErr;
+      }
     }
 
     // Normales Update der Felder
@@ -134,7 +134,6 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   } catch (err) {
     const isDev = process.env.NODE_ENV === "development";
     const e = err as { code?: string; message?: string };
-    if (e.code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: isDev ? (e.message ?? "Fehler") : "Interner Fehler" }, { status: 500 });
   }
 }

@@ -241,21 +241,6 @@ export default function NeuerMitarbeiterPage() {
             </div>
           )}
 
-          {form.typ !== "stundenbasis" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden (Soll)</label>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                max="60"
-                value={form.wochenstunden}
-                onChange={(e) => set("wochenstunden", e.target.value)}
-                placeholder="z.B. 40"
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
-              />
-            </div>
-          )}
         </div>
 
         {/* Kontakt */}

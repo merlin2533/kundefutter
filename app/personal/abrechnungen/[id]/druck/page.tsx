@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
+import { MONATE_LANG, formatDatum } from "@/lib/utils";
 
-const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONATE = MONATE_LANG;
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
 const STATUS_LABEL: Record<string, string> = { OFFEN: "Offen", ABGERECHNET: "Abgerechnet", AUSGEZAHLT: "Ausgezahlt" };
 
@@ -124,7 +125,7 @@ export default function GehaltszettelDruckPage({ params }: Params) {
             <div className="text-sm text-gray-500">Status: {STATUS_LABEL[abrechnung.status] ?? abrechnung.status}</div>
             {abrechnung.zahlungsDatum && (
               <div className="text-sm text-gray-500">
-                Ausgezahlt: {new Date(abrechnung.zahlungsDatum).toLocaleDateString("de-DE")}
+                Ausgezahlt: {formatDatum(abrechnung.zahlungsDatum)}
               </div>
             )}
           </div>

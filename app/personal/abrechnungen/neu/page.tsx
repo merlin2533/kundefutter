@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import { MONATE_LANG, getJahreListeNum } from "@/lib/utils";
 
-const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONATE = MONATE_LANG;
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
 
 interface Mitarbeiter {
@@ -152,7 +153,7 @@ function NeuAbrechnungInner() {
               onChange={(e) => setJahr(parseInt(e.target.value, 10))}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
             >
-              {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+              {getJahreListeNum().map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
@@ -199,7 +200,12 @@ function NeuAbrechnungInner() {
                 step="0.01"
                 min="0"
                 value={brutto}
-                onChange={(e) => setBrutto(e.target.value)}
+                onChange={(e) => {
+                  setBrutto(e.target.value);
+                  const ab = parseFloat(abzuege) || 0;
+                  if (ab > 0 && e.target.value) setNetto(String((parseFloat(e.target.value) - ab).toFixed(2)));
+                  else if (e.target.value) setNetto(e.target.value);
+                }}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 placeholder="0.00"
               />

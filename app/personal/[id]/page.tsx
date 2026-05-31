@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { MONATE_KURZ, getJahreListeNum, formatDatum } from "@/lib/utils";
 
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
 const TYP_COLOR: Record<string, string> = {
@@ -25,7 +26,7 @@ const ART_COLOR: Record<string, string> = {
   feiertag: "bg-gray-100 text-gray-600",
 };
 
-const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONATE = MONATE_KURZ;
 
 interface Mitarbeiter {
   id: number;
@@ -188,7 +189,12 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aktiv: false }),
     });
-    if (res.ok) setMa((prev) => prev ? { ...prev, aktiv: false } : prev);
+    if (res.ok) {
+      setMa((prev) => prev ? { ...prev, aktiv: false } : prev);
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setAbrError(d.error ?? "Fehler beim Deaktivieren");
+    }
   }
 
   function setTab(tab: string) {
@@ -275,8 +281,8 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
           <div className="bg-white border rounded-lg p-5 space-y-3">
             <h3 className="font-semibold text-gray-800">Beschäftigung</h3>
             <Row label="Typ" value={TYP_LABEL[ma.typ] ?? ma.typ} />
-            <Row label="Eintritt" value={new Date(ma.eintrittsdatum).toLocaleDateString("de-DE")} />
-            {ma.austrittsdatum && <Row label="Austritt" value={new Date(ma.austrittsdatum).toLocaleDateString("de-DE")} />}
+            <Row label="Eintritt" value={formatDatum(ma.eintrittsdatum)} />
+            {ma.austrittsdatum && <Row label="Austritt" value={formatDatum(ma.austrittsdatum)} />}
             {ma.wochenstunden != null && <Row label="Wochenstunden" value={`${ma.wochenstunden} h`} />}
             <Row label="Urlaubstage/Jahr" value={`${ma.urlaubstageProJahr} Tage`} />
             {ma.kostenstelle && <Row label="Kostenstelle" value={ma.kostenstelle} />}
@@ -341,7 +347,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 onChange={(e) => setStundenJahr(parseInt(e.target.value, 10))}
                 className="border rounded-lg px-3 py-1.5 text-sm"
               >
-                {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+                {getJahreListeNum().map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <Link href={`/personal/${ma.id}/stunden/neu`} className="bg-green-700 text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-green-800">
@@ -384,7 +390,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 <tbody className="divide-y divide-gray-100">
                   {stunden.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">{new Date(s.datum).toLocaleDateString("de-DE")}</td>
+                      <td className="px-4 py-2">{formatDatum(s.datum)}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ART_COLOR[s.art] ?? "bg-gray-100"}`}>
                           {ART_LABEL[s.art] ?? s.art}
@@ -453,7 +459,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                         </span>
                       </td>
                       <td className="px-4 py-2 hidden md:table-cell text-gray-500 text-xs">
-                        {a.zahlungsDatum ? new Date(a.zahlungsDatum).toLocaleDateString("de-DE") : "—"}
+                        {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex justify-end gap-2">
@@ -522,8 +528,8 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 <tbody className="divide-y divide-gray-100">
                   {urlaubsantraege.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">{new Date(u.von).toLocaleDateString("de-DE")}</td>
-                      <td className="px-4 py-2">{new Date(u.bis).toLocaleDateString("de-DE")}</td>
+                      <td className="px-4 py-2">{formatDatum(u.von)}</td>
+                      <td className="px-4 py-2">{formatDatum(u.bis)}</td>
                       <td className="px-4 py-2 text-right">{u.tage}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[u.status] ?? "bg-gray-100"}`}>

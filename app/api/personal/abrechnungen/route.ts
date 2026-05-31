@@ -68,28 +68,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ungültiges Jahr" }, { status: 400 });
     }
 
-    // Auto-Berechnen aus Mitarbeiterstamm
+    let bruttoVal: number;
+    let nettoVal: number;
+    let abzuegeVal: number;
+    let stundenGesamt: number | null = null;
+
     if (aktion === "abrechnen") {
       const ma = await prisma.mitarbeiter.findUnique({ where: { id: maId } });
       if (!ma) return NextResponse.json({ error: "Mitarbeiter nicht gefunden" }, { status: 404 });
 
       let berechnetesBrutto = 0;
-      let stundenGesamt: number | null = null;
-
       if (ma.typ === "festgehalt") {
         berechnetesBrutto = ma.grundgehalt ?? 0;
       } else if (ma.typ === "minijob") {
         berechnetesBrutto = ma.minijobPauschale ?? 0;
       } else if (ma.typ === "stundenbasis") {
-        // Stunden aus Arbeitsstunden-Tabelle für den Monat summieren
         const result = await prisma.arbeitsstunde.aggregate({
           where: {
             mitarbeiterId: maId,
             art: "arbeit",
-            datum: {
-              gte: new Date(jahrVal, monatVal - 1, 1),
-              lte: new Date(jahrVal, monatVal, 0, 23, 59, 59, 999),
-            },
+            datum: { gte: new Date(jahrVal, monatVal - 1, 1), lt: new Date(jahrVal, monatVal, 1) },
           },
           _sum: { stunden: true },
         });
@@ -97,43 +95,17 @@ export async function POST(req: NextRequest) {
         berechnetesBrutto = Math.round((ma.stundenlohn ?? 0) * stundenGesamt * 100) / 100;
       }
 
-      const bruttoVal = brutto != null ? parseFloat(brutto) : berechnetesBrutto;
-      const nettoVal = netto != null ? parseFloat(netto) : bruttoVal; // Netto = Brutto wenn nicht angegeben
-      const abzuegeVal = abzuege != null ? parseFloat(abzuege) : 0;
-
-      try {
-        const abrechnung = await prisma.gehaltsabrechnung.create({
-          data: {
-            mitarbeiterId: maId,
-            monat: monatVal,
-            jahr: jahrVal,
-            stundenGesamt,
-            brutto: bruttoVal,
-            netto: nettoVal,
-            abzuege: abzuegeVal,
-            notiz: notiz || null,
-            status: "OFFEN",
-          },
-          include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true, typ: true } } },
-        });
-        return NextResponse.json(abrechnung, { status: 201 });
-      } catch (err2) {
-        const e = err2 as { code?: string };
-        if (e.code === "P2002") {
-          return NextResponse.json(
-            { error: `Abrechnung für ${monatVal}/${jahrVal} existiert bereits für diesen Mitarbeiter` },
-            { status: 409 }
-          );
-        }
-        throw err2;
+      bruttoVal = brutto != null ? parseFloat(brutto) : berechnetesBrutto;
+      nettoVal = netto != null ? parseFloat(netto) : bruttoVal;
+      abzuegeVal = abzuege != null ? parseFloat(abzuege) : 0;
+    } else {
+      bruttoVal = parseFloat(brutto);
+      nettoVal = netto != null ? parseFloat(netto) : bruttoVal;
+      abzuegeVal = abzuege != null ? parseFloat(abzuege) : 0;
+      if (isNaN(bruttoVal) || bruttoVal < 0) {
+        return NextResponse.json({ error: "Ungültiger Bruttobetrag" }, { status: 400 });
       }
-    }
-
-    // Manuelle Erfassung
-    const bruttoVal = parseFloat(brutto);
-    const nettoVal = netto != null ? parseFloat(netto) : bruttoVal;
-    if (isNaN(bruttoVal) || bruttoVal < 0) {
-      return NextResponse.json({ error: "Ungültiger Bruttobetrag" }, { status: 400 });
+      if (isNaN(nettoVal)) nettoVal = bruttoVal;
     }
 
     try {
@@ -142,24 +114,25 @@ export async function POST(req: NextRequest) {
           mitarbeiterId: maId,
           monat: monatVal,
           jahr: jahrVal,
+          stundenGesamt,
           brutto: bruttoVal,
-          netto: isNaN(nettoVal) ? bruttoVal : nettoVal,
-          abzuege: abzuege != null ? parseFloat(abzuege) : 0,
+          netto: nettoVal,
+          abzuege: abzuegeVal,
           notiz: notiz || null,
           status: "OFFEN",
         },
         include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true, typ: true } } },
       });
       return NextResponse.json(abrechnung, { status: 201 });
-    } catch (err2) {
-      const e = err2 as { code?: string };
+    } catch (createErr) {
+      const e = createErr as { code?: string };
       if (e.code === "P2002") {
         return NextResponse.json(
           { error: `Abrechnung für ${monatVal}/${jahrVal} existiert bereits für diesen Mitarbeiter` },
           { status: 409 }
         );
       }
-      throw err2;
+      throw createErr;
     }
   } catch (err) {
     const isDev = process.env.NODE_ENV === "development";

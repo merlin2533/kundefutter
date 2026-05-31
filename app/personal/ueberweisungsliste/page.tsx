@@ -2,8 +2,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { MONATE_KURZ, getJahreListeNum } from "@/lib/utils";
 
-const MONATE = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const MONATE = MONATE_KURZ;
 
 interface UeberweisungsEintrag {
   id: number;
@@ -94,7 +95,7 @@ function UeberweisungslisteInner() {
           onChange={(e) => setJahr(parseInt(e.target.value, 10))}
           className="border rounded-lg px-3 py-2 text-sm"
         >
-          {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+          {getJahreListeNum().map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 

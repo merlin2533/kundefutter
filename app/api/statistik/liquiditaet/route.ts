@@ -3,6 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 
+function monatlichePersonalkosten(m: { typ: string; grundgehalt: number | null; minijobPauschale: number | null; stundenlohn: number | null; wochenstunden: number | null }): number {
+  if (m.typ === "festgehalt") return m.grundgehalt ?? 0;
+  if (m.typ === "minijob") return m.minijobPauschale ?? 0;
+  if (m.typ === "stundenbasis") return (m.stundenlohn ?? 0) * (m.wochenstunden ?? 0) * 4.33;
+  return 0;
+}
+
 export async function GET(req: NextRequest) {
   const session = await getCurrentUser();
   if (!session) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
@@ -14,67 +21,45 @@ export async function GET(req: NextRequest) {
     const von = parseYearMonth(searchParams.get("von"));
     const bis = parseBisYearMonth(searchParams.get("bis"));
 
-    // 1. Bezahlte Lieferungen im Zeitraum → Einnahmen
-    const bezahltelieferungen = await prisma.lieferung.findMany({
-      where: {
-        bezahltAm: { gte: von, lte: bis },
-        status: { not: "storniert" },
-      },
-      select: {
-        bezahltAm: true,
-        positionen: { select: { menge: true, verkaufspreis: true } },
-      },
-      take: 5000,
-    });
+    const [bezahltelieferungen, ausgabenList, offeneForderungen, offeneVerbindlichkeiten, artikel, aktiveMitarbeiter] = await Promise.all([
+      // 1. Bezahlte Lieferungen im Zeitraum → Einnahmen
+      prisma.lieferung.findMany({
+        where: { bezahltAm: { gte: von, lte: bis }, status: { not: "storniert" } },
+        select: { bezahltAm: true, positionen: { select: { menge: true, verkaufspreis: true } } },
+        take: 5000,
+      }),
+      // 2. Ausgaben im Zeitraum
+      prisma.ausgabe.findMany({
+        where: { datum: { gte: von, lte: bis } },
+        select: { datum: true, betragNetto: true },
+        take: 5000,
+      }),
+      // 3. Offene Forderungen (Stichtag)
+      prisma.lieferung.findMany({
+        where: { rechnungNr: { not: null }, bezahltAm: null, status: { not: "storniert" } },
+        select: { positionen: { select: { menge: true, verkaufspreis: true } } },
+        take: 2000,
+      }),
+      // 4. Offene Verbindlichkeiten (Stichtag)
+      prisma.eingangsRechnung.findMany({
+        where: { status: "OFFEN" },
+        select: { betrag: true },
+        take: 2000,
+      }),
+      // 5. Lagerwert (Einstandspreis × Bestand)
+      prisma.artikel.findMany({
+        where: { aktiv: true },
+        select: { aktuellerBestand: true, standardpreis: true },
+        take: 5000,
+      }),
+      // 6. Personalkosten (monatliche Plankosten aus aktiven Mitarbeitern)
+      prisma.mitarbeiter.findMany({
+        where: { aktiv: true },
+        select: { typ: true, grundgehalt: true, minijobPauschale: true, stundenlohn: true, wochenstunden: true },
+        take: 500,
+      }),
+    ]);
 
-    // 2. Ausgaben im Zeitraum
-    const ausgabenList = await prisma.ausgabe.findMany({
-      where: {
-        datum: { gte: von, lte: bis },
-      },
-      select: { datum: true, betragNetto: true },
-      take: 5000,
-    });
-
-    // 3. Offene Forderungen (Stichtag)
-    const offeneForderungen = await prisma.lieferung.findMany({
-      where: {
-        rechnungNr: { not: null },
-        bezahltAm: null,
-        status: { not: "storniert" },
-      },
-      select: {
-        positionen: { select: { menge: true, verkaufspreis: true } },
-      },
-      take: 2000,
-    });
-
-    // 4. Offene Verbindlichkeiten (Stichtag)
-    const offeneVerbindlichkeiten = await prisma.eingangsRechnung.findMany({
-      where: { status: "OFFEN" },
-      select: { betrag: true },
-      take: 2000,
-    });
-
-    // 5. Lagerwert (Einstandspreis × Bestand)
-    const artikel = await prisma.artikel.findMany({
-      where: { aktiv: true },
-      select: { aktuellerBestand: true, standardpreis: true },
-      take: 5000,
-    });
-
-    // 6. Personalkosten (monatliche Plankosten aus aktiven Mitarbeitern)
-    const aktiveMitarbeiter = await prisma.mitarbeiter.findMany({
-      where: { aktiv: true },
-      select: { typ: true, grundgehalt: true, minijobPauschale: true, stundenlohn: true, wochenstunden: true },
-      take: 500,
-    });
-    function monatlichePersonalkosten(m: { typ: string; grundgehalt: number | null; minijobPauschale: number | null; stundenlohn: number | null; wochenstunden: number | null }): number {
-      if (m.typ === "festgehalt") return m.grundgehalt ?? 0;
-      if (m.typ === "minijob") return m.minijobPauschale ?? 0;
-      if (m.typ === "stundenbasis") return (m.stundenlohn ?? 0) * (m.wochenstunden ?? 0) * 4.33;
-      return 0;
-    }
     const personalkosten = Math.round(aktiveMitarbeiter.reduce((s, m) => s + monatlichePersonalkosten(m), 0) * 100) / 100;
 
     // ── Aggregation nach Monat ────────────────────────────────────────────────
