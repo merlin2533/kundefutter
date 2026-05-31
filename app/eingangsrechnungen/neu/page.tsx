@@ -21,6 +21,8 @@ function EingangsrechnungNeuInner() {
   const [zugferdHint, setZugferdHint] = useState("");
   const [kiLoading, setKiLoading] = useState(false);
   const [kiHint, setKiHint] = useState("");
+  const [erkannteIban, setErkannteIban] = useState<{ iban: string; bic: string | null; lieferantId: string } | null>(null);
+  const [ibanSaved, setIbanSaved] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -82,6 +84,7 @@ function EingangsrechnungNeuInner() {
 
       // Lieferanten-Matchversuch über Namen
       let matchHint = "";
+      let matchedId = "";
       if (data.lieferantName) {
         const nameLower = data.lieferantName.toLowerCase();
         const match = lieferanten.find(
@@ -91,10 +94,18 @@ function EingangsrechnungNeuInner() {
         );
         if (match) {
           setLieferantId(String(match.id));
+          matchedId = String(match.id);
           matchHint = `Lieferant automatisch erkannt: ${match.firma ?? match.name}`;
         } else {
           matchHint = `Lieferant laut Rechnung: „${data.lieferantName}" — bitte manuell zuordnen.`;
         }
+      }
+
+      // IBAN/BIC merken für Angebot zum Speichern
+      setErkannteIban(null);
+      setIbanSaved(false);
+      if (data.iban && matchedId) {
+        setErkannteIban({ iban: data.iban, bic: data.bic ?? null, lieferantId: matchedId });
       }
 
       const parts: string[] = [];
@@ -103,6 +114,7 @@ function EingangsrechnungNeuInner() {
         parts.push(
           `Brutto ${data.betragBrutto.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}`
         );
+      if (data.iban) parts.push(`IBAN: ${data.iban.replace(/(.{4})/g, "$1 ").trim()}`);
       setZugferdHint(
         [matchHint, parts.length ? `Erkannte Daten: ${parts.join(", ")}` : ""].filter(Boolean).join(" — ")
       );
@@ -140,6 +152,7 @@ function EingangsrechnungNeuInner() {
       if (data.beschreibung) setNotiz((prev) => prev || data.beschreibung);
 
       let matchHint = "";
+      let matchedIdKi = "";
       if (data.lieferant) {
         const nameLower = data.lieferant.toLowerCase();
         const match = lieferanten.find(
@@ -149,10 +162,18 @@ function EingangsrechnungNeuInner() {
         );
         if (match) {
           setLieferantId(String(match.id));
+          matchedIdKi = String(match.id);
           matchHint = `Lieferant erkannt: ${match.firma ?? match.name}`;
         } else {
           matchHint = `Lieferant laut Rechnung: „${data.lieferant}" — bitte manuell zuordnen.`;
         }
+      }
+
+      // IBAN/BIC merken
+      setErkannteIban(null);
+      setIbanSaved(false);
+      if (data.iban && matchedIdKi) {
+        setErkannteIban({ iban: data.iban, bic: data.bic ?? null, lieferantId: matchedIdKi });
       }
 
       const parts: string[] = [];
@@ -163,6 +184,7 @@ function EingangsrechnungNeuInner() {
         );
       if (data.faelligAm)
         parts.push(`Fällig ${new Date(data.faelligAm + "T00:00:00").toLocaleDateString("de-DE")}`);
+      if (data.iban) parts.push(`IBAN: ${data.iban.replace(/(.{4})/g, "$1 ").trim()}`);
 
       setKiHint(
         [matchHint, parts.length ? `Erkannte Daten: ${parts.join(", ")}` : ""].filter(Boolean).join(" — ")
@@ -173,6 +195,18 @@ function EingangsrechnungNeuInner() {
       setKiLoading(false);
       if (kiFileInputRef.current) kiFileInputRef.current.value = "";
     }
+  }
+
+  async function handleIbanSpeichern() {
+    if (!erkannteIban) return;
+    try {
+      await fetch(`/api/lieferanten/${erkannteIban.lieferantId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iban: erkannteIban.iban, bic: erkannteIban.bic }),
+      });
+      setIbanSaved(true);
+    } catch { /* ignore */ }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -347,6 +381,38 @@ function EingangsrechnungNeuInner() {
           </div>
         </div>
       </div>
+
+      {/* IBAN-Erkennungs-Banner */}
+      {erkannteIban && !ibanSaved && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+            <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900">IBAN erkannt</p>
+            <p className="text-xs text-amber-700 mt-0.5 font-mono">
+              {erkannteIban.iban.replace(/(.{4})/g, "$1 ").trim()}
+              {erkannteIban.bic && ` · ${erkannteIban.bic}`}
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              Soll diese IBAN beim Lieferanten gespeichert werden?
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleIbanSpeichern}
+            className="shrink-0 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            IBAN speichern
+          </button>
+        </div>
+      )}
+      {erkannteIban && ibanSaved && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm text-green-800">
+          IBAN beim Lieferanten gespeichert.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-4">
         {error && (

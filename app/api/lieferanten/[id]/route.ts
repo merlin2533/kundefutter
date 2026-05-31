@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert } = body;
+    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert, iban, bic, kontoinhaber } = body;
     const lieferant = await prisma.lieferant.update({
       where: { id: Number(id) },
       data: {
@@ -49,6 +49,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
         ...(aktiv !== undefined && { aktiv }),
         ...(frachtkosten != null && { frachtkosten: Number(frachtkosten) }),
         ...(mindestbestellwert != null && { mindestbestellwert: Number(mindestbestellwert) }),
+        ...(iban !== undefined && { iban: iban || null }),
+        ...(bic !== undefined && { bic: bic || null }),
+        ...(kontoinhaber !== undefined && { kontoinhaber: kontoinhaber || null }),
       },
     });
     return NextResponse.json(lieferant);

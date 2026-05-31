@@ -61,6 +61,7 @@ function EingangsrechnungenListeInner() {
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
   const [lieferantId, setLieferantId] = useState(searchParams.get("lieferantId") ?? "");
+  const [bezahlenId, setBezahlenId] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
@@ -94,18 +95,44 @@ function EingangsrechnungenListeInner() {
 
   const brutto = (r: Eingangsrechnung) => r.betrag * (1 + r.mwst / 100);
 
+  async function handleBezahlen(id: number) {
+    if (!confirm("Rechnung als bezahlt markieren?")) return;
+    setBezahlenId(id);
+    try {
+      const res = await fetch(`/api/eingangsrechnungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "bezahlen" }),
+      });
+      if (res.ok) {
+        setData((prev) => prev.map((r) => r.id === id ? { ...r, status: "BEZAHLT" } : r));
+      }
+    } finally {
+      setBezahlenId(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Eingangsrechnungen</h1>
-        <Link
-          href="/eingangsrechnungen/neu"
-          title="Neue Eingangsrechnung"
-          className="inline-flex items-center gap-1.5 bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800 transition-colors"
-        >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neue Eingangsrechnung</span>
-        </Link>
+        <div className="flex gap-2 flex-wrap">
+          <Link
+            href="/eingangsrechnungen/ueberweisungsliste"
+            className="inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+            <span className="hidden sm:inline">Zahlungsliste</span>
+          </Link>
+          <Link
+            href="/eingangsrechnungen/neu"
+            title="Neue Eingangsrechnung"
+            className="inline-flex items-center gap-1.5 bg-green-700 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800 transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Neue Eingangsrechnung</span>
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
@@ -187,9 +214,20 @@ function EingangsrechnungenListeInner() {
                       <FaelligZelle faelligAm={item.faelligAm} status={item.status} />
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/eingangsrechnungen/${item.id}`} className="text-green-700 hover:underline text-xs font-medium">
-                        Öffnen
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/eingangsrechnungen/${item.id}`} className="text-green-700 hover:underline text-xs font-medium">
+                          Öffnen
+                        </Link>
+                        {item.status === "OFFEN" && (
+                          <button
+                            onClick={() => handleBezahlen(item.id)}
+                            disabled={bezahlenId === item.id}
+                            className="px-2 py-0.5 bg-green-100 hover:bg-green-200 text-green-800 text-xs font-medium rounded transition-colors disabled:opacity-50"
+                          >
+                            {bezahlenId === item.id ? "…" : "Bezahlt"}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

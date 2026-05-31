@@ -36,6 +36,9 @@ interface Lieferant {
   plz?: string | null;
   ort?: string | null;
   notizen?: string | null;
+  iban?: string | null;
+  bic?: string | null;
+  kontoinhaber?: string | null;
   frachtkosten: number;
   mindestbestellwert: number;
   artikelZuordnungen: ArtikelZuordnung[];
@@ -75,6 +78,9 @@ export default function LieferantDetailPage() {
       plz: data.plz ?? "",
       ort: data.ort ?? "",
       notizen: data.notizen ?? "",
+      iban: data.iban ?? "",
+      bic: data.bic ?? "",
+      kontoinhaber: data.kontoinhaber ?? "",
       frachtkosten: data.frachtkosten,
       mindestbestellwert: data.mindestbestellwert,
     });
@@ -99,6 +105,9 @@ export default function LieferantDetailPage() {
         plz: editForm.plz || undefined,
         ort: editForm.ort || undefined,
         notizen: editForm.notizen || undefined,
+        iban: editForm.iban || undefined,
+        bic: editForm.bic || undefined,
+        kontoinhaber: editForm.kontoinhaber || undefined,
         frachtkosten: editForm.frachtkosten ?? 0,
         mindestbestellwert: editForm.mindestbestellwert ?? 0,
       }),
@@ -270,6 +279,41 @@ export default function LieferantDetailPage() {
                     className={`${inputCls} resize-none`}
                   />
                 </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bankverbindung</p>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                      <input
+                        type="text"
+                        value={editForm.iban ?? ""}
+                        onChange={(e) => setEditForm({ ...editForm, iban: e.target.value.replace(/\s/g, "").toUpperCase() })}
+                        placeholder="DE89370400440532013000"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">BIC / SWIFT</label>
+                      <input
+                        type="text"
+                        value={editForm.bic ?? ""}
+                        onChange={(e) => setEditForm({ ...editForm, bic: e.target.value.toUpperCase() })}
+                        placeholder="COBADEFFXXX"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Kontoinhaber</label>
+                      <input
+                        type="text"
+                        value={editForm.kontoinhaber ?? ""}
+                        onChange={(e) => setEditForm({ ...editForm, kontoinhaber: e.target.value })}
+                        placeholder="Falls abweichend vom Firmennamen"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Frachtkosten (€)</label>
@@ -331,6 +375,29 @@ export default function LieferantDetailPage() {
                     </dd>
                   </div>
                 ))}
+                {(lieferant.iban || lieferant.bic || lieferant.kontoinhaber) && (
+                  <div className="border-t border-gray-100 pt-3">
+                    <dt className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bankverbindung</dt>
+                    {lieferant.iban && (
+                      <div className="mb-1">
+                        <dt className="text-xs text-gray-400">IBAN</dt>
+                        <dd className="font-mono text-sm text-gray-900">{lieferant.iban.replace(/(.{4})/g, "$1 ").trim()}</dd>
+                      </div>
+                    )}
+                    {lieferant.bic && (
+                      <div className="mb-1">
+                        <dt className="text-xs text-gray-400">BIC</dt>
+                        <dd className="font-mono text-sm text-gray-900">{lieferant.bic}</dd>
+                      </div>
+                    )}
+                    {lieferant.kontoinhaber && (
+                      <div>
+                        <dt className="text-xs text-gray-400">Kontoinhaber</dt>
+                        <dd className="text-sm text-gray-900">{lieferant.kontoinhaber}</dd>
+                      </div>
+                    )}
+                  </div>
+                )}
               </dl>
             )}
           </div>

@@ -15,12 +15,13 @@ interface Eingangsrechnung {
   nummer: string;
   datum: string;
   faelligAm: string | null;
+  zahlungsDatum: string | null;
   betrag: number;
   mwst: number;
   status: string;
   notiz: string | null;
   lieferantId: number;
-  lieferant: { id: number; name: string; firma: string | null } | null;
+  lieferant: { id: number; name: string; firma: string | null; iban: string | null; bic: string | null; kontoinhaber: string | null } | null;
 }
 
 type Status = "OFFEN" | "BEZAHLT" | "STORNIERT";
@@ -286,6 +287,45 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
                 </span>
               </div>
             </div>
+
+            {/* Zahlungsinformationen */}
+            {(data.status === "BEZAHLT" || data.lieferant?.iban) && (
+              <div className="border-t border-gray-100 pt-4 space-y-2">
+                {data.status === "BEZAHLT" && data.zahlungsDatum && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Bezahlt am</p>
+                    <p className="text-sm text-green-700 font-medium mt-0.5">
+                      {new Date(data.zahlungsDatum).toLocaleDateString("de-DE")}
+                    </p>
+                  </div>
+                )}
+                {data.lieferant?.iban && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Bankverbindung Lieferant</p>
+                    <p className="text-sm text-gray-800 font-mono mt-0.5">
+                      {data.lieferant.iban.replace(/(.{4})/g, "$1 ").trim()}
+                      {data.lieferant.bic && <span className="text-gray-500 font-sans"> · {data.lieferant.bic}</span>}
+                    </p>
+                    {data.lieferant.kontoinhaber && (
+                      <p className="text-xs text-gray-500">{data.lieferant.kontoinhaber}</p>
+                    )}
+                  </div>
+                )}
+                {!data.lieferant?.iban && data.status === "OFFEN" && (
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-xs text-amber-700">
+                      Keine IBAN für diesen Lieferanten hinterlegt —{" "}
+                      <Link href={`/lieferanten/${data.lieferantId}`} className="underline hover:text-amber-900">
+                        jetzt ergänzen
+                      </Link>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {data.notiz && (
               <div className="border-t border-gray-100 pt-4">
