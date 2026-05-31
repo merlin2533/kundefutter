@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 
 function BatchAdressValidierung() {
-  const [stats, setStats] = useState<{ total: number; ohneKoords: number } | null>(null);
+  const [stats, setStats] = useState<{ total: number; ohneKoords: number; geocodeFailed: number; ausstehend: number } | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [errors, setErrors] = useState(0);
@@ -74,10 +74,16 @@ function BatchAdressValidierung() {
             <span className="text-gray-500">Gesamt:</span>{" "}
             <span className="font-semibold">{stats.total}</span>
           </div>
-          <div className={`rounded-lg px-4 py-2 text-sm ${stats.ohneKoords > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
-            <span className="text-gray-500">Ohne Koordinaten:</span>{" "}
-            <span className="font-semibold">{stats.ohneKoords}</span>
+          <div className={`rounded-lg px-4 py-2 text-sm ${stats.ausstehend > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
+            <span className="text-gray-500">Ausstehend:</span>{" "}
+            <span className="font-semibold">{stats.ausstehend}</span>
           </div>
+          {stats.geocodeFailed > 0 && (
+            <div className="rounded-lg px-4 py-2 text-sm bg-red-50">
+              <span className="text-gray-500">Nicht gefunden (≥2 Versuche):</span>{" "}
+              <span className="font-semibold text-red-600">{stats.geocodeFailed}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -105,7 +111,7 @@ function BatchAdressValidierung() {
       <div className="flex gap-2">
         <button
           onClick={startBatch}
-          disabled={running || (stats?.ohneKoords === 0)}
+          disabled={running || (stats?.ausstehend === 0)}
           className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
         >
           {running ? "Läuft…" : "Batch-Validierung starten"}

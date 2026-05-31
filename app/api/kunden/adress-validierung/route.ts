@@ -1,33 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAppName } from "@/lib/appinfo";
+import { geocodeAdresse } from "@/lib/geocoding";
 export const dynamic = "force-dynamic";
 
 
-// POST /api/kunden/adress-validierung  — einzelnen Kunden validieren
-// GET  /api/kunden/adress-validierung?batch=1  — bis zu 50 Kunden ohne Koordinaten per Batch validieren
-// GET  /api/kunden/adress-validierung?kundeId=X — Status eines Kunden
-
-const OSM_URL = "https://nominatim.openstreetmap.org/search";
-
-async function geocodeAdresse(strasse: string, plz: string, ort: string): Promise<{ lat: number; lng: number } | null> {
-  const q = [strasse, plz, ort, "Deutschland"].filter(Boolean).join(", ");
-  const url = `${OSM_URL}?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=de&addressdetails=0`;
-  const userAgent = `${await getAppName()}/1.0`;
-
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": userAgent },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch {
-    return null;
-  }
-}
+// POST /api/kunden/adress-validierung  — einzelnen Kunden validieren (manuell, ignoriert Versuchszähler)
+// GET  /api/kunden/adress-validierung?batch=1  — bis zu 50 Kunden ohne Koordinaten und < 2 Fehlversuchen
+// GET  /api/kunden/adress-validierung  — Statistik
 
 // GET: Einzelner Kunde oder Batch
 export async function GET(req: NextRequest) {
@@ -36,26 +15,40 @@ export async function GET(req: NextRequest) {
   const kundeId = searchParams.get("kundeId");
 
   if (kundeId) {
-    const k = await prisma.kunde.findUnique({ where: { id: Number(kundeId) }, select: { id: true, lat: true, lng: true, strasse: true, plz: true, ort: true } });
+    const k = await prisma.kunde.findUnique({
+      where: { id: Number(kundeId) },
+      select: { id: true, lat: true, lng: true, strasse: true, plz: true, ort: true, geocodeVersuche: true },
+    });
     if (!k) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    return NextResponse.json({ id: k.id, lat: k.lat, lng: k.lng, hatAdresse: !!(k.strasse && k.ort) });
+    return NextResponse.json({
+      id: k.id,
+      lat: k.lat,
+      lng: k.lng,
+      geocodeVersuche: k.geocodeVersuche,
+      hatAdresse: !!(k.strasse && k.ort),
+    });
   }
 
   if (!batch) {
-    // Return stats
+    // Statistik
     const total = await prisma.kunde.count({ where: { aktiv: true } });
     const mitKoordinaten = await prisma.kunde.count({ where: { aktiv: true, lat: { not: null }, lng: { not: null } } });
     const ohneAdresse = await prisma.kunde.count({ where: { aktiv: true, OR: [{ strasse: null }, { ort: null }] } });
-    return NextResponse.json({ total, mitKoordinaten, ohneAdresse, ausstehend: total - mitKoordinaten - ohneAdresse });
+    const geocodeFailed = await prisma.kunde.count({
+      where: { aktiv: true, lat: null, geocodeVersuche: { gte: 2 }, strasse: { not: null }, ort: { not: null } },
+    });
+    const ohneKoords = total - mitKoordinaten;
+    return NextResponse.json({ total, mitKoordinaten, ohneAdresse, geocodeFailed, ohneKoords, ausstehend: ohneKoords - ohneAdresse - geocodeFailed });
   }
 
-  // Batch: Kunden mit Adresse aber ohne Koordinaten
+  // Batch: Kunden mit Adresse, ohne Koordinaten, max. 1 Fehlversuch
   const kunden = await prisma.kunde.findMany({
     where: {
       aktiv: true,
       lat: null,
       strasse: { not: null },
       ort: { not: null },
+      geocodeVersuche: { lt: 2 },
     },
     select: { id: true, strasse: true, plz: true, ort: true },
     take: 50,
@@ -73,11 +66,16 @@ export async function GET(req: NextRequest) {
     await new Promise((r) => setTimeout(r, 1100));
     const coords = await geocodeAdresse(k.strasse ?? "", k.plz ?? "", k.ort ?? "");
     if (coords) {
-      await prisma.kunde.update({ where: { id: k.id }, data: { lat: coords.lat, lng: coords.lng } });
+      await prisma.kunde.update({
+        where: { id: k.id },
+        data: { lat: coords.lat, lng: coords.lng, geocodeVersuche: 0 },
+      });
       validiert++;
     } else {
-      // Setze lat/lng auf 0 als Markierung "versucht aber nicht gefunden"
-      // (damit wir es nicht immer wieder versuchen — wir nutzen null = "noch nicht versucht")
+      await prisma.kunde.update({
+        where: { id: k.id },
+        data: { geocodeVersuche: { increment: 1 } },
+      });
       fehler++;
     }
   }
@@ -90,7 +88,7 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST: Einzelnen Kunden sofort validieren
+// POST: Einzelnen Kunden manuell validieren (ignoriert Versuchszähler — manueller Override)
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const kundeId = Number(body.kundeId);
@@ -105,9 +103,11 @@ export async function POST(req: NextRequest) {
 
   const coords = await geocodeAdresse(k.strasse, k.plz ?? "", k.ort);
   if (!coords) {
+    // Versuchszähler hochsetzen, aber manuell darf man auch über 2 hinaus versuchen
+    await prisma.kunde.update({ where: { id: kundeId }, data: { geocodeVersuche: { increment: 1 } } });
     return NextResponse.json({ error: "Adresse konnte nicht gefunden werden (Nominatim/OSM)" }, { status: 422 });
   }
 
-  await prisma.kunde.update({ where: { id: kundeId }, data: { lat: coords.lat, lng: coords.lng } });
+  await prisma.kunde.update({ where: { id: kundeId }, data: { lat: coords.lat, lng: coords.lng, geocodeVersuche: 0 } });
   return NextResponse.json({ ok: true, lat: coords.lat, lng: coords.lng });
 }
