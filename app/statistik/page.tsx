@@ -11,6 +11,8 @@ interface UmsatzMonat {
   monat: string; // "YYYY-MM"
   umsatz: number;
   anzahl: number;
+  marge?: number;
+  margeProzent?: number;
 }
 
 interface TopArtikel {
@@ -35,6 +37,7 @@ interface KategorieUmsatz {
 
 interface StatistikData {
   umsatzNachMonat: UmsatzMonat[];
+  vorjahrNachMonat: { monat: string; umsatz: number }[];
   topArtikel: TopArtikel[];
   topKunden: TopKunde[];
   umsatzNachKategorie: KategorieUmsatz[];
@@ -134,9 +137,9 @@ function SaisonBalken({ data }: { data: { monat: number; umsatz: number }[] }) {
   );
 }
 
-// ─── SVG Balkenchart ──────────────────────────────────────────────────────────
+// ─── SVG Balkenchart mit YoY-Overlay ─────────────────────────────────────────
 
-function BalkenChart({ data }: { data: UmsatzMonat[] }) {
+function BalkenChart({ data, vorjahr = [] }: { data: UmsatzMonat[]; vorjahr?: { monat: string; umsatz: number }[] }) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
   if (data.length === 0) {
@@ -156,11 +159,11 @@ function BalkenChart({ data }: { data: UmsatzMonat[] }) {
   const chartW = W - paddingLeft - paddingRight;
   const chartH = H - paddingTop - paddingBottom;
 
-  const maxUmsatz = Math.max(...data.map((d) => d.umsatz), 1);
+  const vorjahrMap = new Map(vorjahr.map((v) => [v.monat, v.umsatz]));
+  const maxUmsatz = Math.max(...data.map((d) => d.umsatz), ...vorjahr.map((v) => v.umsatz), 1);
   const barW = Math.min(40, chartW / data.length - 4);
   const step = chartW / data.length;
 
-  // Y-axis ticks
   const tickCount = 5;
   const yTicks: number[] = [];
   for (let i = 0; i <= tickCount; i++) {
@@ -173,8 +176,35 @@ function BalkenChart({ data }: { data: UmsatzMonat[] }) {
     return `${monate[Number(mo) - 1]} ${y}`;
   }
 
+  // YoY-Linienpunkte (nur wenn Vorjahreswerte vorhanden)
+  const vorjahrPoints = data
+    .map((d, i) => {
+      const vy = vorjahrMap.get(d.monat);
+      if (vy === undefined) return null;
+      const cx = paddingLeft + i * step + step / 2;
+      const cy = paddingTop + chartH - Math.max(0, (vy / maxUmsatz) * chartH);
+      return { cx, cy, monat: d.monat, umsatz: vy, aktuellerUmsatz: d.umsatz };
+    })
+    .filter(Boolean) as { cx: number; cy: number; monat: string; umsatz: number; aktuellerUmsatz: number }[];
+
+  const linePath = vorjahrPoints.length > 1
+    ? vorjahrPoints.map((p, i) => `${i === 0 ? "M" : "L"} ${p.cx} ${p.cy}`).join(" ")
+    : null;
+
   return (
     <div className="relative overflow-x-auto">
+      {vorjahr.length > 0 && (
+        <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm bg-green-600 inline-block" />
+            Aktueller Zeitraum
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#f59e0b" strokeWidth="2" strokeDasharray="4 2" /></svg>
+            Vorjahr
+          </span>
+        </div>
+      )}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -186,21 +216,8 @@ function BalkenChart({ data }: { data: UmsatzMonat[] }) {
           const y = paddingTop + chartH - (tick / maxUmsatz) * chartH;
           return (
             <g key={i}>
-              <line
-                x1={paddingLeft}
-                y1={y}
-                x2={W - paddingRight}
-                y2={y}
-                stroke="#e5e7eb"
-                strokeWidth={1}
-              />
-              <text
-                x={paddingLeft - 6}
-                y={y + 4}
-                textAnchor="end"
-                fontSize={10}
-                fill="#9ca3af"
-              >
+              <line x1={paddingLeft} y1={y} x2={W - paddingRight} y2={y} stroke="#e5e7eb" strokeWidth={1} />
+              <text x={paddingLeft - 6} y={y + 4} textAnchor="end" fontSize={10} fill="#9ca3af">
                 {tick >= 1000 ? `${(tick / 1000).toFixed(0)}k` : tick.toFixed(0)}
               </text>
             </g>
@@ -208,76 +225,135 @@ function BalkenChart({ data }: { data: UmsatzMonat[] }) {
         })}
 
         {/* X-axis line */}
-        <line
-          x1={paddingLeft}
-          y1={paddingTop + chartH}
-          x2={W - paddingRight}
-          y2={paddingTop + chartH}
-          stroke="#d1d5db"
-          strokeWidth={1}
-        />
+        <line x1={paddingLeft} y1={paddingTop + chartH} x2={W - paddingRight} y2={paddingTop + chartH} stroke="#d1d5db" strokeWidth={1} />
 
-        {/* Bars */}
+        {/* Balken (aktuell) */}
         {data.map((d, i) => {
           const barH = Math.max(2, (d.umsatz / maxUmsatz) * chartH);
           const cx = paddingLeft + i * step + step / 2;
           const x = cx - barW / 2;
           const y = paddingTop + chartH - barH;
+          const vy = vorjahrMap.get(d.monat);
+          const delta = vy !== undefined && vy > 0 ? ((d.umsatz - vy) / vy * 100).toFixed(1) : null;
           return (
             <g key={d.monat}>
               <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={barH}
-                fill="#16a34a"
-                rx={3}
+                x={x} y={y} width={barW} height={barH}
+                fill="#16a34a" rx={3}
                 className="cursor-pointer hover:fill-green-500 transition-colors"
                 onMouseEnter={() => {
                   setTooltip({
-                    x: cx,
-                    y: y - 8,
-                    text: `${formatMonat(d.monat)}: ${formatEuro(d.umsatz)} (${d.anzahl} Lief.)`,
+                    x: cx, y: y - 8,
+                    text: delta !== null
+                      ? `${formatMonat(d.monat)}: ${formatEuro(d.umsatz)} (${delta}% ggü. VJ)`
+                      : `${formatMonat(d.monat)}: ${formatEuro(d.umsatz)} (${d.anzahl} Lief.)`,
                   });
                 }}
               />
-              {/* X-axis label */}
-              <text
-                x={cx}
-                y={paddingTop + chartH + 16}
-                textAnchor="middle"
-                fontSize={9}
-                fill="#6b7280"
-                transform={`rotate(-30 ${cx} ${paddingTop + chartH + 16})`}
-              >
+              <text x={cx} y={paddingTop + chartH + 16} textAnchor="middle" fontSize={9} fill="#6b7280"
+                transform={`rotate(-30 ${cx} ${paddingTop + chartH + 16})`}>
                 {formatMonat(d.monat)}
               </text>
             </g>
           );
         })}
 
+        {/* YoY-Linie (Vorjahr) */}
+        {linePath && (
+          <path d={linePath} fill="none" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 3" />
+        )}
+        {vorjahrPoints.map((p) => (
+          <circle key={p.monat} cx={p.cx} cy={p.cy} r={3} fill="#f59e0b"
+            onMouseEnter={() => setTooltip({ x: p.cx, y: p.cy - 8, text: `Vorjahr ${formatMonat(p.monat)}: ${formatEuro(p.umsatz)}` })}
+          />
+        ))}
+
         {/* Tooltip */}
         {tooltip && (
           <g>
-            <rect
-              x={Math.min(tooltip.x - 80, W - paddingRight - 160)}
-              y={tooltip.y - 24}
-              width={200}
-              height={26}
-              rx={4}
-              fill="#1f2937"
-              opacity={0.9}
-            />
-            <text
-              x={Math.min(tooltip.x - 80, W - paddingRight - 160) + 8}
-              y={tooltip.y - 8}
-              fontSize={10}
-              fill="white"
-            >
+            <rect x={Math.min(tooltip.x - 90, W - paddingRight - 220)} y={tooltip.y - 24} width={230} height={26}
+              rx={4} fill="#1f2937" opacity={0.9} />
+            <text x={Math.min(tooltip.x - 90, W - paddingRight - 220) + 8} y={tooltip.y - 8} fontSize={10} fill="white">
               {tooltip.text}
             </text>
           </g>
         )}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Margin-Trendchart (SVG Linienchart) ─────────────────────────────────────
+
+function MargeTrendChart({ data }: { data: UmsatzMonat[] }) {
+  const withMarge = data.filter((d) => d.margeProzent !== undefined && d.umsatz > 0);
+  if (withMarge.length < 2) return null;
+
+  const W = 700;
+  const H = 120;
+  const PL = 50;
+  const PR = 20;
+  const PT = 12;
+  const PB = 36;
+  const CW = W - PL - PR;
+  const CH = H - PT - PB;
+
+  const values = withMarge.map((d) => d.margeProzent!);
+  const minV = Math.max(0, Math.min(...values) - 5);
+  const maxV = Math.max(...values) + 5;
+  const avg = values.reduce((s, v) => s + v, 0) / values.length;
+  const step = CW / Math.max(withMarge.length - 1, 1);
+
+  function cx(i: number) { return PL + i * step; }
+  function cy(v: number) { return PT + CH - ((v - minV) / (maxV - minV)) * CH; }
+
+  const linePath = withMarge.map((d, i) => `${i === 0 ? "M" : "L"} ${cx(i)} ${cy(d.margeProzent!)}`).join(" ");
+  const avgY = cy(avg);
+
+  // Trend: letzte Monat vs. vorletzte
+  const last = values[values.length - 1];
+  const prev = values[values.length - 2];
+  const trend = last > prev ? "↑" : last < prev ? "↓" : "→";
+  const trendColor = last > prev ? "text-green-600" : last < prev ? "text-red-600" : "text-gray-500";
+
+  function formatMonatKurz(m: string) {
+    const mo = Number(m.split("-")[1]);
+    const kuerzel = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+    return kuerzel[mo - 1] ?? m;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-2">
+        <h3 className="text-sm font-semibold text-gray-700">Marge-Trend</h3>
+        <span className={`text-sm font-bold ${trendColor}`}>{trend} {last.toFixed(1)} %</span>
+        <span className="text-xs text-gray-400">Ø {avg.toFixed(1)} %</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: Math.max(300, withMarge.length * 50) }}>
+        {/* Durchschnittslinie */}
+        <line x1={PL} y1={avgY} x2={W - PR} y2={avgY} stroke="#d1d5db" strokeWidth={1} strokeDasharray="4 3" />
+        <text x={PL - 4} y={avgY + 4} textAnchor="end" fontSize={9} fill="#9ca3af">Ø</text>
+
+        {/* Linie */}
+        <path d={linePath} fill="none" stroke="#16a34a" strokeWidth={2} />
+
+        {/* Punkte + X-Labels */}
+        {withMarge.map((d, i) => (
+          <g key={d.monat}>
+            <circle cx={cx(i)} cy={cy(d.margeProzent!)} r={3} fill="#16a34a" />
+            <text x={cx(i)} y={PT + CH + 14} textAnchor="middle" fontSize={9} fill="#6b7280"
+              transform={`rotate(-30 ${cx(i)} ${PT + CH + 14})`}>
+              {formatMonatKurz(d.monat)}
+            </text>
+          </g>
+        ))}
+
+        {/* Y-Labels */}
+        {[minV, avg, maxV].map((v, i) => (
+          <text key={i} x={PL - 4} y={cy(v) + 4} textAnchor="end" fontSize={9} fill="#9ca3af">
+            {v.toFixed(0)}%
+          </text>
+        ))}
       </svg>
     </div>
   );
@@ -424,10 +500,15 @@ export default function StatistikPage() {
             </div>
           </div>
 
-          {/* Umsatz Balkenchart */}
+          {/* Umsatz Balkenchart mit YoY-Overlay + Margin-Trend */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">Umsatz nach Monat</h2>
-            <BalkenChart data={data.umsatzNachMonat} />
+            <BalkenChart data={data.umsatzNachMonat} vorjahr={data.vorjahrNachMonat ?? []} />
+            {data.umsatzNachMonat.length >= 2 && (
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <MargeTrendChart data={data.umsatzNachMonat} />
+              </div>
+            )}
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6">

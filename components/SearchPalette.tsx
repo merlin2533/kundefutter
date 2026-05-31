@@ -27,25 +27,43 @@ interface LieferungResult {
   kunde: { name: string; firma: string | null } | null;
 }
 
+interface AngebotResult {
+  id: number;
+  nummer: string;
+  status: string;
+  gueltigBis: string | null;
+  kunde: { name: string; firma: string | null } | null;
+}
+
+interface AufgabeResult {
+  id: number;
+  betreff: string;
+  faelligAm: string | null;
+  erledigt: boolean;
+}
+
 interface SearchResults {
   kunden: KundeResult[];
   artikel: ArtikelResult[];
   lieferungen: LieferungResult[];
+  angebote: AngebotResult[];
+  aufgaben: AufgabeResult[];
 }
 
 type ResultItem =
   | { type: "kunde"; data: KundeResult }
   | { type: "artikel"; data: ArtikelResult }
-  | { type: "lieferung"; data: LieferungResult };
+  | { type: "lieferung"; data: LieferungResult }
+  | { type: "angebot"; data: AngebotResult }
+  | { type: "aufgabe"; data: AufgabeResult };
 
 function getHref(item: ResultItem): string {
   switch (item.type) {
-    case "kunde":
-      return `/kunden/${item.data.id}`;
-    case "artikel":
-      return `/artikel/${item.data.id}`;
-    case "lieferung":
-      return `/lieferungen/${item.data.id}`;
+    case "kunde":      return `/kunden/${item.data.id}`;
+    case "artikel":    return `/artikel/${item.data.id}`;
+    case "lieferung":  return `/lieferungen/${item.data.id}`;
+    case "angebot":    return `/angebote/${item.data.id}`;
+    case "aufgabe":    return `/aufgaben/${item.data.id}`;
   }
 }
 
@@ -54,6 +72,8 @@ function flattenResults(results: SearchResults): ResultItem[] {
   for (const k of results.kunden) items.push({ type: "kunde", data: k });
   for (const a of results.artikel) items.push({ type: "artikel", data: a });
   for (const l of results.lieferungen) items.push({ type: "lieferung", data: l });
+  for (const a of (results.angebote ?? [])) items.push({ type: "angebot", data: a });
+  for (const t of (results.aufgaben ?? [])) items.push({ type: "aufgabe", data: t });
   return items;
 }
 
@@ -82,20 +102,36 @@ function LieferungIcon() {
   );
 }
 
+function AngebotIcon() {
+  return (
+    <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
+
+function AufgabeIcon() {
+  return (
+    <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  );
+}
+
 function ResultIcon({ type }: { type: ResultItem["type"] }) {
-  if (type === "kunde") return <KundeIcon />;
-  if (type === "artikel") return <ArtikelIcon />;
+  if (type === "kunde")     return <KundeIcon />;
+  if (type === "artikel")   return <ArtikelIcon />;
+  if (type === "angebot")   return <AngebotIcon />;
+  if (type === "aufgabe")   return <AufgabeIcon />;
   return <LieferungIcon />;
 }
 
 function ResultPrimary({ item }: { item: ResultItem }) {
-  if (item.type === "kunde") {
-    return <span className="font-medium text-gray-900">{item.data.name}</span>;
-  }
-  if (item.type === "artikel") {
-    return <span className="font-medium text-gray-900">{item.data.name}</span>;
-  }
-  const l = item.data;
+  if (item.type === "kunde")   return <span className="font-medium text-gray-900">{item.data.name}</span>;
+  if (item.type === "artikel") return <span className="font-medium text-gray-900">{item.data.name}</span>;
+  if (item.type === "angebot") return <span className="font-medium text-gray-900">{item.data.nummer}</span>;
+  if (item.type === "aufgabe") return <span className={`font-medium ${item.data.erledigt ? "line-through text-gray-400" : "text-gray-900"}`}>{item.data.betreff}</span>;
+  const l = item.data as LieferungResult;
   const kundenname = l.kunde?.firma || l.kunde?.name || "–";
   return <span className="font-medium text-gray-900">{kundenname}</span>;
 }
@@ -111,7 +147,17 @@ function ResultSecondary({ item }: { item: ResultItem }) {
     const parts = [d.artikelnummer, d.kategorie].filter(Boolean).join(" · ");
     return <span className="text-gray-500 text-sm">{parts || "–"}</span>;
   }
-  const l = item.data;
+  if (item.type === "angebot") {
+    const a = item.data;
+    const kundenname = a.kunde?.firma ?? a.kunde?.name ?? "";
+    const bis = a.gueltigBis ? ` · bis ${new Date(a.gueltigBis).toLocaleDateString("de-DE")}` : "";
+    return <span className="text-gray-500 text-sm">{kundenname ? `${kundenname} · ` : ""}{a.status}{bis}</span>;
+  }
+  if (item.type === "aufgabe") {
+    const t = item.data;
+    return <span className="text-gray-500 text-sm">{t.faelligAm ? `Fällig: ${new Date(t.faelligAm).toLocaleDateString("de-DE")}` : "Keine Fälligkeit"}</span>;
+  }
+  const l = item.data as LieferungResult;
   const date = l.datum ? new Date(l.datum).toLocaleDateString("de-DE") : "–";
   return (
     <span className="text-gray-500 text-sm">
@@ -355,7 +401,7 @@ export default function SearchPalette() {
         setResults(data);
         setActiveIndex(0);
       } catch {
-        setResults({ kunden: [], artikel: [], lieferungen: [] });
+        setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [] });
       } finally {
         setLoading(false);
       }
@@ -416,12 +462,14 @@ export default function SearchPalette() {
   if (!open) return null;
 
   // Build grouped sections
-  type Section = { label: string; type: ResultItem["type"]; items: ResultItem[] };
+  type Section = { label: string; type: ResultItem["type"]; typParam: string; items: ResultItem[] };
   const sections: Section[] = (
     [
-      { label: "Kunden", type: "kunde" as const, items: flatItems.filter((i) => i.type === "kunde") },
-      { label: "Artikel", type: "artikel" as const, items: flatItems.filter((i) => i.type === "artikel") },
-      { label: "Lieferungen", type: "lieferung" as const, items: flatItems.filter((i) => i.type === "lieferung") },
+      { label: "Kunden",      type: "kunde" as const,    typParam: "kunden",      items: flatItems.filter((i) => i.type === "kunde") },
+      { label: "Artikel",     type: "artikel" as const,  typParam: "artikel",     items: flatItems.filter((i) => i.type === "artikel") },
+      { label: "Lieferungen", type: "lieferung" as const, typParam: "lieferungen", items: flatItems.filter((i) => i.type === "lieferung") },
+      { label: "Angebote",    type: "angebot" as const,  typParam: "angebote",    items: flatItems.filter((i) => i.type === "angebot") },
+      { label: "Aufgaben",    type: "aufgabe" as const,  typParam: "aufgaben",    items: flatItems.filter((i) => i.type === "aufgabe") },
     ] as Section[]
   ).filter((s) => s.items.length > 0);
 
@@ -528,7 +576,16 @@ export default function SearchPalette() {
                   <div key={section.label}>
                     <div className="px-4 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                       <ResultIcon type={section.type} />
-                      {section.label}
+                      <span className="flex-1">{section.label}</span>
+                      {section.items.length >= 5 && (
+                        <Link
+                          href={`/suche?q=${encodeURIComponent(query)}&typ=${section.typParam}`}
+                          onClick={() => setOpen(false)}
+                          className="text-xs text-green-600 hover:text-green-700 font-normal normal-case tracking-normal hover:underline"
+                        >
+                          Alle anzeigen &rarr;
+                        </Link>
+                      )}
                     </div>
                     {section.items.map((item, i) => {
                       const idx = sectionStart + i;

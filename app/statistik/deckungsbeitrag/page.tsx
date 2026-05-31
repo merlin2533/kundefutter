@@ -12,6 +12,7 @@ interface DBItem {
   name: string;
   umsatz: number;
   einkauf: number;
+  gutschriften: number;
   deckungsbeitrag: number;
   dbMarge: number;
 }
@@ -21,6 +22,8 @@ interface DBData {
   von: string;
   bis: string;
   items: DBItem[];
+  schwellwertGut: number;
+  schwellwertKritisch: number;
 }
 
 type SortField = "name" | "umsatz" | "einkauf" | "deckungsbeitrag" | "dbMarge";
@@ -73,21 +76,21 @@ function formatMonatKurz(m: string): string {
   return MONATE_KURZ[mo - 1] ?? m;
 }
 
-function margeColor(pct: number) {
-  if (pct >= 30) return "text-green-700";
-  if (pct >= 15) return "text-yellow-700";
+function margeColor(pct: number, gut = 30, kritisch = 15) {
+  if (pct >= gut) return "text-green-700";
+  if (pct >= kritisch) return "text-yellow-700";
   return "text-red-600";
 }
 
-function margeBgColor(pct: number) {
-  if (pct >= 30) return "bg-green-50";
-  if (pct >= 15) return "bg-yellow-50";
+function margeBgColor(pct: number, gut = 30, kritisch = 15) {
+  if (pct >= gut) return "bg-green-50";
+  if (pct >= kritisch) return "bg-yellow-50";
   return "bg-red-50";
 }
 
-function margeBarColor(pct: number) {
-  if (pct >= 30) return "bg-green-500";
-  if (pct >= 15) return "bg-yellow-400";
+function margeBarColor(pct: number, gut = 30, kritisch = 15) {
+  if (pct >= gut) return "bg-green-500";
+  if (pct >= kritisch) return "bg-yellow-400";
   return "bg-red-400";
 }
 
@@ -484,19 +487,19 @@ export default function DeckungsbeitragPage() {
       {/* ── Rangliste-Ansicht ─────────────────────────────────────────────────── */}
       {ansicht === "rangliste" && (
         <>
-          {/* Color legend */}
-          <div className="flex items-center gap-4 mb-4 text-xs print:hidden">
+          {/* Color legend – dynamische Schwellwerte aus Einstellungen */}
+          <div className="flex items-center gap-4 mb-4 text-xs print:hidden flex-wrap">
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm bg-green-500" />
-              <span className="text-gray-500">DB-Marge &gt; 30 %</span>
+              <span className="text-gray-500">DB-Marge &gt; {data?.schwellwertGut ?? 30} %</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm bg-yellow-400" />
-              <span className="text-gray-500">Marge 15–30 %</span>
+              <span className="text-gray-500">Marge {data?.schwellwertKritisch ?? 15}–{data?.schwellwertGut ?? 30} %</span>
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-sm bg-red-400" />
-              <span className="text-gray-500">Marge &lt; 15 %</span>
+              <span className="text-gray-500">Marge &lt; {data?.schwellwertKritisch ?? 15} %</span>
             </span>
           </div>
 
@@ -526,11 +529,11 @@ export default function DeckungsbeitragPage() {
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                     <div className="text-xs text-gray-500 font-medium mb-1">Deckungsbeitrag</div>
-                    <div className={`text-lg font-bold font-mono ${margeColor(totalMarge)}`}>{formatEuro(totalDB)}</div>
+                    <div className={`text-lg font-bold font-mono ${margeColor(totalMarge, data.schwellwertGut, data.schwellwertKritisch)}`}>{formatEuro(totalDB)}</div>
                   </div>
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                     <div className="text-xs text-gray-500 font-medium mb-1">Ø DB-Marge</div>
-                    <div className={`text-lg font-bold ${margeColor(totalMarge)}`}>{formatPercent(totalMarge)}</div>
+                    <div className={`text-lg font-bold ${margeColor(totalMarge, data.schwellwertGut, data.schwellwertKritisch)}`}>{formatPercent(totalMarge)}</div>
                   </div>
                 </div>
               )}
@@ -544,7 +547,7 @@ export default function DeckungsbeitragPage() {
                       <tr className="bg-gray-50 border-b border-gray-200">
                         <th className="px-4 py-3 text-left font-semibold text-gray-600 w-10">Rang</th>
                         {thSort("name", "Name", "left")}
-                        {thSort("umsatz", "Umsatz")}
+                        {thSort("umsatz", "Umsatz (inkl. Gutschriften)")}
                         {thSort("einkauf", "Einkauf")}
                         {thSort("deckungsbeitrag", "Deckungsbeitrag")}
                         {thSort("dbMarge", "DB-Marge %")}
@@ -553,7 +556,7 @@ export default function DeckungsbeitragPage() {
                     </thead>
                     <tbody>
                       {sortedItems.map((item, i) => (
-                        <tr key={item.id} className={`border-b border-gray-100 hover:bg-gray-50 ${margeBgColor(item.dbMarge)}`}>
+                        <tr key={item.id} className={`border-b border-gray-100 hover:bg-gray-50 ${margeBgColor(item.dbMarge, data.schwellwertGut, data.schwellwertKritisch)}`}>
                           <td className="px-4 py-2.5 text-gray-400">{i + 1}</td>
                           <td className="px-4 py-2.5 font-medium text-gray-800">
                             {typ === "kunde" ? (
@@ -563,19 +566,24 @@ export default function DeckungsbeitragPage() {
                             ) : (
                               item.name
                             )}
+                            {item.gutschriften > 0 && (
+                              <span className="ml-2 text-xs text-amber-600 font-normal" title={`Gutschriften: ${formatEuro(item.gutschriften)} abgezogen`}>
+                                −GS
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-2.5 text-right font-mono text-gray-600">{formatEuro(item.umsatz)}</td>
                           <td className="px-4 py-2.5 text-right font-mono text-gray-500">{formatEuro(item.einkauf)}</td>
                           <td className="px-4 py-2.5 text-right font-mono font-semibold text-gray-800">
                             {formatEuro(item.deckungsbeitrag)}
                           </td>
-                          <td className={`px-4 py-2.5 text-right font-semibold ${margeColor(item.dbMarge)}`}>
+                          <td className={`px-4 py-2.5 text-right font-semibold ${margeColor(item.dbMarge, data.schwellwertGut, data.schwellwertKritisch)}`}>
                             {formatPercent(item.dbMarge)}
                           </td>
                           <td className="px-4 py-2.5 print:hidden">
                             <div className="w-full bg-gray-100 rounded-full h-2.5">
                               <div
-                                className={`h-2.5 rounded-full transition-all ${margeBarColor(item.dbMarge)}`}
+                                className={`h-2.5 rounded-full transition-all ${margeBarColor(item.dbMarge, data.schwellwertGut, data.schwellwertKritisch)}`}
                                 style={{
                                   width: `${Math.max(2, Math.round((Math.abs(item.deckungsbeitrag) / maxDB) * 100))}%`,
                                 }}

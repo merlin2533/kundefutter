@@ -5,9 +5,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
-  if (q.length < 2) return NextResponse.json({ kunden: [], artikel: [], lieferungen: [] });
+  if (q.length < 2)
+    return NextResponse.json({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [] });
 
-  // Lieferung search stays as Prisma contains (rechnungNr is already indexed)
+  const takeParam = parseInt(req.nextUrl.searchParams.get("take") ?? "5", 10);
+  const take = isNaN(takeParam) || takeParam < 1 ? 5 : Math.min(takeParam, 100);
+
   const lieferungenPromise = prisma.lieferung.findMany({
     where: {
       OR: [
@@ -24,14 +27,51 @@ export async function GET(req: NextRequest) {
       kunde: { select: { name: true, firma: true } },
     },
     orderBy: { datum: "desc" },
-    take: 5,
+    take,
+  });
+
+  const angebotePromise = prisma.angebot.findMany({
+    where: {
+      OR: [
+        { nummer: { contains: q } },
+        { kunde: { name: { contains: q } } },
+        { kunde: { firma: { contains: q } } },
+      ],
+    },
+    select: {
+      id: true,
+      nummer: true,
+      status: true,
+      gueltigBis: true,
+      kunde: { select: { name: true, firma: true } },
+    },
+    orderBy: { datum: "desc" },
+    take,
+  });
+
+  const aufgabenPromise = prisma.aufgabe.findMany({
+    where: {
+      OR: [
+        { betreff: { contains: q } },
+        { beschreibung: { contains: q } },
+      ],
+    },
+    select: {
+      id: true,
+      betreff: true,
+      faelligAm: true,
+      erledigt: true,
+      kundeId: true,
+    },
+    orderBy: { faelligAm: "asc" },
+    take,
   });
 
   // Try FTS5 for Kunden and Artikel; fall back to contains if tables don't exist yet
   try {
     const ftsQuery = q + "*";
 
-    const [kundenFts, artikelFts, lieferungen] = await Promise.all([
+    const [kundenFts, artikelFts, lieferungen, angebote, aufgaben] = await Promise.all([
       prisma.$queryRawUnsafe<
         { id: number; name: string; firma: string | null; plz: string | null; ort: string | null }[]
       >(
@@ -40,7 +80,7 @@ export async function GET(req: NextRequest) {
          JOIN Kunde k ON k.id = f.rowid
          WHERE kunden_fts MATCH ? AND k.aktiv = 1
          ORDER BY rank
-         LIMIT 5`,
+         LIMIT ${take}`,
         ftsQuery
       ),
       prisma.$queryRawUnsafe<
@@ -51,16 +91,18 @@ export async function GET(req: NextRequest) {
          JOIN Artikel a ON a.id = f.rowid
          WHERE artikel_fts MATCH ? AND a.aktiv = 1
          ORDER BY rank
-         LIMIT 5`,
+         LIMIT ${take}`,
         ftsQuery
       ),
       lieferungenPromise,
+      angebotePromise,
+      aufgabenPromise,
     ]);
 
-    return NextResponse.json({ kunden: kundenFts, artikel: artikelFts, lieferungen });
+    return NextResponse.json({ kunden: kundenFts, artikel: artikelFts, lieferungen, angebote, aufgaben });
   } catch {
     // FTS5 tables not available yet — fall back to original contains-based search
-    const [kunden, artikel, lieferungen] = await Promise.all([
+    const [kunden, artikel, lieferungen, angebote, aufgaben] = await Promise.all([
       prisma.kunde.findMany({
         where: {
           aktiv: true,
@@ -71,7 +113,7 @@ export async function GET(req: NextRequest) {
           ],
         },
         select: { id: true, name: true, firma: true, plz: true, ort: true },
-        take: 5,
+        take,
       }),
       prisma.artikel.findMany({
         where: {
@@ -84,11 +126,13 @@ export async function GET(req: NextRequest) {
           ],
         },
         select: { id: true, name: true, artikelnummer: true, kategorie: true },
-        take: 5,
+        take,
       }),
       lieferungenPromise,
+      angebotePromise,
+      aufgabenPromise,
     ]);
 
-    return NextResponse.json({ kunden, artikel, lieferungen });
+    return NextResponse.json({ kunden, artikel, lieferungen, angebote, aufgaben });
   }
 }

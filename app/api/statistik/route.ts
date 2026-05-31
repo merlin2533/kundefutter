@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const bisVorjahrIso = bisVorjahr.toISOString();
 
     // All aggregations run in the DB — no full-table load into Node.js
-    type MonatRow    = { monat: string; umsatz: number; anzahl: number };
+    type MonatRow    = { monat: string; umsatz: number; anzahl: number; marge: number | null };
     type ArtikelRow  = { artikelId: number; name: string; menge: number; umsatz: number };
     type KundeRow    = { kundeId: number; name: string; umsatz: number; anzahl: number };
     type KatRow      = { kategorie: string; umsatz: number; menge: number };
@@ -35,18 +35,20 @@ export async function GET(req: NextRequest) {
     type AusgabeRow  = { kategorie: string; summe: number | null };
     type LagerRow    = { unterMindest: number; lagerwert: number | null };
     type VorjahrRow  = { umsatz: number | null };
+    type VorjahrMonatRow = { monat: string; umsatz: number };
 
     const [
       umsatzNachMonatRaw, topArtikelRaw, topKundenRaw, umsatzNachKategorieRaw, saisonRaw,
-      kpiRaw, lieferStatusRaw, offenePostenRaw, ausgabenRaw, lagerRaw, vorjahrRaw,
+      kpiRaw, lieferStatusRaw, offenePostenRaw, ausgabenRaw, lagerRaw, vorjahrRaw, vorjahrNachMonatRaw,
     ] =
       await Promise.all([
-        // Umsatz nach Monat (YYYY-MM)
+        // Umsatz nach Monat (YYYY-MM) inkl. Marge pro Monat
         prisma.$queryRawUnsafe<MonatRow[]>(
           `SELECT
             strftime('%Y-%m', l.datum) as monat,
             CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
-            COUNT(DISTINCT l.id) as anzahl
+            COUNT(DISTINCT l.id) as anzahl,
+            CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as marge
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
@@ -159,12 +161,24 @@ export async function GET(req: NextRequest) {
           FROM Artikel a
           WHERE a.aktiv = 1`
         ),
-        // Umsatz im gleichen Zeitraum des Vorjahres
+        // Umsatz im gleichen Zeitraum des Vorjahres (gesamt)
         prisma.$queryRawUnsafe<VorjahrRow[]>(
           `SELECT CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?`,
+          vonVorjahrIso, bisVorjahrIso
+        ),
+        // Umsatz je Monat im Vorjahr (für YoY-Linienchart)
+        prisma.$queryRawUnsafe<VorjahrMonatRow[]>(
+          `SELECT
+            strftime('%Y-%m', l.datum) as monat,
+            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          FROM Lieferung l
+          JOIN Lieferposition lp ON lp.lieferungId = l.id
+          WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
+          GROUP BY monat
+          ORDER BY monat`,
           vonVorjahrIso, bisVorjahrIso
         ),
       ]);
@@ -191,6 +205,13 @@ export async function GET(req: NextRequest) {
         monat: r.monat,
         umsatz: r2(r.umsatz),
         anzahl: r.anzahl,
+        marge: r2(r.marge),
+        margeProzent: r.umsatz > 0 ? Math.round((r2(r.marge) / r2(r.umsatz)) * 1000) / 10 : 0,
+      })),
+      vorjahrNachMonat: vorjahrNachMonatRaw.map((r) => ({
+        // Monat auf aktuelles Jahr umrechnen (Vorjahr YYYY-MM → aktuelles Jahr YYYY-MM)
+        monat: r.monat.replace(/^\d{4}/, vonDate.getFullYear().toString()),
+        umsatz: r2(r.umsatz),
       })),
       topArtikel: topArtikelRaw.map((r) => ({
         artikelId: r.artikelId,
