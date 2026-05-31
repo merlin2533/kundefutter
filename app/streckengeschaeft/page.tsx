@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { formatEuro, formatDatum } from "@/lib/utils";
 interface StreckenLieferung {
   id: number;
   datum: string;
+  lieferdatum?: string | null;
   status: string;
   rechnungNr?: string | null;
   istStreckengeschaeft: boolean;
@@ -20,23 +21,49 @@ interface StreckenLieferung {
   }[];
 }
 
+function KpiCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: "gray" | "yellow" | "red" | "green" | "orange" }) {
+  const colors = {
+    gray: "bg-gray-50 border-gray-200 text-gray-700",
+    yellow: "bg-yellow-50 border-yellow-200 text-yellow-700",
+    red: "bg-red-50 border-red-200 text-red-700",
+    green: "bg-green-50 border-green-200 text-green-700",
+    orange: "bg-orange-50 border-orange-200 text-orange-700",
+  };
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${colors[color]}`}>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xs font-medium mt-0.5">{label}</div>
+      {sub && <div className="text-xs opacity-70 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+function loadFilters() {
+  try { return JSON.parse(sessionStorage.getItem("strecken-filters") ?? "{}"); } catch { return {}; }
+}
+
 export default function StreckengeschaeftPage() {
   const [lieferungen, setLieferungen] = useState<StreckenLieferung[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>(() => loadFilters().statusFilter ?? "");
+  const [suchtext, setSuchtext] = useState<string>(() => loadFilters().suchtext ?? "");
+
+  useEffect(() => {
+    try { sessionStorage.setItem("strecken-filters", JSON.stringify({ statusFilter, suchtext })); } catch {}
+  }, [statusFilter, suchtext]);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    // Fetch with a high limit and filter client-side for istStreckengeschaeft
-    fetch("/api/lieferungen?limit=500")
+    fetch("/api/lieferungen?limit=1000")
       .then((r) => {
         if (!r.ok) throw new Error(`Serverfehler ${r.status}`);
         return r.json();
       })
-      .then((data: StreckenLieferung[]) => {
-        const alle = Array.isArray(data) ? data : [];
-        setLieferungen(alle.filter((l) => l.istStreckengeschaeft));
+      .then((data) => {
+        const alle = Array.isArray(data) ? data : (data?.lieferungen ?? []);
+        setLieferungen(alle.filter((l: StreckenLieferung) => l.istStreckengeschaeft));
         setLoading(false);
       })
       .catch((e) => {
@@ -45,36 +72,177 @@ export default function StreckengeschaeftPage() {
       });
   }, []);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const gefiltert = useMemo(() => {
+    return lieferungen.filter((l) => {
+      if (statusFilter && l.status !== statusFilter) return false;
+      if (suchtext.trim()) {
+        const q = suchtext.toLowerCase();
+        const name = (l.kunde.firma ?? l.kunde.name).toLowerCase();
+        const lieferant = (l.streckenLieferant?.name ?? "").toLowerCase();
+        const artikel = l.positionen.map((p) => p.artikel.name.toLowerCase()).join(" ");
+        if (!name.includes(q) && !lieferant.includes(q) && !artikel.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [lieferungen, statusFilter, suchtext]);
+
+  // KPIs
+  const geplant = lieferungen.filter((l) => l.status === "geplant");
+  const geliefert = lieferungen.filter((l) => l.status === "geliefert");
+  const ohneRechnung = geliefert.filter((l) => !l.rechnungNr);
+  const ueberfaelligGeplant = geplant.filter((l) => {
+    if (!l.lieferdatum) return false;
+    return new Date(l.lieferdatum) < today;
+  });
+  const umsatzGesamt = lieferungen
+    .filter((l) => l.status !== "storniert")
+    .reduce((s, l) => s + l.positionen.reduce((ps, p) => ps + p.menge * p.verkaufspreis, 0), 0);
+
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold">Streckengeschäfte</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Streckengeschäfte</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Direktlieferungen Lieferant → Kunde – Überwachung & Status</p>
+        </div>
         <Link
           href="/lieferungen/neu"
-          title="Neue Lieferung"
-          className="inline-flex items-center gap-1.5 bg-green-800 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors w-auto text-center"
+          className="inline-flex items-center gap-1.5 bg-green-800 hover:bg-green-700 text-white px-3 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
         >
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
           <span className="hidden sm:inline">Neue Lieferung</span>
         </Link>
       </div>
 
+      {/* Info Banner */}
       <div className="mb-4 bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
-        Streckengeschäfte sind Lieferungen, bei denen der Lieferant direkt an den Kunden liefert. Es wird kein Lagerabgang gebucht, die Rechnung wird trotzdem durch Sie ausgestellt.
+        Streckengeschäfte sind Lieferungen, bei denen der Lieferant direkt an den Kunden liefert. Es wird kein Lagerabgang gebucht – die Lieferbestätigung und Rechnungsstellung müssen aktiv überwacht werden.
       </div>
 
+      {/* KPI Cards */}
+      {!loading && !error && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+          <KpiCard label="Gesamt" value={lieferungen.length} color="gray" />
+          <KpiCard label="Ausstehend (geplant)" value={geplant.length} color={geplant.length > 0 ? "yellow" : "gray"} />
+          <KpiCard
+            label="Überfällig (kein Lieferstatus)"
+            value={ueberfaelligGeplant.length}
+            color={ueberfaelligGeplant.length > 0 ? "red" : "gray"}
+            sub="Lieferdatum überschritten"
+          />
+          <KpiCard
+            label="Geliefert – ohne Rechnung"
+            value={ohneRechnung.length}
+            color={ohneRechnung.length > 0 ? "orange" : "green"}
+            sub="Rechnung ausstehend"
+          />
+          <KpiCard label="Umsatz (aktiv)" value={formatEuro(umsatzGesamt)} color="green" sub="ohne Stornierte" />
+        </div>
+      )}
+
+      {/* Handlungsbedarf Alerts */}
+      {!loading && !error && (ueberfaelligGeplant.length > 0 || ohneRechnung.length > 0) && (
+        <div className="space-y-3 mb-5">
+          {ueberfaelligGeplant.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="font-semibold text-red-800 text-sm mb-2">
+                Handlungsbedarf: {ueberfaelligGeplant.length} Streckengeschäft{ueberfaelligGeplant.length !== 1 ? "e" : ""} – Lieferdatum überschritten, noch nicht als geliefert markiert
+              </div>
+              <div className="space-y-1">
+                {ueberfaelligGeplant.map((l) => {
+                  const tage = l.lieferdatum
+                    ? Math.ceil((today.getTime() - new Date(l.lieferdatum).getTime()) / 86400000)
+                    : 0;
+                  return (
+                    <div key={l.id} className="flex items-center justify-between text-sm">
+                      <span className="text-red-700">
+                        {l.kunde.firma ?? l.kunde.name}
+                        {l.streckenLieferant ? ` via ${l.streckenLieferant.name}` : ""}
+                        {" – "}
+                        <span className="font-medium">{tage} Tag{tage !== 1 ? "e" : ""} überfällig</span>
+                      </span>
+                      <Link href={`/lieferungen/${l.id}`} className="text-red-600 hover:text-red-800 underline font-medium ml-4">
+                        Öffnen →
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {ohneRechnung.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="font-semibold text-orange-800 text-sm mb-2">
+                Rechnung ausstehend: {ohneRechnung.length} gelieferte Streckengeschäft{ohneRechnung.length !== 1 ? "e" : ""} ohne Rechnungsnummer
+              </div>
+              <div className="space-y-1">
+                {ohneRechnung.slice(0, 5).map((l) => (
+                  <div key={l.id} className="flex items-center justify-between text-sm">
+                    <span className="text-orange-700">
+                      {l.kunde.firma ?? l.kunde.name} – {formatDatum(l.datum)}
+                    </span>
+                    <Link href={`/lieferungen/${l.id}`} className="text-orange-600 hover:text-orange-800 underline font-medium ml-4">
+                      Rechnung erstellen →
+                    </Link>
+                  </div>
+                ))}
+                {ohneRechnung.length > 5 && (
+                  <div className="text-xs text-orange-600">… und {ohneRechnung.length - 5} weitere</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filter */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <input
+          type="text"
+          value={suchtext}
+          onChange={(e) => setSuchtext(e.target.value)}
+          placeholder="Kunde, Lieferant oder Artikel…"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 w-full sm:w-72"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+        >
+          <option value="">Alle Status</option>
+          <option value="geplant">Geplant (ausstehend)</option>
+          <option value="geliefert">Geliefert</option>
+          <option value="storniert">Storniert</option>
+        </select>
+        {(statusFilter || suchtext) && (
+          <button
+            onClick={() => { setStatusFilter(""); setSuchtext(""); }}
+            className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 border border-gray-200 rounded-lg"
+          >
+            Filter zurücksetzen
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade Streckengeschäfte…</p>
         ) : error ? (
           <p className="p-6 text-red-600 text-sm">⚠ {error}</p>
-        ) : lieferungen.length === 0 ? (
+        ) : gefiltert.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">
-            Noch keine Streckengeschäfte erfasst.{" "}
-            <Link href="/lieferungen/neu" className="text-green-700 underline hover:text-green-900">
-              Neue Lieferung anlegen
-            </Link>{" "}
-            und &quot;Streckengeschäft&quot; aktivieren.
+            {lieferungen.length === 0
+              ? <>Noch keine Streckengeschäfte erfasst.{" "}
+                  <Link href="/lieferungen/neu" className="text-green-700 underline hover:text-green-900">
+                    Neue Lieferung anlegen
+                  </Link>{" "}
+                  und &quot;Streckengeschäft&quot; aktivieren.</>
+              : "Keine Einträge für diesen Filter."}
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -91,22 +259,38 @@ export default function StreckengeschaeftPage() {
               </tr>
             </thead>
             <tbody>
-              {lieferungen.map((l) => {
+              {gefiltert.map((l) => {
                 const umsatz = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-                const lieferantName = l.streckenLieferant
-                  ? l.streckenLieferant.name
-                  : "—";
-                const kundeName = l.kunde.firma
-                  ? `${l.kunde.firma} (${l.kunde.name})`
-                  : l.kunde.name;
-                const artikelZusammenfassung = l.positionen
-                  .slice(0, 2)
-                  .map((p) => `${p.menge} ${p.artikel.einheit} ${p.artikel.name}`)
-                  .join(", ") + (l.positionen.length > 2 ? ` +${l.positionen.length - 2}` : "");
+                const lieferantName = l.streckenLieferant?.name ?? "—";
+                const kundeName = l.kunde.firma ? `${l.kunde.firma} (${l.kunde.name})` : l.kunde.name;
+                const artikelZusammenfassung =
+                  l.positionen
+                    .slice(0, 2)
+                    .map((p) => `${p.menge} ${p.artikel.einheit} ${p.artikel.name}`)
+                    .join(", ") + (l.positionen.length > 2 ? ` +${l.positionen.length - 2}` : "");
+                const istUeberfaellig =
+                  l.status === "geplant" &&
+                  l.lieferdatum != null &&
+                  new Date(l.lieferdatum) < today;
+                const fehlendRechnung = l.status === "geliefert" && !l.rechnungNr;
 
                 return (
-                  <tr key={l.id} className="border-b last:border-0 hover:bg-purple-50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap">{formatDatum(l.datum)}</td>
+                  <tr
+                    key={l.id}
+                    className={`border-b last:border-0 transition-colors ${
+                      istUeberfaellig
+                        ? "bg-red-50 hover:bg-red-100"
+                        : fehlendRechnung
+                        ? "bg-orange-50 hover:bg-orange-100"
+                        : "hover:bg-purple-50"
+                    }`}
+                  >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {formatDatum(l.datum)}
+                      {istUeberfaellig && (
+                        <div className="text-xs text-red-600 font-medium mt-0.5">Lieferdatum überschritten</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/kunden/${l.kunde.id}`} className="hover:text-green-700 transition-colors">
                         {kundeName}
@@ -130,7 +314,9 @@ export default function StreckengeschaeftPage() {
                           {l.rechnungNr}
                         </Link>
                       ) : (
-                        <span className="text-gray-400 text-xs">Offen</span>
+                        <span className={`text-xs ${fehlendRechnung ? "text-orange-600 font-medium" : "text-gray-400"}`}>
+                          {fehlendRechnung ? "Ausstehend" : "Offen"}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -152,9 +338,9 @@ export default function StreckengeschaeftPage() {
         )}
       </div>
 
-      {!loading && !error && lieferungen.length > 0 && (
+      {!loading && !error && gefiltert.length > 0 && (
         <p className="text-xs text-gray-400 mt-3 text-right">
-          {lieferungen.length} Streckengeschäft{lieferungen.length !== 1 ? "e" : ""} gesamt
+          {gefiltert.length} von {lieferungen.length} Streckengeschäft{lieferungen.length !== 1 ? "en" : ""}
         </p>
       )}
     </div>
