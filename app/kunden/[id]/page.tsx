@@ -186,7 +186,7 @@ export default function KundeDetailPage() {
           .filter((l) => !l.bezahltAm)
           .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime());
         const offen = offeneRechnungen.reduce((s, l) => s + lieferungTotal(l), 0);
-        const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())[0];
+        const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()).slice(0, 3);
         const offeneLieferungen = kunde.lieferungen.filter((l) => l.status === "geplant").length;
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
@@ -241,17 +241,25 @@ export default function KundeDetailPage() {
               }
               return <div className={cardClass}>{inner}</div>;
             })()}
-            {/* Letzte Lieferung */}
+            {/* Letzte Lieferungen */}
             <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferung</p>
-              {letzteL ? (
-                <>
-                  <p className="text-sm font-medium text-gray-800">{formatDatum(letzteL.datum)}</p>
-                  <div className="flex items-center gap-1.5">
-                    {statusBadge(letzteL.status)}
-                    {letzteL.rechnungNr && <span className="text-xs text-gray-500 truncate">{letzteL.rechnungNr}</span>}
-                  </div>
-                </>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferungen</p>
+              {letzteL.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {letzteL.map((l) => (
+                    <Link
+                      key={l.id}
+                      href={`/lieferungen/${l.id}`}
+                      className="flex flex-col gap-0.5 rounded-lg px-2 py-1 hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200"
+                    >
+                      <span className="text-sm font-medium text-gray-800">{formatDatum(l.datum)}</span>
+                      <div className="flex items-center gap-1.5">
+                        {statusBadge(l.status)}
+                        {l.rechnungNr && <span className="text-xs text-gray-500 truncate">{l.rechnungNr}</span>}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               ) : <p className="text-sm text-gray-400">Keine</p>}
             </div>
             {/* Schnellaktionen */}
@@ -465,7 +473,7 @@ export default function KundeDetailPage() {
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
         {activeTab === "Reklamationen" && <ReklamationenTab kundeId={kunde.id} />}
         {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
-        {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} />}
+        {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} onRefresh={fetchKunde} />}
         {activeTab === "Erklärungen" && <ErklaerungTab kundeId={kunde.id} />}
         {activeTab === "Zertifizierungen" && <ZertifizierungenTab kundeId={kunde.id} />}
         {activeTab === "Sachkundenachweise" && <SachkundenachweiseTab kundeId={kunde.id} />}

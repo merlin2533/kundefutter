@@ -12,9 +12,11 @@ interface VorgangAngebot {
   gesamtbetrag: number;
 }
 
-export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: number; lieferungen: Lieferung[] }) {
+export default function VorgangskettTab({ kundeId, lieferungen, onRefresh }: { kundeId: number; lieferungen: Lieferung[]; onRefresh?: () => void }) {
   const [angebote, setAngebote] = useState<VorgangAngebot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [rechnungFrageId, setRechnungFrageId] = useState<number | null>(null);
 
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
@@ -75,6 +77,32 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
     };
   }
 
+  async function markiereGeliefert(l: Lieferung) {
+    setActionLoading(l.id);
+    const res = await fetch(`/api/lieferungen/${l.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "geliefert" }),
+    });
+    setActionLoading(null);
+    if (res.ok) {
+      onRefresh?.();
+      setRechnungFrageId(l.id);
+    }
+  }
+
+  async function erstelleRechnungNachGeliefert(lieferungId: number) {
+    setActionLoading(lieferungId);
+    setRechnungFrageId(null);
+    await fetch(`/api/lieferungen/${lieferungId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+    });
+    setActionLoading(null);
+    onRefresh?.();
+  }
+
   function LieferungCard({ l }: { l: Lieferung }) {
     const hatRechnung = !!l.rechnungNr;
     const hatBezahlt = !!l.bezahltAm;
@@ -84,6 +112,7 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
       .map((p) => `${p.menge} ${p.artikel.einheit} ${p.artikel.name}`)
       .join(" · ");
 
+    const isLoadingCard = actionLoading === l.id;
     return (
       <div className="space-y-2">
         {/* Lieferung Step */}
@@ -96,7 +125,16 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
               <a href={`/lieferungen/${l.id}`} className="text-sm font-medium text-gray-800 hover:text-green-700">
                 Lieferung #{l.id}
               </a>
-              {statusBadge(l.status)}
+              {l.status === "geplant" ? (
+                <button
+                  onClick={() => markiereGeliefert(l)}
+                  disabled={isLoadingCard}
+                  title="Klicken um als geliefert zu markieren"
+                  className="hover:opacity-75 transition-opacity disabled:opacity-40"
+                >
+                  {statusBadge(l.status)}
+                </button>
+              ) : statusBadge(l.status)}
               <span className="text-xs text-gray-400">{formatDatum(l.datum)}</span>
               <span className="text-xs font-medium text-gray-700">{formatEuro(total)}</span>
               <a
@@ -150,14 +188,13 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
                   )}
                 </div>
               ) : l.status === "geliefert" ? (
-                <a
-                  href={`/lieferungen/${l.id}/rechnung`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-green-700 hover:underline"
+                <button
+                  onClick={() => erstelleRechnungNachGeliefert(l.id)}
+                  disabled={isLoadingCard}
+                  className="text-xs text-green-700 hover:underline disabled:opacity-50"
                 >
-                  + Rechnung erstellen
-                </a>
+                  {isLoadingCard ? "…" : "+ Rechnung erstellen"}
+                </button>
               ) : (
                 <span className="text-xs text-gray-400 italic">Noch keine Rechnung</span>
               )}
@@ -185,6 +222,25 @@ export default function VorgangskettTab({ kundeId, lieferungen }: { kundeId: num
           </a>
         </div>
       </div>
+
+      {rechnungFrageId !== null && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-blue-800 font-medium">Lieferung als geliefert markiert. Möchten Sie jetzt eine Rechnung erstellen?</span>
+          <button
+            onClick={() => erstelleRechnungNachGeliefert(rechnungFrageId)}
+            disabled={actionLoading === rechnungFrageId}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
+          >
+            {actionLoading === rechnungFrageId ? "…" : "Rechnung erstellen"}
+          </button>
+          <button
+            onClick={() => setRechnungFrageId(null)}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Nein, danke
+          </button>
+        </div>
+      )}
 
       {!hasData && (
         <div className="text-center py-10 text-gray-400 border border-dashed border-gray-200 rounded-xl">

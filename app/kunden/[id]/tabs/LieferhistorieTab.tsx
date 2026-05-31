@@ -12,6 +12,7 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"alle" | "geplant" | "geliefert" | "storniert">("alle");
   const [zahlungFilter, setZahlungFilter] = useState<"alle" | "offen" | "bezahlt" | "ueberfaellig">("alle");
+  const [rechnungFrageId, setRechnungFrageId] = useState<number | null>(null);
 
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
@@ -44,6 +45,32 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
     setActionLoading(l.id);
     window.open(`/lieferungen/${l.id}/rechnung`, "_blank");
     setTimeout(() => { setActionLoading(null); onRefresh(); }, 1500);
+  }
+
+  async function markiereGeliefert(l: Lieferung) {
+    setActionLoading(l.id);
+    const res = await fetch(`/api/lieferungen/${l.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "geliefert" }),
+    });
+    setActionLoading(null);
+    if (res.ok) {
+      onRefresh();
+      setRechnungFrageId(l.id);
+    }
+  }
+
+  async function erstelleRechnungNachGeliefert(lieferungId: number) {
+    setActionLoading(lieferungId);
+    setRechnungFrageId(null);
+    await fetch(`/api/lieferungen/${lieferungId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+    });
+    setActionLoading(null);
+    onRefresh();
   }
 
   function toggleSammelrechnungSelect(id: number) {
@@ -192,6 +219,26 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
         </div>
       </div>
 
+      {/* Rechnung-Frage nach "Als geliefert markieren" */}
+      {rechnungFrageId !== null && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-blue-800 font-medium">Lieferung als geliefert markiert. Möchten Sie jetzt eine Rechnung erstellen?</span>
+          <button
+            onClick={() => erstelleRechnungNachGeliefert(rechnungFrageId)}
+            disabled={actionLoading === rechnungFrageId}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
+          >
+            {actionLoading === rechnungFrageId ? "…" : "Rechnung erstellen"}
+          </button>
+          <button
+            onClick={() => setRechnungFrageId(null)}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Nein, danke
+          </button>
+        </div>
+      )}
+
       {/* Tabelle */}
       <div className="overflow-x-auto border border-gray-200 rounded-xl">
         <table className="w-full text-sm">
@@ -258,7 +305,18 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
                   <td className="px-3 py-2.5 text-right font-mono font-medium text-xs whitespace-nowrap">
                     {formatEuro(total)}
                   </td>
-                  <td className="px-3 py-2.5">{statusBadge(l.status)}</td>
+                  <td className="px-3 py-2.5">
+                    {l.status === "geplant" ? (
+                      <button
+                        onClick={() => markiereGeliefert(l)}
+                        disabled={isLoading}
+                        title="Klicken um als geliefert zu markieren"
+                        className="hover:opacity-75 transition-opacity disabled:opacity-40"
+                      >
+                        {statusBadge(l.status)}
+                      </button>
+                    ) : statusBadge(l.status)}
+                  </td>
 
                   {/* Lieferschein — direkter Link, kein Modal */}
                   <td className="hidden lg:table-cell px-3 py-2.5">

@@ -114,6 +114,7 @@ export default function LieferungDetailPage() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
+  const [showRechnungNachGeliefert, setShowRechnungNachGeliefert] = useState(false);
   const [notizSavingId, setNotizSavingId] = useState<number | null>(null);
 
   // Position hinzufügen (nur geplant)
@@ -411,6 +412,7 @@ export default function LieferungDetailPage() {
       });
       if (!res.ok) throw new Error("Fehler beim Aktualisieren");
       await load();
+      setShowRechnungNachGeliefert(true);
     } catch {
       setError("Fehler beim Aktualisieren des Status.");
     } finally {
@@ -996,6 +998,24 @@ export default function LieferungDetailPage() {
           </div>
         </div>
 
+        {showRechnungNachGeliefert && !lieferung.rechnungNr && (
+          <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-blue-800 font-medium">Lieferung als geliefert markiert. Möchten Sie jetzt eine Rechnung erstellen?</span>
+            <button
+              onClick={() => { setShowRechnungNachGeliefert(false); rechnungErstellen(); }}
+              disabled={actionLoading}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
+            >
+              Rechnung erstellen
+            </button>
+            <button
+              onClick={() => setShowRechnungNachGeliefert(false)}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Nein, danke
+            </button>
+          </div>
+        )}
         {emailErfolg && (
           <div className="mt-3 text-sm text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{emailErfolg}</div>
         )}
