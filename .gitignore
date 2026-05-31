@@ -47,8 +47,12 @@ next-env.d.ts
 *.db-shm
 *.db-wal
 
-# claude code
-.claude/
+# claude code — lokale Settings ignorieren, aber eingecheckten SessionStart-Hook erlauben
+.claude/*
+!.claude/settings.json
+!.claude/scripts
+.claude/scripts/*
+!.claude/scripts/session-start.sh
 
 # hyperframes / skills (installed via `npx skills add`)
 /.agents/

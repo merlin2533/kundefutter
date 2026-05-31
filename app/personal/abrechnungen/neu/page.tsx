@@ -143,7 +143,7 @@ function NeuAbrechnungInner() {
               onChange={(e) => setMonat(parseInt(e.target.value, 10))}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
             >
-              {MONATE.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+              {MONATE.map((m, i) => <option key={m.value} value={i + 1}>{m.label}</option>)}
             </select>
           </div>
           <div>
