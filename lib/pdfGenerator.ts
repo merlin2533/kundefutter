@@ -619,3 +619,393 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
 
   return Buffer.from(doc.output("arraybuffer"));
 }
+
+/**
+ * Generiert ein Angebot als PDF-Buffer.
+ */
+export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
+  const angebot = await prisma.angebot.findUnique({
+    where: { id: angebotId },
+    include: {
+      kunde: { include: { kontakte: true } },
+      positionen: { include: { artikel: { select: { id: true, name: true, einheit: true, mwstSatz: true } } } },
+    },
+  });
+  if (!angebot) throw new Error(`Angebot ${angebotId} nicht gefunden`);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+
+  const k = angebot.kunde;
+  const angebotDatum = new Date(angebot.datum);
+  const gueltigBis = angebot.gueltigBis ? new Date(angebot.gueltigBis) : null;
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch { /* ignore */ }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Angebot", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  let metaY = 27;
+  const metaLabelX = 155;
+  const metaValueX = 196;
+  const drawMetaAngebot = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelX, metaY, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueX, metaY, { align: "right" });
+    metaY += 5;
+  };
+  drawMetaAngebot("Angebotsnummer:", angebot.nummer, true);
+  drawMetaAngebot("Datum:", formatDatum(angebotDatum));
+  if (gueltigBis) drawMetaAngebot("Gültig bis:", formatDatum(gueltigBis), true);
+
+  const sepY = Math.max(metaY + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  let ey = sepY + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_LABEL);
+  doc.text("ANGEBOTSEMPFÄNGER", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+
+  ey += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Angebot ${angebot.nummer}`, 14, ey);
+  ey += 6;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionen = angebot.positionen as any[];
+  const hatRabatt = positionen.some((p) => (p.rabatt ?? 0) > 0);
+  const angebotHead = hatRabatt
+    ? [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Rabatt %", "Gesamt"]]
+    : [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+  const angebotBody = positionen.map((p, i) => {
+    const netto = p.menge * p.preis * (1 - (p.rabatt ?? 0) / 100);
+    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+    const base = [String(i + 1), p.artikel.name, mengeStr, p.einheit ?? p.artikel.einheit, formatEuro(p.preis)];
+    if (hatRabatt) base.push((p.rabatt ?? 0) > 0 ? `${p.rabatt} %` : "");
+    base.push(formatEuro(netto));
+    return base;
+  });
+
+  autoTable(doc, {
+    startY: ey + 2,
+    head: angebotHead,
+    body: angebotBody,
+    theme: "plain",
+    headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
+    columnStyles: hatRabatt
+      ? { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { cellWidth: 16 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 18 }, 6: { halign: "right", cellWidth: 26 } }
+      : { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+  });
+
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+  const mwstGruppenA = new Map<number, number>();
+  let nettoGesamtA = 0;
+  for (const p of positionen) {
+    const netto = p.menge * p.preis * (1 - (p.rabatt ?? 0) / 100);
+    nettoGesamtA += netto;
+    const satz = p.artikel.mwstSatz ?? 19;
+    mwstGruppenA.set(satz, (mwstGruppenA.get(satz) ?? 0) + netto);
+  }
+  let mwstGesamtA = 0;
+  for (const [satz, basis] of mwstGruppenA) mwstGesamtA += basis * (satz / 100);
+  const bruttoA = nettoGesamtA + mwstGesamtA;
+
+  let sumY = finalY + 2;
+  const sumLabelX = 140;
+  const sumValueX = 196;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(68);
+  doc.text("Nettobetrag:", sumLabelX, sumY);
+  doc.setTextColor(...COL_TEXT);
+  doc.text(formatEuro(nettoGesamtA), sumValueX, sumY, { align: "right" });
+  sumY += 5.5;
+
+  for (const [satz, basis] of Array.from(mwstGruppenA.entries()).sort(([a], [b]) => a - b)) {
+    doc.setTextColor(68);
+    doc.text(`MwSt ${satz} %:`, sumLabelX, sumY);
+    doc.setTextColor(...COL_TEXT);
+    doc.text(formatEuro(basis * (satz / 100)), sumValueX, sumY, { align: "right" });
+    sumY += 5.5;
+  }
+
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.5);
+  doc.line(sumLabelX, sumY, sumValueX, sumY);
+  sumY += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Angebotssumme:", sumLabelX, sumY);
+  doc.text(formatEuro(bruttoA), sumValueX, sumY, { align: "right" });
+  sumY += 8;
+
+  if (gueltigBis) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(`Dieses Angebot ist gültig bis: ${formatDatum(gueltigBis)}`, 14, sumY);
+    sumY += 5;
+  }
+  if (angebot.notiz?.trim()) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Hinweis: ${angebot.notiz.trim()}`, 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
+  }
+
+  zeichneDokumentFooter(doc, footerSpalten);
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
+/**
+ * Generiert eine Gutschrift als PDF-Buffer.
+ */
+export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buffer> {
+  const gutschrift = await prisma.gutschrift.findUnique({
+    where: { id: gutschriftId },
+    include: {
+      kunde: { include: { kontakte: true } },
+      positionen: { include: { artikel: { select: { id: true, name: true, einheit: true, mwstSatz: true } } } },
+    },
+  });
+  if (!gutschrift) throw new Error(`Gutschrift ${gutschriftId} nicht gefunden`);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+  const COL_BOX_BG: [number, number, number] = [249, 249, 249];
+  const COL_BOX_BORDER: [number, number, number] = [221, 221, 221];
+
+  const k = gutschrift.kunde;
+  const gutschriftDatum = new Date(gutschrift.datum);
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch { /* ignore */ }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Gutschrift", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  let metaYG = 27;
+  const metaLabelXG = 155;
+  const metaValueXG = 196;
+  const drawMetaG = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelXG, metaYG, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueXG, metaYG, { align: "right" });
+    metaYG += 5;
+  };
+  drawMetaG("Gutschriftnummer:", gutschrift.nummer, true);
+  drawMetaG("Datum:", formatDatum(gutschriftDatum));
+  drawMetaG("Grund:", gutschrift.grund);
+
+  const sepYG = Math.max(metaYG + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepYG, 196, sepYG);
+
+  let eyG = sepYG + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_LABEL);
+  doc.text("EMPFÄNGER", 14, eyG);
+  eyG += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, eyG);
+  eyG += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (k.firma) { doc.text(k.name, 14, eyG); eyG += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, eyG); eyG += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, eyG); eyG += 5; }
+
+  eyG += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Gutschrift ${gutschrift.nummer}`, 14, eyG);
+  eyG += 6;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionenG = gutschrift.positionen as any[];
+  const gutschriftHead = [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+  const gutschriftBody = positionenG.map((p, i) => [
+    String(i + 1),
+    p.artikel.name,
+    p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 }),
+    p.artikel.einheit,
+    formatEuro(p.preis),
+    formatEuro(p.menge * p.preis),
+  ]);
+
+  autoTable(doc, {
+    startY: eyG + 2,
+    head: gutschriftHead,
+    body: gutschriftBody,
+    theme: "plain",
+    headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
+    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+  });
+
+  const finalYG = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+  const mwstGruppenG = new Map<number, number>();
+  let nettoGesamtG = 0;
+  for (const p of positionenG) {
+    const netto = p.menge * p.preis;
+    nettoGesamtG += netto;
+    const satz = p.artikel.mwstSatz ?? 19;
+    mwstGruppenG.set(satz, (mwstGruppenG.get(satz) ?? 0) + netto);
+  }
+  let mwstGesamtG = 0;
+  for (const [satz, basis] of mwstGruppenG) mwstGesamtG += basis * (satz / 100);
+  const bruttoG = nettoGesamtG + mwstGesamtG;
+
+  let sumYG = finalYG + 2;
+  const sumLabelXG = 140;
+  const sumValueXG = 196;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(68);
+  doc.text("Nettobetrag:", sumLabelXG, sumYG);
+  doc.setTextColor(...COL_TEXT);
+  doc.text(formatEuro(nettoGesamtG), sumValueXG, sumYG, { align: "right" });
+  sumYG += 5.5;
+
+  for (const [satz, basis] of Array.from(mwstGruppenG.entries()).sort(([a], [b]) => a - b)) {
+    doc.setTextColor(68);
+    doc.text(`MwSt ${satz} %:`, sumLabelXG, sumYG);
+    doc.setTextColor(...COL_TEXT);
+    doc.text(formatEuro(basis * (satz / 100)), sumValueXG, sumYG, { align: "right" });
+    sumYG += 5.5;
+  }
+
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.5);
+  doc.line(sumLabelXG, sumYG, sumValueXG, sumYG);
+  sumYG += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Gutschriftbetrag:", sumLabelXG, sumYG);
+  doc.text(formatEuro(bruttoG), sumValueXG, sumYG, { align: "right" });
+  sumYG += 8;
+
+  if (FIRMA.iban) {
+    const boxX = 14;
+    const boxY = sumYG + 4;
+    const boxW = 182;
+    const boxH = 20;
+    doc.setDrawColor(...COL_BOX_BORDER);
+    doc.setFillColor(...COL_BOX_BG);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 1.5, 1.5, "FD");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COL_TEXT);
+    doc.text("Bankverbindung für Rückerstattung", boxX + 4, boxY + 6);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51);
+    const bankZeile = [
+      FIRMA.bank ? `Bank: ${FIRMA.bank}` : "",
+      FIRMA.iban ? `IBAN: ${FIRMA.iban}` : "",
+      FIRMA.bic ? `BIC: ${FIRMA.bic}` : "",
+    ].filter(Boolean).join("    ");
+    if (bankZeile) doc.text(bankZeile, boxX + 4, boxY + 13);
+  }
+
+  if (gutschrift.notiz?.trim()) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Hinweis: ${gutschrift.notiz.trim()}`, 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, sumYG + 30 + i * 4));
+  }
+
+  zeichneDokumentFooter(doc, footerSpalten);
+  return Buffer.from(doc.output("arraybuffer"));
+}

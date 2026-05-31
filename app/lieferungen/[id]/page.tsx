@@ -42,7 +42,7 @@ interface Lieferung {
   skontoProzent?: number | null;
   skontoTage?: number | null;
   skontoGenutzt?: boolean | null;
-  kunde: { id: number; name: string; firma?: string };
+  kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string }[] };
   positionen: Position[];
 }
 
@@ -107,6 +107,13 @@ export default function LieferungDetailPage() {
 
   const [notizEditId, setNotizEditId] = useState<number | null>(null);
   const [notizEditValue, setNotizEditValue] = useState<string>("");
+
+  // E-Mail-Versand
+  const [emailOffen, setEmailOffen] = useState(false);
+  const [emailEmpfaenger, setEmailEmpfaenger] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailErfolg, setEmailErfolg] = useState("");
+  const [emailFehler, setEmailFehler] = useState("");
   const [notizSavingId, setNotizSavingId] = useState<number | null>(null);
 
   // Position hinzufügen (nur geplant)
@@ -134,6 +141,8 @@ export default function LieferungDetailPage() {
     setRechnungNrEdit(data.rechnungNr ?? "");
     setRechnungNrEditing(false);
     setRechnungNrError("");
+    const emailKontakt = data.kunde?.kontakte?.find((k: { typ: string; wert: string }) => k.typ === "email");
+    if (emailKontakt) setEmailEmpfaenger(emailKontakt.wert);
     setSkontoProzentEdit(String(data.skontoProzent ?? ""));
     setSkontoTageEdit(String(data.skontoTage ?? ""));
     setSkontoGenutztEdit(!!data.skontoGenutzt);
@@ -968,6 +977,15 @@ export default function LieferungDetailPage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </a>
             )}
+            {lieferung.rechnungNr && (
+              <button
+                onClick={() => { setEmailOffen((v) => !v); setEmailErfolg(""); setEmailFehler(""); }}
+                className="p-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
+                title="Rechnung per E-Mail senden"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              </button>
+            )}
             {lieferung.status !== "storniert" && (
               <Link
                 href={`/reklamationen/neu?kundeId=${lieferung.kunde.id}&lieferungId=${id}`}
@@ -979,6 +997,47 @@ export default function LieferungDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Inline E-Mail-Versand Rechnung */}
+        {emailOffen && lieferung.rechnungNr && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-sm font-medium text-gray-700 mb-2">Rechnung per E-Mail senden</p>
+            <div className="flex flex-wrap gap-2 items-center">
+              <input
+                type="email"
+                value={emailEmpfaenger}
+                onChange={(e) => setEmailEmpfaenger(e.target.value)}
+                placeholder="empfaenger@example.com"
+                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64"
+              />
+              <button
+                disabled={emailLoading || !emailEmpfaenger}
+                onClick={async () => {
+                  setEmailLoading(true); setEmailErfolg(""); setEmailFehler("");
+                  try {
+                    const res = await fetch("/api/exporte/rechnung/mail", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ lieferungId: lieferung.id, empfaenger: emailEmpfaenger }),
+                    });
+                    const data = await res.json() as { ok?: boolean; error?: string };
+                    if (data.ok) { setEmailErfolg(`Versendet an ${emailEmpfaenger}`); setEmailOffen(false); }
+                    else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
+                  } catch { setEmailFehler("Versand fehlgeschlagen"); }
+                  finally { setEmailLoading(false); }
+                }}
+                className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {emailLoading ? "Sendet…" : "Senden"}
+              </button>
+              <button onClick={() => setEmailOffen(false)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">Abbrechen</button>
+              {emailFehler && <span className="text-sm text-red-600 w-full">{emailFehler}</span>}
+            </div>
+          </div>
+        )}
+        {emailErfolg && !emailOffen && (
+          <div className="mt-3 text-sm text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{emailErfolg}</div>
+        )}
       </div>
 
       {/* Positions table */}

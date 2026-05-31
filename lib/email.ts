@@ -13,6 +13,8 @@ export type EmailAttachment = {
 export type EmailConfig = {
   provider: EmailProvider;
   fromAddress: string;
+  replyTo?: string;
+  bcc?: string;
   smtpHost?: string;
   smtpPort: number;
   smtpSecure: boolean;
@@ -43,6 +45,8 @@ export async function loadEmailConfig(): Promise<EmailConfig> {
   return {
     provider,
     fromAddress,
+    replyTo: map["email.reply_to"] || undefined,
+    bcc: map["email.bcc"] || undefined,
     smtpHost: map["smtp.host"],
     smtpPort: (() => { const p = parseInt(map["smtp.port"] ?? "", 10); return isNaN(p) ? 587 : p; })(),
     smtpSecure: map["smtp.secure"] === "true",
@@ -82,6 +86,8 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
       subject: args.subject,
       text: args.text,
       html: args.html,
+      reply_to: cfg.replyTo,
+      bcc: cfg.bcc ? [cfg.bcc] : undefined,
       attachments: args.attachments?.map((a) => ({
         filename: a.filename,
         content: a.content.toString("base64"),
@@ -101,6 +107,8 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
   await transporter.sendMail({
     from,
     to: args.to,
+    replyTo: cfg.replyTo,
+    bcc: cfg.bcc,
     subject: args.subject,
     text: args.text,
     html: args.html,
