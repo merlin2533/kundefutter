@@ -141,6 +141,11 @@ export async function POST(req: NextRequest) {
 
   let currentY = 82;
 
+  // Charge-Spalte nur anzeigen, wenn mindestens eine Position eine Charge hat
+  const hatCharge = sammelrechnung.lieferungen.some((l) =>
+    l.positionen.some((p) => p.chargeNr),
+  );
+
   // ── Per-Lieferung sections ────────────────────────────────────────────────
   for (const lieferung of sammelrechnung.lieferungen) {
     doc.setFontSize(10);
@@ -152,28 +157,33 @@ export async function POST(req: NextRequest) {
 
     const rows = lieferung.positionen.map((p, i) => {
       const netto = p.menge * p.verkaufspreis;
-      return [
-        String(i + 1),
-        p.artikel.artikelnummer,
-        p.artikel.name,
-        `${p.menge.toFixed(2)} ${p.artikel.einheit}`,
-        formatEuro(p.verkaufspreis),
-        formatEuro(netto),
-      ];
+      const r = [String(i + 1), p.artikel.artikelnummer, p.artikel.name];
+      if (hatCharge) r.push(p.chargeNr ?? "—");
+      r.push(`${p.menge.toFixed(2)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
+      return r;
     });
 
     autoTable(doc, {
       startY: currentY + 3,
-      head: [["Pos.", "Art.-Nr.", "Bezeichnung", "Menge", "Einzel (€)", "Gesamt (€)"]],
+      head: hatCharge
+        ? [["Pos.", "Art.-Nr.", "Bezeichnung", "Charge", "Menge", "Einzel (€)", "Gesamt (€)"]]
+        : [["Pos.", "Art.-Nr.", "Bezeichnung", "Menge", "Einzel (€)", "Gesamt (€)"]],
       body: rows,
       headStyles: { fillColor: [22, 101, 52], fontSize: 8 },
       styles: { fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 22 },
-        4: { halign: "right" },
-        5: { halign: "right" },
-      },
+      columnStyles: hatCharge
+        ? {
+            0: { cellWidth: 10 },
+            1: { cellWidth: 20 },
+            5: { halign: "right" },
+            6: { halign: "right" },
+          }
+        : {
+            0: { cellWidth: 10 },
+            1: { cellWidth: 22 },
+            4: { halign: "right" },
+            5: { halign: "right" },
+          },
       margin: { left: 14, right: 14 },
     });
 
@@ -207,28 +217,33 @@ export async function POST(req: NextRequest) {
 
   const gesamtRows = allPositionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis;
-    return [
-      String(i + 1),
-      formatDatum(p.lieferDatum),
-      p.artikel.name,
-      `${p.menge.toFixed(2)} ${p.artikel.einheit}`,
-      formatEuro(p.verkaufspreis),
-      formatEuro(netto),
-    ];
+    const r = [String(i + 1), formatDatum(p.lieferDatum), p.artikel.name];
+    if (hatCharge) r.push(p.chargeNr ?? "—");
+    r.push(`${p.menge.toFixed(2)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
+    return r;
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [["Pos.", "Lieferdatum", "Bezeichnung", "Menge", "Einzel (€)", "Gesamt (€)"]],
+    head: hatCharge
+      ? [["Pos.", "Lieferdatum", "Bezeichnung", "Charge", "Menge", "Einzel (€)", "Gesamt (€)"]]
+      : [["Pos.", "Lieferdatum", "Bezeichnung", "Menge", "Einzel (€)", "Gesamt (€)"]],
     body: gesamtRows,
     headStyles: { fillColor: [22, 101, 52] },
     styles: { fontSize: 9 },
-    columnStyles: {
-      0: { cellWidth: 10 },
-      1: { cellWidth: 24 },
-      4: { halign: "right" },
-      5: { halign: "right" },
-    },
+    columnStyles: hatCharge
+      ? {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 24 },
+          5: { halign: "right" },
+          6: { halign: "right" },
+        }
+      : {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 24 },
+          4: { halign: "right" },
+          5: { halign: "right" },
+        },
     margin: { left: 14, right: 14 },
   });
 
