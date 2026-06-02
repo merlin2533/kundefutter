@@ -272,28 +272,41 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const positionen = lieferung.positionen as any[];
   const hatRabatt = positionen.some((p) => (p.rabattProzent ?? 0) > 0);
+  const hatCharge = positionen.some((p) => p.chargeNr);
 
-  const head = hatRabatt
-    ? [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Rabatt %", "Gesamt"]]
-    : [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+  const headCols = ["Pos.", "Artikel"];
+  if (hatCharge) headCols.push("Charge");
+  headCols.push("Menge", "Einheit", "Einzelpreis");
+  if (hatRabatt) headCols.push("Rabatt %");
+  headCols.push("Gesamt");
+  const head = [headCols];
 
   const body = positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const artikelZelle = `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
     const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
-    const base = [
-      String(i + 1),
-      artikelZelle,
-      mengeStr,
-      p.artikel.einheit,
-      formatEuro(p.verkaufspreis),
-    ];
+    const base = [String(i + 1), artikelZelle];
+    if (hatCharge) base.push(p.chargeNr ?? "—");
+    base.push(mengeStr, p.artikel.einheit, formatEuro(p.verkaufspreis));
     if (hatRabatt) {
       base.push((p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "");
     }
     base.push(formatEuro(netto));
     return base;
   });
+
+  // Spaltenbreiten dynamisch je nach optionalen Charge-/Rabatt-Spalten
+  type ColStyle = { cellWidth?: number | "auto"; halign?: "left" | "center" | "right" | "justify" };
+  const columnStyles: Record<number, ColStyle> = {};
+  let ci = 0;
+  columnStyles[ci++] = { cellWidth: 12 };                 // Pos.
+  columnStyles[ci++] = { cellWidth: "auto" };             // Artikel
+  if (hatCharge) columnStyles[ci++] = { cellWidth: 24 };  // Charge
+  columnStyles[ci++] = { halign: "right", cellWidth: 18 };// Menge
+  columnStyles[ci++] = { cellWidth: 16 };                 // Einheit
+  columnStyles[ci++] = { halign: "right", cellWidth: 24 };// Einzelpreis
+  if (hatRabatt) columnStyles[ci++] = { halign: "right", cellWidth: 18 }; // Rabatt %
+  columnStyles[ci++] = { halign: "right", cellWidth: 26 };// Gesamt
 
   autoTable(doc, {
     startY: ey + 2,
@@ -316,24 +329,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
       textColor: [0, 0, 0],
       valign: "top",
     },
-    columnStyles: hatRabatt
-      ? {
-          0: { cellWidth: 12 },
-          1: { cellWidth: "auto" },
-          2: { halign: "right", cellWidth: 18 },
-          3: { cellWidth: 16 },
-          4: { halign: "right", cellWidth: 24 },
-          5: { halign: "right", cellWidth: 18 },
-          6: { halign: "right", cellWidth: 26 },
-        }
-      : {
-          0: { cellWidth: 12 },
-          1: { cellWidth: "auto" },
-          2: { halign: "right", cellWidth: 20 },
-          3: { cellWidth: 18 },
-          4: { halign: "right", cellWidth: 28 },
-          5: { halign: "right", cellWidth: 28 },
-        },
+    columnStyles,
   });
 
   const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;

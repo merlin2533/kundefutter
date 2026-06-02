@@ -21,6 +21,7 @@ interface Position {
   verkaufspreis: number;
   einkaufspreis: number;
   rabattProzent?: number | null;
+  chargeNr?: string | null;
   artikel: ArtikelInfo;
 }
 
@@ -236,6 +237,7 @@ export default function RechnungPrintPage() {
   }));
 
   const hatRabatt = positionenMitNetto.some((p) => (p.rabattProzent ?? 0) > 0);
+  const hatCharge = positionenMitNetto.some((p) => p.chargeNr);
 
   const nettobetrag = positionenMitNetto.reduce((s, p) => s + p.netto, 0);
 
@@ -471,6 +473,7 @@ export default function RechnungPrintPage() {
             <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
+              {hatCharge && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
@@ -499,6 +502,11 @@ export default function RechnungPrintPage() {
                     MwSt {p.artikel.mwstSatz ?? 19} %
                   </div>
                 </td>
+                {hatCharge && (
+                  <td style={{ padding: "6px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
+                    {p.chargeNr ?? "—"}
+                  </td>
+                )}
                 <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
                   {formatMenge(p.menge)}
                 </td>
