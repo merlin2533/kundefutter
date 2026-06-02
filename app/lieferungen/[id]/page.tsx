@@ -352,7 +352,7 @@ export default function LieferungDetailPage() {
     const menge = parseFloat(addPosMenge.replace(",", "."));
     if (isNaN(menge) || menge <= 0) { setAddPosError("Ungültige Menge."); return; }
     const selArt = artikelListe.find((a) => String(a.id) === addPosArtikelId);
-    if (selArt?.chargePflicht && !addPosCharge.trim()) { setAddPosError(`Chargennummer für „${selArt.name}" ist Pflichtfeld.`); return; }
+    // charge validation deferred to status change / invoice creation
     setAddPosSaving(true);
     setAddPosError("");
     try {
@@ -406,6 +406,15 @@ export default function LieferungDetailPage() {
   }, []);
 
   async function markiereGeliefert() {
+    const missingCharge = lieferung?.positionen.find((p) => {
+      const art = artikelListe.find((a) => a.id === p.artikel.id);
+      return art?.chargePflicht && !p.chargeNr?.trim();
+    });
+    if (missingCharge) {
+      const art = artikelListe.find((a) => a.id === missingCharge.artikel.id);
+      setError(`Chargennummer für „${art?.name ?? missingCharge.artikel.name}" ist Pflichtfeld.`);
+      return;
+    }
     setActionLoading(true);
     setError("");
     try {
@@ -447,6 +456,15 @@ export default function LieferungDetailPage() {
   }
 
   async function rechnungErstellen() {
+    const missingCharge = lieferung?.positionen.find((p) => {
+      const art = artikelListe.find((a) => a.id === p.artikel.id);
+      return art?.chargePflicht && !p.chargeNr?.trim();
+    });
+    if (missingCharge) {
+      const art = artikelListe.find((a) => a.id === missingCharge.artikel.id);
+      setError(`Chargennummer für „${art?.name ?? missingCharge.artikel.name}" ist Pflichtfeld.`);
+      return;
+    }
     setActionLoading(true);
     setError("");
     try {

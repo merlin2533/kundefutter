@@ -326,16 +326,6 @@ function NeueLieferungInner() {
       setError("Bitte die Bestätigung zur Sprengstoffvorläufer-Erklärung setzen.");
       return;
     }
-    const missingCharge = positionen.find((p) => {
-      if (!p.artikelId) return false;
-      const art = artikel.find((a) => a.id === Number(p.artikelId));
-      return art?.chargePflicht && !p.chargeNr.trim();
-    });
-    if (missingCharge) {
-      const art = artikel.find((a) => a.id === Number(missingCharge.artikelId));
-      setError(`Chargennummer für „${art?.name}" ist Pflichtfeld.`);
-      return;
-    }
     setSaving(true);
     setError("");
     try {
