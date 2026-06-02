@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { randomUUID } from "crypto";
+import { version as appVersion } from "./package.json";
 
 const buildId = randomUUID();
 
@@ -17,6 +18,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_BUILD_ID: buildId,
+    NEXT_PUBLIC_APP_VERSION: appVersion,
   },
   async headers() {
     return [

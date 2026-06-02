@@ -183,6 +183,18 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
 | Nominatim | Geocodierung via OpenStreetMap |
 | Eurostat REST API | Agrarrohstoff-Preisindizes |
 
+Die vollständige Übersicht aller verwendeten Drittanbieter-Bibliotheken und ihrer
+Lizenzen findet sich in [`THIRD-PARTY-LICENSES.md`](./THIRD-PARTY-LICENSES.md).
+Alle Laufzeit-Abhängigkeiten stehen unter permissiven Lizenzen
+(MIT, Apache-2.0, BSD, ISC).
+
+---
+
+## Changelog
+
+Die Versionshistorie wird in [`CHANGELOG.md`](./CHANGELOG.md) gepflegt.
+Aktuelle Version: **1.0.0** (erste öffentliche Version).
+
 ---
 
 ## Entwicklung
