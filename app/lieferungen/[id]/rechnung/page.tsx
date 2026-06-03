@@ -234,6 +234,11 @@ export default function RechnungPrintPage() {
 
   async function handleMailSenden() {
     if (!lieferung) return;
+    const kundenname = lieferung.kunde.firma ?? lieferung.kunde.name;
+    const bestaetigt = window.confirm(
+      `Rechnung ${lieferung.rechnungNr ?? ""} per E-Mail an ${kundenname} senden?`,
+    );
+    if (!bestaetigt) return;
     setMailSending(true);
     setMailMsg("");
     try {
