@@ -130,10 +130,13 @@ export default function RechnungenPage() {
         (r.kunde.firma ?? "").toLowerCase().includes(q);
       return matchFilter && matchSearch;
     })
-    // Nach Rechnungs-Nr sortieren (nicht nach Datum); natürliche numerische Sortierung, höchste Nr zuerst
-    .sort((a, b) =>
-      (b.rechnungNr ?? "").localeCompare(a.rechnungNr ?? "", "de", { numeric: true, sensitivity: "base" })
-    );
+    // Nach laufender Nummer sortieren: numerisches Suffix (NNNN-Teil) extrahieren, höchste zuerst
+    .sort((a, b) => {
+      const suffix = (nr: string) => parseInt(nr.split("-").pop() ?? "0", 10);
+      const diff = suffix(b.rechnungNr) - suffix(a.rechnungNr);
+      if (diff !== 0) return diff;
+      return b.id - a.id;
+    });
 
   const gesamtOffen = rechnungen
     .filter((r) => getRechnungStatus(r) === "offen")

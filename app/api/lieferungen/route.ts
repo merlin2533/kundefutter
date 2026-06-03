@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: { datum: "desc" },
+      orderBy: [{ datum: "desc" }, { id: "desc" }],
       skip: (page - 1) * limit,
       take: limit,
     });

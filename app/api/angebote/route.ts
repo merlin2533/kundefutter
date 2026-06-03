@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
           include: { artikel: { select: { name: true, einheit: true, mwstSatz: true } } },
         },
       },
-      orderBy: { datum: "desc" },
+      orderBy: { id: "desc" },
       take: 200,
     });
 
