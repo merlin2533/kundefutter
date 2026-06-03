@@ -138,7 +138,7 @@ export default function AngebotDetailPage() {
   }
 
   async function handleAnnehmen() {
-    if (!confirm("Angebot annehmen? Lieferung, Rechnung und Bestellpositionen werden automatisch erstellt.")) return;
+    if (!confirm("Angebot annehmen?\n\nEs wird automatisch erstellt:\n• Lieferung (Status: geplant)\n• Rechnung mit Rechnungsnummer\n• Bestellpositionen\n\nNach Rechnungsstellung sind Preise gesperrt.")) return;
     await handleUpdate({ aktion: "annehmen" });
   }
 
@@ -297,6 +297,13 @@ export default function AngebotDetailPage() {
               >
                 Annehmen (Lieferung + Rechnung)
               </button>
+              <Link
+                href={`/lieferungen/neu?ausAngebot=${id}&kundeId=${angebot.kunde.id}`}
+                className="w-full sm:w-auto text-center px-3 py-2 sm:py-1.5 border border-green-600 text-green-700 text-sm rounded-lg hover:bg-green-50 transition-colors"
+                title="Nur Lieferung erstellen – Rechnung später separat stellen"
+              >
+                Nur Lieferung erstellen
+              </Link>
               <button
                 onClick={handleAblehnen}
                 disabled={saving}
@@ -352,25 +359,28 @@ export default function AngebotDetailPage() {
 
       {/* Lieferung + Rechnung links if angenommen */}
       {(lieferungId || angebot.status === "ANGENOMMEN") && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800 flex flex-wrap items-center justify-between gap-3">
-          <span>
-            Angebot wurde angenommen — Lieferung, Rechnung und Bestellpositionen wurden erstellt.
-          </span>
-          <div className="flex gap-2 flex-wrap">
-            {lieferungId && (
-              <Link href={`/lieferungen/${lieferungId}`} className="px-3 py-1.5 bg-green-700 text-white text-xs font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap">
-                Lieferung #{lieferungId} →
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-4 text-sm text-green-800">
+          <div className="font-semibold mb-2">Angebot angenommen — nächste Schritte:</div>
+          <div className="flex flex-wrap gap-2">
+            {lieferungId ? (
+              <Link href={`/lieferungen/${lieferungId}`} className="px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap">
+                → Zur Lieferung #{lieferungId}
+              </Link>
+            ) : (
+              <Link href="/lieferungen" className="px-4 py-2 bg-green-700 text-white text-sm font-semibold rounded-lg hover:bg-green-800 transition-colors whitespace-nowrap">
+                → Zu den Lieferungen
               </Link>
             )}
             {sammelrechnungId && (
-              <Link href={`/sammelrechnungen/${sammelrechnungId}`} className="px-3 py-1.5 bg-blue-700 text-white text-xs font-semibold rounded-lg hover:bg-blue-800 transition-colors whitespace-nowrap">
-                Rechnung {rechnungNr} →
+              <Link href={`/sammelrechnungen/${sammelrechnungId}`} className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap">
+                → Zur Rechnung {rechnungNr}
               </Link>
             )}
-            <Link href="/bestellliste" className="px-3 py-1.5 border border-green-600 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-100 transition-colors whitespace-nowrap">
-              Bestellliste →
+            <Link href="/bestellliste" className="px-4 py-2 border border-green-600 text-green-700 text-sm font-semibold rounded-lg hover:bg-green-100 transition-colors whitespace-nowrap">
+              Bestellliste ansehen
             </Link>
           </div>
+          <p className="mt-2 text-xs text-green-700 opacity-75">Tipp: Zahlungsziel und Lieferdatum direkt in der Lieferung setzen.</p>
         </div>
       )}
 

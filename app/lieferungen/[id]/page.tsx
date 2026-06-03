@@ -71,6 +71,7 @@ export default function LieferungDetailPage() {
   const [showStornoModal, setShowStornoModal] = useState(false);
   const [stornoBegründung, setStornoBegrundung] = useState("");
   const [stornoError, setStornoError] = useState("");
+  const [showGutschriftNachStornoHint, setShowGutschriftNachStornoHint] = useState(false);
   const [zahlungszielEdit, setZahlungszielEdit] = useState<string>("");
   const [zahlungszielSaved, setZahlungszielSaved] = useState(false);
   const [zahlungszielError, setZahlungszielError] = useState("");
@@ -242,7 +243,7 @@ export default function LieferungDetailPage() {
   }
 
   function startRabattEdit(pos: Position) {
-    if (lieferung && lieferung.status === "storniert") return;
+    if (lieferung && (lieferung.status === "storniert" || !!lieferung.rechnungNr)) return;
     setRabattEditId(pos.id);
     setRabattEditValue(String(pos.rabattProzent ?? 0));
   }
@@ -289,7 +290,7 @@ export default function LieferungDetailPage() {
   }
 
   function canEditPos() {
-    return lieferung && lieferung.status !== "storniert";
+    return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungNr;
   }
 
   async function speichereRechnungNr() {
@@ -437,6 +438,7 @@ export default function LieferungDetailPage() {
   async function handleStorno(e: React.FormEvent) {
     e.preventDefault();
     if (!stornoBegründung.trim()) { setStornoError("Bitte eine Begründung angeben."); return; }
+    const hatRechnung = !!lieferung?.rechnungNr;
     setActionLoading(true);
     setStornoError("");
     try {
@@ -448,6 +450,7 @@ export default function LieferungDetailPage() {
       if (!res.ok) throw new Error("Fehler beim Stornieren");
       setShowStornoModal(false);
       setStornoBegrundung("");
+      if (hatRechnung) setShowGutschriftNachStornoHint(true);
       await load();
     } catch {
       setStornoError("Fehler beim Stornieren.");
@@ -753,6 +756,38 @@ export default function LieferungDetailPage() {
         </div>
       )}
 
+      {lieferung.rechnungNr && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 print:hidden">
+          <span>Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> gestellt — Positionen sind gesperrt.</span>
+          <Link href={`/gutschriften/neu?lieferungId=${id}`} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
+            Gutschrift erstellen →
+          </Link>
+        </div>
+      )}
+
+      {istUeberfaellig && lieferung.rechnungNr && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3 print:hidden">
+          <span>Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> ist seit <span className="font-semibold">{faelligSeitTagen} Tagen</span> überfällig.</span>
+          <Link href="/mahnwesen" className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
+            Mahnwesen öffnen →
+          </Link>
+        </div>
+      )}
+
+      {showGutschriftNachStornoHint && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-3 print:hidden">
+          <span>Lieferung storniert. Rechnung war bereits gestellt — bitte Gutschrift erstellen.</span>
+          <div className="flex gap-2">
+            <Link href={`/gutschriften/neu?lieferungId=${id}`} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
+              Gutschrift erstellen →
+            </Link>
+            <button onClick={() => setShowGutschriftNachStornoHint(false)} className="px-3 py-1.5 border border-blue-300 text-blue-700 text-xs rounded-lg hover:bg-blue-100 transition-colors">
+              Schließen
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header card */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-6 print:hidden">
         <div className="flex items-start justify-between flex-wrap gap-4">
@@ -858,33 +893,31 @@ export default function LieferungDetailPage() {
                 <span className="text-xs text-gray-400">(Standard: Erfassungsdatum {formatDatum(lieferung.datum)})</span>
               )}
             </div>
-            {istGeliefert && (
-              <div className="mt-2 flex items-center flex-wrap gap-2 text-sm">
-                <label className="text-gray-600 whitespace-nowrap">Zahlungsziel:</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={365}
-                  value={zahlungszielEdit}
-                  onChange={(e) => { setZahlungszielEdit(e.target.value); setZahlungszielError(""); setZahlungszielSaved(false); }}
-                  className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-green-700"
-                />
-                <span className="text-gray-500">Tage</span>
-                <button
-                  onClick={speichereZahlungsziel}
-                  disabled={actionLoading}
-                  className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
-                >
-                  Speichern
-                </button>
-                {zahlungszielSaved && (
-                  <span className="text-xs text-green-700">✓ gespeichert</span>
-                )}
-                {zahlungszielError && (
-                  <span className="text-xs text-red-600">{zahlungszielError}</span>
-                )}
-              </div>
-            )}
+            <div className="mt-2 flex items-center flex-wrap gap-2 text-sm">
+              <label className="text-gray-600 whitespace-nowrap">Zahlungsziel:</label>
+              <input
+                type="number"
+                min={0}
+                max={365}
+                value={zahlungszielEdit}
+                onChange={(e) => { setZahlungszielEdit(e.target.value); setZahlungszielError(""); setZahlungszielSaved(false); }}
+                className="w-20 border border-gray-300 rounded px-2 py-0.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-green-700"
+              />
+              <span className="text-gray-500">Tage</span>
+              <button
+                onClick={speichereZahlungsziel}
+                disabled={actionLoading}
+                className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
+              >
+                Speichern
+              </button>
+              {zahlungszielSaved && (
+                <span className="text-xs text-green-700">✓ gespeichert</span>
+              )}
+              {zahlungszielError && (
+                <span className="text-xs text-red-600">{zahlungszielError}</span>
+              )}
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -1071,6 +1104,57 @@ export default function LieferungDetailPage() {
         />
       </div>
 
+      {/* Workflow-Fortschrittsleiste */}
+      {lieferung.status !== "storniert" && (() => {
+        const steps: { label: string; done: boolean; onClick?: () => void; title?: string }[] = [
+          { label: "Erfasst", done: true },
+          {
+            label: "Geliefert",
+            done: lieferung.status === "geliefert",
+            onClick: lieferung.status === "geplant" ? markiereGeliefert : undefined,
+            title: lieferung.status === "geplant" ? "Als geliefert markieren" : undefined,
+          },
+          {
+            label: "Rechnung gestellt",
+            done: !!lieferung.rechnungNr,
+            onClick: lieferung.rechnungNr
+              ? () => router.push(`/lieferungen/${id}/rechnung`)
+              : lieferung.status === "geliefert" ? rechnungErstellen : undefined,
+            title: lieferung.rechnungNr
+              ? "Rechnung öffnen"
+              : lieferung.status === "geliefert" ? "Rechnung erstellen" : undefined,
+          },
+          {
+            label: "Bezahlt",
+            done: !!lieferung.bezahltAm,
+            onClick: !lieferung.bezahltAm && lieferung.rechnungNr ? markiereBezahlt : undefined,
+            title: !lieferung.bezahltAm && lieferung.rechnungNr ? "Als bezahlt markieren" : undefined,
+          },
+        ];
+        return (
+          <div className="flex items-center mb-6 print:hidden overflow-x-auto pb-1">
+            {steps.map((step, i) => (
+              <div key={step.label} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={step.onClick}
+                  disabled={!step.onClick}
+                  title={step.title}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${step.done ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-400"} ${step.onClick ? "hover:opacity-80 cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${step.done ? "bg-green-600 text-white" : "bg-gray-300 text-gray-500"}`}>{i + 1}</span>
+                  {step.label}
+                  {step.onClick && !step.done && <span className="ml-0.5 opacity-60">→</span>}
+                </button>
+                {i < steps.length - 1 && (
+                  <div className={`w-6 h-0.5 flex-shrink-0 ${steps[i + 1].done ? "bg-green-300" : "bg-gray-200"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Positions table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto mb-6 print:hidden">
         <table className="w-full min-w-[700px] text-sm">
@@ -1141,7 +1225,7 @@ export default function LieferungDetailPage() {
                         <button onClick={() => setVkEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (
-                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : "Lieferung storniert"}>
+                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : lieferung.rechnungNr ? "Gesperrt: Rechnung bereits gestellt" : "Lieferung storniert"}>
                         {formatEuro(pos.verkaufspreis)}
                       </button>
                     )}
@@ -1185,11 +1269,13 @@ export default function LieferungDetailPage() {
                       <button
                         type="button"
                         onClick={() => startRabattEdit(pos)}
-                        disabled={lieferung.status === "storniert"}
+                        disabled={lieferung.status === "storniert" || !!lieferung.rechnungNr}
                         className="hover:underline disabled:no-underline disabled:cursor-not-allowed"
                         title={
                           lieferung.status === "storniert"
                             ? "Lieferung storniert"
+                            : lieferung.rechnungNr
+                            ? "Gesperrt: Rechnung bereits gestellt"
                             : "Rabatt bearbeiten"
                         }
                       >
@@ -1561,6 +1647,11 @@ export default function LieferungDetailPage() {
               {stornoError && (
                 <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   {stornoError}
+                </div>
+              )}
+              {lieferung.rechnungNr && (
+                <div className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-3 py-2">
+                  Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> ist gestellt. Nach dem Storno empfehlen wir eine Gutschrift zu erstellen.
                 </div>
               )}
               <div>

@@ -43,10 +43,12 @@ function NeueGutschriftForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedKundeId = searchParams.get("kundeId") ?? "";
+  const preselectedLieferungId = searchParams.get("lieferungId") ?? "";
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
+  const [prefillInfo, setPrefillInfo] = useState<{ nr: string; id: number } | null>(null);
 
   const FALLBACK_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
   const [gutschriftGruende, setGutschriftGruende] = useState<string[]>(FALLBACK_GRUENDE);
@@ -86,18 +88,41 @@ function NeueGutschriftForm() {
       .catch(() => {});
   }, []);
 
+  // Wenn lieferungId-Param gesetzt: Lieferung direkt laden und alles vorausfüllen
+  useEffect(() => {
+    if (!preselectedLieferungId) return;
+    fetch(`/api/lieferungen/${preselectedLieferungId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((lief) => {
+        if (!lief) return;
+        setKundeId(String(lief.kundeId));
+        setLieferungId(String(lief.id));
+        setPrefillInfo({ nr: lief.rechnungNr ?? `#${lief.id}`, id: lief.id });
+        if (lief.positionen?.length) {
+          setPositionen(lief.positionen.map((p: { artikelId: number; menge: number; verkaufspreis: number }) => ({
+            artikelId: String(p.artikelId),
+            menge: String(p.menge),
+            preis: String(p.verkaufspreis),
+            ruecknahme: false,
+          })));
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch deliveries when customer changes
   useEffect(() => {
     if (!kundeId) {
       setLieferungen([]);
-      setLieferungId("");
+      if (!preselectedLieferungId) setLieferungId("");
       return;
     }
     fetch(`/api/lieferungen?kundeId=${kundeId}`)
       .then((r) => r.json())
       .then((d) => setLieferungen(Array.isArray(d) ? d : []))
       .catch(() => {});
-  }, [kundeId]);
+  }, [kundeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-fill positions from selected delivery
   useEffect(() => {
@@ -228,6 +253,12 @@ function NeueGutschriftForm() {
       </nav>
 
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Neue Gutschrift / Retoure</h1>
+
+      {prefillInfo && (
+        <div className="mb-4 text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-3">
+          Positionen aus Lieferung / Rechnung <span className="font-mono font-medium">{prefillInfo.nr}</span> vorausgefüllt — bitte prüfen und anpassen.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Stammdaten */}
