@@ -356,8 +356,14 @@ export default function RechnungPrintPage() {
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
           thead { display: table-header-group; }
+          .falzmarke { display: block !important; position: fixed; left: 0; width: 10mm; height: 0; border-top: 0.3pt solid #aaa; }
+          .falzmarke-1 { top: 105mm; }
+          .falzmarke-2 { top: 210mm; }
         }
+        .falzmarke { display: none; }
       `}</style>
+      <div aria-hidden="true" className="falzmarke falzmarke-1" />
+      <div aria-hidden="true" className="falzmarke falzmarke-2" />
 
       {/* Screen-only controls – sticky so user always has a way out */}
       <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-1.5 p-2.5 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm no-print">
