@@ -22,13 +22,19 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      // Alle HTML-Seiten und RSC-Daten: niemals cachen
+      // Alle HTML-Seiten und RSC-Daten: niemals cachen + Security-Header
       {
         source: "/(.*)",
         headers: [
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate" },
           { key: "Pragma", value: "no-cache" },
           { key: "Expires", value: "0" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],
       },
       // Next.js statische Assets: ebenfalls kein Cache (Build-ID ändert sich bei jedem Deploy)

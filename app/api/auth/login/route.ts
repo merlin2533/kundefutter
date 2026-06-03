@@ -8,8 +8,38 @@ import {
 } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
+// Brute-Force-Schutz: max. 10 Versuche pro IP in 15 Minuten
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+function checkLoginRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= LOGIN_LIMIT) return false;
+  entry.count++;
+  return true;
+}
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (!checkLoginRateLimit(ip)) {
+    return NextResponse.json(
+      { error: "Zu viele Anmeldeversuche. Bitte 15 Minuten warten." },
+      { status: 429 },
+    );
+  }
+
   let body;
   try {
     body = await req.json();

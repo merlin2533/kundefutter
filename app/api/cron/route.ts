@@ -171,7 +171,7 @@ async function jobPegelstaende(): Promise<JobResult> {
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // Kein Secret → offen (für Docker-intern; in Produktion CRON_SECRET setzen)
+  if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
   const auth = req.headers.get("authorization") ?? "";
   return auth === `Bearer ${secret}`;
 }

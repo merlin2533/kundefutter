@@ -10,6 +10,9 @@ const DEV_FALLBACK_SECRET =
 function getSecret(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 16) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("[middleware] SESSION_SECRET ist nicht gesetzt. In Produktion MUSS SESSION_SECRET gesetzt sein.");
+    }
     return new TextEncoder().encode(DEV_FALLBACK_SECRET);
   }
   return new TextEncoder().encode(secret);
@@ -18,6 +21,9 @@ function getSecret(): Uint8Array {
 function getPortalSecret(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 16) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("[middleware] SESSION_SECRET ist nicht gesetzt. In Produktion MUSS SESSION_SECRET gesetzt sein.");
+    }
     return new TextEncoder().encode(DEV_FALLBACK_SECRET + "-portal");
   }
   return new TextEncoder().encode(secret + "-portal");
