@@ -114,21 +114,26 @@ export default function RechnungenPage() {
     }
   }
 
-  const gefiltert = rechnungen.filter((r) => {
-    const st = getRechnungStatus(r);
-    const matchFilter =
-      filter === "alle" ||
-      (filter === "offen" && st === "offen") ||
-      (filter === "ueberfaellig" && st === "ueberfaellig") ||
-      (filter === "bezahlt" && st === "bezahlt");
-    const q = search.toLowerCase();
-    const matchSearch =
-      !q ||
-      r.rechnungNr.toLowerCase().includes(q) ||
-      r.kunde.name.toLowerCase().includes(q) ||
-      (r.kunde.firma ?? "").toLowerCase().includes(q);
-    return matchFilter && matchSearch;
-  });
+  const gefiltert = rechnungen
+    .filter((r) => {
+      const st = getRechnungStatus(r);
+      const matchFilter =
+        filter === "alle" ||
+        (filter === "offen" && st === "offen") ||
+        (filter === "ueberfaellig" && st === "ueberfaellig") ||
+        (filter === "bezahlt" && st === "bezahlt");
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        r.rechnungNr.toLowerCase().includes(q) ||
+        r.kunde.name.toLowerCase().includes(q) ||
+        (r.kunde.firma ?? "").toLowerCase().includes(q);
+      return matchFilter && matchSearch;
+    })
+    // Nach Rechnungs-Nr sortieren (nicht nach Datum); natürliche numerische Sortierung, höchste Nr zuerst
+    .sort((a, b) =>
+      (b.rechnungNr ?? "").localeCompare(a.rechnungNr ?? "", "de", { numeric: true, sensitivity: "base" })
+    );
 
   const gesamtOffen = rechnungen
     .filter((r) => getRechnungStatus(r) === "offen")
