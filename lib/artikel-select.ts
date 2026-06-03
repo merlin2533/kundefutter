@@ -84,6 +84,7 @@ export const lieferungSafeSelect = {
   notiz: true,
   rechnungNr: true,
   rechnungDatum: true,
+  rechnungStorniert: true,
   bezahltAm: true,
   zahlungsziel: true,
   wiederkehrend: true,

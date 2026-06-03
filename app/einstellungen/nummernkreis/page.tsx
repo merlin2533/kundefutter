@@ -16,6 +16,10 @@ export default function NummernkreisePage() {
   const [letzteAngebotsnummer, setLetzteAngebotsnummer] = useState<string>("");
   const [letzteVorbestellnummer, setLetzteVorbestellnummer] = useState<string>("");
 
+  // Rechnungsnummer
+  const [rechnungPrefix, setRechnungPrefix] = useState("RE");
+  const [rechnungNaechste, setRechnungNaechste] = useState(1);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -43,10 +47,20 @@ export default function NummernkreisePage() {
           setAngebotPrefix(systemData["system.nummernkreis.angebot_prefix"]);
         if (systemData["system.nummernkreis.vorbestellung_prefix"])
           setVorbestellungPrefix(systemData["system.nummernkreis.vorbestellung_prefix"]);
+        if (systemData["system.nummernkreis.rechnung_prefix"])
+          setRechnungPrefix(systemData["system.nummernkreis.rechnung_prefix"]);
         if (letzteData["letzte_angebotsnummer"])
           setLetzteAngebotsnummer(letzteData["letzte_angebotsnummer"]);
         if (letzteData["letzte_vorbestellnummer"])
           setLetzteVorbestellnummer(letzteData["letzte_vorbestellnummer"]);
+        // Rechnungs-Zählerstand: "RE-2026-0042" → nächste Nummer im aktuellen Jahr
+        const letzteRe = letzteData["letzte_rechnungsnummer"];
+        if (letzteRe) {
+          const parts = letzteRe.split("-");
+          const reJahr = parts.length >= 3 ? parseInt(parts[1], 10) : 0;
+          const reSeq = parseInt(parts[parts.length - 1] || "0", 10) || 0;
+          setRechnungNaechste(reJahr === new Date().getFullYear() ? reSeq + 1 : 1);
+        }
       })
       .catch(() => setError("Fehler beim Laden der Einstellungen."))
       .finally(() => setLoading(false));
@@ -56,6 +70,7 @@ export default function NummernkreisePage() {
   const artikelPreview = `${prefix}${String(naechste).padStart(laenge, "0")}`;
   const angebotPreview = `${(angebotPrefix || "AN").trim()}-${jahr}-0001`;
   const vorbestellungPreview = `${(vorbestellungPrefix || "VB").trim()}-${jahr}-0001`;
+  const rechnungPreview = `${(rechnungPrefix || "RE").trim()}-${jahr}-${String(Math.max(1, rechnungNaechste)).padStart(4, "0")}`;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +101,23 @@ export default function NummernkreisePage() {
           body: JSON.stringify({
             key: "system.nummernkreis.vorbestellung_prefix",
             value: (vorbestellungPrefix || "VB").trim(),
+          }),
+        }),
+        fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "system.nummernkreis.rechnung_prefix",
+            value: (rechnungPrefix || "RE").trim(),
+          }),
+        }),
+        // Zählerstand so speichern, dass die nächste Rechnung "rechnungNaechste" erhält
+        fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "letzte_rechnungsnummer",
+            value: `${(rechnungPrefix || "RE").trim()}-${jahr}-${String(Math.max(0, rechnungNaechste - 1)).padStart(4, "0")}`,
           }),
         }),
       ]);
@@ -194,6 +226,42 @@ export default function NummernkreisePage() {
                 <p className="text-lg font-mono font-bold text-green-800">
                   {letzteAngebotsnummer || angebotPreview}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Rechnungsnummer */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+              <h2 className="text-sm font-semibold text-gray-700">Rechnungsnummer</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Format: Präfix-Jahr-0001 – wird automatisch +1 hochgezählt (jährlich zurückgesetzt). Gilt für Einzel- und Sammelrechnungen.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="flex gap-4 flex-wrap">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Präfix</label>
+                  <input
+                    type="text"
+                    value={rechnungPrefix}
+                    onChange={(e) => setRechnungPrefix(e.target.value)}
+                    placeholder="z.B. RE"
+                    className="w-40 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nächste Nummer</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={rechnungNaechste}
+                    onChange={(e) => setRechnungNaechste(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+                  />
+                </div>
+              </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
+                <p className="text-xs text-gray-500 mb-0.5">Vorschau nächste Rechnungsnummer</p>
+                <p className="text-lg font-mono font-bold text-green-800">{rechnungPreview}</p>
               </div>
             </div>
           </div>

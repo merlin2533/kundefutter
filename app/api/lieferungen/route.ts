@@ -27,7 +27,10 @@ export async function GET(req: NextRequest) {
     where.kundeId = kid;
   }
   if (status) where.status = status;
-  if (hatRechnung === "true") where.rechnungNr = { not: null };
+  if (hatRechnung === "true") {
+    where.rechnungNr = { not: null };
+    where.rechnungStorniert = null; // stornierte Rechnungen erscheinen nicht in der Rechnungsliste
+  }
   if (ohneRechnung === "true") where.rechnungNr = null;
   if (search) {
     // Suche auf eine sinnvolle Länge begrenzen (verhindert pathologische LIKE-Queries)
@@ -211,7 +214,7 @@ export async function POST(req: NextRequest) {
       kreditlimitWert = kunde.kreditlimit;
       // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer)
       const offeneLieferungen = await prisma.lieferung.findMany({
-        where: { kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null } },
+        where: { kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null },
         include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },
         take: 200,
       });

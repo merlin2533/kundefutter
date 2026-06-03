@@ -39,6 +39,7 @@ interface Lieferung {
   lieferDatum?: string | null;
   rechnungNr?: string | null;
   rechnungDatum?: string | null;
+  rechnungStorniert?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
   notiz?: string | null;
@@ -62,6 +63,56 @@ export default function RechnungPrintPage() {
   const [shareMsg, setShareMsg] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [mailMsg, setMailMsg] = useState("");
+  const [stornoLoading, setStornoLoading] = useState(false);
+
+  async function handleStorno() {
+    if (!lieferung?.rechnungNr) return;
+    const grund = window.prompt(
+      `Rechnung ${lieferung.rechnungNr} stornieren?\nSie verschwindet aus der Rechnungsliste. Grund (optional):`,
+      "",
+    );
+    if (grund === null) return; // Abbrechen
+    setStornoLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_stornieren", grund }),
+      });
+      if (res.ok) {
+        setLieferung(await res.json());
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Storno fehlgeschlagen.");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Storno.");
+    } finally {
+      setStornoLoading(false);
+    }
+  }
+
+  async function handleStornoAufheben() {
+    if (!lieferung?.rechnungNr) return;
+    setStornoLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_storno_aufheben" }),
+      });
+      if (res.ok) {
+        setLieferung(await res.json());
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Aktion fehlgeschlagen.");
+      }
+    } catch {
+      setError("Netzwerkfehler.");
+    } finally {
+      setStornoLoading(false);
+    }
+  }
 
   function downloadPdf() {
     const a = document.createElement("a");
@@ -364,6 +415,28 @@ export default function RechnungPrintPage() {
             }}
           />
         )}
+        {lieferung?.rechnungNr && !lieferung.rechnungStorniert && (
+          <button
+            onClick={handleStorno}
+            disabled={stornoLoading}
+            className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 rounded-lg transition-colors text-sm"
+            title="Rechnung stornieren – verschwindet aus der Rechnungsliste"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="hidden sm:inline">Stornieren</span>
+          </button>
+        )}
+        {lieferung?.rechnungNr && lieferung.rechnungStorniert && (
+          <button
+            onClick={handleStornoAufheben}
+            disabled={stornoLoading}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 rounded-lg transition-colors text-sm"
+            title="Storno aufheben – Rechnung erscheint wieder in der Liste"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+            <span className="hidden sm:inline">Storno aufheben</span>
+          </button>
+        )}
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
@@ -393,6 +466,24 @@ export default function RechnungPrintPage() {
           flexDirection: "column",
         }}
       >
+        {/* Storno-Hinweis */}
+        {lieferung.rechnungStorniert && (
+          <div
+            style={{
+              border: "2px solid #dc2626",
+              color: "#dc2626",
+              fontWeight: "bold",
+              textAlign: "center",
+              padding: "8px",
+              marginBottom: "16px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
+          >
+            Storniert – {formatDatum(lieferung.rechnungStorniert)}
+          </div>
+        )}
+
         {/* Briefkopf */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
           <div>

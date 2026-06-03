@@ -65,8 +65,21 @@ export async function POST(req: NextRequest) {
         throw new Error(`Lieferungen [${bereitsZugewiesen.map((l) => l.id).join(", ")}] sind bereits einer Sammelrechnung zugewiesen`);
       }
 
-      const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
-      const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
+      const [einstellung, prefixSetting] = await Promise.all([
+        tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } }),
+        tx.einstellung.findUnique({ where: { key: "system.nummernkreis.rechnung_prefix" } }),
+      ]);
+      const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null, prefixSetting?.value || "RE");
+
+      // Doppelte Rechnungsnummern verhindern
+      const [kollisionLieferung, kollisionSammel] = await Promise.all([
+        tx.lieferung.findFirst({ where: { rechnungNr }, select: { id: true } }),
+        tx.sammelrechnung.findFirst({ where: { rechnungNr }, select: { id: true } }),
+      ]);
+      if (kollisionLieferung || kollisionSammel) {
+        throw new Error(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
+      }
+
       await tx.einstellung.upsert({
         where: { key: "letzte_rechnungsnummer" },
         update: { value: rechnungNr },

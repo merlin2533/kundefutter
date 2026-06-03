@@ -40,6 +40,7 @@ interface Lieferung {
   notiz?: string;
   rechnungNr?: string;
   rechnungDatum?: string | null;
+  rechnungStorniert?: string | null;
   bezahltAm?: string | null;
   zahlungsziel?: number | null;
   skontoProzent?: number | null;
@@ -804,8 +805,11 @@ export default function LieferungDetailPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span>Rechnung: <span className="font-mono font-medium">{lieferung.rechnungNr}</span></span>
+                    {lieferung.rechnungStorniert && (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Storniert</span>
+                    )}
                     <button
                       onClick={() => { setRechnungNrEditing(true); setRechnungNrEdit(lieferung.rechnungNr ?? ""); setRechnungNrError(""); }}
                       className="text-xs text-green-700 hover:text-green-900 underline"

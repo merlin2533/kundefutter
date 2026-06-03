@@ -71,7 +71,7 @@ export async function GET() {
       },
     }),
     prisma.lieferung.findMany({
-      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
+      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
       select: {
         id: true,
         datum: true,

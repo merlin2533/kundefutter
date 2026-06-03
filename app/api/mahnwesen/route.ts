@@ -18,7 +18,7 @@ export async function GET() {
 
     // Alle gelieferten, unbezahlten Lieferungen mit Rechnung laden
     const offene = await prisma.lieferung.findMany({
-      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
+      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
       include: {
         kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" }, select: { wert: true }, take: 1 } } },
         positionen: { select: { menge: true, verkaufspreis: true } },

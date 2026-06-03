@@ -10,6 +10,23 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+// Prüft, ob eine Rechnungsnummer bereits an eine andere Lieferung oder Sammelrechnung vergeben ist.
+async function rechnungsnummerVergeben(
+  tx: Tx,
+  nr: string,
+  exceptLieferungId: number | null,
+): Promise<boolean> {
+  const l = await tx.lieferung.findFirst({
+    where: { rechnungNr: nr, ...(exceptLieferungId ? { id: { not: exceptLieferungId } } : {}) },
+    select: { id: true },
+  });
+  if (l) return true;
+  const s = await tx.sammelrechnung.findFirst({ where: { rechnungNr: nr }, select: { id: true } });
+  return !!s;
+}
+
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   try {
@@ -192,7 +209,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       if (typeof data.rechnungNr !== "string" || data.rechnungNr.trim() === "") {
         throw new Error("Rechnungsnummer darf nicht leer sein");
       }
-      updateData.rechnungNr = data.rechnungNr.trim();
+      const neueNr = data.rechnungNr.trim();
+      if (neueNr !== alt.rechnungNr && await rechnungsnummerVergeben(tx, neueNr, Number(id))) {
+        throw new Error(`Rechnungsnummer ${neueNr} ist bereits vergeben`);
+      }
+      updateData.rechnungNr = neueNr;
     }
     if (data.rechnungDatum !== undefined) {
       if (data.rechnungDatum === null || data.rechnungDatum === "") {
@@ -387,8 +408,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           throw new Error("Lieferung hat bereits eine Rechnungsnummer");
         }
 
-        const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
-        const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
+        const [einstellung, prefixSetting] = await Promise.all([
+          tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } }),
+          tx.einstellung.findUnique({ where: { key: "system.nummernkreis.rechnung_prefix" } }),
+        ]);
+        const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null, prefixSetting?.value || "RE");
+
+        // Doppelte Rechnungsnummern verhindern (z.B. wenn der Zähler in den Einstellungen zurückgesetzt wurde)
+        if (await rechnungsnummerVergeben(tx, rechnungNr, Number(id))) {
+          throw new Error(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
+        }
 
         await tx.einstellung.upsert({
           where: { key: "letzte_rechnungsnummer" },
@@ -421,6 +450,48 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json(lieferung);
     } catch (err) {
       console.error("Lieferung aktion error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // Rechnung stornieren / Storno aufheben
+  if (aktion === "rechnung_stornieren" || aktion === "rechnung_storno_aufheben") {
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+    const stornieren = aktion === "rechnung_stornieren";
+    try {
+      const alt = await prisma.lieferung.findUnique({
+        where: { id: numId },
+        select: { rechnungNr: true, rechnungStorniert: true },
+      });
+      if (!alt) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+      if (!alt.rechnungNr) {
+        return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
+      }
+      const updated = await prisma.lieferung.update({
+        where: { id: numId },
+        data: { rechnungStorniert: stornieren ? new Date() : null },
+        include: {
+          kunde: { include: { kontakte: true } },
+          positionen: { include: { artikel: { select: artikelSafeSelect } } },
+        },
+      });
+      void auditLog({
+        entitaet: "Lieferung",
+        entitaetId: numId,
+        aktion: "geaendert",
+        feld: "rechnungStorniert",
+        alterWert: alt.rechnungStorniert ? "storniert" : "aktiv",
+        neuerWert: stornieren ? "storniert" : "aktiv",
+        beschreibung: stornieren
+          ? `Rechnung ${alt.rechnungNr} storniert${typeof body.grund === "string" && body.grund.trim() ? ` – ${body.grund.trim()}` : ""}`
+          : `Storno der Rechnung ${alt.rechnungNr} aufgehoben`,
+      });
+      return NextResponse.json(updated);
+    } catch (err) {
+      console.error("Rechnung-Storno error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
       return NextResponse.json({ error: message }, { status: 400 });
