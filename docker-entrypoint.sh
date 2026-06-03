@@ -105,19 +105,19 @@ if [ "$SEED_EXIT" -ne 0 ]; then
   warn "Admin-Seed fehlgeschlagen (exit=$SEED_EXIT) – bitte manuell prüfen"
 fi
 
-ok "=== Starte Server (node server.js) ==="
+ok "=== Starte Geo-Proxy + Server (node geo-server.js) ==="
+log "Geo-Proxy: extern :${PORT:-3000} → intern :${NEXT_PORT:-3001} | Erlaubt: ${GEO_ALLOWED_COUNTRIES:-DE}"
 
 # ── Zentraler Cron-Dispatcher ───────────────────────────────────────────────
-# Ruft GET /api/cron alle 30 Minuten auf.
-# /api/cron orchestriert alle registrierten Jobs (z.B. Pegelstände-Refresh).
-# Wartet 60 s auf Server-Start, schreibt Ergebnis ins Log (log "cron: ...").
+# Ruft GET /api/cron alle 30 Minuten auf (über den Geo-Proxy; Localhost wird durchgelassen).
+# Wartet 90 s auf Server-Start, schreibt Ergebnis ins Log (log "cron: ...").
 (
-  sleep 60
+  sleep 90
   log "Cron-Dispatcher gestartet (Intervall: 30 min)"
   while true; do
     CRON_RESULT=$(curl -sf \
       ${CRON_SECRET:+-H "Authorization: Bearer ${CRON_SECRET}"} \
-      "http://localhost:${PORT:-8080}/api/cron" 2>/dev/null || echo '{"ok":false}')
+      "http://localhost:${PORT:-3000}/api/cron" 2>/dev/null || echo '{"ok":false}')
     if echo "$CRON_RESULT" | grep -q '"ok":true'; then
       log "cron: OK — $CRON_RESULT"
     else
@@ -127,4 +127,4 @@ ok "=== Starte Server (node server.js) ==="
   done
 ) &
 
-exec node server.js
+exec node geo-server.js

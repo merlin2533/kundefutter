@@ -31,12 +31,15 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
-# Install Prisma CLI with all its dependencies cleanly
+# Install Prisma CLI + Geo-Proxy-Abhängigkeiten
 COPY package.json package-lock.json ./
-RUN npm install --ignore-scripts --no-fund --no-audit prisma dotenv && \
+RUN npm install --ignore-scripts --no-fund --no-audit prisma dotenv geoip-lite && \
     chown -R nextjs:nodejs /app/node_modules/.prisma \
                            /app/node_modules/@prisma \
                            /app/node_modules/prisma
+
+# Geo-Proxy
+COPY geo-server.js ./
 
 # Entrypoint script
 COPY docker-entrypoint.sh ./
