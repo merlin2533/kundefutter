@@ -6,6 +6,7 @@ import { formatEuro, formatDatum, addTage, formatMenge } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
+import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 
 interface ArtikelInfo {
   name: string;
@@ -25,12 +26,23 @@ interface Position {
   artikel: ArtikelInfo;
 }
 
+interface Kontakt {
+  typ: string;
+  wert: string;
+  label?: string | null;
+  vorname?: string | null;
+  nachname?: string | null;
+  rechnungsEmail?: boolean;
+  lieferscheinEmail?: boolean;
+}
+
 interface Kunde {
   name: string;
   firma?: string | null;
   strasse?: string | null;
   plz?: string | null;
   ort?: string | null;
+  kontakte?: Kontakt[];
 }
 
 interface Lieferung {
@@ -63,6 +75,8 @@ export default function RechnungPrintPage() {
   const [shareMsg, setShareMsg] = useState("");
   const [mailSending, setMailSending] = useState(false);
   const [mailMsg, setMailMsg] = useState("");
+  const [mailModalOffen, setMailModalOffen] = useState(false);
+  const [mailFehler, setMailFehler] = useState("");
   const [stornoLoading, setStornoLoading] = useState(false);
 
   async function handleStorno() {
@@ -232,29 +246,25 @@ export default function RechnungPrintPage() {
     }
   }
 
-  async function handleMailSenden() {
-    if (!lieferung) return;
-    const kundenname = lieferung.kunde.firma ?? lieferung.kunde.name;
-    const bestaetigt = window.confirm(
-      `Rechnung ${lieferung.rechnungNr ?? ""} per E-Mail an ${kundenname} senden?`,
-    );
-    if (!bestaetigt) return;
+  async function handleMailSenden(empfaenger: string, cc: string) {
     setMailSending(true);
     setMailMsg("");
+    setMailFehler("");
     try {
       const res = await fetch("/api/exporte/rechnung/mail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lieferungId: Number(id) }),
+        body: JSON.stringify({ lieferungId: Number(id), empfaenger, cc }),
       });
       const data = await res.json() as { ok?: boolean; empfaenger?: string; error?: string };
       if (data.ok) {
-        setMailMsg(`Rechnung an ${data.empfaenger} gesendet.`);
+        setMailMsg(`Rechnung an ${data.empfaenger ?? empfaenger} gesendet.`);
+        setMailModalOffen(false);
       } else {
-        setMailMsg(data.error ?? "Fehler beim Versand.");
+        setMailFehler(data.error ?? "Fehler beim Versand.");
       }
     } catch {
-      setMailMsg("Netzwerkfehler beim E-Mail-Versand.");
+      setMailFehler("Netzwerkfehler beim E-Mail-Versand.");
     } finally {
       setMailSending(false);
     }
@@ -385,7 +395,7 @@ export default function RechnungPrintPage() {
         </button>
         {lieferung?.rechnungNr && (
           <button
-            onClick={handleMailSenden}
+            onClick={() => { setMailMsg(""); setMailFehler(""); setMailModalOffen(true); }}
             disabled={mailSending}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm"
             title="Per E-Mail senden"
@@ -454,6 +464,20 @@ export default function RechnungPrintPage() {
           <span className="text-sm text-red-600 ml-1">{error}</span>
         )}
       </div>
+
+      {lieferung && (
+        <EmailVersandModal
+          open={mailModalOffen}
+          onClose={() => setMailModalOffen(false)}
+          title={`Rechnung ${lieferung.rechnungNr ?? ""} versenden`}
+          kundenname={lieferung.kunde.firma ?? lieferung.kunde.name}
+          emailKontakte={(lieferung.kunde.kontakte ?? []).filter((k) => k.typ === "email") as EmailKontakt[]}
+          docType="rechnung"
+          loading={mailSending}
+          fehler={mailFehler || undefined}
+          onSend={handleMailSenden}
+        />
+      )}
 
       {/* Rechnung document */}
       <div
