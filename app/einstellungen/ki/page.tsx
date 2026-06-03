@@ -501,7 +501,7 @@ export default function KiEinstellungenPage() {
               <div className="bg-white border border-gray-200 rounded-xl p-4">
                 <div className="text-sm text-gray-500">Geschätzte Kosten</div>
                 <div className="text-2xl font-bold text-gray-800">
-                  {(statistik.gesamt.kostenCent / 100).toLocaleString("de-DE", {
+                  {(statistik.gesamt.kostenCent * 143 / 100).toLocaleString("de-DE", {
                     style: "currency",
                     currency: "EUR",
                   })}
@@ -543,7 +543,7 @@ export default function KiEinstellungenPage() {
                             {(data.tokensIn + data.tokensOut).toLocaleString("de-DE")}
                           </td>
                           <td className="px-4 py-2 text-right text-gray-700">
-                            {(data.kostenCent / 100).toLocaleString("de-DE", {
+                            {(data.kostenCent * 143 / 100).toLocaleString("de-DE", {
                               style: "currency",
                               currency: "EUR",
                             })}
@@ -598,7 +598,7 @@ export default function KiEinstellungenPage() {
                             {(req.tokensIn + req.tokensOut).toLocaleString("de-DE")}
                           </td>
                           <td className="hidden sm:table-cell px-4 py-2 text-right text-gray-600">
-                            {(req.kostenCent / 100).toLocaleString("de-DE", {
+                            {(req.kostenCent * 143 / 100).toLocaleString("de-DE", {
                               style: "currency",
                               currency: "EUR",
                             })}
