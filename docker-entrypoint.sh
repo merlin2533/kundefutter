@@ -35,6 +35,21 @@ if [ ! -d "/data" ]; then
 fi
 log "/data:   $(ls -ld /data 2>&1)"
 
+# SESSION_SECRET aus /data/session-secret laden oder generieren
+if [ -z "$SESSION_SECRET" ]; then
+  if [ -f "/data/session-secret" ]; then
+    SESSION_SECRET=$(cat /data/session-secret)
+    export SESSION_SECRET
+    log "SESSION_SECRET aus /data/session-secret geladen"
+  else
+    SESSION_SECRET=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")
+    export SESSION_SECRET
+    echo "$SESSION_SECRET" > /data/session-secret
+    chmod 600 /data/session-secret
+    log "SESSION_SECRET generiert und in /data/session-secret gespeichert"
+  fi
+fi
+
 # Upload-Verzeichnisse best effort anlegen
 mkdir -p /data/uploads/artikel 2>/dev/null || warn "/data/uploads/artikel nicht anlegbar"
 mkdir -p public/uploads/artikel 2>/dev/null || warn "public/uploads/artikel nicht anlegbar"

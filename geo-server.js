@@ -67,7 +67,8 @@ function clientIp(req) {
 function isAllowed(ip) {
   if (!ip || PRIVATE_RE.test(ip)) return true;   // localhost / Docker-intern
   const geo = geoip.lookup(ip);
-  return geo !== null && ALLOWED.has(geo.country);
+  if (geo === null) return true;                  // Unbekannte IP: fail-open
+  return ALLOWED.has(geo.country);
 }
 
 function forbiddenHtml(ip) {

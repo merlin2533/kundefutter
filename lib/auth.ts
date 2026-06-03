@@ -14,16 +14,17 @@ let warnedAboutFallback = false;
 export function getSessionSecret(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 16) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "[auth] SESSION_SECRET ist nicht gesetzt oder zu kurz. In Produktion MUSS SESSION_SECRET (>= 32 Zeichen) als Umgebungsvariable gesetzt sein.",
-      );
-    }
     if (!warnedAboutFallback) {
       warnedAboutFallback = true;
-      console.warn(
-        "[auth] SESSION_SECRET ist nicht gesetzt oder zu kurz – Dev-Fallback wird verwendet. In Produktion MUSS SESSION_SECRET (>= 32 Zeichen) gesetzt sein.",
-      );
+      if (process.env.NODE_ENV === "production") {
+        console.error(
+          "[auth] CRITICAL: SESSION_SECRET nicht gesetzt – Dev-Fallback wird in Produktion verwendet! Bitte SESSION_SECRET setzen.",
+        );
+      } else {
+        console.warn(
+          "[auth] SESSION_SECRET nicht gesetzt – Dev-Fallback aktiv.",
+        );
+      }
     }
     return new TextEncoder().encode(DEV_FALLBACK_SECRET);
   }
@@ -143,7 +144,7 @@ export function sessionCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     path: "/",
     maxAge: SESSION_MAX_AGE,
   };
