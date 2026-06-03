@@ -51,7 +51,7 @@ function OffenePostenInner() {
 
       // Filter to only those with a rechnungNr and no bezahltAm
       const offene = liste.filter(
-        (l: Record<string, unknown>) => l.rechnungNr && !l.bezahltAm
+        (l: Record<string, unknown>) => l.rechnungNr && !l.bezahltAm && !l.rechnungStorniert
       );
 
       if (offene.length === 0) {

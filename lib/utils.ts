@@ -60,7 +60,7 @@ function naechsteNummer(prefix: string, letzte: string | null): string {
   return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
 }
 
-export const naechsteRechnungsnummer = (letzte: string | null) => naechsteNummer("RE", letzte);
+export const naechsteRechnungsnummer = (letzte: string | null, prefix = "RE") => naechsteNummer(prefix.trim() || "RE", letzte);
 export const naechsteGutschriftsnummer = (letzte: string | null) => naechsteNummer("GS", letzte);
 
 export function addTage(datum: Date, tage: number): Date {
