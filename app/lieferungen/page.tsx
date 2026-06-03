@@ -8,6 +8,7 @@ import { useScrollRestoration } from "@/lib/useScrollRestoration";
 interface Lieferung {
   id: number;
   datum: string;
+  createdAt: string;
   kunde: { id: number; name: string; firma?: string };
   status: string;
   notiz?: string;
@@ -338,7 +339,12 @@ export default function LieferungenPage() {
                     const margePct = umsatz > 0 ? (marge / umsatz) * 100 : 0;
                     return (
                       <tr key={l.id} className="border-b last:border-0 hover:bg-green-50 transition-colors">
-                        <td className="px-4 py-3 whitespace-nowrap">{formatDatum(l.datum)}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {formatDatum(l.datum)}
+                          {l.createdAt && l.createdAt.slice(0, 10) !== l.datum.slice(0, 10) && (
+                            <div className="text-xs text-gray-400">Erstellt: {formatDatum(l.createdAt)}</div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 font-medium">
                           {l.kunde.firma ? `${l.kunde.firma} (${l.kunde.name})` : l.kunde.name}
                           <div className="sm:hidden text-xs text-gray-500 font-mono mt-0.5">

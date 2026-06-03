@@ -64,6 +64,7 @@ interface Lieferung {
   id: number;
   kundeId: number;
   datum: string;
+  createdAt: string;
   status: string;
   notiz?: string | null;
   lieferadresse?: string | null;
@@ -496,6 +497,10 @@ export default function LieferscheinPage() {
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Datum:</td>
                   <td>{formatDatum(lieferung.datum)}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Erstellt:</td>
+                  <td>{formatDatum(lieferung.createdAt)}</td>
                 </tr>
               </tbody>
             </table>

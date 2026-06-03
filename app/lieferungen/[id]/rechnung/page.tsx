@@ -48,6 +48,7 @@ interface Kunde {
 interface Lieferung {
   id: number;
   datum: string;
+  createdAt: string;
   lieferDatum?: string | null;
   rechnungNr?: string | null;
   rechnungDatum?: string | null;
@@ -547,6 +548,10 @@ export default function RechnungPrintPage() {
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Lieferdatum:</td>
                   <td>{lieferDatumStr}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>Erstellt am:</td>
+                  <td>{formatDatum(lieferung.createdAt)}</td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Fällig am:</td>
