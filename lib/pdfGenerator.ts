@@ -88,6 +88,18 @@ async function ladeFooterSpalten(firma: FirmaDaten): Promise<{ links: string; mi
 }
 
 /**
+ * Zeichnet zwei Falzmarken nach DIN 5008 am linken Seitenrand:
+ * 1. Falzmarke bei 105 mm, 2. Falzmarke bei 210 mm (jeweils ab Seitenanfang).
+ * Die Marken liegen im linken Randbereich (x 0–5 mm) außerhalb des Inhaltsbereichs.
+ */
+function zeichneFalzmarken(doc: jsPDF): void {
+  doc.setDrawColor(170);
+  doc.setLineWidth(0.15);
+  doc.line(0, 105, 5, 105);
+  doc.line(0, 210, 5, 210);
+}
+
+/**
  * Zeichnet den 3-spaltigen Dokument-Footer am unteren Seitenrand.
  * Optional: direkt über dem Footer einen kleinen rechtlichen Hinweis (Eigentumsvorbehalt o.ä.).
  */
@@ -165,6 +177,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const eigentumsvorbehalt = await ladeEigentumsvorbehalt();
   const logo = await ladeLogo();
   const doc = new jsPDF();
+  zeichneFalzmarken(doc);
 
   // ── Farben (matches HTML-Preview) ────────────────────────────────────────────
   const COL_TEXT: [number, number, number] = [0, 0, 0];
@@ -482,6 +495,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   const FIRMA = await ladeFirmaDaten();
   const logo = await ladeLogo();
   const doc = new jsPDF();
+  zeichneFalzmarken(doc);
   const k = lieferung.kunde;
 
   // ── Logo oben links ─────────────────────────────────────────────────────────
@@ -635,6 +649,7 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
   const footerSpalten = await ladeFooterSpalten(FIRMA);
   const logo = await ladeLogo();
   const doc = new jsPDF();
+  zeichneFalzmarken(doc);
 
   const COL_TEXT: [number, number, number] = [0, 0, 0];
   const COL_MUTED: [number, number, number] = [85, 85, 85];
@@ -891,6 +906,7 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   const footerSpalten = await ladeFooterSpalten(FIRMA);
   const logo = await ladeLogo();
   const doc = new jsPDF();
+  zeichneFalzmarken(doc);
 
   const COL_TEXT: [number, number, number] = [0, 0, 0];
   const COL_MUTED: [number, number, number] = [85, 85, 85];
