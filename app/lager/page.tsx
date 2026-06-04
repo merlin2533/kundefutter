@@ -149,9 +149,12 @@ export default function LagerPage() {
   function TypBadge({ typ }: { typ: string }) {
     const map: Record<string, string> = {
       wareneingang: "bg-green-100 text-green-800 border border-green-200",
+      eingang: "bg-green-100 text-green-800 border border-green-200",
       korrektur: "bg-blue-100 text-blue-800 border border-blue-200",
       abgang: "bg-orange-100 text-orange-800 border border-orange-200",
+      ausgang: "bg-orange-100 text-orange-800 border border-orange-200",
       verkauf: "bg-purple-100 text-purple-800 border border-purple-200",
+      retoure: "bg-amber-100 text-amber-800 border border-amber-200",
     };
     const cls = map[typ.toLowerCase()] ?? "bg-gray-100 text-gray-700 border border-gray-200";
     return (
@@ -186,6 +189,14 @@ export default function LagerPage() {
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
             <span className="hidden sm:inline">Umbuchungen</span>
+          </Link>
+          <Link
+            href="/retouren"
+            title="Retouren (Warenrückgabe an Lieferanten)"
+            className="inline-flex items-center gap-1.5 flex-none text-center bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+            <span className="hidden sm:inline">Retouren</span>
           </Link>
           <Link
             href="/lager/wareneingang"

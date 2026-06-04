@@ -6,6 +6,7 @@ import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import SearchableSelect from "@/components/SearchableSelect";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
 
@@ -46,8 +47,16 @@ interface Lieferung {
   skontoProzent?: number | null;
   skontoTage?: number | null;
   skontoGenutzt?: boolean | null;
+  istStreckengeschaeft?: boolean;
+  streckenLieferantId?: number | null;
+  streckenLieferant?: { id: number; name: string } | null;
   kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   positionen: Position[];
+}
+
+interface LieferantOption {
+  id: number;
+  name: string;
 }
 
 interface Teilzahlung {
@@ -89,6 +98,13 @@ export default function LieferungDetailPage() {
   const [skontoSaving, setSkontoSaving] = useState(false);
   const [skontoSaved, setSkontoSaved] = useState(false);
   const [skontoError, setSkontoError] = useState("");
+  // Streckengeschäft / Direktlieferung
+  const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
+  const [streckeEdit, setStreckeEdit] = useState<boolean>(false);
+  const [streckenLieferantIdEdit, setStreckenLieferantIdEdit] = useState<number | "">("");
+  const [streckeSaving, setStreckeSaving] = useState(false);
+  const [streckeSaved, setStreckeSaved] = useState(false);
+  const [streckeError, setStreckeError] = useState("");
 
   // Teilzahlungen
   const [teilzahlungen, setTeilzahlungen] = useState<Teilzahlung[]>([]);
@@ -151,6 +167,10 @@ export default function LieferungDetailPage() {
     setSkontoProzentEdit(String(data.skontoProzent ?? ""));
     setSkontoTageEdit(String(data.skontoTage ?? ""));
     setSkontoGenutztEdit(!!data.skontoGenutzt);
+    setStreckeEdit(!!data.istStreckengeschaeft);
+    setStreckenLieferantIdEdit(data.streckenLieferantId ?? "");
+    setStreckeSaved(false);
+    setStreckeError("");
     setLoading(false);
   }
 
@@ -326,6 +346,10 @@ export default function LieferungDetailPage() {
     fetch("/api/artikel?limit=500")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
+      .catch(() => {});
+    fetch("/api/lieferanten?limit=500")
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setLieferanten(d); })
       .catch(() => {});
   }, []);
 
@@ -558,6 +582,37 @@ export default function LieferungDetailPage() {
       setError(e instanceof Error ? e.message : "Fehler beim Speichern des Lieferdatums.");
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function speichereStreckengeschaeft() {
+    if (streckeEdit && !streckenLieferantIdEdit) {
+      setStreckeError("Bitte einen Direktlieferanten wählen.");
+      return;
+    }
+    setStreckeSaving(true);
+    setStreckeError("");
+    setStreckeSaved(false);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          istStreckengeschaeft: streckeEdit,
+          streckenLieferantId: streckeEdit ? Number(streckenLieferantIdEdit) : null,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setStreckeSaved(true);
+      setTimeout(() => setStreckeSaved(false), 2000);
+      await load();
+    } catch (e) {
+      setStreckeError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally {
+      setStreckeSaving(false);
     }
   }
 
@@ -918,6 +973,53 @@ export default function LieferungDetailPage() {
                 <span className="text-xs text-red-600">{zahlungszielError}</span>
               )}
             </div>
+            {/* Streckengeschäft / Direktlieferung */}
+            {lieferung.status === "geplant" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={streckeEdit}
+                    onChange={(e) => {
+                      setStreckeEdit(e.target.checked);
+                      if (!e.target.checked) setStreckenLieferantIdEdit("");
+                      setStreckeSaved(false);
+                      setStreckeError("");
+                    }}
+                    className="w-4 h-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+                  />
+                  <span className="text-gray-700 whitespace-nowrap">Streckengeschäft <span className="text-gray-400 font-normal">(Direktlieferung)</span></span>
+                </label>
+                {streckeEdit && (
+                  <div className="min-w-[200px] flex-1 max-w-xs">
+                    <SearchableSelect
+                      options={lieferanten.map((l) => ({ value: String(l.id), label: l.name }))}
+                      value={streckenLieferantIdEdit === "" ? "" : String(streckenLieferantIdEdit)}
+                      onChange={(v) => { setStreckenLieferantIdEdit(v ? Number(v) : ""); setStreckeSaved(false); setStreckeError(""); }}
+                      placeholder="Direktlieferant wählen…"
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={speichereStreckengeschaeft}
+                  disabled={streckeSaving}
+                  className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
+                >
+                  Speichern
+                </button>
+                {streckeSaved && (
+                  <span className="text-xs text-green-700">✓ gespeichert</span>
+                )}
+                {streckeError && (
+                  <span className="text-xs text-red-600 w-full">{streckeError}</span>
+                )}
+              </div>
+            ) : lieferung.istStreckengeschaeft && (
+              <div className="mt-2 text-sm text-gray-700">
+                <span className="text-gray-600">Streckengeschäft:</span>{" "}
+                Direktlieferung über <span className="font-medium">{lieferung.streckenLieferant?.name ?? "—"}</span>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}

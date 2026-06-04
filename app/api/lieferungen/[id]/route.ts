@@ -36,6 +36,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         kunde: { include: { kontakte: true } },
         positionen: { include: { artikel: artikelWithInhaltSelect } },
         teilzahlungen: { orderBy: { datum: "asc" as const } },
+        streckenLieferant: { select: { id: true, name: true } },
       },
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -168,6 +169,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
       status?: string; notiz?: string | null; stornoBegründung?: string;
       datum?: Date; lieferDatum?: Date | null; bezahltAm?: Date | null;
       zahlungsziel?: number; rechnungNr?: string; rechnungDatum?: Date | null;
+      istStreckengeschaeft?: boolean; streckenLieferantId?: number | null;
+      skontoProzent?: number | null; skontoTage?: number | null; skontoGenutzt?: boolean;
     } = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notiz !== undefined) updateData.notiz = data.notiz;
@@ -222,6 +225,58 @@ export async function PUT(req: NextRequest, { params }: Params) {
         const d = toValidDate(data.rechnungDatum);
         if (!d) throw new Error("Ungültiges Rechnungsdatum");
         updateData.rechnungDatum = d;
+      }
+    }
+    // Skonto-Felder (vom Detail-Header speicherbar)
+    if (data.skontoProzent !== undefined) {
+      if (data.skontoProzent === null || data.skontoProzent === "") {
+        updateData.skontoProzent = null;
+      } else {
+        const p = typeof data.skontoProzent === "number" ? data.skontoProzent : Number(data.skontoProzent);
+        if (!Number.isFinite(p) || p < 0 || p > 100) throw new Error("Skontoprozent muss zwischen 0 und 100 liegen");
+        updateData.skontoProzent = p;
+      }
+    }
+    if (data.skontoTage !== undefined) {
+      if (data.skontoTage === null || data.skontoTage === "") {
+        updateData.skontoTage = null;
+      } else {
+        const t = typeof data.skontoTage === "number" ? data.skontoTage : Number(data.skontoTage);
+        if (!Number.isFinite(t) || !Number.isInteger(t) || t < 0) throw new Error("Skonto-Tage muss eine positive Ganzzahl sein");
+        updateData.skontoTage = t;
+      }
+    }
+    if (data.skontoGenutzt !== undefined) {
+      updateData.skontoGenutzt = Boolean(data.skontoGenutzt);
+    }
+
+    // Streckengeschäft / Direktlieferung — nur änderbar solange "geplant",
+    // da die Lagerbuchung bei geplant→geliefert von istStreckengeschaeft abhängt.
+    if (data.istStreckengeschaeft !== undefined || data.streckenLieferantId !== undefined) {
+      if (alt.status !== "geplant") {
+        throw new Error("Streckengeschäft kann nur bei geplanten Lieferungen geändert werden");
+      }
+      // Nicht gemeinsam mit einem Statuswechsel ändern: die geplant→geliefert-Lagerbuchung
+      // weiter oben nutzt den ALTEN istStreckengeschaeft-Wert und würde sonst falsch buchen.
+      if (data.status !== undefined && data.status !== alt.status) {
+        throw new Error("Bitte Streckengeschäft und Statuswechsel getrennt speichern");
+      }
+      const istStrecke = data.istStreckengeschaeft !== undefined
+        ? Boolean(data.istStreckengeschaeft)
+        : alt.istStreckengeschaeft;
+      updateData.istStreckengeschaeft = istStrecke;
+      if (istStrecke) {
+        const liefId = data.streckenLieferantId !== undefined
+          ? Number(data.streckenLieferantId)
+          : alt.streckenLieferantId;
+        if (!liefId || !Number.isInteger(liefId) || liefId <= 0) {
+          throw new Error("Bitte einen Direktlieferanten wählen");
+        }
+        const lief = await tx.lieferant.findUnique({ where: { id: liefId }, select: { id: true } });
+        if (!lief) throw new Error("Direktlieferant nicht gefunden");
+        updateData.streckenLieferantId = liefId;
+      } else {
+        updateData.streckenLieferantId = null;
       }
     }
 
