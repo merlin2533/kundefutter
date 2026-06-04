@@ -62,6 +62,7 @@ function naechsteNummer(prefix: string, letzte: string | null): string {
 
 export const naechsteRechnungsnummer = (letzte: string | null, prefix = "RE") => naechsteNummer(prefix.trim() || "RE", letzte);
 export const naechsteGutschriftsnummer = (letzte: string | null) => naechsteNummer("GS", letzte);
+export const naechsteRetourennummer = (letzte: string | null) => naechsteNummer("RET", letzte);
 
 export function addTage(datum: Date, tage: number): Date {
   const d = new Date(datum);

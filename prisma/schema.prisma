@@ -166,6 +166,7 @@ model Lieferant {
   bestellungen       Bestellung[]
   eingangsRechnungen EingangsRechnung[]
   streckenLieferungen Lieferung[] @relation("StreckenLieferant")
+  retouren           Retoure[]
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
@@ -219,6 +220,7 @@ model Artikel {
   vorbestellungPositionen VorbestellungPosition[]
   fruehbezugStaffeln   FruehbezugsStaffel[]
   anlieferungen        Anlieferung[]
+  retourePositionen    RetourePosition[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -429,6 +431,7 @@ model Lagerbewegung {
   notiz          String?
   lieferungId    Int?
   wareneingangId Int?
+  retoureId      Int?
   chargeNr       String?  // Chargennummer (aus Wareneingang oder Lieferung)
   lagerortVon    String?  // source location (for Umbuchung)
   lagerortNach   String?  // target location (for Umbuchung)
@@ -436,11 +439,53 @@ model Lagerbewegung {
   artikel      Artikel       @relation(fields: [artikelId], references: [id])
   lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
   wareneingang Wareneingang? @relation(fields: [wareneingangId], references: [id])
+  retoure      Retoure?      @relation(fields: [retoureId], references: [id])
 
   @@index([artikelId])
   @@index([datum])
   @@index([artikelId, datum])
   @@index([typ])
+  @@index([retoureId])
+}
+
+// ─── RETOUREN (Lieferantenrückgaben) ──────────────────────────────────────────
+
+model Retoure {
+  id                 Int      @id @default(autoincrement())
+  nummer             String   @unique             // RET-YYYY-NNNN
+  lieferantId        Int
+  datum              DateTime @default(now())
+  grund              String   @default("Kommission") // Kommission|Mangel|Falschlieferung|Sonstiges
+  notiz              String?
+  status             String   @default("GEBUCHT")    // GEBUCHT|STORNIERT
+  gutschriftBetrag   Float?                           // erwartete Lieferantengutschrift (netto)
+  eingangsRechnungId Int?                             // verknüpfte/erzeugte Eingangsrechnung (Gutschrift)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  lieferant        Lieferant         @relation(fields: [lieferantId], references: [id])
+  eingangsRechnung EingangsRechnung? @relation(fields: [eingangsRechnungId], references: [id])
+  positionen       RetourePosition[]
+  lagerbewegungen  Lagerbewegung[]
+
+  @@index([lieferantId])
+  @@index([status])
+  @@index([datum])
+}
+
+model RetourePosition {
+  id            Int     @id @default(autoincrement())
+  retoureId     Int
+  artikelId     Int
+  menge         Float
+  einkaufspreis Float   @default(0)
+  chargeNr      String?
+
+  retoure Retoure @relation(fields: [retoureId], references: [id], onDelete: Cascade)
+  artikel Artikel @relation(fields: [artikelId], references: [id])
+
+  @@index([retoureId])
+  @@index([artikelId])
 }
 
 // ─── MENGENRABATTE ────────────────────────────────────────────────────────────
@@ -1086,6 +1131,7 @@ model EingangsRechnung {
   updatedAt   DateTime  @updatedAt
 
   lieferant Lieferant @relation(fields: [lieferantId], references: [id])
+  retouren  Retoure[]
 
   @@index([lieferantId])
   @@index([status])
