@@ -43,11 +43,12 @@ function loadCrmFilters() {
 }
 
 export default function CrmPage() {
-  const [mainTab, setMainTab] = useState<"liste" | "kalender">(() => loadCrmFilters().mainTab ?? "liste");
+  const [mainTab, setMainTab] = useState<"liste" | "kalender">("liste");
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typFilter, setTypFilter] = useState<string>(() => loadCrmFilters().typFilter ?? "alle");
-  const [searchText, setSearchText] = useState<string>(() => loadCrmFilters().searchText ?? "");
+  const [typFilter, setTypFilter] = useState<string>("alle");
+  const [searchText, setSearchText] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
   // Wiedervorlage
@@ -75,9 +76,19 @@ export default function CrmPage() {
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadCrmFilters();
+    if (f.mainTab) setMainTab(f.mainTab);
+    if (f.typFilter) setTypFilter(f.typFilter);
+    if (f.searchText) setSearchText(f.searchText);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("crm-filters", JSON.stringify({ mainTab, typFilter, searchText })); } catch {}
-  }, [mainTab, typFilter, searchText]);
+  }, [filtersLoaded, mainTab, typFilter, searchText]);
 
   useEffect(() => {
     if (!kundenLoaded) {

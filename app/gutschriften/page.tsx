@@ -28,10 +28,11 @@ function loadGutschriftFilters() {
 export default function GutschriftenPage() {
   const [gutschriften, setGutschriften] = useState<Gutschrift[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>(() => loadGutschriftFilters().statusFilter ?? "alle");
-  const [vonFilter, setVonFilter] = useState<string>(() => loadGutschriftFilters().vonFilter ?? "");
-  const [bisFilter, setBisFilter] = useState<string>(() => loadGutschriftFilters().bisFilter ?? "");
-  const [search, setSearch] = useState<string>(() => loadGutschriftFilters().search ?? "");
+  const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [vonFilter, setVonFilter] = useState<string>("");
+  const [bisFilter, setBisFilter] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
   const fetchGutschriften = useCallback(async () => {
@@ -57,9 +58,20 @@ export default function GutschriftenPage() {
     return () => clearTimeout(t);
   }, [fetchGutschriften]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadGutschriftFilters();
+    if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.vonFilter) setVonFilter(f.vonFilter);
+    if (f.bisFilter) setBisFilter(f.bisFilter);
+    if (f.search) setSearch(f.search);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("gutschriften-filters", JSON.stringify({ statusFilter, vonFilter, bisFilter, search })); } catch {}
-  }, [statusFilter, vonFilter, bisFilter, search]);
+  }, [filtersLoaded, statusFilter, vonFilter, bisFilter, search]);
 
   function betrag(gs: Gutschrift): number {
     return gs.positionen.reduce((sum, p) => sum + p.menge * p.preis, 0);

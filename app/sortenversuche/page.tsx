@@ -21,14 +21,25 @@ function loadSortenFilters() {
 
 export default function Page() {
   const [liste, setListe] = useState<Versuch[]>([]);
-  const [filterKultur, setFilterKultur] = useState<string>(() => loadSortenFilters().filterKultur ?? "");
-  const [filterJahr, setFilterJahr] = useState<string>(() => loadSortenFilters().filterJahr ?? "");
-  const [filterSorte, setFilterSorte] = useState<string>(() => loadSortenFilters().filterSorte ?? "");
+  const [filterKultur, setFilterKultur] = useState<string>("");
+  const [filterJahr, setFilterJahr] = useState<string>("");
+  const [filterSorte, setFilterSorte] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadSortenFilters();
+    if (f.filterKultur) setFilterKultur(f.filterKultur);
+    if (f.filterJahr) setFilterJahr(f.filterJahr);
+    if (f.filterSorte) setFilterSorte(f.filterSorte);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("sortenversuche-filters", JSON.stringify({ filterKultur, filterJahr, filterSorte })); } catch {}
-  }, [filterKultur, filterJahr, filterSorte]);
+  }, [filtersLoaded, filterKultur, filterJahr, filterSorte]);
 
   useEffect(() => {
     fetch("/api/sortenversuche").then(r => r.ok ? r.json() : []).then(d => setListe(Array.isArray(d) ? d : [])).finally(() => setLoading(false));

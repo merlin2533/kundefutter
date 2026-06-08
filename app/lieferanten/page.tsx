@@ -24,7 +24,8 @@ export default function LieferantenPage() {
   const router = useRouter();
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState<string>(() => loadLieferantFilters().search ?? "");
+  const [search, setSearch] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
@@ -41,9 +42,17 @@ export default function LieferantenPage() {
     return () => clearTimeout(t);
   }, [fetchLieferanten]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadLieferantFilters();
+    if (f.search) setSearch(f.search);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("lieferanten-filters", JSON.stringify({ search })); } catch {}
-  }, [search]);
+  }, [filtersLoaded, search]);
 
   return (
     <div>

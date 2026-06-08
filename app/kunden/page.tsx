@@ -35,9 +35,10 @@ function loadKundenFilters() {
 
 export default function KundenPage() {
   const [kunden, setKunden] = useState<Kunde[]>([]);
-  const [search, setSearch] = useState<string>(() => loadKundenFilters().search ?? "");
-  const [nurAktiv, setNurAktiv] = useState<boolean>(() => loadKundenFilters().nurAktiv ?? true);
-  const [tagFilter, setTagFilter] = useState<string>(() => loadKundenFilters().tagFilter ?? "");
+  const [search, setSearch] = useState<string>("");
+  const [nurAktiv, setNurAktiv] = useState<boolean>(true);
+  const [tagFilter, setTagFilter] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
@@ -75,10 +76,20 @@ export default function KundenPage() {
     }
   }, [search, nurAktiv, tagFilter]);
 
-  // Persist filters to sessionStorage
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadKundenFilters();
+    if (f.search) setSearch(f.search);
+    if (typeof f.nurAktiv === "boolean") setNurAktiv(f.nurAktiv);
+    if (f.tagFilter) setTagFilter(f.tagFilter);
+    setFiltersLoaded(true);
+  }, []);
+
+  // Persist filters to sessionStorage (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("kunden-filters", JSON.stringify({ search, nurAktiv, tagFilter })); } catch {}
-  }, [search, nurAktiv, tagFilter]);
+  }, [filtersLoaded, search, nurAktiv, tagFilter]);
 
   // Reset to page 1 when filters change
   useEffect(() => {

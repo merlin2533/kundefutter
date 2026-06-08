@@ -50,9 +50,10 @@ export default function AufgabenPage() {
   const { showToast } = useToast();
   const [aufgaben, setAufgaben] = useState<Aufgabe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<"offen" | "erledigt" | "alle">(() => loadAufgabenFilters().status ?? "offen");
-  const [prioritaet, setPrioritaet] = useState<string>(() => loadAufgabenFilters().prioritaet ?? "");
-  const [tagFilter, setTagFilter] = useState<string>(() => loadAufgabenFilters().tagFilter ?? "");
+  const [status, setStatus] = useState<"offen" | "erledigt" | "alle">("offen");
+  const [prioritaet, setPrioritaet] = useState<string>("");
+  const [tagFilter, setTagFilter] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
@@ -69,9 +70,19 @@ export default function AufgabenPage() {
     setLoading(false);
   }, [status, prioritaet, tagFilter]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadAufgabenFilters();
+    if (f.status) setStatus(f.status);
+    if (f.prioritaet) setPrioritaet(f.prioritaet);
+    if (f.tagFilter) setTagFilter(f.tagFilter);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("aufgaben-filters", JSON.stringify({ status, prioritaet, tagFilter })); } catch {}
-  }, [status, prioritaet, tagFilter]);
+  }, [filtersLoaded, status, prioritaet, tagFilter]);
 
   useEffect(() => {
     const t = setTimeout(fetchAufgaben, 200);
