@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Paginierung + optionale Relations (spart Joins bei Listenansichten)
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const limit = Math.min(2000, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const withRelations = searchParams.get("relations") !== "false";
 

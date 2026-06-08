@@ -169,7 +169,7 @@ function NeueLieferungInner() {
         // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
         const [kr, ar, lr] = await Promise.all([
           fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
-          fetch("/api/artikel?limit=500").then((r) => r.ok ? r.json() : []),
+          fetch("/api/artikel?limit=2000&relations=false").then((r) => r.ok ? r.json() : []),
           fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
         ]);
         let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];

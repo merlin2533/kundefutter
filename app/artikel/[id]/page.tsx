@@ -281,12 +281,22 @@ export default function ArtikelDetailPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...editForm,
+        name: editForm.name,
+        artikelnummer: editForm.artikelnummer,
+        kategorie: editForm.kategorie,
         unterkategorie: (editForm.unterkategorie as string | null | undefined)?.toString().trim() || null,
+        einheit: editForm.einheit,
         standardpreis: Number(editForm.standardpreis),
         preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
         mwstSatz: Number(editForm.mwstSatz) || 19,
         mindestbestand: Number(editForm.mindestbestand),
+        beschreibung: editForm.beschreibung || null,
+        aktiv: editForm.aktiv,
+        lagerort: editForm.lagerort || null,
+        liefergroesse: editForm.liefergroesse || null,
+        sprengstoffvorlaeufer: editForm.sprengstoffvorlaeufer,
+        chargePflicht: editForm.chargePflicht,
+        lagerTracking: editForm.lagerTracking,
       }),
     });
     setSavingDetails(false);

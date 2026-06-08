@@ -140,7 +140,7 @@ function NeuesAngebotForm() {
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
-    fetch("/api/artikel?aktiv=true")
+    fetch("/api/artikel?aktiv=true&limit=2000&relations=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
