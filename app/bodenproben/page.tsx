@@ -50,14 +50,25 @@ function loadBodenprobenFilters() {
 
 export default function BodenprobenSeite() {
   const [proben, setProben] = useState<Bodenprobe[]>([]);
-  const [filterLabor, setFilterLabor] = useState<string>(() => loadBodenprobenFilters().filterLabor ?? "");
-  const [filterSchlag, setFilterSchlag] = useState<string>(() => loadBodenprobenFilters().filterSchlag ?? "");
-  const [filterKunde, setFilterKunde] = useState<string>(() => loadBodenprobenFilters().filterKunde ?? "");
+  const [filterLabor, setFilterLabor] = useState<string>("");
+  const [filterSchlag, setFilterSchlag] = useState<string>("");
+  const [filterKunde, setFilterKunde] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadBodenprobenFilters();
+    if (f.filterLabor) setFilterLabor(f.filterLabor);
+    if (f.filterSchlag) setFilterSchlag(f.filterSchlag);
+    if (f.filterKunde) setFilterKunde(f.filterKunde);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("bodenproben-filters", JSON.stringify({ filterLabor, filterSchlag, filterKunde })); } catch {}
-  }, [filterLabor, filterSchlag, filterKunde]);
+  }, [filtersLoaded, filterLabor, filterSchlag, filterKunde]);
 
   useEffect(() => {
     fetch("/api/bodenproben")

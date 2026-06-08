@@ -46,12 +46,22 @@ export default function StreckengeschaeftPage() {
   const [lieferungen, setLieferungen] = useState<StreckenLieferung[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>(() => loadFilters().statusFilter ?? "");
-  const [suchtext, setSuchtext] = useState<string>(() => loadFilters().suchtext ?? "");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [suchtext, setSuchtext] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
+  useEffect(() => {
+    const f = loadFilters();
+    if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.suchtext) setSuchtext(f.suchtext);
+    setFiltersLoaded(true);
+  }, []);
 
   useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("strecken-filters", JSON.stringify({ statusFilter, suchtext })); } catch {}
-  }, [statusFilter, suchtext]);
+  }, [filtersLoaded, statusFilter, suchtext]);
 
   useEffect(() => {
     setLoading(true);

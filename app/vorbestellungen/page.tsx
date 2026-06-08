@@ -25,13 +25,23 @@ function loadVorbestellungFilters() {
 
 export default function Page() {
   const [liste, setListe] = useState<Vorbestellung[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string>(() => loadVorbestellungFilters().filterStatus ?? "");
-  const [filterSaison, setFilterSaison] = useState<string>(() => loadVorbestellungFilters().filterSaison ?? "");
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterSaison, setFilterSaison] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadVorbestellungFilters();
+    if (f.filterStatus) setFilterStatus(f.filterStatus);
+    if (f.filterSaison) setFilterSaison(f.filterSaison);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("vorbestellung-filters", JSON.stringify({ filterStatus, filterSaison })); } catch {}
-  }, [filterStatus, filterSaison]);
+  }, [filtersLoaded, filterStatus, filterSaison]);
 
   useEffect(() => {
     fetch("/api/vorbestellungen").then(r => r.ok ? r.json() : []).then(d => setListe(Array.isArray(d) ? d : [])).finally(() => setLoading(false));

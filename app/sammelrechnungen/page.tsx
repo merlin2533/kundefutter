@@ -60,8 +60,9 @@ function loadSammelrechnungFilters() {
 export default function SammelrechnungenPage() {
   const [items, setItems] = useState<Sammelrechnung[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"alle" | "offen" | "bezahlt">(() => loadSammelrechnungFilters().statusFilter ?? "alle");
-  const [search, setSearch] = useState<string>(() => loadSammelrechnungFilters().search ?? "");
+  const [statusFilter, setStatusFilter] = useState<"alle" | "offen" | "bezahlt">("alle");
+  const [search, setSearch] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
 
@@ -83,9 +84,18 @@ export default function SammelrechnungenPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadSammelrechnungFilters();
+    if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.search) setSearch(f.search);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("sammelrechnungen-filters", JSON.stringify({ statusFilter, search })); } catch {}
-  }, [statusFilter, search]);
+  }, [filtersLoaded, statusFilter, search]);
 
   async function markiereBezahlt(id: number) {
     setActionLoading(id);

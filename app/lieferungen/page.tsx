@@ -43,15 +43,16 @@ function loadLieferungFilters() {
 }
 
 export default function LieferungenPage() {
-  const [tab, setTab] = useState<"liste" | "wiederkehrend">(() => loadLieferungFilters().tab ?? "liste");
+  const [tab, setTab] = useState<"liste" | "wiederkehrend">("liste");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   // List state
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>(() => loadLieferungFilters().statusFilter ?? "alle");
-  const [vonFilter, setVonFilter] = useState<string>(() => loadLieferungFilters().vonFilter ?? "");
-  const [bisFilter, setBisFilter] = useState<string>(() => loadLieferungFilters().bisFilter ?? "");
-  const [kundeSearch, setKundeSearch] = useState<string>(() => loadLieferungFilters().kundeSearch ?? "");
+  const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [vonFilter, setVonFilter] = useState<string>("");
+  const [bisFilter, setBisFilter] = useState<string>("");
+  const [kundeSearch, setKundeSearch] = useState<string>("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -94,9 +95,21 @@ export default function LieferungenPage() {
     return () => clearTimeout(t);
   }, [fetchLieferungen]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadLieferungFilters();
+    if (f.tab) setTab(f.tab);
+    if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.vonFilter) setVonFilter(f.vonFilter);
+    if (f.bisFilter) setBisFilter(f.bisFilter);
+    if (f.kundeSearch) setKundeSearch(f.kundeSearch);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, vonFilter, bisFilter, kundeSearch })); } catch {}
-  }, [tab, statusFilter, vonFilter, bisFilter, kundeSearch]);
+  }, [filtersLoaded, tab, statusFilter, vonFilter, bisFilter, kundeSearch]);
 
   useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
 

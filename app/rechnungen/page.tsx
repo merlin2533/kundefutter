@@ -65,8 +65,9 @@ export default function RechnungenPage() {
   const router = useRouter();
   const [rechnungen, setRechnungen] = useState<Rechnung[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterStatus>(() => loadRechnungFilters().filter ?? "alle");
-  const [search, setSearch] = useState<string>(() => loadRechnungFilters().search ?? "");
+  const [filter, setFilter] = useState<FilterStatus>("alle");
+  const [search, setSearch] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [buchungId, setBuchungId] = useState<number | null>(null);
   const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
@@ -80,9 +81,18 @@ export default function RechnungenPage() {
 
   useEffect(() => { load(); }, []);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadRechnungFilters();
+    if (f.filter) setFilter(f.filter);
+    if (f.search) setSearch(f.search);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("rechnungen-filters", JSON.stringify({ filter, search })); } catch {}
-  }, [filter, search]);
+  }, [filtersLoaded, filter, search]);
 
   async function buchungSpeichern(id: number) {
     try {

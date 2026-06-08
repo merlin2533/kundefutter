@@ -18,20 +18,26 @@ function loadSachkundeFilters() {
 
 export default function Page() {
   const [liste, setListe] = useState<Eintrag[]>([]);
-  const [filterTyp, setFilterTyp] = useState<string>(() => loadSachkundeFilters().filterTyp ?? "");
-  const [filterStatus, setFilterStatus] = useState<"alle" | "gueltig" | "ablaufend" | "abgelaufen">(() => loadSachkundeFilters().filterStatus ?? "alle");
+  const [filterTyp, setFilterTyp] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<"alle" | "gueltig" | "ablaufend" | "abgelaufen">("alle");
   const [loading, setLoading] = useState(true);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
-  // URL-param ?typ= überschreibt den gespeicherten Filter beim ersten Laden
+  // Gespeicherte Filter + URL-Param erst nach dem Mount anwenden (verhindert SSR/Client-Hydration-Mismatch, React #418).
+  // URL-param ?typ= überschreibt dabei den gespeicherten Filter.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const typ = params.get("typ");
+    const f = loadSachkundeFilters();
+    if (f.filterTyp) setFilterTyp(f.filterTyp);
+    if (f.filterStatus) setFilterStatus(f.filterStatus);
+    const typ = new URLSearchParams(window.location.search).get("typ");
     if (typ) setFilterTyp(typ);
+    setFiltersLoaded(true);
   }, []);
 
   useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("sachkunde-filters", JSON.stringify({ filterTyp, filterStatus })); } catch {}
-  }, [filterTyp, filterStatus]);
+  }, [filtersLoaded, filterTyp, filterStatus]);
 
   useEffect(() => {
     fetch("/api/sachkundenachweise")

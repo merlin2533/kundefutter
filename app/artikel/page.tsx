@@ -54,13 +54,16 @@ export default function ArtikelPage() {
   const [kategorienMap, setKategorienMap] = useState<Record<string, string[]>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState(() => loadArtikelFilters().search ?? "");
-  const [kategorie, setKategorie] = useState(() => loadArtikelFilters().kategorie ?? "alle");
-  const [unterkategorie, setUnterkategorie] = useState(() => loadArtikelFilters().unterkategorie ?? "alle");
-  const [lieferantId, setLieferantId] = useState(() => loadArtikelFilters().lieferantId ?? "");
-  const [preisVon, setPreisVon] = useState(() => loadArtikelFilters().preisVon ?? "");
-  const [preisBis, setPreisBis] = useState(() => loadArtikelFilters().preisBis ?? "");
-  const [nurSprengstoff, setNurSprengstoff] = useState(() => loadArtikelFilters().nurSprengstoff === "1");
+  // Filter server-sicher mit Defaults initialisieren; gespeicherte Werte erst NACH der Hydration
+  // laden (sessionStorage existiert serverseitig nicht → sonst SSR/Client-Mismatch = React #418).
+  const [search, setSearch] = useState("");
+  const [kategorie, setKategorie] = useState("alle");
+  const [unterkategorie, setUnterkategorie] = useState("alle");
+  const [lieferantId, setLieferantId] = useState("");
+  const [preisVon, setPreisVon] = useState("");
+  const [preisBis, setPreisBis] = useState("");
+  const [nurSprengstoff, setNurSprengstoff] = useState(false);
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ neu: number; aktualisiert: number; lieferantenGesetzt: number; skipped: number; errors: string[] } | null>(null);
@@ -110,16 +113,32 @@ export default function ArtikelPage() {
     }
   }
 
-  // Persist filters to sessionStorage on change
+  // Gespeicherte Filter erst nach dem Mount (clientseitig) wiederherstellen — hält den
+  // ersten Client-Render identisch zum Server-Render und vermeidet so den Hydration-Mismatch.
   useEffect(() => {
+    const f = loadArtikelFilters();
+    if (f.search) setSearch(f.search);
+    if (f.kategorie) setKategorie(f.kategorie);
+    if (f.unterkategorie) setUnterkategorie(f.unterkategorie);
+    if (f.lieferantId) setLieferantId(f.lieferantId);
+    if (f.preisVon) setPreisVon(f.preisVon);
+    if (f.preisBis) setPreisBis(f.preisBis);
+    if (f.nurSprengstoff === "1") setNurSprengstoff(true);
+    setFiltersLoaded(true);
+  }, []);
+
+  // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch { /* ignore */ }
-  }, [search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
+  }, [filtersLoaded, search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
+    if (!filtersLoaded) return;
     setPage(1);
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
+  }, [filtersLoaded, search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
     if (page > 1) load(page);
@@ -129,9 +148,10 @@ export default function ArtikelPage() {
   // Reset subcategory when user explicitly changes category (not on initial mount)
   const kategorieInitRef = useRef(true);
   useEffect(() => {
+    if (!filtersLoaded) return;
     if (kategorieInitRef.current) { kategorieInitRef.current = false; return; }
     setUnterkategorie("alle");
-  }, [kategorie]);
+  }, [filtersLoaded, kategorie]);
 
   useScrollRestoration(!loading && artikel.length > 0);
 

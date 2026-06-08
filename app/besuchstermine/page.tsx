@@ -78,7 +78,8 @@ export default function BesuchstermineListPage() {
   const [termine, setTermine] = useState<Besuchstermin[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<number | null>(null);
-  const [search, setSearch] = useState<string>(() => loadBesuchsTermineFilters().search ?? "");
+  const [search, setSearch] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [emailState, setEmailState] = useState<Record<number, { offen: boolean; empfaenger: string; loading: boolean; erfolg: string; fehler: string }>>({});
 
   const fetchTermine = useCallback(async () => {
@@ -94,9 +95,17 @@ export default function BesuchstermineListPage() {
     }
   }, [showToast]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadBesuchsTermineFilters();
+    if (f.search) setSearch(f.search);
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("besuchstermine-filters", JSON.stringify({ search })); } catch {}
-  }, [search]);
+  }, [filtersLoaded, search]);
 
   useEffect(() => {
     fetchTermine();

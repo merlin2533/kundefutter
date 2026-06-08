@@ -37,9 +37,10 @@ function loadAngeboteFilters() {
 export default function AngebotePage() {
   const [angebote, setAngebote] = useState<AngebotListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>(() => loadAngeboteFilters().statusFilter ?? "alle");
-  const [search, setSearch] = useState<string>(() => loadAngeboteFilters().search ?? "");
-  const [searchInput, setSearchInput] = useState<string>(() => loadAngeboteFilters().search ?? "");
+  const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [search, setSearch] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -52,9 +53,18 @@ export default function AngebotePage() {
       .catch(() => setLoading(false));
   }, [statusFilter, search]);
 
+  // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
+    const f = loadAngeboteFilters();
+    if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.search) { setSearch(f.search); setSearchInput(f.search); }
+    setFiltersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch {}
-  }, [statusFilter, search]);
+  }, [filtersLoaded, statusFilter, search]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

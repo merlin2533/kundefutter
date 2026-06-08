@@ -50,6 +50,8 @@ export default function KeyboardShortcuts() {
       // Ignore when typing in inputs or with modifier keys (except shift for ?)
       if (isInputFocused()) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Synthetische keydown-Events (z.B. iOS-Passwortmanager/Autofill) haben kein e.key → würde sonst crashen
+      if (typeof e.key !== "string") return;
 
       const key = e.key.toLowerCase();
 
