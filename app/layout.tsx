@@ -10,6 +10,7 @@ import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import { getAppName } from "@/lib/appinfo";
 import { getCurrentUser } from "@/lib/auth";
 import { UserProvider } from "@/lib/user-context";
+import { SentryUserContext } from "@/components/SentryUserContext";
 
 export async function generateMetadata(): Promise<Metadata> {
   const appName = await getAppName();
@@ -37,15 +38,20 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [appName, currentUser] = await Promise.all([getAppName(), getCurrentUser()]);
   return (
-    <html lang="de" className="h-full">
+    <html lang="de" className="h-full" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={appName} />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <UserProvider user={currentUser}>
+          <SentryUserContext
+            userId={currentUser?.id}
+            benutzername={currentUser?.benutzername}
+            rolle={currentUser?.rolle}
+          />
           <ServiceWorkerRegistration />
           <InstallPrompt />
           <SearchPalette />
