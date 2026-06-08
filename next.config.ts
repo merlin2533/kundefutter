@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { randomUUID } from "crypto";
 import { version as appVersion } from "./package.json";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const buildId = randomUUID();
 
@@ -56,4 +57,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // GlitchTip-compatible: disable Sentry-specific build features we don't need
+  silent: true,
+  disableLogger: true,
+  // Don't upload source maps to Sentry — GlitchTip doesn't support it via this plugin
+  sourcemaps: { disable: true },
+  // Disable automatic instrumentation wrapping (we do it manually via instrumentation.ts)
+  autoInstrumentServerFunctions: false,
+  autoInstrumentMiddleware: false,
+  autoInstrumentAppDirectory: false,
+});
