@@ -11,6 +11,7 @@ interface Kunde {
   name: string;
   firma?: string | null;
   ort?: string | null;
+  kontakte?: { name: string }[];
 }
 
 interface KiErgebnis {
@@ -116,7 +117,7 @@ function KiCrmWizard() {
 
   // Load Kunden on mount
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+    fetch("/api/kunden?aktiv=true&limit=1000")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         setKunden(Array.isArray(data) ? data : []);
@@ -124,11 +125,15 @@ function KiCrmWizard() {
       .catch(() => {});
   }, []);
 
-  const kundenOptions = kunden.map((k) => ({
-    value: String(k.id),
-    label: k.firma ? `${k.firma} (${k.name})` : k.name,
-    sub: k.ort ?? undefined,
-  }));
+  const kundenOptions = kunden.map((k) => {
+    const kontaktNamen = k.kontakte?.map((c) => c.name).join(", ") ?? "";
+    const subParts = [k.firma && k.firma !== k.name ? k.firma : null, k.ort, kontaktNamen].filter(Boolean);
+    return {
+      value: String(k.id),
+      label: k.firma ? `${k.firma} (${k.name})` : k.name,
+      sub: subParts.join(" · ") || undefined,
+    };
+  });
 
   // Voice transcript state
   const [voiceText, setVoiceText] = useState("");
