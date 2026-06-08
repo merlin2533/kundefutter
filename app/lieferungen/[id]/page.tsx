@@ -343,7 +343,7 @@ export default function LieferungDetailPage() {
   useEffect(() => { load(); loadTeilzahlungen(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    fetch("/api/artikel?limit=500")
+    fetch("/api/artikel?limit=2000&relations=false")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch(() => {});
@@ -1459,16 +1459,12 @@ export default function LieferungDetailPage() {
                 <div className="flex flex-wrap gap-3 items-end">
                   <div className="flex-1 min-w-48">
                     <label className="block text-xs text-gray-500 mb-1">Artikel</label>
-                    <select
+                    <SearchableSelect
+                      options={artikelListe.map(a => ({ value: String(a.id), label: a.name }))}
                       value={addPosArtikelId}
-                      onChange={e => onArtikelSelect(e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
-                    >
-                      <option value="">— Artikel wählen —</option>
-                      {artikelListe.map(a => (
-                        <option key={a.id} value={String(a.id)}>{a.name}</option>
-                      ))}
-                    </select>
+                      onChange={onArtikelSelect}
+                      placeholder="Artikel suchen…"
+                    />
                   </div>
                   <div className="w-24">
                     <label className="block text-xs text-gray-500 mb-1">Menge</label>
