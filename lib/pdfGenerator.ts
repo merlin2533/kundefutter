@@ -6,7 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
-import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { liefposArtikelSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
@@ -296,7 +296,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   const body = positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
-    const artikelZelle = `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
+    const posNotiz = typeof p.notiz === "string" ? p.notiz.trim() : "";
+    const artikelZelle = posNotiz
+      ? `${p.artikel.name}\n${posNotiz}\nMwSt ${p.artikel.mwstSatz ?? 19} %`
+      : `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
     const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
     const base = [String(i + 1), artikelZelle];
     if (hatCharge) base.push(p.chargeNr ?? "—");
@@ -487,7 +490,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     where: { id: lieferungId },
     include: {
       kunde: { include: { kontakte: true } },
-      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+      positionen: { include: { artikel: artikelWithInhaltSelect } },
     },
   });
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
@@ -603,8 +606,72 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     },
   });
 
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPos = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 8;
+
+  // ── Bemerkung / Notiz (wie in der Bildschirm-Vorschau) ───────────────────────
+  if (lieferung.notiz && lieferung.notiz.trim().length > 0) {
+    if (yPos > pageHeight - 50) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text("BEMERKUNG", 14, yPos);
+    yPos += 5;
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    const notizLines = doc.splitTextToSize(lieferung.notiz.trim(), 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, yPos + i * 4));
+    yPos += notizLines.length * 4 + 6;
+  }
+
+  // ── Nährstoffdeklaration gem. DüMV / DüV (deklarierte Inhaltsstoffe) ──────────
+  const posMitInhalt = positionen.filter(
+    (p) => Array.isArray(p.artikel.inhaltsstoffe) && p.artikel.inhaltsstoffe.length > 0,
+  );
+  if (posMitInhalt.length > 0) {
+    if (yPos > pageHeight - 50) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120);
+    doc.text("NÄHRSTOFFDEKLARATION GEM. DÜMV / DÜV", 14, yPos);
+    yPos += 4;
+
+    for (const pos of posMitInhalt) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inhaltBody = (pos.artikel.inhaltsstoffe as any[]).map((is) => [
+        String(is.name ?? ""),
+        is.menge != null ? Number(is.menge).toLocaleString("de-DE") : "k.A.",
+        String(is.einheit ?? ""),
+      ]);
+      autoTable(doc, {
+        startY: yPos,
+        head: [[`${pos.artikel.name} — Deklarierte Nährstoffe`, "Gehalt", "Einheit"]],
+        body: inhaltBody,
+        theme: "plain",
+        headStyles: { fillColor: [249, 249, 249], textColor: [51, 51, 51], fontStyle: "bold", lineColor: [187, 187, 187], lineWidth: 0.2 },
+        styles: { fontSize: 8, cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 3 }, lineColor: [238, 238, 238], lineWidth: 0.1, textColor: [0, 0, 0] },
+        columnStyles: { 1: { halign: "right", cellWidth: 28 }, 2: { cellWidth: 24 } },
+        margin: { left: 14, right: 14 },
+      });
+      yPos = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+    }
+
+    if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(150);
+    const disclaimer =
+      "Angaben gem. Düngemittelverordnung (DüV) i.V.m. Verordnung (EG) Nr. 2003/2003 bzw. EU 2019/1009. " +
+      "Deklarierte Gehalte beziehen sich auf das Produkt in der gelieferten Form.";
+    const discLines = doc.splitTextToSize(disclaimer, 182) as string[];
+    discLines.forEach((line, i) => doc.text(line, 14, yPos + i * 3));
+    yPos += discLines.length * 3 + 4;
+    doc.setFont("helvetica", "normal");
+  }
+
   // ── Unterschriftsfeld ───────────────────────────────────────────────────────
-  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 20;
+  let finalY = yPos + 4;
+  if (finalY > pageHeight - 50) { doc.addPage(); finalY = 30; }
   doc.setFontSize(9);
   doc.setTextColor(100);
   doc.text("Erhalten am: _______________", 14, finalY + 15);

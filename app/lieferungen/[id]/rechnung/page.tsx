@@ -23,6 +23,7 @@ interface Position {
   einkaufspreis: number;
   rabattProzent?: number | null;
   chargeNr?: string | null;
+  notiz?: string | null;
   artikel: ArtikelInfo;
 }
 
@@ -629,6 +630,9 @@ export default function RechnungPrintPage() {
                     </div>
                   )}
                   <div>{p.artikel.name}</div>
+                  {p.notiz && p.notiz.trim().length > 0 && (
+                    <div style={{ fontSize: "9pt", color: "#555" }}>{p.notiz}</div>
+                  )}
                   <div style={{ fontSize: "9pt", color: "#666" }}>
                     MwSt {p.artikel.mwstSatz ?? 19} %
                   </div>
