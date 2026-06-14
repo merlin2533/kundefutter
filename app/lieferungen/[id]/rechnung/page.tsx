@@ -571,11 +571,28 @@ export default function RechnungPrintPage() {
           <div style={{ flex: "0 0 100%", borderTop: "2px solid #222", marginTop: "20px", marginBottom: "24px" }} />
         </div>
 
-        {/* Empfänger */}
+        {/* Empfänger – mit kleiner Absenderzeile darüber (Fensterumschlag) */}
         <div style={{ marginBottom: "48px" }}>
-          <div style={{ fontSize: "8pt", color: "#888", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Rechnungsempfänger
-          </div>
+          {(firmenname || firmaAdresse || firmaPlz || firmaOrt) && (
+            <div
+              style={{
+                fontSize: "7pt",
+                color: "#555",
+                marginBottom: "8px",
+                paddingBottom: "2px",
+                borderBottom: "0.5pt solid #999",
+                display: "inline-block",
+              }}
+            >
+              {[
+                firmenname,
+                firmaAdresse,
+                [firmaPlz, firmaOrt].filter(Boolean).join(" "),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </div>
+          )}
           <div style={{ fontWeight: "bold", fontSize: "12pt" }}>
             {lieferung.kunde.firma
               ? lieferung.kunde.firma
