@@ -131,6 +131,10 @@ export default function LieferungDetailPage() {
   const [notizEditId, setNotizEditId] = useState<number | null>(null);
   const [notizEditValue, setNotizEditValue] = useState<string>("");
 
+  const [chargeEditId, setChargeEditId] = useState<number | null>(null);
+  const [chargeEditValue, setChargeEditValue] = useState<string>("");
+  const [chargeSavingId, setChargeSavingId] = useState<number | null>(null);
+
   // E-Mail-Versand
   const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -1280,7 +1284,30 @@ export default function LieferungDetailPage() {
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium">{pos.artikel.name}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">{pos.chargeNr ?? "—"}</td>
+                  {/* Charge – inline edit, auch nachträglich (nach Lieferung/Rechnung) erfassbar */}
+                  <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                    {chargeEditId === pos.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={chargeEditValue}
+                          onChange={(e) => setChargeEditValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") { e.preventDefault(); setChargeSavingId(pos.id); commitPosField(pos.id, "chargeNr", chargeEditValue, () => setChargeEditId(null)).finally(() => setChargeSavingId(null)); } else if (e.key === "Escape") setChargeEditId(null);
+                          }}
+                          placeholder="Chargennr.…"
+                          className="w-28 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <button onClick={() => { setChargeSavingId(pos.id); commitPosField(pos.id, "chargeNr", chargeEditValue, () => setChargeEditId(null)).finally(() => setChargeSavingId(null)); }} disabled={chargeSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{chargeSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => setChargeEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { if (lieferung.status === "storniert") return; setChargeEditId(pos.id); setChargeEditValue(pos.chargeNr ?? ""); }} disabled={lieferung.status === "storniert"} className="hover:underline disabled:no-underline disabled:cursor-default text-left" title={lieferung.status === "storniert" ? "Lieferung storniert" : "Chargennummer bearbeiten"}>
+                        {pos.chargeNr ? pos.chargeNr : <span className="text-gray-300">—</span>}
+                      </button>
+                    )}
+                  </td>
                   {/* Menge – inline edit */}
                   <td className="px-4 py-3 font-mono">
                     {mengeEditId === pos.id ? (
