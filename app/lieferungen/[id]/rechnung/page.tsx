@@ -53,6 +53,7 @@ interface Lieferung {
   lieferDatum?: string | null;
   rechnungNr?: string | null;
   rechnungDatum?: string | null;
+  lieferscheinNr?: string | null;
   rechnungStorniert?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
@@ -80,6 +81,32 @@ export default function RechnungPrintPage() {
   const [mailModalOffen, setMailModalOffen] = useState(false);
   const [mailFehler, setMailFehler] = useState("");
   const [stornoLoading, setStornoLoading] = useState(false);
+  const [lsNrEdit, setLsNrEdit] = useState(false);
+  const [lsNrInput, setLsNrInput] = useState("");
+  const [lsNrSaving, setLsNrSaving] = useState(false);
+
+  async function handleLsNrSpeichern() {
+    setLsNrSaving(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferscheinNr: lsNrInput.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setLieferung((prev) => (prev ? { ...prev, lieferscheinNr: updated.lieferscheinNr ?? null } : prev));
+        setLsNrEdit(false);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Lieferschein-Nr. konnte nicht gespeichert werden.");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Speichern der Lieferschein-Nr.");
+    } finally {
+      setLsNrSaving(false);
+    }
+  }
 
   async function handleStorno() {
     if (!lieferung?.rechnungNr) return;
@@ -324,6 +351,8 @@ export default function RechnungPrintPage() {
     ? formatDatum(lieferung.rechnungDatum)
     : formatDatum(lieferung.datum);
   const lieferDatumStr = formatDatum(lieferung.lieferDatum ?? lieferung.datum);
+  // Lieferschein-Nr.: manuell anpassbar, ergibt sich sonst aus dem Auftrag (Lieferungs-ID)
+  const lieferscheinNrAnzeige = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
 
   const EIGENTUMSVORBEHALT_DEFAULT =
     "Die Ware bleibt bis zur vollständigen Bezahlung unser Eigentum.";
@@ -551,6 +580,34 @@ export default function RechnungPrintPage() {
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsdatum:</td>
                   <td>{rechnungsDatumStr}</td>
+                </tr>
+                <tr>
+                  <td style={{ paddingRight: "8px", color: "#555", verticalAlign: "top" }}>Lieferschein-Nr.:</td>
+                  <td>
+                    {lsNrEdit ? (
+                      <span className="print-hidden" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          value={lsNrInput}
+                          onChange={(e) => setLsNrInput(e.target.value)}
+                          placeholder={String(lieferung.id)}
+                          style={{ width: "100px", fontSize: "10pt", padding: "1px 4px", border: "1px solid #bbb", borderRadius: "3px", textAlign: "right" }}
+                          autoFocus
+                        />
+                        <button onClick={handleLsNrSpeichern} disabled={lsNrSaving} title="Speichern" style={{ color: "#15803d", fontWeight: "bold", cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setLsNrEdit(false)} disabled={lsNrSaving} title="Abbrechen" style={{ color: "#999", cursor: "pointer" }}>✕</button>
+                      </span>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <span>{lieferscheinNrAnzeige}</span>
+                        <button
+                          className="print-hidden"
+                          onClick={() => { setLsNrInput(lieferung.lieferscheinNr ?? ""); setLsNrEdit(true); }}
+                          title="Lieferschein-Nr. anpassen"
+                          style={{ color: "#2563eb", fontSize: "9pt", cursor: "pointer" }}
+                        >✎</button>
+                      </span>
+                    )}
+                  </td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Lieferdatum:</td>

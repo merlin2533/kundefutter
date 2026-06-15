@@ -169,6 +169,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       status?: string; notiz?: string | null; stornoBegründung?: string;
       datum?: Date; lieferDatum?: Date | null; bezahltAm?: Date | null;
       zahlungsziel?: number; rechnungNr?: string; rechnungDatum?: Date | null;
+      lieferscheinNr?: string | null;
       istStreckengeschaeft?: boolean; streckenLieferantId?: number | null;
       skontoProzent?: number | null; skontoTage?: number | null; skontoGenutzt?: boolean;
     } = {};
@@ -225,6 +226,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
         const d = toValidDate(data.rechnungDatum);
         if (!d) throw new Error("Ungültiges Rechnungsdatum");
         updateData.rechnungDatum = d;
+      }
+    }
+    // Lieferschein-Nummer: manuell anpassbar; leer/null → Default (Lieferungs-ID)
+    if (data.lieferscheinNr !== undefined) {
+      if (data.lieferscheinNr === null || (typeof data.lieferscheinNr === "string" && data.lieferscheinNr.trim() === "")) {
+        updateData.lieferscheinNr = null;
+      } else if (typeof data.lieferscheinNr === "string") {
+        updateData.lieferscheinNr = data.lieferscheinNr.trim();
+      } else {
+        throw new Error("Lieferschein-Nummer muss Text sein");
       }
     }
     // Skonto-Felder (vom Detail-Header speicherbar)

@@ -333,6 +333,7 @@ model Lieferung {
   notiz            String?
   rechnungNr       String?  // gesetzt wenn Rechnung erstellt wurde
   rechnungDatum    DateTime?
+  lieferscheinNr   String?  // manuell anpassbare Lieferschein-Nummer (Default: Lieferungs-ID/Auftrag)
   rechnungStorniert DateTime? // gesetzt wenn die Rechnung storniert wurde – verschwindet aus der Rechnungsliste
   bezahltAm        DateTime?
   zahlungsziel     Int?      @default(30)  // Tage

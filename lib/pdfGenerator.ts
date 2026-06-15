@@ -240,6 +240,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   };
   drawMetaZeile("Rechnungsnummer:", lieferung.rechnungNr ?? "—", true);
   drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
+  drawMetaZeile("Lieferschein-Nr.:", lieferung.lieferscheinNr?.trim() || String(lieferung.id));
   drawMetaZeile("Lieferdatum:", formatDatum(lieferDatum));
   drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
