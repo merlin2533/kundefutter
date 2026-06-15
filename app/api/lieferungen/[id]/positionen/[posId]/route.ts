@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   // Nur ausgewählte Felder zulassen
-  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null } = {};
+  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null; chargeNr?: string | null } = {};
   if (body.rabattProzent !== undefined) {
     const r = Number(body.rabattProzent);
     if (isNaN(r) || r < 0 || r > 100) {
@@ -82,6 +82,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   if (body.notiz !== undefined) {
     updateData.notiz = typeof body.notiz === "string" ? body.notiz.trim() || null : null;
+  }
+  // Chargennummer: reine Dokumentation/Rückverfolgung – auch nachträglich (nach Lieferung/Rechnung) erfassbar
+  if (body.chargeNr !== undefined) {
+    updateData.chargeNr = typeof body.chargeNr === "string" ? body.chargeNr.trim() || null : null;
   }
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });
