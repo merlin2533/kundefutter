@@ -322,6 +322,10 @@ export default function LieferungDetailPage() {
     return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungNr;
   }
 
+  function canEditMenge() {
+    return lieferung && lieferung.status !== "storniert";
+  }
+
   async function speichereRechnungNr() {
     const neu = rechnungNrEdit.trim();
     if (!neu) { setRechnungNrError("Rechnungsnummer darf nicht leer sein."); return; }
@@ -1383,7 +1387,7 @@ export default function LieferungDetailPage() {
                         <button onClick={() => setMengeEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (
-                      <button type="button" onClick={() => { if (!canEditPos()) return; setMengeEditId(pos.id); setMengeEditValue(String(pos.menge)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "Menge bearbeiten" : "Nicht bearbeitbar"}>
+                      <button type="button" onClick={() => { if (!canEditMenge()) return; setMengeEditId(pos.id); setMengeEditValue(String(pos.menge)); }} disabled={!canEditMenge()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditMenge() ? "Menge bearbeiten" : "Nicht bearbeitbar"}>
                         {pos.menge}
                       </button>
                     )}
