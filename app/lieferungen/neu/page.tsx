@@ -287,6 +287,27 @@ function NeueLieferungInner() {
     );
   }
 
+  async function handleArtikelChange(idx: number, value: string | number) {
+    updatePosition(idx, "artikelId", value);
+    if (!value && value !== 0) return;
+    try {
+      const res = await fetch(`/api/artikel/${value}`);
+      if (!res.ok) return;
+      const fullArt = await res.json() as Artikel;
+      const ek = resolveEK(fullArt);
+      if (ek > 0) {
+        setPositionen((prev) =>
+          prev.map((p, i) => {
+            if (i !== idx || Number(p.artikelId) !== Number(value)) return p;
+            return { ...p, einkaufspreis: String(ek) };
+          })
+        );
+      }
+    } catch {
+      // ignore — EK stays as resolved from cached list
+    }
+  }
+
   function addPosition() {
     setPositionen((prev) => [...prev, emptyPosition()]);
   }
@@ -661,7 +682,7 @@ function NeueLieferungInner() {
                               sub: a.einheit,
                             }))}
                             value={pos.artikelId}
-                            onChange={(v) => updatePosition(idx, "artikelId", v)}
+                            onChange={(v) => handleArtikelChange(idx, v)}
                             placeholder="— Artikel wählen —"
                             required
                           />
