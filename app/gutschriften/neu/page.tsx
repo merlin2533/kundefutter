@@ -68,7 +68,7 @@ function NeueGutschriftForm() {
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
-    fetch("/api/artikel?aktiv=true")
+    fetch("/api/artikel?limit=5000")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch(() => {});
@@ -131,7 +131,7 @@ function NeueGutschriftForm() {
     if (!lief || lief.positionen.length === 0) return;
     setPositionen(
       lief.positionen.map((p) => ({
-        artikelId: String(p.artikelId),
+        artikelId: String(p.artikel?.id ?? p.artikelId ?? ""),
         menge: String(p.menge),
         preis: String(p.verkaufspreis),
         ruecknahme: false,
