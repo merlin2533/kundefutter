@@ -99,14 +99,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!pos || pos.lieferungId !== lieferungId) {
       return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
     }
-    // Finanzielle Felder nach Rechnungsstellung sperren
-    const hatFinanzFelder = updateData.verkaufspreis !== undefined || updateData.menge !== undefined || updateData.rabattProzent !== undefined || updateData.einkaufspreis !== undefined;
-    if (pos.lieferung.rechnungNr && hatFinanzFelder) {
-      return NextResponse.json(
-        { error: "Positionen können nach Rechnungsstellung nicht mehr geändert werden." },
-        { status: 422 }
-      );
-    }
     const updated = await prisma.lieferposition.update({
       where: { id: positionId },
       data: updateData,
