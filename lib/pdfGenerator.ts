@@ -250,13 +250,21 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.setLineWidth(0.6);
   doc.line(14, sepY, 196, sepY);
 
-  // ── Empfänger-Block ─────────────────────────────────────────────────────────
+  // ── Empfänger-Block (DIN 5008: Absenderzeile + Empfänger) ───────────────────
   let ey = sepY + 10;
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COL_LABEL);
-  doc.text("RECHNUNGSEMPFÄNGER", 14, ey);
-  ey += 5;
+  const absenderParts = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
+  if (absenderParts.length > 0) {
+    const absenderText = absenderParts.join(" · ");
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_LABEL);
+    doc.text(absenderText, 14, ey, { maxWidth: 80 });
+    const lineWidth = Math.min(doc.getTextWidth(absenderText), 80);
+    doc.setDrawColor(...COL_LABEL);
+    doc.setLineWidth(0.25);
+    doc.line(14, ey + 1, 14 + lineWidth, ey + 1);
+    ey += 5;
+  }
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");

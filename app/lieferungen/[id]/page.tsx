@@ -89,6 +89,9 @@ export default function LieferungDetailPage() {
   const [rechnungNrEdit, setRechnungNrEdit] = useState<string>("");
   const [rechnungNrEditing, setRechnungNrEditing] = useState(false);
   const [rechnungNrError, setRechnungNrError] = useState("");
+  const [notizLieferungEditing, setNotizLieferungEditing] = useState(false);
+  const [notizLieferungValue, setNotizLieferungValue] = useState("");
+  const [notizLieferungSaving, setNotizLieferungSaving] = useState(false);
   const [firmaData, setFirmaData] = useState<Record<string, string>>({});
   const [logo, setLogo] = useState<string>("");
   // Skonto
@@ -168,6 +171,8 @@ export default function LieferungDetailPage() {
     setRechnungNrEdit(data.rechnungNr ?? "");
     setRechnungNrEditing(false);
     setRechnungNrError("");
+    setNotizLieferungValue(data.notiz ?? "");
+    setNotizLieferungEditing(false);
     setSkontoProzentEdit(String(data.skontoProzent ?? ""));
     setSkontoTageEdit(String(data.skontoTage ?? ""));
     setSkontoGenutztEdit(!!data.skontoGenutzt);
@@ -341,6 +346,25 @@ export default function LieferungDetailPage() {
       setRechnungNrError(e instanceof Error ? e.message : "Fehler beim Speichern.");
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function speichereNotizLieferung() {
+    setNotizLieferungSaving(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notiz: notizLieferungValue.trim() || null }),
+      });
+      if (res.ok) {
+        await load();
+        setNotizLieferungEditing(false);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setNotizLieferungSaving(false);
     }
   }
 
@@ -865,9 +889,40 @@ export default function LieferungDetailPage() {
               <span>·</span>
               <StatusBadge status={lieferung.status} />
             </div>
-            {lieferung.notiz && (
-              <p className="mt-2 text-sm text-gray-500 italic">{lieferung.notiz}</p>
-            )}
+            <div className="mt-2">
+              {notizLieferungEditing ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={notizLieferungValue}
+                    onChange={(e) => setNotizLieferungValue(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-0.5 text-sm flex-1 min-w-[160px] focus:outline-none focus:ring-1 focus:ring-green-700"
+                    placeholder="Bemerkung / Hinweis…"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") speichereNotizLieferung(); else if (e.key === "Escape") setNotizLieferungEditing(false); }}
+                  />
+                  <button onClick={speichereNotizLieferung} disabled={notizLieferungSaving} className="px-2 py-0.5 text-xs bg-green-700 hover:bg-green-800 text-white rounded transition-colors disabled:opacity-60">
+                    {notizLieferungSaving ? "…" : "Speichern"}
+                  </button>
+                  <button onClick={() => setNotizLieferungEditing(false)} className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors">
+                    Abbrechen
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {lieferung.notiz ? (
+                    <p className="text-sm text-gray-500 italic">{lieferung.notiz}</p>
+                  ) : null}
+                  <button
+                    onClick={() => { setNotizLieferungValue(lieferung.notiz ?? ""); setNotizLieferungEditing(true); }}
+                    className="text-xs text-green-700 hover:text-green-900 underline"
+                    title="Bemerkung bearbeiten"
+                  >
+                    {lieferung.notiz ? "bearbeiten" : "+ Bemerkung"}
+                  </button>
+                </div>
+              )}
+            </div>
             {lieferung.rechnungNr && (
               <div className="mt-2 text-sm text-gray-700 print:hidden">
                 {rechnungNrEditing ? (
