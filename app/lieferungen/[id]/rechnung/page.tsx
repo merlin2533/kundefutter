@@ -84,6 +84,9 @@ export default function RechnungPrintPage() {
   const [lsNrEdit, setLsNrEdit] = useState(false);
   const [lsNrInput, setLsNrInput] = useState("");
   const [lsNrSaving, setLsNrSaving] = useState(false);
+  const [reNrEdit, setReNrEdit] = useState(false);
+  const [reNrInput, setReNrInput] = useState("");
+  const [reNrSaving, setReNrSaving] = useState(false);
 
   async function handleLsNrSpeichern() {
     setLsNrSaving(true);
@@ -105,6 +108,30 @@ export default function RechnungPrintPage() {
       setError("Netzwerkfehler beim Speichern der Lieferschein-Nr.");
     } finally {
       setLsNrSaving(false);
+    }
+  }
+
+  async function handleReNrSpeichern() {
+    if (!reNrInput.trim()) return;
+    setReNrSaving(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rechnungNr: reNrInput.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setLieferung((prev) => (prev ? { ...prev, rechnungNr: updated.rechnungNr ?? prev.rechnungNr } : prev));
+        setReNrEdit(false);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Rechnungsnummer konnte nicht gespeichert werden.");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Speichern der Rechnungsnummer.");
+    } finally {
+      setReNrSaving(false);
     }
   }
 
@@ -575,7 +602,31 @@ export default function RechnungPrintPage() {
               <tbody>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsnummer:</td>
-                  <td style={{ fontWeight: "bold", fontFamily: "monospace" }}>{rechnungNr}</td>
+                  <td style={{ fontWeight: "bold", fontFamily: "monospace" }}>
+                    {reNrEdit ? (
+                      <span className="print-hidden" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          value={reNrInput}
+                          onChange={(e) => setReNrInput(e.target.value)}
+                          style={{ width: "140px", fontSize: "10pt", padding: "1px 4px", border: "1px solid #bbb", borderRadius: "3px", fontFamily: "monospace" }}
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleReNrSpeichern(); else if (e.key === "Escape") setReNrEdit(false); }}
+                        />
+                        <button onClick={handleReNrSpeichern} disabled={reNrSaving} title="Speichern" style={{ color: "#15803d", fontWeight: "bold", cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setReNrEdit(false)} disabled={reNrSaving} title="Abbrechen" style={{ color: "#999", cursor: "pointer" }}>✕</button>
+                      </span>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <span>{rechnungNr}</span>
+                        <button
+                          className="print-hidden"
+                          onClick={() => { setReNrInput(lieferung.rechnungNr ?? ""); setReNrEdit(true); }}
+                          title="Rechnungsnummer anpassen"
+                          style={{ color: "#2563eb", fontSize: "9pt", cursor: "pointer", fontFamily: "sans-serif", fontWeight: "normal" }}
+                        >✎</button>
+                      </span>
+                    )}
+                  </td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsdatum:</td>
@@ -628,17 +679,19 @@ export default function RechnungPrintPage() {
           <div style={{ flex: "0 0 100%", borderTop: "2px solid #222", marginTop: "20px", marginBottom: "24px" }} />
         </div>
 
-        {/* Empfänger – mit kleiner Absenderzeile darüber (Fensterumschlag) */}
-        <div style={{ marginBottom: "48px" }}>
+        {/* Empfänger – mit kleiner Absenderzeile darüber (Fensterumschlag DIN 5008) */}
+        <div style={{ marginBottom: "48px", maxWidth: "85mm" }}>
           {(firmenname || firmaAdresse || firmaPlz || firmaOrt) && (
             <div
               style={{
                 fontSize: "7pt",
                 color: "#555",
-                marginBottom: "8px",
+                marginBottom: "6px",
                 paddingBottom: "2px",
-                borderBottom: "0.5pt solid #999",
-                display: "inline-block",
+                borderBottom: "0.5pt solid #aaa",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {[

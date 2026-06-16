@@ -364,13 +364,15 @@ function WareneingangInner() {
                       Menge{art?.einheit ? <span className="ml-1 text-gray-400">({art.einheit})</span> : ""}
                     </label>
                     <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={pos.menge}
-                      onChange={(e) =>
-                        updatePosition(idx, "menge", parseFloat(e.target.value) || 0)
-                      }
+                      key={`menge-${pos.bestellpositionId || idx}`}
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={pos.menge > 0 ? String(pos.menge).replace(".", ",") : ""}
+                      onBlur={(e) => {
+                        const num = parseFloat(e.target.value.replace(",", "."));
+                        updatePosition(idx, "menge", isNaN(num) ? 0 : num);
+                      }}
+                      placeholder="0"
                       className={inputCls}
                     />
                   </div>
@@ -379,17 +381,15 @@ function WareneingangInner() {
                       Einkaufspreis (EUR)
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={pos.einkaufspreis}
-                      onChange={(e) =>
-                        updatePosition(
-                          idx,
-                          "einkaufspreis",
-                          parseFloat(e.target.value) || 0
-                        )
-                      }
+                      key={`ek-${pos.bestellpositionId || idx}`}
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={pos.einkaufspreis > 0 ? String(pos.einkaufspreis).replace(".", ",") : ""}
+                      onBlur={(e) => {
+                        const num = parseFloat(e.target.value.replace(",", "."));
+                        updatePosition(idx, "einkaufspreis", isNaN(num) ? 0 : num);
+                      }}
+                      placeholder="0,00"
                       className={inputCls}
                     />
                   </div>
