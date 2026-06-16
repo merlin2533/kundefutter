@@ -404,7 +404,7 @@ export default function RechnungPrintPage() {
     <>
       <style>{`
         @media print {
-          @page { margin: 2cm; size: A4 portrait; }
+          @page { margin: 2cm 2cm 2cm 3.5cm; size: A4 portrait; }
           .print-hidden { display: none !important; }
           body { margin: 0 !important; padding: 0 !important; }
           main { padding: 0 !important; max-width: 100% !important; }
