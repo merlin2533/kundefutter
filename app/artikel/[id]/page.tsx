@@ -286,10 +286,10 @@ export default function ArtikelDetailPage() {
         kategorie: editForm.kategorie,
         unterkategorie: (editForm.unterkategorie as string | null | undefined)?.toString().trim() || null,
         einheit: editForm.einheit,
-        standardpreis: Number(editForm.standardpreis),
+        standardpreis: Number(editForm.standardpreis) || 0,
         preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
         mwstSatz: Number(editForm.mwstSatz) || 19,
-        mindestbestand: Number(editForm.mindestbestand),
+        mindestbestand: Number(editForm.mindestbestand) || 0,
         beschreibung: editForm.beschreibung || null,
         aktiv: editForm.aktiv,
         lagerort: editForm.lagerort || null,
@@ -803,8 +803,8 @@ export default function ArtikelDetailPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>
                   <input
                     type="number" step="0.01" min="0"
-                    value={editForm.standardpreis ?? 0}
-                    onChange={(e) => setEditForm({ ...editForm, standardpreis: parseFloat(e.target.value) || 0 })}
+                    value={editForm.standardpreis ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, standardpreis: e.target.valueAsNumber })}
                     className={inputCls}
                   />
                 </div>
@@ -822,8 +822,8 @@ export default function ArtikelDetailPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
                 <input
                   type="number" step="0.001" min="0"
-                  value={editForm.mindestbestand ?? 0}
-                  onChange={(e) => setEditForm({ ...editForm, mindestbestand: parseFloat(e.target.value) || 0 })}
+                  value={editForm.mindestbestand ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, mindestbestand: e.target.valueAsNumber })}
                   className={inputCls}
                 />
               </div>
