@@ -10,6 +10,7 @@ import {
   parseListSetting,
   getUnterkategorienKey,
 } from "@/lib/auswahllisten";
+import { parseDezimal } from "@/lib/utils";
 
 const defaultForm = {
   name: "",
@@ -22,6 +23,7 @@ const defaultForm = {
   mwstSatz: "19",
   lagerort: "",
   liefergroesse: "",
+  notiz: "",
   sprengstoffvorlaeufer: false,
   chargePflicht: false,
   lagerTracking: true,
@@ -113,8 +115,8 @@ export default function NeuerArtikelPage() {
       ...form,
       artikelnummer: form.artikelnummer.trim() || undefined,
       unterkategorie: form.unterkategorie.trim() || null,
-      standardpreis: Number(form.standardpreis) || 0,
-      mindestbestand: Number(form.mindestbestand) || 0,
+      standardpreis: parseDezimal(form.standardpreis),
+      mindestbestand: parseDezimal(form.mindestbestand),
       mwstSatz: Number(form.mwstSatz) || 19,
       inhaltsstoffe: inhaltsstoffePayload.length ? inhaltsstoffePayload : undefined,
     };
@@ -238,9 +240,9 @@ export default function NeuerArtikelPage() {
               Standardpreis (&euro;)
             </label>
             <input
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="decimal"
+              placeholder="0,00"
               value={form.standardpreis}
               onChange={(e) =>
                 setForm({ ...form, standardpreis: e.target.value })
@@ -253,9 +255,9 @@ export default function NeuerArtikelPage() {
               Mindestbestand
             </label>
             <input
-              type="number"
-              step="0.001"
-              min="0"
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
               value={form.mindestbestand}
               onChange={(e) =>
                 setForm({ ...form, mindestbestand: e.target.value })
@@ -402,6 +404,20 @@ export default function NeuerArtikelPage() {
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notiz{" "}
+            <span className="text-gray-400 text-xs">(optional, erscheint auf Lieferungen/Lieferschein/Rechnung)</span>
+          </label>
+          <textarea
+            rows={2}
+            value={form.notiz}
+            onChange={(e) => setForm({ ...form, notiz: e.target.value })}
+            placeholder="z.B. Auch als 25 kg Sack und Big Bag erhältlich – gleicher kg-Preis"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 resize-none"
+          />
         </div>
 
         <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">

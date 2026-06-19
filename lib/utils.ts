@@ -78,6 +78,27 @@ export function formatEuro(n: number): string {
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
 
+/**
+ * Parst eine Dezimaleingabe tolerant für deutsche Eingaben.
+ * Akzeptiert Komma als Dezimaltrennzeichen ("0,63" → 0.63) sowie Tausenderpunkte
+ * bei gemischter Schreibweise. Leere/ungültige Eingaben → fallback (Standard 0).
+ * Behebt das "springt auf 0 zurück"-Problem bei Komma-Eingabe auf mobilen Tastaturen.
+ */
+export function parseDezimal(v: string | number | null | undefined, fallback = 0): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : fallback;
+  if (v == null) return fallback;
+  let s = String(v).trim().replace(/\s/g, "");
+  if (!s) return fallback;
+  // Beide Trennzeichen vorhanden → Punkt ist Tausender, Komma Dezimal
+  if (s.includes(",") && s.includes(".")) {
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else {
+    s = s.replace(",", ".");
+  }
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function formatPercent(n: number): string {
   return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "\u00a0%";
 }

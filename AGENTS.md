@@ -798,6 +798,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 - `AntragEmpfaenger.steuerNr String?`
 - `Lieferung.rechnungNr String?` + `rechnungDatum DateTime?`
 - `Lieferposition.chargeNr String?`
+- `Artikel.notiz String?` — freie Notiz/Hinweis; wird beim Hinzufügen zu einer Lieferung in `Lieferposition.notiz` durchgeschleift und auf Lieferschein/Rechnung gedruckt (Abpackungshinweise bei gleichem kg-Preis)
 - `Kunde.lat Float?` + `lng Float?`
 - `Aufgabe.prioritaet` — "niedrig"|"normal"|"hoch"|"kritisch" (JSON-validiert)
 - `Aufgabe.typ` — "aufgabe"|"anruf"|"besuch"|"email" (JSON-validiert)

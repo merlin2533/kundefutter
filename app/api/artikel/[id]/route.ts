@@ -60,6 +60,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     ...(body.aktuellerBestand !== undefined ? { aktuellerBestand: Number(body.aktuellerBestand) } : {}),
     ...(body.mindestbestand !== undefined ? { mindestbestand: Number(body.mindestbestand) } : {}),
     ...(body.beschreibung !== undefined ? { beschreibung: body.beschreibung ? String(body.beschreibung) : null } : {}),
+    ...(body.notiz !== undefined ? { notiz: body.notiz ? String(body.notiz) : null } : {}),
     ...(body.aktiv !== undefined ? { aktiv: Boolean(body.aktiv) } : {}),
     ...(body.chargePflicht !== undefined ? { chargePflicht: Boolean(body.chargePflicht) } : {}),
     ...(body.sprengstoffvorlaeufer !== undefined ? { sprengstoffvorlaeufer: Boolean(body.sprengstoffvorlaeufer) } : {}),

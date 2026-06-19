@@ -179,6 +179,7 @@ model Artikel {
   unterkategorie   String?  // optional Subkategorie, z.B. Saatgut → Mais|Raps|Getreide|…
   einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
   beschreibung     String?
+  notiz            String?  // freie Notiz/Hinweis, läuft auf Lieferpositionen durch (z.B. Abpackungsgrößen bei gleichem kg-Preis)
   standardpreis    Float    @default(0)
   preisStand       DateTime? // Datum, von wann der aktuelle Preis ist
   mwstSatz         Float    @default(19) // 0 | 7 | 19
