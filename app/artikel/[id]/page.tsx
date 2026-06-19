@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
-import { formatEuro, formatDatum, lagerStatus } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import DriveOrdner from "@/components/DriveOrdner";
 import {
@@ -66,6 +66,7 @@ interface Artikel {
   aktuellerBestand: number;
   mindestbestand: number;
   beschreibung?: string | null;
+  notiz?: string | null;
   aktiv: boolean;
   lagerort?: string | null;
   liefergroesse?: string | null;
@@ -171,6 +172,9 @@ export default function ArtikelDetailPage() {
   // Details edit state
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Artikel>>({});
+  // Rohtext-State für Dezimalfelder, damit Komma-Eingabe nicht auf 0 zurückspringt
+  const [preisRaw, setPreisRaw] = useState("");
+  const [mindestRaw, setMindestRaw] = useState("");
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState("");
 
@@ -232,6 +236,7 @@ export default function ArtikelDetailPage() {
       mwstSatz: data.mwstSatz,
       mindestbestand: data.mindestbestand,
       beschreibung: data.beschreibung ?? "",
+      notiz: data.notiz ?? "",
       aktiv: data.aktiv,
       lagerort: data.lagerort ?? "",
       liefergroesse: data.liefergroesse ?? "",
@@ -239,6 +244,8 @@ export default function ArtikelDetailPage() {
       chargePflicht: data.chargePflicht ?? false,
       lagerTracking: data.lagerTracking ?? true,
     });
+    setPreisRaw(data.standardpreis != null ? String(data.standardpreis).replace(".", ",") : "");
+    setMindestRaw(data.mindestbestand != null ? String(data.mindestbestand).replace(".", ",") : "");
     setLoading(false);
   }, [id]);
 
@@ -286,11 +293,12 @@ export default function ArtikelDetailPage() {
         kategorie: editForm.kategorie,
         unterkategorie: (editForm.unterkategorie as string | null | undefined)?.toString().trim() || null,
         einheit: editForm.einheit,
-        standardpreis: Number(editForm.standardpreis) || 0,
+        standardpreis: parseDezimal(preisRaw),
         preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
         mwstSatz: Number(editForm.mwstSatz) || 19,
-        mindestbestand: Number(editForm.mindestbestand) || 0,
+        mindestbestand: parseDezimal(mindestRaw),
         beschreibung: editForm.beschreibung || null,
+        notiz: editForm.notiz || null,
         aktiv: editForm.aktiv,
         lagerort: editForm.lagerort || null,
         liefergroesse: editForm.liefergroesse || null,
@@ -334,6 +342,7 @@ export default function ArtikelDetailPage() {
         mwstSatz: artikel.mwstSatz,
         mindestbestand: artikel.mindestbestand,
         beschreibung: artikel.beschreibung,
+        notiz: artikel.notiz,
         lagerort: artikel.lagerort,
         liefergroesse: artikel.liefergroesse,
         inhaltsstoffe: artikel.inhaltsstoffe.map((i) => ({
@@ -802,9 +811,10 @@ export default function ArtikelDetailPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Standardpreis (€)</label>
                   <input
-                    type="number" step="0.01" min="0"
-                    value={editForm.standardpreis ?? ""}
-                    onChange={(e) => setEditForm({ ...editForm, standardpreis: e.target.valueAsNumber })}
+                    type="text" inputMode="decimal"
+                    value={preisRaw}
+                    onChange={(e) => setPreisRaw(e.target.value)}
+                    placeholder="0,00"
                     className={inputCls}
                   />
                 </div>
@@ -821,9 +831,10 @@ export default function ArtikelDetailPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mindestbestand</label>
                 <input
-                  type="number" step="0.001" min="0"
-                  value={editForm.mindestbestand ?? ""}
-                  onChange={(e) => setEditForm({ ...editForm, mindestbestand: e.target.valueAsNumber })}
+                  type="text" inputMode="decimal"
+                  value={mindestRaw}
+                  onChange={(e) => setMindestRaw(e.target.value)}
+                  placeholder="0"
                   className={inputCls}
                 />
               </div>
@@ -845,6 +856,18 @@ export default function ArtikelDetailPage() {
                   rows={3}
                   value={editForm.beschreibung ?? ""}
                   onChange={(e) => setEditForm({ ...editForm, beschreibung: e.target.value })}
+                  className={`${inputCls} resize-none`}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notiz <span className="text-gray-400 text-xs">(erscheint auf Lieferungen/Lieferschein/Rechnung)</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={editForm.notiz ?? ""}
+                  onChange={(e) => setEditForm({ ...editForm, notiz: e.target.value })}
+                  placeholder="z.B. Auch als 25 kg Sack und Big Bag erhältlich – gleicher kg-Preis"
                   className={`${inputCls} resize-none`}
                 />
               </div>
@@ -1052,6 +1075,12 @@ export default function ArtikelDetailPage() {
                     <div className="py-2.5 flex gap-3 items-start sm:col-span-2">
                       <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Beschreibung</dt>
                       <dd className="text-sm text-gray-900 whitespace-pre-line">{artikel.beschreibung}</dd>
+                    </div>
+                  )}
+                  {artikel.notiz && (
+                    <div className="py-2.5 flex gap-3 items-start sm:col-span-2">
+                      <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Notiz</dt>
+                      <dd className="text-sm text-gray-900 whitespace-pre-line">{artikel.notiz}</dd>
                     </div>
                   )}
                 </div>

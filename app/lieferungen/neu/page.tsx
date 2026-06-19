@@ -32,6 +32,7 @@ interface Artikel {
   lieferanten?: ArtikelLieferantInfo[];
   sprengstoffvorlaeufer?: boolean;
   chargePflicht?: boolean;
+  notiz?: string | null;
 }
 
 /** EK aus bevorzugtem Lieferanten, sonst einzigem Lieferanten, sonst 0 */
@@ -100,6 +101,7 @@ interface NewPosition {
   verkaufspreis: string;
   einkaufspreis: string;
   chargeNr: string;
+  notiz: string;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -110,6 +112,7 @@ const emptyPosition = (): NewPosition => ({
   verkaufspreis: "",
   einkaufspreis: "",
   chargeNr: "",
+  notiz: "",
 });
 
 function formatEuro(n: number) {
@@ -214,6 +217,7 @@ function NeueLieferungInner() {
                     verkaufspreis: String(Math.round(vkPreis * 100) / 100),
                     einkaufspreis: String(resolveEK(art)),
                     chargeNr: "",
+                    notiz: art?.notiz ?? "",
                   };
                 }));
               }
@@ -275,9 +279,12 @@ function NeueLieferungInner() {
           if (art) {
             next.verkaufspreis = String(art.standardpreis);
             next.einkaufspreis = String(resolveEK(art));
+            // Artikel-Notiz durchschleifen (z.B. Abpackungshinweis)
+            next.notiz = art.notiz ?? "";
           } else {
             next.verkaufspreis = "";
             next.einkaufspreis = "";
+            next.notiz = "";
           }
         } else {
           (next as unknown as Record<string, string>)[field] = String(value);
@@ -371,6 +378,7 @@ function NeueLieferungInner() {
             verkaufspreis: parseFloat(p.verkaufspreis) || 0,
             einkaufspreis: parseFloat(p.einkaufspreis) || 0,
             chargeNr: p.chargeNr || undefined,
+            notiz: p.notiz.trim() || undefined,
           })),
         }),
       });
@@ -573,6 +581,7 @@ function NeueLieferungInner() {
                                           verkaufspreis: String(vk),
                                           einkaufspreis: String(ek),
                                           chargeNr: "",
+                                          notiz: artikel.find((a) => a.id === ka.artikelId)?.notiz ?? "",
                                         };
                                         if (last && last.artikelId === "") {
                                           return [...prev.slice(0, -1), newPos];
@@ -699,6 +708,14 @@ function NeueLieferungInner() {
                                 onChange={(v) => updatePosition(idx, "chargeNr", v)}
                                 einheit={selectedArtikel?.einheit}
                                 className={`w-full border rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white ${selectedArtikel?.chargePflicht && !pos.chargeNr ? "border-amber-400 bg-amber-50" : "border-gray-200"}`}
+                              />
+                              <input
+                                type="text"
+                                value={pos.notiz}
+                                onChange={(e) => updatePosition(idx, "notiz", e.target.value)}
+                                placeholder="Notiz (erscheint auf Lieferschein/Rechnung)"
+                                title="Notiz zur Position — aus dem Artikel übernommen, frei änderbar"
+                                className="w-full mt-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
                               />
                             </div>
                           )}

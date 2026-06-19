@@ -16,6 +16,7 @@ interface Position {
   id: number;
   menge: number;
   chargeNr?: string | null;
+  notiz?: string | null;
   artikel: {
     name: string;
     einheit: string;
@@ -582,6 +583,9 @@ export default function LieferscheinPage() {
                         </div>
                       )}
                       {pos.artikel.name}
+                      {pos.notiz && pos.notiz.trim().length > 0 && (
+                        <div style={{ fontSize: "9pt", color: "#555", marginTop: "2px" }}>{pos.notiz}</div>
+                      )}
                       {(() => {
                         try {
                           const klassen: string[] = JSON.parse(pos.artikel.ghsKlassen || "[]");

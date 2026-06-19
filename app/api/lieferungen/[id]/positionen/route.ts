@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr } = body;
+  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr, notiz } = body;
 
   if (!artikelId || typeof artikelId !== "number") {
     return NextResponse.json({ error: "artikelId fehlt" }, { status: 400 });
@@ -40,12 +40,14 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      select: { standardpreis: true, lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
+      select: { standardpreis: true, notiz: true, lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
     const vk = verkaufspreis !== undefined ? Number(verkaufspreis) : artikel.standardpreis;
     const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : (artikel.lieferanten[0]?.einkaufspreis ?? 0);
+    // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
+    const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
 
     const pos = await prisma.lieferposition.create({
       data: {
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         verkaufspreis: vk,
         einkaufspreis: ek,
         chargeNr: chargeNr ?? null,
+        notiz: posNotiz,
       },
       include: { artikel: { select: liefposArtikelSelect } },
     });

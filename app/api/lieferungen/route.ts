@@ -101,14 +101,14 @@ export async function POST(req: NextRequest) {
   if (streckenLieferantId !== null && isNaN(streckenLieferantId)) {
     return NextResponse.json({ error: "Ungültige streckenLieferantId" }, { status: 400 });
   }
-  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; einkaufspreis?: unknown; chargeNr?: unknown }[] = body.positionen;
+  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; einkaufspreis?: unknown; chargeNr?: unknown; notiz?: unknown }[] = body.positionen;
 
   if (!kundeId || isNaN(kundeId) || !Array.isArray(positionenRaw) || positionenRaw.length === 0) {
     return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
   }
 
   // Numerische Felder robust parsen (Frontend kann Strings senden)
-  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string }[] = [];
+  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string }[] = [];
   for (const p of positionenRaw) {
     const artikelId = Number(p.artikelId);
     const menge = Number(p.menge);
@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
       verkaufspreis: p.verkaufspreis !== undefined && p.verkaufspreis !== null && p.verkaufspreis !== "" ? Number(p.verkaufspreis) : undefined,
       einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
       chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
+      notiz: typeof p.notiz === "string" && p.notiz.trim() ? p.notiz.trim() : undefined,
     });
   }
 
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
     const artikelIds = positionen.map((p) => p.artikelId);
 
     const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte] = await Promise.all([
-      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true } }),
+      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true } }),
       tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
       tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
       tx.mengenrabatt.findMany({
@@ -181,6 +182,8 @@ export async function POST(req: NextRequest) {
         verkaufspreis: rabattVerkaufspreis,
         einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
         chargeNr: pos.chargeNr ?? null,
+        // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
+        notiz: pos.notiz ?? artikel.notiz ?? null,
         rabattProzent: bestRabatt,
       };
     });
