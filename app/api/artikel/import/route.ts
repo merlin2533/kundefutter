@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 export const dynamic = "force-dynamic";
 
 
@@ -143,6 +144,8 @@ export async function POST(req: NextRequest) {
               liefergroesse,
               beschreibung,
               aktiv,
+              // Futter und Saatgut sind gesetzlich chargenpflichtig.
+              chargePflicht: istChargenpflichtKategorie(kategorie),
               ...(lieferantId && {
                 lieferanten: {
                   create: [{

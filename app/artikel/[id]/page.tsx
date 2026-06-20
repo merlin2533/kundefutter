@@ -14,6 +14,7 @@ import {
   istAnalyseArtikel,
   parseListSetting,
   getUnterkategorienKey,
+  istChargenpflichtKategorie,
 } from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -303,7 +304,7 @@ export default function ArtikelDetailPage() {
         lagerort: editForm.lagerort || null,
         liefergroesse: editForm.liefergroesse || null,
         sprengstoffvorlaeufer: editForm.sprengstoffvorlaeufer,
-        chargePflicht: editForm.chargePflicht,
+        chargePflicht: istChargenpflichtKategorie(editForm.kategorie) || editForm.chargePflicht,
         lagerTracking: editForm.lagerTracking,
       }),
     });
@@ -764,7 +765,15 @@ export default function ArtikelDetailPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
                   <select
                     value={editForm.kategorie ?? "Futter"}
-                    onChange={(e) => setEditForm({ ...editForm, kategorie: e.target.value, unterkategorie: "" })}
+                    onChange={(e) => {
+                      const kategorie = e.target.value;
+                      setEditForm({
+                        ...editForm,
+                        kategorie,
+                        unterkategorie: "",
+                        chargePflicht: istChargenpflichtKategorie(kategorie) ? true : editForm.chargePflicht,
+                      });
+                    }}
                     className={inputCls}
                   >
                     {kategorien.map((k) => (
@@ -915,16 +924,19 @@ export default function ArtikelDetailPage() {
                 <input
                   type="checkbox"
                   id="chargePflicht"
-                  checked={editForm.chargePflicht ?? false}
+                  checked={istChargenpflichtKategorie(editForm.kategorie) || (editForm.chargePflicht ?? false)}
+                  disabled={istChargenpflichtKategorie(editForm.kategorie)}
                   onChange={(e) => setEditForm({ ...editForm, chargePflicht: e.target.checked })}
-                  className="rounded mt-0.5"
+                  className="rounded mt-0.5 disabled:opacity-60"
                 />
                 <div>
                   <label htmlFor="chargePflicht" className="text-sm font-medium text-blue-800 cursor-pointer">
                     Chargennummer Pflicht
                   </label>
                   <p className="text-xs text-blue-700 mt-0.5">
-                    Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz).
+                    {istChargenpflichtKategorie(editForm.kategorie)
+                      ? `Für die Kategorie „${editForm.kategorie === "Duenger" ? "Dünger" : editForm.kategorie}“ automatisch aktiv (gesetzliche Chargenpflicht für Futter und Saatgut).`
+                      : "Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz)."}
                   </p>
                 </div>
               </div>

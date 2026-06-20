@@ -19,6 +19,17 @@ export const DEFAULT_SAATGUT_KULTUREN = [
 
 export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
 
+/** Kategorien, deren Artikel zwingend chargenpflichtig sind
+ *  (gesetzliche Rückverfolgbarkeit für Futtermittel und Saatgut). */
+export const CHARGENPFLICHT_KATEGORIEN = ["Futter", "Saatgut"];
+
+/** Prüft, ob eine Artikelkategorie automatisch Chargenpflicht erfordert. */
+export function istChargenpflichtKategorie(kategorie?: string | null): boolean {
+  if (!kategorie) return false;
+  const k = kategorie.trim().toLowerCase();
+  return CHARGENPFLICHT_KATEGORIEN.some((c) => c.toLowerCase() === k);
+}
+
 export const DEFAULT_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Kanister", "Palette", "BigBag", "km", "Stunden"];
 
 /** Standardmäßige Unterkategorien je Hauptkategorie */

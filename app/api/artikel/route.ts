@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
+import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 export const dynamic = "force-dynamic";
 
 
@@ -111,6 +112,8 @@ export async function POST(req: NextRequest) {
     else data.mwstSatz = 19;
     if (data.chargePflicht !== undefined) data.chargePflicht = Boolean(data.chargePflicht);
     else data.chargePflicht = false;
+    // Futter und Saatgut sind gesetzlich chargenpflichtig → immer erzwingen.
+    if (istChargenpflichtKategorie(data.kategorie)) data.chargePflicht = true;
     if (data.sprengstoffvorlaeufer !== undefined) data.sprengstoffvorlaeufer = Boolean(data.sprengstoffvorlaeufer);
     else data.sprengstoffvorlaeufer = false;
     if (data.lagerTracking !== undefined) data.lagerTracking = Boolean(data.lagerTracking);
