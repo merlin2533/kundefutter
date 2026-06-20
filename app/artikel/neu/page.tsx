@@ -9,6 +9,7 @@ import {
   DEFAULT_LAGERORTE,
   parseListSetting,
   getUnterkategorienKey,
+  istChargenpflichtKategorie,
 } from "@/lib/auswahllisten";
 import { parseDezimal } from "@/lib/utils";
 
@@ -58,6 +59,9 @@ export default function NeuerArtikelPage() {
     systemSettings !== null
       ? parseListSetting(systemSettings, "system.lagerorte", DEFAULT_LAGERORTE)
       : DEFAULT_LAGERORTE;
+
+  // Futter und Saatgut sind gesetzlich chargenpflichtig → automatisch & fix angehakt.
+  const chargenpflichtErzwungen = istChargenpflichtKategorie(form.kategorie);
 
   // Inhaltsstoffe
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
@@ -118,6 +122,7 @@ export default function NeuerArtikelPage() {
       standardpreis: parseDezimal(form.standardpreis),
       mindestbestand: parseDezimal(form.mindestbestand),
       mwstSatz: Number(form.mwstSatz) || 19,
+      chargePflicht: chargenpflichtErzwungen || form.chargePflicht,
       inhaltsstoffe: inhaltsstoffePayload.length ? inhaltsstoffePayload : undefined,
     };
     try {
@@ -188,7 +193,15 @@ export default function NeuerArtikelPage() {
             </label>
             <select
               value={form.kategorie}
-              onChange={(e) => setForm({ ...form, kategorie: e.target.value, unterkategorie: "" })}
+              onChange={(e) => {
+                const kategorie = e.target.value;
+                setForm({
+                  ...form,
+                  kategorie,
+                  unterkategorie: "",
+                  chargePflicht: istChargenpflichtKategorie(kategorie) ? true : form.chargePflicht,
+                });
+              }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             >
               {kategorien.map((k) => (
@@ -424,16 +437,19 @@ export default function NeuerArtikelPage() {
           <input
             type="checkbox"
             id="chargePflicht"
-            checked={form.chargePflicht}
+            checked={chargenpflichtErzwungen || form.chargePflicht}
+            disabled={chargenpflichtErzwungen}
             onChange={(e) => setForm({ ...form, chargePflicht: e.target.checked })}
-            className="rounded mt-0.5"
+            className="rounded mt-0.5 disabled:opacity-60"
           />
           <div>
             <label htmlFor="chargePflicht" className="text-sm font-medium text-blue-800 cursor-pointer">
               Chargennummer Pflicht
             </label>
             <p className="text-xs text-blue-700 mt-0.5">
-              Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz).
+              {chargenpflichtErzwungen
+                ? `Für die Kategorie „${form.kategorie === "Duenger" ? "Dünger" : form.kategorie}“ automatisch aktiv (gesetzliche Chargenpflicht für Futter und Saatgut).`
+                : "Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz)."}
             </p>
           </div>
         </div>

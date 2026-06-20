@@ -4,6 +4,7 @@ import { auditChanges } from "@/lib/audit";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
+import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 export const dynamic = "force-dynamic";
 
 
@@ -79,10 +80,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const artikel = await prisma.$transaction(async (tx) => {
       const alt = await tx.artikel.findUnique({
         where: { id: Number(id) },
-        select: { id: true, standardpreis: true },
+        select: { id: true, standardpreis: true, kategorie: true },
       });
       if (!alt) throw new Error("Nicht gefunden");
       altSnapshot = alt as Record<string, unknown>;
+
+      // Futter und Saatgut sind gesetzlich chargenpflichtig → immer erzwingen.
+      const effektiveKategorie = data.kategorie ?? alt.kategorie;
+      if (istChargenpflichtKategorie(effektiveKategorie)) data.chargePflicht = true;
 
       if (data.standardpreis !== undefined && alt.standardpreis !== data.standardpreis) {
         await tx.artikelPreisHistorie.create({
