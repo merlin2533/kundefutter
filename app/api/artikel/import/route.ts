@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
+import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 export const dynamic = "force-dynamic";
 
 
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
   let lieferantenGesetzt = 0;
   let skipped = 0;
   const errors: string[] = [];
+
+  const chargenpflichtKats = await getChargenpflichtKategorien();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -144,8 +147,8 @@ export async function POST(req: NextRequest) {
               liefergroesse,
               beschreibung,
               aktiv,
-              // Futter und Saatgut sind gesetzlich chargenpflichtig.
-              chargePflicht: istChargenpflichtKategorie(kategorie),
+              // Chargenpflichtige Kategorien (konfigurierbar).
+              chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKats),
               ...(lieferantId && {
                 lieferanten: {
                   create: [{

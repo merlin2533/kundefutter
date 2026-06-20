@@ -20,14 +20,42 @@ export const DEFAULT_SAATGUT_KULTUREN = [
 export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
 
 /** Kategorien, deren Artikel zwingend chargenpflichtig sind
- *  (gesetzliche Rückverfolgbarkeit für Futtermittel und Saatgut). */
-export const CHARGENPFLICHT_KATEGORIEN = ["Futter", "Saatgut"];
+ *  (gesetzliche Rückverfolgbarkeit für Futtermittel und Saatgut).
+ *  Über /einstellungen/artikelkategorien konfigurierbar
+ *  (Einstellung-Key `system.chargenpflicht_kategorien`). */
+export const CHARGENPFLICHT_KATEGORIEN_KEY = "system.chargenpflicht_kategorien";
+export const DEFAULT_CHARGENPFLICHT_KATEGORIEN = ["Futter", "Saatgut"];
 
-/** Prüft, ob eine Artikelkategorie automatisch Chargenpflicht erfordert. */
-export function istChargenpflichtKategorie(kategorie?: string | null): boolean {
+/** Liest die chargenpflichtigen Kategorien aus geladenen Einstellungen.
+ *  Im Unterschied zu parseListSetting wird eine *explizit leere* Liste `[]`
+ *  respektiert (= keine Kategorie chargenpflichtig); nur ein fehlender Wert
+ *  fällt auf die Standardwerte zurück. */
+export function chargenpflichtKategorienAusSettings(
+  settings: Record<string, unknown> | null | undefined,
+): string[] {
+  const raw = settings?.[CHARGENPFLICHT_KATEGORIEN_KEY];
+  if (typeof raw !== "string" || raw.trim() === "") return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
+    }
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
+}
+
+/** Prüft, ob eine Artikelkategorie automatisch Chargenpflicht erfordert.
+ *  `kategorien` ist die (konfigurierbare) Liste chargenpflichtiger Kategorien;
+ *  ohne Angabe gelten die Standardwerte. */
+export function istChargenpflichtKategorie(
+  kategorie?: string | null,
+  kategorien: string[] = DEFAULT_CHARGENPFLICHT_KATEGORIEN,
+): boolean {
   if (!kategorie) return false;
   const k = kategorie.trim().toLowerCase();
-  return CHARGENPFLICHT_KATEGORIEN.some((c) => c.toLowerCase() === k);
+  return kategorien.some((c) => c.trim().toLowerCase() === k);
 }
 
 export const DEFAULT_EINHEITEN = ["kg", "t", "dt", "Sack", "Stk", "Liter", "Kanister", "Palette", "BigBag", "km", "Stunden"];

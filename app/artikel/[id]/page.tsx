@@ -15,6 +15,7 @@ import {
   parseListSetting,
   getUnterkategorienKey,
   istChargenpflichtKategorie,
+  chargenpflichtKategorienAusSettings,
 } from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -173,6 +174,9 @@ export default function ArtikelDetailPage() {
   // Details edit state
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Artikel>>({});
+  // Chargenpflichtige Kategorien (konfigurierbar über Einstellungen)
+  const chargenpflichtKategorien = chargenpflichtKategorienAusSettings(systemSettings);
+  const chargenpflichtErzwungen = istChargenpflichtKategorie(editForm.kategorie, chargenpflichtKategorien);
   // Rohtext-State für Dezimalfelder, damit Komma-Eingabe nicht auf 0 zurückspringt
   const [preisRaw, setPreisRaw] = useState("");
   const [mindestRaw, setMindestRaw] = useState("");
@@ -304,7 +308,7 @@ export default function ArtikelDetailPage() {
         lagerort: editForm.lagerort || null,
         liefergroesse: editForm.liefergroesse || null,
         sprengstoffvorlaeufer: editForm.sprengstoffvorlaeufer,
-        chargePflicht: istChargenpflichtKategorie(editForm.kategorie) || editForm.chargePflicht,
+        chargePflicht: chargenpflichtErzwungen || editForm.chargePflicht,
         lagerTracking: editForm.lagerTracking,
       }),
     });
@@ -771,7 +775,7 @@ export default function ArtikelDetailPage() {
                         ...editForm,
                         kategorie,
                         unterkategorie: "",
-                        chargePflicht: istChargenpflichtKategorie(kategorie) ? true : editForm.chargePflicht,
+                        chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKategorien) ? true : editForm.chargePflicht,
                       });
                     }}
                     className={inputCls}
@@ -924,8 +928,8 @@ export default function ArtikelDetailPage() {
                 <input
                   type="checkbox"
                   id="chargePflicht"
-                  checked={istChargenpflichtKategorie(editForm.kategorie) || (editForm.chargePflicht ?? false)}
-                  disabled={istChargenpflichtKategorie(editForm.kategorie)}
+                  checked={chargenpflichtErzwungen || (editForm.chargePflicht ?? false)}
+                  disabled={chargenpflichtErzwungen}
                   onChange={(e) => setEditForm({ ...editForm, chargePflicht: e.target.checked })}
                   className="rounded mt-0.5 disabled:opacity-60"
                 />
@@ -934,8 +938,8 @@ export default function ArtikelDetailPage() {
                     Chargennummer Pflicht
                   </label>
                   <p className="text-xs text-blue-700 mt-0.5">
-                    {istChargenpflichtKategorie(editForm.kategorie)
-                      ? `Für die Kategorie „${editForm.kategorie === "Duenger" ? "Dünger" : editForm.kategorie}“ automatisch aktiv (gesetzliche Chargenpflicht für Futter und Saatgut).`
+                    {chargenpflichtErzwungen
+                      ? `Für die Kategorie „${editForm.kategorie === "Duenger" ? "Dünger" : editForm.kategorie}“ automatisch aktiv (in den Einstellungen → Artikelkategorien als chargenpflichtig hinterlegt).`
                       : "Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz)."}
                   </p>
                 </div>
