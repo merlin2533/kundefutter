@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
+  CHARGENPFLICHT_KATEGORIEN_KEY,
   getUnterkategorienKey,
   parseListSetting,
+  chargenpflichtKategorienAusSettings,
 } from "@/lib/auswahllisten";
 
 const STORE_KEY = "system.artikelkategorien";
@@ -129,6 +131,7 @@ function EditableList({
 
 export default function ArtikelkategorienPage() {
   const [items, setItems] = useState<string[]>([]);
+  const [chargenpflicht, setChargenpflicht] = useState<string[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [newItem, setNewItem] = useState("");
   const [editing, setEditing] = useState<{ index: number; value: string } | null>(null);
@@ -149,6 +152,7 @@ export default function ArtikelkategorienPage() {
       .then((raw) => {
         const d = raw as Record<string, string>;
         setItems(parseListSetting(d, STORE_KEY, DEFAULT_ARTIKEL_KATEGORIEN));
+        setChargenpflicht(chargenpflichtKategorienAusSettings(d));
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -178,6 +182,30 @@ export default function ArtikelkategorienPage() {
     }
   }
 
+  const istChargenpflichtig = (kat: string) =>
+    chargenpflicht.some((c) => c.toLowerCase() === kat.toLowerCase());
+
+  async function saveChargenpflicht(list: string[]) {
+    setChargenpflicht(list);
+    try {
+      const res = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: CHARGENPFLICHT_KATEGORIEN_KEY, value: JSON.stringify(list) }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      flash("Fehler beim Speichern", "err");
+    }
+  }
+
+  function toggleChargenpflicht(kat: string) {
+    const next = istChargenpflichtig(kat)
+      ? chargenpflicht.filter((c) => c.toLowerCase() !== kat.toLowerCase())
+      : [...chargenpflicht, kat];
+    saveChargenpflicht(next);
+  }
+
   async function addItem() {
     const v = newItem.trim();
     if (!v) return;
@@ -200,6 +228,9 @@ export default function ArtikelkategorienPage() {
     if (!confirm(frage)) return;
     const next = items.filter((_, i) => i !== index);
     setItems(next);
+    if (istChargenpflichtig(name)) {
+      await saveChargenpflicht(chargenpflicht.filter((c) => c.toLowerCase() !== name.toLowerCase()));
+    }
     if (await saveList(next)) flash("Gelöscht");
   }
 
@@ -234,6 +265,9 @@ export default function ArtikelkategorienPage() {
       const next = items.map((x, i) => (i === editing.index ? neu : x));
       setItems(next);
       setEditing(null);
+      if (istChargenpflichtig(alt)) {
+        await saveChargenpflicht(chargenpflicht.map((c) => (c.toLowerCase() === alt.toLowerCase() ? neu : c)));
+      }
       if (await saveList(next)) {
         flash(count > 0 ? `Umbenannt – ${count} Artikel aktualisiert` : "Umbenannt");
         ladeStats();
@@ -268,7 +302,11 @@ export default function ArtikelkategorienPage() {
       {/* Kategorien-Liste */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-1">Kategorien</h2>
-        <p className="text-sm text-gray-500 mb-4">Hauptkategorien verwalten.</p>
+        <p className="text-sm text-gray-500 mb-4">
+          Hauptkategorien verwalten. Mit <strong>Chargenpflicht</strong> markierte Kategorien
+          setzen bei neuen und geänderten Artikeln automatisch die Chargennummer-Pflicht
+          (Standard: Futter, Saatgut).
+        </p>
         {!loaded ? (
           <p className="text-sm text-gray-400">Lade…</p>
         ) : (
@@ -305,6 +343,19 @@ export default function ArtikelkategorienPage() {
                     )}
                     {!isEditing && (
                       <>
+                        <label
+                          className="flex items-center gap-1 text-xs text-gray-600 mr-1 cursor-pointer select-none"
+                          title="Artikel dieser Kategorie werden automatisch chargenpflichtig (Chargennummer-Pflicht beim Waren­ein-/ausgang)."
+                        >
+                          <input
+                            type="checkbox"
+                            checked={istChargenpflichtig(item)}
+                            onChange={() => toggleChargenpflicht(item)}
+                            disabled={saving}
+                            className="rounded"
+                          />
+                          Chargenpflicht
+                        </label>
                         <button
                           onClick={() => startEdit(idx)}
                           disabled={saving}

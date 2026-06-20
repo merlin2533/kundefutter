@@ -10,6 +10,7 @@ import {
   parseListSetting,
   getUnterkategorienKey,
   istChargenpflichtKategorie,
+  chargenpflichtKategorienAusSettings,
 } from "@/lib/auswahllisten";
 import { parseDezimal } from "@/lib/utils";
 
@@ -60,8 +61,9 @@ export default function NeuerArtikelPage() {
       ? parseListSetting(systemSettings, "system.lagerorte", DEFAULT_LAGERORTE)
       : DEFAULT_LAGERORTE;
 
-  // Futter und Saatgut sind gesetzlich chargenpflichtig → automatisch & fix angehakt.
-  const chargenpflichtErzwungen = istChargenpflichtKategorie(form.kategorie);
+  // Chargenpflichtige Kategorien (konfigurierbar) → automatisch & fix angehakt.
+  const chargenpflichtKategorien = chargenpflichtKategorienAusSettings(systemSettings);
+  const chargenpflichtErzwungen = istChargenpflichtKategorie(form.kategorie, chargenpflichtKategorien);
 
   // Inhaltsstoffe
   const [inhaltsstoffe, setInhaltsstoffe] = useState<{ name: string; menge: string; einheit: string }[]>([]);
@@ -199,7 +201,7 @@ export default function NeuerArtikelPage() {
                   ...form,
                   kategorie,
                   unterkategorie: "",
-                  chargePflicht: istChargenpflichtKategorie(kategorie) ? true : form.chargePflicht,
+                  chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKategorien) ? true : form.chargePflicht,
                 });
               }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
@@ -448,7 +450,7 @@ export default function NeuerArtikelPage() {
             </label>
             <p className="text-xs text-blue-700 mt-0.5">
               {chargenpflichtErzwungen
-                ? `Für die Kategorie „${form.kategorie === "Duenger" ? "Dünger" : form.kategorie}“ automatisch aktiv (gesetzliche Chargenpflicht für Futter und Saatgut).`
+                ? `Für die Kategorie „${form.kategorie === "Duenger" ? "Dünger" : form.kategorie}“ automatisch aktiv (in den Einstellungen → Artikelkategorien als chargenpflichtig hinterlegt).`
                 : "Beim Wareneingang und Warenausgang muss eine Chargennummer angegeben werden (z.B. Saatgut, Pflanzenschutz)."}
             </p>
           </div>
