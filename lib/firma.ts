@@ -13,6 +13,13 @@ export interface FirmaDaten {
   iban: string;
   bic: string;
   bank: string;
+  // E-Mail-Footer / Rechtliches
+  emailFooterText: string;
+  portalImpressumUrl: string;
+  datenschutzUrl: string;
+  // Branding-Farben für E-Mail-Templates
+  primaryColor: string;
+  primaryLight: string;
 }
 
 const FIRMA_DEFAULTS: FirmaDaten = {
@@ -27,15 +34,27 @@ const FIRMA_DEFAULTS: FirmaDaten = {
   iban: "",
   bic: "",
   bank: "",
+  emailFooterText: "",
+  portalImpressumUrl: "",
+  datenschutzUrl: "",
+  primaryColor: "#166534",
+  primaryLight: "#f0fdf4",
 };
 
 export async function ladeFirmaDaten(): Promise<FirmaDaten> {
   const einstellungen = await prisma.einstellung.findMany({
-    where: { key: { startsWith: "firma." } },
+    where: {
+      OR: [
+        { key: { startsWith: "firma." } },
+        { key: "system.primary_color" },
+        { key: "system.primary_light" },
+      ],
+    },
   });
   const map: Record<string, string> = {};
   for (const e of einstellungen) {
-    map[e.key.replace("firma.", "")] = e.value;
+    const k = e.key.startsWith("firma.") ? e.key.replace("firma.", "") : e.key;
+    map[k] = e.value;
   }
   const plzOrt = map.plzOrt
     ?? [map.plz, map.ort].filter(Boolean).join(" ")
@@ -53,5 +72,10 @@ export async function ladeFirmaDaten(): Promise<FirmaDaten> {
     iban: map.iban ?? FIRMA_DEFAULTS.iban,
     bic: map.bic ?? FIRMA_DEFAULTS.bic,
     bank: map.bank ?? FIRMA_DEFAULTS.bank,
+    emailFooterText: map.email_footer_text ?? FIRMA_DEFAULTS.emailFooterText,
+    portalImpressumUrl: map.portal_impressum_url ?? FIRMA_DEFAULTS.portalImpressumUrl,
+    datenschutzUrl: map.datenschutz_url ?? FIRMA_DEFAULTS.datenschutzUrl,
+    primaryColor: map["system.primary_color"] || FIRMA_DEFAULTS.primaryColor,
+    primaryLight: map["system.primary_light"] || FIRMA_DEFAULTS.primaryLight,
   };
 }

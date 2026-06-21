@@ -71,6 +71,15 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function emailFooterRow(impressumParts: string[], firma: { primaryColor: string; emailFooterText: string }): string {
+  const footerText = firma.emailFooterText?.trim()
+    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #e5e7eb;color:#9ca3af;">${escapeHtml(firma.emailFooterText)}</div>`
+    : "";
+  return `<tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
+        ${impressumParts.join(" &nbsp;·&nbsp; ")}${footerText}
+      </td></tr>`;
+}
+
 export function rechnungSubject(rechnungNr: string, firmenname: string, datum: Date): string {
   return `Rechnung Nr. ${rechnungNr} – ${firmenname} (${fmtDatum(datum)})`;
 }
@@ -121,7 +130,7 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
     [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
     firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
     firma.email
-      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:#166534;text-decoration:none;">${escapeHtml(firma.email)}</a>`
+      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>`
       : "",
     firma.steuernummer ? `Steuernr.: ${escapeHtml(firma.steuernummer)}` : "",
     firma.ustIdNr ? `USt-IdNr.: ${escapeHtml(firma.ustIdNr)}` : "",
@@ -155,8 +164,8 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
-      <tr><td style="padding:24px 32px;border-bottom:3px solid #166534;">
-        <div style="font-size:20px;font-weight:700;color:#166534;letter-spacing:-0.01em;">${escapeHtml(firma.name)}</div>
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};letter-spacing:-0.01em;">${escapeHtml(firma.name)}</div>
         ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
       </td></tr>
       <tr><td style="padding:28px 32px 8px 32px;">
@@ -170,16 +179,14 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
           ${zeile("Gesamtbetrag", fmtEuro(bruttoBetrag), true)}
           ${faelligAm ? zeile("Fällig am", fmtDatum(faelligAm)) : ""}
         </table>
-        <div style="margin:0 0 8px 0;padding:12px 16px;background:#f0fdf4;border-left:3px solid #166534;border-radius:4px;font-size:13px;color:#14532d;line-height:1.6;">
+        <div style="margin:0 0 8px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;">
           <b>Anhänge</b><br>
           ${escapeHtml(pdfFilename)} &mdash; Rechnung (PDF mit eingebetteter ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;E-Rechnung)
         </div>
         ${bankHtml}
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
-      <tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
-        ${impressumParts.join(" &nbsp;·&nbsp; ")}
-      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
     </table>
     <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">
       Bei Rückfragen antworten Sie einfach auf diese Nachricht.
@@ -233,7 +240,7 @@ export function angebotEmail(data: AngebotMailData): { subject: string; text: st
     [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
     firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
     firma.email
-      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:#166534;text-decoration:none;">${escapeHtml(firma.email)}</a>`
+      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>`
       : "",
   ].filter(Boolean);
 
@@ -250,8 +257,8 @@ export function angebotEmail(data: AngebotMailData): { subject: string; text: st
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
-      <tr><td style="padding:24px 32px;border-bottom:3px solid #166534;">
-        <div style="font-size:20px;font-weight:700;color:#166534;">${escapeHtml(firma.name)}</div>
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};">${escapeHtml(firma.name)}</div>
         ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
       </td></tr>
       <tr><td style="padding:28px 32px 8px 32px;">
@@ -263,15 +270,13 @@ export function angebotEmail(data: AngebotMailData): { subject: string; text: st
           ${zeile("Gesamtbetrag", fmtEuro(bruttoBetrag), true)}
           ${gueltigBis ? zeile("Gültig bis", fmtDatum(gueltigBis)) : ""}
         </table>
-        <div style="margin:0 0 8px 0;padding:12px 16px;background:#f0fdf4;border-left:3px solid #166534;border-radius:4px;font-size:13px;color:#14532d;line-height:1.6;">
+        <div style="margin:0 0 8px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;">
           <b>Anhang</b><br>${escapeHtml(pdfFilename)} &mdash; Angebot (PDF)
         </div>
         <p style="margin:20px 0 4px 0;font-size:14px;color:#374151;">Für Rückfragen stehen wir Ihnen jederzeit gerne zur Verfügung.</p>
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
-      <tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
-        ${impressumParts.join(" &nbsp;·&nbsp; ")}
-      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
     </table>
     <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;">Bei Rückfragen antworten Sie einfach auf diese Nachricht.</div>
   </td></tr>
@@ -315,7 +320,7 @@ export function gutschriftEmail(data: GutschriftMailData): { subject: string; te
     escapeHtml(firma.name) + (firma.zusatz ? ` · ${escapeHtml(firma.zusatz)}` : ""),
     [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
     firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
-    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:#166534;text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
+    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
   ].filter(Boolean);
 
   const zeile = (label: string, value: string, bold = false) => `
@@ -338,8 +343,8 @@ export function gutschriftEmail(data: GutschriftMailData): { subject: string; te
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
-      <tr><td style="padding:24px 32px;border-bottom:3px solid #166534;">
-        <div style="font-size:20px;font-weight:700;color:#166534;">${escapeHtml(firma.name)}</div>
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};">${escapeHtml(firma.name)}</div>
         ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
       </td></tr>
       <tr><td style="padding:28px 32px 8px 32px;">
@@ -350,15 +355,13 @@ export function gutschriftEmail(data: GutschriftMailData): { subject: string; te
           ${zeile("Gutschriftdatum", fmtDatum(gutschriftDatum))}
           ${zeile("Gutschriftbetrag", fmtEuro(bruttoBetrag), true)}
         </table>
-        <div style="margin:0 0 8px 0;padding:12px 16px;background:#f0fdf4;border-left:3px solid #166534;border-radius:4px;font-size:13px;color:#14532d;line-height:1.6;">
+        <div style="margin:0 0 8px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;">
           <b>Anhang</b><br>${escapeHtml(pdfFilename)} &mdash; Gutschrift (PDF)
         </div>
         ${bankHtml}
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
-      <tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
-        ${impressumParts.join(" &nbsp;·&nbsp; ")}
-      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
     </table>
     <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;">Bei Rückfragen antworten Sie einfach auf diese Nachricht.</div>
   </td></tr>
@@ -421,7 +424,7 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
     escapeHtml(firma.name) + (firma.zusatz ? ` · ${escapeHtml(firma.zusatz)}` : ""),
     [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
     firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
-    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:#166534;text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
+    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
   ].filter(Boolean);
 
   const zeile = (label: string, value: string, bold = false) => `
@@ -430,8 +433,8 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
       <td style="padding:10px 14px;border:1px solid #e5e7eb;color:#1f2937;">${bold ? `<b>${escapeHtml(value)}</b>` : escapeHtml(value)}</td>
     </tr>`;
 
-  const headerColor = mahnstufe >= 3 ? "#991b1b" : mahnstufe >= 2 ? "#b45309" : "#166534";
-  const badgeColor = mahnstufe >= 3 ? "#fef2f2;color:#991b1b;border:1px solid #fecaca" : mahnstufe >= 2 ? "#fffbeb;color:#b45309;border:1px solid #fde68a" : "#f0fdf4;color:#166534;border:1px solid #bbf7d0";
+  const headerColor = mahnstufe >= 3 ? "#991b1b" : mahnstufe >= 2 ? "#b45309" : firma.primaryColor;
+  const badgeColor = mahnstufe >= 3 ? "#fef2f2;color:#991b1b;border:1px solid #fecaca" : mahnstufe >= 2 ? "#fffbeb;color:#b45309;border:1px solid #fde68a" : `${firma.primaryLight};color:${firma.primaryColor};border:1px solid #bbf7d0`;
 
   const bankHtml = firma.iban
     ? `<div style="margin:16px 0;padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;line-height:1.8;">
@@ -470,9 +473,7 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
         <p style="margin:16px 0 0 0;font-size:13px;color:#6b7280;font-style:italic;">Falls Sie bereits bezahlt haben, bitten wir Sie, diese Nachricht zu ignorieren.</p>
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
-      <tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
-        ${impressumParts.join(" &nbsp;·&nbsp; ")}
-      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
     </table>
     <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;">Bei Rückfragen antworten Sie einfach auf diese Nachricht.</div>
   </td></tr>
@@ -516,7 +517,7 @@ export function besuchserinnerungEmail(data: BesuchserinnerungMailData): { subje
     escapeHtml(firma.name) + (firma.zusatz ? ` · ${escapeHtml(firma.zusatz)}` : ""),
     [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
     firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
-    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:#166534;text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
+    firma.email ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>` : "",
   ].filter(Boolean);
 
   const html = `<!DOCTYPE html>
@@ -526,23 +527,21 @@ export function besuchserinnerungEmail(data: BesuchserinnerungMailData): { subje
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
   <tr><td align="center">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
-      <tr><td style="padding:24px 32px;border-bottom:3px solid #166534;">
-        <div style="font-size:20px;font-weight:700;color:#166534;">${escapeHtml(firma.name)}</div>
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};">${escapeHtml(firma.name)}</div>
         ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
       </td></tr>
       <tr><td style="padding:28px 32px 8px 32px;">
         <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
         <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">wir möchten Sie an unseren bevorstehenden Besuchstermin erinnern:</p>
-        <div style="padding:16px 20px;background:#f0fdf4;border-left:3px solid #166534;border-radius:4px;font-size:15px;font-weight:600;color:#14532d;">
+        <div style="padding:16px 20px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:15px;font-weight:600;color:${firma.primaryColor};">
           ${escapeHtml(datumStr)}${escapeHtml(uhrzeitStr)}
         </div>
         ${notiz ? `<p style="margin:16px 0 0 0;font-size:14px;color:#374151;line-height:1.6;">${escapeHtml(notiz)}</p>` : ""}
         <p style="margin:20px 0 0 0;font-size:14px;color:#6b7280;">Sollte der Termin nicht passen, melden Sie sich bitte bei uns.</p>
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
-      <tr><td style="padding:16px 32px 20px 32px;border-top:1px solid #e5e7eb;background:#fafaf9;font-size:11px;color:#6b7280;line-height:1.7;">
-        ${impressumParts.join(" &nbsp;·&nbsp; ")}
-      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
     </table>
     <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;">Bei Rückfragen antworten Sie einfach auf diese Nachricht.</div>
   </td></tr>
@@ -591,7 +590,7 @@ export function digestEmail(data: DigestData): { subject: string; text: string; 
 <body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
   <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;">
-    <tr><td style="padding:24px 32px;background:#14532d;">
+    <tr><td style="padding:24px 32px;background:${firma.primaryColor};">
       <h1 style="margin:0;font-size:18px;color:#ffffff;font-weight:700;">${escapeHtml(firma.name)}</h1>
       <p style="margin:4px 0 0 0;font-size:13px;color:#bbf7d0;">Tages-Digest – ${escapeHtml(heute)}</p>
     </td></tr>

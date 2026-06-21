@@ -21,6 +21,8 @@ const ALLOWED_PREFIXES = [
   "alert.",
   "artikel.",
   "cron.",
+  "modul.",
+  "sicherheit.",
 ];
 
 export async function GET(req: NextRequest) {

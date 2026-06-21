@@ -8,9 +8,11 @@ interface DatevSettings {
   "datev.mandantennummer": string;
   "datev.sachkontenrahmen": string;
   "datev.wirtschaftsjahrBeginn": string;
+  "datev.kilometerpauschale": string;
+  "datev.bewirtungsanteil": string;
 }
 
-const FIELDS: { key: keyof DatevSettings; label: string; description: string; type?: string }[] = [
+const FIELDS: { key: keyof DatevSettings; label: string; description: string; type?: string; step?: string }[] = [
   {
     key: "datev.beraternummer",
     label: "Beraternummer",
@@ -32,6 +34,20 @@ const FIELDS: { key: keyof DatevSettings; label: string; description: string; ty
     description: "Startmonat des Wirtschaftsjahres (1 = Januar, 4 = April usw.)",
     type: "number",
   },
+  {
+    key: "datev.kilometerpauschale",
+    label: "Kilometerpauschale (€/km)",
+    description: "§ 9 Abs. 1 Nr. 4 EStG — pauschaler Kilometersatz für Reisekosten (aktuell 0,30 €/km)",
+    type: "number",
+    step: "0.01",
+  },
+  {
+    key: "datev.bewirtungsanteil",
+    label: "Abzugsfähiger Bewirtungsanteil (%)",
+    description: "§ 4 Abs. 5 Nr. 2 EStG — abzugsfähiger Anteil der Bewirtungskosten (Standard: 70 %)",
+    type: "number",
+    step: "1",
+  },
 ];
 
 const DEFAULT_VALUES: DatevSettings = {
@@ -39,6 +55,8 @@ const DEFAULT_VALUES: DatevSettings = {
   "datev.mandantennummer": "1",
   "datev.sachkontenrahmen": "SKR03",
   "datev.wirtschaftsjahrBeginn": "1",
+  "datev.kilometerpauschale": "0.30",
+  "datev.bewirtungsanteil": "70",
 };
 
 export default function DatevEinstellungenPage() {
@@ -148,8 +166,9 @@ export default function DatevEinstellungenPage() {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, [field.key]: e.target.value }))
                   }
-                  min={field.type === "number" ? 1 : undefined}
-                  max={field.type === "number" ? 12 : undefined}
+                  min={field.key === "datev.wirtschaftsjahrBeginn" ? 1 : field.key === "datev.bewirtungsanteil" ? 1 : field.key === "datev.kilometerpauschale" ? 0.01 : undefined}
+                  max={field.key === "datev.wirtschaftsjahrBeginn" ? 12 : field.key === "datev.bewirtungsanteil" ? 100 : undefined}
+                  step={field.step}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
                 <button

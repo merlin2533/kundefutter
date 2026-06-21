@@ -4,9 +4,20 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 
 const DEFAULT_MIN_LAENGE = 8;
+const DEFAULT_SESSION_STUNDEN = 168; // 7 Tage
+
+const SESSION_OPTIONEN = [
+  { value: 4, label: "4 Stunden" },
+  { value: 8, label: "8 Stunden" },
+  { value: 24, label: "1 Tag (24 Stunden)" },
+  { value: 72, label: "3 Tage" },
+  { value: 168, label: "7 Tage (Standard)" },
+  { value: 720, label: "30 Tage" },
+];
 
 export default function SicherheitEinstellungenPage() {
   const [minLaenge, setMinLaenge] = useState(DEFAULT_MIN_LAENGE);
+  const [sessionStunden, setSessionStunden] = useState(DEFAULT_SESSION_STUNDEN);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -14,11 +25,21 @@ export default function SicherheitEinstellungenPage() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/einstellungen?prefix=system.passwort_minlaenge");
+      const res = await fetch("/api/einstellungen?prefix=sicherheit.");
       if (!res.ok) throw new Error();
       const data: Record<string, string> = await res.json();
       const n = parseInt(data["system.passwort_minlaenge"] ?? "", 10);
       if (Number.isFinite(n) && n >= 4) setMinLaenge(n);
+      const h = parseFloat(data["sicherheit.session_timeout_stunden"] ?? "");
+      if (Number.isFinite(h) && h > 0) setSessionStunden(h);
+
+      // Passwort-Mindestlänge kommt aus anderem Prefix — separat laden
+      const res2 = await fetch("/api/einstellungen?prefix=system.passwort_minlaenge");
+      if (res2.ok) {
+        const data2: Record<string, string> = await res2.json();
+        const n2 = parseInt(data2["system.passwort_minlaenge"] ?? "", 10);
+        if (Number.isFinite(n2) && n2 >= 4) setMinLaenge(n2);
+      }
     } catch {
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
@@ -33,15 +54,24 @@ export default function SicherheitEinstellungenPage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/einstellungen", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "system.passwort_minlaenge",
-          value: String(Math.max(4, Math.min(64, minLaenge))),
+      await Promise.all([
+        fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "system.passwort_minlaenge",
+            value: String(Math.max(4, Math.min(64, minLaenge))),
+          }),
         }),
-      });
-      if (!res.ok) throw new Error();
+        fetch("/api/einstellungen", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "sicherheit.session_timeout_stunden",
+            value: String(sessionStunden),
+          }),
+        }),
+      ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -102,6 +132,33 @@ export default function SicherheitEinstellungenPage() {
           </div>
         </div>
 
+        {/* Session-Timeout */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-700">Session-Laufzeit</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Wie lange bleibt eine Anmeldung gültig? Gilt ab dem nächsten Login.
+            </p>
+          </div>
+          <div className="p-5">
+            <div className="grid grid-cols-[1fr_200px] items-center gap-3">
+              <label className="text-sm font-medium text-gray-600">Automatische Abmeldung nach</label>
+              <select
+                value={sessionStunden}
+                onChange={(e) => setSessionStunden(parseFloat(e.target.value))}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {SESSION_OPTIONEN.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Kunden mit hohen Sicherheitsanforderungen sollten eine kürzere Laufzeit wählen.
+            </p>
+          </div>
+        </div>
+
         {/* Hinweise */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
@@ -115,7 +172,7 @@ export default function SicherheitEinstellungenPage() {
               </li>
               <li className="flex gap-2">
                 <span className="text-green-600">•</span>
-                <span>Die Anmeldung erfolgt über eine verschlüsselte Session (JWT, Laufzeit 7 Tage). Inaktive Benutzer werden automatisch abgewiesen.</span>
+                <span>Die Anmeldung erfolgt über eine verschlüsselte Session (JWT). Die Laufzeit ist oben konfigurierbar. Inaktive Benutzer werden automatisch abgewiesen.</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-green-600">•</span>

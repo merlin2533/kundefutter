@@ -5,6 +5,7 @@ import {
   sessionCookieOptions,
   signSession,
   verifyPassword,
+  getSessionMaxAge,
 } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 
@@ -72,11 +73,12 @@ export async function POST(req: NextRequest) {
       data: { letzterLogin: new Date() },
     });
 
+    const maxAge = await getSessionMaxAge();
     const token = await signSession({
       sub: user.id,
       benutzername: user.benutzername,
       rolle: user.rolle,
-    });
+    }, maxAge);
 
     const res = NextResponse.json({
       user: {
@@ -87,7 +89,7 @@ export async function POST(req: NextRequest) {
         rolle: user.rolle,
       },
     });
-    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAge));
     return res;
   } catch {
     return NextResponse.json({ error: "Anmeldung fehlgeschlagen" }, { status: 500 });

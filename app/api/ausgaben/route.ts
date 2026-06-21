@@ -4,7 +4,7 @@ import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import {
   getSachkonto,
   BUCHUNGSTYPEN,
-  KILOMETERPAUSCHALE_EUR,
+  getKilometerpauschale,
 } from "@/lib/datev";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +85,8 @@ export async function POST(req: NextRequest) {
     const km = reiseKm ? parseFloat(reiseKm) : null;
     let betrag = parseFloat(betragNetto);
     if (bt === "Reisekosten" && reiseKilometerpauschale && km) {
-      betrag = Math.round(km * KILOMETERPAUSCHALE_EUR * 100) / 100;
+      const pauschale = await getKilometerpauschale();
+      betrag = Math.round(km * pauschale * 100) / 100;
     }
     if (isNaN(betrag) || betrag < 0) {
       return NextResponse.json({ error: "Ungültiger Betrag" }, { status: 400 });

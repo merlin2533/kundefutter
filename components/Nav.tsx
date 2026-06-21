@@ -17,6 +17,21 @@ interface NavGroup {
   children?: NavChild[];
 }
 
+const MODULE_HREFS: Record<string, string[]> = {
+  "modul.kampagnen": ["/kampagnen"],
+  "modul.kontrakte": ["/kontrakte"],
+  "modul.fruehbezug": ["/vorbestellungen", "/einstellungen/fruehbezug"],
+  "modul.sortenversuche": ["/sortenversuche"],
+  "modul.bodenproben": ["/bodenproben", "/bodenanalyse", "/duengebedarf", "/duev", "/duev/bilanz"],
+  "modul.psm_ausbringung": ["/psm", "/spritzfenster"],
+  "modul.rationsberechnung": ["/rationsberechnung"],
+  "modul.tourenplanung": ["/tourenplanung"],
+  "modul.erzeugerabrechnung": ["/anlieferungen"],
+  "modul.marktpreise": ["/marktpreise"],
+  "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht"],
+};
+const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.google_drive"]);
+
 const groups: NavGroup[] = [
   { label: "Dashboard", href: "/" },
   {
@@ -733,22 +748,43 @@ export default function Nav() {
   const [logo, setLogo] = useState<string | null>(null);
   const [appName, setAppName] = useState("AGRI-Office");
   const [firmenname, setFirmenname] = useState("");
+  const [modulDisabledHrefs, setModulDisabledHrefs] = useState<Set<string>>(new Set());
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");
 
   useEffect(() => {
     if (hideNav) return;
-    fetch("/api/einstellungen?prefix=system.")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d["system.logo"]) setLogo(d["system.logo"]);
-        if (d["system.appname"]) setAppName(d["system.appname"]);
-        if (d["system.firmenname"]) setFirmenname(d["system.firmenname"]);
+    Promise.all([
+      fetch("/api/einstellungen?prefix=system.").then((r) => r.json()),
+      fetch("/api/einstellungen?prefix=modul.").then((r) => r.json()),
+    ])
+      .then(([sys, mod]) => {
+        if (sys["system.logo"]) setLogo(sys["system.logo"]);
+        if (sys["system.appname"]) setAppName(sys["system.appname"]);
+        if (sys["system.firmenname"]) setFirmenname(sys["system.firmenname"]);
+
+        const disabled = new Set<string>();
+        for (const [key, hrefs] of Object.entries(MODULE_HREFS)) {
+          const defaultOff = MODULE_DEFAULTS_OFF.has(key);
+          const val = (mod as Record<string, string>)[key];
+          const isEnabled = val === undefined ? !defaultOff : (val !== "false" && val !== "0");
+          if (!isEnabled) hrefs.forEach((h) => disabled.add(h));
+        }
+        setModulDisabledHrefs(disabled);
       })
       .catch(() => {});
   }, [hideNav]);
 
   if (hideNav) return null;
+
+  const visibleGroups = modulDisabledHrefs.size === 0
+    ? groups
+    : groups
+        .map((g) => ({
+          ...g,
+          children: g.children?.filter((c) => !modulDisabledHrefs.has(c.href.split("?")[0])),
+        }))
+        .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
@@ -783,7 +819,7 @@ export default function Nav() {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
-          {groups.map((g) =>
+          {visibleGroups.map((g) =>
             g.href ? (
               <Link
                 key={g.href}
@@ -862,7 +898,7 @@ export default function Nav() {
       {/* Mobile dropdown */}
       {open && (
         <nav className="md:hidden border-t border-green-700 px-4 py-2 flex flex-col gap-1">
-          {groups.map((g) =>
+          {visibleGroups.map((g) =>
             g.href ? (
               <Link
                 key={g.href}

@@ -61,7 +61,8 @@ const SECTIONS: Section[] = [
       { href: "/einstellungen/mahnwesen", icon: "⚠️", title: "Mahnwesen", description: "Mahnstufen-Fristen, Mahngebühren und Verzugszinssatz" },
       { href: "/einstellungen/ausgaben", icon: "🧾", title: "Ausgaben", description: "Kategorien für Betriebsausgaben konfigurieren" },
       { href: "/einstellungen/bankkonten", icon: "🏦", title: "Bankkonten", description: "Konten für den Bankabgleich hinterlegen" },
-      { href: "/einstellungen/datev", icon: "📊", title: "DATEV", description: "Beraternummer, Mandantennummer und Kontenrahmen" },
+      { href: "/einstellungen/datev", icon: "📊", title: "DATEV", description: "Beraternummer, Mandantennummer, Kontenrahmen, Kilometerpauschale" },
+      { href: "/einstellungen/kalkulation", icon: "📉", title: "Kalkulation", description: "Margen-Schwellwerte für Ampelfarben in Lieferungen und Angeboten" },
     ],
   },
   {
@@ -82,6 +83,7 @@ const SECTIONS: Section[] = [
     title: "Benutzer & Sicherheit",
     description: "Zugriffsrechte und automatische Hinweise.",
     tiles: [
+      { href: "/einstellungen/module", icon: "🧩", title: "Module", description: "Funktionsbereiche aktivieren oder deaktivieren (für verschiedene Kundenprofile)" },
       { href: "/einstellungen/benutzer", icon: "👥", title: "Benutzer", description: "Benutzerkonten, Rollen und Zugriffsrechte verwalten" },
       { href: "/einstellungen/berechtigungen", icon: "🔑", title: "Berechtigungsmatrix", description: "Rollen anlegen, Berechtigungen pro Rolle konfigurieren und Benutzer zuweisen" },
       { href: "/einstellungen/portal", icon: "🌐", title: "Kunden-Portal", description: "Zugangsdaten für das Kunden-Self-Service-Portal verwalten" },

@@ -42,6 +42,13 @@ function NeueSammelrechnungForm() {
     fetch("/api/kunden?limit=500")
       .then((r) => r.json())
       .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])));
+    fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
+      .then((r) => r.ok ? r.json() : {})
+      .then((d) => {
+        const val = parseInt(d["firma.zahlungszielStandard"] ?? "", 10);
+        if (!isNaN(val) && val >= 0) setZahlungsziel(String(val));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

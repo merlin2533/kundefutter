@@ -19,6 +19,9 @@ interface FirmaSettings {
   "firma.bank": string;
   "firma.mwstSatz": string;
   "firma.zahlungszielStandard": string;
+  "firma.email_footer_text": string;
+  "firma.portal_impressum_url": string;
+  "firma.datenschutz_url": string;
   "dokument.footer.links": string;
   "dokument.footer.mitte": string;
   "dokument.footer.rechts": string;
@@ -44,6 +47,9 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.bank": "",
   "firma.mwstSatz": "19",
   "firma.zahlungszielStandard": "30",
+  "firma.email_footer_text": "",
+  "firma.portal_impressum_url": "",
+  "firma.datenschutz_url": "",
   "dokument.footer.links": "",
   "dokument.footer.mitte": "",
   "dokument.footer.rechts": "",
@@ -171,6 +177,9 @@ export default function FirmaPage() {
     try {
       const allKeys: (keyof FirmaSettings)[] = [
         ...SECTIONS.flatMap((s) => s.fields.map((f) => f.key)),
+        "firma.email_footer_text",
+        "firma.portal_impressum_url",
+        "firma.datenschutz_url",
         "dokument.footer.links",
         "dokument.footer.mitte",
         "dokument.footer.rechts",
@@ -249,6 +258,59 @@ export default function FirmaPage() {
             </div>
           </div>
         ))}
+
+        {/* E-Mail & Rechtliches */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-700">E-Mail & Rechtliches</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Pflichtangaben für ausgehende E-Mails und das Kunden-Portal.
+            </p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                E-Mail-Footer (Pflichtangaben)
+              </label>
+              <textarea
+                rows={3}
+                value={form["firma.email_footer_text"]}
+                onChange={(e) => setForm((prev) => ({ ...prev, "firma.email_footer_text": e.target.value }))}
+                placeholder="z. B. Handelsregister: HRB 12345 | Amtsgericht Musterstadt | Geschäftsführer: Max Muster"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Erscheint im Footer aller ausgehenden E-Mails (Rechnungen, Angebote, Mahnungen etc.).
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Impressum-URL (für Kunden-Portal)
+                </label>
+                <input
+                  type="url"
+                  value={form["firma.portal_impressum_url"]}
+                  onChange={(e) => setForm((prev) => ({ ...prev, "firma.portal_impressum_url": e.target.value }))}
+                  placeholder="https://www.firma.de/impressum"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  Datenschutz-URL (für Kunden-Portal)
+                </label>
+                <input
+                  type="url"
+                  value={form["firma.datenschutz_url"]}
+                  onChange={(e) => setForm((prev) => ({ ...prev, "firma.datenschutz_url": e.target.value }))}
+                  placeholder="https://www.firma.de/datenschutz"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Dokument-Footer Konfiguration */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

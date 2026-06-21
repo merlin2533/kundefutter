@@ -26,11 +26,31 @@ export type Zahlungsweg = (typeof ZAHLUNGSWEGE)[number];
 
 // ─── Kilometerpauschale / Bewirtung ───────────────────────────────────────────
 
-/** § 9 Abs. 1 Nr. 4 EStG – 0,30 €/km */
+/** § 9 Abs. 1 Nr. 4 EStG – 0,30 €/km (Standardwert; wird von getKilometerpauschale() überschrieben) */
 export const KILOMETERPAUSCHALE_EUR = 0.3;
 
-/** § 4 Abs. 5 Nr. 2 EStG – nur 70 % der Bewirtungskosten abzugsfähig */
+/** § 4 Abs. 5 Nr. 2 EStG – nur 70 % der Bewirtungskosten abzugsfähig (Standardwert) */
 export const BEWIRTUNG_ABZUGSFAEHIG = 0.7;
+
+/** Lädt die Kilometerpauschale aus den DB-Einstellungen (datev.kilometerpauschale). */
+export async function getKilometerpauschale(): Promise<number> {
+  const { prisma } = await import("@/lib/prisma");
+  const e = await prisma.einstellung.findUnique({ where: { key: "datev.kilometerpauschale" } });
+  if (!e?.value) return KILOMETERPAUSCHALE_EUR;
+  const n = parseFloat(e.value);
+  return Number.isFinite(n) && n > 0 ? n : KILOMETERPAUSCHALE_EUR;
+}
+
+/** Lädt den abzugsfähigen Bewirtungsanteil aus den DB-Einstellungen (datev.bewirtungsanteil, in %). */
+export async function getBewirtungsanteil(): Promise<number> {
+  const { prisma } = await import("@/lib/prisma");
+  const e = await prisma.einstellung.findUnique({ where: { key: "datev.bewirtungsanteil" } });
+  if (!e?.value) return BEWIRTUNG_ABZUGSFAEHIG;
+  const n = parseFloat(e.value);
+  // Gespeichert als Prozentzahl (z. B. 70), intern aber als Dezimal (0.7)
+  if (Number.isFinite(n) && n > 0 && n <= 100) return n / 100;
+  return BEWIRTUNG_ABZUGSFAEHIG;
+}
 
 // ─── Sachkonten-Mapping ───────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import {
   getSachkonto,
   BUCHUNGSTYPEN,
-  KILOMETERPAUSCHALE_EUR,
+  getKilometerpauschale,
 } from "@/lib/datev";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +67,8 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         return NextResponse.json({ error: "Ungültiger Betrag" }, { status: 400 });
     }
     if (bt === "Reisekosten" && reiseKilometerpauschale && km) {
-      resolvedBetrag = Math.round(km * KILOMETERPAUSCHALE_EUR * 100) / 100;
+      const pauschale = await getKilometerpauschale();
+      resolvedBetrag = Math.round(km * pauschale * 100) / 100;
     }
     if (mwstSatz !== undefined && !isPrivat && ![0, 7, 19].includes(parseFloat(mwstSatz))) {
       return NextResponse.json({ error: "Ungültiger MwSt-Satz" }, { status: 400 });

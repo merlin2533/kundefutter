@@ -56,9 +56,21 @@ export function AuditAktionBadge({ aktion }: { aktion: string }) {
   );
 }
 
-export function MargeBadge({ pct }: { pct: number }) {
+export function MargeBadge({
+  pct,
+  warnungProzent = 10,
+  fehlerProzent = 0,
+}: {
+  pct: number;
+  warnungProzent?: number;
+  fehlerProzent?: number;
+}) {
   const cls =
-    pct < 0 ? "bg-red-100 text-red-800" : pct < 10 ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800";
+    pct < fehlerProzent
+      ? "bg-red-100 text-red-800"
+      : pct < warnungProzent
+      ? "bg-orange-100 text-orange-800"
+      : "bg-green-100 text-green-800";
   return (
     <span className={`text-xs px-2 py-0.5 rounded font-medium ${cls}`}>{pct.toFixed(1)} %</span>
   );

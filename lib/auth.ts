@@ -4,7 +4,20 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE = "kundefutter_session";
-export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 Tage
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 Tage (Standardwert)
+
+/** Lädt die Session-Laufzeit aus den DB-Einstellungen (sicherheit.session_timeout_stunden). */
+export async function getSessionMaxAge(): Promise<number> {
+  try {
+    const { prisma: db } = await import("@/lib/prisma");
+    const e = await db.einstellung.findUnique({ where: { key: "sicherheit.session_timeout_stunden" } });
+    if (!e?.value) return SESSION_MAX_AGE;
+    const h = parseFloat(e.value);
+    return Number.isFinite(h) && h > 0 ? Math.round(h * 3600) : SESSION_MAX_AGE;
+  } catch {
+    return SESSION_MAX_AGE;
+  }
+}
 
 const DEV_FALLBACK_SECRET =
   "unsicher-dev-secret-bitte-SESSION_SECRET-in-der-produktion-setzen";
@@ -45,11 +58,12 @@ export async function verifyPassword(pw: string, hash: string): Promise<boolean>
   return bcrypt.compare(pw, hash);
 }
 
-export async function signSession(payload: SessionPayload): Promise<string> {
+export async function signSession(payload: SessionPayload, maxAge?: number): Promise<string> {
+  const age = maxAge ?? await getSessionMaxAge();
   return new SignJWT({ ...payload } as unknown as JWTPayload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
+    .setExpirationTime(`${age}s`)
     .sign(getSessionSecret());
 }
 
@@ -140,13 +154,13 @@ function parseJson(raw: string | undefined | null): string[] {
   }
 }
 
-export function sessionCookieOptions() {
+export function sessionCookieOptions(maxAge: number = SESSION_MAX_AGE) {
   return {
     httpOnly: true,
     sameSite: "strict" as const,
     secure: process.env.COOKIE_SECURE === "true",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    maxAge,
   };
 }
 
