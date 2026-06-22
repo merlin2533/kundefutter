@@ -226,7 +226,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   // Meta-Tabelle (Rechnungsnummer, Rechnungsdatum, Fällig am)
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  let metaY = 27;
+  let metaY = 24;
   const metaLabelX = 155;
   const metaValueX = 196;
   const drawMetaZeile = (label: string, value: string, bold = false) => {
@@ -236,7 +236,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setTextColor(...COL_TEXT);
     doc.text(value, metaValueX, metaY, { align: "right" });
-    metaY += 5;
+    metaY += 4;
   };
   drawMetaZeile("Rechnungsnummer:", lieferung.rechnungNr ?? "—", true);
   drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
@@ -244,41 +244,46 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   drawMetaZeile("Lieferdatum:", formatDatum(lieferDatum));
   drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
-  // Dicke horizontale Trennlinie unter dem Kopf
-  const sepY = Math.max(metaY + 2, 44);
+  // Dicke horizontale Trennlinie unter dem Kopf – feste Höhe, damit das
+  // Anschriftfeld unabhängig von der Anzahl der Meta-Zeilen im Sichtfenster bleibt
+  const sepY = 42;
   doc.setDrawColor(...COL_BORDER_STRONG);
   doc.setLineWidth(0.6);
   doc.line(14, sepY, 196, sepY);
 
   // ── Empfänger-Block (DIN 5008: Absenderzeile + Empfänger) ───────────────────
-  let ey = sepY + 10;
+  // Feste Position fürs Fensterkuvert: Anschriftfeld 25 mm von links, Absenderzeile
+  // bei 45 mm von oben. Nicht aus der Kopfhöhe ableiten, sonst rutscht die Adresse
+  // bei zusätzlichen Meta-Zeilen aus dem Fenster ("Rand oben zu groß").
+  const ADRESS_X = 25;
+  let ey = 45;
   const absenderParts = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
   if (absenderParts.length > 0) {
     const absenderText = absenderParts.join(" · ");
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COL_LABEL);
-    doc.text(absenderText, 14, ey, { maxWidth: 80 });
+    doc.text(absenderText, ADRESS_X, ey, { maxWidth: 80 });
     const lineWidth = Math.min(doc.getTextWidth(absenderText), 80);
     doc.setDrawColor(...COL_LABEL);
     doc.setLineWidth(0.25);
-    doc.line(14, ey + 1, 14 + lineWidth, ey + 1);
+    doc.line(ADRESS_X, ey + 1, ADRESS_X + lineWidth, ey + 1);
     ey += 5;
   }
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
-  doc.text(k.firma ?? k.name, 14, ey);
+  doc.text(k.firma ?? k.name, ADRESS_X, ey);
   ey += 5;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...COL_TEXT);
-  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
-  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.firma) { doc.text(k.name, ADRESS_X, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, ADRESS_X, ey); ey += 5; }
   if (k.plz || k.ort) {
-    doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey);
+    doc.text([k.plz, k.ort].filter(Boolean).join(" "), ADRESS_X, ey);
     ey += 5;
   }
 
