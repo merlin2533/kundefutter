@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (status) where.status = status;
   if (hatRechnung === "true") {
     where.rechnungNr = { not: null };
-    where.rechnungStorniert = null; // stornierte Rechnungen erscheinen nicht in der Rechnungsliste
+    // stornierte Rechnungen bleiben in der Rechnungsliste sichtbar (mit Storno-Kennzeichnung)
   }
   if (ohneRechnung === "true") where.rechnungNr = null;
   if (search) {

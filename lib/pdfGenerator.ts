@@ -100,6 +100,39 @@ function zeichneFalzmarken(doc: jsPDF): void {
 }
 
 /**
+ * Zeichnet ein großes, diagonales "STORNO"-Wasserzeichen quer über das Blatt.
+ * Halbtransparent (sofern jsPDF GState unterstützt), damit der Rechnungsinhalt
+ * lesbar bleibt. Wird für stornierte Rechnungen verwendet.
+ */
+function zeichneStornoWasserzeichen(doc: jsPDF, text = "STORNO"): void {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const anyDoc = doc as any;
+  if (typeof anyDoc.saveGraphicsState === "function") anyDoc.saveGraphicsState();
+  try {
+    // Halbtransparent, damit Text darunter lesbar bleibt (nur wenn unterstützt)
+    if (typeof anyDoc.setGState === "function" && typeof anyDoc.GState === "function") {
+      anyDoc.setGState(new anyDoc.GState({ opacity: 0.18 }));
+    }
+    doc.setTextColor(220, 38, 38);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(96);
+    // angle 45° → diagonal von unten-links nach oben-rechts quer übers Blatt
+    doc.text(text, pageWidth / 2, pageHeight / 2, {
+      align: "center",
+      baseline: "middle",
+      angle: 45,
+    });
+  } catch {
+    /* Wasserzeichen ist rein optisch – Fehler ignorieren */
+  } finally {
+    if (typeof anyDoc.restoreGraphicsState === "function") anyDoc.restoreGraphicsState();
+  }
+}
+
+/**
  * Zeichnet den 3-spaltigen Dokument-Footer am unteren Seitenrand.
  * Optional: direkt über dem Footer einen kleinen rechtlichen Hinweis (Eigentumsvorbehalt o.ä.).
  */
@@ -492,6 +525,11 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   // ── Dokument-Footer (3-spaltig) mit Eigentumsvorbehalt-Hinweis ───────────────
   zeichneDokumentFooter(doc, footerSpalten, eigentumsvorbehalt);
+
+  // Stornierte Rechnung: diagonales "STORNO" quer übers Blatt schreiben
+  if (lieferung.rechnungStorniert) {
+    zeichneStornoWasserzeichen(doc);
+  }
 
   return Buffer.from(doc.output("arraybuffer"));
 }
@@ -978,6 +1016,7 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
     where: { id: gutschriftId },
     include: {
       kunde: { include: { kontakte: true } },
+      lieferung: { select: { rechnungNr: true } },
       positionen: { include: { artikel: { select: { id: true, name: true, einheit: true, mwstSatz: true } } } },
     },
   });
@@ -1034,7 +1073,9 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
     doc.text(value, metaValueXG, metaYG, { align: "right" });
     metaYG += 5;
   };
+  const rechnungNrGutschrift = gutschrift.lieferung?.rechnungNr ?? null;
   drawMetaG("Gutschriftnummer:", gutschrift.nummer, true);
+  if (rechnungNrGutschrift) drawMetaG("Rechnungsnummer:", rechnungNrGutschrift);
   drawMetaG("Datum:", formatDatum(gutschriftDatum));
   drawMetaG("Grund:", gutschrift.grund);
 
@@ -1066,7 +1107,10 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
-  doc.text(`Betreff: Gutschrift ${gutschrift.nummer}`, 14, eyG);
+  const betreffText = rechnungNrGutschrift
+    ? `Betreff: Gutschrift ${gutschrift.nummer} zu Rechnung ${rechnungNrGutschrift}`
+    : `Betreff: Gutschrift ${gutschrift.nummer}`;
+  doc.text(betreffText, 14, eyG);
   eyG += 6;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

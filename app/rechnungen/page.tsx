@@ -23,6 +23,7 @@ interface Rechnung {
   positionen: Lieferposition[];
   bezahltAm: string | null;
   zahlungsziel: number | null;
+  rechnungStorniert: string | null;
 }
 
 type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt";
@@ -34,7 +35,10 @@ function berechneBetrag(positionen: Lieferposition[]) {
   );
 }
 
-function getRechnungStatus(r: Rechnung): "bezahlt" | "ueberfaellig" | "offen" {
+type RechnungStatus = "storniert" | "bezahlt" | "ueberfaellig" | "offen";
+
+function getRechnungStatus(r: Rechnung): RechnungStatus {
+  if (r.rechnungStorniert) return "storniert";
   if (r.bezahltAm) return "bezahlt";
   const basis = r.rechnungDatum ?? r.datum;
   const faelligAm = new Date(basis);
@@ -43,13 +47,14 @@ function getRechnungStatus(r: Rechnung): "bezahlt" | "ueberfaellig" | "offen" {
   return "offen";
 }
 
-function StatusBadge({ status }: { status: "bezahlt" | "ueberfaellig" | "offen" }) {
+function StatusBadge({ status }: { status: RechnungStatus }) {
   const map = {
+    storniert: "bg-gray-200 text-gray-600 line-through",
     bezahlt: "bg-green-100 text-green-800",
     ueberfaellig: "bg-red-100 text-red-800",
     offen: "bg-yellow-100 text-yellow-800",
   };
-  const label = { bezahlt: "Bezahlt", ueberfaellig: "Überfällig", offen: "Offen" };
+  const label = { storniert: "Storniert", bezahlt: "Bezahlt", ueberfaellig: "Überfällig", offen: "Offen" };
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
       {label[status]}
@@ -179,7 +184,7 @@ export default function RechnungenPage() {
           <p className="text-xs text-gray-500 uppercase tracking-wide">Gesamt</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{rechnungen.length}</p>
           <p className="text-xs text-gray-400 mt-1">
-            {formatEuro(rechnungen.reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
+            {formatEuro(rechnungen.filter((r) => !r.rechnungStorniert).reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-yellow-200 shadow-sm p-4">
@@ -256,7 +261,7 @@ export default function RechnungenPage() {
                   <React.Fragment key={r.id}>
                     <tr
                       onClick={() => router.push(`/lieferungen/${r.id}/rechnung`)}
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""}`}
+                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? "bg-green-50" : ""} ${st === "storniert" ? "text-gray-400" : ""}`}
                       title="Rechnung öffnen"
                     >
                       <td
@@ -345,8 +350,8 @@ export default function RechnungenPage() {
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                           </button>
-                          {/* Zahlung buchen / Rückgängig */}
-                          {st !== "bezahlt" ? (
+                          {/* Zahlung buchen / Rückgängig – nicht bei stornierten Rechnungen */}
+                          {st === "storniert" ? null : st !== "bezahlt" ? (
                             <button
                               onClick={() => {
                                 setBuchungId(r.id);
@@ -425,7 +430,7 @@ export default function RechnungenPage() {
                   {gefiltert.length} Rechnung{gefiltert.length !== 1 ? "en" : ""}
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
-                  {formatEuro(gefiltert.reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
+                  {formatEuro(gefiltert.filter((r) => !r.rechnungStorniert).reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
                 </td>
                 <td colSpan={2} />
               </tr>
