@@ -44,7 +44,7 @@ function NeueSammelrechnungForm() {
       .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])));
     fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => {
+      .then((d: Record<string, string>) => {
         const val = parseInt(d["firma.zahlungszielStandard"] ?? "", 10);
         if (!isNaN(val) && val >= 0) setZahlungsziel(String(val));
       })
