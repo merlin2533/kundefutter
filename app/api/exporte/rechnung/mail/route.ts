@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
       ],
     });
 
+    // Versand-Zeitpunkt festhalten (für "bereits per E-Mail versendet"-Anzeige)
+    await prisma.lieferung.update({
+      where: { id: lieferungId },
+      data: { rechnungVersendetAm: new Date() },
+    });
+
     await prisma.kundeAktivitaet.create({
       data: {
         kundeId: lieferung.kundeId,

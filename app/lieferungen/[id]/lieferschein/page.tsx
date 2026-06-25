@@ -71,6 +71,7 @@ interface Lieferung {
   lieferadresse?: string | null;
   angebotId?: number | null;
   rechnungNr?: string | null;
+  lieferscheinNr?: string | null;
   unterschriftPng?: string | null;
   positionen: Position[];
   kunde: Kunde;
@@ -97,6 +98,34 @@ export default function LieferscheinPage() {
   const [unterschriftGespeichert, setUnterschriftGespeichert] = useState(false);
   const [unterschriftSaving, setUnterschriftSaving] = useState(false);
   const [unterschriftMsg, setUnterschriftMsg] = useState("");
+
+  // Lieferschein-Nr. inline bearbeiten (Default: Lieferungs-ID)
+  const [lsNrEdit, setLsNrEdit] = useState(false);
+  const [lsNrInput, setLsNrInput] = useState("");
+  const [lsNrSaving, setLsNrSaving] = useState(false);
+
+  async function handleLsNrSpeichern() {
+    setLsNrSaving(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferscheinNr: lsNrInput.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setLieferung((prev) => (prev ? { ...prev, lieferscheinNr: updated.lieferscheinNr ?? null } : prev));
+        setLsNrEdit(false);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Lieferschein-Nr. konnte nicht gespeichert werden.");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Speichern der Lieferschein-Nr.");
+    } finally {
+      setLsNrSaving(false);
+    }
+  }
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -499,7 +528,32 @@ export default function LieferscheinPage() {
               <tbody>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Nr.:</td>
-                  <td style={{ fontWeight: "bold", fontFamily: "monospace" }}>{lieferung.id}</td>
+                  <td style={{ fontWeight: "bold", fontFamily: "monospace" }}>
+                    {lsNrEdit ? (
+                      <span className="print-hidden" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          value={lsNrInput}
+                          onChange={(e) => setLsNrInput(e.target.value)}
+                          placeholder={String(lieferung.id)}
+                          style={{ width: "120px", fontSize: "10pt", padding: "1px 4px", border: "1px solid #bbb", borderRadius: "3px", textAlign: "right", fontFamily: "monospace" }}
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleLsNrSpeichern(); else if (e.key === "Escape") setLsNrEdit(false); }}
+                        />
+                        <button onClick={handleLsNrSpeichern} disabled={lsNrSaving} title="Speichern" style={{ color: "#15803d", fontWeight: "bold", cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setLsNrEdit(false)} disabled={lsNrSaving} title="Abbrechen" style={{ color: "#999", cursor: "pointer" }}>✕</button>
+                      </span>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <span>{lieferung.lieferscheinNr?.trim() || lieferung.id}</span>
+                        <button
+                          className="print-hidden"
+                          onClick={() => { setLsNrInput(lieferung.lieferscheinNr ?? ""); setLsNrEdit(true); }}
+                          title="Lieferschein-Nr. anpassen"
+                          style={{ color: "#2563eb", fontSize: "9pt", cursor: "pointer", fontWeight: "normal" }}
+                        >✎</button>
+                      </span>
+                    )}
+                  </td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Datum:</td>

@@ -594,7 +594,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(60);
-  doc.text(`Nr.: ${lieferung.id}`, 196, 26, { align: "right" });
+  doc.text(`Nr.: ${lieferung.lieferscheinNr?.trim() || lieferung.id}`, 196, 26, { align: "right" });
   doc.text(`Lieferdatum: ${formatDatum(lieferung.datum)}`, 196, 31, { align: "right" });
 
   doc.setDrawColor(22, 101, 52);
