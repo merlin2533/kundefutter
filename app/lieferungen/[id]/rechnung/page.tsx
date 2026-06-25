@@ -55,6 +55,7 @@ interface Lieferung {
   rechnungDatum?: string | null;
   lieferscheinNr?: string | null;
   rechnungStorniert?: string | null;
+  rechnungVersendetAm?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
   notiz?: string | null;
@@ -316,6 +317,7 @@ export default function RechnungPrintPage() {
       if (data.ok) {
         setMailMsg(`Rechnung an ${data.empfaenger ?? empfaenger} gesendet.`);
         setMailModalOffen(false);
+        setLieferung((prev) => (prev ? { ...prev, rechnungVersendetAm: new Date().toISOString() } : prev));
       } else {
         setMailFehler(data.error ?? "Fehler beim Versand.");
       }
@@ -515,6 +517,15 @@ export default function RechnungPrintPage() {
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
             <span className="hidden sm:inline">Storno aufheben</span>
           </button>
+        )}
+        {lieferung?.rechnungVersendetAm && (
+          <span
+            className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
+            title={`Rechnung wurde per E-Mail versendet am ${formatDatum(lieferung.rechnungVersendetAm)}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            Per E-Mail versendet ({formatDatum(lieferung.rechnungVersendetAm)})
+          </span>
         )}
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
