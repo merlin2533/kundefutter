@@ -116,7 +116,7 @@ export default function SearchableSelect({
               className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="max-h-52 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto">
             {allowClear && (
               <button
                 type="button"

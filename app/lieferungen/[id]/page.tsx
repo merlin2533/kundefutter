@@ -272,7 +272,9 @@ export default function LieferungDetailPage() {
   }
 
   function startRabattEdit(pos: Position) {
-    if (lieferung && (lieferung.status === "storniert" || !!lieferung.rechnungNr)) return;
+    // Rabatt darf auch nach Rechnungsstellung noch erfasst/angepasst werden –
+    // nur bei stornierten Lieferungen gesperrt.
+    if (lieferung && lieferung.status === "storniert") return;
     setRabattEditId(pos.id);
     setRabattEditValue(String(pos.rabattProzent ?? 0));
   }
@@ -1457,13 +1459,11 @@ export default function LieferungDetailPage() {
                       <button
                         type="button"
                         onClick={() => startRabattEdit(pos)}
-                        disabled={lieferung.status === "storniert" || !!lieferung.rechnungNr}
+                        disabled={lieferung.status === "storniert"}
                         className="hover:underline disabled:no-underline disabled:cursor-not-allowed"
                         title={
                           lieferung.status === "storniert"
                             ? "Lieferung storniert"
-                            : lieferung.rechnungNr
-                            ? "Gesperrt: Rechnung bereits gestellt"
                             : "Rabatt bearbeiten"
                         }
                       >

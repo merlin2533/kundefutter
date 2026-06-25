@@ -257,9 +257,11 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.text("Rechnung", 196, 20, { align: "right" });
 
   // Meta-Tabelle (Rechnungsnummer, Rechnungsdatum, Fällig am)
+  // Zeilenabstand leicht verdichtet, damit die Trennlinie deutlich oberhalb des
+  // Anschriftfelds (Fenster ab 45 mm) bleibt und nicht ins Adressfeld ragt.
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  let metaY = 24;
+  let metaY = 23;
   const metaLabelX = 155;
   const metaValueX = 196;
   const drawMetaZeile = (label: string, value: string, bold = false) => {
@@ -269,7 +271,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setTextColor(...COL_TEXT);
     doc.text(value, metaValueX, metaY, { align: "right" });
-    metaY += 4;
+    metaY += 3.4;
   };
   drawMetaZeile("Rechnungsnummer:", lieferung.rechnungNr ?? "—", true);
   drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
@@ -278,8 +280,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
   // Dicke horizontale Trennlinie unter dem Kopf – feste Höhe, damit das
-  // Anschriftfeld unabhängig von der Anzahl der Meta-Zeilen im Sichtfenster bleibt
-  const sepY = 42;
+  // Anschriftfeld unabhängig von der Anzahl der Meta-Zeilen im Sichtfenster bleibt.
+  // Bewusst oberhalb von 45 mm (Beginn Anschriftzone DIN 5008), damit die Linie
+  // im Fensterkuvert nicht ins Adressfeld rutscht.
+  const sepY = 39;
   doc.setDrawColor(...COL_BORDER_STRONG);
   doc.setLineWidth(0.6);
   doc.line(14, sepY, 196, sepY);
