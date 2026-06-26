@@ -152,10 +152,68 @@ export async function PUT(req: NextRequest, ctx: Params) {
       return NextResponse.json(result);
     }
 
-    // Normales Update
     const numId = parseInt(id, 10);
     if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
+    // Positionen nachträglich bearbeiten (Voll-Ersatz) – nur bei offenen Angeboten
+    if (Array.isArray(body.positionen)) {
+      const eingaben: { artikelId: number; menge: number; preis: number; rabatt: number; einheit?: string; notiz?: string | null }[] = [];
+      for (const p of body.positionen) {
+        const artikelId = Number(p?.artikelId);
+        const menge = Number(p?.menge);
+        const preis = Number(p?.preis);
+        const rabatt = p?.rabatt == null || p.rabatt === "" ? 0 : Number(p.rabatt);
+        if (!artikelId || isNaN(artikelId)) return NextResponse.json({ error: "Ungültige artikelId in Position" }, { status: 400 });
+        if (isNaN(menge) || menge <= 0) return NextResponse.json({ error: "Menge muss größer als 0 sein" }, { status: 400 });
+        if (isNaN(preis) || preis < 0) return NextResponse.json({ error: "Ungültiger Preis" }, { status: 400 });
+        if (isNaN(rabatt) || rabatt < 0 || rabatt > 100) return NextResponse.json({ error: "Rabatt muss zwischen 0 und 100 liegen" }, { status: 400 });
+        eingaben.push({
+          artikelId, menge, preis, rabatt,
+          einheit: typeof p.einheit === "string" ? p.einheit : undefined,
+          notiz: typeof p.notiz === "string" ? (p.notiz.trim() || null) : null,
+        });
+      }
+      if (eingaben.length === 0) return NextResponse.json({ error: "Mindestens eine Position erforderlich" }, { status: 400 });
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const ang = await tx.angebot.findUnique({ where: { id: numId }, select: { status: true } });
+        if (!ang) throw Object.assign(new Error("Angebot nicht gefunden"), { code: "P2025" });
+        if (ang.status !== "OFFEN") throw new Error("Nur offene Angebote können bearbeitet werden");
+
+        const artikelIds = [...new Set(eingaben.map((p) => p.artikelId))];
+        const arts = await tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, einheit: true } });
+        const einheitMap = new Map(arts.map((a) => [a.id, a.einheit]));
+
+        await tx.angebotPosition.deleteMany({ where: { angebotId: numId } });
+        await tx.angebot.update({
+          where: { id: numId },
+          data: {
+            ...(notiz !== undefined ? { notiz } : {}),
+            ...(gueltigBis !== undefined ? { gueltigBis: gueltigBis ? new Date(gueltigBis) : null } : {}),
+            positionen: {
+              create: eingaben.map((p) => ({
+                artikelId: p.artikelId,
+                menge: p.menge,
+                preis: p.preis,
+                rabatt: p.rabatt,
+                einheit: p.einheit || einheitMap.get(p.artikelId) || "kg",
+                notiz: p.notiz,
+              })),
+            },
+          },
+        });
+        return tx.angebot.findUnique({
+          where: { id: numId },
+          include: {
+            kunde: { include: { kontakte: true } },
+            positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+          },
+        });
+      });
+      return NextResponse.json(updated);
+    }
+
+    // Normales Update
     const VALID_STATUS = ["OFFEN", "ANGENOMMEN", "ABGELEHNT", "ABGELAUFEN"];
     const updateData: { status?: string; notiz?: string | null; gueltigBis?: Date | null } = {};
     if (status !== undefined) {

@@ -243,7 +243,16 @@ export default function KundeDetailPage() {
             })()}
             {/* Letzte Lieferungen */}
             <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferungen</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferungen</p>
+                <Link
+                  href={`/lieferungen?kundeId=${kunde.id}&offen=1`}
+                  className="text-xs font-medium text-green-700 hover:text-green-900 hover:underline whitespace-nowrap"
+                  title="Alle Aufträge & Lieferscheine dieses Kunden öffnen"
+                >
+                  Offene Vorgänge →
+                </Link>
+              </div>
               {letzteL.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {letzteL.map((l) => (

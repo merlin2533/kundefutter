@@ -78,6 +78,87 @@ export default function AngebotDetailPage() {
   const [notiz, setNotiz] = useState("");
   const [gueltigBis, setGueltigBis] = useState("");
 
+  // Positionen bearbeiten
+  interface EditPos { artikelId: string; artikelName: string; einheit: string; menge: string; preis: string; rabatt: string; notiz: string }
+  const [editMode, setEditMode] = useState(false);
+  const [editPositionen, setEditPositionen] = useState<EditPos[]>([]);
+  const [artikelListe, setArtikelListe] = useState<{ id: number; name: string; standardpreis: number; einheit: string }[]>([]);
+  const [posSaving, setPosSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/artikel?limit=2000&relations=false")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (Array.isArray(d)) setArtikelListe(d); })
+      .catch(() => {});
+  }, []);
+
+  function startPosEdit() {
+    if (!angebot) return;
+    setEditPositionen(angebot.positionen.map((p) => ({
+      artikelId: String(p.artikelId),
+      artikelName: p.artikel.name,
+      einheit: p.einheit,
+      menge: String(p.menge),
+      preis: String(p.preis),
+      rabatt: String(p.rabatt ?? 0),
+      notiz: p.notiz ?? "",
+    })));
+    setEditMode(true);
+  }
+
+  function updateEditPos(idx: number, field: keyof EditPos, value: string) {
+    setEditPositionen((prev) => prev.map((p, i) => {
+      if (i !== idx) return p;
+      const next = { ...p, [field]: value };
+      if (field === "artikelId") {
+        const art = artikelListe.find((a) => String(a.id) === value);
+        if (art) { next.artikelName = art.name; next.einheit = art.einheit; if (!p.preis || p.preis === "0") next.preis = String(art.standardpreis); }
+      }
+      return next;
+    }));
+  }
+
+  function addEditPos() {
+    setEditPositionen((prev) => [...prev, { artikelId: "", artikelName: "", einheit: "kg", menge: "1", preis: "", rabatt: "0", notiz: "" }]);
+  }
+
+  function removeEditPos(idx: number) {
+    setEditPositionen((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function savePositionen() {
+    if (editPositionen.length === 0) { setError("Mindestens eine Position erforderlich."); return; }
+    if (editPositionen.some((p) => !p.artikelId)) { setError("Bitte alle Positionen mit einem Artikel belegen."); return; }
+    setPosSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/angebote/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionen: editPositionen.map((p) => ({
+            artikelId: Number(p.artikelId),
+            menge: parseFloat(p.menge.replace(",", ".")) || 0,
+            preis: parseFloat(p.preis.replace(",", ".")) || 0,
+            rabatt: parseFloat(p.rabatt.replace(",", ".")) || 0,
+            einheit: p.einheit,
+            notiz: p.notiz.trim() || null,
+          })),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Fehler beim Speichern");
+      setAngebot(json);
+      setEditMode(false);
+      setSuccess("Positionen gespeichert.");
+      setTimeout(() => setSuccess(""), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Speichern der Positionen");
+    } finally {
+      setPosSaving(false);
+    }
+  }
+
   // E-Mail-Versand
   const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -445,9 +526,79 @@ export default function AngebotDetailPage() {
 
         {/* Positionen */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Positionen</h2>
+            {isOffen && !editMode && (
+              <button
+                onClick={startPosEdit}
+                className="px-3 py-1.5 text-xs font-medium border border-green-300 text-green-700 rounded-lg hover:bg-green-50 transition-colors"
+              >
+                Positionen bearbeiten
+              </button>
+            )}
           </div>
+
+          {editMode ? (
+            <div className="p-4 sm:p-6 space-y-3">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
+                  <thead>
+                    <tr className="text-xs text-gray-500 uppercase">
+                      <th className="text-left font-medium px-2 py-1">Artikel</th>
+                      <th className="text-right font-medium px-2 py-1 w-24">Menge</th>
+                      <th className="text-right font-medium px-2 py-1 w-28">Preis €</th>
+                      <th className="text-right font-medium px-2 py-1 w-24">Rabatt %</th>
+                      <th className="px-2 py-1 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editPositionen.map((p, idx) => (
+                      <tr key={idx} className="border-t border-gray-100">
+                        <td className="px-2 py-2 align-top">
+                          <SearchableSelect
+                            options={artikelListe.map((a) => ({ value: String(a.id), label: a.name, sub: a.einheit }))}
+                            value={p.artikelId}
+                            onChange={(v) => updateEditPos(idx, "artikelId", v)}
+                            placeholder="— Artikel wählen —"
+                          />
+                          <input
+                            type="text"
+                            value={p.notiz}
+                            onChange={(e) => updateEditPos(idx, "notiz", e.target.value)}
+                            placeholder="Notiz (optional)"
+                            className="w-full mt-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+                          />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="number" min={0} step="any" value={p.menge} onChange={(e) => updateEditPos(idx, "menge", e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
+                          <div className="text-xs text-gray-400 text-right mt-0.5">{p.einheit}</div>
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="number" min={0} step="any" value={p.preis} onChange={(e) => updateEditPos(idx, "preis", e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
+                        </td>
+                        <td className="px-2 py-2 align-top">
+                          <input type="number" min={0} max={100} step="any" value={p.rabatt} onChange={(e) => updateEditPos(idx, "rabatt", e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
+                        </td>
+                        <td className="px-2 py-2 align-top text-center">
+                          <button onClick={() => removeEditPos(idx)} disabled={editPositionen.length <= 1} title="Position entfernen"
+                            className="text-gray-300 hover:text-red-500 disabled:opacity-20 text-base leading-none">✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button onClick={addEditPos} className="text-sm text-green-700 hover:text-green-900 font-medium">+ Artikel hinzufügen</button>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => { setEditMode(false); setError(""); }} className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Abbrechen</button>
+                <button onClick={savePositionen} disabled={posSaving} className="px-4 py-2 text-sm bg-green-700 text-white rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors">{posSaving ? "Speichere…" : "Positionen speichern"}</button>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -510,6 +661,8 @@ export default function AngebotDetailPage() {
               <span>{formatEuro(gesamtBrutto)}</span>
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
 

@@ -53,6 +53,8 @@ export default function LieferungenPage() {
   const [vonFilter, setVonFilter] = useState<string>("");
   const [bisFilter, setBisFilter] = useState<string>("");
   const [kundeSearch, setKundeSearch] = useState<string>("");
+  const [kundeIdFilter, setKundeIdFilter] = useState<string>("");
+  const [kundeFilterName, setKundeFilterName] = useState<string>("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export default function LieferungenPage() {
     if (vonFilter) params.set("von", vonFilter);
     if (bisFilter) params.set("bis", bisFilter);
     if (kundeSearch) params.set("search", kundeSearch);
+    if (kundeIdFilter) params.set("kundeId", kundeIdFilter);
     try {
       const res = await fetch(`/api/lieferungen?${params}`);
       if (!res.ok) {
@@ -88,12 +91,25 @@ export default function LieferungenPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, vonFilter, bisFilter, kundeSearch]);
+  }, [statusFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter]);
 
   useEffect(() => {
     const t = setTimeout(fetchLieferungen, 300);
     return () => clearTimeout(t);
   }, [fetchLieferungen]);
+
+  // Kunden-Filter aus URL übernehmen (Absprung aus der Kundenakte: ?kundeId=…&offen=1)
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const kid = sp.get("kundeId");
+    if (!kid) return;
+    setKundeIdFilter(kid);
+    if (sp.get("offen") === "1") setStatusFilter("geplant");
+    fetch(`/api/kunden/${kid}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((k) => { if (k) setKundeFilterName(k.firma ? `${k.firma} (${k.name})` : k.name); })
+      .catch(() => {});
+  }, []);
 
   // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
@@ -273,6 +289,21 @@ export default function LieferungenPage() {
 
       {tab === "liste" && (
         <>
+          {kundeIdFilter && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 bg-green-50 border border-green-200 text-green-800 rounded-lg px-4 py-3 text-sm">
+              <span>
+                Gefiltert nach Kunde:{" "}
+                <strong>{kundeFilterName || `#${kundeIdFilter}`}</strong>
+                {" "}— offene Aufträge &amp; Lieferscheine
+              </span>
+              <button
+                onClick={() => { setKundeIdFilter(""); setKundeFilterName(""); setStatusFilter("alle"); window.history.replaceState(null, "", "/lieferungen"); }}
+                className="px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg hover:bg-green-100 transition-colors whitespace-nowrap"
+              >
+                Filter aufheben
+              </button>
+            </div>
+          )}
           {/* Filters */}
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
             <div className="flex gap-1 flex-wrap">
