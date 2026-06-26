@@ -194,6 +194,40 @@ export default function RechnungPrintPage() {
     document.body.removeChild(a);
   }
 
+  // PDF exakt aus der Bildschirm-Vorschau erzeugen (entspricht 1:1 der Ansicht).
+  // Mehrseitig, falls die Rechnung länger als eine A4-Seite ist.
+  const [vorschauPdfLoading, setVorschauPdfLoading] = useState(false);
+  async function downloadVorschauPdf() {
+    setVorschauPdfLoading(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const { jsPDF } = await import("jspdf");
+      const element = document.querySelector<HTMLElement>("[data-print-area]");
+      if (!element) return;
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pageW) / canvas.width;
+      const imgData = canvas.toDataURL("image/png");
+      let heightLeft = imgH;
+      let position = 0;
+      pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        position -= pageH;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
+        heightLeft -= pageH;
+      }
+      pdf.save(`Rechnung_${(lieferung?.rechnungNr ?? `LS-${id}`).replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`);
+    } catch {
+      setError("PDF konnte nicht erzeugt werden.");
+    } finally {
+      setVorschauPdfLoading(false);
+    }
+  }
+
   async function loadLieferung(): Promise<Lieferung | null> {
     const res = await fetch(`/api/lieferungen/${id}`);
     if (!res.ok) {
@@ -443,12 +477,23 @@ export default function RechnungPrintPage() {
         </button>
         {lieferung?.rechnungNr && (
           <button
-            onClick={downloadPdf}
-            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors text-sm"
-            title="PDF herunterladen (ZUGFeRD/Factur-X eingebettet)"
+            onClick={downloadVorschauPdf}
+            disabled={vorschauPdfLoading}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors text-sm disabled:opacity-60"
+            title="PDF herunterladen – exakt wie diese Vorschau"
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            <span className="hidden sm:inline">PDF</span>
+            <span className="hidden sm:inline">{vorschauPdfLoading ? "Erzeuge…" : "PDF"}</span>
+          </button>
+        )}
+        {lieferung?.rechnungNr && (
+          <button
+            onClick={downloadPdf}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-500 transition-colors text-sm"
+            title="E-Rechnung als PDF mit eingebettetem ZUGFeRD/Factur-X (für Buchhaltung)"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="hidden sm:inline">E-Rechnung</span>
           </button>
         )}
         <button

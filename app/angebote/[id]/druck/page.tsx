@@ -128,6 +128,9 @@ export default function AngebotDruckPage() {
   const gesamtMwst = Object.values(mwstMap).reduce((a, b) => a + b, 0);
   const gesamtBrutto = gesamtNetto + gesamtMwst;
 
+  // Rabatt-Spalte nur zeigen, wenn mindestens eine Position einen Rabatt hat
+  const hatRabatt = angebot.positionen.some((pos) => pos.rabatt > 0);
+
   const firmaName = firma["firma.firmenname"] ?? firma["firma.name"] ?? "";
   const firmaStrasse = firma["firma.strasse"] ?? "";
   const firmaPlz = firma["firma.plz"] ?? "";
@@ -309,7 +312,7 @@ export default function AngebotDruckPage() {
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt</th>
+              {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt</th>}
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
             </tr>
           </thead>
@@ -337,9 +340,11 @@ export default function AngebotDruckPage() {
                   <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
                     {fmt(pos.preis)}
                   </td>
-                  <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                    {pos.rabatt > 0 ? `${pos.rabatt.toLocaleString("de-DE")} %` : "—"}
-                  </td>
+                  {hatRabatt && (
+                    <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                      {pos.rabatt > 0 ? `${pos.rabatt.toLocaleString("de-DE")} %` : "—"}
+                    </td>
+                  )}
                   <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "500" }}>
                     {fmt(netto)}
                   </td>
