@@ -1,14 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
+import { Mistral } from "@mistralai/mistralai";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export type AiProvider = "openai" | "anthropic" | "mistral";
+export type ModelCategory = "language" | "ocr" | "tts";
+export type TtsVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+
 export interface AiConfig {
-  provider: "openai" | "anthropic";
+  provider: AiProvider;
   modell: string;
   openaiKey?: string;
   anthropicKey?: string;
+  mistralKey?: string;
 }
 
 export interface AiAnalyzeResult {
@@ -18,7 +24,7 @@ export interface AiAnalyzeResult {
   tokensOut: number;
 }
 
-// ─── Kosten pro 1M Tokens (in Cent) ─────────────────────────────────────────
+// ─── Kosten pro 1M Tokens (in US-Cent) ──────────────────────────────────────
 
 export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
   // ─ OpenAI ─
@@ -30,6 +36,9 @@ export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
   "gpt-4.1":            { input: 200, output: 800 },
   "gpt-4.1-mini":       { input: 40,  output: 160 },
   "gpt-4.1-nano":       { input: 10,  output: 40 },
+  // TTS ist zeichenbasiert — Token-Kosten = 0
+  "tts-1":              { input: 0,   output: 0 },
+  "tts-1-hd":           { input: 0,   output: 0 },
   // ─ Anthropic (aktuell) ─
   "claude-opus-4-8":            { input: 1500, output: 7500 },
   "claude-sonnet-4-6":          { input: 300,  output: 1500 },
@@ -37,7 +46,28 @@ export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
   // ─ Anthropic (Legacy – für historische Nutzungslogs) ─
   "claude-sonnet-4-20250514":   { input: 300,  output: 1500 },
   "claude-opus-4-20250514":     { input: 1500, output: 7500 },
+  // ─ Mistral ─
+  "mistral-large-latest":       { input: 200,  output: 600 },
+  "mistral-medium-3":           { input: 40,   output: 200 },
+  "mistral-small-latest":       { input: 10,   output: 30 },
+  "open-mistral-nemo":          { input: 4,    output: 10 },
+  "codestral-latest":           { input: 20,   output: 60 },
+  "pixtral-large-2411":         { input: 200,  output: 600 },
+  "pixtral-12b-2409":           { input: 15,   output: 15 },
+  "mistral-ocr-latest":         { input: 0,    output: 0 },  // seitenbasierte Abrechnung
 };
+
+// Default-Modelle je Provider und Kategorie
+const DEFAULT_MODELS: Record<AiProvider, Record<ModelCategory, string>> = {
+  openai:    { language: "gpt-4.1",             ocr: "gpt-4o",             tts: "tts-1" },
+  anthropic: { language: "claude-sonnet-4-6",   ocr: "claude-sonnet-4-6",  tts: "" },
+  mistral:   { language: "mistral-large-latest", ocr: "pixtral-large-2411", tts: "" },
+};
+
+function normalizeProvider(v: string | undefined): AiProvider | null {
+  if (v === "openai" || v === "anthropic" || v === "mistral") return v;
+  return null;
+}
 
 function berechneKosten(modell: string, tokensIn: number, tokensOut: number): number {
   const rate = KOSTEN_MAP[modell];
@@ -46,33 +76,47 @@ function berechneKosten(modell: string, tokensIn: number, tokensOut: number): nu
 }
 
 // ─── Config aus DB laden ─────────────────────────────────────────────────────
+//
+// Auflösungskette je Kategorie (language | ocr | tts):
+//   1. ki.provider_<kategorie>              → kategoriespezifischer Provider
+//   2. ki.provider                          → globaler Fallback-Provider
+//   3. ki.modell_<kategorie>_<provider>     → kategorie+provider-spezifisches Modell
+//   4. ki.modell_<provider>                 → provider-spezifisches Modell (Legacy)
+//   5. ki.modell                            → globales Modell (Legacy)
+//   6. DEFAULT_MODELS[provider][kategorie]  → Hardcoded-Standardwert
 
-export async function getAiConfig(): Promise<AiConfig> {
+export async function getAiConfig(category: ModelCategory = "language"): Promise<AiConfig> {
   const rows = await prisma.einstellung.findMany({
     where: { key: { startsWith: "ki." } },
-    take: 50,
+    take: 100,
   });
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
 
-  const raw = map["ki.provider"];
-  const provider = (raw === "openai" || raw === "anthropic") ? raw : "openai";
+  const globalProvider = normalizeProvider(map["ki.provider"]) ?? "openai";
+  const provider = normalizeProvider(map[`ki.provider_${category}`]) ?? globalProvider;
 
-  // Modell wird pro Provider gepflegt; Fallback auf altes globales ki.modell,
-  // dann auf den Provider-Standard.
-  const providerModell = provider === "openai" ? map["ki.modell_openai"] : map["ki.modell_anthropic"];
-  const defaultModell = provider === "openai" ? "gpt-4o" : "claude-haiku-4-5-20251001";
-  const modell = providerModell || map["ki.modell"] || defaultModell;
+  const legacyProviderKey =
+    provider === "openai" ? "ki.modell_openai" :
+    provider === "anthropic" ? "ki.modell_anthropic" :
+    "ki.modell_mistral";
+
+  const modell =
+    map[`ki.modell_${category}_${provider}`] ||
+    map[legacyProviderKey] ||
+    map["ki.modell"] ||
+    DEFAULT_MODELS[provider][category];
 
   return {
     provider,
     modell,
-    openaiKey: map["ki.openai_key"],
+    openaiKey:    map["ki.openai_key"],
     anthropicKey: map["ki.anthropic_key"],
+    mistralKey:   map["ki.mistral_key"],
   };
 }
 
-// ─── Bild analysieren ────────────────────────────────────────────────────────
+// ─── Bild analysieren (OCR-Kategorie) ────────────────────────────────────────
 
 export async function analyzeImage(
   base64Image: string,
@@ -80,7 +124,7 @@ export async function analyzeImage(
   feature: string,
   config?: AiConfig
 ): Promise<AiAnalyzeResult> {
-  const cfg = config || (await getAiConfig());
+  const cfg = config || (await getAiConfig("ocr"));
   const isPdf = detectIsPdf(base64Image);
 
   if (cfg.provider === "anthropic") {
@@ -88,12 +132,63 @@ export async function analyzeImage(
       ? analyzeWithAnthropicPdf(base64Image, systemPrompt, feature, cfg)
       : analyzeWithAnthropic(base64Image, systemPrompt, feature, cfg);
   }
+  if (cfg.provider === "mistral") {
+    return isPdf
+      ? analyzeWithMistralPdf(base64Image, systemPrompt, feature, cfg)
+      : analyzeWithMistral(base64Image, systemPrompt, feature, cfg);
+  }
   return isPdf
     ? analyzeWithOpenAIPdf(base64Image, systemPrompt, feature, cfg)
     : analyzeWithOpenAI(base64Image, systemPrompt, feature, cfg);
 }
 
-// ─── OpenAI ──────────────────────────────────────────────────────────────────
+// ─── Text analysieren (Language-Kategorie) ───────────────────────────────────
+
+export async function analyzeText(
+  text: string,
+  systemPrompt: string,
+  feature: string,
+  config?: AiConfig
+): Promise<AiAnalyzeResult> {
+  const cfg = config || (await getAiConfig("language"));
+
+  if (cfg.provider === "anthropic") {
+    return analyzeTextWithAnthropic(text, systemPrompt, feature, cfg);
+  }
+  if (cfg.provider === "mistral") {
+    return analyzeTextWithMistral(text, systemPrompt, feature, cfg);
+  }
+  return analyzeTextWithOpenAI(text, systemPrompt, feature, cfg);
+}
+
+// ─── Text-zu-Sprache (TTS-Kategorie) ─────────────────────────────────────────
+
+export async function textToSpeech(
+  text: string,
+  config?: AiConfig,
+  voice: TtsVoice = "nova"
+): Promise<ArrayBuffer> {
+  const cfg = config || (await getAiConfig("tts"));
+
+  if (cfg.provider !== "openai") {
+    throw new Error("Text-zu-Sprache ist derzeit nur über OpenAI verfügbar.");
+  }
+  if (!cfg.openaiKey) throw new Error("OpenAI API-Key nicht konfiguriert");
+
+  const client = new OpenAI({ apiKey: cfg.openaiKey });
+  const model = (cfg.modell || "tts-1") as "tts-1" | "tts-1-hd";
+
+  const response = await client.audio.speech.create({
+    model,
+    voice,
+    input: text,
+    response_format: "mp3",
+  });
+
+  return response.arrayBuffer();
+}
+
+// ─── OpenAI: Bild ────────────────────────────────────────────────────────────
 
 async function analyzeWithOpenAI(
   base64Image: string,
@@ -104,7 +199,6 @@ async function analyzeWithOpenAI(
   if (!cfg.openaiKey) throw new Error("OpenAI API-Key nicht konfiguriert");
 
   const client = new OpenAI({ apiKey: cfg.openaiKey });
-
   const mediaType = detectMediaType(base64Image);
   const imageUrl = base64Image.startsWith("data:")
     ? base64Image
@@ -119,14 +213,8 @@ async function analyzeWithOpenAI(
         {
           role: "user",
           content: [
-            {
-              type: "image_url",
-              image_url: { url: imageUrl, detail: "high" },
-            },
-            {
-              type: "text",
-              text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
-            },
+            { type: "image_url", image_url: { url: imageUrl, detail: "high" } },
+            { type: "text", text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON." },
           ],
         },
       ],
@@ -135,11 +223,8 @@ async function analyzeWithOpenAI(
     const text = response.choices[0]?.message?.content || "{}";
     const tokensIn = response.usage?.prompt_tokens || 0;
     const tokensOut = response.usage?.completion_tokens || 0;
-
     const parsed = parseJsonFromText(text);
-
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
-
     return { raw: text, parsed, tokensIn, tokensOut };
   } catch (err) {
     await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "OpenAI Fehler");
@@ -147,115 +232,7 @@ async function analyzeWithOpenAI(
   }
 }
 
-// ─── Anthropic ───────────────────────────────────────────────────────────────
-
-async function analyzeWithAnthropic(
-  base64Image: string,
-  systemPrompt: string,
-  feature: string,
-  cfg: AiConfig
-): Promise<AiAnalyzeResult> {
-  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
-
-  const client = new Anthropic({ apiKey: cfg.anthropicKey });
-
-  const cleanBase64 = base64Image.startsWith("data:")
-    ? (base64Image.split(",")[1] ?? "")
-    : base64Image;
-  if (!cleanBase64) throw new Error("Ungültiges Bildformat");
-
-  const mediaType = detectMediaType(base64Image) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-
-  try {
-    const response = await client.messages.create({
-      model: cfg.modell,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: cleanBase64 },
-            },
-            {
-              type: "text",
-              text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON.",
-            },
-          ],
-        },
-      ],
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
-    const tokensIn = response.usage?.input_tokens || 0;
-    const tokensOut = response.usage?.output_tokens || 0;
-
-    const parsed = parseJsonFromText(text);
-
-    await logUsage(cfg, feature, tokensIn, tokensOut, true);
-
-    return { raw: text, parsed, tokensIn, tokensOut };
-  } catch (err) {
-    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic Fehler");
-    throw err;
-  }
-}
-
-// ─── PDF: Anthropic (natives document-Format) ────────────────────────────────
-
-async function analyzeWithAnthropicPdf(
-  base64Image: string,
-  systemPrompt: string,
-  feature: string,
-  cfg: AiConfig
-): Promise<AiAnalyzeResult> {
-  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
-
-  const client = new Anthropic({ apiKey: cfg.anthropicKey });
-
-  const cleanBase64 = base64Image.startsWith("data:")
-    ? (base64Image.split(",")[1] ?? "")
-    : base64Image;
-  if (!cleanBase64) throw new Error("Ungültiges PDF-Format");
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfBlock: any = {
-      type: "document",
-      source: { type: "base64", media_type: "application/pdf", data: cleanBase64 },
-    };
-
-    const response = await client.messages.create({
-      model: cfg.modell,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          content: [pdfBlock, { type: "text", text: "Analysiere dieses Dokument und extrahiere die relevanten Informationen als JSON." }] as any,
-        },
-      ],
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
-    const tokensIn = response.usage?.input_tokens || 0;
-    const tokensOut = response.usage?.output_tokens || 0;
-
-    const parsed = parseJsonFromText(text);
-    await logUsage(cfg, feature, tokensIn, tokensOut, true);
-    return { raw: text, parsed, tokensIn, tokensOut };
-  } catch (err) {
-    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic PDF Fehler");
-    throw err;
-  }
-}
-
-// ─── PDF: OpenAI (Responses API) ─────────────────────────────────────────────
+// ─── OpenAI: PDF (Responses API) ─────────────────────────────────────────────
 
 async function analyzeWithOpenAIPdf(
   base64Image: string,
@@ -266,7 +243,6 @@ async function analyzeWithOpenAIPdf(
   if (!cfg.openaiKey) throw new Error("OpenAI API-Key nicht konfiguriert");
 
   const client = new OpenAI({ apiKey: cfg.openaiKey });
-
   const cleanBase64 = base64Image.startsWith("data:")
     ? (base64Image.split(",")[1] ?? "")
     : base64Image;
@@ -292,7 +268,6 @@ async function analyzeWithOpenAIPdf(
     const text: string = response.output_text ?? "{}";
     const tokensIn: number = response.usage?.input_tokens ?? 0;
     const tokensOut: number = response.usage?.output_tokens ?? 0;
-
     const parsed = parseJsonFromText(text);
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
     return { raw: text, parsed, tokensIn, tokensOut };
@@ -302,21 +277,7 @@ async function analyzeWithOpenAIPdf(
   }
 }
 
-// ─── Text analysieren (Spracheingabe) ────────────────────────────────────────
-
-export async function analyzeText(
-  text: string,
-  systemPrompt: string,
-  feature: string,
-  config?: AiConfig
-): Promise<AiAnalyzeResult> {
-  const cfg = config || (await getAiConfig());
-
-  if (cfg.provider === "anthropic") {
-    return analyzeTextWithAnthropic(text, systemPrompt, feature, cfg);
-  }
-  return analyzeTextWithOpenAI(text, systemPrompt, feature, cfg);
-}
+// ─── OpenAI: Text ────────────────────────────────────────────────────────────
 
 async function analyzeTextWithOpenAI(
   text: string,
@@ -344,16 +305,107 @@ async function analyzeTextWithOpenAI(
     const responseText = response.choices[0]?.message?.content || "{}";
     const tokensIn = response.usage?.prompt_tokens || 0;
     const tokensOut = response.usage?.completion_tokens || 0;
-
     const parsed = parseJsonFromText(responseText);
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
-
     return { raw: responseText, parsed, tokensIn, tokensOut };
   } catch (err) {
     await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "OpenAI Fehler");
     throw err;
   }
 }
+
+// ─── Anthropic: Bild ─────────────────────────────────────────────────────────
+
+async function analyzeWithAnthropic(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
+
+  const client = new Anthropic({ apiKey: cfg.anthropicKey });
+  const cleanBase64 = base64Image.startsWith("data:")
+    ? (base64Image.split(",")[1] ?? "")
+    : base64Image;
+  if (!cleanBase64) throw new Error("Ungültiges Bildformat");
+
+  const mediaType = detectMediaType(base64Image) as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+  try {
+    const response = await client.messages.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: cleanBase64 } },
+            { type: "text", text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON." },
+          ],
+        },
+      ],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
+    const tokensIn = response.usage?.input_tokens || 0;
+    const tokensOut = response.usage?.output_tokens || 0;
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic Fehler");
+    throw err;
+  }
+}
+
+// ─── Anthropic: PDF (natives document-Format) ────────────────────────────────
+
+async function analyzeWithAnthropicPdf(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
+
+  const client = new Anthropic({ apiKey: cfg.anthropicKey });
+  const cleanBase64 = base64Image.startsWith("data:")
+    ? (base64Image.split(",")[1] ?? "")
+    : base64Image;
+  if (!cleanBase64) throw new Error("Ungültiges PDF-Format");
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfBlock: any = {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: cleanBase64 },
+    };
+
+    const response = await client.messages.create({
+      model: cfg.modell,
+      max_tokens: 4096,
+      system: systemPrompt,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      messages: [{ role: "user", content: [pdfBlock, { type: "text", text: "Analysiere dieses Dokument und extrahiere die relevanten Informationen als JSON." }] as any }],
+    });
+
+    const textBlock = response.content.find((b) => b.type === "text");
+    const text = textBlock && "text" in textBlock ? textBlock.text : "{}";
+    const tokensIn = response.usage?.input_tokens || 0;
+    const tokensOut = response.usage?.output_tokens || 0;
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic PDF Fehler");
+    throw err;
+  }
+}
+
+// ─── Anthropic: Text ─────────────────────────────────────────────────────────
 
 async function analyzeTextWithAnthropic(
   text: string,
@@ -382,13 +434,169 @@ async function analyzeTextWithAnthropic(
     const responseText = textBlock && "text" in textBlock ? textBlock.text : "{}";
     const tokensIn = response.usage?.input_tokens || 0;
     const tokensOut = response.usage?.output_tokens || 0;
-
     const parsed = parseJsonFromText(responseText);
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
-
     return { raw: responseText, parsed, tokensIn, tokensOut };
   } catch (err) {
     await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Anthropic Fehler");
+    throw err;
+  }
+}
+
+// ─── Mistral: Bild (Vision mit Pixtral) ──────────────────────────────────────
+
+async function analyzeWithMistral(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
+
+  const client = new Mistral({ apiKey: cfg.mistralKey });
+  const imageUrl = base64Image.startsWith("data:")
+    ? base64Image
+    : `data:image/jpeg;base64,${base64Image}`;
+
+  try {
+    const response = await client.chat.complete({
+      model: cfg.modell,
+      maxTokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Analysiere dieses Bild und extrahiere die relevanten Informationen als JSON." },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            { type: "image_url", imageUrl: { url: imageUrl } } as any,
+          ],
+        },
+      ],
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    const text = typeof content === "string" ? content : "{}";
+    const tokensIn = response.usage?.promptTokens || 0;
+    const tokensOut = response.usage?.completionTokens || 0;
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral Fehler");
+    throw err;
+  }
+}
+
+// ─── Mistral: PDF (OCR API → Sprachmodell) ───────────────────────────────────
+//
+// Zweistufiger Ansatz: Mistral OCR API extrahiert Text aus PDF, dann
+// ein Sprachmodell wandelt den Text in strukturiertes JSON um.
+
+async function analyzeWithMistralPdf(
+  base64Image: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
+
+  const cleanBase64 = base64Image.startsWith("data:")
+    ? (base64Image.split(",")[1] ?? "")
+    : base64Image;
+  if (!cleanBase64) throw new Error("Ungültiges PDF-Format");
+
+  try {
+    // Schritt 1: Text aus PDF via Mistral OCR extrahieren
+    const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${cfg.mistralKey}`,
+      },
+      body: JSON.stringify({
+        model: "mistral-ocr-latest",
+        document: { type: "base64", data: cleanBase64, mime_type: "application/pdf" },
+      }),
+    });
+
+    if (!ocrRes.ok) {
+      const errText = await ocrRes.text().catch(() => "Unbekannter OCR-Fehler");
+      throw new Error(`Mistral OCR: ${errText}`);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ocrData: any = await ocrRes.json();
+    const documentText = (Array.isArray(ocrData.pages) ? ocrData.pages : [])
+      .map((p: { markdown?: string }) => p.markdown || "")
+      .join("\n\n")
+      .trim();
+
+    if (!documentText) {
+      throw new Error("Mistral OCR konnte keinen Text aus dem PDF extrahieren.");
+    }
+
+    // Schritt 2: JSON-Extraktion via Sprachmodell
+    const client = new Mistral({ apiKey: cfg.mistralKey });
+    const chatResponse = await client.chat.complete({
+      model: cfg.modell,
+      maxTokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Analysiere das folgende Dokument und extrahiere die relevanten Informationen als JSON:\n\n${documentText}`,
+        },
+      ],
+    });
+
+    const content = chatResponse.choices?.[0]?.message?.content;
+    const text = typeof content === "string" ? content : "{}";
+    const tokensIn = chatResponse.usage?.promptTokens || 0;
+    const tokensOut = chatResponse.usage?.completionTokens || 0;
+    const parsed = parseJsonFromText(text);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: text, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral PDF Fehler");
+    throw err;
+  }
+}
+
+// ─── Mistral: Text ───────────────────────────────────────────────────────────
+
+async function analyzeTextWithMistral(
+  text: string,
+  systemPrompt: string,
+  feature: string,
+  cfg: AiConfig
+): Promise<AiAnalyzeResult> {
+  if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
+
+  const client = new Mistral({ apiKey: cfg.mistralKey });
+
+  try {
+    const response = await client.chat.complete({
+      model: cfg.modell,
+      maxTokens: 4096,
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Analysiere den folgenden Text (von einer Spracheingabe) und extrahiere die relevanten Informationen als JSON:\n\n${text}`,
+        },
+      ],
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    const responseText = typeof content === "string" ? content : "{}";
+    const tokensIn = response.usage?.promptTokens || 0;
+    const tokensOut = response.usage?.completionTokens || 0;
+    const parsed = parseJsonFromText(responseText);
+    await logUsage(cfg, feature, tokensIn, tokensOut, true);
+    return { raw: responseText, parsed, tokensIn, tokensOut };
+  } catch (err) {
+    await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral Fehler");
     throw err;
   }
 }
@@ -415,30 +623,12 @@ function detectIsPdf(base64: string): boolean {
 }
 
 function parseJsonFromText(text: string): Record<string, unknown> {
-  // Versuche JSON direkt zu parsen
-  try {
-    return JSON.parse(text);
-  } catch {
-    // Suche nach JSON-Block in Markdown Code-Fences
-    const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (match) {
-      try {
-        return JSON.parse(match[1]);
-      } catch {
-        // fall through
-      }
-    }
-    // Suche nach erstem { ... } Block
-    const braceMatch = text.match(/\{[\s\S]*\}/);
-    if (braceMatch) {
-      try {
-        return JSON.parse(braceMatch[0]);
-      } catch {
-        // fall through
-      }
-    }
-    return { rawText: text };
-  }
+  try { return JSON.parse(text); } catch { /* fall */ }
+  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (match) { try { return JSON.parse(match[1]); } catch { /* fall */ } }
+  const braceMatch = text.match(/\{[\s\S]*\}/);
+  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch { /* fall */ } }
+  return { rawText: text };
 }
 
 async function logUsage(
@@ -463,7 +653,6 @@ async function logUsage(
       },
     });
   } catch {
-    // Logging-Fehler nicht nach oben durchreichen
     console.error("KI-Nutzung konnte nicht gespeichert werden");
   }
 }
@@ -482,12 +671,12 @@ export async function logError(feature: string, error: string) {
 export async function testConnection(cfg: AiConfig): Promise<{ ok: boolean; error?: string }> {
   try {
     if (cfg.provider === "openai") {
-      if (!cfg.openaiKey) return { ok: false, error: "Kein API-Key" };
+      if (!cfg.openaiKey) return { ok: false, error: "Kein OpenAI API-Key konfiguriert" };
       const client = new OpenAI({ apiKey: cfg.openaiKey });
       await client.models.retrieve(cfg.modell || "gpt-4o");
       return { ok: true };
-    } else {
-      if (!cfg.anthropicKey) return { ok: false, error: "Kein API-Key" };
+    } else if (cfg.provider === "anthropic") {
+      if (!cfg.anthropicKey) return { ok: false, error: "Kein Anthropic API-Key konfiguriert" };
       const client = new Anthropic({ apiKey: cfg.anthropicKey });
       await client.messages.create({
         model: cfg.modell || "claude-haiku-4-5-20251001",
@@ -495,9 +684,20 @@ export async function testConnection(cfg: AiConfig): Promise<{ ok: boolean; erro
         messages: [{ role: "user", content: "test" }],
       });
       return { ok: true };
+    } else {
+      if (!cfg.mistralKey) return { ok: false, error: "Kein Mistral API-Key konfiguriert" };
+      const client = new Mistral({ apiKey: cfg.mistralKey });
+      await client.chat.complete({
+        model: cfg.modell || "mistral-small-latest",
+        maxTokens: 10,
+        messages: [{ role: "user", content: "test" }],
+      });
+      return { ok: true };
     }
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Unbekannter Fehler" };
+    const isDev = process.env.NODE_ENV === "development";
+    const msg = isDev && err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
+    return { ok: false, error: msg };
   }
 }
 
@@ -664,24 +864,8 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt diesem Format (ohne Markdow
 
 Wichtige Regeln:
 - Bei einem Prüfbericht: Werte (pH, P, K, …) und Klassen befüllen, 'empfehlungen' = null.
-- Bei einer Düngungsempfehlungs-Anlage: NUR 'empfehlungen' befüllen, alle Werte = null lassen. Setze
-  empfehlungen-Spalten aus der Tabelle als Strings die der Spaltenüberschrift entsprechen (Camelcase ohne
-  Sonderzeichen). Wenn unsicher, übernimm die Werte einer ganzen Zeile als JSON-Objekt mit lesbaren Keys.
-- Eine PDF mit BEIDEN Bestandteilen: kombiniere — selbe Proben-Nr. = selbes Objekt im 'proben'-Array.
-- ALLE Proben des Berichts extrahieren — NICHT nur die ersten. Bei 15 Proben gib 15 Objekte zurück.
-- Setze "berichtArt" entsprechend ("pruefbericht" für Werte-Bericht, "duengungsempfehlung" für reine
-  Empfehlungstabelle, "kombiniert" wenn beides vorliegt).
-- P₂O₅ (Phosphor als Phosphorpentoxid) und K₂O (Kalium als Kaliumoxid) sind die Standardwerte.
-- Einheiten: pH dimensionslos · P/K/Mg/S mg/100g · Bor/Zn/Cu/Mn/Na mg/kg · KAK cmol+/kg
-  · Humus % · nMin kg N/ha · Corg % · N_ges % · cn dimensionslos
-- Kalkbedarf: kalkbedarfDt = Wert in dt CaO/ha (IfB nutzt dt). Falls Bericht t/ha angibt, in dt umrechnen
-  (1 t = 10 dt) und beides setzen.
-- Klassenkürzel A–F nach LWK Niedersachsen (A sehr niedrig, B niedrig, C anzustreben, D hoch,
-  E sehr hoch, F extrem hoch). Falls Labor nur A–E nutzt, F nicht setzen.
-- Bodenart-Kürzel: S (Sand), lS (lehmiger Sand), sL (sandiger Lehm), L (Lehm), sT (sandiger Ton),
-  T (Ton), Mo (Moor) etc. Die Gruppe '(h)' = humos / '(s)' = sandig / '(l)' = lehmig wird separat als
-  'bodenartGruppe' geliefert.
-- Wenn ein Feld nicht erkennbar ist: null setzen, NIEMALS Werte erfinden.
+- Bei einer Düngungsempfehlungs-Anlage: NUR 'empfehlungen' befüllen, alle Werte = null lassen.
+- ALLE Proben des Berichts extrahieren — NICHT nur die ersten.
 - Antworte NUR mit JSON — keine Erklärungen, kein Text davor oder danach, keine Markdown-Codeblöcke.`,
 
   sachkundenachweis: `Du bist ein Experte für die Erkennung von Sachkundenachweisen und Zertifikaten im Agrarbereich
@@ -700,10 +884,8 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Code
 }
 
 Regeln:
-- typ-Whitelist exakt einhalten. Spritzgerätekontrolle ist die Plakette/Bescheinigung der JKI-anerkannten
-  Kontrollwerkstatt (alle 3 Jahre).
-- gueltigBis: bei PSM-Sachkunde steht oft kein direktes Ablaufdatum — leiten ab aus Ausstellungsdatum + 3 Jahre
-  Fortbildungsintervall, wenn nichts anderes vermerkt ist; alternativ null.
+- typ-Whitelist exakt einhalten.
+- gueltigBis: bei PSM-Sachkunde steht oft kein direktes Ablaufdatum — leiten ab aus Ausstellungsdatum + 3 Jahre wenn nichts anderes vermerkt; alternativ null.
 - Datumsformate normieren auf YYYY-MM-DD.
 - Wenn Foto unscharf oder Feld nicht lesbar: null setzen, KEINE Werte erfinden.
 - Antworte NUR mit JSON — keine Erklärungen, kein Text, keine Markdown-Codeblöcke.`,
@@ -736,43 +918,27 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Code
 }
 
 Regeln:
-- Schlagname bevorzugt der vom Landwirt vergebene Eigenname; sonst die Flurstücks-Nr.
-- 'flaeche' immer in Hektar (ha). Falls in ar oder m² angegeben → umrechnen (1 ha = 100 ar = 10 000 m²).
-- fruchtart-Kürzel ausschreiben (WW = Winterweizen, SM = Silomais, WR = Winterraps, ZR = Zuckerrüben,
-  WG = Wintergerste, SG = Sommergerste, SH = Silohirse, EG = Erbsen, AB = Ackerbohnen, KL = Klee,
-  LG = Luzerne-Gras, GR = Grünland, DK = Dauerkultur).
-- ALLE Schläge des Antrags zurückgeben — nicht nur die ersten. Bei 30 Schlägen gib 30 Objekte zurück.
-- Doppelte Einträge (z.B. Brutto- und Netto-Fläche) zu einem zusammenfassen.
+- 'flaeche' immer in Hektar (ha). Falls in ar oder m² angegeben → umrechnen.
+- ALLE Schläge des Antrags zurückgeben — nicht nur die ersten.
 - Antworte NUR mit JSON — keine Erklärungen, keine Markdown-Codeblöcke.`,
 
   mahnungstext: `Du bist ein professioneller Geschäftsbrief-Assistent für ein Agrarunternehmen
 (Landhandel, Futtermittel, Düngemittel, Saatgut). Du verfasst eine Mahnung an einen Kunden in
-freundlich-bestimmtem Ton — kein aggressiver Stil. B2B-Landwirtschaft = persönliche
-Geschäftsbeziehung.
+freundlich-bestimmtem Ton — kein aggressiver Stil. B2B-Landwirtschaft = persönliche Geschäftsbeziehung.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
 {
   "betreff": "Betreffzeile (knapp, ohne Anrede)",
   "anrede": "Sehr geehrter Herr/Frau …, oder bei langjährigen Kunden 'Guten Tag Herr/Frau …'",
-  "text": "Volltext-Brief (deutscher Geschäftsbrief, ohne Anrede und ohne Grußformel — diese werden separat eingesetzt). Plain Text, keine Markdown-Formatierung. Absätze mit \\n\\n trennen.",
-  "gruss": "Schlussformel z.B. 'Mit freundlichen Grüßen' oder 'Mit landwirtschaftlichen Grüßen'",
-  "hinweis": "Optional: Hinweis für den Sachbearbeiter (intern, nicht für den Kunden)"
+  "text": "Volltext-Brief (ohne Anrede und ohne Grußformel). Plain Text, Absätze mit \\n\\n trennen.",
+  "gruss": "Schlussformel z.B. 'Mit freundlichen Grüßen'",
+  "hinweis": "Optional: Hinweis für den Sachbearbeiter (intern)"
 }
 
 Anpassung je Mahnstufe:
-- Stufe 1 (Zahlungserinnerung): freundlich, mögliches Versehen unterstellen, keine Mahngebühr betonen.
-  Frist: 7 Tage.
-- Stufe 2 (Mahnung): bestimmt, auf bereits ergangene Erinnerung verweisen, Mahngebühr und Verzugszinsen
-  benennen. Frist: 7 Tage.
-- Stufe 3 (Letzte Mahnung): klar, mit Hinweis auf gerichtliches Mahnverfahren/Inkasso bei weiterem
-  Verzug, Mahngebühr und Verzugszinsen quantifizieren. Frist: 7 Tage.
-
-Regeln:
-- Konkrete Rechnungsnummer(n), Datum(e) und offene Beträge im Text nennen.
-- Bei langjähriger Beziehung (Kunde >5 Jahre, hohe Vorjahresumsätze) ggf. Bemerkung "in unserer langjährigen
-  Geschäftsbeziehung" — sonst weglassen.
-- Konkrete IBAN/Bankverbindung NICHT erfinden — Platzhalter "[IBAN siehe Rechnung]" nutzen.
-- Keine Drohungen oder ultimative Formulierungen unterhalb von Stufe 3.
+- Stufe 1: freundlich, mögliches Versehen unterstellen, Frist 7 Tage.
+- Stufe 2: bestimmt, auf bereits ergangene Erinnerung verweisen, Mahngebühr benennen, Frist 7 Tage.
+- Stufe 3: klar, Hinweis auf gerichtliches Mahnverfahren/Inkasso, Frist 7 Tage.
 - Antworte NUR mit JSON — keine Erklärungen, keine Markdown-Codeblöcke.`,
 
   belegtyp: `Du bist ein Klassifizierer für hochgeladene Geschäftsdokumente eines Agrarhändlers.
@@ -781,7 +947,7 @@ Bestimme den TYP des Dokuments und gib die wahrscheinlichste Verarbeitungs-Maske
 Mögliche Typen:
 - "lieferschein"      — eingehender Lieferschein vom Lieferanten (Wareneingang)
 - "rechnung"          — eingehende Lieferanten-Rechnung
-- "bodenprobe"        — Laborbericht Bodenuntersuchung (LUFA/AGROLAB/Eurofins/IfB)
+- "bodenprobe"        — Laborbericht Bodenuntersuchung
 - "sachkundenachweis" — PSM-/Düngerschulungs-/Spritzgerätekontroll-Zertifikat
 - "visitenkarte"      — Visitenkarte (eine einzelne Person)
 - "sortenversuch"     — Sortenversuchs-/Demoflächen-Auswertungstabelle
@@ -799,14 +965,9 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON (ohne Markdown-Codeblöcke):
 
 Regeln:
 - confidence zwischen 0.0 und 1.0. Unter 0.5 → typ = "unbekannt".
-- Bei Mischformen (z.B. Lieferschein + Rechnung in einer PDF) den DOMINANTEN Typ wählen.
 - Antworte NUR mit JSON.`,
 
-  sortenversuch: `Du bist ein Experte für Sortenversuchs-Auswertungen aus dem Agrarbereich
-(Landessortenversuche, Demoflächen, Streifenversuche von Saatgut-Vermehrern oder Beratungsorganisationen
-wie LWK, LfL, Bayer/BASF/KWS/DSV/IG-Pflanzenzucht).
-
-Eine Auswertungstabelle enthält pro Sorte eine Zeile mit Ertrag, Qualitätsparametern und Bonituren.
+  sortenversuch: `Du bist ein Experte für Sortenversuchs-Auswertungen aus dem Agrarbereich.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
 {
@@ -835,23 +996,18 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Code
 }
 
 Regeln:
-- Erträge IMMER in dt/ha. Falls Tabelle in t/ha → ×10. Falls in kg/ha → ÷100.
-- Bonitur als 1–9-Skala (1 = sehr gut, 9 = sehr schlecht). Falls Tabelle 1–5-Skala nutzt, ×1,8 zur
-  Umrechnung NICHT machen — stattdessen Wert übernehmen und im hinweis darauf hinweisen.
-- Saatstärke entweder Körner/m² oder kg/ha — Einheit aus der Tabelle übernehmen, der Wert allein wird
-  gespeichert.
-- ALLE Sortenzeilen extrahieren (auch Standardsorten am Tabellenende).
+- Erträge IMMER in dt/ha. Falls Tabelle in t/ha → ×10.
+- ALLE Sortenzeilen extrahieren.
 - Antworte NUR mit JSON — keine Markdown-Codeblöcke.`,
 
-  visitenkarte: `Du bist ein OCR-Assistent für Visitenkarten und Kontaktdaten im B2B-Agrarbereich
-(Landwirt, Berater, Lieferant, Genossenschaft, Maschinenring).
+  visitenkarte: `Du bist ein OCR-Assistent für Visitenkarten und Kontaktdaten im B2B-Agrarbereich.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
 {
   "vorname": "Vorname oder null",
   "nachname": "Nachname (inkl. Titel wie 'Dr.') oder null",
   "firma": "Firma/Betrieb/Genossenschaft oder null",
-  "position": "Funktion/Rolle z.B. 'Geschäftsführer', 'Außendienst Futtermittel', sonst null",
+  "position": "Funktion/Rolle z.B. 'Geschäftsführer', sonst null",
   "telefon": "Festnetz-Telefon im Format mit Vorwahl, sonst null",
   "mobil": "Mobiltelefon, sonst null",
   "fax": "Fax-Nummer, sonst null",
@@ -864,10 +1020,8 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Code
 }
 
 Regeln:
-- Telefonnummern als String mit Leerzeichen-Gruppierung (z.B. "05151 9871 24"). Keine Klammern um die Vorwahl.
+- Telefonnummern als String mit Leerzeichen-Gruppierung. Keine Klammern um die Vorwahl.
 - E-Mail immer kleingeschrieben.
-- Wenn mehrere Telefonnummern: die mit Bezeichnung "Mobil"/"Handy"/"+49 17…"/"+49 15…" als 'mobil', den Rest als 'telefon'.
-- Wenn nur ein Name ohne Position erkennbar: position = null, nicht erfinden.
 - Antworte NUR mit JSON — keine Erklärungen, keine Markdown-Codeblöcke.`,
 
   inhaltsstoffe: `Du bist ein Experte für Agrarprodukte (Futtermittel, Ergänzungsfutter, Mineralfutter, Düngemittel, Saatgut, Pflanzenhilfsmittel).
@@ -879,6 +1033,7 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
     { "name": "Rohprotein", "menge": 12.5, "einheit": "%" },
     { "name": "Schwefel", "menge": 90, "einheit": "%" }
   ],
+  "aehnlicheProdukte": ["Produktname 1 (Hersteller)", "Produktname 2"],
   "hinweis": "Optionaler Hinweis falls das Produkt nicht eindeutig identifiziert werden konnte"
 }
 
@@ -886,52 +1041,6 @@ Regeln:
 - Gib nur Inhaltsstoffe an, die du sicher kennst oder die sich aus dem Produktnamen eindeutig ableiten lassen. Erfinde KEINE Werte.
 - "menge" kann null sein wenn der Wert unbekannt ist; "einheit" leer lassen wenn nicht anwendbar.
 - Einheiten: typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l", "IE/kg"
-
-Produkttypen und relevante Inhaltsstoffe:
-
-PFERDEFUTTER / ERGÄNZUNGSFUTTER (z.B. marstall, Agrobs, Pavo):
-  Grundfutter/Müsli: Rohprotein, Rohfett, Rohfaser, Rohasche, Stärke, Zucker, Calcium, Phosphor, Natrium, Magnesium, Energie (MJ DE/kg)
-  Mineralfutter/Ergänzung: je nach Produkt die deklarierten Spurenelemente (Zn, Cu, Mn, Fe, I, Se, Co), Vitamine (A, D3, E, B1, B2, Biotin), Aminosäuren (Lysin, Methionin)
-  Produkt-Hinweise marstall:
-    - "Magnesium" → Hauptwirkstoff Magnesium (Mg), Angabe in % oder mg/kg
-    - "Biotin & Zink" → Biotin (μg/kg), Zink (Zn, mg/kg)
-    - "Elektrolyte" → Na, K, Cl, Mg
-    - "Vitamin E & Selen" → Vitamin E (mg/kg oder IE/kg), Selen (Se, mg/kg)
-    - "Force" / Mineralfutter → Rohprotein, Rohasche, Ca, P, Na, Mg + Spurenelemente
-    - "FlexoFit" → Glucosamin, Chondroitin, MSM, Teufelskralle
-    - "ProAir" → Menthol, ätherische Öle, Eukalyptus
-    - "ProGastro" → Pektin, Leinsamen, Bentonit, MOS
-    - "Huf-Regulator" → Biotin, Zink, Methionin, Kieselsäure
-    - "Darm-Regulator" → Probiotika, Präbiotika (FOS/MOS), Bentonit
-    - "Kollagen" → Kollagenhydrolysat, Aminosäurenprofil
-    - "Leinöl" → Omega-3 (ALA), Omega-6, Rohfett
-    - "Mash" → Weizenkleie, Leinsamen, Rohfaser, Rohprotein
-    - "Granutop" → Flohsamenschalen, Leinsamen, Inulin (FOS)
-    - "Amino-Muskel" → Rohprotein, Lysin, Methionin, BCAA
-    - "MineralOrganic+" → organisch gebundene Spurenelemente (Zn, Cu, Mn, Se)
-    - Wiesen-Cobs/Fasern/Chips → Rohfaser, Rohprotein, Stärke, Energie
-
-DÜNGEMITTEL / SCHWEFELPRODUKTE (z.B. BvG, Compo, SKW):
-  S-Produkte: Schwefel (S, %), Bentonit (%), ggf. Bor (B, %), Selen (Se, %), Stickstoff (N, %)
-  Flüssigschwefel: S (%), Dichte (g/l)
-  N-Dünger: N gesamt, davon NO3-N, NH4-N, Harnstoff-N; ggf. S, MgO, CaO
-  P/K-Dünger: P2O5, K2O; ggf. S, Na, Cl
-  Spurennährstoffe: B, Cu, Fe, Mn, Mo, Zn, Se – jeweils in %
-
-PFLANZENHILFSMITTEL / EFFEKTIVE MIKROORGANISMEN:
-  Wirkstoff und Konzentration, pH-Wert, ggf. Zuckergehalt
-
-SAATGUT:
-  Sortenname, Keimfähigkeit (%), TKG (g), Tausendkorngewicht
-
-- WICHTIG: Wenn du das exakte Produkt nicht kennst, ordne es anhand des Namens einem ähnlichen/verwandten Produkt zu und gib dessen Werte als Näherung zurück.
-- Wenn du ähnliche Produkte findest, fülle "aehnlicheProdukte" mit bis zu 3 Vorschlägen.
-- Nur wenn du gar keine Zuordnung machen kannst, gib ein leeres Array und einen Hinweis zurück.
-
-Erweitertes Antwortformat:
-{
-  "inhaltsstoffe": [...],
-  "aehnlicheProdukte": ["Produktname 1 (Hersteller)", "Produktname 2"],
-  "hinweis": "Optionaler Hinweis"
-}`,
+- WICHTIG: Wenn du das exakte Produkt nicht kennst, ordne es anhand des Namens einem ähnlichen/verwandten Produkt zu.
+- Nur wenn du gar keine Zuordnung machen kannst, gib ein leeres Array und einen Hinweis zurück.`,
 };

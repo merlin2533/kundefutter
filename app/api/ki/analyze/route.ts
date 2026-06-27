@@ -25,13 +25,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cfg = await getAiConfig();
+    const category = text ? "language" : "ocr";
+    const cfg = await getAiConfig(category);
 
     if (cfg.provider === "openai" && !cfg.openaiKey) {
       return NextResponse.json({ error: "OpenAI API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
     }
     if (cfg.provider === "anthropic" && !cfg.anthropicKey) {
       return NextResponse.json({ error: "Anthropic API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
+    }
+    if (cfg.provider === "mistral" && !cfg.mistralKey) {
+      return NextResponse.json({ error: "Mistral API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
     }
 
     // Lade ggf. benutzerdefinierten Prompt aus Einstellungen
