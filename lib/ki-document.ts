@@ -5,6 +5,7 @@
 import { getAiConfig, analyzeImage, KOSTEN_MAP, type AiConfig } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import Anthropic from "@anthropic-ai/sdk";
+import { Mistral } from "@mistralai/mistralai";
 
 export interface KiDocResult {
   raw: string;
@@ -30,9 +31,10 @@ export async function analyzeDocumentFile(
   feature: string,
   opts: { maxTokens?: number; userText?: string } = {}
 ): Promise<KiDocResult> {
-  const cfg = await getAiConfig();
+  const cfg = await getAiConfig("ocr");
   const isPdf = file.type === "application/pdf";
   const bytes = await file.arrayBuffer();
+  const base64 = Buffer.from(bytes).toString("base64");
 
   if (isPdf && cfg.provider === "anthropic") {
     if (!cfg.anthropicKey) throw new Error("Anthropic API-Key nicht konfiguriert");
@@ -45,8 +47,7 @@ export async function analyzeDocumentFile(
         messages: [{
           role: "user",
           content: [
-            { type: "document", source: { type: "base64", media_type: "application/pdf",
-              data: Buffer.from(bytes).toString("base64") } },
+            { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
             { type: "text", text: opts.userText ?? "Extrahiere die Daten als JSON." },
           ] as Parameters<typeof client.messages.create>[0]["messages"][0]["content"],
         }],
@@ -64,12 +65,58 @@ export async function analyzeDocumentFile(
     }
   }
 
-  if (isPdf && cfg.provider === "openai") {
-    throw new Error("PDF-Erkennung benötigt Anthropic als KI-Provider. Bitte in Einstellungen → KI auf Anthropic wechseln, oder ein Bild hochladen.");
+  if (isPdf && cfg.provider === "mistral") {
+    if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
+    try {
+      // Schritt 1: OCR-Textextraktion
+      const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.mistralKey}` },
+        body: JSON.stringify({
+          model: "mistral-ocr-latest",
+          document: { type: "base64", data: base64, mime_type: "application/pdf" },
+        }),
+      });
+      if (!ocrRes.ok) {
+        const errText = await ocrRes.text().catch(() => "OCR-Fehler");
+        throw new Error(`Mistral OCR: ${errText}`);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ocrData: any = await ocrRes.json();
+      const documentText = (Array.isArray(ocrData.pages) ? ocrData.pages : [])
+        .map((p: { markdown?: string }) => p.markdown || "")
+        .join("\n\n")
+        .trim();
+
+      // Schritt 2: JSON-Extraktion via Sprachmodell
+      const client = new Mistral({ apiKey: cfg.mistralKey });
+      const chatResponse = await client.chat.complete({
+        model: cfg.modell,
+        maxTokens: opts.maxTokens ?? 8000,
+        messages: [
+          { role: "system", content: prompt },
+          { role: "user", content: `${opts.userText ?? "Extrahiere die Daten als JSON."}\n\n${documentText}` },
+        ],
+      });
+      const content = chatResponse.choices?.[0]?.message?.content;
+      const raw = typeof content === "string" ? content : "{}";
+      const tokensIn = chatResponse.usage?.promptTokens || 0;
+      const tokensOut = chatResponse.usage?.completionTokens || 0;
+      await logKi(cfg.provider, cfg.modell, feature, tokensIn, tokensOut, true);
+      return { raw, tokensIn, tokensOut, cfg };
+    } catch (err) {
+      await logKi(cfg.provider, cfg.modell, feature, 0, 0, false,
+        err instanceof Error ? err.message : "Mistral PDF Fehler");
+      throw err;
+    }
   }
 
-  // Bild-Pfad
-  const dataUrl = `data:${file.type};base64,${Buffer.from(bytes).toString("base64")}`;
+  if (isPdf && cfg.provider === "openai") {
+    throw new Error("PDF-Erkennung benötigt Anthropic oder Mistral als OCR-Provider. Bitte in Einstellungen → KI → Erkennung/OCR umstellen, oder ein Bild hochladen.");
+  }
+
+  // Bild-Pfad (alle Provider)
+  const dataUrl = `data:${file.type};base64,${base64}`;
   const result = await analyzeImage(dataUrl, prompt, feature, cfg);
   return { raw: result.raw, tokensIn: result.tokensIn, tokensOut: result.tokensOut, cfg };
 }
@@ -80,7 +127,7 @@ export function parseJsonFromText(text: string): Record<string, unknown> {
   if (m) { try { return JSON.parse(m[1]); } catch { /* fall */ } }
   const b = text.match(/\{[\s\S]*\}/);
   if (b) { try { return JSON.parse(b[0]); } catch { /* fall */ } }
-  return {};
+  return { rawText: text };
 }
 
 export function strOrNull(v: unknown): string | null {

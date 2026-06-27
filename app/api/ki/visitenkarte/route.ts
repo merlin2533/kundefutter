@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const promptRow = await prisma.einstellung.findUnique({ where: { key: "ki.prompt.visitenkarte" } });
     const prompt = promptRow?.value?.trim() || PROMPTS.visitenkarte;
-    const cfg = await getAiConfig();
+    const cfg = await getAiConfig("ocr");
 
     const bytes = await file.arrayBuffer();
     const dataUrl = `data:${file.type};base64,${Buffer.from(bytes).toString("base64")}`;

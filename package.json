@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.82.0",
     "@libsql/client": "^0.17.2",
+    "@mistralai/mistralai": "^2.3.0",
     "@prisma/adapter-libsql": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "@sentry/nextjs": "^10.56.0",

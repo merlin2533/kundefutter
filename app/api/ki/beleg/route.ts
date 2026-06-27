@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const promptRow = await prisma.einstellung.findUnique({ where: { key: "ki.prompt.beleg" } });
     const prompt = (promptRow?.value?.trim()) || PROMPTS.beleg;
 
-    const cfg = await getAiConfig();
+    const cfg = await getAiConfig("ocr");
     const result = await analyzeImage(image, prompt, "beleg", cfg);
 
     const p = result.parsed as Record<string, unknown>;
