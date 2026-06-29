@@ -440,11 +440,13 @@ export default function RechnungPrintPage() {
     <>
       <style>{`
         @media print {
-          @page { margin: 2cm; size: A4 portrait; }
+          /* Kein Seitenrand – die DIN-Ränder (20 mm) liegen im Padding des Druckbereichs,
+             damit das Anschriftfeld absolut bei 45 mm/20 mm liegt (Fensterkuvert/Binect). */
+          @page { margin: 0; size: A4 portrait; }
           .print-hidden { display: none !important; }
           body { margin: 0 !important; padding: 0 !important; }
           main { padding: 0 !important; max-width: 100% !important; }
-          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+          [data-print-area] { min-height: 0 !important; padding: 20mm !important; max-width: 100% !important; margin: 0 !important; }
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
@@ -609,10 +611,13 @@ export default function RechnungPrintPage() {
           maxWidth: "210mm",
           minHeight: "277mm",
           margin: "0 auto",
-          padding: "1.5cm 1cm",
+          // 20 mm rundum = DIN-Rand; identisch auf Bildschirm, im PDF (html2canvas)
+          // und im Druck, damit das Anschriftfeld immer bei 45 mm/20 mm sitzt.
+          padding: "20mm",
           background: "#fff",
           display: "flex",
           flexDirection: "column",
+          position: "relative",
         }}
       >
         {/* Storno-Hinweis */}
@@ -633,28 +638,30 @@ export default function RechnungPrintPage() {
           </div>
         )}
 
-        {/* Briefkopf */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* Briefkopf – feste Höhe (25 mm), damit das Anschriftfeld immer bei 45 mm
+            beginnt (Padding 20 mm + 25 mm). Trennlinie liegt knapp oberhalb des Fensters. */}
+        <div style={{ position: "relative", height: "25mm" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             {logo && (
               <img
                 src={logo}
                 alt="Logo"
-                style={{ height: "64px", marginBottom: "8px", display: "block" }}
+                style={{ height: "56px", marginBottom: "4px", display: "block" }}
               />
             )}
             {firmenname && (
-              <div style={{ fontWeight: "bold", fontSize: "13pt" }}>
+              <div style={{ fontWeight: "bold", fontSize: "12pt" }}>
                 {firmenname}
               </div>
             )}
           </div>
 
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: "20pt", fontWeight: "bold", marginBottom: "6px" }}>
+            <div style={{ fontSize: "16pt", fontWeight: "bold", marginBottom: "2px" }}>
               Rechnung
             </div>
-            <table style={{ fontSize: "10pt", borderCollapse: "collapse", marginLeft: "auto" }}>
+            <table style={{ fontSize: "9pt", borderCollapse: "collapse", marginLeft: "auto", lineHeight: 1.15 }}>
               <tbody>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsnummer:</td>
@@ -721,44 +728,46 @@ export default function RechnungPrintPage() {
                   <td>{lieferDatumStr}</td>
                 </tr>
                 <tr>
-                  <td style={{ paddingRight: "8px", color: "#555" }}>Erstellt am:</td>
-                  <td>{formatDatum(lieferung.createdAt)}</td>
-                </tr>
-                <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Fällig am:</td>
                   <td style={{ fontWeight: "bold" }}>{formatDatum(faelligkeitsDatum)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          {/* Trennlinie nach beiden Spalten */}
-          <div style={{ flex: "0 0 100%", borderTop: "2px solid #222", marginTop: "20px", marginBottom: "24px" }} />
+          </div>
+          {/* Trennlinie knapp oberhalb des Anschriftfelds (≈ 43 mm) */}
+          <div style={{ position: "absolute", bottom: "2mm", left: 0, right: 0, borderTop: "2px solid #222" }} />
         </div>
 
-        {/* Empfänger – mit kleiner Absenderzeile darüber (Fensterumschlag DIN 5008) */}
-        <div style={{ marginBottom: "48px", maxWidth: "85mm" }}>
-          {(firmenname || firmaAdresse || firmaPlz || firmaOrt) && (
-            <div
-              style={{
-                fontSize: "7pt",
-                color: "#555",
-                marginBottom: "6px",
-                paddingBottom: "2px",
-                borderBottom: "0.5pt solid #aaa",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {[
-                firmenname,
-                firmaAdresse,
-                [firmaPlz, firmaOrt].filter(Boolean).join(" "),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </div>
-          )}
+        {/* Anschriftfeld nach DIN 5008 / Binect: feste Höhe 45 mm (ab 45 mm bis 90 mm),
+            Breite 85 mm, linker Rand = Padding (20 mm). Absenderzeile in der Zusatzzone
+            (45–55 mm), Empfängeranschrift ab 55 mm. Im Fenster darf nichts anderes stehen. */}
+        <div style={{ height: "45mm", width: "85mm", overflow: "hidden" }}>
+          {/* Absenderzeile – Zusatzzone 45–55 mm */}
+          <div style={{ height: "10mm" }}>
+            {(firmenname || firmaAdresse || firmaPlz || firmaOrt) && (
+              <div
+                style={{
+                  fontSize: "7pt",
+                  color: "#555",
+                  paddingBottom: "2px",
+                  borderBottom: "0.5pt solid #aaa",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {[
+                  firmenname,
+                  firmaAdresse,
+                  [firmaPlz, firmaOrt].filter(Boolean).join(" "),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            )}
+          </div>
+          {/* Empfängeranschrift – Anschriftzone ab 55 mm */}
           <div style={{ fontWeight: "bold", fontSize: "12pt" }}>
             {lieferung.kunde.firma
               ? lieferung.kunde.firma
@@ -777,8 +786,8 @@ export default function RechnungPrintPage() {
           )}
         </div>
 
-        {/* Betreff */}
-        <div style={{ marginBottom: "20px", fontSize: "11pt" }}>
+        {/* Betreff – beginnt unterhalb des Anschriftfelds (≈ 92 mm) */}
+        <div style={{ marginTop: "8px", marginBottom: "20px", fontSize: "11pt" }}>
           <strong>Betreff: Rechnung {rechnungNr}</strong>
         </div>
 

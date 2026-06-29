@@ -288,26 +288,31 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.setLineWidth(0.6);
   doc.line(14, sepY, 196, sepY);
 
-  // ── Empfänger-Block (DIN 5008: Absenderzeile + Empfänger) ───────────────────
-  // Feste Position fürs Fensterkuvert: Anschriftfeld 25 mm von links, Absenderzeile
-  // bei 45 mm von oben. Nicht aus der Kopfhöhe ableiten, sonst rutscht die Adresse
-  // bei zusätzlichen Meta-Zeilen aus dem Fenster ("Rand oben zu groß").
-  const ADRESS_X = 25;
-  let ey = 45;
+  // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) ────────────────────
+  // Maßgabe (Binect): linker Rand 20 mm, Oberkante des Anschriftfelds bei 45 mm,
+  // Gesamthöhe 45 mm (also bis 90 mm), Breite ≤ 90 mm.
+  //   • Zusatz-/Absenderzone 45–55 mm  → kleine Absenderzeile
+  //   • Anschriftzone ab 55 mm          → Empfängeranschrift
+  // Im Anschriftfeld (20–105 mm × 45–90 mm) darf NICHTS außer Absender + Empfänger
+  // stehen. Feste mm-Positionen, damit die Adresse unabhängig von der Kopfhöhe
+  // immer mittig im Sichtfenster liegt.
+  const ADRESS_X = 20;
   const absenderParts = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
   if (absenderParts.length > 0) {
     const absenderText = absenderParts.join(" · ");
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COL_LABEL);
-    doc.text(absenderText, ADRESS_X, ey, { maxWidth: 80 });
-    const lineWidth = Math.min(doc.getTextWidth(absenderText), 80);
+    // Absenderzeile in der Zusatzzone (45–55 mm)
+    doc.text(absenderText, ADRESS_X, 49, { maxWidth: 85 });
+    const lineWidth = Math.min(doc.getTextWidth(absenderText), 85);
     doc.setDrawColor(...COL_LABEL);
     doc.setLineWidth(0.25);
-    doc.line(ADRESS_X, ey + 1, ADRESS_X + lineWidth, ey + 1);
-    ey += 5;
+    doc.line(ADRESS_X, 50.5, ADRESS_X + lineWidth, 50.5);
   }
 
+  // Empfängeranschrift ab 55 mm (Anschriftzone)
+  let ey = 57;
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
@@ -324,8 +329,8 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     ey += 5;
   }
 
-  // ── Betreff ─────────────────────────────────────────────────────────────────
-  ey += 8;
+  // ── Betreff (unterhalb des Anschriftfelds, ab 95 mm – außerhalb des Fensters) ─
+  ey = Math.max(ey + 8, 95);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
