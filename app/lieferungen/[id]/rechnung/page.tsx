@@ -639,7 +639,7 @@ export default function RechnungPrintPage() {
         )}
 
         {/* Briefkopf – feste Höhe (25 mm), damit das Anschriftfeld immer bei 45 mm
-            beginnt (Padding 20 mm + 25 mm). Trennlinie liegt knapp oberhalb des Fensters. */}
+            beginnt (Padding 20 mm + 25 mm). */}
         <div style={{ position: "relative", height: "25mm" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -735,8 +735,6 @@ export default function RechnungPrintPage() {
             </table>
           </div>
           </div>
-          {/* Trennlinie knapp oberhalb des Anschriftfelds (≈ 43 mm) */}
-          <div style={{ position: "absolute", bottom: "2mm", left: 0, right: 0, borderTop: "2px solid #222" }} />
         </div>
 
         {/* Anschriftfeld nach DIN 5008 / Binect: feste Höhe 45 mm (ab 45 mm bis 90 mm),

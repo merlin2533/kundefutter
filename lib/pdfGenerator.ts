@@ -279,14 +279,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   drawMetaZeile("Lieferdatum:", formatDatum(lieferDatum));
   drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
 
-  // Dicke horizontale Trennlinie unter dem Kopf – feste Höhe, damit das
-  // Anschriftfeld unabhängig von der Anzahl der Meta-Zeilen im Sichtfenster bleibt.
-  // Bewusst oberhalb von 45 mm (Beginn Anschriftzone DIN 5008), damit die Linie
-  // im Fensterkuvert nicht ins Adressfeld rutscht.
-  const sepY = 39;
-  doc.setDrawColor(...COL_BORDER_STRONG);
-  doc.setLineWidth(0.6);
-  doc.line(14, sepY, 196, sepY);
+  // (Trennlinie unter dem Kopf entfernt – Kundenwunsch: kein dicker Strich in der Kopfzeile)
 
   // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) ────────────────────
   // Maßgabe (Binect): linker Rand 20 mm, Oberkante des Anschriftfelds bei 45 mm,
