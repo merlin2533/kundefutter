@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
-import { Kunde, KundeNotiz, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
+import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
 import KontakteTab from "./KontakteTab";
 
 export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
@@ -304,6 +304,85 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
           Erstellt: {formatDatum(kunde.createdAt)} · Geändert: {formatDatum(kunde.updatedAt)}
         </p>
         <NaechsterBesuchInfo kundeId={kunde.id} />
+
+        {/* Zuletzt gekaufte Produkte */}
+        {(() => {
+          interface ZuletztGekauft {
+            artikel: Artikel;
+            letztesDatum: string;
+            letzteMenge: number;
+            anzahlKaeufe: number;
+            gesamtMenge: number;
+          }
+          const map = new Map<number, ZuletztGekauft>();
+          for (const l of kunde.lieferungen) {
+            if (l.status !== "geliefert") continue;
+            for (const p of l.positionen) {
+              const existing = map.get(p.artikel.id);
+              if (!existing) {
+                map.set(p.artikel.id, {
+                  artikel: p.artikel,
+                  letztesDatum: l.datum,
+                  letzteMenge: p.menge,
+                  anzahlKaeufe: 1,
+                  gesamtMenge: p.menge,
+                });
+              } else {
+                const istNeuer = new Date(l.datum) > new Date(existing.letztesDatum);
+                map.set(p.artikel.id, {
+                  artikel: existing.artikel,
+                  letztesDatum: istNeuer ? l.datum : existing.letztesDatum,
+                  letzteMenge: istNeuer ? p.menge : existing.letzteMenge,
+                  anzahlKaeufe: existing.anzahlKaeufe + 1,
+                  gesamtMenge: existing.gesamtMenge + p.menge,
+                });
+              }
+            }
+          }
+          const zuletztGekauft = Array.from(map.values()).sort(
+            (a, b) => new Date(b.letztesDatum).getTime() - new Date(a.letztesDatum).getTime()
+          );
+          const ANZAHL_ANZEIGEN = 8;
+          return (
+            <div className="border border-gray-200 rounded-xl p-4 bg-white space-y-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">🛒 Zuletzt gekaufte Produkte</p>
+              {zuletztGekauft.length === 0 ? (
+                <p className="text-xs text-gray-400">Noch keine gelieferten Produkte.</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {zuletztGekauft.slice(0, ANZAHL_ANZEIGEN).map((item) => (
+                    <div key={item.artikel.id} className="flex items-center justify-between gap-3 py-2">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/artikel/${item.artikel.id}`}
+                          className="text-sm font-medium text-green-700 hover:underline truncate block"
+                        >
+                          {item.artikel.name}
+                        </Link>
+                        <p className="text-xs text-gray-400">
+                          zuletzt am {formatDatum(item.letztesDatum)} · {item.anzahlKaeufe}× gekauft
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-mono text-gray-800">
+                          {item.letzteMenge.toLocaleString("de-DE")} {item.artikel.einheit}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Σ {item.gesamtMenge.toLocaleString("de-DE")} {item.artikel.einheit}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {zuletztGekauft.length > ANZAHL_ANZEIGEN && (
+                <p className="text-xs text-gray-400">
+                  +{zuletztGekauft.length - ANZAHL_ANZEIGEN} weitere Produkte — siehe Tab &bdquo;Lieferhistorie&ldquo;
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Wettbewerber-Info */}
         <div className="border border-orange-200 rounded-xl p-4 bg-orange-50 space-y-3">
