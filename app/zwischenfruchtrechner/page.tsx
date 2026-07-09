@@ -6,26 +6,13 @@ import {
   berechneMischung,
   findZwischenfruchtArt,
 } from "@/lib/zwischenfrucht";
+import { farbeFuerName, formatPercent, formatZahl } from "@/lib/utils";
 
 const FAMILIEN_REIHENFOLGE: ZwischenfruchtFamilie[] = [
   "Kreuzblütler",
   "Raublattgewächse",
   "Leguminosen",
   "Gräser",
-  "Sonstige",
-];
-
-const BALKEN_FARBEN = [
-  "bg-green-600",
-  "bg-amber-500",
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-rose-500",
-  "bg-teal-500",
-  "bg-indigo-500",
-  "bg-orange-500",
-  "bg-cyan-600",
-  "bg-lime-600",
 ];
 
 type Modus = "sack" | "direkt";
@@ -53,11 +40,6 @@ function neueZeile(id: number, artId: string): Zeile {
   };
 }
 
-function formatZahl(n: number, nachkomma = 1): string {
-  if (!Number.isFinite(n)) return "–";
-  return n.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: nachkomma });
-}
-
 export default function ZwischenfruchtrechnerPage() {
   const nextId = useRef(3);
   const [flaeche, setFlaeche] = useState(1);
@@ -81,10 +63,30 @@ export default function ZwischenfruchtrechnerPage() {
 
   function handleArtChange(id: number, artId: string) {
     const art = findZwischenfruchtArt(artId);
-    updateZeile(id, { artId, tkg: art ? art.tkg : 5, customName: artId === "custom" ? "" : "" });
+    // customName bewusst unangetastet lassen: Wechselt der Nutzer versehentlich weg von
+    // "Eigene Art…" und wieder zurück, bleibt der zuvor eingegebene Name erhalten.
+    updateZeile(id, { artId, tkg: art ? art.tkg : 5 });
   }
 
-  const flaecheGueltig = flaeche > 0 ? flaeche : 1;
+  // Wechsel des Eingabemodus: die jeweils andere Darstellung auf den aktuell wirksamen
+  // kg/ha-Wert nachziehen, statt stillschweigend auf ungenutzte Default-Werte umzuschalten.
+  function handleModusChange(neu: Modus) {
+    if (neu === modus) return;
+    setZeilen((zeilenAlt) =>
+      zeilenAlt.map((z) => {
+        if (neu === "direkt") {
+          const kgProHa = flaeche > 0 ? (z.sackGroesse * z.anzahlSaecke) / flaeche : z.kgProHaDirekt;
+          return { ...z, kgProHaDirekt: kgProHa };
+        }
+        // neu === "sack": bestehende Sackgröße beibehalten, Anzahl Säcke daraus ableiten
+        const anzahlSaecke = z.sackGroesse > 0 ? (z.kgProHaDirekt * flaeche) / z.sackGroesse : z.anzahlSaecke;
+        return { ...z, anzahlSaecke };
+      }),
+    );
+    setModus(neu);
+  }
+
+  const flaecheUngueltig = modus === "sack" && !(flaeche > 0);
 
   const eingaben = useMemo(
     () =>
@@ -92,10 +94,10 @@ export default function ZwischenfruchtrechnerPage() {
         const art = findZwischenfruchtArt(z.artId);
         const name = z.artId === "custom" ? (z.customName.trim() || "Eigene Art") : (art?.name ?? "Eigene Art");
         const kgGesamt = z.sackGroesse * z.anzahlSaecke;
-        const kgProHa = modus === "sack" ? kgGesamt / flaecheGueltig : z.kgProHaDirekt;
+        const kgProHa = modus === "sack" ? (flaeche > 0 ? kgGesamt / flaeche : 0) : z.kgProHaDirekt;
         return { name, tkg: z.tkg, kgProHa };
       }),
-    [zeilen, modus, flaecheGueltig],
+    [zeilen, modus, flaeche],
   );
 
   const ergebnis = useMemo(() => berechneMischung(eingaben), [eingaben]);
@@ -127,7 +129,7 @@ export default function ZwischenfruchtrechnerPage() {
               step={0.01}
               value={flaeche}
               onChange={(e) => setFlaeche(parseFloat(e.target.value) || 0)}
-              className="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+              className={`w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 ${flaecheUngueltig ? "border-red-300" : "border-gray-300"}`}
             />
             <span className="text-sm text-gray-500">ha</span>
           </div>
@@ -137,14 +139,14 @@ export default function ZwischenfruchtrechnerPage() {
             <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
               <button
                 type="button"
-                onClick={() => setModus("sack")}
+                onClick={() => handleModusChange("sack")}
                 className={`px-3 py-1.5 text-sm transition-colors ${modus === "sack" ? "bg-green-700 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
               >
                 Sackgröße × Anzahl
               </button>
               <button
                 type="button"
-                onClick={() => setModus("direkt")}
+                onClick={() => handleModusChange("direkt")}
                 className={`px-3 py-1.5 text-sm transition-colors border-l border-gray-300 ${modus === "direkt" ? "bg-green-700 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
               >
                 kg/ha direkt
@@ -152,6 +154,11 @@ export default function ZwischenfruchtrechnerPage() {
             </div>
           </div>
         </div>
+        {flaecheUngueltig && (
+          <p className="mt-2 text-xs text-red-600">
+            Bitte eine gültige Fläche (&gt; 0 ha) eingeben – sonst kann aus Sackgröße × Anzahl keine Menge je ha berechnet werden.
+          </p>
+        )}
       </div>
 
       {/* Komponenten */}
@@ -162,6 +169,8 @@ export default function ZwischenfruchtrechnerPage() {
             <div key={z.id} className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
               <div className="w-56">
                 <label className="block text-xs text-gray-500 mb-1">Art</label>
+                {/* Natives select statt SearchableSelect: Gruppierung nach Pflanzenfamilie (optgroup)
+                    wird von SearchableSelect aktuell nicht unterstützt. */}
                 <select
                   value={z.artId}
                   onChange={(e) => handleArtChange(z.id, e.target.value)}
@@ -225,7 +234,7 @@ export default function ZwischenfruchtrechnerPage() {
                     <input
                       type="number"
                       min={0}
-                      step={0.1}
+                      step={0.5}
                       value={z.anzahlSaecke}
                       onChange={(e) => updateZeile(z.id, { anzahlSaecke: parseFloat(e.target.value) || 0 })}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -300,14 +309,14 @@ export default function ZwischenfruchtrechnerPage() {
                   {ergebnis.komponenten.map((k, idx) => (
                     <tr key={`${k.name}-${idx}`} className="border-b border-gray-50">
                       <td className="py-2 pr-3">
-                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${BALKEN_FARBEN[idx % BALKEN_FARBEN.length]}`} />
+                        <span className={`inline-block w-2.5 h-2.5 rounded-full mr-2 ${farbeFuerName(k.name)}`} />
                         {k.name}
                       </td>
                       <td className="py-2 pr-3 text-right font-mono">{formatZahl(k.tkg, 1)}</td>
                       <td className="py-2 pr-3 text-right font-mono">{formatZahl(k.kgProHa, 2)}</td>
                       <td className="py-2 pr-3 text-right font-mono">{formatZahl(k.koernerProM2, 0)}</td>
-                      <td className="py-2 pr-3 text-right font-mono">{formatZahl(k.gewichtsanteilProzent, 1)} %</td>
-                      <td className="py-2 text-right font-mono">{formatZahl(k.samenanteilProzent, 1)} %</td>
+                      <td className="py-2 pr-3 text-right font-mono">{formatPercent(k.gewichtsanteilProzent)}</td>
+                      <td className="py-2 text-right font-mono">{formatPercent(k.samenanteilProzent)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -317,8 +326,8 @@ export default function ZwischenfruchtrechnerPage() {
                     <td className="py-2 pr-3" />
                     <td className="py-2 pr-3 text-right font-mono">{formatZahl(ergebnis.summeKgProHa, 2)}</td>
                     <td className="py-2 pr-3 text-right font-mono">{formatZahl(ergebnis.summeKoernerProM2, 0)}</td>
-                    <td className="py-2 pr-3 text-right font-mono">100,0 %</td>
-                    <td className="py-2 text-right font-mono">100,0 %</td>
+                    <td className="py-2 pr-3 text-right font-mono">{formatPercent(100)}</td>
+                    <td className="py-2 text-right font-mono">{formatPercent(100)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -332,9 +341,9 @@ export default function ZwischenfruchtrechnerPage() {
                   {ergebnis.komponenten.map((k, idx) => (
                     <div
                       key={`g-${idx}`}
-                      className={BALKEN_FARBEN[idx % BALKEN_FARBEN.length]}
+                      className={farbeFuerName(k.name)}
                       style={{ width: `${k.gewichtsanteilProzent}%` }}
-                      title={`${k.name}: ${formatZahl(k.gewichtsanteilProzent, 1)} %`}
+                      title={`${k.name}: ${formatPercent(k.gewichtsanteilProzent)}`}
                     />
                   ))}
                 </div>
@@ -345,9 +354,9 @@ export default function ZwischenfruchtrechnerPage() {
                   {ergebnis.komponenten.map((k, idx) => (
                     <div
                       key={`s-${idx}`}
-                      className={BALKEN_FARBEN[idx % BALKEN_FARBEN.length]}
+                      className={farbeFuerName(k.name)}
                       style={{ width: `${k.samenanteilProzent}%` }}
-                      title={`${k.name}: ${formatZahl(k.samenanteilProzent, 1)} %`}
+                      title={`${k.name}: ${formatPercent(k.samenanteilProzent)}`}
                     />
                   ))}
                 </div>

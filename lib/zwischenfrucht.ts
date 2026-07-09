@@ -15,8 +15,7 @@ export type ZwischenfruchtFamilie =
   | "Kreuzblütler"
   | "Leguminosen"
   | "Raublattgewächse"
-  | "Gräser"
-  | "Sonstige";
+  | "Gräser";
 
 export interface ZwischenfruchtArt {
   id: string;
