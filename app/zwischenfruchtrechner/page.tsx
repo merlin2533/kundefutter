@@ -68,31 +68,42 @@ export default function ZwischenfruchtrechnerPage() {
     updateZeile(id, { artId, tkg: art ? art.tkg : 5 });
   }
 
+  // Auf 2 Nachkommastellen runden, um Fließkomma-Rauschen (z.B. 1,9999999999999998) aus
+  // hin- und hergerechneten Werten fernzuhalten.
+  function rund2(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
   // Wechsel des Eingabemodus: die jeweils andere Darstellung auf den aktuell wirksamen
   // kg/ha-Wert nachziehen, statt stillschweigend auf ungenutzte Default-Werte umzuschalten.
+  // Beide Richtungen benötigen eine gültige Fläche (> 0) – ohne sie bleibt der Wert unverändert.
   function handleModusChange(neu: Modus) {
     if (neu === modus) return;
-    setZeilen((zeilenAlt) =>
-      zeilenAlt.map((z) => {
-        if (neu === "direkt") {
-          const kgProHa = flaeche > 0 ? (z.sackGroesse * z.anzahlSaecke) / flaeche : z.kgProHaDirekt;
-          return { ...z, kgProHaDirekt: kgProHa };
-        }
-        // neu === "sack": bestehende Sackgröße beibehalten, Anzahl Säcke daraus ableiten
-        const anzahlSaecke = z.sackGroesse > 0 ? (z.kgProHaDirekt * flaeche) / z.sackGroesse : z.anzahlSaecke;
-        return { ...z, anzahlSaecke };
-      }),
-    );
+    if (flaeche > 0) {
+      setZeilen((zeilenAlt) =>
+        zeilenAlt.map((z) => {
+          if (neu === "direkt") {
+            return { ...z, kgProHaDirekt: rund2((z.sackGroesse * z.anzahlSaecke) / flaeche) };
+          }
+          // neu === "sack": bestehende Sackgröße beibehalten, Anzahl Säcke daraus ableiten
+          const anzahlSaecke = z.sackGroesse > 0 ? rund2((z.kgProHaDirekt * flaeche) / z.sackGroesse) : z.anzahlSaecke;
+          return { ...z, anzahlSaecke };
+        }),
+      );
+    }
     setModus(neu);
   }
 
-  const flaecheUngueltig = modus === "sack" && !(flaeche > 0);
+  const flaecheUngueltig = !(flaeche > 0);
 
   const eingaben = useMemo(
     () =>
-      zeilen.map((z) => {
+      zeilen.map((z, idx) => {
         const art = findZwischenfruchtArt(z.artId);
-        const name = z.artId === "custom" ? (z.customName.trim() || "Eigene Art") : (art?.name ?? "Eigene Art");
+        const name =
+          z.artId === "custom"
+            ? z.customName.trim() || `Eigene Art (Zeile ${idx + 1})`
+            : (art?.name ?? `Eigene Art (Zeile ${idx + 1})`);
         const kgGesamt = z.sackGroesse * z.anzahlSaecke;
         const kgProHa = modus === "sack" ? (flaeche > 0 ? kgGesamt / flaeche : 0) : z.kgProHaDirekt;
         return { name, tkg: z.tkg, kgProHa };
@@ -119,16 +130,17 @@ export default function ZwischenfruchtrechnerPage() {
       </div>
 
       {/* Fläche + Eingabemodus */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm mb-6 print:hidden">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-700">Fläche</label>
+            <label htmlFor="zf-flaeche" className="text-sm text-gray-700">Fläche</label>
             <input
+              id="zf-flaeche"
               type="number"
               min={0.01}
               step={0.01}
               value={flaeche}
-              onChange={(e) => setFlaeche(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setFlaeche(Math.max(0, parseFloat(e.target.value) || 0))}
               className={`w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 ${flaecheUngueltig ? "border-red-300" : "border-gray-300"}`}
             />
             <span className="text-sm text-gray-500">ha</span>
@@ -156,22 +168,28 @@ export default function ZwischenfruchtrechnerPage() {
         </div>
         {flaecheUngueltig && (
           <p className="mt-2 text-xs text-red-600">
-            Bitte eine gültige Fläche (&gt; 0 ha) eingeben – sonst kann aus Sackgröße × Anzahl keine Menge je ha berechnet werden.
+            Bitte eine gültige Fläche (&gt; 0 ha) eingeben – sonst kann aus Sackgröße × Anzahl keine Menge je ha
+            berechnet werden (auch beim Umschalten zwischen den Eingabearten).
           </p>
         )}
       </div>
 
       {/* Komponenten */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm mb-6 print:hidden">
         <h2 className="font-semibold text-gray-800 mb-4">Mischungspartner</h2>
         <div className="space-y-3">
-          {zeilen.map((z) => (
+          {zeilen.map((z, idx) => {
+            const kgGesamt = z.sackGroesse * z.anzahlSaecke;
+            const kgProHaEffektiv = modus === "sack" ? (flaeche > 0 ? kgGesamt / flaeche : 0) : z.kgProHaDirekt;
+            const zeileUngueltig = !(z.tkg > 0) || !(kgProHaEffektiv > 0);
+            return (
             <div key={z.id} className="flex flex-wrap items-end gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
               <div className="w-56">
-                <label className="block text-xs text-gray-500 mb-1">Art</label>
+                <label htmlFor={`zf-art-${z.id}`} className="block text-xs text-gray-500 mb-1">Art</label>
                 {/* Natives select statt SearchableSelect: Gruppierung nach Pflanzenfamilie (optgroup)
                     wird von SearchableSelect aktuell nicht unterstützt. */}
                 <select
+                  id={`zf-art-${z.id}`}
                   value={z.artId}
                   onChange={(e) => handleArtChange(z.id, e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -193,25 +211,27 @@ export default function ZwischenfruchtrechnerPage() {
 
               {z.artId === "custom" && (
                 <div className="w-40">
-                  <label className="block text-xs text-gray-500 mb-1">Bezeichnung</label>
+                  <label htmlFor={`zf-name-${z.id}`} className="block text-xs text-gray-500 mb-1">Bezeichnung</label>
                   <input
+                    id={`zf-name-${z.id}`}
                     type="text"
                     value={z.customName}
                     onChange={(e) => updateZeile(z.id, { customName: e.target.value })}
-                    placeholder="z. B. Sorghum XY"
+                    placeholder={`z. B. Sorghum XY (Zeile ${idx + 1})`}
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                 </div>
               )}
 
               <div className="w-24">
-                <label className="block text-xs text-gray-500 mb-1">TKG (g)</label>
+                <label htmlFor={`zf-tkg-${z.id}`} className="block text-xs text-gray-500 mb-1">TKG (g)</label>
                 <input
+                  id={`zf-tkg-${z.id}`}
                   type="number"
                   min={0.1}
                   step={0.1}
                   value={z.tkg}
-                  onChange={(e) => updateZeile(z.id, { tkg: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => updateZeile(z.id, { tkg: Math.max(0, parseFloat(e.target.value) || 0) })}
                   className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                 />
               </div>
@@ -219,24 +239,26 @@ export default function ZwischenfruchtrechnerPage() {
               {modus === "sack" ? (
                 <>
                   <div className="w-28">
-                    <label className="block text-xs text-gray-500 mb-1">Sackgröße (kg)</label>
+                    <label htmlFor={`zf-sackgroesse-${z.id}`} className="block text-xs text-gray-500 mb-1">Sackgröße (kg)</label>
                     <input
+                      id={`zf-sackgroesse-${z.id}`}
                       type="number"
                       min={0}
                       step={0.5}
                       value={z.sackGroesse}
-                      onChange={(e) => updateZeile(z.id, { sackGroesse: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => updateZeile(z.id, { sackGroesse: Math.max(0, parseFloat(e.target.value) || 0) })}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
                   <div className="w-24">
-                    <label className="block text-xs text-gray-500 mb-1">Anzahl Säcke</label>
+                    <label htmlFor={`zf-anzahl-${z.id}`} className="block text-xs text-gray-500 mb-1">Anzahl Säcke</label>
                     <input
+                      id={`zf-anzahl-${z.id}`}
                       type="number"
                       min={0}
                       step={0.5}
                       value={z.anzahlSaecke}
-                      onChange={(e) => updateZeile(z.id, { anzahlSaecke: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => updateZeile(z.id, { anzahlSaecke: Math.max(0, parseFloat(e.target.value) || 0) })}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
@@ -246,15 +268,22 @@ export default function ZwischenfruchtrechnerPage() {
                 </>
               ) : (
                 <div className="w-28">
-                  <label className="block text-xs text-gray-500 mb-1">Menge (kg/ha)</label>
+                  <label htmlFor={`zf-kgproha-${z.id}`} className="block text-xs text-gray-500 mb-1">Menge (kg/ha)</label>
                   <input
+                    id={`zf-kgproha-${z.id}`}
                     type="number"
                     min={0}
                     step={0.1}
                     value={z.kgProHaDirekt}
-                    onChange={(e) => updateZeile(z.id, { kgProHaDirekt: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => updateZeile(z.id, { kgProHaDirekt: Math.max(0, parseFloat(e.target.value) || 0) })}
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
+                </div>
+              )}
+
+              {zeileUngueltig && (
+                <div className="text-xs text-amber-600 pb-2">
+                  wird nicht berücksichtigt (Menge oder TKG fehlt)
                 </div>
               )}
 
@@ -270,7 +299,8 @@ export default function ZwischenfruchtrechnerPage() {
                 </svg>
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <button
