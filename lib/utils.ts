@@ -108,6 +108,36 @@ export function formatMenge(n: number): string {
   return n.toLocaleString("de-DE", { maximumFractionDigits: 3 });
 }
 
+/** Zahl mit fester Nachkommastellenzahl (de-DE), z.B. für Rechner-Ergebnistabellen. */
+export function formatZahl(n: number, nachkommastellen = 1): string {
+  if (!Number.isFinite(n)) return "–";
+  return n.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: nachkommastellen });
+}
+
+/** Wiederverwendbare Farbfolge für Komponenten-Vergleichsbalken/-legenden (Tailwind bg-*-Klassen). */
+export const KOMPONENTEN_FARBEN = [
+  "bg-green-600",
+  "bg-amber-500",
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-rose-500",
+  "bg-teal-500",
+  "bg-indigo-500",
+  "bg-orange-500",
+  "bg-cyan-600",
+  "bg-lime-600",
+];
+
+/** Stabile Farbzuordnung nach Name statt nach Array-Index – bleibt konsistent, auch wenn Zeilen
+ * zwischenzeitlich (z.B. während der Eingabe) aus einer gefilterten Ergebnisliste herausfallen. */
+export function farbeFuerName(name: string, palette: string[] = KOMPONENTEN_FARBEN): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return palette[hash % palette.length];
+}
+
 // \u2500\u2500\u2500 Datum / Zeitraum \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 /** Fr\u00fchestes Jahr, das in Auswertungs-Filtern angeboten wird. */

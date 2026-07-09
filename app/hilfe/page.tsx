@@ -171,6 +171,7 @@ const sections: Section[] = [
       { text: "DüV-Sperrfristen: Ampelansicht wann auf welchem Schlag gedüngt werden darf" },
       { text: "Nährstoffbilanz (DüV §8): Flächenbezogene Stickstoff- und Phosphorbilanz" },
       { text: "Anbauplanung: Jahres-/Saisonplan mit Kulturen und Mengenplanung je Schlag" },
+      { text: "Zwischenfrucht-Mischungsrechner: Gewichts- und Samenanteile aus tatsächlicher Aussaatstärke (Sack/kg je ha) berechnen" },
       { text: "PSM-Ausbringung erfassen: Mittel, Schlag, Aufwandmenge, Datum" },
       { text: "Spritzfenster-Prognose: Wetterbasierte Empfehlung für Pflanzenschutz-Ausbringung" },
       { text: "Sortenversuche verwalten: Kulturen, Sorten, Erträge, Mehfjahresvergleich" },

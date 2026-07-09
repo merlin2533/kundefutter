@@ -88,6 +88,9 @@ export default function RechnungPrintPage() {
   const [reNrEdit, setReNrEdit] = useState(false);
   const [reNrInput, setReNrInput] = useState("");
   const [reNrSaving, setReNrSaving] = useState(false);
+  const [rdEdit, setRdEdit] = useState(false);
+  const [rdInput, setRdInput] = useState("");
+  const [rdSaving, setRdSaving] = useState(false);
 
   async function handleLsNrSpeichern() {
     setLsNrSaving(true);
@@ -133,6 +136,31 @@ export default function RechnungPrintPage() {
       setError("Netzwerkfehler beim Speichern der Rechnungsnummer.");
     } finally {
       setReNrSaving(false);
+    }
+  }
+
+  async function handleRdSpeichern() {
+    setRdSaving(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rechnungDatum: rdInput.trim() === "" ? null : new Date(rdInput).toISOString(),
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setLieferung((prev) => (prev ? { ...prev, rechnungDatum: updated.rechnungDatum ?? null } : prev));
+        setRdEdit(false);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Rechnungsdatum konnte nicht gespeichert werden.");
+      }
+    } catch {
+      setError("Netzwerkfehler beim Speichern des Rechnungsdatums.");
+    } finally {
+      setRdSaving(false);
     }
   }
 
@@ -693,7 +721,39 @@ export default function RechnungPrintPage() {
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555" }}>Rechnungsdatum:</td>
-                  <td>{rechnungsDatumStr}</td>
+                  <td>
+                    {rdEdit ? (
+                      <span className="print-hidden" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                        <input
+                          type="date"
+                          value={rdInput}
+                          onChange={(e) => setRdInput(e.target.value)}
+                          style={{ fontSize: "10pt", padding: "1px 4px", border: "1px solid #bbb", borderRadius: "3px" }}
+                          autoFocus
+                          onKeyDown={(e) => { if (e.key === "Enter") handleRdSpeichern(); else if (e.key === "Escape") setRdEdit(false); }}
+                        />
+                        <button onClick={handleRdSpeichern} disabled={rdSaving} title="Speichern" style={{ color: "#15803d", fontWeight: "bold", cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setRdEdit(false)} disabled={rdSaving} title="Abbrechen" style={{ color: "#999", cursor: "pointer" }}>✕</button>
+                      </span>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <span>{rechnungsDatumStr}</span>
+                        <button
+                          className="print-hidden"
+                          onClick={() => {
+                            setRdInput(
+                              (lieferung.rechnungDatum ?? lieferung.datum)
+                                ? new Date(lieferung.rechnungDatum ?? lieferung.datum).toISOString().slice(0, 10)
+                                : "",
+                            );
+                            setRdEdit(true);
+                          }}
+                          title="Rechnungsdatum anpassen"
+                          style={{ color: "#2563eb", fontSize: "9pt", cursor: "pointer", fontFamily: "sans-serif", fontWeight: "normal" }}
+                        >✎</button>
+                      </span>
+                    )}
+                  </td>
                 </tr>
                 <tr>
                   <td style={{ paddingRight: "8px", color: "#555", verticalAlign: "top" }}>Lieferschein-Nr.:</td>
