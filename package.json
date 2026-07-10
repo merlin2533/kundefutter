@@ -9,7 +9,9 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
-    "seed:admin": "node prisma/seed-admin.js"
+    "seed:admin": "node prisma/seed-admin.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "prisma": {
     "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -55,6 +57,7 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^4.1.10"
   }
 }
