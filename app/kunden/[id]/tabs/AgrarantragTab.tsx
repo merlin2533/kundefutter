@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatEuro } from "@/lib/utils";
 
 interface AntragDaten {
   id: number;
@@ -22,10 +23,6 @@ interface AntragMassnahme {
   ziel: string;
   egfl: number;
   eler: number;
-}
-
-function formatEurAntrag(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 });
 }
 
 export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
@@ -165,15 +162,15 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">Gesamt (alle Jahre)</p>
-              <p className="text-lg font-bold text-green-800">{formatEurAntrag(totalGesamt)}</p>
+              <p className="text-lg font-bold text-green-800">{formatEuro(totalGesamt)}</p>
             </div>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">EGFL</p>
-              <p className="text-lg font-bold text-blue-800">{formatEurAntrag(totalEgfl)}</p>
+              <p className="text-lg font-bold text-blue-800">{formatEuro(totalEgfl)}</p>
             </div>
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
               <p className="text-xs text-gray-500 mb-1">ELER</p>
-              <p className="text-lg font-bold text-orange-800">{formatEurAntrag(totalEler)}</p>
+              <p className="text-lg font-bold text-orange-800">{formatEuro(totalEler)}</p>
             </div>
           </div>
 
@@ -193,7 +190,7 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
                       <span className="text-xs text-gray-500">{[antrag.plz, antrag.gemeinde].filter(Boolean).join(" ")}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <span className="font-mono text-green-700 font-semibold">{formatEurAntrag(antrag.gesamtBetrag)}</span>
+                      <span className="font-mono text-green-700 font-semibold">{formatEuro(antrag.gesamtBetrag)}</span>
                       <span className="text-gray-400 text-xs">{massnahmen.length} Maßnahmen</span>
                       <span className="text-gray-400">{expanded === antrag.id ? "▲" : "▼"}</span>
                     </div>
@@ -201,8 +198,8 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
                   {expanded === antrag.id && (
                     <div className="px-4 py-4 space-y-3">
                       <div className="flex gap-4 text-sm">
-                        <div><span className="text-gray-500">EGFL:</span> <span className="font-medium">{formatEurAntrag(antrag.egflGesamt)}</span></div>
-                        <div><span className="text-gray-500">ELER:</span> <span className="font-medium">{formatEurAntrag(antrag.elerGesamt)}</span></div>
+                        <div><span className="text-gray-500">EGFL:</span> <span className="font-medium">{formatEuro(antrag.egflGesamt)}</span></div>
+                        <div><span className="text-gray-500">ELER:</span> <span className="font-medium">{formatEuro(antrag.elerGesamt)}</span></div>
                         {antrag.mutterunternehmen && (
                           <div><span className="text-gray-500">Mutter:</span> <span className="font-medium">{antrag.mutterunternehmen}</span></div>
                         )}
@@ -222,8 +219,8 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
                               <tr key={i} className="border-b border-gray-100 last:border-0">
                                 <td className="py-1.5 pr-3 font-mono font-medium">{m.code}</td>
                                 <td className="py-1.5 pr-3 text-gray-600 max-w-[200px] truncate" title={m.ziel}>{m.ziel || "—"}</td>
-                                <td className="py-1.5 pr-3 text-right font-mono">{m.egfl > 0 ? formatEurAntrag(m.egfl) : "—"}</td>
-                                <td className="py-1.5 text-right font-mono">{m.eler > 0 ? formatEurAntrag(m.eler) : "—"}</td>
+                                <td className="py-1.5 pr-3 text-right font-mono">{m.egfl > 0 ? formatEuro(m.egfl) : "—"}</td>
+                                <td className="py-1.5 text-right font-mono">{m.eler > 0 ? formatEuro(m.eler) : "—"}</td>
                               </tr>
                             ))}
                           </tbody>

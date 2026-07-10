@@ -134,14 +134,26 @@ export default function Page() {
           ) : (
             <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead><tr className="text-left border-b"><th>Sorte</th><th>Kultur</th><th>∅ Ertrag</th><th>Jahre</th></tr></thead>
+              <thead>
+                <tr className="text-left border-b">
+                  <th>Sorte</th>
+                  <th className="hidden sm:table-cell">Kultur</th>
+                  <th>∅ Ertrag</th>
+                  <th className="hidden sm:table-cell">Jahre</th>
+                </tr>
+              </thead>
               <tbody>
                 {sortenVergleich.slice(0, 20).map((s, i) => (
                   <tr key={i} className="border-b">
-                    <td className="py-1 pr-2 font-medium">{s.sorte}</td>
-                    <td className="py-1 pr-2">{s.kultur}</td>
+                    <td className="py-1 pr-2 font-medium">
+                      {s.sorte}
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                        {s.kultur} · {s.ertraege.sort((a, b) => a.jahr - b.jahr).map(e => `${e.jahr}: ${e.ertrag}`).join(" · ")}
+                      </div>
+                    </td>
+                    <td className="py-1 pr-2 hidden sm:table-cell">{s.kultur}</td>
                     <td className="py-1 pr-2">{s.durchschnitt.toFixed(1)} dt/ha</td>
-                    <td className="py-1 pr-2 text-xs text-gray-600">
+                    <td className="py-1 pr-2 hidden sm:table-cell text-xs text-gray-600">
                       {s.ertraege.sort((a, b) => a.jahr - b.jahr).map(e => `${e.jahr}: ${e.ertrag}`).join(" · ")}
                     </td>
                   </tr>

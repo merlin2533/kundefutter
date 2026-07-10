@@ -56,25 +56,45 @@ export async function GET(req: NextRequest) {
   }
 
   const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const pageParam = searchParams.get("page");
+  // Abwärtskompatibel: Nur wenn ?page= explizit mitgeschickt wird, liefern wir das
+  // paginierte Format { data, total, page, limit, totalPages }. Ohne ?page= bleibt die
+  // Response ein nacktes Array (viele Aufrufer verlassen sich darauf, siehe AGENTS.md).
+  const usePagination = pageParam !== null;
+  const page = usePagination ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  const select = {
+    ...lieferungSafeSelect,
+    kunde: { select: { id: true, name: true, firma: true, ort: true } },
+    streckenLieferant: { select: { id: true, name: true } },
+    positionen: {
+      select: {
+        id: true, menge: true, verkaufspreis: true, einkaufspreis: true,
+        chargeNr: true, rabattProzent: true, notiz: true,
+        artikel: { select: artikelSafeSelect },
+      },
+    },
+  };
 
   try {
+    if (usePagination) {
+      const [lieferungen, total] = await Promise.all([
+        prisma.lieferung.findMany({
+          where,
+          select,
+          orderBy: [{ datum: "desc" }, { id: "desc" }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.lieferung.count({ where }),
+      ]);
+      return NextResponse.json({ data: lieferungen, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
+    }
+
     const lieferungen = await prisma.lieferung.findMany({
       where,
-      select: {
-        ...lieferungSafeSelect,
-        kunde: { select: { id: true, name: true, firma: true, ort: true } },
-        streckenLieferant: { select: { id: true, name: true } },
-        positionen: {
-          select: {
-            id: true, menge: true, verkaufspreis: true, einkaufspreis: true,
-            chargeNr: true, rabattProzent: true, notiz: true,
-            artikel: { select: artikelSafeSelect },
-          },
-        },
-      },
+      select,
       orderBy: [{ datum: "desc" }, { id: "desc" }],
-      skip: (page - 1) * limit,
       take: limit,
     });
     return NextResponse.json(lieferungen);

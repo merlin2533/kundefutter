@@ -55,10 +55,15 @@ function datum(d: string): string {
 
 type Filter = "offen" | "bestellt" | "alle";
 
+function loadEinkaufszettelFilters() {
+  try { return JSON.parse(sessionStorage.getItem("einkaufszettel-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+}
+
 export default function EinkaufszettelPage() {
   const [gruppen, setGruppen] = useState<Gruppe[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("offen");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bestelldatum, setBestelldatum] = useState<string>(() => new Date().toISOString().slice(0, 10));
@@ -74,6 +79,20 @@ export default function EinkaufszettelPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // Gespeicherte Filter erst nach dem Mount (clientseitig) wiederherstellen — hält den
+  // ersten Client-Render identisch zum Server-Render und vermeidet so den Hydration-Mismatch.
+  useEffect(() => {
+    const f = loadEinkaufszettelFilters();
+    if (f.filter) setFilter(f.filter as Filter);
+    setFiltersLoaded(true);
+  }, []);
+
+  // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { sessionStorage.setItem("einkaufszettel-filters", JSON.stringify({ filter })); } catch { /* ignore */ }
+  }, [filtersLoaded, filter]);
 
   function toggle(key: string) {
     setExpanded((prev) => {

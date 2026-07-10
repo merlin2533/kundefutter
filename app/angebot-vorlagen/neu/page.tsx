@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import { formatEuro } from "@/lib/utils";
 
 interface ArtikelOption {
   id: number;
@@ -223,7 +224,7 @@ export default function AngebotVorlageNeuPage() {
                       />
                       {art && (
                         <div className="mt-0.5 text-xs text-gray-400">
-                          Standardpreis: {art.standardpreis.toLocaleString("de-DE", { minimumFractionDigits: 2 })} € / {art.einheit}
+                          Standardpreis: {formatEuro(art.standardpreis)} / {art.einheit}
                         </div>
                       )}
                     </div>

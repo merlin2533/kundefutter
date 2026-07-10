@@ -320,11 +320,11 @@ export default function TelefonmaskePage() {
                                     )}
                                     {ka.sonderpreis != null ? (
                                       <span className="text-green-700 font-bold">
-                                        {ka.sonderpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                                        {formatEuro(ka.sonderpreis)}
                                       </span>
                                     ) : (
                                       <span className="text-gray-400">
-                                        {ka.standardpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                                        {formatEuro(ka.standardpreis)}
                                       </span>
                                     )}
                                     <Link

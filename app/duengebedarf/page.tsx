@@ -474,16 +474,21 @@ function Inner() {
                 <th className="pb-1 pr-4">Bezeichnung / Fruchtart</th>
                 <th className="pb-1 pr-4">N</th>
                 <th className="pb-1 pr-4">P₂O₅</th>
-                <th className="pb-1 pr-4">K₂O</th>
-                <th className="pb-1 pr-4">MgO</th>
-                <th className="pb-1 pr-4">Berechnet am</th>
+                <th className="pb-1 pr-4 hidden sm:table-cell">K₂O</th>
+                <th className="pb-1 pr-4 hidden sm:table-cell">MgO</th>
+                <th className="pb-1 pr-4 hidden md:table-cell">Berechnet am</th>
                 <th className="pb-1"></th>
               </tr>
             </thead>
             <tbody>
               {historie.map(h => (
                 <tr key={h.id} className={`border-b hover:bg-gray-50 ${editId === h.id ? "bg-blue-50" : ""}`}>
-                  <td className="py-1 pr-4">{h.jahr}</td>
+                  <td className="py-1 pr-4">
+                    {h.jahr}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                      K₂O {Math.round(h.kBedarf)} · MgO {h.mgBedarf != null ? Math.round(h.mgBedarf) : "–"} · {formatDatum(h.berechnetAm)}
+                    </div>
+                  </td>
                   <td className="py-1 pr-4">
                     {h.bezeichnung
                       ? <><span className="font-medium">{h.bezeichnung}</span><div className="text-xs text-gray-500">{h.fruchtart}</div></>
@@ -493,9 +498,9 @@ function Inner() {
                   </td>
                   <td className="py-1 pr-4">{Math.round(h.nBedarf)}</td>
                   <td className="py-1 pr-4">{Math.round(h.pBedarf)}</td>
-                  <td className="py-1 pr-4">{Math.round(h.kBedarf)}</td>
-                  <td className="py-1 pr-4">{h.mgBedarf != null ? Math.round(h.mgBedarf) : "–"}</td>
-                  <td className="py-1 pr-4">{formatDatum(h.berechnetAm)}</td>
+                  <td className="py-1 pr-4 hidden sm:table-cell">{Math.round(h.kBedarf)}</td>
+                  <td className="py-1 pr-4 hidden sm:table-cell">{h.mgBedarf != null ? Math.round(h.mgBedarf) : "–"}</td>
+                  <td className="py-1 pr-4 hidden md:table-cell">{formatDatum(h.berechnetAm)}</td>
                   <td className="py-1 text-right whitespace-nowrap">
                     <Link
                       href={`/duengebedarf/${h.id}/druck`}

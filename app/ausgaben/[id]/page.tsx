@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
+import { formatEuro } from "@/lib/utils";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -447,7 +448,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
                   className="w-full border rounded px-2 py-1 text-sm" />
                 {reiseKm && (
                   <p className="text-xs text-sky-700 mt-1">
-                    Betrag netto: {(parseFloat(reiseKm) * KILOMETERPAUSCHALE_EUR).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (wird automatisch gesetzt)
+                    Betrag netto: {formatEuro(parseFloat(reiseKm) * KILOMETERPAUSCHALE_EUR)} (wird automatisch gesetzt)
                   </p>
                 )}
               </div>
@@ -515,15 +516,15 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           <div className="bg-gray-50 border rounded p-3 text-sm grid grid-cols-3 gap-2 text-center">
             <div>
               <div className="text-xs text-gray-500">Netto</div>
-              <div className="font-medium">{netto.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</div>
+              <div className="font-medium">{formatEuro(netto)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">MwSt {mwstSatz}%</div>
-              <div className="font-medium text-amber-600">{mwstBetrag.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</div>
+              <div className="font-medium text-amber-600">{formatEuro(mwstBetrag)}</div>
             </div>
             <div>
               <div className="text-xs text-gray-500">Brutto</div>
-              <div className="font-bold text-blue-700">{brutto.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</div>
+              <div className="font-bold text-blue-700">{formatEuro(brutto)}</div>
             </div>
           </div>
         )}

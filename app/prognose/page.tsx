@@ -245,20 +245,28 @@ function PrognoseTab({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {["Artikel", "Kategorie", "Bestand", "Ø Tagesverbrauch", "Eff. Tagesverbrauch", "Reichweite", "Bestellen?"].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                  {h}
-                </th>
-              ))}
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Artikel</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Kategorie</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Bestand</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Ø Tagesverbrauch</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Eff. Tagesverbrauch</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Reichweite</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Bestellen?</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.artikelId} className="border-b last:border-0 hover:bg-green-50 transition-colors">
-                <td className="px-4 py-3 font-medium">{row.artikelName}</td>
-                <td className="px-4 py-3 text-gray-600">{row.kategorie}</td>
+                <td className="px-4 py-3 font-medium">
+                  {row.artikelName}
+                  <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                    {row.kategorie}
+                    {row.avgTagesverbrauch !== 0 && ` · Ø ${row.avgTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{row.kategorie}</td>
                 <td className="px-4 py-3 font-mono">{row.aktuellerBestand} {row.einheit}</td>
-                <td className="px-4 py-3 font-mono">
+                <td className="px-4 py-3 font-mono hidden md:table-cell">
                   {row.avgTagesverbrauch === 0
                     ? <span className="text-gray-400 text-xs">Kein Verbrauch</span>
                     : `${row.avgTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
@@ -396,11 +404,14 @@ function BestellvorschlagTab({
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {["Artikel", "Art.-Nr.", "Einheit", "Bestellmenge", "Akt. Bestand", "Mindestbestand", "Einkaufspreis", "Gesamtwert"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Artikel</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Art.-Nr.</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden sm:table-cell">Einheit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Bestellmenge</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Akt. Bestand</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap hidden md:table-cell">Mindestbestand</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Einkaufspreis</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Gesamtwert</th>
                 </tr>
               </thead>
               <tbody>
@@ -408,9 +419,12 @@ function BestellvorschlagTab({
                   const menge = getMenge(pos.artikelId, pos.bestellmenge);
                   return (
                     <tr key={pos.artikelId} className="border-b last:border-0 hover:bg-green-50 transition-colors">
-                      <td className="px-4 py-3 font-medium">{pos.artikelName}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs font-mono">{pos.artikelnummer}</td>
-                      <td className="px-4 py-3 text-gray-600">{pos.einheit}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {pos.artikelName}
+                        <div className="sm:hidden text-xs text-gray-500 mt-0.5">{pos.artikelnummer} · {pos.einheit}</div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs font-mono hidden sm:table-cell">{pos.artikelnummer}</td>
+                      <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{pos.einheit}</td>
                       <td className="px-4 py-3">
                         <span className="print:inline hidden font-mono">{menge}</span>
                         <input
@@ -423,7 +437,7 @@ function BestellvorschlagTab({
                         />
                       </td>
                       <td className="px-4 py-3 font-mono">{pos.aktuellerBestand} {pos.einheit}</td>
-                      <td className="px-4 py-3 font-mono">{pos.mindestbestand} {pos.einheit}</td>
+                      <td className="px-4 py-3 font-mono hidden md:table-cell">{pos.mindestbestand} {pos.einheit}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(getEinkaufspreis(pos))}</td>
                       <td className="px-4 py-3 font-mono">{formatEuro(menge * getEinkaufspreis(pos))}</td>
                     </tr>

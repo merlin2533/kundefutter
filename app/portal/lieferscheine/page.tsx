@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatDatum } from "@/lib/utils";
 
 interface Lieferung {
   id: number;
@@ -9,10 +10,6 @@ interface Lieferung {
   status: string;
   notiz: string | null;
   positionenAnzahl: number;
-}
-
-function formatDatum(s: string) {
-  return new Date(s).toLocaleDateString("de-DE");
 }
 
 const STATUS_STYLE: Record<string, string> = {

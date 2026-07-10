@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface Kontoumsatz {
   id: number;
@@ -34,14 +35,6 @@ interface Vorschlag {
   kundeName: string;
   betrag: number;
   konfidenz: "hoch" | "mittel" | "niedrig";
-}
-
-function formatEuro(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function formatDatum(d: string) {
-  return new Date(d).toLocaleDateString("de-DE");
 }
 
 function KonfidenzBadge({ k }: { k: "hoch" | "mittel" | "niedrig" }) {

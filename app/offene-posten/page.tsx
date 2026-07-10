@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 
 interface OffenerPosten {
   lieferungId: number;
@@ -21,10 +22,6 @@ interface OffenerPosten {
 function datumsStr(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("de-DE");
-}
-
-function euroStr(n: number): string {
-  return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 }
 
 type Filter = "alle" | "faellig" | "m1" | "m2" | "m3";
@@ -317,11 +314,11 @@ function OffenePostenInner() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div className="text-xs text-gray-500 mb-1">Gesamtvolumen</div>
-            <div className="text-xl font-bold text-gray-900">{euroStr(gesamtBrutto)}</div>
+            <div className="text-xl font-bold text-gray-900">{formatEuro(gesamtBrutto)}</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div className="text-xs text-gray-500 mb-1">Offener Betrag</div>
-            <div className="text-xl font-bold text-amber-600">{euroStr(gesamtOffen)}</div>
+            <div className="text-xl font-bold text-amber-600">{formatEuro(gesamtOffen)}</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div className="text-xs text-gray-500 mb-1">Überfällige</div>
@@ -368,14 +365,14 @@ function OffenePostenInner() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{datumsStr(p.rechnungDatum)}</td>
-                  <td className="px-4 py-3 text-right font-mono">{euroStr(p.bruttoBetrag)}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatEuro(p.bruttoBetrag)}</td>
                   <td className="px-4 py-3 text-right font-mono text-green-700 hidden sm:table-cell">
-                    {p.gezahlt > 0 ? euroStr(p.gezahlt) : "—"}
+                    {p.gezahlt > 0 ? formatEuro(p.gezahlt) : "—"}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-semibold">
                     {p.offen > 0 ? (
                       <span className={p.tageUeberfaellig > 0 ? "text-red-600" : "text-gray-900"}>
-                        {euroStr(p.offen)}
+                        {formatEuro(p.offen)}
                       </span>
                     ) : (
                       <span className="text-green-700">beglichen</span>
@@ -405,11 +402,11 @@ function OffenePostenInner() {
               <tr>
                 <td colSpan={3} className="px-4 py-3 font-semibold text-gray-700 hidden md:table-cell">Gesamt ({gefiltert.length})</td>
                 <td colSpan={1} className="px-4 py-3 font-semibold text-gray-700 md:hidden">Gesamt ({gefiltert.length})</td>
-                <td className="px-4 py-3 text-right font-mono font-semibold">{euroStr(gesamtBrutto)}</td>
+                <td className="px-4 py-3 text-right font-mono font-semibold">{formatEuro(gesamtBrutto)}</td>
                 <td className="px-4 py-3 text-right font-mono font-semibold text-green-700 hidden sm:table-cell">
-                  {euroStr(gefiltert.reduce((s, p) => s + p.gezahlt, 0))}
+                  {formatEuro(gefiltert.reduce((s, p) => s + p.gezahlt, 0))}
                 </td>
-                <td className="px-4 py-3 text-right font-mono font-semibold text-amber-600">{euroStr(gesamtOffen)}</td>
+                <td className="px-4 py-3 text-right font-mono font-semibold text-amber-600">{formatEuro(gesamtOffen)}</td>
                 <td colSpan={2} className="px-4 py-3 hidden md:table-cell" />
               </tr>
             </tfoot>

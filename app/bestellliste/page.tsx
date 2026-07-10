@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 
 const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
 
@@ -134,12 +135,12 @@ export default function BestelllistePage() {
                       {lieferant.telefon && <span>📞 {lieferant.telefon}</span>}
                       {lieferant.email && <a href={`mailto:${lieferant.email}`} className="hover:text-green-700">✉️ {lieferant.email}</a>}
                       {lieferant.frachtkosten > 0 && (
-                        <span className="text-gray-600">🚚 Fracht: {lieferant.frachtkosten.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
+                        <span className="text-gray-600">🚚 Fracht: {formatEuro(lieferant.frachtkosten)}</span>
                       )}
                       {mbw > 0 && (
                         <span className={mbwErreicht ? "text-green-700 font-medium" : "text-amber-600 font-medium"}>
-                          {mbwErreicht ? "✓" : "!"} MBW: {mbw.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
-                          {mbwFehlt && <span className="ml-1 text-gray-400 font-normal">(noch {(mbw - gesamtWert).toLocaleString("de-DE", { style: "currency", currency: "EUR" })})</span>}
+                          {mbwErreicht ? "✓" : "!"} MBW: {formatEuro(mbw)}
+                          {mbwFehlt && <span className="ml-1 text-gray-400 font-normal">(noch {formatEuro(mbw - gesamtWert)})</span>}
                         </span>
                       )}
                     </div>
@@ -147,7 +148,7 @@ export default function BestelllistePage() {
                   <div className="flex items-center gap-3">
                     <div className="text-right">
                       <div className={`text-sm font-semibold ${mbwErreicht ? "text-green-700" : mbwFehlt ? "text-amber-700" : "text-gray-700"}`}>
-                        {gesamtWert.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                        {formatEuro(gesamtWert)}
                       </div>
                       <div className="text-xs text-gray-400">{items.length} Position{items.length !== 1 ? "en" : ""}</div>
                     </div>
@@ -191,7 +192,7 @@ export default function BestelllistePage() {
                           <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-500">
                             <span className="font-medium text-gray-700">{pos.menge} {pos.einheit}</span>
                             {pos.einkaufspreis > 0 && (
-                              <span>{(pos.menge * pos.einkaufspreis).toLocaleString("de-DE", { style: "currency", currency: "EUR" })} ({pos.einkaufspreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}/{pos.einheit})</span>
+                              <span>{formatEuro(pos.menge * pos.einkaufspreis)} ({formatEuro(pos.einkaufspreis)}/{pos.einheit})</span>
                             )}
                             {pos.kunde && (
                               <Link href={`/kunden/${pos.kunde.id}`} className="hover:text-green-700">

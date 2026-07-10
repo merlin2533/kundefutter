@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
+import { lagerStatus } from "@/lib/utils";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -67,9 +68,10 @@ function lagerAmpel(
   artikel: { aktuellerBestand: number; mindestbestand: number; einheit: string } | undefined
 ) {
   if (!artikel) return null;
-  if (artikel.aktuellerBestand <= 0)
+  const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
+  if (status === "rot")
     return <span className="text-red-600 text-xs">● Kein Lager</span>;
-  if (artikel.aktuellerBestand < artikel.mindestbestand)
+  if (status === "gelb")
     return (
       <span className="text-amber-600 text-xs">
         ● Gering ({artikel.aktuellerBestand} {artikel.einheit})
@@ -622,7 +624,12 @@ function KiWareneingangWizard() {
                       <tbody className="divide-y divide-gray-100">
                         {kiErgebnis.positionen.map((p, i) => (
                           <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium text-gray-900">{p.name}</td>
+                            <td className="px-3 py-2 font-medium text-gray-900">
+                              {p.name}
+                              <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                                {p.artikelnummer ? `${p.artikelnummer} · ` : ""}{p.einheit}
+                              </div>
+                            </td>
                             <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
                               {p.artikelnummer ?? "—"}
                             </td>
@@ -1091,6 +1098,9 @@ function KiWareneingangWizard() {
                         <td className="px-3 py-2 font-medium text-gray-900">
                           {a?.name ?? pos.ki.name}
                           <div className="text-xs text-gray-400">{a?.artikelnummer}</div>
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {pos.chargeNr.trim() && `Charge: ${pos.chargeNr.trim()} · `}{pos.einkaufspreis.toFixed(2)} €
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right">
                           {pos.menge} {a?.einheit ?? pos.ki.einheit}

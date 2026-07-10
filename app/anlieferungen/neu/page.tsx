@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import { formatEuro } from "@/lib/utils";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
 interface Artikel { id: number; name: string; einheit: string; kategorie: string; }
@@ -197,7 +198,7 @@ function NeueAnlieferungInner() {
 
           {gesamtBetrag && gesamtBetrag > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-800">
-              Berechneter Gesamtbetrag: <strong>{gesamtBetrag.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</strong>
+              Berechneter Gesamtbetrag: <strong>{formatEuro(gesamtBetrag)}</strong>
             </div>
           )}
 

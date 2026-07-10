@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
+import { lagerStatus } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,9 +70,10 @@ function lagerAmpel(
   artikel: { aktuellerBestand: number; mindestbestand: number; einheit: string } | undefined
 ) {
   if (!artikel) return null;
-  if (artikel.aktuellerBestand <= 0)
+  const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
+  if (status === "rot")
     return <span className="text-red-600 text-xs">● Kein Lager</span>;
-  if (artikel.aktuellerBestand < artikel.mindestbestand)
+  if (status === "gelb")
     return (
       <span className="text-amber-600 text-xs">
         ● Gering ({artikel.aktuellerBestand} {artikel.einheit})
@@ -817,8 +819,8 @@ function KiLieferungWizard() {
                     <tr>
                       <th className="px-4 py-2.5 text-left font-medium">Artikel</th>
                       <th className="px-4 py-2.5 text-right font-medium">Menge</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Einheit</th>
-                      <th className="px-4 py-2.5 text-right font-medium">Einzelpreis</th>
+                      <th className="px-4 py-2.5 text-left font-medium hidden sm:table-cell">Einheit</th>
+                      <th className="px-4 py-2.5 text-right font-medium hidden sm:table-cell">Einzelpreis</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -829,10 +831,14 @@ function KiLieferungWizard() {
                           {pos.artikelnummer && (
                             <p className="text-xs text-gray-400">{pos.artikelnummer}</p>
                           )}
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {pos.einheit ?? "—"}
+                            {pos.einzelpreis != null && ` · ${pos.einzelpreis.toFixed(2)} €`}
+                          </div>
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">{pos.menge}</td>
-                        <td className="px-4 py-2.5 text-gray-500">{pos.einheit ?? "—"}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
+                        <td className="px-4 py-2.5 text-gray-500 hidden sm:table-cell">{pos.einheit ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums hidden sm:table-cell">
                           {pos.einzelpreis != null
                             ? `${pos.einzelpreis.toFixed(2)} €`
                             : "—"}
@@ -1168,7 +1174,7 @@ function KiLieferungWizard() {
                 <tr>
                   <th className="px-4 py-2.5 text-left font-medium">Artikel</th>
                   <th className="px-4 py-2.5 text-right font-medium">Menge</th>
-                  <th className="px-4 py-2.5 text-right font-medium">VK-Preis</th>
+                  <th className="px-4 py-2.5 text-right font-medium hidden sm:table-cell">VK-Preis</th>
                   <th className="px-4 py-2.5 text-right font-medium">Summe</th>
                 </tr>
               </thead>
@@ -1185,6 +1191,9 @@ function KiLieferungWizard() {
                         <td className="px-4 py-2.5">
                           <p className="font-medium text-gray-900">{art?.name ?? pos.kiPosition.name}</p>
                           {art && <p className="text-xs text-gray-400">{art.artikelnummer}</p>}
+                          <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                            {pos.verkaufspreis.toFixed(2)} € / Stk.
+                          </div>
                           {isNiedrig && (
                             <span className="text-xs text-amber-600">⚠ Niedriger Bestand</span>
                           )}
@@ -1192,7 +1201,7 @@ function KiLieferungWizard() {
                         <td className="px-4 py-2.5 text-right tabular-nums">
                           {pos.menge} {art?.einheit ?? ""}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums">
+                        <td className="px-4 py-2.5 text-right tabular-nums hidden sm:table-cell">
                           {pos.verkaufspreis.toFixed(2)} €
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums font-semibold">

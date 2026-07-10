@@ -1,8 +1,10 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import Pagination from "@/components/Pagination";
+import { ErrorState } from "@/components/ErrorState";
 
 interface Lieferposition {
   id: number;
@@ -76,15 +78,28 @@ export default function RechnungenPage() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [buchungId, setBuchungId] = useState<number | null>(null);
   const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 100;
 
-  function load() {
-    fetch("/api/lieferungen?hatRechnung=true&limit=500")
-      .then((r) => { if (!r.ok) { setLoading(false); return Promise.reject(); } return r.json(); })
-      .then((data) => { setRechnungen(Array.isArray(data) ? data : []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }
+  const load = useCallback((pageNum = page) => {
+    setLoading(true);
+    setFetchError(null);
+    fetch(`/api/lieferungen?hatRechnung=true&limit=${PAGE_SIZE}&page=${pageNum}`)
+      .then((r) => { if (!r.ok) { setLoading(false); setFetchError(`Serverfehler ${r.status}`); return Promise.reject(); } return r.json(); })
+      .then((json) => {
+        setRechnungen(Array.isArray(json.data) ? json.data : []);
+        setTotal(typeof json.total === "number" ? json.total : 0);
+        setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
+        setLoading(false);
+      })
+      .catch(() => { setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden"); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(1); }, [load]);
 
   // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
@@ -107,8 +122,7 @@ export default function RechnungenPage() {
         body: JSON.stringify({ bezahltAm: buchungDatum }),
       });
       setBuchungId(null);
-      setLoading(true);
-      load();
+      load(page);
     } catch {
       setLoading(false);
     }
@@ -122,8 +136,7 @@ export default function RechnungenPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: null }),
       });
-      setLoading(true);
-      load();
+      load(page);
     } catch {
       setLoading(false);
     }
@@ -182,9 +195,10 @@ export default function RechnungenPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Gesamt</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{rechnungen.length}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{total || rechnungen.length}</p>
           <p className="text-xs text-gray-400 mt-1">
             {formatEuro(rechnungen.filter((r) => !r.rechnungStorniert).reduce((s, r) => s + berechneBetrag(r.positionen), 0))}
+            {totalPages > 1 ? " (aktuelle Seite)" : ""}
           </p>
         </div>
         <div className="bg-white rounded-xl border border-yellow-200 shadow-sm p-4">
@@ -229,7 +243,9 @@ export default function RechnungenPage() {
         </div>
       </div>
 
-      {loading ? (
+      {fetchError ? (
+        <ErrorState message={fetchError} onRetry={() => load(page)} />
+      ) : loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
       ) : gefiltert.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -437,6 +453,15 @@ export default function RechnungenPage() {
             </tfoot>
           </table>
         </div>
+      )}
+
+      {!fetchError && !loading && total > PAGE_SIZE && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => { setPage(p); load(p); }}
+          info={`${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total}`}
+        />
       )}
 
       {/* Zahlung buchen Dialog */}

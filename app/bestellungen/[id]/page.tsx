@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 
 interface BestellPosition {
   id: number;
@@ -295,7 +296,7 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
                     )}
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-700">
-                    {pos.preis != null ? pos.preis.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"}
+                    {pos.preis != null ? formatEuro(pos.preis) : "—"}
                   </td>
                 </tr>
               ))}

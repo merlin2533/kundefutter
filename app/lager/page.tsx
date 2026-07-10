@@ -36,6 +36,10 @@ type FilterMode = "alle" | "alarme" | "leer";
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
 
+function loadLagerFilters() {
+  try { return JSON.parse(sessionStorage.getItem("lager-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LagerPage() {
@@ -47,6 +51,7 @@ export default function LagerPage() {
   const [filter, setFilter] = useState<FilterMode>("alle");
   const [search, setSearch] = useState("");
   const [kategorieFilter, setKategorieFilter] = useState("alle");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   // Korrektur inline
   const [korrekturArtikel, setKorrekturArtikel] = useState<LagerArtikel | null>(null);
@@ -59,6 +64,24 @@ export default function LagerPage() {
   const [loadingBew, setLoadingBew] = useState(false);
   const [datumVon, setDatumVon] = useState("");
   const [datumBis, setDatumBis] = useState("");
+
+  // Gespeicherte Filter erst nach dem Mount (clientseitig) wiederherstellen — hält den
+  // ersten Client-Render identisch zum Server-Render und vermeidet so den Hydration-Mismatch.
+  useEffect(() => {
+    const f = loadLagerFilters();
+    if (f.search) setSearch(f.search);
+    if (f.filter) setFilter(f.filter as FilterMode);
+    if (f.kategorieFilter) setKategorieFilter(f.kategorieFilter);
+    if (f.datumVon) setDatumVon(f.datumVon);
+    if (f.datumBis) setDatumBis(f.datumBis);
+    setFiltersLoaded(true);
+  }, []);
+
+  // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { sessionStorage.setItem("lager-filters", JSON.stringify({ search, filter, kategorieFilter, datumVon, datumBis })); } catch { /* ignore */ }
+  }, [filtersLoaded, search, filter, kategorieFilter, datumVon, datumBis]);
 
   const fetchArtikel = useCallback(async () => {
     setLoading(true);
