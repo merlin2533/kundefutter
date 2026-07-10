@@ -21,10 +21,19 @@ export default function MengenrabattePage() {
 
   const fetchRabatte = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/mengenrabatte");
-    const data = await res.json();
-    setRabatte(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/mengenrabatte");
+      if (!res.ok) {
+        setRabatte([]);
+        return;
+      }
+      const data = await res.json();
+      setRabatte(Array.isArray(data) ? data : []);
+    } catch {
+      setRabatte([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchRabatte(); }, [fetchRabatte]);

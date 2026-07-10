@@ -30,10 +30,19 @@ export default function InventurPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/inventur");
-    const data = await res.json();
-    setInventuren(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/inventur");
+      if (!res.ok) {
+        setInventuren([]);
+        return;
+      }
+      const data = await res.json();
+      setInventuren(Array.isArray(data) ? data : []);
+    } catch {
+      setInventuren([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

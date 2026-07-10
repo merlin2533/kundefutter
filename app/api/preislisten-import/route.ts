@@ -19,79 +19,105 @@ export async function POST(req: NextRequest) {
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
 
+  const isDev = process.env.NODE_ENV === "development";
   const vorschlaege = [];
 
-  for (const row of rows) {
-    const artNr = String(row["Artikelnummer"] ?? row["artikelnummer"] ?? row["ArtNr"] ?? "").trim();
-    const neuerPreis = parseFloat(String(row["Einkaufspreis"] ?? row["Preis"] ?? row["preis"] ?? "0").replace(",", "."));
+  try {
+    for (const row of rows) {
+      const artNr = String(row["Artikelnummer"] ?? row["artikelnummer"] ?? row["ArtNr"] ?? "").trim();
+      const neuerPreis = parseFloat(String(row["Einkaufspreis"] ?? row["Preis"] ?? row["preis"] ?? "0").replace(",", "."));
 
-    if (!artNr || isNaN(neuerPreis)) continue;
+      if (!artNr || isNaN(neuerPreis)) continue;
 
-    let zuordnung = await prisma.artikelLieferant.findFirst({
-      where: {
-        lieferantId,
-        OR: [
-          { lieferantenArtNr: artNr },
-          { artikel: { artikelnummer: artNr } },
-        ],
-      },
-      include: { artikel: { select: artikelSafeSelect } },
-    });
+      try {
+        let zuordnung = await prisma.artikelLieferant.findFirst({
+          where: {
+            lieferantId,
+            OR: [
+              { lieferantenArtNr: artNr },
+              { artikel: { artikelnummer: artNr } },
+            ],
+          },
+          include: { artikel: { select: artikelSafeSelect } },
+        });
 
-    // Kein bestehender Link für diesen Lieferanten — Artikel trotzdem suchen und neu verknüpfen
-    if (!zuordnung) {
-      const artikel = await prisma.artikel.findFirst({
-        where: {
-          OR: [
-            { artikelnummer: artNr },
-            { lieferanten: { some: { lieferantenArtNr: artNr } } },
-          ],
-        },
-        select: { ...artikelSafeSelect, id: true },
-      });
-      if (!artikel) continue;
+        // Kein bestehender Link für diesen Lieferanten — Artikel trotzdem suchen und neu verknüpfen
+        if (!zuordnung) {
+          const artikel = await prisma.artikel.findFirst({
+            where: {
+              OR: [
+                { artikelnummer: artNr },
+                { lieferanten: { some: { lieferantenArtNr: artNr } } },
+              ],
+            },
+            select: { ...artikelSafeSelect, id: true },
+          });
+          if (!artikel) continue;
 
-      const neueZuordnung = await prisma.artikelLieferant.create({
-        data: {
-          artikelId: artikel.id,
-          lieferantId,
-          lieferantenArtNr: artNr,
-          einkaufspreis: neuerPreis,
-          mindestbestellmenge: 1,
-          lieferzeitTage: 7,
-          bevorzugt: false,
-        },
-        include: { artikel: { select: artikelSafeSelect } },
-      });
-      zuordnung = neueZuordnung;
+          const neueZuordnung = await prisma.artikelLieferant.create({
+            data: {
+              artikelId: artikel.id,
+              lieferantId,
+              lieferantenArtNr: artNr,
+              einkaufspreis: neuerPreis,
+              mindestbestellmenge: 1,
+              lieferzeitTage: 7,
+              bevorzugt: false,
+            },
+            include: { artikel: { select: artikelSafeSelect } },
+          });
+          zuordnung = neueZuordnung;
+        }
+
+        vorschlaege.push({
+          artikelLieferantId: zuordnung.id,
+          artikelId: zuordnung.artikelId,
+          artikelnummer: zuordnung.artikel.artikelnummer,
+          artikelName: zuordnung.artikel.name,
+          alterPreis: zuordnung.einkaufspreis,
+          neuerPreis,
+          differenz: Math.round((neuerPreis - zuordnung.einkaufspreis) * 100) / 100,
+        });
+      } catch (rowErr) {
+        console.error("Preislisten-Import Zeilenfehler für Artikelnummer:", artNr, rowErr);
+        // Einzelne fehlerhafte Zeile überspringen, restlichen Import fortsetzen
+      }
     }
 
-    vorschlaege.push({
-      artikelLieferantId: zuordnung.id,
-      artikelId: zuordnung.artikelId,
-      artikelnummer: zuordnung.artikel.artikelnummer,
-      artikelName: zuordnung.artikel.name,
-      alterPreis: zuordnung.einkaufspreis,
-      neuerPreis,
-      differenz: Math.round((neuerPreis - zuordnung.einkaufspreis) * 100) / 100,
-    });
+    return NextResponse.json(vorschlaege);
+  } catch (err) {
+    console.error("Preislisten-Import POST error:", err);
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json(vorschlaege);
 }
 
 // PUT: Bestätigte Preise übernehmen
 export async function PUT(req: NextRequest) {
-  const { updates } = await req.json();
-  // updates: Array von { artikelLieferantId, neuerPreis }
+  const isDev = process.env.NODE_ENV === "development";
+  try {
+    const { updates } = await req.json();
+    // updates: Array von { artikelLieferantId, neuerPreis }
 
-  let aktualisiert = 0;
-  for (const u of updates) {
-    await prisma.artikelLieferant.update({
-      where: { id: u.artikelLieferantId },
-      data: { einkaufspreis: u.neuerPreis },
-    });
-    aktualisiert++;
+    let aktualisiert = 0;
+    const fehlgeschlagen: { artikelLieferantId: number; error: string }[] = [];
+    for (const u of updates) {
+      try {
+        await prisma.artikelLieferant.update({
+          where: { id: u.artikelLieferantId },
+          data: { einkaufspreis: u.neuerPreis },
+        });
+        aktualisiert++;
+      } catch (rowErr) {
+        console.error("Preislisten-Import PUT Fehler für ArtikelLieferant:", u.artikelLieferantId, rowErr);
+        const message = isDev && rowErr instanceof Error ? rowErr.message : "Preis konnte nicht aktualisiert werden";
+        fehlgeschlagen.push({ artikelLieferantId: u.artikelLieferantId, error: message });
+      }
+    }
+    return NextResponse.json({ aktualisiert, fehlgeschlagen: fehlgeschlagen.length, fehler: fehlgeschlagen });
+  } catch (err) {
+    console.error("Preislisten-Import PUT error:", err);
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  return NextResponse.json({ aktualisiert });
 }

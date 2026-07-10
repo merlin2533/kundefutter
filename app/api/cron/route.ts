@@ -117,10 +117,11 @@ async function jobDigestEmail(): Promise<JobResult> {
       durationMs: Date.now() - t0,
     };
   } catch (err) {
+    const isDev = process.env.NODE_ENV === "development";
     return {
       job: "digest",
       ok: false,
-      error: err instanceof Error ? err.message : "Unbekannter Fehler",
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
       durationMs: Date.now() - t0,
     };
   }
@@ -160,10 +161,11 @@ async function jobPegelstaende(): Promise<JobResult> {
       durationMs: Date.now() - t0,
     };
   } catch (err) {
+    const isDev = process.env.NODE_ENV === "development";
     return {
       job: "pegelstaende",
       ok: false,
-      error: err instanceof Error ? err.message : "Unbekannter Fehler",
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
       durationMs: Date.now() - t0,
     };
   }

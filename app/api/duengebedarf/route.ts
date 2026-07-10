@@ -130,7 +130,8 @@ export async function POST(req: NextRequest) {
     try {
       ergebnis = berechneDuengebedarf(eingaben);
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
+      const isDevCalc = process.env.NODE_ENV === "development";
+      return NextResponse.json({ error: isDevCalc && err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
     }
 
     if (body.speichern) {
@@ -214,7 +215,8 @@ export async function PUT(req: NextRequest) {
     try {
       ergebnis = berechneDuengebedarf(eingaben);
     } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
+      const isDevCalc = process.env.NODE_ENV === "development";
+      return NextResponse.json({ error: isDevCalc && err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
     }
 
     const jahr = parseInt(String(body.jahr ?? new Date().getFullYear()), 10);

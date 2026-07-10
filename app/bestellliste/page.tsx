@@ -36,10 +36,19 @@ export default function BestelllistePage() {
   async function load() {
     setLoading(true);
     const param = statusFilter === "alle" ? "alle" : statusFilter;
-    const res = await fetch(`/api/bestellliste?status=${param}`);
-    const data = await res.json();
-    setPositionen(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/bestellliste?status=${param}`);
+      if (!res.ok) {
+        setPositionen([]);
+        return;
+      }
+      const data = await res.json();
+      setPositionen(Array.isArray(data) ? data : []);
+    } catch {
+      setPositionen([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, [statusFilter]);

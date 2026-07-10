@@ -867,7 +867,8 @@ function SachkundenachweiseWidget() {
     return Math.ceil((new Date(bis).getTime() - Date.now()) / 86400000);
   }
 
-  function ampelColor(tage: number): string {
+  // Schwellenwerte für allgemeine Sachkundenachweise (weniger streng als Sprengstoff, siehe ampelColorSprengstoff unten).
+  function ampelColorSachkunde(tage: number): string {
     if (tage <= 14) return "text-red-700 bg-red-100";
     if (tage <= 30) return "text-yellow-700 bg-yellow-100";
     return "text-amber-700 bg-amber-100";
@@ -901,7 +902,7 @@ function SachkundenachweiseWidget() {
                   {item.gueltigBis && (
                     <span className="text-xs text-gray-400">{formatDatum(item.gueltigBis)}</span>
                   )}
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColor(tage)}`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColorSachkunde(tage)}`}>
                     {tage <= 0 ? "Abgelaufen" : `${tage} Tage`}
                   </span>
                 </div>
@@ -953,7 +954,9 @@ function SprengstoffNachweiseWidget() {
     return Math.ceil((new Date(bis).getTime() - Date.now()) / 86400000);
   }
 
-  function ampelColor(tage: number): string {
+  // Sprengstoff-Sachkunde unterliegt strengerer Vorlauffrist als allgemeine Sachkundenachweise
+  // (siehe ampelColorSachkunde oben) — daher eigene, früher greifende Schwellenwerte.
+  function ampelColorSprengstoff(tage: number): string {
     if (tage <= 0) return "text-red-700 bg-red-100";
     if (tage <= 30) return "text-red-700 bg-red-100";
     if (tage <= 60) return "text-yellow-700 bg-yellow-100";
@@ -986,7 +989,7 @@ function SprengstoffNachweiseWidget() {
                   <p className="text-xs text-gray-500">{item.gueltigBis ? new Date(item.gueltigBis).toLocaleDateString("de-DE") : "Kein Datum"}</p>
                 </Link>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColor(tage)}`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${ampelColorSprengstoff(tage)}`}>
                     {tage <= 0 ? "Abgelaufen" : `${tage} Tage`}
                   </span>
                   {taskCreated[item.id] ? (

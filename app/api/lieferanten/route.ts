@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { artikelZuordnungen: true } },
       },
       orderBy: { name: "asc" },
+      take: 500,
     });
     return NextResponse.json(lieferanten);
   } catch {

@@ -40,7 +40,8 @@ export async function GET(request: Request) {
         JOIN Artikel a ON a.id = lp.artikelId
         WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum <= ?
         GROUP BY lp.artikelId, a.name, a.kategorie
-        ORDER BY umsatz DESC`,
+        ORDER BY umsatz DESC
+        LIMIT 1000`,
         vonDate, bisDate, vonDate, bisDate
       );
       items = rows.map((r) => {
@@ -78,7 +79,8 @@ export async function GET(request: Request) {
         JOIN Kunde k ON k.id = l.kundeId
         WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum <= ?
         GROUP BY l.kundeId, k.name, k.firma
-        ORDER BY umsatz DESC`,
+        ORDER BY umsatz DESC
+        LIMIT 1000`,
         vonDate, bisDate, vonDate, bisDate
       );
       items = rows.map((r) => {

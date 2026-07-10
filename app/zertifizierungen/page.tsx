@@ -45,10 +45,19 @@ function ZertifizierungContent() {
     setLoading(true);
     const params = new URLSearchParams();
     if (filterTyp) params.set("typ", filterTyp);
-    const res = await fetch(`/api/zertifizierungen?${params}`);
-    const d = await res.json();
-    setZertifizierungen(Array.isArray(d) ? d : []);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/zertifizierungen?${params}`);
+      if (!res.ok) {
+        setZertifizierungen([]);
+        return;
+      }
+      const d = await res.json();
+      setZertifizierungen(Array.isArray(d) ? d : []);
+    } catch {
+      setZertifizierungen([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

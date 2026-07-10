@@ -145,10 +145,12 @@ export async function GET(request: NextRequest) {
       prisma.marktpreisCache.findMany({
         where: inputWhere,
         orderBy: [{ produktCode: "asc" }, { zeitraum: "desc" }],
+        take: 5000,
       }),
       prisma.marktpreisCache.findMany({
         where: { dataset: "apri_pi15_outq" },
         orderBy: [{ produktCode: "asc" }, { zeitraum: "desc" }],
+        take: 5000,
       }),
     ]);
 
