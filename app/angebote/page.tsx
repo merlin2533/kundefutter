@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import Pagination from "@/components/Pagination";
+import { ErrorState } from "@/components/ErrorState";
 
 interface AngebotListItem {
   id: number;
@@ -41,17 +43,33 @@ export default function AngebotePage() {
   const [search, setSearch] = useState<string>("");
   const [searchInput, setSearchInput] = useState<string>("");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 100;
 
-  useEffect(() => {
+  const load = useCallback((pageNum: number) => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (statusFilter !== "alle") params.set("status", statusFilter);
     if (search) params.set("search", search);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("page", String(pageNum));
     fetch(`/api/angebote?${params.toString()}`)
-      .then((r) => r.json())
-      .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .then((r) => { if (!r.ok) { setFetchError(`Serverfehler ${r.status}`); setLoading(false); return Promise.reject(); } return r.json(); })
+      .then((json) => {
+        setAngebote(Array.isArray(json.data) ? json.data : []);
+        setTotal(typeof json.total === "number" ? json.total : 0);
+        setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
+        setLoading(false);
+      })
+      .catch(() => { setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden"); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, search]);
+
+  useEffect(() => { setPage(1); load(1); }, [load]);
 
   // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {
@@ -82,7 +100,7 @@ export default function AngebotePage() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </Link>
           </span>
-          <p className="text-sm text-gray-500 mt-0.5">{angebote.length} Angebote gefunden</p>
+          <p className="text-sm text-gray-500 mt-0.5">{total || angebote.length} Angebote gefunden</p>
         </div>
         <Link
           href="/angebote/neu"
@@ -139,7 +157,9 @@ export default function AngebotePage() {
       </div>
 
       {/* Table */}
-      {loading ? (
+      {fetchError ? (
+        <ErrorState message={fetchError} onRetry={() => load(page)} />
+      ) : loading ? (
         <div className="text-center py-16 text-gray-400">Lade…</div>
       ) : angebote.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-gray-200 rounded-xl text-gray-400">
@@ -212,6 +232,15 @@ export default function AngebotePage() {
             </table>
           </div>
         </div>
+      )}
+
+      {!fetchError && !loading && total > PAGE_SIZE && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => { setPage(p); load(p); }}
+          info={`${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total}`}
+        />
       )}
     </div>
   );

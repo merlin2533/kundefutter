@@ -39,18 +39,66 @@ const PUBLIC_PATHS = [
   "/api/cron",       // Cron-Endpunkt: Auth via CRON_SECRET im Handler
   "/portal/login",
   "/api/portal/auth/",
+  "/api/kontakt",    // Öffentliches Kontaktformular (Marketing-Website), eigene CSRF/Rate-Limit-Absicherung
 ];
 
+// Prefix-Match mit Pfadgrenze: "/api/kontakt" matcht "/api/kontakt" und
+// "/api/kontakt/foo", NICHT aber "/api/kontaktdaten" (verhindert versehentlich
+// zu breite Public-/CSRF-Exempt-Treffer bei künftigen Routen mit gleichem Präfix).
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : prefix + "/");
+}
+
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+  return PUBLIC_PATHS.some((p) => matchesPathPrefix(pathname, p));
 }
 
 function isPortalPath(pathname: string): boolean {
   return pathname.startsWith("/portal/") || pathname.startsWith("/api/portal/");
 }
 
+const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+// Endpunkte, die absichtlich von fremden Origins aufgerufen werden (z.B. externe
+// Marketing-Website) und daher nicht am Origin-Header gemessen werden können.
+// Diese Endpunkte müssen eigene CSRF-/Rate-Limit-Absicherung mitbringen.
+const ORIGIN_CHECK_EXEMPT_PATHS = ["/api/kontakt"];
+
+function isOriginCheckExempt(pathname: string): boolean {
+  return ORIGIN_CHECK_EXEMPT_PATHS.some((p) => matchesPathPrefix(pathname, p));
+}
+
+/**
+ * Grober CSRF-Schutz: Bei state-ändernden Requests gegen /api/* muss der
+ * Origin-Header (falls vom Client gesendet) zum Host passen. Fehlt der
+ * Origin-Header (z.B. curl, Server-zu-Server, ältere Browser) wird
+ * durchgelassen — das ist kein vollständiger CSRF-Schutz, verhindert aber
+ * klassische Cross-Site-Form-/Fetch-Angriffe moderner Browser zuverlässig.
+ */
+function originMismatch(req: NextRequest, pathname: string): boolean {
+  if (!pathname.startsWith("/api/")) return false;
+  if (!STATE_CHANGING_METHODS.has(req.method)) return false;
+  if (isOriginCheckExempt(pathname)) return false;
+
+  const origin = req.headers.get("origin");
+  if (!origin) return false;
+
+  const host = req.headers.get("host");
+  if (!host) return false;
+
+  try {
+    return new URL(origin).host !== host;
+  } catch {
+    return true;
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (originMismatch(req, pathname)) {
+    return NextResponse.json({ error: "Ungültiger Origin" }, { status: 403 });
+  }
 
   if (isPublic(pathname)) {
     return NextResponse.next();

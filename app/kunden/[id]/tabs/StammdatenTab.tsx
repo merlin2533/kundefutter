@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatDatum } from "@/lib/utils";
+import { formatDatum, formatEuro } from "@/lib/utils";
 import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
 import KontakteTab from "./KontakteTab";
 
@@ -209,7 +209,7 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
           <InfoRow label="USt-IdNr." value={kunde.ustIdNr} />
           <InfoRow
             label="Kreditlimit (€)"
-            value={kunde.kreditlimit != null ? kunde.kreditlimit.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "Kein Limit"}
+            value={kunde.kreditlimit != null ? formatEuro(kunde.kreditlimit) : "Kein Limit"}
           />
           <InfoRow label="Sachkunde-Nr." value={kunde.sachkundeNr} />
           <div>

@@ -290,9 +290,14 @@ export default function UmbuchungenPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Datum", "Artikel", "Von → Nach", "Notiz"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    {h}
+                {[
+                  { label: "Datum" },
+                  { label: "Artikel" },
+                  { label: "Von → Nach" },
+                  { label: "Notiz", cls: "hidden sm:table-cell" },
+                ].map(({ label, cls }) => (
+                  <th key={label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${cls ?? ""}`}>
+                    {label}
                   </th>
                 ))}
               </tr>
@@ -300,7 +305,10 @@ export default function UmbuchungenPage() {
             <tbody className="divide-y divide-gray-100">
               {umbuchungen.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap text-gray-600">{formatDatum(u.datum)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                    {formatDatum(u.datum)}
+                    {u.notiz && <div className="sm:hidden text-xs text-gray-500 mt-0.5">{u.notiz}</div>}
+                  </td>
                   <td className="px-4 py-3 font-medium text-gray-900">{u.artikel.name}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-sm">
@@ -313,7 +321,7 @@ export default function UmbuchungenPage() {
                       </span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-sm">{u.notiz ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 text-sm hidden sm:table-cell">{u.notiz ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

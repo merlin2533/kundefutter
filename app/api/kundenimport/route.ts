@@ -111,27 +111,34 @@ export async function POST(req: NextRequest) {
   }
 
   // Batch duplicate check
-  const namen = eintraege.map((e) => e.name);
-  const existierende = await prisma.kunde.findMany({
-    where: { name: { in: namen } },
-    select: { id: true, name: true },
-    take: 5000,
-  });
-  const existierendeMap = new Map(existierende.map((k) => [k.name, k.id]));
+  try {
+    const namen = eintraege.map((e) => e.name);
+    const existierende = await prisma.kunde.findMany({
+      where: { name: { in: namen } },
+      select: { id: true, name: true },
+      take: 5000,
+    });
+    const existierendeMap = new Map(existierende.map((k) => [k.name, k.id]));
 
-  const vorschau: typeof eintraege = [];
-  const duplikate: (typeof eintraege[number] & { existierendeId: number })[] = [];
+    const vorschau: typeof eintraege = [];
+    const duplikate: (typeof eintraege[number] & { existierendeId: number })[] = [];
 
-  for (const eintrag of eintraege) {
-    const existierendeId = existierendeMap.get(eintrag.name);
-    if (existierendeId !== undefined) {
-      duplikate.push({ ...eintrag, existierendeId });
-    } else {
-      vorschau.push(eintrag);
+    for (const eintrag of eintraege) {
+      const existierendeId = existierendeMap.get(eintrag.name);
+      if (existierendeId !== undefined) {
+        duplikate.push({ ...eintrag, existierendeId });
+      } else {
+        vorschau.push(eintrag);
+      }
     }
-  }
 
-  return NextResponse.json({ vorschau, duplikate });
+    return NextResponse.json({ vorschau, duplikate });
+  } catch (err) {
+    console.error("Kundenimport POST error:", err);
+    const isDev = process.env.NODE_ENV === "development";
+    const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 // PUT: Bestätigte Kunden anlegen
@@ -158,54 +165,62 @@ export async function PUT(req: NextRequest) {
     }[];
   };
 
+  const isDev = process.env.NODE_ENV === "development";
   let angelegt = 0;
+  const fehlgeschlagen: { name: string; error: string }[] = [];
 
   for (const k of kunden) {
-    const kontakte: { typ: string; wert: string; vorname?: string; nachname?: string }[] = [];
-    let nameGesetzt = false;
+    try {
+      const kontakte: { typ: string; wert: string; vorname?: string; nachname?: string }[] = [];
+      let nameGesetzt = false;
 
-    if (k.telefon) {
-      kontakte.push({ typ: "telefon", wert: k.telefon, vorname: k.vorname ?? undefined, nachname: k.name });
-      nameGesetzt = true;
-    }
-    if (k.mobil) {
-      kontakte.push({
-        typ: "mobil",
-        wert: k.mobil,
-        vorname: !nameGesetzt ? (k.vorname ?? undefined) : undefined,
-        nachname: !nameGesetzt ? k.name : undefined,
-      });
-      nameGesetzt = true;
-    }
-    if (k.fax) {
-      kontakte.push({ typ: "fax", wert: k.fax });
-    }
-    if (k.email) {
-      kontakte.push({
-        typ: "email",
-        wert: k.email,
-        vorname: !nameGesetzt ? (k.vorname ?? undefined) : undefined,
-        nachname: !nameGesetzt ? k.name : undefined,
-      });
-    }
+      if (k.telefon) {
+        kontakte.push({ typ: "telefon", wert: k.telefon, vorname: k.vorname ?? undefined, nachname: k.name });
+        nameGesetzt = true;
+      }
+      if (k.mobil) {
+        kontakte.push({
+          typ: "mobil",
+          wert: k.mobil,
+          vorname: !nameGesetzt ? (k.vorname ?? undefined) : undefined,
+          nachname: !nameGesetzt ? k.name : undefined,
+        });
+        nameGesetzt = true;
+      }
+      if (k.fax) {
+        kontakte.push({ typ: "fax", wert: k.fax });
+      }
+      if (k.email) {
+        kontakte.push({
+          typ: "email",
+          wert: k.email,
+          vorname: !nameGesetzt ? (k.vorname ?? undefined) : undefined,
+          nachname: !nameGesetzt ? k.name : undefined,
+        });
+      }
 
-    await prisma.kunde.create({
-      data: {
-        name: k.name,
-        firma: k.firma ?? null,
-        kategorie: k.kategorie ?? "Sonstige",
-        strasse: k.strasse ?? null,
-        plz: k.plz ?? null,
-        ort: k.ort ?? null,
-        land: k.land ?? "Deutschland",
-        notizen: k.notizen ?? null,
-        ustIdNr: k.ustIdNr ?? null,
-        betriebsnummer: k.betriebsnummer ?? null,
-        kontakte: kontakte.length ? { create: kontakte } : undefined,
-      },
-    });
-    angelegt++;
+      await prisma.kunde.create({
+        data: {
+          name: k.name,
+          firma: k.firma ?? null,
+          kategorie: k.kategorie ?? "Sonstige",
+          strasse: k.strasse ?? null,
+          plz: k.plz ?? null,
+          ort: k.ort ?? null,
+          land: k.land ?? "Deutschland",
+          notizen: k.notizen ?? null,
+          ustIdNr: k.ustIdNr ?? null,
+          betriebsnummer: k.betriebsnummer ?? null,
+          kontakte: kontakte.length ? { create: kontakte } : undefined,
+        },
+      });
+      angelegt++;
+    } catch (err) {
+      console.error("Kundenimport PUT error für Kunde:", k.name, err);
+      const message = isDev && err instanceof Error ? err.message : "Kunde konnte nicht angelegt werden";
+      fehlgeschlagen.push({ name: k.name, error: message });
+    }
   }
 
-  return NextResponse.json({ angelegt });
+  return NextResponse.json({ angelegt, fehlgeschlagen: fehlgeschlagen.length, fehler: fehlgeschlagen });
 }

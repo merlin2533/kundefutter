@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { verifyToken, generateToken } from "@/lib/csrf";
+import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,22 +9,8 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-// Simple in-memory rate limiter: max 3 submissions per IP per hour
-const rateLimitMap = new Map<string, { count: number; first: number }>();
-const RATE_LIMIT = 3;
-const RATE_WINDOW_MS = 60 * 60 * 1000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now - entry.first > RATE_WINDOW_MS) {
-    rateLimitMap.set(ip, { count: 1, first: now });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
+// Rate limiter: max 3 Einsendungen pro IP pro Stunde
+const kontaktRateLimiter = createRateLimiter({ limit: 3, windowMs: 60 * 60 * 1000 });
 
 function clean(s: string, max = 200): string {
   return s.replace(/<[^>]*>/g, "").trim().slice(0, max);
@@ -58,8 +45,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Rate limiting
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? req.headers.get("x-real-ip") ?? "unknown";
-  if (!checkRateLimit(ip)) {
+  const ip = getClientIp(req);
+  if (!kontaktRateLimiter.check(ip)) {
     return json({ ok: false, error: "Zu viele Anfragen. Bitte warten Sie eine Stunde." }, 429);
   }
 

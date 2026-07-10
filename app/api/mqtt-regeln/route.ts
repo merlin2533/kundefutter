@@ -8,6 +8,7 @@ export async function GET() {
   try {
     const regeln = await prisma.mqttRegel.findMany({
       orderBy: { createdAt: "asc" },
+      take: 500,
     });
     return NextResponse.json(regeln);
   } catch {

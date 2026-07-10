@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
+import { formatEuro, formatDatum } from "@/lib/utils";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -34,14 +35,6 @@ interface Ausgabe {
   ausleger: string | null;
   erfasstVon: string | null;
   bezahltVon: string | null;
-}
-
-function formatEuro(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function formatDatum(d: string) {
-  return new Date(d).toLocaleDateString("de-DE");
 }
 
 function AusgabenContent() {

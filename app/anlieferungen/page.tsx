@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { formatDatum, formatMenge } from "@/lib/utils";
 
 interface Anlieferung {
   id: number;
@@ -22,10 +23,6 @@ interface Anlieferung {
 function euro(n: number | null | undefined): string {
   if (n == null) return "—";
   return n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
-}
-
-function datumStr(iso: string): string {
-  return new Date(iso).toLocaleDateString("de-DE");
 }
 
 function AnlieferungenInner() {
@@ -181,7 +178,7 @@ function AnlieferungenInner() {
               {gefiltert.map((a) => (
                 <tr key={a.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{a.nummer}</td>
-                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{datumStr(a.datum)}</td>
+                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDatum(a.datum)}</td>
                   <td className="px-4 py-3 font-medium">
                     <Link href={`/kunden/${a.kunde.id}`} className="hover:text-green-700 hover:underline">
                       {a.kunde.firma ?? a.kunde.name}
@@ -189,7 +186,7 @@ function AnlieferungenInner() {
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{a.artikel.name}</td>
                   <td className="px-4 py-3 text-right font-mono">
-                    {a.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 })} {a.einheit}
+                    {formatMenge(a.menge)} {a.einheit}
                   </td>
                   <td className="px-4 py-3 text-right text-gray-500 hidden sm:table-cell">
                     {a.feuchte != null ? `${a.feuchte} %` : "—"}
@@ -233,7 +230,7 @@ function AnlieferungenInner() {
                   Gesamt ({gefiltert.length})
                 </td>
                 <td className="px-4 py-3 text-right font-mono font-semibold">
-                  {gesamtMenge.toLocaleString("de-DE", { maximumFractionDigits: 3 })} t
+                  {formatMenge(gesamtMenge)} t
                 </td>
                 <td colSpan={2} className="hidden sm:table-cell" />
                 <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">{euro(gesamtBetrag)}</td>

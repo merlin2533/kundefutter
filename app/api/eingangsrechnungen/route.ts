@@ -22,14 +22,36 @@ export async function GET(req: NextRequest) {
     where.status = status;
   }
 
+  const include = { lieferant: { select: { id: true, name: true } } };
+
+  // Abwärtskompatibel: Nur wenn ?page= explizit mitgeschickt wird, liefern wir das
+  // paginierte Format { data, total, page, limit, totalPages }. Ohne ?page= bleibt die
+  // Response ein nacktes Array (z.B. finanzen/cashflow verlässt sich darauf).
+  const pageParam = searchParams.get("page");
+  const usePagination = pageParam !== null;
+  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const page = usePagination ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
   try {
+    if (usePagination) {
+      const [list, total] = await Promise.all([
+        prisma.eingangsRechnung.findMany({
+          where,
+          include,
+          orderBy: { datum: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.eingangsRechnung.count({ where }),
+      ]);
+      return NextResponse.json({ data: list, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
+    }
+
     const list = await prisma.eingangsRechnung.findMany({
       where,
-      include: {
-        lieferant: { select: { id: true, name: true } },
-      },
+      include,
       orderBy: { datum: "desc" },
-      take: 200,
+      take: limit,
     });
     return NextResponse.json(list);
   } catch (err) {

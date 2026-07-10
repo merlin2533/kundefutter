@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatEuro, formatDatum } from "@/lib/utils";
 
 interface Kontostand {
   offen: number;
@@ -24,14 +25,6 @@ interface Lieferung {
   status: string;
   notiz: string | null;
   positionenAnzahl: number;
-}
-
-function formatEuro(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function formatDatum(s: string) {
-  return new Date(s).toLocaleDateString("de-DE");
 }
 
 export default function PortalDashboard() {

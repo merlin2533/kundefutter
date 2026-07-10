@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { MargeBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
+import Pagination from "@/components/Pagination";
+import { ErrorState } from "@/components/ErrorState";
 
 interface Lieferung {
   id: number;
@@ -58,6 +60,10 @@ export default function LieferungenPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 100;
 
   // Wiederkehrend state
   const [wiederkehrend, setWiederkehrend] = useState<WiederkehrendBedarf[]>([]);
@@ -67,7 +73,7 @@ export default function LieferungenPage() {
   const [faelligeAnzahl, setFaelligeAnzahl] = useState(0);
   const [wErfolgMsg, setWErfolgMsg] = useState("");
 
-  const fetchLieferungen = useCallback(async () => {
+  const fetchLieferungen = useCallback(async (pageNum = 1) => {
     setLoading(true);
     setFetchError(null);
     const params = new URLSearchParams();
@@ -76,6 +82,8 @@ export default function LieferungenPage() {
     if (bisFilter) params.set("bis", bisFilter);
     if (kundeSearch) params.set("search", kundeSearch);
     if (kundeIdFilter) params.set("kundeId", kundeIdFilter);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("page", String(pageNum));
     try {
       const res = await fetch(`/api/lieferungen?${params}`);
       if (!res.ok) {
@@ -83,8 +91,10 @@ export default function LieferungenPage() {
         setFetchError(d.error ?? `Serverfehler ${res.status}`);
         setLieferungen([]);
       } else {
-        const data = await res.json();
-        setLieferungen(Array.isArray(data) ? data : []);
+        const json = await res.json();
+        setLieferungen(Array.isArray(json.data) ? json.data : []);
+        setTotal(typeof json.total === "number" ? json.total : 0);
+        setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
       }
     } catch {
       setFetchError("Netzwerkfehler – Seite neu laden");
@@ -93,10 +103,19 @@ export default function LieferungenPage() {
     }
   }, [statusFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter]);
 
+  // Filter geändert → zurück auf Seite 1
   useEffect(() => {
-    const t = setTimeout(fetchLieferungen, 300);
+    const t = setTimeout(() => { setPage(1); fetchLieferungen(1); }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchLieferungen]);
+
+  const firstPageLoadRef = useRef(true);
+  useEffect(() => {
+    if (firstPageLoadRef.current) { firstPageLoadRef.current = false; return; }
+    fetchLieferungen(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   // Kunden-Filter aus URL übernehmen (Absprung aus der Kundenakte: ?kundeId=…&offen=1)
   useEffect(() => {
@@ -218,7 +237,7 @@ export default function LieferungenPage() {
     setDeletingId(id);
     try {
       await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
-      await fetchLieferungen();
+      await fetchLieferungen(page);
     } finally {
       setDeletingId(null);
     }
@@ -238,7 +257,7 @@ export default function LieferungenPage() {
         alert(d.error ?? "Status konnte nicht geändert werden");
         return;
       }
-      await fetchLieferungen();
+      await fetchLieferungen(page);
     } finally {
       setStatusChangingId(null);
     }
@@ -350,11 +369,12 @@ export default function LieferungenPage() {
             />
           </div>
 
+          {fetchError ? (
+            <ErrorState message={fetchError} onRetry={() => fetchLieferungen(page)} />
+          ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
             {loading ? (
               <p className="p-6 text-gray-400 text-sm">Lade…</p>
-            ) : fetchError ? (
-              <p className="p-6 text-red-600 text-sm">⚠ {fetchError}</p>
             ) : lieferungen.length === 0 ? (
               <p className="p-6 text-gray-400 text-sm">Keine Aufträge / Lieferscheine gefunden.</p>
             ) : (
@@ -497,6 +517,16 @@ export default function LieferungenPage() {
               </table>
             )}
           </div>
+          )}
+
+          {!fetchError && !loading && total > PAGE_SIZE && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              info={`${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total}`}
+            />
+          )}
         </>
       )}
 

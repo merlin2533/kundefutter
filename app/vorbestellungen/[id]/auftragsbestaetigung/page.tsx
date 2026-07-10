@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
+import { formatEuro } from "@/lib/utils";
 
 interface Position {
   id: number;
@@ -36,10 +37,6 @@ interface Vorbestellung {
     land?: string | null;
   };
   positionen: Position[];
-}
-
-function fmt(n: number): string {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
 
 function fmtDatum(d: string | null | undefined): string {
@@ -324,10 +321,10 @@ export default function AuftragsbestaetigungPage() {
                   </td>
                   <td style={{ padding: "6px 8px" }}>{pos.einheit}</td>
                   <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                    {fmt(preis)}
+                    {formatEuro(preis)}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "500" }}>
-                    {fmt(gesamt)}
+                    {formatEuro(gesamt)}
                   </td>
                 </tr>
               );
@@ -344,7 +341,7 @@ export default function AuftragsbestaetigungPage() {
                   <tr>
                     <td style={{ padding: "4px 10px", color: "#444" }}>Zwischensumme:</td>
                     <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
-                      {fmt(zwischensumme)}
+                      {formatEuro(zwischensumme)}
                     </td>
                   </tr>
                   <tr>
@@ -352,7 +349,7 @@ export default function AuftragsbestaetigungPage() {
                       Frühbezugsrabatt {vb.rabattProzent} %:
                     </td>
                     <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace", color: "#2d6a4f" }}>
-                      − {fmt(rabattBetrag)}
+                      − {formatEuro(rabattBetrag)}
                     </td>
                   </tr>
                 </>
@@ -362,7 +359,7 @@ export default function AuftragsbestaetigungPage() {
                   Netto gesamt:
                 </td>
                 <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold", fontSize: "12pt" }}>
-                  {fmt(gesamtNetto)}
+                  {formatEuro(gesamtNetto)}
                 </td>
               </tr>
             </tbody>

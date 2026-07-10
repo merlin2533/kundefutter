@@ -41,20 +41,15 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  try {
-    const angebote = await prisma.angebot.findMany({
-      where,
-      include: {
-        kunde: { select: { id: true, name: true, firma: true } },
-        positionen: {
-          include: { artikel: { select: { name: true, einheit: true, mwstSatz: true } } },
-        },
-      },
-      orderBy: { id: "desc" },
-      take: 200,
-    });
+  const include = {
+    kunde: { select: { id: true, name: true, firma: true } },
+    positionen: {
+      include: { artikel: { select: { name: true, einheit: true, mwstSatz: true } } },
+    },
+  };
 
-    const result = angebote.map((a) => {
+  function mapResult(angebote: Awaited<ReturnType<typeof prisma.angebot.findMany<{ include: typeof include }>>>) {
+    return angebote.map((a) => {
       const gesamtbetrag = a.positionen.reduce((sum, pos) => {
         const netto = pos.menge * pos.preis * (1 - pos.rabatt / 100);
         return sum + netto;
@@ -65,8 +60,38 @@ export async function GET(req: NextRequest) {
         positionenAnzahl: a.positionen.length,
       };
     });
+  }
 
-    return NextResponse.json(result);
+  // Abwärtskompatibel: Nur wenn ?page= explizit mitgeschickt wird, liefern wir das
+  // paginierte Format { data, total, page, limit, totalPages }. Ohne ?page= bleibt die
+  // Response ein nacktes Array (bestehende Aufrufer wie Nav-Suche, Kunden-Tabs).
+  const pageParam = searchParams.get("page");
+  const usePagination = pageParam !== null;
+  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const page = usePagination ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
+
+  try {
+    if (usePagination) {
+      const [angebote, total] = await Promise.all([
+        prisma.angebot.findMany({
+          where,
+          include,
+          orderBy: { id: "desc" },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.angebot.count({ where }),
+      ]);
+      return NextResponse.json({ data: mapResult(angebote), total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
+    }
+
+    const angebote = await prisma.angebot.findMany({
+      where,
+      include,
+      orderBy: { id: "desc" },
+      take: limit,
+    });
+    return NextResponse.json(mapResult(angebote));
   } catch {
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Angebote" }, { status: 500 });
   }

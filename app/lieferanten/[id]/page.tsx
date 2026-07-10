@@ -362,8 +362,8 @@ export default function LieferantDetailPage() {
                   ["Telefon", lieferant.telefon],
                   ["Straße", lieferant.strasse],
                   ["PLZ / Ort", [lieferant.plz, lieferant.ort].filter(Boolean).join(" ")],
-                  ["Frachtkosten", lieferant.frachtkosten > 0 ? lieferant.frachtkosten.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"],
-                  ["Mindestbestellwert", lieferant.mindestbestellwert > 0 ? lieferant.mindestbestellwert.toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"],
+                  ["Frachtkosten", lieferant.frachtkosten > 0 ? formatEuro(lieferant.frachtkosten) : "—"],
+                  ["Mindestbestellwert", lieferant.mindestbestellwert > 0 ? formatEuro(lieferant.mindestbestellwert) : "—"],
                   ["Notizen", lieferant.notizen],
                 ].map(([label, value]) => (
                   <div key={label as string}>

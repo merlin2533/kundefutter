@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import { formatEuro, formatZahl } from "@/lib/utils";
 
 interface Artikel {
   id: number;
@@ -52,10 +53,6 @@ interface PositionRow {
 }
 
 type Step = 1 | 2 | 3;
-
-function fmt(n: number) {
-  return n.toLocaleString("de-DE", { maximumFractionDigits: 2 });
-}
 
 export default function SammelbestellungPage() {
   const [step, setStep] = useState<Step>(1);
@@ -287,10 +284,7 @@ export default function SammelbestellungPage() {
               {selectedArtikel && (
                 <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
                   <strong>{selectedArtikel.name}</strong> · {selectedArtikel.einheit} ·{" "}
-                  {selectedArtikel.standardpreis.toLocaleString("de-DE", {
-                    style: "currency",
-                    currency: "EUR",
-                  })}{" "}
+                  {formatEuro(selectedArtikel.standardpreis)}{" "}
                   / {selectedArtikel.einheit}
                 </div>
               )}
@@ -422,7 +416,7 @@ export default function SammelbestellungPage() {
               <div className="bg-green-50 rounded-lg px-4 py-3 flex items-center justify-between">
                 <span className="text-sm text-green-800 font-medium">Gesamtmenge</span>
                 <span className="text-xl font-bold text-green-800">
-                  {fmt(gesamtMenge)} {selectedArtikel?.einheit}
+                  {formatZahl(gesamtMenge, 2)} {selectedArtikel?.einheit}
                 </span>
               </div>
 
@@ -462,7 +456,7 @@ export default function SammelbestellungPage() {
             <div className="flex justify-between py-1.5 border-b border-gray-100">
               <span className="text-gray-500">Gesamtmenge</span>
               <span className="text-xl font-bold text-green-700">
-                {fmt(gesamtMenge)} {selectedArtikel?.einheit}
+                {formatZahl(gesamtMenge, 2)} {selectedArtikel?.einheit}
               </span>
             </div>
           </div>
@@ -479,7 +473,7 @@ export default function SammelbestellungPage() {
                 >
                   <span className="text-gray-700">{p.kundeName}</span>
                   <span className="font-medium text-gray-800">
-                    {fmt(p.menge)} {selectedArtikel?.einheit}
+                    {formatZahl(p.menge, 2)} {selectedArtikel?.einheit}
                   </span>
                 </div>
               ))}

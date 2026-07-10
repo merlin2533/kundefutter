@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import Pagination from "@/components/Pagination";
+import { ErrorState } from "@/components/ErrorState";
 
 interface Lieferant {
   id: number;
@@ -62,6 +64,11 @@ function EingangsrechnungenListeInner() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
   const [lieferantId, setLieferantId] = useState(searchParams.get("lieferantId") ?? "");
   const [bezahlenId, setBezahlenId] = useState<number | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 100;
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
@@ -70,22 +77,29 @@ function EingangsrechnungenListeInner() {
       .catch(() => {});
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (pageNum: number) => {
     setLoading(true);
+    setFetchError(null);
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (lieferantId) params.set("lieferantId", lieferantId);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("page", String(pageNum));
     try {
       const res = await fetch(`/api/eingangsrechnungen?${params}`);
-      if (!res.ok) { setLoading(false); return; }
-      const d = await res.json();
-      setData(Array.isArray(d) ? d : []);
-    } catch { /* ignore */ } finally {
+      if (!res.ok) { setLoading(false); setFetchError(`Serverfehler ${res.status}`); return; }
+      const json = await res.json();
+      setData(Array.isArray(json.data) ? json.data : []);
+      setTotal(typeof json.total === "number" ? json.total : 0);
+      setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
+    } catch {
+      setFetchError("Netzwerkfehler – Seite neu laden");
+    } finally {
       setLoading(false);
     }
   }, [statusFilter, lieferantId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(1); fetchData(1); }, [fetchData]);
 
   const lieferantenOptions = lieferanten.map((l) => ({
     value: l.id,
@@ -165,6 +179,9 @@ function EingangsrechnungenListeInner() {
         )}
       </div>
 
+      {fetchError ? (
+        <ErrorState message={fetchError} onRetry={() => fetchData(page)} />
+      ) : (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <p className="p-6 text-gray-400 text-sm">Lade Eingangsrechnungen…</p>
@@ -236,6 +253,16 @@ function EingangsrechnungenListeInner() {
           </div>
         )}
       </div>
+      )}
+
+      {!fetchError && !loading && total > PAGE_SIZE && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => { setPage(p); fetchData(p); }}
+          info={`${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, total)} von ${total}`}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { KpiCard } from "@/components/Card";
+import { formatEuro, formatPercent } from "@/lib/utils";
 
 interface LieferantInfo {
   id: number;
@@ -32,14 +33,6 @@ interface KalkulationArtikel {
   potenzielleErsparnis: number;
 }
 
-function fmt(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function fmtPct(n: number) {
-  return n.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
-}
-
 function fmtDate(s: string) {
   if (!s) return "–";
   return new Date(s).toLocaleDateString("de-DE");
@@ -54,7 +47,7 @@ function MargeBadge({ pct }: { pct: number }) {
       : "bg-red-100 text-red-800";
   return (
     <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${color}`}>
-      {fmtPct(pct)}
+      {formatPercent(pct)}
     </span>
   );
 }
@@ -132,12 +125,12 @@ export default function KalkulationPage() {
         />
         <KpiCard
           label="Durchschnittliche Marge"
-          value={fmtPct(avgMarge)}
+          value={formatPercent(avgMarge)}
           color={avgMarge > 20 ? "green" : avgMarge >= 10 ? "yellow" : "red"}
         />
         <KpiCard
           label="Optimierungspotenzial"
-          value={fmt(gesamtErsparnis)}
+          value={formatEuro(gesamtErsparnis)}
           sub="potenzielle Ersparnis gesamt"
           color={gesamtErsparnis > 0 ? "green" : "blue"}
         />
@@ -215,21 +208,21 @@ export default function KalkulationPage() {
                         <div className="font-medium text-gray-900">{a.name}</div>
                         <div className="text-xs text-gray-400">{a.einheit}</div>
                       </td>
-                      <td className="px-4 py-3 font-mono">{fmt(a.einkaufspreis)}</td>
+                      <td className="px-4 py-3 font-mono">{formatEuro(a.einkaufspreis)}</td>
                       <td className="px-4 py-3 font-mono">
-                        {a.bestesEinkaufsAngebot !== null ? fmt(a.bestesEinkaufsAngebot) : "—"}
+                        {a.bestesEinkaufsAngebot !== null ? formatEuro(a.bestesEinkaufsAngebot) : "—"}
                       </td>
                       <td className="px-4 py-3 font-mono">
                         {a.potenzielleErsparnis > 0 ? (
                           <span className="text-green-700 font-semibold">
-                            {fmt(a.potenzielleErsparnis)}
+                            {formatEuro(a.potenzielleErsparnis)}
                           </span>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-mono">{fmt(a.verkaufspreis)}</td>
-                      <td className="px-4 py-3 font-mono">{fmt(a.marge)}</td>
+                      <td className="px-4 py-3 font-mono">{formatEuro(a.verkaufspreis)}</td>
+                      <td className="px-4 py-3 font-mono">{formatEuro(a.marge)}</td>
                       <td className="px-4 py-3">
                         <MargeBadge pct={a.margePercent} />
                       </td>
@@ -286,7 +279,7 @@ export default function KalkulationPage() {
                                             )}
                                           </td>
                                           <td className="px-3 py-2 font-mono">
-                                            {fmt(lp.einkaufspreis)}
+                                            {formatEuro(lp.einkaufspreis)}
                                           </td>
                                           <td className="px-3 py-2 text-gray-500">
                                             {fmtDate(lp.updatedAt)}
@@ -296,10 +289,10 @@ export default function KalkulationPage() {
                                               <span className="text-gray-400">—</span>
                                             ) : billiger ? (
                                               <span className="text-green-700 font-semibold">
-                                                {fmt(diff)} ✓ günstiger
+                                                {formatEuro(diff)} ✓ günstiger
                                               </span>
                                             ) : (
-                                              <span className="text-red-600">{fmt(diff)}</span>
+                                              <span className="text-red-600">{formatEuro(diff)}</span>
                                             )}
                                           </td>
                                           <td className="px-3 py-2 print:hidden">

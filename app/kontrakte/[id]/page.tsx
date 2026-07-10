@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 
 interface KontraktPosition {
   id: number;
@@ -234,7 +235,7 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                   {pos.preis != null && (
                     <span className="text-sm text-gray-600 whitespace-nowrap">
-                      {pos.preis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+                      {formatEuro(pos.preis)}
                     </span>
                   )}
                 </div>

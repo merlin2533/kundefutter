@@ -272,6 +272,7 @@ model ArtikelLieferant {
   lieferant Lieferant @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
 
   @@unique([artikelId, lieferantId])
+  @@index([lieferantId])
 }
 
 // Preishistorie: jede Änderung am Standardpreis wird versioniert
@@ -284,6 +285,9 @@ model ArtikelPreisHistorie {
   notiz       String?
 
   artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@index([artikelId])
+  @@index([geaendertAm])
 }
 
 // ─── PREISE & KONDITIONEN ─────────────────────────────────────────────────────
@@ -301,6 +305,7 @@ model KundeArtikelPreis {
   artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
 
   @@unique([kundeId, artikelId])
+  @@index([artikelId])
 }
 
 // ─── BEDARF (wiederkehrende Lieferungen) ──────────────────────────────────────
@@ -320,6 +325,7 @@ model KundeBedarf {
   artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
 
   @@unique([kundeId, artikelId])
+  @@index([artikelId])
 }
 
 // ─── LIEFERUNG ────────────────────────────────────────────────────────────────
@@ -401,6 +407,10 @@ model Wareneingang {
   lieferant       Lieferant              @relation(fields: [lieferantId], references: [id])
   positionen      WareineingangPosition[]
   lagerbewegungen Lagerbewegung[]
+
+  @@index([lieferantId])
+  @@index([datum])
+  @@index([lieferungId])
 }
 
 model WareineingangPosition {
@@ -525,6 +535,9 @@ model Sammelrechnung {
   skontoProzent Float?
   skontoTage    Int?
   skontoGenutzt Boolean  @default(false)
+
+  @@index([kundeId])
+  @@index([rechnungDatum])
 }
 
 // ─── BESTELLLISTE (Lieferanten-Bestellungen) ─────────────────────────────────
@@ -751,6 +764,9 @@ model GutschriftPosition {
 
   gutschrift   Gutschrift @relation(fields: [gutschriftId], references: [id], onDelete: Cascade)
   artikel      Artikel    @relation(fields: [artikelId], references: [id])
+
+  @@index([gutschriftId])
+  @@index([artikelId])
 }
 
 // ─── AUDIT-LOG ────────────────────────────────────────────────────────────────

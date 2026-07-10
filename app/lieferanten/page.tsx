@@ -29,12 +29,22 @@ export default function LieferantenPage() {
 
   const fetchLieferanten = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    const res = await fetch(`/api/lieferanten?${params}`);
-    const data = await res.json();
-    setLieferanten(data);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      const res = await fetch(`/api/lieferanten?${params}`);
+      if (!res.ok) {
+        setLieferanten([]);
+        setLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setLieferanten(Array.isArray(data) ? data : []);
+    } catch {
+      setLieferanten([]);
+    } finally {
+      setLoading(false);
+    }
   }, [search]);
 
   useEffect(() => {

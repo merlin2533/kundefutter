@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { formatEuro } from "@/lib/utils";
 
 interface AntragEmpfaenger {
   id: number;
@@ -33,7 +34,7 @@ interface Massnahme {
 }
 
 function formatEurAntrag(n: number) {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 });
+  return formatEuro(n);
 }
 
 function MassnahmenBadges({ json }: { json: string | null }) {
@@ -276,9 +277,18 @@ export default function AgrarantraegeePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Jahr", "Name / Gemeinde", "EGFL", "ELER", "Gesamt", "Maßnahmen", "Verknüpfung", ""].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                    {h}
+                {[
+                  { label: "Jahr" },
+                  { label: "Name / Gemeinde" },
+                  { label: "EGFL", cls: "hidden sm:table-cell" },
+                  { label: "ELER", cls: "hidden sm:table-cell" },
+                  { label: "Gesamt" },
+                  { label: "Maßnahmen", cls: "hidden md:table-cell" },
+                  { label: "Verknüpfung" },
+                  { label: "" },
+                ].map(({ label, cls }) => (
+                  <th key={label} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${cls ?? ""}`}>
+                    {label}
                   </th>
                 ))}
               </tr>
@@ -290,23 +300,35 @@ export default function AgrarantraegeePage() {
                     className={`border-b hover:bg-gray-50 transition-colors cursor-pointer ${expanded === item.id ? "bg-green-50" : ""}`}
                     onClick={() => setExpanded(expanded === item.id ? null : item.id)}
                   >
-                    <td className="px-4 py-3 font-mono text-xs font-medium">{item.haushaltsjahr}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-medium">
+                      {item.haushaltsjahr}
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5 font-sans">
+                        {(item.egflGesamt > 0 || item.elerGesamt > 0) && (
+                          <div>
+                            {item.egflGesamt > 0 && `EGFL ${formatEurAntrag(item.egflGesamt)}`}
+                            {item.egflGesamt > 0 && item.elerGesamt > 0 && " · "}
+                            {item.elerGesamt > 0 && `ELER ${formatEurAntrag(item.elerGesamt)}`}
+                          </div>
+                        )}
+                        <div className="md:hidden"><MassnahmenBadges json={item.massnahmen} /></div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">{item.name}</div>
                       {(item.plz || item.gemeinde) && (
                         <div className="text-xs text-gray-500">{[item.plz, item.gemeinde].filter(Boolean).join(" ")}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap hidden sm:table-cell">
                       {item.egflGesamt > 0 ? formatEurAntrag(item.egflGesamt) : "—"}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap hidden sm:table-cell">
                       {item.elerGesamt > 0 ? formatEurAntrag(item.elerGesamt) : "—"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-green-700 whitespace-nowrap">
                       {formatEurAntrag(item.gesamtBetrag)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       <MassnahmenBadges json={item.massnahmen} />
                     </td>
                     <td className="px-4 py-3">

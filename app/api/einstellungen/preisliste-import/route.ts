@@ -259,7 +259,18 @@ export async function POST(req: NextRequest) {
     let neueArtikelAngelegt = 0;
     let uebersprungen = 0;
 
-    // 1) Bestehende Artikel aktualisieren
+    // 1) Bestehende Artikel aktualisieren — Zuordnungen vorab per Bulk-findMany laden (kein N+1)
+    const updateArtikelIds = (body.updates ?? [])
+      .map((u) => Number(u.artikelId))
+      .filter((id) => Number.isFinite(id));
+    const bestehendeLinks = updateArtikelIds.length
+      ? await prisma.artikelLieferant.findMany({
+          where: { lieferantId, artikelId: { in: updateArtikelIds } },
+          select: { id: true, artikelId: true, einkaufspreis: true },
+        })
+      : [];
+    const linkByArtikelId = new Map(bestehendeLinks.map((l) => [l.artikelId, l]));
+
     for (const u of body.updates ?? []) {
       const artikelId = Number(u.artikelId);
       const ekNeu = Number(u.ekNeu);
@@ -268,10 +279,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const vorhanden = await prisma.artikelLieferant.findUnique({
-        where: { artikelId_lieferantId: { artikelId, lieferantId } },
-        select: { id: true, einkaufspreis: true },
-      });
+      const vorhanden = linkByArtikelId.get(artikelId);
 
       if (vorhanden) {
         if (vorhanden.einkaufspreis === ekNeu) {
@@ -284,7 +292,7 @@ export async function POST(req: NextRequest) {
         });
         aktualisiert++;
       } else {
-        await prisma.artikelLieferant.create({
+        const neuerLink = await prisma.artikelLieferant.create({
           data: {
             artikelId,
             lieferantId,
@@ -295,10 +303,31 @@ export async function POST(req: NextRequest) {
           },
         });
         neuZuordnung++;
+        linkByArtikelId.set(artikelId, { id: neuerLink.id, artikelId, einkaufspreis: ekNeu });
       }
     }
 
     // 2) Neue Artikel anlegen (mit Dublettenprüfung und Auto-Artikelnummer)
+    // Dublettenprüfung vorab per Bulk-findMany (kein N+1)
+    const neuArtikelNamen = (body.neueArtikel ?? [])
+      .map((a) => String(a.name ?? "").trim())
+      .filter(Boolean);
+    const vorhandeneArtikel = neuArtikelNamen.length
+      ? await prisma.artikel.findMany({
+          where: { name: { in: neuArtikelNamen } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const artikelIdByName = new Map(vorhandeneArtikel.map((a) => [a.name, a.id]));
+    const vorhandeneArtikelIds = vorhandeneArtikel.map((a) => a.id);
+    const vorhandeneLinksFuerNeu = vorhandeneArtikelIds.length
+      ? await prisma.artikelLieferant.findMany({
+          where: { lieferantId, artikelId: { in: vorhandeneArtikelIds } },
+          select: { id: true, artikelId: true, einkaufspreis: true },
+        })
+      : [];
+    const linkByVorhandenemArtikelId = new Map(vorhandeneLinksFuerNeu.map((l) => [l.artikelId, l]));
+
     for (const a of body.neueArtikel ?? []) {
       const name = String(a.name ?? "").trim();
       const ekNeu = Number(a.ekNeu);
@@ -307,18 +336,11 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Dublettenprüfung: Artikel mit gleichem Namen bereits vorhanden?
-      const vorhandenerArtikel = await prisma.artikel.findFirst({
-        where: { name: { equals: name } },
-        select: { id: true },
-      });
+      const vorhandenerArtikelId = artikelIdByName.get(name);
 
-      if (vorhandenerArtikel) {
+      if (vorhandenerArtikelId !== undefined) {
         // Artikel existiert bereits — nur EK-Preis aktualisieren/anlegen
-        const vorhandenerLink = await prisma.artikelLieferant.findUnique({
-          where: { artikelId_lieferantId: { artikelId: vorhandenerArtikel.id, lieferantId } },
-          select: { id: true, einkaufspreis: true },
-        });
+        const vorhandenerLink = linkByVorhandenemArtikelId.get(vorhandenerArtikelId);
         if (vorhandenerLink) {
           if (vorhandenerLink.einkaufspreis !== ekNeu) {
             await prisma.artikelLieferant.update({
@@ -330,9 +352,9 @@ export async function POST(req: NextRequest) {
             uebersprungen++;
           }
         } else {
-          await prisma.artikelLieferant.create({
+          const neuerLink = await prisma.artikelLieferant.create({
             data: {
-              artikelId: vorhandenerArtikel.id,
+              artikelId: vorhandenerArtikelId,
               lieferantId,
               einkaufspreis: ekNeu,
               mindestbestellmenge: 1,
@@ -341,34 +363,66 @@ export async function POST(req: NextRequest) {
             },
           });
           neuZuordnung++;
+          linkByVorhandenemArtikelId.set(vorhandenerArtikelId, { id: neuerLink.id, artikelId: vorhandenerArtikelId, einkaufspreis: ekNeu });
         }
         continue;
       }
 
-      const artikelnummer = await naechsteArtikelnummer();
-      await prisma.artikel.create({
-        data: {
-          artikelnummer,
-          name,
-          kategorie: "Sonstiges",
-          einheit: "Stück",
-          standardpreis: 0,
-          mwstSatz: 19,
-          mindestbestand: 0,
-          aktuellerBestand: 0,
-          liefergroesse: a.liefergroesse?.trim() || null,
-          lieferanten: {
-            create: [{
-              lieferantId,
-              einkaufspreis: ekNeu,
-              mindestbestellmenge: 1,
-              lieferzeitTage: 7,
-              bevorzugt: true,
-            }],
+      // Nummernvergabe + Create atomar in einer Transaktion, damit parallele Imports
+      // keine doppelten Artikelnummern erzeugen (Read-Modify-Write-Race vermeiden).
+      const neuerArtikel = await prisma.$transaction(async (tx) => {
+        const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
+        const nk = nummernkreisRaw?.value
+          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+          : null;
+        const prefix = nk?.prefix ?? "ART-";
+        const laenge = Number(nk?.laenge) || 5;
+        const naechste = Number(nk?.naechste) || 1;
+        const artikelnummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
+        await tx.einstellung.upsert({
+          where: { key: "artikel.nummernkreis" },
+          update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+          create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
+        });
+
+        return tx.artikel.create({
+          data: {
+            artikelnummer,
+            name,
+            kategorie: "Sonstiges",
+            einheit: "Stück",
+            standardpreis: 0,
+            mwstSatz: 19,
+            mindestbestand: 0,
+            aktuellerBestand: 0,
+            liefergroesse: a.liefergroesse?.trim() || null,
+            lieferanten: {
+              create: [{
+                lieferantId,
+                einkaufspreis: ekNeu,
+                mindestbestellmenge: 1,
+                lieferzeitTage: 7,
+                bevorzugt: true,
+              }],
+            },
           },
-        },
+          select: { id: true, name: true, lieferanten: { select: { id: true, einkaufspreis: true } } },
+        });
       });
       neueArtikelAngelegt++;
+      // Falls derselbe Name innerhalb desselben Batches erneut vorkommt (Dublette im Import),
+      // Map aktualisieren statt erneut anzulegen — inkl. des soeben angelegten
+      // ArtikelLieferant-Links, sonst schlägt der zweite Durchlauf mit einem
+      // Unique-Constraint-Fehler fehl (Link würde doppelt angelegt).
+      artikelIdByName.set(neuerArtikel.name, neuerArtikel.id);
+      const neuerLink = neuerArtikel.lieferanten[0];
+      if (neuerLink) {
+        linkByVorhandenemArtikelId.set(neuerArtikel.id, {
+          id: neuerLink.id,
+          artikelId: neuerArtikel.id,
+          einkaufspreis: neuerLink.einkaufspreis,
+        });
+      }
     }
 
     return NextResponse.json({
@@ -381,25 +435,4 @@ export async function POST(req: NextRequest) {
     console.error(e);
     return NextResponse.json({ error: "Import fehlgeschlagen" }, { status: 500 });
   }
-}
-
-// ─── Helpers: Artikelnummer auto-vergeben ────────────────────────────────────
-
-async function naechsteArtikelnummer(): Promise<string> {
-  const nummernkreisRaw = await prisma.einstellung.findUnique({
-    where: { key: "artikel.nummernkreis" },
-  });
-  const nk = nummernkreisRaw?.value
-    ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
-    : null;
-  const prefix = nk?.prefix ?? "ART-";
-  const laenge = Number(nk?.laenge) || 5;
-  const naechste = Number(nk?.naechste) || 1;
-  const nummer = `${prefix}${String(naechste).padStart(laenge, "0")}`;
-  await prisma.einstellung.upsert({
-    where: { key: "artikel.nummernkreis" },
-    update: { value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-    create: { key: "artikel.nummernkreis", value: JSON.stringify({ prefix, laenge, naechste: naechste + 1 }) },
-  });
-  return nummer;
 }

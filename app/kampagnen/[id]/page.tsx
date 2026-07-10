@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import { formatEuro } from "@/lib/utils";
 
 interface KampagneArtikel {
   id: number;
@@ -414,12 +415,12 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
                         </td>
                         <td className="px-4 py-3 text-right text-gray-600">
                           {a.artikel?.standardpreis != null
-                            ? a.artikel.standardpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })
+                            ? formatEuro(a.artikel.standardpreis)
                             : "—"}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-green-700">
                           {a.sonderpreis != null
-                            ? a.sonderpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })
+                            ? formatEuro(a.sonderpreis)
                             : "—"}
                         </td>
                       </tr>

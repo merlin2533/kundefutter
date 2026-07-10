@@ -30,10 +30,19 @@ export default function InventurPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/inventur");
-    const data = await res.json();
-    setInventuren(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/inventur");
+      if (!res.ok) {
+        setInventuren([]);
+        return;
+      }
+      const data = await res.json();
+      setInventuren(Array.isArray(data) ? data : []);
+    } catch {
+      setInventuren([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -73,12 +82,18 @@ export default function InventurPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["Datum", "Bezeichnung", "Status", "Artikel", ""].map((h) => (
+                {[
+                  { label: "Datum" },
+                  { label: "Bezeichnung" },
+                  { label: "Status" },
+                  { label: "Artikel", cls: "hidden sm:table-cell" },
+                  { label: "" },
+                ].map(({ label, cls }) => (
                   <th
-                    key={h}
-                    className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                    key={label}
+                    className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${cls ?? ""}`}
                   >
-                    {h}
+                    {label}
                   </th>
                 ))}
               </tr>
@@ -88,6 +103,7 @@ export default function InventurPage() {
                 <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                     {new Date(inv.datum).toLocaleDateString("de-DE")}
+                    <div className="sm:hidden text-xs text-gray-500 mt-0.5">{inv._count.positionen} Artikel</div>
                   </td>
                   <td className="px-4 py-3 text-gray-900 font-medium">
                     {inv.bezeichnung ?? <span className="text-gray-400 font-normal">—</span>}
@@ -95,7 +111,7 @@ export default function InventurPage() {
                   <td className="px-4 py-3">
                     <StatusBadge status={inv.status} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{inv._count.positionen}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{inv._count.positionen}</td>
                   <td className="px-4 py-3 flex gap-2 justify-end">
                     <Link
                       href={`/inventur/${inv.id}`}
