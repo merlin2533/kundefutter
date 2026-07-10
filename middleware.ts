@@ -42,8 +42,15 @@ const PUBLIC_PATHS = [
   "/api/kontakt",    // Öffentliches Kontaktformular (Marketing-Website), eigene CSRF/Rate-Limit-Absicherung
 ];
 
+// Prefix-Match mit Pfadgrenze: "/api/kontakt" matcht "/api/kontakt" und
+// "/api/kontakt/foo", NICHT aber "/api/kontaktdaten" (verhindert versehentlich
+// zu breite Public-/CSRF-Exempt-Treffer bei künftigen Routen mit gleichem Präfix).
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : prefix + "/");
+}
+
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+  return PUBLIC_PATHS.some((p) => matchesPathPrefix(pathname, p));
 }
 
 function isPortalPath(pathname: string): boolean {
@@ -58,7 +65,7 @@ const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const ORIGIN_CHECK_EXEMPT_PATHS = ["/api/kontakt"];
 
 function isOriginCheckExempt(pathname: string): boolean {
-  return ORIGIN_CHECK_EXEMPT_PATHS.some((p) => pathname === p || pathname.startsWith(p));
+  return ORIGIN_CHECK_EXEMPT_PATHS.some((p) => matchesPathPrefix(pathname, p));
 }
 
 /**

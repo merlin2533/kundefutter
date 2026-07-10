@@ -446,7 +446,9 @@ function BestellvorschlagTab({
               </tbody>
               <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                 <tr>
-                  <td colSpan={7} className="px-4 py-3 font-semibold text-gray-700">Gesamtwert</td>
+                  <td colSpan={4} className="px-4 py-3 font-semibold text-gray-700">Gesamtwert</td>
+                  <td colSpan={2} className="hidden sm:table-cell" />
+                  <td className="hidden md:table-cell" />
                   <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gruppeGesamtwert(gruppe))}</td>
                 </tr>
               </tfoot>

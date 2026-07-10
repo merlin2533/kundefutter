@@ -1213,9 +1213,10 @@ function KiLieferungWizard() {
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td colSpan={3} className="px-4 py-3 text-sm font-bold text-right text-gray-700">
+                  <td colSpan={2} className="px-4 py-3 text-sm font-bold text-right text-gray-700">
                     Gesamtsumme (netto)
                   </td>
+                  <td className="hidden sm:table-cell" />
                   <td className="px-4 py-3 text-right tabular-nums font-bold text-gray-900">
                     {gesamtsumme.toFixed(2)} €
                   </td>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search");
+  const take = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "500", 10) || 500));
 
   const where: Record<string, unknown> = { aktiv: true };
   if (search) {
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { artikelZuordnungen: true } },
       },
       orderBy: { name: "asc" },
-      take: 500,
+      take,
     });
     return NextResponse.json(lieferanten);
   } catch {

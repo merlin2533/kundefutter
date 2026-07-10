@@ -168,7 +168,7 @@ export function clearedCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     path: "/",
     maxAge: 0,
   };

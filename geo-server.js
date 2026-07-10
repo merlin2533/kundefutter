@@ -57,9 +57,13 @@ function waitForNextJs(retries, interval) {
 }
 
 // ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+// geo-server.js ist die internetzugewandte Kante (lauscht auf 0.0.0.0:PORT,
+// kein vertrauenswürdiger Reverse-Proxy davor) — ein Client könnte sonst per
+// selbstgesetztem X-Forwarded-For sowohl das Geoblocking als auch das
+// Rate-Limiting in lib/rate-limit.ts umgehen. Die einzig vertrauenswürdige
+// Quelle ist die TCP-Verbindung selbst.
 function clientIp(req) {
-  const fwd = req.headers['x-forwarded-for'];
-  return ((fwd ? fwd.split(',')[0] : (req.socket && req.socket.remoteAddress)) || '')
+  return ((req.socket && req.socket.remoteAddress) || '')
     .trim()
     .replace(/^::ffff:/, '');
 }
@@ -97,13 +101,18 @@ waitForNextJs().then(function() {
       return;
     }
 
+    // Echte Client-IP überschreiben statt ergänzen — verhindert, dass ein Client
+    // per selbstgesetztem X-Forwarded-For das Rate-Limiting in lib/rate-limit.ts
+    // (getClientIp liest x-forwarded-for) umgeht.
+    const proxyHeaders = Object.assign({}, req.headers, { 'x-forwarded-for': ip });
+
     const proxyReq = http.request(
       {
         hostname: '127.0.0.1',
         port:     NEXT_PORT,
         path:     req.url,
         method:   req.method,
-        headers:  req.headers,
+        headers:  proxyHeaders,
       },
       function(proxyRes) {
         res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);

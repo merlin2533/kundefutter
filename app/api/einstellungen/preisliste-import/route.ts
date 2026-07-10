@@ -406,13 +406,23 @@ export async function POST(req: NextRequest) {
               }],
             },
           },
-          select: { id: true, name: true },
+          select: { id: true, name: true, lieferanten: { select: { id: true, einkaufspreis: true } } },
         });
       });
       neueArtikelAngelegt++;
       // Falls derselbe Name innerhalb desselben Batches erneut vorkommt (Dublette im Import),
-      // Map aktualisieren statt erneut anzulegen.
+      // Map aktualisieren statt erneut anzulegen — inkl. des soeben angelegten
+      // ArtikelLieferant-Links, sonst schlägt der zweite Durchlauf mit einem
+      // Unique-Constraint-Fehler fehl (Link würde doppelt angelegt).
       artikelIdByName.set(neuerArtikel.name, neuerArtikel.id);
+      const neuerLink = neuerArtikel.lieferanten[0];
+      if (neuerLink) {
+        linkByVorhandenemArtikelId.set(neuerArtikel.id, {
+          id: neuerLink.id,
+          artikelId: neuerArtikel.id,
+          einkaufspreis: neuerLink.einkaufspreis,
+        });
+      }
     }
 
     return NextResponse.json({

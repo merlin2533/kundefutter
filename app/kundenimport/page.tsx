@@ -26,6 +26,7 @@ export default function KundenimportPage() {
   const [loading, setLoading] = useState(false);
   const [gespeichert, setGespeichert] = useState(false);
   const [fehler, setFehler] = useState("");
+  const [importFehlgeschlagen, setImportFehlgeschlagen] = useState<{ name: string; error: string }[]>([]);
 
   async function analysieren() {
     if (!file) return;
@@ -61,6 +62,8 @@ export default function KundenimportPage() {
     });
     setLoading(false);
     if (res.ok) {
+      const data: { angelegt: number; fehler?: { name: string; error: string }[] } = await res.json();
+      setImportFehlgeschlagen(data.fehler ?? []);
       setGespeichert(true);
       setVorschau([]);
       setDuplikate([]);
@@ -119,8 +122,20 @@ export default function KundenimportPage() {
           </button>
         </div>
         {fehler && <p className="text-red-600 text-sm mt-2">{fehler}</p>}
-        {gespeichert && (
+        {gespeichert && importFehlgeschlagen.length === 0 && (
           <p className="text-green-700 text-sm mt-2 font-medium">Kunden erfolgreich importiert!</p>
+        )}
+        {gespeichert && importFehlgeschlagen.length > 0 && (
+          <div className="mt-2 text-sm">
+            <p className="text-yellow-700 font-medium">
+              Import abgeschlossen mit {importFehlgeschlagen.length} Fehler{importFehlgeschlagen.length !== 1 ? "n" : ""}
+            </p>
+            <ul className="mt-1 list-disc list-inside text-yellow-700">
+              {importFehlgeschlagen.map((f, i) => (
+                <li key={i}>{f.name}: {f.error}</li>
+              ))}
+            </ul>
+          </div>
         )}
       </Card>
 
