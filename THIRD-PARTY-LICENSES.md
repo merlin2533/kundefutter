@@ -20,8 +20,8 @@ BSD, ISC, MIT-0). Stand: 2026-06-02, App-Version 1.0.0.
 | jszip | 3.10.1 | MIT OR GPL-3.0-or-later |
 | leaflet | 1.9.4 | BSD-2-Clause |
 | lucide-react | 1.7.0 | ISC |
-| next | 16.2.4 | MIT |
-| nodemailer | 8.0.5 | MIT-0 |
+| next | 16.2.10 | MIT |
+| nodemailer | 9.0.3 | MIT-0 |
 | openai | 6.33.0 | Apache-2.0 |
 | pdf-lib | 1.17.1 | MIT |
 | prisma | 7.7.0 | Apache-2.0 |
@@ -30,7 +30,7 @@ BSD, ISC, MIT-0). Stand: 2026-06-02, App-Version 1.0.0.
 | react-dom | 19.2.4 | MIT |
 | react-leaflet | 5.0.0 | Hippocratic-2.1 |
 | resend | 6.12.4 | MIT |
-| xlsx | 0.18.5 | Apache-2.0 |
+| xlsx | 0.20.3 | Apache-2.0 |
 
 ## Hinweise
 

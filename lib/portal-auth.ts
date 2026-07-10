@@ -64,11 +64,13 @@ export async function getPortalSession(): Promise<{ kundeId: number; benutzernam
   }
 }
 
+// Hinweis: `secure` folgt COOKIE_SECURE (nicht NODE_ENV), da das Deployment
+// standardmäßig über reines HTTP läuft (siehe lib/auth.ts sessionCookieOptions).
 export function portalCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     path: "/",
     maxAge: PORTAL_SESSION_MAX_AGE,
   };
@@ -78,7 +80,7 @@ export function portalClearedCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     path: "/",
     maxAge: 0,
   };

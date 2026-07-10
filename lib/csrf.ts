@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 function getSecret(): string {
   return process.env.SESSION_SECRET ?? process.env.RESEND_API_KEY ?? "dev-csrf-secret";
@@ -16,5 +16,8 @@ export function verifyToken(token: string): boolean {
   const age = Date.now() - Number(ts);
   if (isNaN(age) || age < 0 || age > 30 * 60 * 1000) return false;
   const expected = createHmac("sha256", getSecret()).update(ts).digest("hex");
-  return sig === expected;
+  const sigBuf = Buffer.from(sig, "hex");
+  const expectedBuf = Buffer.from(expected, "hex");
+  if (sigBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(sigBuf, expectedBuf);
 }

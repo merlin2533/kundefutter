@@ -19,8 +19,8 @@ const ABHAENGIGKEITEN: { name: string; version: string; lizenz: string }[] = [
   { name: "jszip", version: "3.10.1", lizenz: "MIT OR GPL-3.0-or-later" },
   { name: "leaflet", version: "1.9.4", lizenz: "BSD-2-Clause" },
   { name: "lucide-react", version: "1.7.0", lizenz: "ISC" },
-  { name: "next", version: "16.2.4", lizenz: "MIT" },
-  { name: "nodemailer", version: "8.0.5", lizenz: "MIT-0" },
+  { name: "next", version: "16.2.10", lizenz: "MIT" },
+  { name: "nodemailer", version: "9.0.3", lizenz: "MIT-0" },
   { name: "openai", version: "6.33.0", lizenz: "Apache-2.0" },
   { name: "pdf-lib", version: "1.17.1", lizenz: "MIT" },
   { name: "prisma", version: "7.7.0", lizenz: "Apache-2.0" },
@@ -29,7 +29,7 @@ const ABHAENGIGKEITEN: { name: string; version: string; lizenz: string }[] = [
   { name: "react-dom", version: "19.2.4", lizenz: "MIT" },
   { name: "react-leaflet", version: "5.0.0", lizenz: "Hippocratic-2.1" },
   { name: "resend", version: "6.12.4", lizenz: "MIT" },
-  { name: "xlsx", version: "0.18.5", lizenz: "Apache-2.0" },
+  { name: "xlsx", version: "0.20.3", lizenz: "Apache-2.0" },
 ];
 
 // Externe Datenquellen/Dienste mit Namensnennungs- bzw. Lizenzpflicht.
