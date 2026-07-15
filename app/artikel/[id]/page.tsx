@@ -584,6 +584,7 @@ export default function ArtikelDetailPage() {
   const istAnalyseProdukt = istAnalyseArtikel(artikel.kategorie);
   const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
   const marge = getMarge();
+  const bevorzugterLieferant = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
 
   const TABS = [
     { key: "details", label: "Details" },
@@ -617,6 +618,14 @@ export default function ArtikelDetailPage() {
                 inaktiv
               </span>
             )}
+            {!istAnalyseProdukt && (
+              <a
+                href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLieferant ? `&lieferantId=${bevorzugterLieferant.lieferantId}` : ""}`}
+                className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-300 text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+              >
+                Wareneingang buchen
+              </a>
+            )}
             <button
               onClick={duplicateArtikel}
               disabled={duplicating}
@@ -638,41 +647,38 @@ export default function ArtikelDetailPage() {
       </div>
 
       {/* Nachbestellung Box — Analyse-Produkte haben keinen Bestand und werden ausgeblendet */}
-      {!istAnalyseProdukt && artikel.aktuellerBestand < artikel.mindestbestand && (() => {
-        const bevorzugterLief = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
-        return (
-          <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <p className="text-sm font-semibold text-amber-800">Nachbestellung empfohlen</p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  Aktueller Bestand ({artikel.aktuellerBestand} {artikel.einheit}) liegt unter dem Mindestbestand ({artikel.mindestbestand} {artikel.einheit}).
+      {!istAnalyseProdukt && artikel.aktuellerBestand < artikel.mindestbestand && (
+        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-amber-800">Nachbestellung empfohlen</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Aktueller Bestand ({artikel.aktuellerBestand} {artikel.einheit}) liegt unter dem Mindestbestand ({artikel.mindestbestand} {artikel.einheit}).
+              </p>
+              {bevorzugterLieferant && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Bevorzugter Lieferant: <span className="font-medium">{bevorzugterLieferant.lieferant.name}</span>
+                  {canSeeEk && bevorzugterLieferant.einkaufspreis > 0 && (
+                    <span className="ml-1">· EK: {formatEuro(bevorzugterLieferant.einkaufspreis)} / {artikel.einheit}</span>
+                  )}
+                  {bevorzugterLieferant.mindestbestellmenge && (
+                    <span className="ml-1">· MBM: {bevorzugterLieferant.mindestbestellmenge} {artikel.einheit}</span>
+                  )}
                 </p>
-                {bevorzugterLief && (
-                  <p className="text-xs text-amber-700 mt-1">
-                    Bevorzugter Lieferant: <span className="font-medium">{bevorzugterLief.lieferant.name}</span>
-                    {canSeeEk && bevorzugterLief.einkaufspreis > 0 && (
-                      <span className="ml-1">· EK: {formatEuro(bevorzugterLief.einkaufspreis)} / {artikel.einheit}</span>
-                    )}
-                    {bevorzugterLief.mindestbestellmenge && (
-                      <span className="ml-1">· MBM: {bevorzugterLief.mindestbestellmenge} {artikel.einheit}</span>
-                    )}
-                  </p>
-                )}
-                {!bevorzugterLief && (
-                  <p className="text-xs text-amber-600 mt-1 italic">Kein Lieferant zugeordnet — bitte im Tab &quot;Lieferanten&quot; ergänzen.</p>
-                )}
-              </div>
-              <a
-                href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLief ? `&lieferantId=${bevorzugterLief.lieferantId}` : ""}`}
-                className="px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap w-full sm:w-auto text-center"
-              >
-                Wareneingang erfassen
-              </a>
+              )}
+              {!bevorzugterLieferant && (
+                <p className="text-xs text-amber-600 mt-1 italic">Kein Lieferant zugeordnet — bitte im Tab &quot;Lieferanten&quot; ergänzen.</p>
+              )}
             </div>
+            <a
+              href={`/lager/wareneingang?artikelId=${artikel.id}${bevorzugterLieferant ? `&lieferantId=${bevorzugterLieferant.lieferantId}` : ""}`}
+              className="px-3 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm rounded-lg font-medium transition-colors whitespace-nowrap w-full sm:w-auto text-center"
+            >
+              Wareneingang erfassen
+            </a>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
@@ -703,7 +709,7 @@ export default function ArtikelDetailPage() {
             </p>
             {canSeeEk && (
               <p className="text-xs text-gray-400 mt-0.5">
-                EK: {formatEuro((artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0])?.einkaufspreis ?? 0)}
+                EK: {formatEuro(bevorzugterLieferant?.einkaufspreis ?? 0)}
               </p>
             )}
           </div>
@@ -712,7 +718,7 @@ export default function ArtikelDetailPage() {
           <p className="text-xs font-medium text-gray-500 mb-0.5">Lieferanten</p>
           <p className="text-xl font-bold text-gray-900">{artikel.lieferanten.length}</p>
           <p className="text-xs text-gray-400 mt-0.5 truncate">
-            {artikel.lieferanten.find((l) => l.bevorzugt)?.lieferant.name ?? artikel.lieferanten[0]?.lieferant.name ?? "—"}
+            {bevorzugterLieferant?.lieferant.name ?? "—"}
           </p>
         </div>
       </div>
