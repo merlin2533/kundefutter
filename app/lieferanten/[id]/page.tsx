@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,71 @@ interface Lieferant {
   wareneingaenge: Wareneingang[];
 }
 
+interface LieferantOption {
+  id: number;
+  name: string;
+}
+
+interface MergeVorschauArtikel {
+  artikelId: number;
+  name: string;
+  einheit: string;
+  einkaufspreis: number;
+  lieferantenArtNr?: string | null;
+  mindestbestellmenge: number;
+  lieferzeitTage: number;
+  bevorzugt: boolean;
+  konflikt: boolean;
+}
+
+interface MergeVorschauQuelle {
+  id: number;
+  name: string;
+  artikel: MergeVorschauArtikel[];
+  referenzen: {
+    wareneingaenge: number;
+    bestellpositionen: number;
+    ausgaben: number;
+    bestellungen: number;
+    eingangsRechnungen: number;
+    streckenLieferungen: number;
+    retouren: number;
+  };
+}
+
+interface MergeVorschau {
+  ziel: { id: number; name: string; artikelAnzahl: number };
+  quellen: MergeVorschauQuelle[];
+  stammdatenUebernahme: { feld: string; wert: string | number; vonLieferantId: number; vonLieferantName: string }[];
+  gesamtArtikel: number;
+  konflikte: number;
+}
+
+const STAMMDATEN_LABEL: Record<string, string> = {
+  ansprechpartner: "Ansprechpartner",
+  email: "Email",
+  telefon: "Telefon",
+  strasse: "Straße",
+  plz: "PLZ",
+  ort: "Ort",
+  notizen: "Notizen",
+  iban: "IBAN",
+  bic: "BIC",
+  kontoinhaber: "Kontoinhaber",
+  frachtkosten: "Frachtkosten",
+  mindestbestellwert: "Mindestbestellwert",
+};
+
+const REFERENZ_LABEL: Record<string, string> = {
+  wareneingaenge: "Wareneingänge",
+  bestellpositionen: "Bestelllisten-Positionen",
+  ausgaben: "Ausgaben",
+  bestellungen: "Bestellungen",
+  eingangsRechnungen: "Eingangsrechnungen",
+  streckenLieferungen: "Streckenlieferungen",
+  retouren: "Retouren",
+};
+
 const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
 
@@ -62,6 +128,139 @@ export default function LieferantDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // ── Verschmelzen ──
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [alleLieferanten, setAlleLieferanten] = useState<LieferantOption[]>([]);
+  const [quellIds, setQuellIds] = useState<number[]>([]);
+  const [quellAuswahl, setQuellAuswahl] = useState<string>("");
+  const [zielId, setZielId] = useState<number | null>(null);
+  const [zielNameInput, setZielNameInput] = useState("");
+  const [vorschau, setVorschau] = useState<MergeVorschau | null>(null);
+  const [vorschauLoading, setVorschauLoading] = useState(false);
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const [mergeError, setMergeError] = useState("");
+  const [expandedQuelle, setExpandedQuelle] = useState<Set<number>>(new Set());
+
+  const eigeneId = Number(id);
+
+  async function oeffneMerge() {
+    setMergeOpen(true);
+    setMergeError("");
+    if (alleLieferanten.length === 0) {
+      const res = await fetch("/api/lieferanten?limit=1000");
+      if (res.ok) {
+        const data = await res.json();
+        const liste: LieferantOption[] = (Array.isArray(data) ? data : [])
+          .filter((l: LieferantOption) => l.id !== eigeneId)
+          .map((l: LieferantOption) => ({ id: l.id, name: l.name }));
+        setAlleLieferanten(liste);
+      }
+    }
+    setZielId(eigeneId);
+    setZielNameInput(lieferant?.name ?? "");
+  }
+
+  function nameZu(lid: number): string {
+    if (lid === eigeneId) return lieferant?.name ?? "";
+    return alleLieferanten.find((l) => l.id === lid)?.name ?? `#${lid}`;
+  }
+
+  function quelleHinzufuegen() {
+    const qid = parseInt(quellAuswahl, 10);
+    if (!Number.isFinite(qid) || quellIds.includes(qid) || qid === eigeneId) return;
+    setQuellIds([...quellIds, qid]);
+    setQuellAuswahl("");
+    setVorschau(null);
+  }
+
+  function quelleEntfernen(qid: number) {
+    setQuellIds(quellIds.filter((i) => i !== qid));
+    if (zielId === qid) setZielId(eigeneId);
+    setVorschau(null);
+  }
+
+  function zielWaehlen(lid: number) {
+    setZielId(lid);
+    setZielNameInput(nameZu(lid));
+    setVorschau(null);
+  }
+
+  // Die tatsächlichen Quell-Lieferanten ergeben sich aus der gesamten Gruppe
+  // (aktueller Lieferant + hinzugefügte Duplikate) abzüglich des gewählten Ziellieferanten —
+  // wechselt das Ziel auf einen der Duplikate, wird der aktuelle Lieferant automatisch zur Quelle.
+  function effektiveQuellIds(): number[] {
+    return [eigeneId, ...quellIds].filter((lid) => lid !== zielId);
+  }
+
+  async function ladeVorschau() {
+    const quellen = effektiveQuellIds();
+    if (!zielId || quellen.length === 0) return;
+    setVorschauLoading(true);
+    setMergeError("");
+    try {
+      const params = new URLSearchParams({ zielId: String(zielId), quellIds: quellen.join(",") });
+      const res = await fetch(`/api/lieferanten/merge?${params}`);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Vorschau fehlgeschlagen");
+      }
+      const data: MergeVorschau = await res.json();
+      setVorschau(data);
+      setExpandedQuelle(new Set());
+    } catch (e) {
+      setMergeError(e instanceof Error ? e.message : "Vorschau konnte nicht geladen werden");
+    } finally {
+      setVorschauLoading(false);
+    }
+  }
+
+  async function verschmelzenAusfuehren() {
+    const quellen = effektiveQuellIds();
+    if (!zielId || quellen.length === 0 || !vorschau) return;
+    const namen = quellen.map((qid) => nameZu(qid)).join(", ");
+    if (!confirm(`"${namen}" wirklich mit "${zielNameInput || nameZu(zielId)}" verschmelzen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    setMergeLoading(true);
+    setMergeError("");
+    try {
+      const res = await fetch("/api/lieferanten/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          zielLieferantId: zielId,
+          quellLieferantIds: quellen,
+          zielName: zielNameInput.trim() || undefined,
+          confirm: true,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Verschmelzung fehlgeschlagen");
+      }
+      const data = await res.json();
+      const zielIdErgebnis: number = data.ziel?.id ?? zielId;
+      if (zielIdErgebnis !== eigeneId) {
+        router.push(`/lieferanten/${zielIdErgebnis}`);
+      } else {
+        setMergeOpen(false);
+        setQuellIds([]);
+        setVorschau(null);
+        fetchLieferant();
+      }
+    } catch (e) {
+      setMergeError(e instanceof Error ? e.message : "Verschmelzung fehlgeschlagen");
+    } finally {
+      setMergeLoading(false);
+    }
+  }
+
+  function toggleExpandedQuelle(qid: number) {
+    setExpandedQuelle((prev) => {
+      const next = new Set(prev);
+      next.has(qid) ? next.delete(qid) : next.add(qid);
+      return next;
+    });
+  }
 
   const fetchLieferant = useCallback(async () => {
     setLoading(true);
@@ -163,6 +362,12 @@ export default function LieferantDetailPage() {
               + Bestellung
             </a>
             <button
+              onClick={() => (mergeOpen ? setMergeOpen(false) : oeffneMerge())}
+              className="text-sm text-amber-700 hover:text-amber-900 border border-amber-200 hover:border-amber-400 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {mergeOpen ? "Verschmelzen ausblenden" : "🔗 Verschmelzen"}
+            </button>
+            <button
               onClick={deleteLieferant}
               disabled={deleting}
               className="text-sm text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
@@ -178,6 +383,180 @@ export default function LieferantDetailPage() {
           </p>
         )}
       </div>
+
+      {mergeOpen && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="font-semibold text-gray-800 mb-1">Lieferanten verschmelzen</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Wähle die doppelten Lieferanten aus, die in einem Ziellieferanten aufgehen sollen. Artikelzuordnungen,
+            Bestellungen, Wareneingänge, Rechnungen und alle weiteren Verweise werden auf den Ziellieferanten
+            übertragen. Bei Artikeln, die bei beiden Lieferanten hinterlegt sind, gewinnen die Werte des
+            Ziellieferanten — nur wirklich fehlende Angaben werden aus dem verschmolzenen Lieferanten ergänzt.
+          </p>
+
+          {mergeError && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {mergeError}
+            </div>
+          )}
+
+          {/* Auswahl der zu verschmelzenden Lieferanten */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Doppelten Lieferanten hinzufügen</label>
+            <div className="flex gap-2">
+              <div className="w-full sm:w-80">
+                <SearchableSelect
+                  options={alleLieferanten.filter((l) => !quellIds.includes(l.id)).map((l) => ({ value: l.id, label: l.name }))}
+                  value={quellAuswahl}
+                  onChange={setQuellAuswahl}
+                  placeholder="Lieferant suchen…"
+                />
+              </div>
+              <button
+                onClick={quelleHinzufuegen}
+                disabled={!quellAuswahl}
+                className="px-3 py-2 text-sm rounded-lg border border-amber-300 hover:bg-amber-100 disabled:opacity-50"
+              >
+                + Hinzufügen
+              </button>
+            </div>
+            {quellIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {quellIds.map((qid) => (
+                  <span key={qid} className="inline-flex items-center gap-1.5 bg-white border border-amber-300 rounded-full px-3 py-1 text-sm">
+                    {nameZu(qid)}
+                    <button onClick={() => quelleEntfernen(qid)} className="text-gray-400 hover:text-red-600">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {quellIds.length > 0 && (
+            <>
+              {/* Ziellieferant wählen + umbenennen */}
+              <div className="mb-4 bg-white border border-gray-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Ziellieferant (bleibt erhalten)</p>
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {[eigeneId, ...quellIds].map((lid) => (
+                    <label key={lid} className="inline-flex items-center gap-1.5 text-sm">
+                      <input type="radio" name="ziel" checked={zielId === lid} onChange={() => zielWaehlen(lid)} />
+                      {nameZu(lid)}
+                    </label>
+                  ))}
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name nach dem Verschmelzen</label>
+                <input
+                  type="text"
+                  value={zielNameInput}
+                  onChange={(e) => setZielNameInput(e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={ladeVorschau}
+                  disabled={vorschauLoading}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {vorschauLoading ? "Lade Vorschau…" : "Vorschau anzeigen"}
+                </button>
+                {vorschau && (
+                  <button
+                    onClick={verschmelzenAusfuehren}
+                    disabled={mergeLoading}
+                    className="px-3 py-2 text-sm rounded-lg bg-amber-700 hover:bg-amber-800 text-white font-medium disabled:opacity-60"
+                  >
+                    {mergeLoading ? "Wird verschmolzen…" : "Jetzt verschmelzen"}
+                  </button>
+                )}
+              </div>
+
+              {/* Vorschau */}
+              {vorschau && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                  <p className="text-sm text-gray-700">
+                    <strong>{vorschau.gesamtArtikel}</strong> Artikelzuordnung(en) betroffen — davon{" "}
+                    <strong>{vorschau.konflikte}</strong> bei Artikeln, die der Ziellieferant bereits führt (Werte
+                    werden zusammengeführt, Ziel hat Vorrang). {vorschau.gesamtArtikel - vorschau.konflikte} werden neu
+                    unter „{zielNameInput || nameZu(zielId ?? eigeneId)}“ übernommen.
+                  </p>
+
+                  {vorschau.stammdatenUebernahme.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                        Stammdaten-Felder, die ergänzt werden
+                      </p>
+                      <ul className="text-sm text-gray-700 space-y-0.5">
+                        {vorschau.stammdatenUebernahme.map((u) => (
+                          <li key={u.feld}>
+                            <span className="font-medium">{STAMMDATEN_LABEL[u.feld] ?? u.feld}</span>: „{String(u.wert)}“
+                            <span className="text-gray-400"> (von {u.vonLieferantName})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {vorschau.quellen.map((q) => (
+                    <div key={q.id} className="border-t border-gray-100 pt-3">
+                      <button
+                        onClick={() => toggleExpandedQuelle(q.id)}
+                        className="w-full flex items-center justify-between text-sm font-medium text-gray-800"
+                      >
+                        <span>
+                          {q.name} → wird gelöscht, {q.artikel.length} Artikel betroffen
+                        </span>
+                        <span className="text-gray-400">{expandedQuelle.has(q.id) ? "▲" : "▼"}</span>
+                      </button>
+
+                      <div className="text-xs text-gray-500 mt-1">
+                        {Object.entries(q.referenzen)
+                          .filter(([, n]) => n > 0)
+                          .map(([key, n]) => `${n}× ${REFERENZ_LABEL[key] ?? key}`)
+                          .join(" · ") || "Keine weiteren Verweise (Bestellungen, Wareneingänge, Rechnungen etc.)"}
+                      </div>
+
+                      {expandedQuelle.has(q.id) && q.artikel.length > 0 && (
+                        <div className="overflow-x-auto mt-2">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                {["Artikel", "EK-Preis", "ArtNr", "Status"].map((h) => (
+                                  <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                    {h}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {q.artikel.map((a) => (
+                                <tr key={a.artikelId}>
+                                  <td className="px-3 py-2 text-gray-900">{a.name}</td>
+                                  <td className="px-3 py-2 font-mono">{formatEuro(a.einkaufspreis)}</td>
+                                  <td className="px-3 py-2 font-mono text-xs text-gray-500">{a.lieferantenArtNr ?? "—"}</td>
+                                  <td className="px-3 py-2">
+                                    {a.konflikt ? (
+                                      <span className="text-amber-700">wird zusammengeführt (Ziel hat Vorrang)</span>
+                                    ) : (
+                                      <span className="text-green-700">wird übernommen</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Edit Form ─────────────────────────────────────────────────────── */}
