@@ -1,4 +1,4 @@
-import { Sentry } from "@/lib/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 // Eurostat API configuration
 const EUROSTAT_BASE =

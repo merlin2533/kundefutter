@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Sentry } from "@/lib/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Muster-Vorgabewerte für eine Neuinstallation.
