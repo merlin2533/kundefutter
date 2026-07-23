@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { uploadPdfToKundeOrdner, isDriveKonfiguriert, DokumentTyp } from "@/lib/googleDrive";
+import { uploadPdfToKundeOrdner, isNextcloudKonfiguriert, listeDateienImKundenUnterordner, KundeDokumentTyp } from "@/lib/nextcloud";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
-const TYP_ORDNER: Record<string, DokumentTyp> = {
+const TYP_ORDNER: Record<string, KundeDokumentTyp> = {
   rechnung: "Rechnungen",
   lieferschein: "Lieferscheine",
   angebot: "Angebote",
+  gutschrift: "Gutschriften",
 };
 
 /**
- * POST /api/drive/dokumente
- * Body: { kundeId, typ: "rechnung"|"lieferschein"|"angebot", dokumentId, dateiName, inhalt (base64 PDF) }
- * Response: { success: true, driveFileId, driveLink }
+ * POST /api/nextcloud/dokumente
+ * Body: { kundeId, typ: "rechnung"|"lieferschein"|"angebot"|"gutschrift", dateiName, inhalt (base64 PDF) }
+ * Response: { success: true, nextcloudLink }
  */
 export async function POST(req: NextRequest) {
   try {
-    // Drive konfiguriert?
-    const konfiguriert = await isDriveKonfiguriert();
+    const konfiguriert = await isNextcloudKonfiguriert();
     if (!konfiguriert) {
       return NextResponse.json(
-        { error: "Google Drive nicht konfiguriert", nichtKonfiguriert: true },
+        { error: "Nextcloud nicht konfiguriert", nichtKonfiguriert: true },
         { status: 503 }
       );
     }
@@ -35,13 +35,12 @@ export async function POST(req: NextRequest) {
       inhalt?: string;
     };
 
-    // Validierung
     if (!kundeId || isNaN(Number(kundeId))) {
       return NextResponse.json({ error: "Ungültige kundeId" }, { status: 400 });
     }
     if (!typ || !TYP_ORDNER[typ]) {
       return NextResponse.json(
-        { error: "Ungültiger Typ. Erlaubt: rechnung, lieferschein, angebot" },
+        { error: "Ungültiger Typ. Erlaubt: rechnung, lieferschein, angebot, gutschrift" },
         { status: 400 }
       );
     }
@@ -61,26 +60,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
     }
 
-    // Base64 → Buffer
     const pdfBuffer = Buffer.from(inhalt, "base64");
     const unterordner = TYP_ORDNER[typ];
 
-    const datei = await uploadPdfToKundeOrdner(
-      kundeIdNum,
-      kunde.name,
-      unterordner,
-      dateiName,
-      pdfBuffer
-    );
+    const datei = await uploadPdfToKundeOrdner(kundeIdNum, kunde.name, unterordner, dateiName, pdfBuffer);
 
     return NextResponse.json({
       success: true,
-      driveFileId: datei.id,
-      driveLink: datei.webViewLink ?? `https://drive.google.com/file/d/${datei.id}/view`,
+      nextcloudLink: datei.webViewLink,
     });
   } catch (err) {
     Sentry.captureException(err);
-    console.error("[drive/dokumente POST]", err);
+    console.error("[nextcloud/dokumente POST]", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -88,15 +79,15 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET /api/drive/dokumente?kundeId=X
- * Gibt Anzahl und Links der Unterordner (Rechnungen, Lieferscheine, Angebote) zurück.
+ * GET /api/nextcloud/dokumente?kundeId=X
+ * Gibt Anzahl und Links der Unterordner (Rechnungen, Lieferscheine, Angebote, Gutschriften) zurück.
  */
 export async function GET(req: NextRequest) {
   try {
-    const konfiguriert = await isDriveKonfiguriert();
+    const konfiguriert = await isNextcloudKonfiguriert();
     if (!konfiguriert) {
       return NextResponse.json(
-        { error: "Google Drive nicht konfiguriert", nichtKonfiguriert: true },
+        { error: "Nextcloud nicht konfiguriert", nichtKonfiguriert: true },
         { status: 503 }
       );
     }
@@ -119,40 +110,27 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
     }
 
-    const { listeDateienInUnterordner } = await import("@/lib/googleDrive");
-
-    const [rechnungen, lieferscheine, angebote] = await Promise.all([
-      listeDateienInUnterordner(kundeId, kunde.name, "Rechnungen"),
-      listeDateienInUnterordner(kundeId, kunde.name, "Lieferscheine"),
-      listeDateienInUnterordner(kundeId, kunde.name, "Angebote"),
+    const [rechnungen, lieferscheine, angebote, gutschriften] = await Promise.all([
+      listeDateienImKundenUnterordner(kundeId, kunde.name, "Rechnungen"),
+      listeDateienImKundenUnterordner(kundeId, kunde.name, "Lieferscheine"),
+      listeDateienImKundenUnterordner(kundeId, kunde.name, "Angebote"),
+      listeDateienImKundenUnterordner(kundeId, kunde.name, "Gutschriften"),
     ]);
 
+    const buildEntry = (dateien: Awaited<ReturnType<typeof listeDateienImKundenUnterordner>>) => ({
+      anzahl: dateien.length,
+      nextcloudLink: dateien[0]?.webViewLink ?? null,
+    });
+
     return NextResponse.json({
-      rechnungen: {
-        anzahl: rechnungen.dateien.length,
-        folderId: rechnungen.folderId,
-        driveLink: rechnungen.folderId
-          ? `https://drive.google.com/drive/folders/${rechnungen.folderId}`
-          : null,
-      },
-      lieferscheine: {
-        anzahl: lieferscheine.dateien.length,
-        folderId: lieferscheine.folderId,
-        driveLink: lieferscheine.folderId
-          ? `https://drive.google.com/drive/folders/${lieferscheine.folderId}`
-          : null,
-      },
-      angebote: {
-        anzahl: angebote.dateien.length,
-        folderId: angebote.folderId,
-        driveLink: angebote.folderId
-          ? `https://drive.google.com/drive/folders/${angebote.folderId}`
-          : null,
-      },
+      rechnungen: buildEntry(rechnungen),
+      lieferscheine: buildEntry(lieferscheine),
+      angebote: buildEntry(angebote),
+      gutschriften: buildEntry(gutschriften),
     });
   } catch (err) {
     Sentry.captureException(err);
-    console.error("[drive/dokumente GET]", err);
+    console.error("[nextcloud/dokumente GET]", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

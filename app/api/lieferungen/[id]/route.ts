@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer, istLagerrelevant } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
-import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
+import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
@@ -346,16 +346,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (altLieferung?.status === "geplant" && result.status === "geliefert") {
     const lieferungIdNum = Number(id);
     const datumStr = new Date(result.datum).toISOString().slice(0, 10);
-    isDriveKonfiguriert()
+    isNextcloudKonfiguriert()
       .then(async (ok) => {
         if (!ok) return;
         const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
         const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
         await uploadPdfToKundeOrdner(result.kundeId, result.kunde.name, "Lieferscheine", fileName, pdfBuffer);
-        console.log(`[drive] Lieferschein ${lieferungIdNum} für Kunde ${result.kunde.name} hochgeladen`);
+        console.log(`[nextcloud] Lieferschein ${lieferungIdNum} für Kunde ${result.kunde.name} hochgeladen`);
       })
       .catch((e: unknown) => {
-        console.warn("[drive] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+        Sentry.captureException(e);
+        console.warn("[nextcloud] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
       });
   }
 
@@ -445,21 +446,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: { select: artikelSafeSelect } } } },
         });
       });
-      // Fire-and-forget: Lieferschein-PDF in Google Drive hochladen
+      // Fire-and-forget: Lieferschein-PDF in Nextcloud hochladen
       const lieferungIdNum = Number(id);
       const kundeId = updated.kundeId;
       const kundeName = updated.kunde.name;
       const datumStr = new Date(updated.datum).toISOString().slice(0, 10);
-      isDriveKonfiguriert()
+      isNextcloudKonfiguriert()
         .then(async (ok) => {
           if (!ok) return;
           const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
           const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
           await uploadPdfToKundeOrdner(kundeId, kundeName, "Lieferscheine", fileName, pdfBuffer);
-          console.log(`[drive] Lieferschein ${lieferungIdNum} für Kunde ${kundeName} hochgeladen`);
+          console.log(`[nextcloud] Lieferschein ${lieferungIdNum} für Kunde ${kundeName} hochgeladen`);
         })
         .catch((e: unknown) => {
-          console.warn("[drive] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+          Sentry.captureException(e);
+          console.warn("[nextcloud] Lieferschein-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
         });
 
       return NextResponse.json(updated);
@@ -507,17 +509,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           },
         });
       });
-      // Fire-and-forget: Rechnungs-PDF generieren und in Google Drive hochladen
-      isDriveKonfiguriert()
+      // Fire-and-forget: Rechnungs-PDF generieren und in Nextcloud hochladen
+      isNextcloudKonfiguriert()
         .then(async (ok) => {
           if (!ok) return;
           const pdfBuffer = await generiereRechnungPdf(Number(id));
           const fileName = `Rechnung-${lieferung.rechnungNr?.replace(/\//g, "-")}.pdf`;
           await uploadPdfToKundeOrdner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen", fileName, pdfBuffer);
-          console.log(`[drive] Rechnung ${lieferung.rechnungNr} für Kunde ${lieferung.kunde.name} hochgeladen`);
+          console.log(`[nextcloud] Rechnung ${lieferung.rechnungNr} für Kunde ${lieferung.kunde.name} hochgeladen`);
         })
         .catch((e: unknown) => {
-          console.warn("[drive] Rechnungs-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+          Sentry.captureException(e);
+          console.warn("[nextcloud] Rechnungs-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
         });
 
       return NextResponse.json(lieferung);

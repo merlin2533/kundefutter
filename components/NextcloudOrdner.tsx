@@ -2,34 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 
-interface DriveDatei {
-  id: string;
+interface NextcloudDatei {
   name: string;
-  mimeType: string;
+  pfad: string;
   groesse?: string;
   geaendertAm?: string;
-  webViewLink?: string;
-  webContentLink?: string;
+  mimeType?: string;
+  webViewLink: string;
 }
 
-interface DriveOrdnerData {
-  folderId: string;
-  driveUrl: string;
-  dateien: DriveDatei[];
+interface NextcloudOrdnerData {
+  pfad: string;
+  url: string | null;
+  dateien: NextcloudDatei[];
 }
 
 interface Props {
   entityType: "kunde" | "artikel";
   entityId: number;
+  /** "voll" (Standard): Liste + Upload-Dropzone. "status": nur eine schmale Statuszeile ohne Upload
+   *  (für Entitäten, deren Dokumente bereits automatisch aus einem lokalen Modell gespiegelt werden). */
+  mode?: "voll" | "status";
 }
 
-function dateiIcon(mimeType: string): string {
+function dateiIcon(mimeType?: string): string {
+  if (!mimeType) return "📎";
   if (mimeType.includes("pdf")) return "📄";
   if (mimeType.includes("image")) return "🖼️";
   if (mimeType.includes("spreadsheet") || mimeType.includes("excel")) return "📊";
   if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "📽️";
   if (mimeType.includes("document") || mimeType.includes("word")) return "📝";
-  if (mimeType.includes("folder")) return "📁";
   return "📎";
 }
 
@@ -38,8 +40,8 @@ function formatDatum(iso?: string): string {
   return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export default function DriveOrdner({ entityType, entityId }: Props) {
-  const [data, setData] = useState<DriveOrdnerData | null>(null);
+export default function NextcloudOrdner({ entityType, entityId, mode = "voll" }: Props) {
+  const [data, setData] = useState<NextcloudOrdnerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [fehler, setFehler] = useState<string | null>(null);
   const [nichtKonfiguriert, setNichtKonfiguriert] = useState(false);
@@ -48,7 +50,7 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const apiUrl = `/api/drive/${entityType === "kunde" ? "kunden" : "artikel"}/${entityId}`;
+  const apiUrl = `/api/nextcloud/${entityType === "kunde" ? "kunden" : "artikel"}/${entityId}`;
 
   useEffect(() => {
     ladeDateien();
@@ -102,17 +104,17 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
   }
 
   if (loading) {
-    return <p className="text-sm text-gray-400 py-4">Drive-Ordner wird geladen…</p>;
+    return <p className="text-sm text-gray-400 py-4">Nextcloud-Ordner wird geladen…</p>;
   }
 
   if (nichtKonfiguriert) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-5 text-sm">
-        <p className="font-medium text-yellow-800 mb-1">Google Drive nicht konfiguriert</p>
+        <p className="font-medium text-yellow-800 mb-1">Nextcloud nicht konfiguriert</p>
         <p className="text-yellow-700">
-          Hinterlege den Service Account Key unter{" "}
-          <a href="/einstellungen/google-drive" className="underline font-medium">
-            Einstellungen › Google Drive
+          Hinterlege die Zugangsdaten unter{" "}
+          <a href="/einstellungen/nextcloud" className="underline font-medium">
+            Einstellungen › Nextcloud
           </a>
           .
         </p>
@@ -123,24 +125,42 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
   if (fehler) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700">
-        Fehler beim Laden des Drive-Ordners: {fehler}
+        Fehler beim Laden des Nextcloud-Ordners: {fehler}
+      </div>
+    );
+  }
+
+  if (mode === "status") {
+    return (
+      <div className="flex items-center justify-between text-sm">
+        <p className="text-gray-500">{data?.dateien.length ?? 0} Datei(en) in Nextcloud</p>
+        {data?.url && (
+          <a
+            href={data.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-700 hover:text-green-900 font-medium"
+          >
+            In Nextcloud öffnen ↗
+          </a>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Header mit Drive-Link */}
+      {/* Header mit Nextcloud-Link */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{data?.dateien.length ?? 0} Datei(en) in Google Drive</p>
-        {data?.driveUrl && (
+        <p className="text-sm text-gray-500">{data?.dateien.length ?? 0} Datei(en) in Nextcloud</p>
+        {data?.url && (
           <a
-            href={data.driveUrl}
+            href={data.url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-green-700 hover:text-green-900 font-medium flex items-center gap-1"
           >
-            In Drive öffnen ↗
+            In Nextcloud öffnen ↗
           </a>
         )}
       </div>
@@ -148,7 +168,7 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
       {/* Dateiliste */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {!data?.dateien.length ? (
-          <p className="p-6 text-gray-400 text-sm">Noch keine Dateien im Drive-Ordner.</p>
+          <p className="p-6 text-gray-400 text-sm">Noch keine Dateien im Nextcloud-Ordner.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -161,7 +181,7 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {data.dateien.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50">
+                <tr key={d.pfad} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <span className="mr-2">{dateiIcon(d.mimeType)}</span>
                     <span className="font-medium">{d.name}</span>
@@ -172,16 +192,14 @@ export default function DriveOrdner({ entityType, entityId }: Props) {
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{d.groesse ?? "—"}</td>
                   <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{formatDatum(d.geaendertAm)}</td>
                   <td className="px-4 py-3 text-right">
-                    {d.webViewLink && (
-                      <a
-                        href={d.webViewLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-green-700 hover:text-green-900 text-sm font-medium"
-                      >
-                        Öffnen
-                      </a>
-                    )}
+                    <a
+                      href={d.webViewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-green-700 hover:text-green-900 text-sm font-medium"
+                    >
+                      Öffnen
+                    </a>
                   </td>
                 </tr>
               ))}

@@ -6,6 +6,7 @@ import { ladeFirmaDaten } from "@/lib/firma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner, uploadZuBuchhaltung } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 
@@ -291,6 +292,19 @@ export async function POST(req: NextRequest) {
 
   const pdfBuffer = Buffer.from(doc.output("arraybuffer"));
   const filename = `sammelrechnung-${sammelrechnung.rechnungNr?.replace(/\//g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  // Fire-and-forget: Sammelrechnung in den Kunden- UND Buchhaltungs-Ordner spiegeln
+  isNextcloudKonfiguriert()
+    .then(async (ok) => {
+      if (!ok) return;
+      await uploadPdfToKundeOrdner(sammelrechnung.kundeId, sammelrechnung.kunde.name, "Rechnungen", filename, pdfBuffer);
+      const d = sammelrechnung.rechnungDatum ?? new Date();
+      await uploadZuBuchhaltung(d.getFullYear(), d.getMonth() + 1, "Ausgangsrechnungen", filename, pdfBuffer, "application/pdf");
+    })
+    .catch((e: unknown) => {
+      Sentry.captureException(e);
+      console.warn("[nextcloud] Sammelrechnung-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+    });
 
   return new NextResponse(pdfBuffer, {
     headers: {

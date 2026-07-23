@@ -45,7 +45,6 @@ model Kunde {
   gutschriften     Gutschrift[]
   anlieferungen    Anlieferung[]
   bestellpositionen Bestellposition[]
-  driveOrdnerId    String?  // Google Drive Folder ID
   kreditlimit          Float?    // max. offener Betrag in €
   sachkundeNr          String?   // PSM-Sachkundenummer §9 PflSchG
   sachkundeGueltigBis  DateTime? // Ablaufdatum Sachkundenachweis
@@ -212,7 +211,6 @@ model Artikel {
   inventurPositionen InventurPosition[]
   gutschriftPositionen GutschriftPosition[]
   bestellpositionen Bestellposition[]
-  driveOrdnerId    String?  // Google Drive Folder ID
   kampagneArtikel      KampagneArtikel[]
   bestellungPositionen BestellungPosition[]
   kontraktPositionen   KontraktPosition[]

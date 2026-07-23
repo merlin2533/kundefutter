@@ -11,7 +11,7 @@ export interface ModulConfig {
   kampagnen: boolean;
   fruehbezug: boolean;
   mqtt: boolean;
-  google_drive: boolean;
+  nextcloud: boolean;
   marktpreise: boolean;
   reklamationen: boolean;
   personal: boolean;
@@ -28,7 +28,7 @@ export const DEFAULT_MODUL_CONFIG: ModulConfig = {
   kampagnen: true,
   fruehbezug: true,
   mqtt: false,
-  google_drive: false,
+  nextcloud: false,
   marktpreise: true,
   reklamationen: true,
   personal: true,
@@ -57,7 +57,7 @@ export async function getModulConfig(): Promise<ModulConfig> {
     kampagnen: bool("kampagnen"),
     fruehbezug: bool("fruehbezug"),
     mqtt: bool("mqtt"),
-    google_drive: bool("google_drive"),
+    nextcloud: bool("nextcloud"),
     marktpreise: bool("marktpreise"),
     reklamationen: bool("reklamationen"),
     personal: bool("personal"),

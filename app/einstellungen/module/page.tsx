@@ -24,7 +24,7 @@ const MODULE_LIST: ModulToggle[] = [
   { key: "modul.reklamationen", label: "Reklamationen", description: "Beschwerdemanagement mit Prioritäten, Status und Lösungsdokumentation", defaultAktiv: true },
   { key: "modul.personal", label: "Personal & Lohn", description: "Mitarbeiterverwaltung, Arbeitsstunden, Urlaubsanträge und Lohnabrechnung", defaultAktiv: true },
   { key: "modul.mqtt", label: "MQTT-Automatisierung", description: "IoT-Regeln für automatische Verarbeitung eingehender MQTT-Nachrichten", defaultAktiv: false },
-  { key: "modul.google_drive", label: "Google Drive", description: "Dokumentenablage in Google Drive für Kunden und Artikel", defaultAktiv: false },
+  { key: "modul.nextcloud", label: "Nextcloud", description: "Dokumentensynchronisation für Kunden, Artikel und Buchhaltung in Nextcloud", defaultAktiv: false },
 ];
 
 export default function ModuleEinstellungenPage() {

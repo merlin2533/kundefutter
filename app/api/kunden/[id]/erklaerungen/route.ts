@@ -4,6 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getUploadBase } from "@/lib/upload";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     let datum: Date;
     let notiz: string | null = null;
     let dokumentPfad: string | null = null;
+    let hochgeladenerName: string | null = null;
+    let hochgeladenerBuffer: Buffer | null = null;
+    let hochgeladenerMime: string | undefined;
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
@@ -57,6 +61,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         const buffer = Buffer.from(await file.arrayBuffer());
         await writeFile(dest, buffer);
         dokumentPfad = `erklaerungen/${filename}`;
+        hochgeladenerName = file.name;
+        hochgeladenerBuffer = buffer;
+        hochgeladenerMime = file.type || undefined;
       }
     } else {
       const body = await req.json();
@@ -77,6 +84,24 @@ export async function POST(req: NextRequest, { params }: Params) {
       update: { datum, notiz, dokumentPfad },
       create: { kundeId, jahr, datum, notiz, dokumentPfad },
     });
+
+    // Fire-and-forget: neu hochgeladenes Dokument nach Nextcloud spiegeln
+    if (hochgeladenerBuffer) {
+      const buffer = hochgeladenerBuffer;
+      const dateiname = hochgeladenerName ?? "erklaerung.bin";
+      const mime = hochgeladenerMime;
+      isNextcloudKonfiguriert()
+        .then(async (ok) => {
+          if (!ok) return;
+          const kunde = await prisma.kunde.findUnique({ where: { id: kundeId }, select: { name: true } });
+          if (!kunde) return;
+          await uploadZuKundeOrdner(kundeId, kunde.name, "Nachweise", `Sprengstofferklaerung_${jahr}_${dateiname}`, buffer, mime);
+        })
+        .catch((e: unknown) => {
+          Sentry.captureException(e);
+          console.warn("[nextcloud] Sprengstofferklärung-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+        });
+    }
 
     return NextResponse.json(erklaerung, { status: 201 });
   } catch (err) {

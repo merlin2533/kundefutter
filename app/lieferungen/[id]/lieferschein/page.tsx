@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatDatum } from "@/lib/utils";
-import DriveUploadButton from "@/components/DriveUploadButton";
+import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 
@@ -524,7 +524,7 @@ export default function LieferscheinPage() {
             {mailMsg}
           </span>
         )}
-        <DriveUploadButton
+        <NextcloudUploadButton
           kundeId={lieferung.kundeId}
           typ="lieferschein"
           dateiName={`Lieferschein_${lieferung.id}.pdf`}

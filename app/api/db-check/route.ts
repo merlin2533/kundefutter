@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     Sentry.captureException(err); queryTests.lieferung = "error"; queryTestsOk = false; }
   try {
-    await prisma.artikel.findFirst({ select: { id: true, name: true, driveOrdnerId: true, lagerort: true, liefergroesse: true, unterkategorie: true } });
+    await prisma.artikel.findFirst({ select: { id: true, name: true, lagerort: true, liefergroesse: true, unterkategorie: true } });
     queryTests.artikel = "ok";
   } catch (err) {
     Sentry.captureException(err); queryTests.artikel = "error"; queryTestsOk = false; }

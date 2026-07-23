@@ -21,6 +21,7 @@ interface Eingangsrechnung {
   status: string;
   notiz: string | null;
   lieferantId: number;
+  belegpfad: string | null;
   lieferant: { id: number; name: string; firma: string | null; iban: string | null; bic: string | null; kontoinhaber: string | null } | null;
 }
 
@@ -54,6 +55,8 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
+  const [belegUploading, setBelegUploading] = useState(false);
+  const [belegFehler, setBelegFehler] = useState("");
 
   const [form, setForm] = useState({
     lieferantId: "",
@@ -152,6 +155,26 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleBelegUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !id) return;
+    setBelegUploading(true);
+    setBelegFehler("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/eingangsrechnungen/${id}/beleg`, { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) { setBelegFehler(json.error ?? "Upload fehlgeschlagen"); return; }
+      setData((d) => (d ? { ...d, belegpfad: json.belegpfad } : d));
+    } catch {
+      setBelegFehler("Upload fehlgeschlagen");
+    } finally {
+      setBelegUploading(false);
     }
   }
 
@@ -333,6 +356,20 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.notiz}</p>
               </div>
             )}
+
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Beleg</p>
+              {data.belegpfad ? (
+                <p className="text-sm text-green-700">📄 Beleg hochgeladen</p>
+              ) : (
+                <p className="text-sm text-gray-400">Kein Beleg hochgeladen.</p>
+              )}
+              <label className="inline-block mt-2 px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 cursor-pointer">
+                {belegUploading ? "Wird hochgeladen…" : data.belegpfad ? "Beleg ersetzen" : "Beleg hochladen"}
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleBelegUpload} disabled={belegUploading} />
+              </label>
+              {belegFehler && <p className="text-xs text-red-600 mt-1">{belegFehler}</p>}
+            </div>
           </div>
         </>
       ) : (

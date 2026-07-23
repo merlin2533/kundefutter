@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import DriveUploadButton from "@/components/DriveUploadButton";
+import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 
 interface ArtikelInfo {
@@ -200,7 +200,7 @@ export default function AngebotDruckPage() {
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
-        <DriveUploadButton
+        <NextcloudUploadButton
           kundeId={angebot.kunde.id}
           typ="angebot"
           dateiName={`Angebot_${angebot.nummer}.pdf`}
