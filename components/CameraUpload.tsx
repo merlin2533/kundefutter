@@ -13,7 +13,7 @@ interface CameraUploadProps {
 }
 
 /** Resize image client-side to save bandwidth and speed up AI analysis */
-function resizeImage(
+export function resizeImage(
   dataUrl: string,
   maxDim: number,
   quality = 0.85

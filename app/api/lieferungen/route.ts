@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis } from "@/lib/utils";
 import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
+import { erstelleLieferungMitPreisberechnung } from "@/lib/lieferung";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { datum, notiz, wiederkehrend } = body;
+  const quelle = typeof body.quelle === "string" && body.quelle ? body.quelle : undefined;
   const kundeId = Number(body.kundeId);
   const istStreckengeschaeft = body.istStreckengeschaeft === true;
   const streckenLieferantId = body.streckenLieferantId != null
@@ -152,116 +153,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-  const lieferung = await prisma.$transaction(async (tx) => {
-    // Batch-load all needed data upfront to avoid N+1 queries
-    const artikelIds = positionen.map((p) => p.artikelId);
-
-    const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte] = await Promise.all([
-      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true } }),
-      tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
-      tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
-      tx.mengenrabatt.findMany({
-        where: {
-          aktiv: true,
-          OR: [{ kundeId }, { kundeId: null }],
-        },
-      }),
-    ]);
-
-    const artikelMap = new Map(alleArtikel.map((a) => [a.id, a]));
-    const kundePreisMap = new Map(alleKundePreise.map((kp) => [kp.artikelId, kp]));
-    const bevorzugterLieferantMap = new Map(alleBevorzugteLieferanten.map((al) => [al.artikelId, al]));
-
-    // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
-    const angereichert = positionen.map((pos) => {
-      const artikel = artikelMap.get(pos.artikelId);
-      if (!artikel) throw new Error(`Artikel mit ID ${pos.artikelId} nicht gefunden`);
-      const kundePreis = kundePreisMap.get(pos.artikelId) ?? null;
-      const bevorzugterLieferant = bevorzugterLieferantMap.get(pos.artikelId);
-
-      const basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel, kundePreis);
-
-      // Mengenrabatt: filter in JS (vonMenge per position, then artikel/kategorie match)
-      const passende = alleMengenrabatte.filter((r) => {
-        if (r.vonMenge > pos.menge) return false;
-        if (r.artikelId !== null) return r.artikelId === pos.artikelId;
-        if (r.kategorie !== null) return r.kategorie === artikel.kategorie;
-        return false;
-      });
-
-      // Wähle den höchsten Rabatt
-      let bestRabatt = 0;
-      for (const r of passende) {
-        if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
-      }
-
-      const rabattVerkaufspreis = bestRabatt > 0
-        ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
-        : basisVerkaufspreis;
-
-      return {
-        artikelId: pos.artikelId,
-        menge: pos.menge,
-        verkaufspreis: rabattVerkaufspreis,
-        einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
-        chargeNr: pos.chargeNr ?? null,
-        // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
-        notiz: pos.notiz ?? artikel.notiz ?? null,
-        rabattProzent: bestRabatt,
-      };
-    });
-
-    return tx.lieferung.create({
-      data: {
-        kundeId,
-        datum: datum ? new Date(datum) : new Date(),
-        notiz,
-        wiederkehrend: wiederkehrend ?? false,
-        istStreckengeschaeft,
-        streckenLieferantId: streckenLieferantId ?? undefined,
-        positionen: { create: angereichert },
-      },
-      include: {
-        kunde: true,
-        positionen: { include: { artikel: { select: artikelSafeSelect } } },
-      },
-    });
+  const { lieferung, kreditlimitWarnung, offenerBetrag, kreditlimit } = await erstelleLieferungMitPreisberechnung({
+    kundeId,
+    datum: datum ? new Date(datum) : undefined,
+    notiz,
+    wiederkehrend,
+    istStreckengeschaeft,
+    streckenLieferantId,
+    quelle,
+    positionen,
   });
-  // Kreditlimit-Prüfung (nur Warnung, kein Fehler)
-  let kreditlimitWarnung = false;
-  let offenerBetrag: number | undefined;
-  let kreditlimitWert: number | undefined;
-  try {
-    const kunde = await prisma.kunde.findUnique({
-      where: { id: kundeId },
-      select: { kreditlimit: true },
-    });
-    if (kunde?.kreditlimit != null) {
-      kreditlimitWert = kunde.kreditlimit;
-      // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer)
-      const offeneLieferungen = await prisma.lieferung.findMany({
-        where: { kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null },
-        include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },
-        take: 200,
-      });
-      offenerBetrag = offeneLieferungen.reduce((sum, l) => {
-        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0);
-        return sum + netto;
-      }, 0);
-      if (offenerBetrag > kreditlimitWert) {
-        kreditlimitWarnung = true;
-      }
-    }
-  } catch (err) {
-    Sentry.captureException(err);
-    // Kreditlimit-Check ist nicht kritisch, Fehler ignorieren
-  }
 
   const response: Record<string, unknown> = { ...lieferung };
   if (kreditlimitWarnung) {
     response.kreditlimitWarnung = true;
     response.offenerBetrag = offenerBetrag;
-    response.kreditlimit = kreditlimitWert;
+    response.kreditlimit = kreditlimit;
   }
   return NextResponse.json(response, { status: 201 });
   } catch (err) {
