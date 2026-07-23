@@ -179,6 +179,14 @@ export default function KundenPage() {
           </button>
           <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
           <Link
+            href="/kunden/verschmelzen"
+            title="Kunden zusammenführen"
+            className="inline-flex items-center gap-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span className="hidden sm:inline">Zusammenführen</span>
+          </Link>
+          <Link
             href="/kunden/neu"
             title="Neuer Kunde"
             className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 sm:px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"

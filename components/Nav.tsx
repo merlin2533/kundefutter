@@ -38,6 +38,7 @@ const groups: NavGroup[] = [
     label: "Kunden",
     children: [
       { href: "/kunden", label: "Kundenliste", section: "Kunden" },
+      { href: "/kunden/verschmelzen", label: "Kunden zusammenführen", section: "Kunden" },
       { href: "/kunden/karte", label: "Karte", section: "Kunden" },
       { href: "/kundenimport", label: "Import", section: "Kunden" },
       { href: "/telefonmaske", label: "Telefonmaske", section: "Kunden" },
@@ -790,7 +791,7 @@ export default function Nav() {
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
-    if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte") && !pathname.startsWith("/kunden/bewertung"));
+    if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte") && !pathname.startsWith("/kunden/bewertung") && !pathname.startsWith("/kunden/verschmelzen"));
     return pathname === href || pathname.startsWith(href + "/");
   }
 
