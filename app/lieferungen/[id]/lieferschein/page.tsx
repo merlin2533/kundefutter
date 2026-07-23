@@ -439,7 +439,10 @@ export default function LieferscheinPage() {
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
+          /* Kopf (thead) und Fuß (tfoot) der Dokumenttabelle wiederholen sich automatisch
+             auf jeder gedruckten Seite – Kernmechanismus für saubere Mehrseiten-Lieferscheine. */
           thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
           .falzmarke { display: block !important; position: fixed; left: 0; width: 10mm; height: 0; border-top: 0.3pt solid #aaa; }
           .falzmarke-1 { top: 105mm; }
           .falzmarke-2 { top: 210mm; }
@@ -557,7 +560,8 @@ export default function LieferscheinPage() {
         onSend={handleMailSenden}
       />
 
-      {/* Lieferschein document */}
+      {/* Lieferschein document – als <table> aufgebaut, damit thead/tfoot beim Druck auf
+          JEDER Seite wiederholt werden (Kopf + Fuß bei mehrseitigen Lieferscheinen). */}
       <div
         data-print-area
         style={{
@@ -570,6 +574,10 @@ export default function LieferscheinPage() {
           background: "#fff",
         }}
       >
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Briefkopf */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           {/* Absender links */}
@@ -647,7 +655,12 @@ export default function LieferscheinPage() {
         </div>
 
         <hr style={{ borderTop: "2px solid #222", marginBottom: "24px" }} />
-
+      </td>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Empfänger-Block */}
         <div style={{ marginBottom: "32px" }}>
           <div style={{ fontSize: "8pt", color: "#888", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -883,9 +896,18 @@ export default function LieferscheinPage() {
             </div>
           )}
         </div>
-
+      </td>
+      </tr>
+      </tbody>
+      <tfoot>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Footer – 3 Spalten */}
         <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="64px" />
+      </td>
+      </tr>
+      </tfoot>
+      </table>
       </div>
 
       {/* ── Digitale Unterschrift (nur am Bildschirm, nicht beim Drucken) ── */}

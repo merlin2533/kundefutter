@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Sentry } from "@/lib/sentry";
+import * as Sentry from "@sentry/nextjs";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { Mistral } from "@mistralai/mistralai";
