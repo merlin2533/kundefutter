@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { createBackup, getBackupDir } from "@/lib/backup";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function GET() {
 
     return NextResponse.json(files);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Backup list error:", err);
     return NextResponse.json({ error: "Fehler beim Lesen der Backups" }, { status: 500 });
   }
@@ -40,6 +42,7 @@ export async function POST() {
     const entry = await createBackup();
     return NextResponse.json(entry);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Backup create error:", err);
     const msg = err instanceof Error ? err.message : "Fehler beim Erstellen des Backups";
     return NextResponse.json({ error: msg }, { status: 500 });

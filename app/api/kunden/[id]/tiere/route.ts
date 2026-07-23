@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NUTZUNGSARTEN, type TierartKey } from "@/lib/tierbedarf";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,7 +21,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
       take: 500,
     });
     return NextResponse.json(tiere);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest, ctx: Params) {
     });
     return NextResponse.json(tier, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -115,6 +118,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     const tier = await prisma.kundeTier.update({ where: { id: tierId }, data });
     return NextResponse.json(tier);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -137,7 +141,8 @@ export async function DELETE(req: NextRequest, ctx: Params) {
 
     await prisma.kundeTier.delete({ where: { id: tierId } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

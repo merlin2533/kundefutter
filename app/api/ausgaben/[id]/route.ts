@@ -6,6 +6,7 @@ import {
   BUCHUNGSTYPEN,
   getKilometerpauschale,
 } from "@/lib/datev";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!ausgabe) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(ausgabe);
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -132,6 +134,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     });
     return NextResponse.json(ausgabe);
   } catch (err: unknown) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -147,6 +150,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     await prisma.ausgabe.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

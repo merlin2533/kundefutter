@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchFarmlandAround } from "@/lib/overpass";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
       abgerufenAm: upserted.abgerufenAm.toISOString(),
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.error("Agrarflächen-API Fehler:", error);
     return NextResponse.json(
       {

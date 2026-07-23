@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(anlieferungen);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(anlieferung, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },

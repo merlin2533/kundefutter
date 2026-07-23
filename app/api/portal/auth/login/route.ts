@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { signPortalSession, PORTAL_SESSION_COOKIE, portalCookieOptions } from "@/lib/portal-auth";
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // Brute-Force-Schutz: max. 10 Versuche pro IP in 15 Minuten
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     res.cookies.set(PORTAL_SESSION_COOKIE, token, portalCookieOptions());
     return res;
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

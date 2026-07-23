@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import * as XLSX from "xlsx";
 import { berechneMarge, formatDatum } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -196,7 +197,8 @@ export async function GET(req: NextRequest) {
     }));
   }
 
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Exportfehler" }, { status: 500 });
   }
 

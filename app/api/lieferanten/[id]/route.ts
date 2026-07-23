@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -19,7 +20,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
     if (!lieferant) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(lieferant);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -29,7 +31,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -56,6 +59,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(lieferant);
   } catch (e) {
+    Sentry.captureException(e);
     if ((e as { code?: string })?.code === "P2025") {
       return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
     }
@@ -69,7 +73,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
     await prisma.lieferant.update({ where: { id: Number(id) }, data: { aktiv: false } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
   }
 }

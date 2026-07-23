@@ -1,3 +1,5 @@
+import { Sentry } from "@/lib/sentry";
+
 // Eurostat API configuration
 const EUROSTAT_BASE =
   "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data";
@@ -394,6 +396,7 @@ export async function fetchEurostatOutput(
     return parseJsonStatOutput(json);
   } catch (err) {
     console.warn("fetchEurostatOutput error:", err instanceof Error ? err.message : String(err));
+    Sentry.captureException(err);
     return [];
   }
 }

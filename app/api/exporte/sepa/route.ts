@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generiereSepaXml, SepaZahlung } from "@/lib/sepa";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +127,7 @@ export async function POST(req: NextRequest) {
 
     return new NextResponse(xml, { headers });
   } catch (err) {
+    Sentry.captureException(err);
     const msg =
       isDev && err instanceof Error ? err.message : "Interner Fehler beim SEPA-Export";
     return NextResponse.json({ error: msg }, { status: 500 });

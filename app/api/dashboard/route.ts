@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lagerStatus, addTage } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -443,7 +444,8 @@ export async function GET() {
   let unzugeordneteUmsaetze = 0;
   try {
     unzugeordneteUmsaetze = await (prisma as unknown as { kontoumsatz: { count: (args: { where: { zugeordnet: boolean } }) => Promise<number> } }).kontoumsatz.count({ where: { zugeordnet: false } });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     // Tabelle existiert noch nicht — ignorieren
     unzugeordneteUmsaetze = 0;
   }
@@ -486,6 +488,7 @@ export async function GET() {
     bestellteBestellungen: bestellteBestellungenCount,
   });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Dashboard API error:", e);
     return NextResponse.json({ error: "Interner Serverfehler" }, { status: 500 });
   }

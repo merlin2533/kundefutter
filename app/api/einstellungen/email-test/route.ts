@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyEmailConfig, sendEmail } from "@/lib/email";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
     await verifyEmailConfig();
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     // Email settings is an admin-only page — expose the real error to help diagnose config issues
     const msg = err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

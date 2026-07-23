@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Überweisungsliste GET error:", err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

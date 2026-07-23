@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
     return NextResponse.json(gutschrift);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -33,7 +35,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -74,6 +77,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(updated);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Gutschrift error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -101,6 +105,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.gutschrift.delete({ where: { id: Number(id) } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Gutschrift error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";

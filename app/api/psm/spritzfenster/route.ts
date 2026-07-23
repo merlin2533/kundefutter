@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Ampel = "gruen" | "gelb" | "rot";
@@ -111,6 +112,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(stunden);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Wetter-API nicht erreichbar";
     return NextResponse.json({ error: msg }, { status: 500 });

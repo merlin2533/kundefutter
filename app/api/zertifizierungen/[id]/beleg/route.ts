@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUploadBase } from "@/lib/upload";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true, belegpfad: relPfad, belegname: file.name, id: updated.id });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Fehler beim Upload";
     return NextResponse.json({ error: msg }, { status: 500 });

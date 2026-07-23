@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { ALL_PERMISSIONS, ROLLE_PRESETS } from "@/lib/permissions";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const SELECT = {
@@ -36,7 +37,8 @@ export async function GET() {
         _count: undefined,
       })),
     );
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -51,7 +53,8 @@ export async function POST(req: NextRequest) {
   let body: { name?: string; bezeichnung?: string; beschreibung?: string; berechtigungen?: string[]; preset?: string };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -86,6 +89,7 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (e: unknown) {
+    Sentry.captureException(e);
     if (e && typeof e === "object" && "code" in e && (e as { code: string }).code === "P2002") {
       return NextResponse.json({ error: "Rollenname bereits vergeben" }, { status: 409 });
     }
@@ -97,7 +101,8 @@ function parseJson(raw: string): string[] {
   try {
     const p = JSON.parse(raw);
     return Array.isArray(p) ? p : [];
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }

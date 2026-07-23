@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -20,6 +21,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
 
     return NextResponse.json(item);
   } catch (e: unknown) {
+    Sentry.captureException(e);
     const isDev = process.env.NODE_ENV === "development";
     if (e && typeof e === "object" && "code" in e && (e as { code: string }).code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -38,6 +40,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     await prisma.benachrichtigung.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
+    Sentry.captureException(e);
     const isDev = process.env.NODE_ENV === "development";
     if (e && typeof e === "object" && "code" in e && (e as { code: string }).code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });

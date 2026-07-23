@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
       take,
     });
     return NextResponse.json(lieferanten);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -34,7 +36,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(lieferant, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Lieferant konnte nicht angelegt werden";
     return NextResponse.json({ error: message }, { status: 500 });

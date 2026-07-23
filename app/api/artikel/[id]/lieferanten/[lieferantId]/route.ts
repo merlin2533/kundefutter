@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string; lieferantId: string }> };
@@ -17,6 +18,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("ArtikelLieferant DELETE error:", err);
     return NextResponse.json({ error: "Löschen fehlgeschlagen" }, { status: 500 });
   }

@@ -5,6 +5,7 @@ import { auditLog } from "@/lib/audit";
 import { isDriveKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/googleDrive";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -51,6 +52,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
     return NextResponse.json({ ...lieferung, gesamtBetrag: Math.round(gesamtBrutto * 100) / 100, offenerBetrag });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Lieferung GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -61,7 +63,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -358,6 +361,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   return NextResponse.json(result);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Lieferung PATCH error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -387,7 +391,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       await tx.lieferung.delete({ where: { id: numId } });
     });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -398,7 +403,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -458,6 +464,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
       return NextResponse.json(updated);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Lieferung aktion error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -515,6 +522,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
       return NextResponse.json(lieferung);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Lieferung aktion error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -557,6 +565,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
       return NextResponse.json(updated);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Rechnung-Storno error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -580,6 +589,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
       return NextResponse.json(updated);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Unterschrift speichern error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";

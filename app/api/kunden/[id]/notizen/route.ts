@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -16,7 +17,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       orderBy: { erstellt: "desc" },
     });
     return NextResponse.json(notizen);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -29,7 +31,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -41,7 +44,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: { kundeId, text: text.trim(), thema: thema || null },
     });
     return NextResponse.json(notiz, { status: 201 });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Erstellen der Notiz" }, { status: 500 });
   }
 }
@@ -57,7 +61,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     await prisma.kundeNotiz.deleteMany({ where: { id: notizId, kundeId } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Löschen der Notiz" }, { status: 500 });
   }
 }

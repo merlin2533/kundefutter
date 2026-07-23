@@ -4,6 +4,7 @@ import { sendEmail } from "@/lib/email";
 import { mahnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // POST /api/exporte/mahnung/mail
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
     const kundenname = lieferung.kunde.firma ?? lieferung.kunde.name;
     return NextResponse.json({ ok: true, empfaenger, kundenname });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: `E-Mail-Versand fehlgeschlagen: ${msg}` }, { status: 500 });

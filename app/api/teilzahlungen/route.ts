@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(teilzahlungen);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Teilzahlungen GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -38,7 +40,8 @@ export async function POST(req: NextRequest) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -73,6 +76,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(teilzahlung, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Teilzahlung POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";

@@ -8,6 +8,7 @@ import {
   type RationsPosition,
   type NaehrstoffWerte,
 } from "@/lib/rationsberechnung";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const TIERART_KEYS: TierartKey[] = ["Rind", "Schwein", "Geflugel", "Pferd", "Schaf", "Ziege"];
@@ -188,7 +189,8 @@ export async function GET(req: NextRequest) {
       take: 50,
     });
     return NextResponse.json(liste);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -260,6 +262,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(ergebnis);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -276,6 +279,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.rationsberechnung.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

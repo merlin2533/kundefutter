@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
           differenz: Math.round((neuerPreis - zuordnung.einkaufspreis) * 100) / 100,
         });
       } catch (rowErr) {
+        Sentry.captureException(rowErr);
         console.error("Preislisten-Import Zeilenfehler für Artikelnummer:", artNr, rowErr);
         // Einzelne fehlerhafte Zeile überspringen, restlichen Import fortsetzen
       }
@@ -86,6 +88,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(vorschlaege);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Preislisten-Import POST error:", err);
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -109,6 +112,7 @@ export async function PUT(req: NextRequest) {
         });
         aktualisiert++;
       } catch (rowErr) {
+        Sentry.captureException(rowErr);
         console.error("Preislisten-Import PUT Fehler für ArtikelLieferant:", u.artikelLieferantId, rowErr);
         const message = isDev && rowErr instanceof Error ? rowErr.message : "Preis konnte nicht aktualisiert werden";
         fehlgeschlagen.push({ artikelLieferantId: u.artikelLieferantId, error: message });
@@ -116,6 +120,7 @@ export async function PUT(req: NextRequest) {
     }
     return NextResponse.json({ aktualisiert, fehlgeschlagen: fehlgeschlagen.length, fehler: fehlgeschlagen });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Preislisten-Import PUT error:", err);
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });

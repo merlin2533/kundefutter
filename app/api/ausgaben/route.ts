@@ -6,6 +6,7 @@ import {
   BUCHUNGSTYPEN,
   getKilometerpauschale,
 } from "@/lib/datev";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(ausgaben);
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -139,6 +141,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(ausgabe, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

@@ -3,6 +3,7 @@ import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import path from "path";
 import fs from "fs/promises";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(zertifikate);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(record, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },

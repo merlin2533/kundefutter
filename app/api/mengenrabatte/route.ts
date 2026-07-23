@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -14,7 +15,8 @@ export async function GET() {
       take: 200,
     });
     return NextResponse.json(rabatte);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -23,7 +25,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -56,6 +59,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(rabatt, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Mengenrabatt POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -72,7 +76,8 @@ export async function DELETE(req: NextRequest) {
   try {
     await prisma.mengenrabatt.delete({ where: { id: Number(id) } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Mengenrabatt nicht gefunden" }, { status: 404 });
   }
 }

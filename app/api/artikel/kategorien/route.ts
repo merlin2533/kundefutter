@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -37,7 +38,8 @@ export async function GET(req: NextRequest) {
       result[kat] = Array.from(set).sort();
     }
     return NextResponse.json(result);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -47,7 +49,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -78,7 +81,8 @@ export async function POST(req: NextRequest) {
       return artikel;
     });
     return NextResponse.json({ ok: true, aktualisiert: result.count });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Umbenennen" }, { status: 500 });
   }
 }

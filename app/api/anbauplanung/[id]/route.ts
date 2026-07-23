@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["geplant", "ausgesaet", "geerntet", "abgebrochen"]);
@@ -40,6 +41,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json(plan);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     const isDev = process.env.NODE_ENV === "development";

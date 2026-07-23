@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validiereVvvo, formatiereVvvo } from "@/lib/vvvo";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/vvvo?nr=DE+03+12345678  oder  POST {nr: "..."}
@@ -14,7 +15,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     return NextResponse.json(buildResult(String(body.nr ?? "")));
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ gueltig: false, fehler: "Ungültige Anfrage" }, { status: 400 });
   }
 }
