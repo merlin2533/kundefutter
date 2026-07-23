@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { naechsteRechnungsnummer, istLagerrelevant } from "@/lib/utils";
+import { naechsteRechnungsnummer, istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
@@ -48,9 +48,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return sum + netto;
     }, 0);
     const bezahlt = lieferung.teilzahlungen.reduce((sum, tz) => sum + tz.betrag, 0);
-    const offenerBetrag = Math.round((gesamtBrutto - bezahlt) * 100) / 100;
+    const offenerBetrag = rundeKaufmaennisch(gesamtBrutto - bezahlt, 2);
 
-    return NextResponse.json({ ...lieferung, gesamtBetrag: Math.round(gesamtBrutto * 100) / 100, offenerBetrag });
+    return NextResponse.json({ ...lieferung, gesamtBetrag: rundeKaufmaennisch(gesamtBrutto, 2), offenerBetrag });
   } catch (e) {
     Sentry.captureException(e);
     console.error("Lieferung GET error:", e);

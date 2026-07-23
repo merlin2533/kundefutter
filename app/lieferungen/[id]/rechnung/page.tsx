@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, formatDatum, addTage, formatMenge } from "@/lib/utils";
+import { formatEuro, formatDatum, addTage, formatMenge, rundeKaufmaennisch } from "@/lib/utils";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
@@ -335,7 +335,7 @@ export default function RechnungPrintPage() {
       (s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * ((p.artikel.mwstSatz ?? 19) / 100),
       0,
     );
-    const brutto = netto + mwst;
+    const brutto = rundeKaufmaennisch(netto + mwst, 2);
     const verwendung = `Rechnung ${lieferung.rechnungNr ?? `LS-${lieferung.id}`}`;
 
     let cancelled = false;
@@ -435,7 +435,7 @@ export default function RechnungPrintPage() {
   }, {});
 
   const mwstGesamt = Object.values(mwstGruppen).reduce((s, v) => s + v, 0);
-  const bruttobetrag = nettobetrag + mwstGesamt;
+  const bruttobetrag = rundeKaufmaennisch(nettobetrag + mwstGesamt, 2);
 
   const rechnungNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
   const rechnungsDatumStr = lieferung.rechnungDatum

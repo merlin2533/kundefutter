@@ -261,7 +261,7 @@ function PrognoseTab({
                   {row.artikelName}
                   <div className="sm:hidden text-xs text-gray-500 mt-0.5">
                     {row.kategorie}
-                    {row.avgTagesverbrauch !== 0 && ` · Ø ${row.avgTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
+                    {row.avgTagesverbrauch !== 0 && ` · Ø ${row.avgTagesverbrauch.toFixed(3)} ${row.einheit}/Tag`}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{row.kategorie}</td>
@@ -269,12 +269,12 @@ function PrognoseTab({
                 <td className="px-4 py-3 font-mono hidden md:table-cell">
                   {row.avgTagesverbrauch === 0
                     ? <span className="text-gray-400 text-xs">Kein Verbrauch</span>
-                    : `${row.avgTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
+                    : `${row.avgTagesverbrauch.toFixed(3)} ${row.einheit}/Tag`}
                 </td>
                 <td className="px-4 py-3 font-mono">
                   {row.effektiverTagesverbrauch === 0
                     ? <span className="text-gray-400 text-xs">Kein Verbrauch</span>
-                    : `${row.effektiverTagesverbrauch.toFixed(2)} ${row.einheit}/Tag`}
+                    : `${row.effektiverTagesverbrauch.toFixed(3)} ${row.einheit}/Tag`}
                 </td>
                 <td className={`px-4 py-3 font-mono ${reichweiteColor(row.reichweiteTage, schwellwert)}`}>
                   {row.reichweiteTage === null

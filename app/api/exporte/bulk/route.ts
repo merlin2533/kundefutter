@@ -74,7 +74,7 @@ function buildLieferscheinPdf(
       String(i + 1),
       p.artikel.artikelnummer,
       p.artikel.name,
-      `${p.menge.toFixed(2)} ${p.artikel.einheit}`,
+      `${p.menge.toFixed(3)} ${p.artikel.einheit}`,
       p.chargeNr ?? "",
     ]),
     headStyles: { fillColor: [22, 101, 52] },
@@ -161,7 +161,7 @@ function buildRechnungPdf(
 
   const rows = lieferung.positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis;
-    return [String(i + 1), p.artikel.artikelnummer, p.artikel.name, `${p.menge.toFixed(2)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto)];
+    return [String(i + 1), p.artikel.artikelnummer, p.artikel.name, `${p.menge.toFixed(3)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto)];
   });
   autoTable(doc, {
     startY: 82,

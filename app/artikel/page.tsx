@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatEuro, lagerStatus } from "@/lib/utils";
+import { formatPreis, lagerStatus } from "@/lib/utils";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -645,18 +645,18 @@ export default function ArtikelPage() {
                         )}
                       </span>
                       <div className="sm:hidden text-xs text-gray-500 mt-0.5">
-                        {kategorieMitKultur} · {formatEuro(a.standardpreis)}
+                        {kategorieMitKultur} · {formatPreis(a.standardpreis)}
                       </div>
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
                       {kategorieMitKultur}
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600">{a.einheit}</td>
-                    <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(a.standardpreis)}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatPreis(a.standardpreis)}</td>
                     <td className="hidden md:table-cell px-4 py-3 font-mono">
                       {(() => {
                         const ek = bevorzugterEK(a);
-                        return ek !== null ? formatEuro(ek) : <span className="text-gray-400">—</span>;
+                        return ek !== null ? formatPreis(ek) : <span className="text-gray-400">—</span>;
                       })()}
                     </td>
                     <td className="px-4 py-3 font-mono whitespace-nowrap">

@@ -4,7 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { formatDatum, formatEuro } from "@/lib/utils";
+import { formatDatum, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
@@ -553,7 +553,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   for (const [satz, basis] of mwstGruppen) {
     mwstGesamt += basis * (satz / 100);
   }
-  const brutto = nettoGesamt + mwstGesamt;
+  const brutto = rundeKaufmaennisch(nettoGesamt + mwstGesamt, 2);
 
   const sumLabelX = 140;
   const sumValueX = 196;
@@ -1038,7 +1038,7 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
   }
   let mwstGesamtA = 0;
   for (const [satz, basis] of mwstGruppenA) mwstGesamtA += basis * (satz / 100);
-  const bruttoA = nettoGesamtA + mwstGesamtA;
+  const bruttoA = rundeKaufmaennisch(nettoGesamtA + mwstGesamtA, 2);
 
   let sumY = finalY + 2;
   const sumLabelX = 140;
@@ -1304,7 +1304,7 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   }
   let mwstGesamtG = 0;
   for (const [satz, basis] of mwstGruppenG) mwstGesamtG += basis * (satz / 100);
-  const bruttoG = nettoGesamtG + mwstGesamtG;
+  const bruttoG = rundeKaufmaennisch(nettoGesamtG + mwstGesamtG, 2);
 
   let sumYG = finalYG + 2;
   const sumLabelXG = 140;

@@ -74,8 +74,34 @@ export function formatDatum(d: Date | string): string {
   return new Date(d).toLocaleDateString("de-DE");
 }
 
-export function formatEuro(n: number): string {
-  return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+/**
+ * Kaufmännische Rundung (round half away from zero) auf die angegebene Stellenzahl.
+ * Nutzt den Exponential-String-Umweg statt `Math.round(n * 100) / 100`, da Beträge wie
+ * 1.005 als Double intern leicht unter dem exakten Wert liegen (1.00499999999999989…) und
+ * eine direkte Multiplikation fälschlich abrunden würde. Rundet negative Beträge
+ * (Gutschriften, Storno) symmetrisch weg von Null.
+ */
+export function rundeKaufmaennisch(n: number, stellen = 2): number {
+  if (!Number.isFinite(n)) return n;
+  const vorzeichen = n < 0 ? -1 : 1;
+  const verschoben = Number(`${Math.abs(n)}e${stellen}`);
+  const gerundet = Math.round(verschoben);
+  return vorzeichen * Number(`${gerundet}e-${stellen}`);
+}
+
+/** Euro-Betrag, kaufmännisch auf `decimals` Nachkommastellen gerundet (Standard: 2 — für Endbeträge/Rechnungssummen). */
+export function formatEuro(n: number, decimals = 2): string {
+  return rundeKaufmaennisch(n, decimals).toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+/** Einzel-/Bezugspreis mit 3 Nachkommastellen (z.B. 0,215 €/kg) — vermeidet Rundungsfehler bei Menge × Preis. */
+export function formatPreis(n: number): string {
+  return formatEuro(n, 3);
 }
 
 /**
