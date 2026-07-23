@@ -742,7 +742,7 @@ function NeueLieferungInner() {
                         <td className="px-3 py-2">
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.001"
                             min="0"
                             value={pos.einkaufspreis}
                             onChange={(e) => updatePosition(idx, "einkaufspreis", e.target.value)}
@@ -757,7 +757,7 @@ function NeueLieferungInner() {
                         <td className="px-3 py-2">
                           <input
                             type="number"
-                            step="0.01"
+                            step="0.001"
                             min="0"
                             value={pos.verkaufspreis}
                             onChange={(e) => updatePosition(idx, "verkaufspreis", e.target.value)}

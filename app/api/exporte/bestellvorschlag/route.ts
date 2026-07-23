@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       body: gruppe.positionen.map(p => [
         p.artikelnummer,
         p.artikelName,
-        p.bestellmenge.toFixed(2),
+        p.bestellmenge.toFixed(3),
         p.einheit,
         p.bevorzugterLieferant ? `${p.bevorzugterLieferant.einkaufspreis.toFixed(2)} €` : "-",
         p.bevorzugterLieferant

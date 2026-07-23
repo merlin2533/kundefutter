@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
       const netto = p.menge * p.verkaufspreis;
       const r = [String(i + 1), p.artikel.artikelnummer, p.artikel.name];
       if (hatCharge) r.push(p.chargeNr ?? "—");
-      r.push(`${p.menge.toFixed(2)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
+      r.push(`${p.menge.toFixed(3)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
       return r;
     });
 
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest) {
     const netto = p.menge * p.verkaufspreis;
     const r = [String(i + 1), formatDatum(p.lieferDatum), p.artikel.name];
     if (hatCharge) r.push(p.chargeNr ?? "—");
-    r.push(`${p.menge.toFixed(2)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
+    r.push(`${p.menge.toFixed(3)} ${p.artikel.einheit}`, formatEuro(p.verkaufspreis), formatEuro(netto));
     return r;
   });
 

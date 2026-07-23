@@ -416,7 +416,7 @@ function NeuesAngebotForm() {
                       <div className="flex gap-2 items-center">
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           min="0"
                           value={pos.preis}
                           onChange={(e) => updatePosition(i, "preis", e.target.value)}

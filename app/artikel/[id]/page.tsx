@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
-import { formatEuro, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
+import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import {
@@ -659,7 +659,7 @@ export default function ArtikelDetailPage() {
                 <p className="text-xs text-amber-700 mt-1">
                   Bevorzugter Lieferant: <span className="font-medium">{bevorzugterLieferant.lieferant.name}</span>
                   {canSeeEk && bevorzugterLieferant.einkaufspreis > 0 && (
-                    <span className="ml-1">· EK: {formatEuro(bevorzugterLieferant.einkaufspreis)} / {artikel.einheit}</span>
+                    <span className="ml-1">· EK: {formatPreis(bevorzugterLieferant.einkaufspreis)} / {artikel.einheit}</span>
                   )}
                   {bevorzugterLieferant.mindestbestellmenge && (
                     <span className="ml-1">· MBM: {bevorzugterLieferant.mindestbestellmenge} {artikel.einheit}</span>
@@ -698,7 +698,7 @@ export default function ArtikelDetailPage() {
         )}
         <div className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm">
           <p className="text-xs font-medium text-gray-500 mb-0.5">Verkaufspreis</p>
-          <p className="text-xl font-bold text-gray-900">{formatEuro(artikel.standardpreis)}</p>
+          <p className="text-xl font-bold text-gray-900">{formatPreis(artikel.standardpreis)}</p>
           <p className="text-xs text-gray-400 mt-0.5">{artikel.mwstSatz}% MwSt · {artikel.einheit}</p>
         </div>
         {marge !== null && canSeeMarge && (
@@ -709,7 +709,7 @@ export default function ArtikelDetailPage() {
             </p>
             {canSeeEk && (
               <p className="text-xs text-gray-400 mt-0.5">
-                EK: {formatEuro(bevorzugterLieferant?.einkaufspreis ?? 0)}
+                EK: {formatPreis(bevorzugterLieferant?.einkaufspreis ?? 0)}
               </p>
             )}
           </div>
@@ -1029,7 +1029,7 @@ export default function ArtikelDetailPage() {
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Preise & Steuern</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-gray-100 sm:divide-y-0">
                   {[
-                    { label: "Standardpreis", value: <span className="font-mono font-semibold text-gray-900">{formatEuro(artikel.standardpreis)}</span> },
+                    { label: "Standardpreis", value: <span className="font-mono font-semibold text-gray-900">{formatPreis(artikel.standardpreis)}</span> },
                     { label: "MwSt-Satz", value: <span className="text-gray-900">{artikel.mwstSatz === 0 ? "0% (Steuerfrei)" : artikel.mwstSatz === 7 ? "7% (ermäßigt)" : "19% (Regelsatz)"}</span> },
                     { label: "Preisstand", value: <span className="text-gray-900">{artikel.preisStand ? formatDatum(artikel.preisStand) : "—"}</span> },
                     ...(marge !== null ? [{ label: "Marge", value: <MargeBadge pct={Math.round(marge * 10) / 10} /> }] : []),
@@ -1335,7 +1335,7 @@ export default function ArtikelDetailPage() {
                             title="EK bearbeiten"
                             className="font-mono hover:bg-green-50 px-2 py-1 -mx-2 -my-1 rounded transition-colors text-left"
                           >
-                            {formatEuro(l.einkaufspreis)}
+                            {formatPreis(l.einkaufspreis)}
                           </button>
                         )}
                       </td>
@@ -1426,7 +1426,7 @@ export default function ArtikelDetailPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Einkaufspreis (€)</label>
                       <input
-                        type="number" step="0.01" min="0"
+                        type="number" step="0.001" min="0"
                         value={lievForm.einkaufspreis}
                         onChange={(e) => setLievForm({ ...lievForm, einkaufspreis: e.target.value })}
                         className={inputCls}
@@ -1557,12 +1557,12 @@ export default function ArtikelDetailPage() {
                           <tr key={p.id} className="hover:bg-gray-50">
                             <td className="px-4 py-3">
                               {formatDatum(p.geaendertAm)}
-                              <div className="sm:hidden text-xs text-gray-500 mt-0.5">vorher: {formatEuro(p.alterPreis)}</div>
+                              <div className="sm:hidden text-xs text-gray-500 mt-0.5">vorher: {formatPreis(p.alterPreis)}</div>
                             </td>
-                            <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatEuro(p.alterPreis)}</td>
-                            <td className="px-4 py-3 font-mono font-medium">{formatEuro(p.neuerPreis)}</td>
+                            <td className="hidden sm:table-cell px-4 py-3 font-mono">{formatPreis(p.alterPreis)}</td>
+                            <td className="px-4 py-3 font-mono font-medium">{formatPreis(p.neuerPreis)}</td>
                             <td className={`px-4 py-3 font-mono font-medium ${diffCls}`}>
-                              {diff > 0 ? "+" : ""}{formatEuro(diff)}
+                              {diff > 0 ? "+" : ""}{formatPreis(diff)}
                             </td>
                           </tr>
                         );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { rundeKaufmaennisch } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
       }, 0);
       return {
         ...a,
-        gesamtbetrag: Math.round(gesamtbetrag * 100) / 100,
+        gesamtbetrag: rundeKaufmaennisch(gesamtbetrag, 2),
         positionenAnzahl: a.positionen.length,
       };
     });
