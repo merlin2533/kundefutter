@@ -66,6 +66,7 @@ const FEATURE_LABELS: Record<string, string> = {
   router: "Dokument-Erkennung",
   sprachmemo: "Sprachmemo (Diktat)",
   tts: "Text zu Sprache",
+  bankabgleich: "Bankabgleich",
 };
 
 const PROMPT_FEATURES = [
@@ -81,6 +82,7 @@ const PROMPT_FEATURES = [
   { key: "sortenversuch",       label: "Sortenversuch",          desc: "Sortenversuchs-Auswertungen" },
   { key: "visitenkarte",        label: "Visitenkarte",           desc: "Kontaktdaten aus Visitenkarten" },
   { key: "inhaltsstoffe",       label: "Inhaltsstoffe",          desc: "Produktzusammensetzung recherchieren" },
+  { key: "bankabgleich",        label: "Bankabgleich",           desc: "Zuordnungsvorschläge für Restfälle nach dem automatischen Abgleich" },
 ];
 
 // ─── Komponente ──────────────────────────────────────────────────────────────

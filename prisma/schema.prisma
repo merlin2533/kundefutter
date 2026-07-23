@@ -343,6 +343,7 @@ model Lieferung {
   lieferscheinNr   String?  // manuell anpassbare Lieferschein-Nummer (Default: Lieferungs-ID/Auftrag)
   rechnungStorniert DateTime? // gesetzt wenn die Rechnung storniert wurde – verschwindet aus der Rechnungsliste
   rechnungVersendetAm DateTime? // gesetzt wenn die Rechnung per E-Mail verschickt wurde
+  lieferscheinVersendetAm DateTime? // gesetzt wenn der Lieferschein per E-Mail verschickt wurde
   bezahltAm        DateTime?
   zahlungsziel     Int?      @default(30)  // Tage
   wiederkehrend    Boolean  @default(false) // wurde automatisch angelegt
@@ -877,6 +878,9 @@ model Kontoumsatz {
   lieferungId      Int?
   sammelrechnungId Int?
   ausgabeId        Int?      // Zuordnung zu Betriebsausgabe
+  eingangsRechnungId Int?    // Zuordnung zu Lieferantenrechnung (Zahlungsausgang)
+  zuordnungsArt    String?   // "manuell" | "automatisch" | "ki" — wie die Zuordnung zustande kam
+  kiKonfidenz      Float?    // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
   importDatum      DateTime  @default(now())
   importDatei      String?   // Name der Importdatei (für Rückverfolgung)
 
@@ -1824,8 +1828,9 @@ model MailLog {
   htmlBody    String?
   status      String   @default("gesendet")  // "gesendet" | "fehler"
   fehler      String?
-  feature     String?  // "rechnung" | "digest" | "mahnung" | "angebot" …
+  feature     String?  // "rechnung" | "digest" | "mahnung" | "angebot" | "gutschrift" | "lieferschein" …
   anhangNamen String?  // JSON-Array Dateinamen
+  entityId    Int?     // ID der Quelle (z.B. lieferungId/gutschriftId/angebotId) – nötig um den PDF-Anhang beim "Erneut senden" neu zu erzeugen
 
   @@index([zeitpunkt])
   @@index([status])
