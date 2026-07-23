@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
-import { Sentry } from "@/lib/sentry";
+import * as Sentry from "@sentry/nextjs";
 import {
   type BackupConfig,
   DEFAULT_BACKUP_CONFIG,
