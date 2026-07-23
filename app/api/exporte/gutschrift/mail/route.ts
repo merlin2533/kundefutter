@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
       html,
       fromName: firma.name,
       feature: "gutschrift",
+      entityId: gutschriftId,
       attachments: [{ filename: pdfFilename, content: pdfBuffer, contentType: "application/pdf" }],
     });
 

@@ -34,6 +34,7 @@ function FeatureBadge({ feature }: { feature?: string | null }) {
     besuchserinnerung: "bg-teal-50 text-teal-700",
     digest: "bg-amber-50 text-amber-700",
     gutschrift: "bg-green-50 text-green-700",
+    lieferschein: "bg-indigo-50 text-indigo-700",
     test: "bg-gray-100 text-gray-600",
   };
   const cls = colors[feature] ?? "bg-gray-100 text-gray-600";
