@@ -19,7 +19,14 @@ interface Position {
   chargeNr?: string | null;
   rabattProzent?: number;
   notiz?: string | null;
-  artikel: { id: number; name: string; einheit: string; mwstSatz: number };
+  artikel: { id: number; name: string; einheit: string; mwstSatz: number; standardpreis?: number; updatedAt?: string };
+}
+
+interface Sonderpreis {
+  artikelId: number;
+  preis: number;
+  rabatt: number;
+  updatedAt: string;
 }
 
 interface ArtikelOption {
@@ -52,6 +59,8 @@ interface Lieferung {
   streckenLieferant?: { id: number; name: string } | null;
   kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   positionen: Position[];
+  createdAt: string;
+  sonderpreise?: Sonderpreis[];
 }
 
 interface LieferantOption {
@@ -64,6 +73,40 @@ interface Teilzahlung {
   betrag: number;
   datum: string;
   notiz?: string | null;
+}
+
+interface PreisAktualisierung {
+  posId: number;
+  artikelName: string;
+  alterPreis: number;
+  neuerPreis: number;
+  quelle: "Artikel" | "Sonderpreis";
+}
+
+// Nur für Entwürfe (status "geplant", noch keine Rechnung) relevant – fakturierte
+// Lieferungen sind eingefroren und werden nicht auf aktualisierte Preise geprüft.
+function ermittlePreisAktualisierungen(lieferung: Lieferung): PreisAktualisierung[] {
+  if (lieferung.status !== "geplant" || lieferung.rechnungNr) return [];
+  const erstellt = new Date(lieferung.createdAt).getTime();
+  if (isNaN(erstellt)) return [];
+  const sonderMap = new Map((lieferung.sonderpreise ?? []).map((s) => [s.artikelId, s]));
+  const updates: PreisAktualisierung[] = [];
+  for (const pos of lieferung.positionen) {
+    const sp = sonderMap.get(pos.artikel.id);
+    if (sp && new Date(sp.updatedAt).getTime() > erstellt && sp.preis !== pos.verkaufspreis) {
+      updates.push({ posId: pos.id, artikelName: pos.artikel.name, alterPreis: pos.verkaufspreis, neuerPreis: sp.preis, quelle: "Sonderpreis" });
+      continue;
+    }
+    if (
+      pos.artikel.updatedAt &&
+      pos.artikel.standardpreis !== undefined &&
+      new Date(pos.artikel.updatedAt).getTime() > erstellt &&
+      pos.artikel.standardpreis !== pos.verkaufspreis
+    ) {
+      updates.push({ posId: pos.id, artikelName: pos.artikel.name, alterPreis: pos.verkaufspreis, neuerPreis: pos.artikel.standardpreis, quelle: "Artikel" });
+    }
+  }
+  return updates;
 }
 
 export default function LieferungDetailPage() {
@@ -650,6 +693,48 @@ export default function LieferungDetailPage() {
     }
   }
 
+  async function preisAktualisierungUebernehmen(posId: number, neuerPreis: number) {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verkaufspreis: neuerPreis }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError((d as { error?: string }).error ?? "Fehler beim Übernehmen des Preises.");
+        return;
+      }
+      await load();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function allePreisAktualisierungenUebernehmen() {
+    if (!lieferung) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      for (const u of ermittlePreisAktualisierungen(lieferung)) {
+        const res = await fetch(`/api/lieferungen/${id}/positionen/${u.posId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ verkaufspreis: u.neuerPreis }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          setError((d as { error?: string }).error ?? "Fehler beim Übernehmen der Preise.");
+          return;
+        }
+      }
+      await load();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   if (loading) {
     return <div className="text-gray-400 text-sm p-6">Lade Lieferung…</div>;
   }
@@ -664,6 +749,9 @@ export default function LieferungDetailPage() {
       </div>
     );
   }
+
+  const preisAktualisierungen = ermittlePreisAktualisierungen(lieferung);
+  const preisUpdateMap = new Map(preisAktualisierungen.map((u) => [u.posId, u]));
 
   const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
   const gesamtEinkauf = lieferung.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
@@ -872,6 +960,31 @@ export default function LieferungDetailPage() {
             </Link>
             <button onClick={() => setShowGutschriftNachStornoHint(false)} className="px-3 py-1.5 border border-blue-300 text-blue-700 text-xs rounded-lg hover:bg-blue-100 transition-colors">
               Schließen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {preisAktualisierungen.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-3 print:hidden">
+          <span>
+            Für {preisAktualisierungen.length} Position{preisAktualisierungen.length > 1 ? "en" : ""} liegen seit Erfassung dieser Lieferung aktualisierte Preise vor
+            {" "}({preisAktualisierungen.map((u) => u.artikelName).join(", ")}).
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={allePreisAktualisierungenUebernehmen}
+              disabled={actionLoading}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap disabled:opacity-60"
+            >
+              Alle Preise übernehmen
+            </button>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="px-3 py-1.5 border border-blue-300 text-blue-700 text-xs rounded-lg hover:bg-blue-100 transition-colors whitespace-nowrap disabled:opacity-60"
+            >
+              Nur neu laden
             </button>
           </div>
         </div>
@@ -1089,6 +1202,14 @@ export default function LieferungDetailPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={load}
+              disabled={loading}
+              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors print:hidden text-gray-600 disabled:opacity-60"
+              title="Daten neu laden (prüft auf aktualisierte Artikel-/Kundenpreise)"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            </button>
             <button
               onClick={() => window.print()}
               className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors print:hidden text-gray-600"
@@ -1415,9 +1536,22 @@ export default function LieferungDetailPage() {
                         <button onClick={() => setVkEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (
-                      <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : lieferung.rechnungNr ? "Gesperrt: Rechnung bereits gestellt" : "Lieferung storniert"}>
-                        {formatEuro(pos.verkaufspreis)}
-                      </button>
+                      <span className="inline-flex items-center gap-1">
+                        <button type="button" onClick={() => { if (!canEditPos()) return; setVkEditId(pos.id); setVkEditValue(String(pos.verkaufspreis)); }} disabled={!canEditPos()} className="hover:underline disabled:no-underline disabled:cursor-default" title={canEditPos() ? "VK bearbeiten" : lieferung.rechnungNr ? "Gesperrt: Rechnung bereits gestellt" : "Lieferung storniert"}>
+                          {formatEuro(pos.verkaufspreis)}
+                        </button>
+                        {preisUpdateMap.has(pos.id) && (
+                          <button
+                            type="button"
+                            onClick={() => { const u = preisUpdateMap.get(pos.id)!; preisAktualisierungUebernehmen(pos.id, u.neuerPreis); }}
+                            disabled={actionLoading}
+                            title={`Aktualisierter Preis (${preisUpdateMap.get(pos.id)!.quelle}): ${formatEuro(preisUpdateMap.get(pos.id)!.neuerPreis)} — klicken zum Übernehmen`}
+                            className="text-amber-600 hover:text-amber-800 disabled:opacity-60"
+                          >
+                            ⚠
+                          </button>
+                        )}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs">
