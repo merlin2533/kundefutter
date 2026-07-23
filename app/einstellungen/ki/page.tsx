@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
+import SearchableSelect from "@/components/SearchableSelect";
+import { KI_MODELLE, KI_MODELL_STANDARD } from "@/lib/ki-modelle";
 
 // ─── Typen ───────────────────────────────────────────────────────────────────
 
@@ -31,22 +33,13 @@ type KiStatistik = {
   }[];
 };
 
-// ─── Modell-Vorschläge ───────────────────────────────────────────────────────
-
-const LANGUAGE_MODELS = [
-  { value: "mistral-large-latest", label: "Mistral Large (empfohlen)" },
-  { value: "mistral-medium-3",     label: "Mistral Medium 3" },
-  { value: "mistral-small-latest", label: "Mistral Small" },
-  { value: "open-mistral-nemo",    label: "Open Mistral Nemo (Open Source)" },
-];
-
-const TRANSCRIPTION_MODELS = [
-  { value: "voxtral-mini-latest", label: "Voxtral Mini (empfohlen)" },
-];
+// ─── Modell-Auswahl ──────────────────────────────────────────────────────────
+// Katalog + Standardwerte kommen aus lib/ki-modelle.ts (einzige Quelle der
+// Wahrheit, auch vom Server für Fallback/Validierung genutzt).
 
 const DEFAULT_MODELLS = {
-  language: "mistral-large-latest",
-  transcription: "voxtral-mini-latest",
+  language: KI_MODELL_STANDARD.language,
+  transcription: KI_MODELL_STANDARD.transcription,
   tts: "",
 };
 
@@ -283,45 +276,31 @@ export default function KiEinstellungenPage() {
 
   // ─── Kategorie-Helper ─────────────────────────────────────────────────────
 
-  function ModelField({
+  function ModelSelectField({
     title,
     subtitle,
+    kategorie,
     value,
     onChange,
-    suggestions,
-    placeholder,
   }: {
     title: string;
     subtitle: string;
+    kategorie: "language" | "transcription";
     value: string;
     onChange: (v: string) => void;
-    suggestions: { value: string; label: string }[];
-    placeholder: string;
   }) {
-    const listId = `modell-list-${title.replace(/\s+/g, "-").toLowerCase()}`;
     return (
       <div className="border border-gray-200 rounded-xl p-5 space-y-3">
         <div>
           <h3 className="font-semibold text-gray-800">{title}</h3>
           <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
         </div>
-        <div>
-          <input
-            list={listId}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
-          <datalist id={listId}>
-            {suggestions.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </datalist>
-          {suggestions.length > 0 && (
-            <p className="text-xs text-gray-400 mt-1">Vorschlag auswählen oder eigene Modell-ID eintragen.</p>
-          )}
-        </div>
+        <SearchableSelect
+          options={KI_MODELLE[kategorie]}
+          value={value || KI_MODELL_STANDARD[kategorie]}
+          onChange={onChange}
+          required
+        />
       </div>
     );
   }
@@ -388,13 +367,12 @@ export default function KiEinstellungenPage() {
           </p>
 
           <div className="space-y-5">
-            <ModelField
+            <ModelSelectField
               title="Sprachmodell / Chat"
               subtitle="Texterkennung, CRM-Notizen, Mahnungen, Inhaltsstoffe, JSON-Strukturierung nach OCR"
+              kategorie="language"
               value={languageModell}
               onChange={setLanguageModell}
-              suggestions={LANGUAGE_MODELS}
-              placeholder={DEFAULT_MODELLS.language}
             />
 
             <div className="border border-gray-200 rounded-xl p-5">
@@ -408,23 +386,27 @@ export default function KiEinstellungenPage() {
               </p>
             </div>
 
-            <ModelField
+            <ModelSelectField
               title="Diktieren / Transkription"
               subtitle="Spracheingabe → Text (CRM-Notizen, Sprachmemos) via Mistral Voxtral"
+              kategorie="transcription"
               value={transcriptionModell}
               onChange={setTranscriptionModell}
-              suggestions={TRANSCRIPTION_MODELS}
-              placeholder={DEFAULT_MODELLS.transcription}
             />
 
-            <ModelField
-              title="Text zu Sprache (TTS)"
-              subtitle="Sprachausgabe von Texten über Mistral"
-              value={ttsModell}
-              onChange={setTtsModell}
-              suggestions={[]}
-              placeholder="Modell-ID eingeben (optional — Mistral wählt sonst automatisch)"
-            />
+            <div className="border border-gray-200 rounded-xl p-5">
+              <h3 className="font-semibold text-gray-800">Text zu Sprache (TTS)</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Sprachausgabe von Texten über Mistral</p>
+              <input
+                value={ttsModell}
+                onChange={(e) => setTtsModell(e.target.value)}
+                placeholder="Modell-ID eingeben (optional — Mistral wählt sonst automatisch)"
+                className="mt-3 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Kein festes Modell-Line-up bei Mistral — freie Eingabe, leer lassen für Standardstimme.
+              </p>
+            </div>
 
             <div className="border border-gray-200 rounded-xl p-5">
               <h3 className="font-semibold text-gray-800">Stimme (TTS)</h3>

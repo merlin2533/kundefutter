@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
+import { KI_MODELLE, KiAuswahlKategorie } from "@/lib/ki-modelle";
 export const dynamic = "force-dynamic";
 
+// Einstellungs-Keys, deren Wert nur aus dem zentralen Modell-Katalog
+// (lib/ki-modelle.ts) stammen darf — leer ist erlaubt (fällt serverseitig
+// sauber auf den Standardwert der Kategorie zurück, siehe getAiConfig()).
+const MODELL_KATEGORIE_JE_KEY: Record<string, KiAuswahlKategorie> = {
+  "ki.modell_language": "language",
+  "ki.modell_transcription": "transcription",
+};
 
 const ALLOWED_PREFIXES = [
   "firma.",
@@ -83,6 +91,13 @@ export async function PUT(req: NextRequest) {
   // Leere Key-Werte nicht überschreiben (verhindert versehentliches Löschen)
   if (key.endsWith("_key") && !value) {
     return NextResponse.json({ ok: true, skipped: true });
+  }
+
+  // KI-Modellauswahl: nur Werte aus dem zentralen Katalog erlauben (leer = ok,
+  // fällt dann auf den Standardwert der Kategorie zurück)
+  const modellKategorie = MODELL_KATEGORIE_JE_KEY[key];
+  if (modellKategorie && value && !KI_MODELLE[modellKategorie].some((m) => m.value === value)) {
+    return NextResponse.json({ error: "Ungültiges KI-Modell für diese Kategorie" }, { status: 400 });
   }
 
   try {

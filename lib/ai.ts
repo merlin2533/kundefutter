@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import * as Sentry from "@sentry/nextjs";
 import { Mistral } from "@mistralai/mistralai";
+import { KI_MODELL_STANDARD, aufloesenKiModell } from "@/lib/ki-modelle";
 
 // ─── Zentraler KI-Service — ausschließlich Mistral AI ───────────────────────
 //
@@ -46,11 +47,12 @@ export const KOSTEN_MAP: Record<string, { input: number; output: number }> = {
   "voxtral-mini-latest":   { input: 0,   output: 0 },  // audiodauerbasierte Abrechnung, nicht tokenbasiert
 };
 
-// Default-Modelle je Kategorie
+// Default-Modelle je Kategorie — Sprachmodell/Transkription kommen aus dem
+// zentralen Katalog in lib/ki-modelle.ts (einzige Quelle der Wahrheit).
 const DEFAULT_MODELS: Record<ModelCategory, string> = {
-  language:      "mistral-large-latest",
+  language:      KI_MODELL_STANDARD.language,
   ocr:            "mistral-ocr-latest",
-  transcription:  "voxtral-mini-latest",
+  transcription:  KI_MODELL_STANDARD.transcription,
   tts:            "",  // kein festes Standardmodell — Mistral wählt serverseitig, falls leer
 };
 
@@ -70,7 +72,14 @@ export async function getAiConfig(category: ModelCategory = "language"): Promise
   const map: Record<string, string> = {};
   for (const r of rows) map[r.key] = r.value;
 
-  const modell = map[`ki.modell_${category}`] || DEFAULT_MODELS[category];
+  const gespeichert = map[`ki.modell_${category}`];
+  // Sprachmodell/Transkription: nur ein Wert aus dem Katalog gilt — ein
+  // veralteter oder manuell in der DB verbogener Eintrag fällt sauber auf
+  // den Standardwert der Kategorie zurück statt einen ungültigen Modellnamen
+  // an Mistral zu schicken.
+  const modell = (category === "language" || category === "transcription")
+    ? aufloesenKiModell(category, gespeichert)
+    : gespeichert || DEFAULT_MODELS[category];
 
   return {
     modell,
