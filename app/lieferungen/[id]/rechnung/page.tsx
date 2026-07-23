@@ -468,17 +468,21 @@ export default function RechnungPrintPage() {
     <>
       <style>{`
         @media print {
-          /* Kein Seitenrand – die DIN-Ränder (20 mm) liegen im Padding des Druckbereichs,
-             damit das Anschriftfeld absolut bei 45 mm/20 mm liegt (Fensterkuvert/Binect). */
-          @page { margin: 0; size: A4 portrait; }
+          /* Seitenrand über @page (20 mm) statt Padding – wiederholt sich auf JEDER Seite,
+             damit bei mehrseitigen Rechnungen Kopf/Fuß nicht auf Seite 2+ verrutschen.
+             Das Anschriftfeld liegt dadurch weiterhin bei 45 mm/20 mm (Fensterkuvert/Binect). */
+          @page { margin: 20mm; size: A4 portrait; }
           .print-hidden { display: none !important; }
           body { margin: 0 !important; padding: 0 !important; }
           main { padding: 0 !important; max-width: 100% !important; }
-          [data-print-area] { min-height: 0 !important; padding: 20mm !important; max-width: 100% !important; margin: 0 !important; }
+          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
+          /* Kopf (thead) und Fuß (tfoot) der Dokumenttabelle wiederholen sich automatisch
+             auf jeder gedruckten Seite – Kernmechanismus für saubere Mehrseiten-Rechnungen. */
           thead { display: table-header-group; }
+          tfoot { display: table-footer-group; }
           .falzmarke { display: block !important; position: fixed; left: 0; width: 10mm; height: 0; border-top: 0.3pt solid #aaa; }
           .falzmarke-1 { top: 105mm; }
           .falzmarke-2 { top: 210mm; }
@@ -629,7 +633,8 @@ export default function RechnungPrintPage() {
         />
       )}
 
-      {/* Rechnung document */}
+      {/* Rechnung document – als <table> aufgebaut, damit thead/tfoot beim Druck auf
+          JEDER Seite wiederholt werden (Kopf + Fuß bei mehrseitigen Rechnungen). */}
       <div
         data-print-area
         style={{
@@ -637,17 +642,19 @@ export default function RechnungPrintPage() {
           fontSize: "11pt",
           color: "#000",
           maxWidth: "210mm",
-          minHeight: "277mm",
           margin: "0 auto",
           // 20 mm rundum = DIN-Rand; identisch auf Bildschirm, im PDF (html2canvas)
-          // und im Druck, damit das Anschriftfeld immer bei 45 mm/20 mm sitzt.
+          // und im Druck (dort via @page-Margin statt Padding), damit das Anschriftfeld
+          // immer bei 45 mm/20 mm sitzt.
           padding: "20mm",
           background: "#fff",
-          display: "flex",
-          flexDirection: "column",
           position: "relative",
         }}
       >
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Storno-Hinweis */}
         {lieferung.rechnungStorniert && (
           <div
@@ -848,7 +855,12 @@ export default function RechnungPrintPage() {
         <div style={{ marginTop: "8px", marginBottom: "20px", fontSize: "11pt" }}>
           <strong>Betreff: Rechnung {rechnungNr}</strong>
         </div>
-
+      </td>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Positionen */}
         <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "10pt" }}>
           <thead>
@@ -1009,11 +1021,15 @@ export default function RechnungPrintPage() {
             </div>
           )}
         </div>
-
+      </td>
+      </tr>
+      </tbody>
+      <tfoot>
+      <tr>
+      <td style={{ padding: 0, border: "none" }}>
         {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
         <div
           style={{
-            marginTop: "auto",
             paddingTop: "12px",
             fontSize: "7.5pt",
             color: "#666",
@@ -1026,6 +1042,10 @@ export default function RechnungPrintPage() {
 
         {/* Footer – 3 Spalten */}
         <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
+      </td>
+      </tr>
+      </tfoot>
+      </table>
       </div>
     </>
   );
