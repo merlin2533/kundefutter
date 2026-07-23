@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 /** Findet Artikel-Gruppen mit identischem Namen (case-insensitiv). */
@@ -40,6 +41,7 @@ export async function GET() {
     const duplicateCount = groups.reduce((s, g) => s + g.deleteIds.length, 0);
     return NextResponse.json({ groups: groups.slice(0, 50), duplicateCount, groupCount: groups.length });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Dedup GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -48,7 +50,8 @@ export async function GET() {
 /** POST – Bereinigung ausführen. Body: { confirm: true } */
 export async function POST(req: NextRequest) {
   let body: { confirm?: boolean } = {};
-  try { body = await req.json(); } catch { /* ignore */ }
+  try { body = await req.json(); } catch (err) {
+    Sentry.captureException(err); /* ignore */ }
   if (!body.confirm) {
     return NextResponse.json({ error: "confirm: true erforderlich" }, { status: 400 });
   }
@@ -91,6 +94,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ deleted, deactivated, groupCount: groups.length });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Dedup POST error:", e);
     return NextResponse.json({ error: "Bereinigung fehlgeschlagen" }, { status: 500 });
   }

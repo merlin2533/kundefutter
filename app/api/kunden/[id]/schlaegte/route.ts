@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -17,7 +18,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
       orderBy: { erstellt: "desc" },
     });
     return NextResponse.json(schlaegte);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -62,7 +64,8 @@ export async function POST(req: NextRequest, ctx: Params) {
       },
     });
     return NextResponse.json(schlag, { status: 201 });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -83,7 +86,8 @@ export async function DELETE(req: NextRequest, ctx: Params) {
 
     await prisma.kundeSchlag.delete({ where: { id: schlagId } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

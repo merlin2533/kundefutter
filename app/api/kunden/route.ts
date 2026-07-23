@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoGeocodeKunde } from "@/lib/geocoding";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -93,6 +94,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(kunden);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Kunden GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Kunden" }, { status: 500 });
   }
@@ -102,7 +104,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -144,6 +147,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(kunde, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Kunden POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Kunde konnte nicht angelegt werden";

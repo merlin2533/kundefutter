@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     if (ausgabe.belegPfad) {
       try {
         await unlink(path.join(process.cwd(), "public", ausgabe.belegPfad.replace(/^\//, "")));
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         // Ignore missing file errors
       }
     }
@@ -90,6 +92,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ belegPfad, belegDateiname: updated.belegDateiname });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Upload fehlgeschlagen" }, { status: 500 });
   }
@@ -110,7 +113,8 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     if (ausgabe.belegPfad) {
       try {
         await unlink(path.join(process.cwd(), "public", ausgabe.belegPfad.replace(/^\//, "")));
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         // Ignore missing file
       }
     }
@@ -122,6 +126,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

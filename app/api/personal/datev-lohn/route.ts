@@ -10,6 +10,7 @@ import {
   DATEV_COL_HEADERS,
   buildDatevHeaderLine,
 } from "@/lib/datev";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -139,7 +140,8 @@ export async function GET(req: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "DATEV-Lohn-Export fehlgeschlagen" }, { status: 500 });
   }
 }

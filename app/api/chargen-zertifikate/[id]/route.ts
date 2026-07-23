@@ -3,6 +3,7 @@ import { resolveUploadPath } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import fs from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest, ctx: Params) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Datei nicht abrufbar" },
@@ -55,6 +57,7 @@ export async function DELETE(req: NextRequest, ctx: Params) {
     await prisma.chargenZertifikat.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },

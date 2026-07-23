@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -25,7 +26,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
     });
     if (!aufgabe) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(aufgabe);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -81,6 +83,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     });
     return NextResponse.json(aufgabe);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -96,6 +99,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     await prisma.aufgabe.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

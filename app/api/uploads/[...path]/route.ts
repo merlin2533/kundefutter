@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUploadBase } from "@/lib/upload";
 import fs from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "ENOENT") {
       return NextResponse.json({ error: "Datei nicht gefunden" }, { status: 404 });

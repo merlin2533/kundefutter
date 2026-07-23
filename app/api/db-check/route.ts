@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import fs from "fs";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest) {
       prisma.sammelrechnung.count(),
     ]);
     counts = { artikel, lieferanten, kunden, lieferungen, sammelrechnungen };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     countsOk = false;
     counts = { error: "Fehler beim Laden" };
   }
@@ -44,19 +46,23 @@ export async function GET(req: NextRequest) {
   try {
     await prisma.lieferung.findFirst({ select: { id: true, datum: true, status: true, lieferDatum: true, rechnungNr: true, rechnungDatum: true, bezahltAm: true, zahlungsziel: true } });
     queryTests.lieferung = "ok";
-  } catch { queryTests.lieferung = "error"; queryTestsOk = false; }
+  } catch (err) {
+    Sentry.captureException(err); queryTests.lieferung = "error"; queryTestsOk = false; }
   try {
     await prisma.artikel.findFirst({ select: { id: true, name: true, driveOrdnerId: true, lagerort: true, liefergroesse: true, unterkategorie: true } });
     queryTests.artikel = "ok";
-  } catch { queryTests.artikel = "error"; queryTestsOk = false; }
+  } catch (err) {
+    Sentry.captureException(err); queryTests.artikel = "error"; queryTestsOk = false; }
   try {
     await prisma.artikel.findFirst({ select: { id: true, sprengstoffvorlaeufer: true, ghsKlassen: true, hSaetze: true, pSaetze: true, signalwort: true } });
     queryTests.artikelGhs = "ok";
-  } catch { queryTests.artikelGhs = "error"; queryTestsOk = false; }
+  } catch (err) {
+    Sentry.captureException(err); queryTests.artikelGhs = "error"; queryTestsOk = false; }
   try {
     await prisma.kunde.findFirst({ select: { id: true, name: true, kreditlimit: true, sachkundeNr: true, sachkundeGueltigBis: true } });
     queryTests.kunde = "ok";
-  } catch { queryTests.kunde = "error"; queryTestsOk = false; }
+  } catch (err) {
+    Sentry.captureException(err); queryTests.kunde = "error"; queryTestsOk = false; }
 
   if (!showDetails) {
     return NextResponse.json({ ok: countsOk && queryTestsOk, queryTests });
@@ -69,7 +75,8 @@ export async function GET(req: NextRequest) {
   try {
     const stat = fs.statSync(dbPath);
     fileInfo = { exists: true, sizeBytes: stat.size, modified: stat.mtime };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     fileInfo = { exists: false };
   }
 
@@ -79,7 +86,8 @@ export async function GET(req: NextRequest) {
       SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY started_at DESC LIMIT 10
     `;
     migrations = rows;
-  } catch { migrations = { error: "Fehler beim Laden" }; }
+  } catch (err) {
+    Sentry.captureException(err); migrations = { error: "Fehler beim Laden" }; }
 
   return NextResponse.json({ dbUrl, dbPath, fileInfo, counts, queryTests, migrations });
 }

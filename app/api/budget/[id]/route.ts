@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   let body: { zielBetrag?: unknown; notiz?: unknown };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -32,6 +34,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     });
     return NextResponse.json(ziel);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Budget PUT error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -52,6 +55,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     await prisma.umsatzziel.delete({ where: { id: zielId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Budget DELETE error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";

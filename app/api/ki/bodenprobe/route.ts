@@ -4,6 +4,7 @@ import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
       kostenCent,
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "KI-Analyse fehlgeschlagen";
     console.error("KI Bodenprobe-Analyse Fehler:", err);
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROMPTS, analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
       tokens: result.tokensIn + result.tokensOut,
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "KI-Analyse fehlgeschlagen";
     console.error("KI Router-Klassifizierung Fehler:", err);
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { parseZugferdXml, extractXmlFromPdf } from "@/lib/zugferd-parse";
+import { Sentry } from "@/lib/sentry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     const parsed = parseZugferdXml(xmlContent);
     return NextResponse.json(parsed);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler beim Parsen der Datei";
     return NextResponse.json({ error: msg }, { status: 500 });

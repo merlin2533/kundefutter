@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export async function POST(req: NextRequest) {
   let body: { lat?: unknown; lng?: unknown; genauigkeit?: unknown; tourname?: unknown };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiger JSON-Body" }, { status: 400 });
   }
 
@@ -46,6 +48,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -77,7 +80,8 @@ export async function GET() {
           };
           const benutzerId = parseInt(e.key.replace("fahrer.position.", ""), 10);
           return { benutzerId, ...data };
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           return null;
         }
       })
@@ -89,6 +93,7 @@ export async function GET() {
 
     return NextResponse.json(positionen);
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -104,6 +109,7 @@ export async function DELETE() {
     await prisma.einstellung.deleteMany({ where: { key } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

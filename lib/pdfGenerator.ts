@@ -140,6 +140,7 @@ function zeichneDokumentFooter(
   doc: jsPDF,
   spalten: { links: string; mitte: string; rechts: string },
   hinweis?: string,
+  seitenInfo?: string,
 ) {
   const pageHeight = doc.internal.pageSize.getHeight();
   const left = 14;
@@ -158,15 +159,21 @@ function zeichneDokumentFooter(
   const footerHoehe = maxZeilen * zeilenHoehe + 4;
   const footerY = pageHeight - footerHoehe - 8;
 
-  // Rechtlicher Hinweis über der Trennlinie (z.B. Eigentumsvorbehalt)
-  if (hinweis && hinweis.trim().length > 0) {
+  // Rechtlicher Hinweis über der Trennlinie (z.B. Eigentumsvorbehalt) + Seitenzahl
+  if ((hinweis && hinweis.trim().length > 0) || seitenInfo) {
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(102);
-    const hinweisLines = doc.splitTextToSize(hinweis, width) as string[];
-    const hinweisHoehe = hinweisLines.length * 3;
-    const hinweisY = footerY - hinweisHoehe - 1;
-    hinweisLines.forEach((line, i) => doc.text(line, left, hinweisY + i * 3));
+    let hinweisHoehe = 3;
+    if (hinweis && hinweis.trim().length > 0) {
+      const hinweisLines = doc.splitTextToSize(hinweis, width) as string[];
+      hinweisHoehe = hinweisLines.length * 3;
+      const hinweisY = footerY - hinweisHoehe - 1;
+      hinweisLines.forEach((line, i) => doc.text(line, left, hinweisY + i * 3));
+    }
+    if (seitenInfo) {
+      doc.text(seitenInfo, right, footerY - hinweisHoehe - 1, { align: "right" });
+    }
   }
 
   // Trennlinie
@@ -191,6 +198,136 @@ function zeichneDokumentFooter(
 }
 
 /**
+ * Zeichnet die schlichte 2-zeilige Lieferschein-Fußzeile (Firmenname/Adresse,
+ * Kontakt) relativ zur tatsächlichen Seitenhöhe – damit sie auf jeder Seite an
+ * derselben Stelle sitzt, unabhängig davon, wie viele Seiten das Dokument hat.
+ */
+function zeichneLieferscheinFusszeile(doc: jsPDF, firma: FirmaDaten, seitenInfo?: string): void {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const lineY = pageHeight - 19;
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.2);
+  doc.line(14, lineY, 196, lineY);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120);
+  const lsFooter = [firma.name, firma.strasse, firma.plzOrt].filter(Boolean).join(" · ");
+  if (lsFooter) doc.text(lsFooter, 14, lineY + 5);
+  const lsFooterKontakt = [
+    firma.telefon && `Tel: ${firma.telefon}`,
+    firma.email,
+  ].filter(Boolean).join(" · ");
+  if (lsFooterKontakt) doc.text(lsFooterKontakt, 14, lineY + 9);
+  if (seitenInfo) doc.text(seitenInfo, 196, lineY + 9, { align: "right" });
+}
+
+/**
+ * Sorgt dafür, dass ab der aktuellen Y-Position noch genügend Platz bis zur Fußzeile
+ * bleibt. Reicht der Platz nicht, wird eine neue Seite begonnen. Verhindert, dass bei
+ * langen Rechnungen/Lieferscheinen (viele Positionen, lange Hinweistexte) Inhalte über
+ * den unteren Seitenrand hinaus- oder in die Fußzeile hineinlaufen.
+ */
+function sicherstellenPlatz(doc: jsPDF, y: number, benoetigterPlatz: number, footerReserve = 42): number {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y + benoetigterPlatz > pageHeight - footerReserve) {
+    doc.addPage();
+    return 20;
+  }
+  return y;
+}
+
+/**
+ * Schätzt die tatsächliche Höhe des Dokument-Footers (inkl. rechtlichem Hinweis wie
+ * Eigentumsvorbehalt). Die Footer-Spalten (dokument.footer.links/mitte/rechts) sind
+ * frei konfigurierbar und können beliebig viele Zeilen enthalten – ein fest verdrahteter
+ * Platzhalter würde bei langen Footer-Texten dazu führen, dass Inhalte (Summenblock,
+ * Zahlungsbox, Hinweise) in die Fußzeile hineinlaufen bzw. von ihr überdeckt werden.
+ * Wird als dynamische `footerReserve` an sicherstellenPlatz() übergeben.
+ */
+function schaetzeFooterReserve(
+  doc: jsPDF,
+  spalten: { links: string; mitte: string; rechts: string },
+  hinweis?: string,
+): number {
+  const zeilenHoehe = 3.2;
+  const maxZeilen = Math.max(
+    spalten.links.split("\n").length,
+    spalten.mitte.split("\n").length,
+    spalten.rechts.split("\n").length,
+    1,
+  );
+  const footerHoehe = maxZeilen * zeilenHoehe + 4 + 8; // + Innenabstand + Abstand zur Trennlinie
+
+  let hinweisHoehe = 0;
+  if (hinweis && hinweis.trim().length > 0) {
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "italic");
+    const hinweisLines = doc.splitTextToSize(hinweis, 182) as string[];
+    hinweisHoehe = hinweisLines.length * 3 + 1;
+  }
+
+  return footerHoehe + hinweisHoehe + 4; // + Sicherheitsabstand
+}
+
+/**
+ * Zeichnet einen schlanken Kopf für Folgeseiten (Seite 2, 3, …) mehrseitiger Dokumente:
+ * Firmenname links, Dokumenttitel/-nummer rechts, darunter eine dünne Trennlinie.
+ * Ersetzt NICHT den vollständigen Briefkopf von Seite 1 (inkl. DIN-5008-Anschriftfeld),
+ * der nur auf Seite 1 relevant ist – sorgt aber dafür, dass jede Folgeseite klar als
+ * Teil desselben Dokuments erkennbar ist ("Kopf kommt auf jeder Seite sauber wieder").
+ */
+function zeichneFortsetzungskopf(doc: jsPDF, firmenname: string, titelZeile: string): void {
+  const top = 14;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0);
+  if (firmenname) doc.text(firmenname, 14, top);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(85);
+  doc.text(titelZeile, 196, top, { align: "right" });
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.2);
+  doc.line(14, top + 2.5, 196, top + 2.5);
+}
+
+/**
+ * Vervollständigt ein mehrseitiges Dokument: läuft NACH dem Zeichnen des gesamten
+ * Inhalts über alle bereits erzeugten Seiten und zeichnet auf JEDER Seite die
+ * Fußzeile (+ optional Seitenzahl), auf Folgeseiten zusätzlich den schlanken
+ * Fortsetzungskopf. So bleiben Kopf und Fuß bei mehrseitigen Rechnungen und
+ * Lieferscheinen auf jeder Seite sauber sichtbar, unabhängig davon, wie viele
+ * Seiten durch lange Positions-/Hinweistexte tatsächlich entstehen.
+ */
+function vervollstaendigeMehrseitigesDokument(
+  doc: jsPDF,
+  opts: {
+    footerSpalten: { links: string; mitte: string; rechts: string };
+    eigentumsvorbehalt?: string;
+    firmenname?: string;
+    fortsetzungsTitel?: string;
+    wasserzeichen?: string;
+  },
+): void {
+  const gesamtSeiten = doc.getNumberOfPages();
+  for (let seite = 1; seite <= gesamtSeiten; seite++) {
+    doc.setPage(seite);
+    if (seite > 1 && opts.firmenname !== undefined && opts.fortsetzungsTitel) {
+      zeichneFortsetzungskopf(doc, opts.firmenname, opts.fortsetzungsTitel);
+    }
+    zeichneDokumentFooter(
+      doc,
+      opts.footerSpalten,
+      opts.eigentumsvorbehalt,
+      gesamtSeiten > 1 ? `Seite ${seite} von ${gesamtSeiten}` : undefined,
+    );
+    if (opts.wasserzeichen) {
+      zeichneStornoWasserzeichen(doc, opts.wasserzeichen);
+    }
+  }
+}
+
+/**
  * Generiert eine Rechnung als PDF-Buffer für die angegebene Lieferung.
  * Layout spiegelt die HTML-Vorschau unter /lieferungen/[id]/rechnung.
  * Die Lieferung muss bereits eine Rechnungsnummer besitzen.
@@ -211,6 +348,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const logo = await ladeLogo();
   const doc = new jsPDF();
   zeichneFalzmarken(doc);
+  // Footer-Texte sind frei konfigurierbar (dokument.footer.*, Eigentumsvorbehalt) und
+  // können mehrzeilig/lang sein – Reserve dynamisch schätzen, damit Inhalte nie in die
+  // (dann höhere) Fußzeile hineinlaufen.
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten, eigentumsvorbehalt);
 
   // ── Farben (matches HTML-Preview) ────────────────────────────────────────────
   const COL_TEXT: [number, number, number] = [0, 0, 0];
@@ -416,7 +557,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   const sumLabelX = 140;
   const sumValueX = 196;
-  let sumY = finalY + 2;
+  // Reicht der Platz bis zur Fußzeile nicht mehr für den Summenblock, neue Seite beginnen –
+  // verhindert, dass Netto-/MwSt-/Bruttozeilen bei langen Rechnungen abgeschnitten werden.
+  const summenHoehe = (2 + mwstGruppen.size) * 6 + 6;
+  let sumY = sicherstellenPlatz(doc, finalY, summenHoehe, footerReserve) + 2;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -453,15 +597,17 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.setFont("helvetica", "italic");
     doc.setTextColor(...COL_MUTED);
     const notizLines = doc.splitTextToSize(`Hinweis: ${lieferung.notiz.trim()}`, 182) as string[];
+    sumY = sicherstellenPlatz(doc, sumY, notizLines.length * 4 + 2, footerReserve);
     notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
     sumY += notizLines.length * 4 + 2;
   }
 
   // ── Zahlungsinformationen Box ───────────────────────────────────────────────
   const boxX = 14;
-  const boxY = sumY + 4;
   const boxW = 182;
   const boxH = 32;
+  sumY = sicherstellenPlatz(doc, sumY, boxH + 4, footerReserve);
+  const boxY = sumY + 4;
 
   // Hintergrund + Rahmen
   doc.setDrawColor(...COL_BOX_BORDER);
@@ -525,13 +671,15 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     doc.text(bankZeile2, boxX + 4, bankStartY + (bankZeile1 ? 4 : 0));
   }
 
-  // ── Dokument-Footer (3-spaltig) mit Eigentumsvorbehalt-Hinweis ───────────────
-  zeichneDokumentFooter(doc, footerSpalten, eigentumsvorbehalt);
-
-  // Stornierte Rechnung: diagonales "STORNO" quer übers Blatt schreiben
-  if (lieferung.rechnungStorniert) {
-    zeichneStornoWasserzeichen(doc);
-  }
+  // ── Dokument-Footer (3-spaltig) + Fortsetzungskopf auf JEDER Seite; STORNO-Wasserzeichen
+  //    auf allen Seiten, falls die Rechnung storniert ist. ────────────────────────
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    eigentumsvorbehalt,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Rechnung ${lieferung.rechnungNr ?? ""} – Fortsetzung`.trim(),
+    wasserzeichen: lieferung.rechnungStorniert ? "STORNO" : undefined,
+  });
 
   return Buffer.from(doc.output("arraybuffer"));
 }
@@ -736,19 +884,18 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   doc.text("Datum", 14, finalY + 33);
   doc.text("Ort / Datum / Unterschrift", 110, finalY + 33);
 
-  // ── Fußzeile ────────────────────────────────────────────────────────────────
-  doc.setDrawColor(200);
-  doc.setLineWidth(0.2);
-  doc.line(14, 278, 196, 278);
-  doc.setFontSize(7.5);
-  doc.setTextColor(120);
-  const lsFooter = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean).join(" · ");
-  if (lsFooter) doc.text(lsFooter, 14, 283);
-  const lsFooterKontakt = [
-    FIRMA.telefon && `Tel: ${FIRMA.telefon}`,
-    FIRMA.email,
-  ].filter(Boolean).join(" · ");
-  if (lsFooterKontakt) doc.text(lsFooterKontakt, 14, 287);
+  // ── Fußzeile auf JEDER Seite + schlanker Fortsetzungskopf ab Seite 2 ─────────
+  // (autoTable kann die Positionstabelle selbst über mehrere Seiten verteilen –
+  // ohne diese Schleife hätten Folgeseiten weder Kopf noch Fußzeile.)
+  const lieferscheinNrAnzeige = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
+  const gesamtSeitenLs = doc.getNumberOfPages();
+  for (let seite = 1; seite <= gesamtSeitenLs; seite++) {
+    doc.setPage(seite);
+    if (seite > 1) {
+      zeichneFortsetzungskopf(doc, FIRMA.name, `Lieferschein ${lieferscheinNrAnzeige} – Fortsetzung`);
+    }
+    zeichneLieferscheinFusszeile(doc, FIRMA, gesamtSeitenLs > 1 ? `Seite ${seite} von ${gesamtSeitenLs}` : undefined);
+  }
 
   return Buffer.from(doc.output("arraybuffer"));
 }
@@ -771,6 +918,7 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
   const logo = await ladeLogo();
   const doc = new jsPDF();
   zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
 
   const COL_TEXT: [number, number, number] = [0, 0, 0];
   const COL_MUTED: [number, number, number] = [85, 85, 85];
@@ -925,6 +1073,7 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
   sumY += 8;
 
   if (gueltigBis) {
+    sumY = sicherstellenPlatz(doc, sumY, 5, footerReserve);
     doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(...COL_MUTED);
@@ -936,10 +1085,15 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
     doc.setFont("helvetica", "italic");
     doc.setTextColor(...COL_MUTED);
     const notizLines = doc.splitTextToSize(`Hinweis: ${angebot.notiz.trim()}`, 182) as string[];
+    sumY = sicherstellenPlatz(doc, sumY, notizLines.length * 4 + 2, footerReserve);
     notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
   }
 
-  zeichneDokumentFooter(doc, footerSpalten);
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Angebot ${angebot.nummer} – Fortsetzung`,
+  });
   return Buffer.from(doc.output("arraybuffer"));
 }
 
@@ -1029,6 +1183,7 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   const logo = await ladeLogo();
   const doc = new jsPDF();
   zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
 
   const COL_TEXT: [number, number, number] = [0, 0, 0];
   const COL_MUTED: [number, number, number] = [85, 85, 85];
@@ -1185,9 +1340,10 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
 
   if (FIRMA.iban) {
     const boxX = 14;
-    const boxY = sumYG + 4;
     const boxW = 182;
     const boxH = 20;
+    sumYG = sicherstellenPlatz(doc, sumYG, boxH + 4, footerReserve);
+    const boxY = sumYG + 4;
     doc.setDrawColor(...COL_BOX_BORDER);
     doc.setFillColor(...COL_BOX_BG);
     doc.setLineWidth(0.2);
@@ -1211,9 +1367,14 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
     doc.setFont("helvetica", "italic");
     doc.setTextColor(...COL_MUTED);
     const notizLines = doc.splitTextToSize(`Hinweis: ${gutschrift.notiz.trim()}`, 182) as string[];
-    notizLines.forEach((line, i) => doc.text(line, 14, sumYG + 30 + i * 4));
+    const notizYG = sicherstellenPlatz(doc, sumYG + 30, notizLines.length * 4 + 2, footerReserve);
+    notizLines.forEach((line, i) => doc.text(line, 14, notizYG + i * 4));
   }
 
-  zeichneDokumentFooter(doc, footerSpalten);
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Gutschrift ${gutschrift.nummer} – Fortsetzung`,
+  });
   return Buffer.from(doc.output("arraybuffer"));
 }

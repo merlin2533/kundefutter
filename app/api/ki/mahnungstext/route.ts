@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROMPTS, analyzeText, getAiConfig, parseJsonFromText, strOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +87,7 @@ Verfasse den Mahntext gemäß den Stufenregeln.`;
       tokens: result.tokensIn + result.tokensOut,
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "KI-Analyse fehlgeschlagen";
     console.error("KI Mahnungstext-Generierung Fehler:", err);
     return NextResponse.json({ error: msg }, { status: 500 });

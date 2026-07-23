@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,8 @@ export async function GET() {
       firmenname: map["system.firmenname"]?.trim() || "",
       logo: map["system.logo"] || null,
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ appName: DEFAULT_APP_NAME, firmenname: "", logo: null });
   }
 }

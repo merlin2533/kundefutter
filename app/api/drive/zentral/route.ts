@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -21,7 +22,8 @@ export async function GET() {
         url: `https://drive.google.com/drive/folders/${o.id}`,
       }))
     );
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json([]);
   }
 }

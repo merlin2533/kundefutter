@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -96,6 +97,7 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json({ lieferanten });
     } catch (e) {
+      Sentry.captureException(e);
       console.error(e);
       return NextResponse.json({ error: "Lieferanten konnten nicht geladen werden" }, { status: 500 });
     }
@@ -231,6 +233,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (e) {
+      Sentry.captureException(e);
       console.error(e);
       return NextResponse.json({ error: "Datei konnte nicht verarbeitet werden" }, { status: 500 });
     }
@@ -373,7 +376,8 @@ export async function POST(req: NextRequest) {
       const neuerArtikel = await prisma.$transaction(async (tx) => {
         const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
         const nk = nummernkreisRaw?.value
-          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch (err) {
+            Sentry.captureException(err); return null; } })()
           : null;
         const prefix = nk?.prefix ?? "ART-";
         const laenge = Number(nk?.laenge) || 5;
@@ -432,6 +436,7 @@ export async function POST(req: NextRequest) {
       uebersprungen,
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error(e);
     return NextResponse.json({ error: "Import fehlgeschlagen" }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -27,6 +28,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!sr) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(sr);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Sammelrechnung GET [id]:", err);
     return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
@@ -60,6 +62,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(sr);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Sammelrechnung error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const isNotFound = (err as { code?: string }).code === "P2025";
@@ -82,6 +85,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.sammelrechnung.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Sammelrechnung error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const isNotFound = (err as { code?: string }).code === "P2025";

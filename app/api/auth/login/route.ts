@@ -8,6 +8,7 @@ import {
   getSessionMaxAge,
 } from "@/lib/auth";
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // Brute-Force-Schutz: max. 10 Versuche pro IP in 15 Minuten
@@ -25,7 +26,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -72,7 +74,8 @@ export async function POST(req: NextRequest) {
     });
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAge));
     return res;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Anmeldung fehlgeschlagen" }, { status: 500 });
   }
 }

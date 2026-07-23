@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { pickCol, parseNumber, KUNDEN_ALIAS } from "@/lib/import-utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ vorschau, duplikate });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Kundenimport POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -216,6 +218,7 @@ export async function PUT(req: NextRequest) {
       });
       angelegt++;
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Kundenimport PUT error für Kunde:", k.name, err);
       const message = isDev && err instanceof Error ? err.message : "Kunde konnte nicht angelegt werden";
       fehlgeschlagen.push({ name: k.name, error: message });

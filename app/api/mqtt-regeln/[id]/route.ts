@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 const MODI = ["ki", "direkt"] as const;
 const AKTIONEN = ["lieferung", "wareneingang", "benachrichtigung"] as const;
@@ -15,7 +16,8 @@ export async function GET(_req: Request, ctx: Ctx) {
     const regel = await prisma.mqttRegel.findUnique({ where: { id: numId } });
     if (!regel) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(regel);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -55,6 +57,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     });
     return NextResponse.json(updated);
   } catch (err) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025")
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -70,6 +73,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     await prisma.mqttRegel.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025")
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

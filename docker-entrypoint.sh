@@ -7,6 +7,47 @@ ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 warn() { echo "[$(date '+%H:%M:%S')] ⚠ $*"; }
 fail() { echo "[$(date '+%H:%M:%S')] ✗ $*" >&2; }
 
+# Meldet einen Startup-Fehler an Sentry/GlitchTip — läuft VOR dem Next.js-
+# Prozess (also bevor die normale Sentry-Instrumentierung aktiv ist), daher
+# per rohem HTTP-POST gegen die Sentry-Store-API. $1=Nachricht, $2=Logdatei
+# mit Details (optional). No-op, wenn SENTRY_DSN nicht gesetzt ist.
+report_to_sentry() {
+  if [ -z "$SENTRY_DSN" ]; then
+    warn "SENTRY_DSN nicht gesetzt — Startup-Fehler wird nicht an Sentry gemeldet"
+    return 0
+  fi
+  SENTRY_MSG="$1" SENTRY_LOGFILE="$2" node -e '
+    const dsn = process.env.SENTRY_DSN;
+    const m = /^https?:\/\/([^@]+)@([^/]+)\/(.+)$/.exec(dsn || "");
+    if (!m) { process.exit(0); }
+    const [, key, host, projectId] = m;
+    const fs = require("fs");
+    let detail = "";
+    try {
+      if (process.env.SENTRY_LOGFILE) detail = fs.readFileSync(process.env.SENTRY_LOGFILE, "utf8").slice(-4000);
+    } catch { /* keine Detail-Logdatei vorhanden */ }
+    const body = JSON.stringify({
+      event_id: require("crypto").randomUUID().replace(/-/g, ""),
+      message: process.env.SENTRY_MSG,
+      level: "error",
+      logger: "docker-entrypoint",
+      platform: "other",
+      timestamp: new Date().toISOString(),
+      tags: { source: "docker-entrypoint" },
+      extra: { detail },
+    });
+    fetch(`https://${host}/api/${projectId}/store/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=docker-entrypoint/1.0, sentry_key=${key}`,
+      },
+      body,
+      signal: AbortSignal.timeout(5000),
+    }).then(() => process.exit(0)).catch(() => process.exit(0));
+  ' 2>/dev/null
+}
+
 # npm-Notices unterdrücken
 export NPM_CONFIG_UPDATE_NOTIFIER=false
 export NO_UPDATE_NOTIFIER=1
@@ -77,6 +118,7 @@ if [ -s /tmp/premigrate.log ]; then
 fi
 if [ "$PREMIG_EXIT" -ne 0 ]; then
   warn "pre-migrate.js fehlgeschlagen (exit=$PREMIG_EXIT)"
+  report_to_sentry "docker-entrypoint: pre-migrate.js fehlgeschlagen (exit=$PREMIG_EXIT)" /tmp/premigrate.log
 else
   ok "Schema-Reparatur abgeschlossen"
 fi
@@ -100,6 +142,7 @@ if [ "$MIGRATE_EXIT" -ne 0 ]; then
   fail "prisma migrate deploy exit=$MIGRATE_EXIT"
   fail "Server wird NICHT gestartet – die Datenbank ist in einem inkonsistenten Zustand."
   fail "Bitte Migrationslog prüfen (siehe oben). Container wird neu gestartet."
+  report_to_sentry "docker-entrypoint: prisma migrate deploy fehlgeschlagen (exit=$MIGRATE_EXIT) – Server startet nicht" /tmp/prisma_migrate.log
   sleep 5
   exit 1
 else
@@ -118,6 +161,7 @@ if [ -s /tmp/prisma_seed_admin.log ]; then
 fi
 if [ "$SEED_EXIT" -ne 0 ]; then
   warn "Admin-Seed fehlgeschlagen (exit=$SEED_EXIT) – bitte manuell prüfen"
+  report_to_sentry "docker-entrypoint: seed-admin.js fehlgeschlagen (exit=$SEED_EXIT)" /tmp/prisma_seed_admin.log
 fi
 
 ok "=== Starte Geo-Proxy + Server (node geo-server.js) ==="
@@ -137,6 +181,8 @@ log "Geo-Proxy: extern :${PORT:-3000} → intern :${NEXT_PORT:-3001} | Erlaubt: 
       log "cron: OK — $CRON_RESULT"
     else
       warn "cron: Fehler — $CRON_RESULT"
+      echo "$CRON_RESULT" > /tmp/cron_result.log
+      report_to_sentry "docker-entrypoint: Cron-Dispatcher (/api/cron) fehlgeschlagen" /tmp/cron_result.log
     fi
     sleep 1800
   done

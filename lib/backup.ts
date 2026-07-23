@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import * as Sentry from "@sentry/nextjs";
 import {
   type BackupConfig,
   DEFAULT_BACKUP_CONFIG,
@@ -47,7 +48,8 @@ export async function loadBackupConfig(): Promise<BackupConfig> {
   try {
     const e = await prisma.einstellung.findUnique({ where: { key: "system.backup" } });
     return parseBackupConfig(e?.value);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return { ...DEFAULT_BACKUP_CONFIG };
   }
 }
@@ -180,6 +182,7 @@ export function startBackupScheduler(): void {
       if (entry) console.log(`[backup] Automatische Sicherung erstellt: ${entry.filename}`);
     } catch (err) {
       console.error("[backup] Automatische Sicherung fehlgeschlagen:", err);
+      Sentry.captureException(err);
     }
   };
 

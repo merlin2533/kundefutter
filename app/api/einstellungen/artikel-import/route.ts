@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { STAMMDATEN_GRUPPEN, ALLE_STAMMDATEN_ARTIKEL } from "@/lib/artikel-stammdaten";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest) {
         inDb: dbArtikel.length,
       });
     } catch (e) {
+      Sentry.captureException(e);
       console.error(e);
       return NextResponse.json({ error: "Synchronisation fehlgeschlagen" }, { status: 500 });
     }
@@ -157,6 +159,7 @@ export async function GET(req: NextRequest) {
       vorhanden: ALLE_STAMMDATEN_ARTIKEL.filter((a) => vorhandenSet.has(a.artikelnummer)).length,
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error(e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -223,7 +226,8 @@ async function importZeile(
     if (!artikelnummer) {
       const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
       const nk = nummernkreisRaw?.value
-        ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+        ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch (err) {
+          Sentry.captureException(err); return null; } })()
         : null;
       const prefix = nk?.prefix ?? "ART-";
       const laenge = Number(nk?.laenge) || 5;
@@ -305,6 +309,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ importiert, uebersprungen, fehler });
     } catch (e) {
+      Sentry.captureException(e);
       console.error(e);
       return NextResponse.json({ error: "Excel konnte nicht verarbeitet werden" }, { status: 500 });
     }
@@ -383,6 +388,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ importiert, uebersprungen });
   } catch (e) {
+    Sentry.captureException(e);
     console.error(e);
     return NextResponse.json({ error: "Import fehlgeschlagen" }, { status: 500 });
   }

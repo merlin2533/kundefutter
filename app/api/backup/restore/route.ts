@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { getBackupDir, restoreFromFile } from "@/lib/backup";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,8 @@ export async function POST(req: NextRequest) {
     let formData: FormData;
     try {
       formData = await req.formData();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Fehler beim Lesen der Formulardaten" }, { status: 400 });
     }
 
@@ -59,7 +61,8 @@ export async function POST(req: NextRequest) {
     let body: { filename?: string };
     try {
       body = await req.json();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Ungültiger JSON-Body" }, { status: 400 });
     }
 
@@ -90,7 +93,8 @@ export async function POST(req: NextRequest) {
 
     // Temp-Datei aufräumen (falls Upload)
     if (tempFile && fs.existsSync(tempFile)) {
-      try { fs.unlinkSync(tempFile); } catch { /* ignorieren */ }
+      try { fs.unlinkSync(tempFile); } catch (err) {
+        Sentry.captureException(err); /* ignorieren */ }
     }
 
     // Prozess beenden → Docker/Watchtower startet Container neu
@@ -102,9 +106,11 @@ export async function POST(req: NextRequest) {
       message: "Datenbank wiederhergestellt. Server wird neu gestartet…",
     });
   } catch (err) {
+    Sentry.captureException(err);
     // Temp-Datei bei Fehler aufräumen
     if (tempFile && fs.existsSync(tempFile)) {
-      try { fs.unlinkSync(tempFile); } catch { /* ignorieren */ }
+      try { fs.unlinkSync(tempFile); } catch (err) {
+        Sentry.captureException(err); /* ignorieren */ }
     }
 
     console.error("Restore error:", err);

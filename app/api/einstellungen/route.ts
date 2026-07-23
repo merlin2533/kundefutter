@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(result, {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -66,7 +68,8 @@ export async function PUT(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -89,7 +92,8 @@ export async function PUT(req: NextRequest) {
       create: { key, value },
     });
     return NextResponse.json(einstellung);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Speichern der Einstellung" }, { status: 500 });
   }
 }

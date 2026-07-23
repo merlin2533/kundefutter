@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pickCol, parseNumber } from "@/lib/import-utils";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest) {
         ergebnisse.ok++;
         ergebnisse.created.push(probe.id);
       } catch (err) {
+        Sentry.captureException(err);
         const isDev = process.env.NODE_ENV === "development";
         const msg = isDev && err instanceof Error ? err.message : "DB-Fehler";
         ergebnisse.fehler.push({ zeile: i + 2, grund: msg });
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(ergebnisse);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Import fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

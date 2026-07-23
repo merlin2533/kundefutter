@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/fruehbezugsstaffel?saison=Frühjahr+2026&aktiv=1
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest) {
       take: 500,
     });
     return NextResponse.json(liste);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(eintrag, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -81,6 +84,7 @@ export async function PUT(req: NextRequest) {
     const eintrag = await prisma.fruehbezugsStaffel.update({ where: { id }, data });
     return NextResponse.json(eintrag);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -96,6 +100,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.fruehbezugsStaffel.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

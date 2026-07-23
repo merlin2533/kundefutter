@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/statistik/aging — Offene-Posten-Aging (Stichtagsbezogen)
@@ -144,6 +145,7 @@ export async function GET() {
       },
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Statistik/Aging API Fehler:", e);
     const isDev = process.env.NODE_ENV === "development";
     const msg =

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/bodenproben?schlagId=X&kundeId=Y
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest) {
       take: 500,
     });
     return NextResponse.json(proben);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -114,6 +116,7 @@ export async function POST(req: NextRequest) {
         });
         ergebnisse.erstellt.push(probe.id);
       } catch (err) {
+        Sentry.captureException(err);
         const isDev = process.env.NODE_ENV === "development";
         const msg = isDev && err instanceof Error ? err.message : "DB-Fehler";
         ergebnisse.fehler.push({ index: i, grund: msg });
@@ -122,6 +125,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(ergebnisse, { status: ergebnisse.erstellt.length > 0 ? 201 : 400 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -144,6 +148,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.bodenprobe.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

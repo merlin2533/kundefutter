@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function GET(_req: NextRequest, ctx: Params) {
     if (!anlieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(anlieferung);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },
@@ -64,6 +66,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     });
     return NextResponse.json(updated);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     if (err instanceof Error && err.message.includes("P2025")) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -84,6 +87,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     await prisma.anlieferung.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     if (err instanceof Error && err.message.includes("P2025")) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
