@@ -3,6 +3,8 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import ZuordnungsVorschlagCard from "@/components/bankabgleich/ZuordnungsVorschlagCard";
+import AutomatischerAbgleich from "@/components/bankabgleich/AutomatischerAbgleich";
 
 interface Kontoumsatz {
   id: number;
@@ -18,6 +20,7 @@ interface Kontoumsatz {
   lieferungId: number | null;
   sammelrechnungId: number | null;
   ausgabeId: number | null;
+  eingangsRechnungId: number | null;
   kontoBezeichnung: string | null;
   importDatei: string | null;
 }
@@ -28,27 +31,23 @@ interface ApiResponse {
   offen: number;
 }
 
+type VorschlagTyp = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
+
+const ZIEL_FELD: Record<VorschlagTyp, string> = {
+  lieferung: "lieferungId",
+  sammelrechnung: "sammelrechnungId",
+  ausgabe: "ausgabeId",
+  eingangsrechnung: "eingangsRechnungId",
+};
+
 interface Vorschlag {
-  typ: "lieferung" | "sammelrechnung";
+  typ: VorschlagTyp;
   id: number;
-  rechnungNr: string | null;
-  kundeName: string;
+  bezeichnung: string;
+  gegenpartei: string;
   betrag: number;
   konfidenz: "hoch" | "mittel" | "niedrig";
-}
-
-function KonfidenzBadge({ k }: { k: "hoch" | "mittel" | "niedrig" }) {
-  const cls =
-    k === "hoch"
-      ? "bg-green-100 text-green-800"
-      : k === "mittel"
-      ? "bg-yellow-100 text-yellow-800"
-      : "bg-gray-100 text-gray-600";
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded font-medium ${cls}`}>
-      {k === "hoch" ? "Hohe Übereinstimmung" : k === "mittel" ? "Mittel" : "Niedrig"}
-    </span>
-  );
+  wirdBezahltAm: string;
 }
 
 function BankabgleichContent() {
@@ -140,11 +139,13 @@ function BankabgleichContent() {
     }
   }
 
-  async function zuordnen(umsatzId: number, vorschlag: Vorschlag) {
+  async function zuordnen(umsatzId: number, vorschlag: Vorschlag, alsBezahltMarkieren: boolean) {
     setZuordnungsFehler(null);
-    const body: Record<string, number> = {};
-    if (vorschlag.typ === "lieferung") body.lieferungId = vorschlag.id;
-    else body.sammelrechnungId = vorschlag.id;
+    const body: Record<string, unknown> = {
+      [ZIEL_FELD[vorschlag.typ]]: vorschlag.id,
+      alsBezahltMarkieren,
+      zuordnungsArt: "manuell",
+    };
 
     const res = await fetch(`/api/bankabgleich/${umsatzId}`, {
       method: "PUT",
@@ -162,7 +163,7 @@ function BankabgleichContent() {
   }
 
   async function zuordnungAufheben(umsatzId: number) {
-    if (!confirm("Zuordnung wirklich aufheben?")) return;
+    if (!confirm("Zuordnung wirklich aufheben? Falls dadurch als bezahlt markiert, wird die Rechnung wieder als offen geführt.")) return;
     await fetch(`/api/bankabgleich/${umsatzId}`, { method: "DELETE" });
     laden();
   }
@@ -269,6 +270,8 @@ function BankabgleichContent() {
         )}
       </div>
 
+      <AutomatischerAbgleich von={von} bis={bis} onUebernommen={laden} />
+
       {/* Fehler Zuordnung */}
       {zuordnungsFehler && (
         <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
@@ -352,6 +355,11 @@ function BankabgleichContent() {
                               Ausgabe
                             </Link>
                           )}
+                          {u.eingangsRechnungId && (
+                            <Link href={`/eingangsrechnungen/${u.eingangsRechnungId}`} className="underline ml-1">
+                              Lieferantenrechnung
+                            </Link>
+                          )}
                         </span>
                       ) : (
                         <span className="inline-flex items-center bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded font-medium">
@@ -402,27 +410,16 @@ function BankabgleichContent() {
                           ) : (
                             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {vorschlaege.map((v, idx) => (
-                                <button
+                                <ZuordnungsVorschlagCard
                                   key={idx}
-                                  onClick={() => zuordnen(u.id, v)}
-                                  className="text-left bg-white border border-gray-200 rounded-lg p-3 hover:border-green-500 hover:shadow-sm transition-all group"
-                                >
-                                  <div className="flex items-start justify-between gap-2 mb-1">
-                                    <span className="text-xs text-gray-500 uppercase tracking-wide">
-                                      {v.typ === "lieferung" ? "Lieferung" : "Sammelrechnung"}
-                                    </span>
-                                    <KonfidenzBadge k={v.konfidenz} />
-                                  </div>
-                                  <div className="font-semibold text-sm text-gray-900 group-hover:text-green-700">
-                                    {v.kundeName}
-                                  </div>
-                                  {v.rechnungNr && (
-                                    <div className="text-xs text-gray-500 mt-0.5">{v.rechnungNr}</div>
-                                  )}
-                                  <div className="text-sm font-bold text-gray-800 mt-1">
-                                    {formatEuro(v.betrag)}
-                                  </div>
-                                </button>
+                                  typ={v.typ}
+                                  bezeichnung={v.bezeichnung}
+                                  gegenpartei={v.gegenpartei}
+                                  betrag={v.betrag}
+                                  konfidenz={v.konfidenz}
+                                  wirdBezahltAm={v.wirdBezahltAm}
+                                  onUebernehmen={(alsBezahlt) => zuordnen(u.id, v, alsBezahlt)}
+                                />
                               ))}
                             </div>
                           )}

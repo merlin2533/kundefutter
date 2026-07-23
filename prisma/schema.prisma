@@ -877,6 +877,9 @@ model Kontoumsatz {
   lieferungId      Int?
   sammelrechnungId Int?
   ausgabeId        Int?      // Zuordnung zu Betriebsausgabe
+  eingangsRechnungId Int?    // Zuordnung zu Lieferantenrechnung (Zahlungsausgang)
+  zuordnungsArt    String?   // "manuell" | "automatisch" | "ki" — wie die Zuordnung zustande kam
+  kiKonfidenz      Float?    // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
   importDatum      DateTime  @default(now())
   importDatei      String?   // Name der Importdatei (für Rückverfolgung)
 

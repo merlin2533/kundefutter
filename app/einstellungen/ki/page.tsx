@@ -120,6 +120,7 @@ const FEATURE_LABELS: Record<string, string> = {
   mahnungstext: "Mahnung",
   belegtyp: "Beleg-Klassifizierung",
   tts: "Text zu Sprache",
+  bankabgleich: "Bankabgleich",
 };
 
 const PROMPT_FEATURES = [
@@ -127,6 +128,7 @@ const PROMPT_FEATURES = [
   { key: "lieferung",    label: "Lieferung",    desc: "Analyse von Bestellungen/Aufträgen" },
   { key: "crm",          label: "CRM Notiz",    desc: "CRM-Aktivitäten aus Text/Bild" },
   { key: "inhaltsstoffe",label: "Inhaltsstoffe",desc: "Produktzusammensetzung recherchieren" },
+  { key: "bankabgleich", label: "Bankabgleich",  desc: "Zuordnungsvorschläge für Restfälle nach dem automatischen Abgleich" },
 ];
 
 const TTS_VOICES = [
