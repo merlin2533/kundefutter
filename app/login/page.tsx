@@ -14,6 +14,7 @@ function LoginForm() {
   const [saving, setSaving] = useState(false);
   const [appName, setAppName] = useState("AGRI-Office");
   const [firmenname, setFirmenname] = useState("");
+  const [logo, setLogo] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/app-info")
@@ -21,6 +22,7 @@ function LoginForm() {
       .then((d) => {
         if (d?.appName) setAppName(d.appName);
         if (d?.firmenname) setFirmenname(d.firmenname);
+        if (d?.logo) setLogo(d.logo);
       })
       .catch(() => {});
   }, []);
@@ -54,7 +56,12 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-green-50 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg border border-green-200 p-8">
         <div className="text-center mb-6">
-          <div className="text-4xl mb-2">🌾</div>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logo} alt={appName} className="h-12 w-auto object-contain mx-auto mb-2" />
+          ) : (
+            <div className="text-4xl mb-2">🌾</div>
+          )}
           <h1 className="text-2xl font-bold text-green-800">{appName}</h1>
           {firmenname && <p className="text-sm text-gray-600 mt-1">{firmenname}</p>}
         </div>

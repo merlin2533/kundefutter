@@ -91,6 +91,10 @@ export default function KiEinstellungenPage() {
   // API-Schlüssel
   const [mistralKey, setMistralKey] = useState("");
   const [showMistralKey, setShowMistralKey] = useState(false);
+  // Ob bereits ein Key hinterlegt ist (der Wert selbst wird nie ins Formular
+  // geladen — verhindert, dass der maskierte GET-Wert angezeigt und beim
+  // Testen/Speichern versehentlich zurückgeschickt wird).
+  const [hasMistralKey, setHasMistralKey] = useState(false);
   const touchedKeys = useRef<Set<string>>(new Set());
 
   // Modell-Konfiguration
@@ -126,7 +130,10 @@ export default function KiEinstellungenPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      if (data["ki.mistral_key"]) setMistralKey(data["ki.mistral_key"]);
+      // Secret bewusst NICHT ins Formular laden – GET /api/einstellungen liefert
+      // nur eine maskierte Anzeige-Version ("sk-abc...wxyz"), niemals den echten
+      // Wert. Nur merken, DASS ein Key hinterlegt ist.
+      setHasMistralKey(Boolean(data["ki.mistral_key"]));
       setLanguageModell(data["ki.modell_language"] || DEFAULT_MODELLS.language);
       setTranscriptionModell(data["ki.modell_transcription"] || DEFAULT_MODELLS.transcription);
       setTtsModell(data["ki.modell_tts"] || DEFAULT_MODELLS.tts);
@@ -164,16 +171,16 @@ export default function KiEinstellungenPage() {
 
   // ─── Speichern ────────────────────────────────────────────────────────────
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+  async function saveAll(): Promise<boolean> {
     try {
       const settings: Record<string, string> = {
         "ki.modell_language":      languageModell,
         "ki.modell_transcription": transcriptionModell,
         "ki.modell_tts":           ttsModell,
         "ki.tts_voice":            ttsVoice,
+        // Key nur mitschicken, wenn der Nutzer ihn tatsächlich neu eingegeben hat —
+        // sonst würde hier der leere/unveränderte Formularwert den echten,
+        // gespeicherten Key in der DB überschreiben.
         ...(touchedKeys.current.has("ki.mistral_key") ? { "ki.mistral_key": mistralKey } : {}),
       };
 
@@ -185,13 +192,27 @@ export default function KiEinstellungenPage() {
         });
         if (!res.ok) throw new Error(`Fehler beim Speichern von ${key}`);
       }
+      if (touchedKeys.current.has("ki.mistral_key") && mistralKey) {
+        setHasMistralKey(true);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    const ok = await saveAll();
+    if (ok) {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
-    } finally {
-      setSaving(false);
+    } else {
+      setError("Fehler beim Speichern.");
     }
+    setSaving(false);
   }
 
   // ─── Verbindungstest ──────────────────────────────────────────────────────
@@ -199,11 +220,21 @@ export default function KiEinstellungenPage() {
   async function handleTest() {
     setTesting(true);
     setTestResult(null);
+    // Erst speichern (persistiert einen neu eingegebenen Key), dann OHNE Key im
+    // Body testen — der Server liest den aktuell gespeicherten Key direkt aus
+    // der DB. So funktioniert der Test unabhängig davon, ob die Seite gerade
+    // erst geladen wurde oder der Key schon vorher gespeichert war.
+    const saved = await saveAll();
+    if (!saved) {
+      setTestResult({ ok: false, error: "Fehler beim Speichern der Einstellungen vor dem Test" });
+      setTesting(false);
+      return;
+    }
     try {
       const res = await fetch("/api/ki/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modell: languageModell, mistralKey }),
+        body: JSON.stringify({ modell: languageModell }),
       });
       const data = res.ok ? await res.json() : { ok: false, error: "Serveranfrage fehlgeschlagen" };
       setTestResult(data);
@@ -334,7 +365,11 @@ export default function KiEinstellungenPage() {
                 type={showMistralKey ? "text" : "password"}
                 value={mistralKey}
                 onChange={(e) => { setMistralKey(e.target.value); touchedKeys.current.add("ki.mistral_key"); }}
-                placeholder="..."
+                placeholder={
+                  hasMistralKey && !touchedKeys.current.has("ki.mistral_key")
+                    ? "•••••••• (gespeichert — leer lassen zum Beibehalten)"
+                    : "..."
+                }
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
               <button type="button" onClick={() => setShowMistralKey(!showMistralKey)}

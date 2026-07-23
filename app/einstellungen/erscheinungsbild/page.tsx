@@ -5,6 +5,40 @@ import { useEffect, useState, useRef } from "react";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 
+/**
+ * Rastert ein Bild (auch SVG) client-seitig auf Canvas und exportiert es als
+ * PNG-DataURL. So landet immer ein einziges, überall funktionierendes Format
+ * in `system.logo` — insbesondere jsPDF (Rechnung/Lieferschein/Angebot/
+ * Gutschrift-PDFs) kann kein SVG rendern, Browser-Vorschauen dagegen schon,
+ * was sonst zu einem Logo führt, das nur in manchen Dialogen erscheint.
+ */
+function rasterizeToPng(dataUrl: string, maxDim = 512): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas nicht verfügbar")); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = () => reject(new Error("Bild konnte nicht gelesen werden"));
+    img.src = dataUrl;
+  });
+}
+
 function FirmenlogoEditor() {
   const [logo, setLogo] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -33,9 +67,15 @@ function FirmenlogoEditor() {
     }
     setError(null);
     const reader = new FileReader();
-    reader.onload = () => {
-      setPreview(reader.result as string);
+    reader.onload = async () => {
+      try {
+        const png = await rasterizeToPng(reader.result as string);
+        setPreview(png);
+      } catch {
+        setError("Bild konnte nicht verarbeitet werden. Bitte ein anderes Format versuchen.");
+      }
     };
+    reader.onerror = () => setError("Datei konnte nicht gelesen werden.");
     reader.readAsDataURL(file);
   }
 
@@ -88,7 +128,9 @@ function FirmenlogoEditor() {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-semibold mb-1">Firmenlogo</h2>
       <p className="text-sm text-gray-500 mb-4">
-        Wird im Header und als Favicon verwendet. Max. 2MB empfohlen (PNG, JPG, SVG, WebP).
+        Wird im Header, als Favicon, auf der Login-Seite und auf gedruckten Dokumenten
+        (Lieferschein, Rechnung, Angebot) verwendet. Jedes gängige Bildformat wird akzeptiert
+        (PNG, JPG, SVG, WebP, max. 3MB) und automatisch für die Verwendung überall optimiert.
         Ohne eigenes Logo wird ein neutrales Standard-Logo angezeigt.
       </p>
 

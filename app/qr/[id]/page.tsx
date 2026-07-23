@@ -38,18 +38,14 @@ export default function QrLieferungPage() {
         ]);
         if (!lRes.ok) throw new Error("Lieferung nicht gefunden");
         const lData: Lieferung = await lRes.json();
-        const eData: { key: string; value: string }[] = await eRes.json();
-        const logoData: { key: string; value: string }[] = await logoRes.json();
+        // GET /api/einstellungen liefert ein flaches Objekt (Record<string,string>),
+        // kein Array von {key,value}-Paaren.
+        const eData: Record<string, string> = await eRes.json();
+        const logoData: Record<string, string> = await logoRes.json();
 
         setLieferung(lData);
-
-        for (const e of eData) {
-          if (e.key === "firma.name" || e.key === "firma.firmenname") {
-            setFirmaName(e.value);
-          }
-        }
-        const logoEntry = logoData.find((e) => e.key === "system.logo");
-        if (logoEntry?.value) setLogo(logoEntry.value);
+        setFirmaName(eData["firma.name"] || eData["firma.firmenname"] || "");
+        if (logoData["system.logo"]) setLogo(logoData["system.logo"]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Fehler beim Laden");
       } finally {
