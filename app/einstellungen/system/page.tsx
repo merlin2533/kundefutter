@@ -7,8 +7,8 @@ import { useEffect, useState } from "react";
 // Bei neuen Paketen hier UND in THIRD-PARTY-LICENSES.md ergänzen
 // (Lizenzen prüfbar via `npx license-checker --summary`).
 const ABHAENGIGKEITEN: { name: string; version: string; lizenz: string }[] = [
-  { name: "@anthropic-ai/sdk", version: "0.82.0", lizenz: "MIT" },
   { name: "@libsql/client", version: "0.17.2", lizenz: "MIT" },
+  { name: "@mistralai/mistralai", version: "2.3.0", lizenz: "Apache-2.0" },
   { name: "@prisma/adapter-libsql", version: "7.6.0", lizenz: "Apache-2.0" },
   { name: "@prisma/client", version: "7.6.0", lizenz: "Apache-2.0" },
   { name: "bcryptjs", version: "3.0.3", lizenz: "BSD-3-Clause" },
@@ -21,7 +21,6 @@ const ABHAENGIGKEITEN: { name: string; version: string; lizenz: string }[] = [
   { name: "lucide-react", version: "1.7.0", lizenz: "ISC" },
   { name: "next", version: "16.2.10", lizenz: "MIT" },
   { name: "nodemailer", version: "9.0.3", lizenz: "MIT-0" },
-  { name: "openai", version: "6.33.0", lizenz: "Apache-2.0" },
   { name: "pdf-lib", version: "1.17.1", lizenz: "MIT" },
   { name: "prisma", version: "7.7.0", lizenz: "Apache-2.0" },
   { name: "qrcode", version: "1.5.4", lizenz: "MIT" },

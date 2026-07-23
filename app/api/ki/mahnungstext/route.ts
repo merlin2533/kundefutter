@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PROMPTS, analyzeText, getAiConfig } from "@/lib/ai";
+import { PROMPTS, analyzeText, getAiConfig, parseJsonFromText, strOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
-import { parseJsonFromText, strOrNull } from "@/lib/ki-document";
 
 export const dynamic = "force-dynamic";
 
@@ -68,15 +67,9 @@ Verfasse den Mahntext gemäß den Stufenregeln.`;
     const cfg = await getAiConfig();
 
     // Konfigurationscheck – user-facing Fehlermeldung (kein isDev-Guard nötig)
-    if (cfg.provider === "openai" && !cfg.openaiKey) {
+    if (!cfg.mistralKey) {
       return NextResponse.json(
-        { error: "OpenAI API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." },
-        { status: 422 }
-      );
-    }
-    if (cfg.provider === "anthropic" && !cfg.anthropicKey) {
-      return NextResponse.json(
-        { error: "Anthropic API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." },
+        { error: "Mistral API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." },
         { status: 422 }
       );
     }

@@ -164,10 +164,11 @@ KundeSprengstoffErklaerung — Sprengstoffvorläufer-Erklärungen je Kunde
 | `system.firmenname` | Firmenbezeichnung |
 | `firma.*` | Firmenstammdaten (adresse, plz, ort, tel, email, iban, bic, bank, steuernummer, ustIdNr…) |
 | `letzte_angebotsnummer` | Letzter Angebots-Zähler (AN-YYYY-NNNN) |
-| `ki.provider` | "openai" oder "anthropic" |
-| `ki.modell` | z.B. "gpt-4o", "claude-sonnet-4-5" |
-| `ki.openai_key` | OpenAI API-Key |
-| `ki.anthropic_key` | Anthropic API-Key |
+| `ki.mistral_key` | Mistral API-Key |
+| `ki.modell_language` | Sprachmodell (Chat/JSON-Strukturierung), z.B. "mistral-large-latest" |
+| `ki.modell_transcription` | Transkriptionsmodell (Diktieren), z.B. "voxtral-mini-latest" |
+| `ki.modell_tts` | Sprachausgabe-Modell (optional) |
+| `ki.tts_voice` | Stimmen-ID für Sprachausgabe (optional) |
 | `ki.prompt.<feature>` | Benutzerdefinierter Prompt (leerer Wert = Standard) |
 | `smtp.*` | SMTP-Konfiguration (host, port, secure, user, pass) |
 | `email.from` | Absender-E-Mail-Adresse |
@@ -865,25 +866,47 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
   - Trigger auf `ArtikelInhaltsstoff` INSERT/DELETE halten FTS aktuell
 - **Stammdaten:** BvG-Produkte in `lib/artikel-stammdaten.ts` haben strukturierte Inhaltsstoffe
 
-## KI-Integration
+## KI-Integration — zentraler Service, ausschließlich Mistral AI
 
-- **Provider:** OpenAI oder Anthropic, konfigurierbar unter `/einstellungen/ki`
-- **Modelle:** GPT-4o/4.1 (OpenAI), Claude Sonnet/Haiku/Opus 4 (Anthropic)
-- **Lib:** `lib/ai.ts` — `analyzeImage()`, `analyzeText()`, `getAiConfig()`, `PROMPTS`
-- **DB-Keys:** `ki.provider`, `ki.modell`, `ki.openai_key`, `ki.anthropic_key`
-- **Prompt-Verwaltung:** Benutzerdefinierte Prompts in `ki.prompt.<feature>` (Einstellung)
-  - Features: wareneingang, lieferung, crm, inhaltsstoffe
+Ein Provider, ein Service (`lib/ai.ts`). Kein OpenAI/Anthropic mehr — Texterkennung,
+Dokument-OCR und Diktieren laufen alle über Mistral, konfigurierbar unter `/einstellungen/ki`.
+
+- **Lib:** `lib/ai.ts` — zentraler Service, alle KI-Aufrufe laufen ausschließlich hierüber:
+  - `getAiConfig(category)` — lädt Modell + Mistral-Key aus `Einstellung` je Kategorie
+    (`language | ocr | transcription | tts`)
+  - `analyzeDocument(base64, prompt, feature, config?)` — Bild/PDF-Erkennung: Schritt 1 OCR via
+    `client.ocr.process()` (Modell `mistral-ocr-latest`, funktioniert für Bild UND PDF gleichermaßen
+    über `image_url`/`document_url`-Chunks mit `data:`-URLs), Schritt 2 JSON-Strukturierung via
+    Sprachmodell (`client.chat.complete()`)
+  - `analyzeDocumentFile(file, prompt, feature, opts?)` — dünner Adapter für multipart-Uploads
+  - `analyzeText(text, prompt, feature, config?)` — reine Text-Analyse (z.B. transkribierte Sprache)
+  - `transcribeAudio(audio, feature, config?)` — Diktieren/Spracherkennung via Mistral Voxtral
+    (`client.audio.transcriptions.complete()`, Modell `voxtral-mini-latest`)
+  - `textToSpeech(text, config?, voiceId?)` — Sprachausgabe via `client.audio.speech.complete()`
+  - `testConnection()`, `logError()`, `PROMPTS` (12 Feature-Prompts)
+- **Modelle:** Sprachmodell `mistral-large-latest` (Standard, auch `mistral-medium-3`/`mistral-small-latest`/
+  `open-mistral-nemo` wählbar), OCR fix `mistral-ocr-latest`, Transkription `voxtral-mini-latest`
+- **DB-Keys:** `ki.mistral_key`, `ki.modell_language`, `ki.modell_transcription`, `ki.modell_tts`,
+  `ki.tts_voice`, `ki.prompt.<feature>`
+- **Prompt-Verwaltung:** Benutzerdefinierte Prompts in `ki.prompt.<feature>` (Einstellung), alle 12
+  Features editierbar unter `/einstellungen/ki` (Akkordeon-Layout)
   - Leerer Wert → Standard-Prompt aus `PROMPTS` in `lib/ai.ts`
-  - UI: Akkordeon-Layout in `/einstellungen/ki` (Prompt pro Feature editierbar)
-- **Kostentracking:** `KiNutzung`-Tabelle (provider, modell, feature, tokens, kostenCent)
+- **Kostentracking:** `KiNutzung`-Tabelle (provider immer `"mistral"`, modell, feature, tokens, kostenCent)
 - **KI-Seiten:**
-  - `/ki/wareneingang` — Lieferschein-Erkennung per Foto
-  - `/ki/lieferung` — Bestellungs-Erkennung
-  - `/ki/crm` — CRM-Notizen aus Bild/Sprache
+  - `/ki/wareneingang` — Lieferschein-Erkennung per Foto (OCR)
+  - `/ki/lieferung` — Bestellungs-Erkennung (OCR)
+  - `/ki/crm` — CRM-Notizen aus Bild (OCR) oder Sprache (Diktieren via Voxtral)
+  - `/ki/sprache` — Sprachmemo → CRM-Notiz (Diktieren via Voxtral, ohne KI-Nachbearbeitung)
+  - `/ki/erkennung` — universeller Dokument-Router (OCR + Klassifizierung)
+- **Diktieren:** `components/AudioRecorder.tsx` nimmt Audio via `MediaRecorder`/`getUserMedia({audio:true})`
+  auf und sendet es an `POST /api/ki/transcribe` (multipart, Felder `audio` + `feature`), das
+  `transcribeAudio()` aufruft. Ersetzt die frühere rein client-seitige Browser-`SpeechRecognition`
+  (browserabhängig, ohne KI-Beteiligung).
 - **Weitere KI-Endpunkte:**
   - `POST /api/ki/beleg` — Beleg-OCR (Ausgaben-Erkennung)
-  - `GET /api/ki/churn?kundeId=` — Churn-Risiko-Score
-  - `POST /api/ki/preis-empfehlung` — KI-Preisempfehlung (intern)
+  - `POST /api/ki/transcribe` — Audio-Transkription (Diktieren) via Voxtral
+  - `GET /api/ki/churn?kundeId=` — Churn-Risiko-Score (kein KI-Aufruf, reiner Algorithmus)
+  - `POST /api/ki/preis-empfehlung` — KI-Preisempfehlung (intern, kein KI-Aufruf, reine Statistik)
 
 ## Authentifizierung (`lib/auth.ts`)
 

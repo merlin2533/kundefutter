@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiConfig, analyzeImage, PROMPTS } from "@/lib/ai";
-import { parseJsonFromText, strOrNull } from "@/lib/ki-document";
+import { getAiConfig, analyzeDocument, PROMPTS, parseJsonFromText, strOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const dataUrl = `data:${file.type};base64,${Buffer.from(bytes).toString("base64")}`;
-    const result = await analyzeImage(dataUrl, prompt, "visitenkarte", cfg);
+    const result = await analyzeDocument(dataUrl, prompt, "visitenkarte", cfg);
 
     const p = parseJsonFromText(result.raw);
     const data = {

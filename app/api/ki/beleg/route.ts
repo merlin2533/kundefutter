@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImage, getAiConfig, PROMPTS } from "@/lib/ai";
+import { analyzeDocument, getAiConfig, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const prompt = (promptRow?.value?.trim()) || PROMPTS.beleg;
 
     const cfg = await getAiConfig("ocr");
-    const result = await analyzeImage(image, prompt, "beleg", cfg);
+    const result = await analyzeDocument(image, prompt, "beleg", cfg);
 
     const p = result.parsed as Record<string, unknown>;
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
-import VoiceInput from "@/components/VoiceInput";
+import AudioRecorder from "@/components/AudioRecorder";
 
 interface Kunde {
   id: number;
@@ -343,11 +343,12 @@ function KiCrmWizard() {
             <>
               <h2 className="text-lg font-semibold mb-4 text-gray-800">Spracheingabe</h2>
               <p className="text-sm text-gray-500 mb-4">
-                Sprechen Sie Ihre Notiz ein (max. 2 Minuten). Die KI erkennt Kunde, Typ und Inhalt automatisch.
+                Sprechen Sie Ihre Notiz ein (max. 2 Minuten). Mistral transkribiert die Aufnahme, die KI erkennt anschließend Kunde, Typ und Inhalt automatisch.
               </p>
 
-              <VoiceInput
+              <AudioRecorder
                 onTranscript={(text) => setVoiceText(text)}
+                feature="crm"
                 maxDurationSec={120}
                 placeholder="Aufnahme starten (max. 2 Min.)"
               />

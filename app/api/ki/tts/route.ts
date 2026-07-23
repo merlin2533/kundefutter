@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAiConfig, textToSpeech, type TtsVoice } from "@/lib/ai";
+import { getAiConfig, textToSpeech } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-
-const ALLOWED_VOICES: TtsVoice[] = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -13,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const text = typeof body.text === "string" ? body.text.trim() : "";
-    const voice: TtsVoice = ALLOWED_VOICES.includes(body.voice) ? body.voice : "nova";
+    const voice: string | undefined = typeof body.voice === "string" && body.voice.trim() ? body.voice.trim() : undefined;
 
     if (!text) return NextResponse.json({ error: "Kein Text angegeben" }, { status: 400 });
     if (text.length > 4096) return NextResponse.json({ error: "Text zu lang (max. 4096 Zeichen)" }, { status: 400 });

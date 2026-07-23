@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
-import type { AiProvider, ModelCategory } from "@/lib/ai";
 
 // ─── Typen ───────────────────────────────────────────────────────────────────
 
@@ -32,78 +31,23 @@ type KiStatistik = {
   }[];
 };
 
-type CategoryConfig = {
-  provider: AiProvider;
-  modells: Record<AiProvider, string>;
-};
+// ─── Modell-Vorschläge ───────────────────────────────────────────────────────
 
-// ─── Modell-Listen ───────────────────────────────────────────────────────────
-
-const OPENAI_LANGUAGE_MODELS = [
-  { value: "gpt-4.1",      label: "GPT-4.1" },
-  { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
-  { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
-  { value: "gpt-4o",       label: "GPT-4o" },
-  { value: "gpt-4o-mini",  label: "GPT-4o Mini" },
-  { value: "gpt-5",        label: "GPT-5" },
-  { value: "gpt-5-mini",   label: "GPT-5 Mini" },
-  { value: "gpt-5-nano",   label: "GPT-5 Nano" },
-];
-
-const OPENAI_OCR_MODELS = [
-  { value: "gpt-4o",       label: "GPT-4o (empfohlen)" },
-  { value: "gpt-4.1",      label: "GPT-4.1" },
-  { value: "gpt-5",        label: "GPT-5" },
-];
-
-const OPENAI_TTS_MODELS = [
-  { value: "tts-1",    label: "TTS-1 (schnell)" },
-  { value: "tts-1-hd", label: "TTS-1 HD (hohe Qualität)" },
-];
-
-const ANTHROPIC_LANGUAGE_MODELS = [
-  { value: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6" },
-  { value: "claude-opus-4-8",           label: "Claude Opus 4.8" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-];
-
-const ANTHROPIC_OCR_MODELS = [
-  { value: "claude-sonnet-4-6",         label: "Claude Sonnet 4.6 (empfohlen)" },
-  { value: "claude-opus-4-8",           label: "Claude Opus 4.8" },
-  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
-];
-
-const MISTRAL_LANGUAGE_MODELS = [
+const LANGUAGE_MODELS = [
   { value: "mistral-large-latest", label: "Mistral Large (empfohlen)" },
   { value: "mistral-medium-3",     label: "Mistral Medium 3" },
   { value: "mistral-small-latest", label: "Mistral Small" },
   { value: "open-mistral-nemo",    label: "Open Mistral Nemo (Open Source)" },
-  { value: "codestral-latest",     label: "Codestral" },
 ];
 
-const MISTRAL_OCR_MODELS = [
-  { value: "pixtral-large-2411", label: "Pixtral Large (empfohlen)" },
-  { value: "pixtral-12b-2409",   label: "Pixtral 12B" },
-  { value: "mistral-large-latest", label: "Mistral Large (Vision)" },
+const TRANSCRIPTION_MODELS = [
+  { value: "voxtral-mini-latest", label: "Voxtral Mini (empfohlen)" },
 ];
 
-function getModelList(provider: AiProvider, category: ModelCategory) {
-  if (provider === "openai") {
-    return category === "tts" ? OPENAI_TTS_MODELS
-      : category === "ocr" ? OPENAI_OCR_MODELS
-      : OPENAI_LANGUAGE_MODELS;
-  }
-  if (provider === "anthropic") {
-    return category === "ocr" ? ANTHROPIC_OCR_MODELS : ANTHROPIC_LANGUAGE_MODELS;
-  }
-  // mistral
-  return category === "ocr" ? MISTRAL_OCR_MODELS : MISTRAL_LANGUAGE_MODELS;
-}
-
-const DEFAULT_MODELLS: Record<AiProvider, Record<ModelCategory, string>> = {
-  openai:    { language: "gpt-4.1",             ocr: "gpt-4o",             tts: "tts-1" },
-  anthropic: { language: "claude-sonnet-4-6",   ocr: "claude-sonnet-4-6",  tts: "" },
-  mistral:   { language: "mistral-large-latest", ocr: "pixtral-large-2411", tts: "" },
+const DEFAULT_MODELLS = {
+  language: "mistral-large-latest",
+  transcription: "voxtral-mini-latest",
+  tts: "",
 };
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -119,55 +63,39 @@ const FEATURE_LABELS: Record<string, string> = {
   visitenkarte: "Visitenkarte",
   mahnungstext: "Mahnung",
   belegtyp: "Beleg-Klassifizierung",
+  router: "Dokument-Erkennung",
+  sprachmemo: "Sprachmemo (Diktat)",
   tts: "Text zu Sprache",
 };
 
 const PROMPT_FEATURES = [
-  { key: "wareneingang", label: "Wareneingang", desc: "Analyse von Lieferschein-Bildern" },
-  { key: "lieferung",    label: "Lieferung",    desc: "Analyse von Bestellungen/Aufträgen" },
-  { key: "crm",          label: "CRM Notiz",    desc: "CRM-Aktivitäten aus Text/Bild" },
-  { key: "inhaltsstoffe",label: "Inhaltsstoffe",desc: "Produktzusammensetzung recherchieren" },
-];
-
-const TTS_VOICES = [
-  { value: "nova",    label: "Nova (weiblich, warm)" },
-  { value: "alloy",   label: "Alloy (neutral)" },
-  { value: "echo",    label: "Echo (männlich)" },
-  { value: "fable",   label: "Fable (britisch)" },
-  { value: "onyx",    label: "Onyx (männlich, tief)" },
-  { value: "shimmer", label: "Shimmer (weiblich, sanft)" },
+  { key: "wareneingang",       label: "Wareneingang",           desc: "Analyse von Lieferschein-Bildern" },
+  { key: "lieferung",          label: "Lieferung",              desc: "Analyse von Bestellungen/Aufträgen" },
+  { key: "crm",                label: "CRM Notiz",              desc: "CRM-Aktivitäten aus Text/Bild" },
+  { key: "beleg",               label: "Beleg-OCR",              desc: "Eingangsrechnungen / Kassenbelege" },
+  { key: "bodenprobe",          label: "Bodenprobe",             desc: "Laborberichte Bodenuntersuchung" },
+  { key: "sachkundenachweis",   label: "Sachkunde",              desc: "PSM-/Düngerschulungs-/Spritzgerätekontroll-Zertifikate" },
+  { key: "schlaegte",           label: "Schläge",                desc: "Agrarflächen-Antrags-PDFs" },
+  { key: "mahnungstext",        label: "Mahnung",                desc: "Mahntexte generieren" },
+  { key: "belegtyp",            label: "Beleg-Klassifizierung",  desc: "Dokumenttyp-Erkennung (Erkennung/Router)" },
+  { key: "sortenversuch",       label: "Sortenversuch",          desc: "Sortenversuchs-Auswertungen" },
+  { key: "visitenkarte",        label: "Visitenkarte",           desc: "Kontaktdaten aus Visitenkarten" },
+  { key: "inhaltsstoffe",       label: "Inhaltsstoffe",          desc: "Produktzusammensetzung recherchieren" },
 ];
 
 // ─── Komponente ──────────────────────────────────────────────────────────────
 
 export default function KiEinstellungenPage() {
   // API-Schlüssel
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [anthropicKey, setAnthropicKey] = useState("");
   const [mistralKey, setMistralKey] = useState("");
-  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showMistralKey, setShowMistralKey] = useState(false);
   const touchedKeys = useRef<Set<string>>(new Set());
 
-  // Sprachmodell (language)
-  const [languageConfig, setLanguageConfig] = useState<CategoryConfig>({
-    provider: "openai",
-    modells: { openai: "gpt-4.1", anthropic: "claude-sonnet-4-6", mistral: "mistral-large-latest" },
-  });
-
-  // OCR / Erkennung
-  const [ocrConfig, setOcrConfig] = useState<CategoryConfig>({
-    provider: "openai",
-    modells: { openai: "gpt-4o", anthropic: "claude-sonnet-4-6", mistral: "pixtral-large-2411" },
-  });
-
-  // Text-zu-Sprache (TTS)
-  const [ttsConfig, setTtsConfig] = useState<CategoryConfig>({
-    provider: "openai",
-    modells: { openai: "tts-1", anthropic: "", mistral: "" },
-  });
-  const [ttsVoice, setTtsVoice] = useState("nova");
+  // Modell-Konfiguration
+  const [languageModell, setLanguageModell] = useState(DEFAULT_MODELLS.language);
+  const [transcriptionModell, setTranscriptionModell] = useState(DEFAULT_MODELLS.transcription);
+  const [ttsModell, setTtsModell] = useState(DEFAULT_MODELLS.tts);
+  const [ttsVoice, setTtsVoice] = useState("");
 
   // Prompt-Verwaltung
   const [prompts, setPrompts] = useState<Record<string, string>>({});
@@ -180,8 +108,8 @@ export default function KiEinstellungenPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [testing, setTesting] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; error?: string }>>({});
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
   // Statistik
   const [statistik, setStatistik] = useState<KiStatistik | null>(null);
@@ -196,47 +124,12 @@ export default function KiEinstellungenPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      // API-Schlüssel
-      if (data["ki.openai_key"])    setOpenaiKey(data["ki.openai_key"]);
-      if (data["ki.anthropic_key"]) setAnthropicKey(data["ki.anthropic_key"]);
-      if (data["ki.mistral_key"])   setMistralKey(data["ki.mistral_key"]);
-
-      // Sprachmodell-Kategorie
-      const globalProvider = (data["ki.provider"] as AiProvider) || "openai";
-      const langProvider = (data["ki.provider_language"] as AiProvider) || globalProvider;
-      setLanguageConfig({
-        provider: langProvider,
-        modells: {
-          openai:    data["ki.modell_language_openai"]    || data["ki.modell_openai"]    || DEFAULT_MODELLS.openai.language,
-          anthropic: data["ki.modell_language_anthropic"] || data["ki.modell_anthropic"] || DEFAULT_MODELLS.anthropic.language,
-          mistral:   data["ki.modell_language_mistral"]   || data["ki.modell_mistral"]   || DEFAULT_MODELLS.mistral.language,
-        },
-      });
-
-      // OCR-Kategorie
-      const ocrProvider = (data["ki.provider_ocr"] as AiProvider) || globalProvider;
-      setOcrConfig({
-        provider: ocrProvider,
-        modells: {
-          openai:    data["ki.modell_ocr_openai"]    || data["ki.modell_openai"]    || DEFAULT_MODELLS.openai.ocr,
-          anthropic: data["ki.modell_ocr_anthropic"] || data["ki.modell_anthropic"] || DEFAULT_MODELLS.anthropic.ocr,
-          mistral:   data["ki.modell_ocr_mistral"]   || data["ki.modell_mistral"]   || DEFAULT_MODELLS.mistral.ocr,
-        },
-      });
-
-      // TTS-Kategorie
-      const ttsProvider = (data["ki.provider_tts"] as AiProvider) || "openai";
-      setTtsConfig({
-        provider: ttsProvider,
-        modells: {
-          openai:    data["ki.modell_tts_openai"] || DEFAULT_MODELLS.openai.tts,
-          anthropic: "",
-          mistral:   "",
-        },
-      });
+      if (data["ki.mistral_key"]) setMistralKey(data["ki.mistral_key"]);
+      setLanguageModell(data["ki.modell_language"] || DEFAULT_MODELLS.language);
+      setTranscriptionModell(data["ki.modell_transcription"] || DEFAULT_MODELLS.transcription);
+      setTtsModell(data["ki.modell_tts"] || DEFAULT_MODELLS.tts);
       if (data["ki.tts_voice"]) setTtsVoice(data["ki.tts_voice"]);
 
-      // Prompts
       const loadedPrompts: Record<string, string> = {};
       for (const f of PROMPT_FEATURES) {
         const val = data[`ki.prompt.${f.key}`];
@@ -275,36 +168,11 @@ export default function KiEinstellungenPage() {
     setError(null);
     try {
       const settings: Record<string, string> = {
-        // Kategorie-Provider
-        "ki.provider":          languageConfig.provider, // Rückwärtskompatibilität: globaler Provider = Sprachmodell-Provider
-        "ki.provider_language": languageConfig.provider,
-        "ki.provider_ocr":      ocrConfig.provider,
-        "ki.provider_tts":      ttsConfig.provider,
-
-        // Sprachmodell-Modelle
-        "ki.modell_language_openai":    languageConfig.modells.openai,
-        "ki.modell_language_anthropic": languageConfig.modells.anthropic,
-        "ki.modell_language_mistral":   languageConfig.modells.mistral,
-
-        // OCR-Modelle
-        "ki.modell_ocr_openai":    ocrConfig.modells.openai,
-        "ki.modell_ocr_anthropic": ocrConfig.modells.anthropic,
-        "ki.modell_ocr_mistral":   ocrConfig.modells.mistral,
-
-        // TTS-Modelle
-        "ki.modell_tts_openai": ttsConfig.modells.openai,
-        "ki.tts_voice":         ttsVoice,
-
-        // Legacy-Keys für Rückwärtskompatibilität
-        "ki.modell_openai":    languageConfig.modells.openai,
-        "ki.modell_anthropic": languageConfig.modells.anthropic,
-        "ki.modell_mistral":   languageConfig.modells.mistral,
-        "ki.modell":           languageConfig.modells[languageConfig.provider],
-
-        // Mistral-Key immer speichern wenn vorhanden
+        "ki.modell_language":      languageModell,
+        "ki.modell_transcription": transcriptionModell,
+        "ki.modell_tts":           ttsModell,
+        "ki.tts_voice":            ttsVoice,
         ...(touchedKeys.current.has("ki.mistral_key") ? { "ki.mistral_key": mistralKey } : {}),
-        ...(touchedKeys.current.has("ki.openai_key")    ? { "ki.openai_key":    openaiKey }    : {}),
-        ...(touchedKeys.current.has("ki.anthropic_key") ? { "ki.anthropic_key": anthropicKey } : {}),
       };
 
       for (const [key, value] of Object.entries(settings)) {
@@ -326,25 +194,21 @@ export default function KiEinstellungenPage() {
 
   // ─── Verbindungstest ──────────────────────────────────────────────────────
 
-  async function handleTest(testProvider: AiProvider) {
-    setTesting(testProvider);
-    setTestResults(r => ({ ...r, [testProvider]: undefined as unknown as { ok: boolean } }));
-    const modell =
-      testProvider === "openai"    ? languageConfig.modells.openai :
-      testProvider === "anthropic" ? languageConfig.modells.anthropic :
-      languageConfig.modells.mistral;
+  async function handleTest() {
+    setTesting(true);
+    setTestResult(null);
     try {
       const res = await fetch("/api/ki/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: testProvider, modell, openaiKey, anthropicKey, mistralKey }),
+        body: JSON.stringify({ modell: languageModell, mistralKey }),
       });
       const data = res.ok ? await res.json() : { ok: false, error: "Serveranfrage fehlgeschlagen" };
-      setTestResults(r => ({ ...r, [testProvider]: data }));
+      setTestResult(data);
     } catch {
-      setTestResults(r => ({ ...r, [testProvider]: { ok: false, error: "Netzwerkfehler" } }));
+      setTestResult({ ok: false, error: "Netzwerkfehler" });
     } finally {
-      setTesting(null);
+      setTesting(false);
     }
   }
 
@@ -386,84 +250,44 @@ export default function KiEinstellungenPage() {
 
   // ─── Kategorie-Helper ─────────────────────────────────────────────────────
 
-  function CategorySection({
+  function ModelField({
     title,
     subtitle,
-    category,
-    config,
-    setConfig,
-    disabledProviders = [],
-    disabledNote,
+    value,
+    onChange,
+    suggestions,
+    placeholder,
   }: {
     title: string;
     subtitle: string;
-    category: ModelCategory;
-    config: CategoryConfig;
-    setConfig: (c: CategoryConfig) => void;
-    disabledProviders?: AiProvider[];
-    disabledNote?: string;
+    value: string;
+    onChange: (v: string) => void;
+    suggestions: { value: string; label: string }[];
+    placeholder: string;
   }) {
-    const models = getModelList(config.provider, category);
-    const activeModell = config.modells[config.provider];
-
+    const listId = `modell-list-${title.replace(/\s+/g, "-").toLowerCase()}`;
     return (
-      <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+      <div className="border border-gray-200 rounded-xl p-5 space-y-3">
         <div>
           <h3 className="font-semibold text-gray-800">{title}</h3>
           <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
         </div>
-
-        {/* Provider-Auswahl */}
         <div>
-          <p className="text-xs font-medium text-gray-600 mb-2">Anbieter</p>
-          <div className="flex flex-wrap gap-4">
-            {(["openai", "anthropic", "mistral"] as AiProvider[]).map((p) => {
-              const isDisabled = disabledProviders.includes(p);
-              return (
-                <label key={p} className={`flex items-center gap-2 ${isDisabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}>
-                  <input
-                    type="radio"
-                    name={`provider_${category}`}
-                    value={p}
-                    checked={config.provider === p}
-                    disabled={isDisabled}
-                    onChange={() => setConfig({ ...config, provider: p })}
-                    className="accent-green-600"
-                  />
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {p === "openai" ? "OpenAI" : p === "anthropic" ? "Anthropic" : "Mistral"}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-          {disabledNote && (
-            <p className="text-xs text-gray-400 mt-1">{disabledNote}</p>
-          )}
-        </div>
-
-        {/* Modell-Auswahl */}
-        <div>
-          <p className="text-xs font-medium text-gray-600 mb-1">
-            Modell ({config.provider === "openai" ? "OpenAI" : config.provider === "anthropic" ? "Anthropic" : "Mistral"})
-          </p>
           <input
-            list={`modell-list-${category}-${config.provider}`}
-            value={activeModell}
-            onChange={(e) =>
-              setConfig({ ...config, modells: { ...config.modells, [config.provider]: e.target.value } })
-            }
-            placeholder={DEFAULT_MODELLS[config.provider][category] || "Modell-ID eingeben"}
+            list={listId}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
-          <datalist id={`modell-list-${category}-${config.provider}`}>
-            {models.map((m) => (
+          <datalist id={listId}>
+            {suggestions.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
           </datalist>
-          <p className="text-xs text-gray-400 mt-1">
-            Vorschläge auswählen oder eigene Modell-ID eintragen.
-          </p>
+          {suggestions.length > 0 && (
+            <p className="text-xs text-gray-400 mt-1">Vorschlag auswählen oder eigene Modell-ID eintragen.</p>
+          )}
         </div>
       </div>
     );
@@ -481,7 +305,11 @@ export default function KiEinstellungenPage() {
         <span className="text-gray-800 font-medium">KI / AI</span>
       </div>
 
-      <h1 className="text-2xl font-bold mb-6">KI-Einstellungen</h1>
+      <h1 className="text-2xl font-bold mb-1">KI-Einstellungen</h1>
+      <p className="text-sm text-gray-500 mb-6">
+        Alle KI-Funktionen laufen über Mistral AI — ein zentraler Service für Texterkennung,
+        Dokument-OCR, Diktieren (Voxtral) und optional Sprachausgabe.
+      </p>
 
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -494,60 +322,23 @@ export default function KiEinstellungenPage() {
         {/* ── API-Schlüssel ─────────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">API-Schlüssel</h2>
-          <div className="space-y-4">
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">OpenAI API-Key</label>
-              <div className="flex gap-2">
-                <input
-                  type={showOpenaiKey ? "text" : "password"}
-                  value={openaiKey}
-                  onChange={(e) => { setOpenaiKey(e.target.value); touchedKeys.current.add("ki.openai_key"); }}
-                  placeholder="sk-..."
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                <button type="button" onClick={() => setShowOpenaiKey(!showOpenaiKey)}
-                  className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
-                  {showOpenaiKey ? "Verbergen" : "Anzeigen"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Anthropic API-Key</label>
-              <div className="flex gap-2">
-                <input
-                  type={showAnthropicKey ? "text" : "password"}
-                  value={anthropicKey}
-                  onChange={(e) => { setAnthropicKey(e.target.value); touchedKeys.current.add("ki.anthropic_key"); }}
-                  placeholder="sk-ant-..."
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                <button type="button" onClick={() => setShowAnthropicKey(!showAnthropicKey)}
-                  className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
-                  {showAnthropicKey ? "Verbergen" : "Anzeigen"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mistral API-Key
-                <span className="ml-2 text-xs text-gray-400 font-normal">console.mistral.ai</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type={showMistralKey ? "text" : "password"}
-                  value={mistralKey}
-                  onChange={(e) => { setMistralKey(e.target.value); touchedKeys.current.add("ki.mistral_key"); }}
-                  placeholder="..."
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                <button type="button" onClick={() => setShowMistralKey(!showMistralKey)}
-                  className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
-                  {showMistralKey ? "Verbergen" : "Anzeigen"}
-                </button>
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mistral API-Key
+              <span className="ml-2 text-xs text-gray-400 font-normal">console.mistral.ai</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type={showMistralKey ? "text" : "password"}
+                value={mistralKey}
+                onChange={(e) => { setMistralKey(e.target.value); touchedKeys.current.add("ki.mistral_key"); }}
+                placeholder="..."
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <button type="button" onClick={() => setShowMistralKey(!showMistralKey)}
+                className="px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap">
+                {showMistralKey ? "Verbergen" : "Anzeigen"}
+              </button>
             </div>
           </div>
         </div>
@@ -556,52 +347,57 @@ export default function KiEinstellungenPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-1">Modell-Konfiguration</h2>
           <p className="text-sm text-gray-500 mb-5">
-            Wähle je Aufgabentyp den gewünschten Anbieter und das Modell. Jeder Aufgabentyp
-            kann einen anderen Provider nutzen.
+            Wähle je Aufgabentyp das gewünschte Mistral-Modell.
           </p>
 
           <div className="space-y-5">
-            <CategorySection
+            <ModelField
               title="Sprachmodell / Chat"
-              subtitle="Texterkennung, CRM-Notizen, Mahnungen, Inhaltsstoffe, allgemeine Textanalyse"
-              category="language"
-              config={languageConfig}
-              setConfig={setLanguageConfig}
+              subtitle="Texterkennung, CRM-Notizen, Mahnungen, Inhaltsstoffe, JSON-Strukturierung nach OCR"
+              value={languageModell}
+              onChange={setLanguageModell}
+              suggestions={LANGUAGE_MODELS}
+              placeholder={DEFAULT_MODELLS.language}
             />
 
-            <CategorySection
-              title="Erkennung / OCR"
-              subtitle="Bilderkennung, Lieferscheine, Bodenproben, Sachkundenachweise, Visitenkarten — PDF-Analyse"
-              category="ocr"
-              config={ocrConfig}
-              setConfig={setOcrConfig}
-            />
-
-            <CategorySection
-              title="Text zu Sprache (TTS)"
-              subtitle="Sprachausgabe von Texten über OpenAI TTS"
-              category="tts"
-              config={ttsConfig}
-              setConfig={setTtsConfig}
-              disabledProviders={["anthropic", "mistral"]}
-              disabledNote="Anthropic und Mistral unterstützen aktuell keine Sprachausgabe."
-            />
-
-            {/* Stimme für TTS */}
             <div className="border border-gray-200 rounded-xl p-5">
-              <div className="mb-3">
-                <h3 className="font-semibold text-gray-800">Stimme (TTS)</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Stimme für die OpenAI Sprachausgabe</p>
-              </div>
-              <select
+              <h3 className="font-semibold text-gray-800">Erkennung / OCR</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Bilderkennung, Lieferscheine, Bodenproben, Sachkundenachweise, Visitenkarten, PDF-Analyse
+              </p>
+              <p className="text-sm text-gray-600 mt-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                Läuft immer über das dedizierte Mistral-OCR-Modell (<code className="font-mono text-xs">mistral-ocr-latest</code>).
+                Das Sprachmodell oben strukturiert die extrahierten Daten anschließend als JSON.
+              </p>
+            </div>
+
+            <ModelField
+              title="Diktieren / Transkription"
+              subtitle="Spracheingabe → Text (CRM-Notizen, Sprachmemos) via Mistral Voxtral"
+              value={transcriptionModell}
+              onChange={setTranscriptionModell}
+              suggestions={TRANSCRIPTION_MODELS}
+              placeholder={DEFAULT_MODELLS.transcription}
+            />
+
+            <ModelField
+              title="Text zu Sprache (TTS)"
+              subtitle="Sprachausgabe von Texten über Mistral"
+              value={ttsModell}
+              onChange={setTtsModell}
+              suggestions={[]}
+              placeholder="Modell-ID eingeben (optional — Mistral wählt sonst automatisch)"
+            />
+
+            <div className="border border-gray-200 rounded-xl p-5">
+              <h3 className="font-semibold text-gray-800">Stimme (TTS)</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Stimmen-ID für die Mistral-Sprachausgabe (optional)</p>
+              <input
                 value={ttsVoice}
                 onChange={(e) => setTtsVoice(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                {TTS_VOICES.map((v) => (
-                  <option key={v.value} value={v.value}>{v.label}</option>
-                ))}
-              </select>
+                placeholder="z. B. Stimmen-ID aus der Mistral-Dokumentation — leer = Standardstimme"
+                className="mt-3 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
             </div>
           </div>
         </div>
@@ -609,32 +405,24 @@ export default function KiEinstellungenPage() {
         {/* ── Verbindungstest ───────────────────────────────────────────── */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Verbindungstest</h2>
-          <div className="flex flex-wrap gap-3">
-            {(["openai", "anthropic", "mistral"] as AiProvider[]).map((p) => {
-              const label = p === "openai" ? "OpenAI" : p === "anthropic" ? "Anthropic" : "Mistral";
-              const result = testResults[p];
-              return (
-                <div key={p} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleTest(p)}
-                    disabled={testing === p}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    {testing === p ? "Teste..." : `${label} testen`}
-                  </button>
-                  {result && (
-                    <span className={`text-xs px-2 py-1 rounded-lg border ${
-                      result.ok
-                        ? "bg-green-50 border-green-200 text-green-700"
-                        : "bg-red-50 border-red-200 text-red-600"
-                    }`}>
-                      {result.ok ? "OK" : result.error || "Fehler"}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              {testing ? "Teste..." : "Mistral testen"}
+            </button>
+            {testResult && (
+              <span className={`text-xs px-2 py-1 rounded-lg border ${
+                testResult.ok
+                  ? "bg-green-50 border-green-200 text-green-700"
+                  : "bg-red-50 border-red-200 text-red-600"
+              }`}>
+                {testResult.ok ? "OK" : testResult.error || "Fehler"}
+              </span>
+            )}
           </div>
         </div>
 
