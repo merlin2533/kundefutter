@@ -4,7 +4,7 @@ import { getUploadBase } from "@/lib/upload";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import { Sentry } from "@/lib/sentry";
-import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
+import { isNextcloudKonfiguriert, uploadZuBuchhaltung } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -29,57 +29,56 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Nur PDF, JPG, PNG oder WEBP erlaubt" }, { status: 400 });
     }
 
-    const existing = await prisma.sachkundenachweis.findUnique({
+    const existing = await prisma.eingangsRechnung.findUnique({
       where: { id },
-      select: { id: true, belegPfad: true, typ: true, kundeId: true, kunde: { select: { name: true } } },
+      select: { id: true, belegpfad: true, nummer: true, datum: true },
     });
     if (!existing) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    const uploadDir = path.join(getUploadBase(), "sachkunde");
+    const uploadDir = path.join(getUploadBase(), "eingangsrechnungen");
     await mkdir(uploadDir, { recursive: true });
 
-    // Remove old file if present
-    if (existing.belegPfad) {
+    if (existing.belegpfad) {
       try {
-        const oldAbs = path.join(getUploadBase(), existing.belegPfad.replace(/^sachkunde\//, "sachkunde/"));
-        await unlink(oldAbs);
+        await unlink(path.join(getUploadBase(), existing.belegpfad));
       } catch (err) {
         Sentry.captureException(err);
-        // ignore missing file
+        // Datei existiert nicht mehr — ignorieren
       }
     }
 
-    const filename = `sachkunde-${id}-${Date.now()}${ext}`;
+    const filename = `eingangsrechnung-${id}-${Date.now()}${ext}`;
     const filepath = path.join(uploadDir, filename);
-    await writeFile(filepath, Buffer.from(await file.arrayBuffer()));
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(filepath, buffer);
 
-    const relPfad = `sachkunde/${filename}`;
+    const relPfad = `eingangsrechnungen/${filename}`;
 
-    await prisma.sachkundenachweis.update({
+    await prisma.eingangsRechnung.update({
       where: { id },
-      data: { belegPfad: relPfad, belegName: file.name },
+      data: { belegpfad: relPfad },
     });
 
-    // Fire-and-forget: Nachweis nach Nextcloud spiegeln
-    const buffer = Buffer.from(await file.arrayBuffer());
+    // Fire-and-forget: Beleg nach Nextcloud (Buchhaltung) spiegeln
+    const zielName = `Eingangsrechnung_${existing.nummer ?? id}_${file.name}`;
     isNextcloudKonfiguriert()
       .then(async (ok) => {
         if (!ok) return;
-        await uploadZuKundeOrdner(
-          existing.kundeId,
-          existing.kunde.name,
-          "Nachweise",
-          `Sachkundenachweis_${existing.typ}_${id}_${file.name}`,
+        await uploadZuBuchhaltung(
+          existing.datum.getFullYear(),
+          existing.datum.getMonth() + 1,
+          "Eingangsrechnungen",
+          zielName,
           buffer,
           file.type || undefined
         );
       })
       .catch((e: unknown) => {
         Sentry.captureException(e);
-        console.warn("[nextcloud] Sachkundenachweis-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+        console.warn("[nextcloud] Eingangsrechnung-Beleg-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
       });
 
-    return NextResponse.json({ ok: true, belegPfad: relPfad, belegName: file.name });
+    return NextResponse.json({ ok: true, belegpfad: relPfad });
   } catch (err) {
     Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
@@ -94,24 +93,24 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
-    const existing = await prisma.sachkundenachweis.findUnique({
+    const existing = await prisma.eingangsRechnung.findUnique({
       where: { id },
-      select: { belegPfad: true },
+      select: { belegpfad: true },
     });
     if (!existing) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    if (existing.belegPfad) {
+    if (existing.belegpfad) {
       try {
-        await unlink(path.join(getUploadBase(), existing.belegPfad));
+        await unlink(path.join(getUploadBase(), existing.belegpfad));
       } catch (err) {
         Sentry.captureException(err);
         // ignore
       }
     }
 
-    await prisma.sachkundenachweis.update({
+    await prisma.eingangsRechnung.update({
       where: { id },
-      data: { belegPfad: null, belegName: null },
+      data: { belegpfad: null },
     });
 
     return NextResponse.json({ ok: true });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getKundenOrdnerId, listeDateien, uploadDatei } from "@/lib/googleDrive";
+import { kundenOrdnerPfad, listeDateien, uploadDatei } from "@/lib/nextcloud";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -9,17 +9,17 @@ type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const kundeId = parseInt(id);
+  const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   const kunde = await prisma.kunde.findUnique({ where: { id: kundeId }, select: { id: true, name: true } });
   if (!kunde) return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
 
   try {
-    const folderId = await getKundenOrdnerId(kundeId, kunde.name);
-    const dateien = await listeDateien(folderId);
-    const driveUrl = `https://drive.google.com/drive/folders/${folderId}`;
-    return NextResponse.json({ folderId, driveUrl, dateien });
+    const pfad = kundenOrdnerPfad(kundeId, kunde.name);
+    const dateien = await listeDateien(pfad);
+    const url = dateien[0]?.webViewLink ?? null;
+    return NextResponse.json({ pfad, url, dateien });
   } catch (e) {
     Sentry.captureException(e);
     const rawMsg = e instanceof Error ? e.message : String(e);
@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
-  const kundeId = parseInt(id);
+  const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   const kunde = await prisma.kunde.findUnique({ where: { id: kundeId }, select: { id: true, name: true } });
@@ -50,14 +50,18 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const folderId = await getKundenOrdnerId(kundeId, kunde.name);
+    const pfad = kundenOrdnerPfad(kundeId, kunde.name);
     const buffer = Buffer.from(await datei.arrayBuffer());
-    const result = await uploadDatei(folderId, datei.name, datei.type || "application/octet-stream", buffer);
+    const result = await uploadDatei(pfad, datei.name, buffer, datei.type || "application/octet-stream");
     return NextResponse.json(result);
   } catch (e) {
     Sentry.captureException(e);
+    const rawMsg = e instanceof Error ? e.message : String(e);
+    if (rawMsg.includes("nicht konfiguriert")) {
+      return NextResponse.json({ error: rawMsg, nichtKonfiguriert: true }, { status: 503 });
+    }
     const isDev = process.env.NODE_ENV === "development";
-    const msg = isDev && e instanceof Error ? e.message : "Interner Fehler";
+    const msg = isDev ? rawMsg : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

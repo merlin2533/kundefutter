@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import path from "path";
 import fs from "fs/promises";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuArtikelOrdner } from "@/lib/nextcloud";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,20 @@ export async function POST(req: NextRequest) {
         notiz: notiz || null,
       },
     });
+
+    // Fire-and-forget: Chargenzertifikat nach Nextcloud spiegeln
+    isNextcloudKonfiguriert()
+      .then(async (ok) => {
+        if (!ok) return;
+        const artikel = await prisma.artikel.findUnique({ where: { id: artikelId }, select: { name: true } });
+        if (!artikel) return;
+        await uploadZuArtikelOrdner(artikelId, artikel.name, "Chargenzertifikate", `${chargeNr}_${datei.name}`, Buffer.from(bytes), datei.type || undefined);
+      })
+      .catch((e: unknown) => {
+        Sentry.captureException(e);
+        console.warn("[nextcloud] Chargenzertifikat-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+      });
+
     return NextResponse.json(record, { status: 201 });
   } catch (err) {
     Sentry.captureException(err);

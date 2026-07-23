@@ -296,7 +296,7 @@ const sections: Section[] = [
     features: [
       { text: "Globale Suche mit Ctrl+K / Cmd+K: Kunden, Artikel, Lieferungen, Angebote" },
       { text: "PWA-Unterstützung: App auf Smartphone installierbar, offline-fähig" },
-      { text: "Google Drive Integration: Dokumente für Kunden und Artikel ablegen" },
+      { text: "Nextcloud-Synchronisation: Dokumente für Kunden, Artikel und Buchhaltung automatisch ablegen" },
       { text: "Mailverteiler: Kunden für E-Mail-Kampagnen segmentieren" },
       { text: "Breadcrumb-Navigation auf allen Seiten" },
       { text: "Responsive Design: optimiert für Desktop, Tablet und Smartphone" },

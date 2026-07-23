@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import nextDynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import DriveOrdner from "@/components/DriveOrdner";
+import NextcloudOrdner from "@/components/NextcloudOrdner";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
 
@@ -481,7 +481,7 @@ export default function KundeDetailPage() {
         {activeTab === "Angebote" && <AngeboteTab kundeId={kunde.id} />}
         {activeTab === "Aufgaben" && <AufgabenTab kundeId={kunde.id} />}
         {activeTab === "Reklamationen" && <ReklamationenTab kundeId={kunde.id} />}
-        {activeTab === "Dokumente" && <DriveOrdner entityType="kunde" entityId={kunde.id} />}
+        {activeTab === "Dokumente" && <NextcloudOrdner entityType="kunde" entityId={kunde.id} />}
         {activeTab === "Vorgangskette" && <VorgangskettTab kundeId={kunde.id} lieferungen={kunde.lieferungen} onRefresh={fetchKunde} />}
         {activeTab === "Erklärungen" && <ErklaerungTab kundeId={kunde.id} />}
         {activeTab === "Zertifizierungen" && <ZertifizierungenTab kundeId={kunde.id} />}

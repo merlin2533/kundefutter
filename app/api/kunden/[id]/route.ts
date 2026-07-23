@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
 import { autoGeocodeKunde } from "@/lib/geocoding";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, kundenOrdnerPfad, verschiebeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 
@@ -126,6 +127,23 @@ export async function PUT(req: NextRequest, { params }: Params) {
       } else if (!kunde.lat) {
         void autoGeocodeKunde(prisma, Number(id));
       }
+    }
+
+    // Nextcloud-Ordner mitverschieben, falls sich der Kundenname geändert hat
+    const alterName = (altSnapshot as { name?: string } | null)?.name;
+    if (alterName !== undefined && name !== undefined && alterName !== kunde.name) {
+      isNextcloudKonfiguriert()
+        .then(async (ok) => {
+          if (!ok) return;
+          await verschiebeOrdner(
+            kundenOrdnerPfad(kunde.id, alterName),
+            kundenOrdnerPfad(kunde.id, kunde.name)
+          );
+        })
+        .catch((e) => {
+          Sentry.captureException(e);
+          console.warn("[nextcloud] Kunden-Ordner konnte nicht verschoben werden", e);
+        });
     }
 
     return NextResponse.json(kunde);

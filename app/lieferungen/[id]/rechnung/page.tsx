@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage, formatMenge } from "@/lib/utils";
-import DriveUploadButton from "@/components/DriveUploadButton";
+import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
@@ -548,7 +548,7 @@ export default function RechnungPrintPage() {
           </button>
         )}
         {lieferung && (
-          <DriveUploadButton
+          <NextcloudUploadButton
             kundeId={lieferung.kunde ? (lieferung as unknown as { kundeId: number }).kundeId ?? 0 : 0}
             typ="rechnung"
             dateiName={`Rechnung_${lieferung.rechnungNr ?? `LS-${lieferung.id}`}.pdf`}

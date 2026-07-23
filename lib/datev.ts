@@ -293,3 +293,243 @@ export function lohnGegenkonto(kontenrahmen: "SKR03" | "SKR04"): string {
   return kontenrahmen === "SKR04" ? "1800" : "1200";
 }
 
+// ─── Vollständiger DATEV-Buchungsstapel-Export ───────────────────────────────
+
+/**
+ * Baut den kompletten DATEV-Buchungsstapel (Lieferungen, Sammelrechnungen,
+ * Gutschriften, Ausgaben) für den Zeitraum [von, bis] als CSV-String.
+ * Wird sowohl vom Direkt-Download (`/api/exporte/datev`) als auch von der
+ * Nextcloud-Archivierung (`/api/exporte/datev/archivieren`) verwendet.
+ */
+export async function buildDatevCsv(
+  von: Date,
+  bis: Date,
+  baseUrl: string
+): Promise<{ csv: string; filename: string }> {
+  const { prisma } = await import("@/lib/prisma");
+  const { getAppName } = await import("@/lib/appinfo");
+
+  const appName = await getAppName();
+
+  const einstellungen = await prisma.einstellung.findMany({
+    where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn"] } },
+  });
+  const settMap = Object.fromEntries(einstellungen.map((e) => [e.key, e.value]));
+  const beraternummer = settMap["datev.beraternummer"] ?? "0";
+  const mandantennummer = settMap["datev.mandantennummer"] ?? "1";
+  const kontenrahmen = settMap["datev.sachkontenrahmen"] ?? "SKR03";
+  const wjBeginnMonat = parseInt(settMap["datev.wirtschaftsjahrBeginn"] ?? "1", 10);
+
+  const wjJahr = von.getFullYear();
+  const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
+
+  const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
+    prisma.lieferung.findMany({
+      where: { status: "geliefert", rechnungNr: { not: null }, datum: { gte: von, lte: bis } },
+      select: {
+        id: true,
+        kundeId: true,
+        datum: true,
+        rechnungNr: true,
+        rechnungDatum: true,
+        kunde: { select: { name: true, firma: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } } },
+      },
+      orderBy: { datum: "asc" },
+    }),
+    prisma.sammelrechnung.findMany({
+      where: { rechnungNr: { not: null }, rechnungDatum: { gte: von, lte: bis } },
+      select: {
+        id: true,
+        kundeId: true,
+        rechnungNr: true,
+        rechnungDatum: true,
+        kunde: { select: { name: true, firma: true } },
+        lieferungen: {
+          select: { positionen: { select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } } } },
+        },
+      },
+      orderBy: { rechnungDatum: "asc" },
+    }),
+    prisma.gutschrift.findMany({
+      where: { status: { not: "STORNIERT" }, datum: { gte: von, lte: bis } },
+      select: {
+        id: true,
+        kundeId: true,
+        nummer: true,
+        datum: true,
+        kunde: { select: { name: true, firma: true } },
+        positionen: { select: { menge: true, preis: true, artikel: { select: { mwstSatz: true } } } },
+      },
+      orderBy: { datum: "asc" },
+    }),
+    prisma.ausgabe.findMany({
+      where: { datum: { gte: von, lte: bis } },
+      select: {
+        id: true, datum: true, belegNr: true, beschreibung: true, betragNetto: true, mwstSatz: true,
+        kategorie: true, lieferantId: true, belegPfad: true, buchungstyp: true, sachkonto: true,
+        zahlungsweg: true, kostenstelle: true, reiseZiel: true, bewirtungZweck: true,
+      },
+      orderBy: { datum: "asc" },
+    }),
+  ]);
+
+  interface DatevRow {
+    umsatz: number;
+    sollHaben: string;
+    wkz: string;
+    konto: string;
+    gegenkonto: string;
+    buSchluessel: string;
+    belegdatum: string;
+    belegfeld1: string;
+    buchungstext: string;
+    beleglink: string;
+    leistungsdatum: string;
+    steuersatz: string;
+    kostenstelle: string;
+  }
+
+  const rows: DatevRow[] = [];
+
+  for (const lief of lieferungen) {
+    const rechnungDatum = lief.rechnungDatum ?? lief.datum;
+    const kundeName = lief.kunde.firma ? `${lief.kunde.firma} ${lief.kunde.name}` : lief.kunde.name;
+    const konto = String(10000 + lief.kundeId);
+    const byMwst = new Map<number, number>();
+    for (const pos of lief.positionen) {
+      const satz = pos.artikel.mwstSatz ?? 19;
+      const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
+      byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+    }
+    for (const [satz, brutto] of byMwst.entries()) {
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100, sollHaben: "S", wkz: "EUR", konto,
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"), buSchluessel: "",
+        belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: lief.rechnungNr ?? "",
+        buchungstext: kundeName.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
+      });
+    }
+  }
+
+  for (const sr of sammelrechnungen) {
+    const rechnungDatum = sr.rechnungDatum!;
+    const kundeName = sr.kunde.firma ? `${sr.kunde.firma} ${sr.kunde.name}` : sr.kunde.name;
+    const konto = String(10000 + sr.kundeId);
+    const byMwst = new Map<number, number>();
+    for (const lief of sr.lieferungen) {
+      for (const pos of lief.positionen) {
+        const satz = pos.artikel.mwstSatz ?? 19;
+        const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
+        byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      }
+    }
+    for (const [satz, brutto] of byMwst.entries()) {
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100, sollHaben: "S", wkz: "EUR", konto,
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"), buSchluessel: "",
+        belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: sr.rechnungNr ?? "",
+        buchungstext: kundeName.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
+      });
+    }
+  }
+
+  for (const gs of gutschriften) {
+    const datum = gs.datum;
+    const kundeName = gs.kunde.firma ? `${gs.kunde.firma} ${gs.kunde.name}` : gs.kunde.name;
+    const konto = String(10000 + gs.kundeId);
+    const byMwst = new Map<number, number>();
+    for (const pos of gs.positionen) {
+      const satz = pos.artikel?.mwstSatz ?? 19;
+      const brutto = pos.menge * pos.preis * (1 + satz / 100);
+      byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+    }
+    for (const [satz, brutto] of byMwst.entries()) {
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100, sollHaben: "H", wkz: "EUR", konto,
+        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"), buSchluessel: "",
+        belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
+        buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(datum), steuersatz: String(satz), kostenstelle: "",
+      });
+    }
+  }
+
+  const kr = kontenrahmen as "SKR03" | "SKR04";
+  for (const ausg of ausgaben) {
+    const bt = ausg.buchungstyp ?? "Betriebsausgabe";
+    const isPrivat = bt === "Privatentnahme" || bt === "Privateinlage";
+    const mwst = isPrivat ? 0 : ausg.mwstSatz;
+    const brutto = ausg.betragNetto * (1 + mwst / 100);
+    const beleglink = ausg.belegPfad && baseUrl ? `${baseUrl}${ausg.belegPfad}` : "";
+
+    let buchungstext = ausg.beschreibung;
+    if (bt === "Reisekosten" && ausg.reiseZiel) buchungstext = `${buchungstext} [${ausg.reiseZiel}]`;
+    if (bt === "Bewirtung" && ausg.bewirtungZweck) buchungstext = `${buchungstext} [${ausg.bewirtungZweck}]`;
+    buchungstext = buchungstext.substring(0, 60);
+
+    rows.push({
+      umsatz: Math.round(brutto * 100) / 100, sollHaben: "H", wkz: "EUR",
+      konto: getSachkonto(ausg.kategorie, bt, kr, ausg.sachkonto),
+      gegenkonto: getGegenkonto(ausg.zahlungsweg, ausg.lieferantId, kr, bt),
+      buSchluessel: getBuSchluessel(bt), belegdatum: datevBelegdatum(ausg.datum),
+      belegfeld1: (ausg.belegNr ?? "").substring(0, 36), buchungstext, beleglink,
+      leistungsdatum: datevLeistungsdatum(ausg.datum), steuersatz: String(mwst),
+      kostenstelle: ausg.kostenstelle ?? "",
+    });
+  }
+
+  const vonDatum = von.toISOString().slice(0, 10).replace(/-/g, "");
+  const bisDatum = bis.toISOString().slice(0, 10).replace(/-/g, "");
+  const wjStartStr = wjStart.toISOString().slice(0, 10).replace(/-/g, "");
+
+  const headerLine = buildDatevHeaderLine({
+    appName, beraternummer, mandantennummer, kontenrahmen, wjStartStr, vonDatum, bisDatum,
+    bezeichnung: `DATEV-Export ${appName}`,
+  });
+
+  const colHeaders = DATEV_COL_HEADERS;
+
+  const dataLines = rows.map((r) => {
+    const umsatzStr = r.umsatz.toFixed(2).replace(".", ",");
+    const fields: string[] = [
+      umsatzStr, r.sollHaben, r.wkz, "", "", "", r.konto, r.gegenkonto, r.buSchluessel,
+      r.belegdatum, datevQ(r.belegfeld1), "", "", datevQ(r.buchungstext), "", "", "", "", "",
+      r.beleglink ? datevQ(r.beleglink) : "",
+      "", "", "", "", "", "", "", "", "", "",
+      "", "", "", "", "", "",
+      r.kostenstelle ? datevQ(r.kostenstelle) : "",
+      "", "", "", "",
+      "", "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      r.leistungsdatum,
+      "",
+      "",
+      "",
+      r.steuersatz,
+      "",
+      "",
+      "",
+      "",
+    ];
+    return fields.join(";");
+  });
+
+  const csvContent = [headerLine, colHeaders, ...dataLines].join("\r\n");
+  const BOM = "﻿";
+  const csv = BOM + csvContent;
+  const filename = `DATEV-Buchungsstapel-${vonDatum}-${bisDatum}.csv`;
+
+  return { csv, filename };
+}
+

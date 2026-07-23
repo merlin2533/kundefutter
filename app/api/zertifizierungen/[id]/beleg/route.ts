@@ -4,6 +4,7 @@ import { getUploadBase } from "@/lib/upload";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -40,7 +41,26 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         belegpfad: relPfad,
         belegname: file.name,
       },
+      include: { kunde: { select: { name: true } } },
     });
+
+    // Fire-and-forget: Nachweis nach Nextcloud spiegeln
+    isNextcloudKonfiguriert()
+      .then(async (ok) => {
+        if (!ok) return;
+        await uploadZuKundeOrdner(
+          updated.kundeId,
+          updated.kunde.name,
+          "Nachweise",
+          `Zertifizierung_${updated.typ}_${id}_${file.name}`,
+          buffer,
+          file.type || undefined
+        );
+      })
+      .catch((e: unknown) => {
+        Sentry.captureException(e);
+        console.warn("[nextcloud] Zertifizierung-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+      });
 
     return NextResponse.json({ ok: true, belegpfad: relPfad, belegname: file.name, id: updated.id });
   } catch (err) {

@@ -4,6 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getUploadBase } from "@/lib/upload";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuArtikelOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 
@@ -73,6 +74,20 @@ export async function POST(req: NextRequest, { params }: Params) {
         notiz,
       },
     });
+
+    // Fire-and-forget: Dokument nach Nextcloud spiegeln
+    isNextcloudKonfiguriert()
+      .then(async (ok) => {
+        if (!ok) return;
+        const artikel = await prisma.artikel.findUnique({ where: { id: artikelId }, select: { name: true } });
+        if (!artikel) return;
+        await uploadZuArtikelOrdner(artikelId, artikel.name, "Dokumente", file.name, buffer, file.type || undefined);
+      })
+      .catch((e: unknown) => {
+        Sentry.captureException(e);
+        console.warn("[nextcloud] Artikel-Dokument-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+      });
+
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
     Sentry.captureException(err);

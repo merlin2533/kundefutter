@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import DriveUploadButton from "@/components/DriveUploadButton";
+import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 import { formatEuro } from "@/lib/utils";
 
@@ -155,7 +155,7 @@ export default function AuftragsbestaetigungPage() {
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}
-        <DriveUploadButton
+        <NextcloudUploadButton
           kundeId={vb.kunde.id}
           typ="angebot"
           dateiName={`Auftragsbestaetigung_${vb.nummer}.pdf`}

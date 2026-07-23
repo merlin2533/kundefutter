@@ -7,6 +7,7 @@ import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, artikelOrdnerPfad, verschiebeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 
@@ -85,7 +86,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const artikel = await prisma.$transaction(async (tx) => {
       const alt = await tx.artikel.findUnique({
         where: { id: Number(id) },
-        select: { id: true, standardpreis: true, kategorie: true },
+        select: { id: true, name: true, standardpreis: true, kategorie: true },
       });
       if (!alt) throw new Error("Nicht gefunden");
       altSnapshot = alt as Record<string, unknown>;
@@ -142,6 +143,24 @@ export async function PUT(req: NextRequest, { params }: Params) {
         ["name", "standardpreis", "mindestbestand"]
       );
     }
+
+    // Nextcloud-Ordner mitverschieben, falls sich der Artikelname geändert hat
+    const alterName = (altSnapshot as { name?: string } | null)?.name;
+    if (alterName !== undefined && data.name !== undefined && alterName !== artikel.name) {
+      isNextcloudKonfiguriert()
+        .then(async (ok) => {
+          if (!ok) return;
+          await verschiebeOrdner(
+            artikelOrdnerPfad(artikel.id, alterName),
+            artikelOrdnerPfad(artikel.id, artikel.name)
+          );
+        })
+        .catch((e) => {
+          Sentry.captureException(e);
+          console.warn("[nextcloud] Artikel-Ordner konnte nicht verschoben werden", e);
+        });
+    }
+
     return NextResponse.json(artikel);
   } catch (err) {
     Sentry.captureException(err);

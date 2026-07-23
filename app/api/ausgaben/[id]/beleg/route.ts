@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuBuchhaltung } from "@/lib/nextcloud";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,17 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       where: { id },
       data: { belegPfad, belegDateiname: file.name },
     });
+
+    // Fire-and-forget: Beleg nach Nextcloud (Buchhaltung) spiegeln
+    isNextcloudKonfiguriert()
+      .then(async (ok) => {
+        if (!ok) return;
+        await uploadZuBuchhaltung(year, datum.getMonth() + 1, "Ausgaben", filename, Buffer.from(bytes), file.type);
+      })
+      .catch((e: unknown) => {
+        Sentry.captureException(e);
+        console.warn("[nextcloud] Ausgaben-Beleg-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+      });
 
     return NextResponse.json({ belegPfad, belegDateiname: updated.belegDateiname });
   } catch (err) {

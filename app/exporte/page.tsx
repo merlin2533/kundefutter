@@ -88,6 +88,8 @@ export default function ExportePage() {
     return init;
   });
   const [downloading, setDownloading] = useState<Record<string, boolean>>({});
+  const [archiving, setArchiving] = useState<Record<string, boolean>>({});
+  const [archivMeldung, setArchivMeldung] = useState<Record<string, string>>({});
   const [kunden, setKunden] = useState<Kunde[]>([]);
 
   // Massenexport state
@@ -214,6 +216,29 @@ export default function ExportePage() {
     }
   }
 
+  async function handleArchivieren(card: ExportCard) {
+    const s = states[card.typ];
+    setArchiving((prev) => ({ ...prev, [card.typ]: true }));
+    setArchivMeldung((prev) => ({ ...prev, [card.typ]: "" }));
+    try {
+      const res = await fetch("/api/exporte/datev/archivieren", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ von: s.von || undefined, bis: s.bis || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setArchivMeldung((prev) => ({ ...prev, [card.typ]: json.nichtKonfiguriert ? "Nextcloud nicht konfiguriert" : (json.error ?? "Fehler") }));
+        return;
+      }
+      setArchivMeldung((prev) => ({ ...prev, [card.typ]: "In Nextcloud archiviert ✓" }));
+    } catch {
+      setArchivMeldung((prev) => ({ ...prev, [card.typ]: "Netzwerkfehler" }));
+    } finally {
+      setArchiving((prev) => ({ ...prev, [card.typ]: false }));
+    }
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -290,6 +315,21 @@ export default function ExportePage() {
                   "Herunterladen"
                 )}
               </button>
+
+              {card.typ === "datev" && (
+                <>
+                  <button
+                    onClick={() => handleArchivieren(card)}
+                    disabled={archiving[card.typ]}
+                    className="w-full px-4 py-2 text-sm font-medium bg-white border border-green-300 text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-60"
+                  >
+                    {archiving[card.typ] ? "Wird archiviert…" : "Export & in Nextcloud archivieren"}
+                  </button>
+                  {archivMeldung[card.typ] && (
+                    <p className="text-xs text-gray-500 -mt-2">{archivMeldung[card.typ]}</p>
+                  )}
+                </>
+              )}
             </div>
           );
         })}

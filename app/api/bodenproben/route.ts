@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
+import { resolveUploadPath } from "@/lib/upload";
+import { readFile } from "fs/promises";
+import path from "path";
 export const dynamic = "force-dynamic";
 
 // GET /api/bodenproben?schlagId=X&kundeId=Y
@@ -115,6 +119,25 @@ export async function POST(req: NextRequest) {
           },
         });
         ergebnisse.erstellt.push(probe.id);
+
+        // Fire-and-forget: Beleg (falls vorhanden) nach Nextcloud spiegeln
+        if (probe.belegPfad) {
+          const belegPfad = probe.belegPfad;
+          const kundeId = schlag.kundeId;
+          isNextcloudKonfiguriert()
+            .then(async (ok) => {
+              if (!ok) return;
+              const kunde = await prisma.kunde.findUnique({ where: { id: kundeId }, select: { name: true } });
+              if (!kunde) return;
+              const buffer = await readFile(resolveUploadPath(belegPfad));
+              const datumStr = probe.datum.toISOString().slice(0, 10);
+              await uploadZuKundeOrdner(kundeId, kunde.name, "Nachweise", `Bodenprobe_${datumStr}_${path.basename(belegPfad)}`, buffer);
+            })
+            .catch((e: unknown) => {
+              Sentry.captureException(e);
+              console.warn("[nextcloud] Bodenprobe-Beleg-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+            });
+        }
       } catch (err) {
         Sentry.captureException(err);
         const isDev = process.env.NODE_ENV === "development";

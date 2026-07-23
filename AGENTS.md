@@ -172,7 +172,12 @@ KundeSprengstoffErklaerung — Sprengstoffvorläufer-Erklärungen je Kunde
 | `smtp.*` | SMTP-Konfiguration (host, port, secure, user, pass) |
 | `email.from` | Absender-E-Mail-Adresse |
 | `resend.api_key` | Resend API-Key |
-| `system.google.serviceAccountKey` | Google Drive Service-Account JSON |
+| `system.nextcloud.serverUrl` | Nextcloud-Server-URL (WebDAV-Basis) |
+| `system.nextcloud.username` | Nextcloud-Benutzername |
+| `system.nextcloud.appPassword` | Nextcloud-App-Passwort (HTTP Basic Auth) |
+| `system.nextcloud.rootPfad` | Root-Ordner in Nextcloud (Standard `/AGRI-Office`) |
+| `system.nextcloud.zentralOrdner` | JSON-Array `{name, pfad}` frei benannter Ordner unter `Zentral/` |
+| `system.nextcloud.backfillStatus` | JSON-Fortschrittsstatus des einmaligen Backfill-Jobs |
 | `system.nummernkreis` | JSON `{prefix, laenge, naechste}` für Artikelnummern |
 | `system.bankkonten` | JSON-Array der Bankkonten |
 | `datev.*` | DATEV Kontenrahmen-Mapping |
@@ -396,7 +401,7 @@ app/
 │   │   └── [id]/page.tsx
 │   ├── email/page.tsx          SMTP/Resend-Konfiguration + Test
 │   ├── backup/page.tsx         DB-Backup herunterladen / wiederherstellen
-│   ├── google-drive/page.tsx   Google Drive Service-Account-Integration
+│   ├── nextcloud/page.tsx      Nextcloud-Zugangsdaten, Zentrale Ordner, Backfill-Job
 │   ├── bankkonten/page.tsx     Bankkonten-Stammdaten (IBAN, BIC)
 │   ├── nummernkreis/page.tsx   Artikelnummer-Prefix + Startnummer
 │   ├── ausgaben/page.tsx       Ausgaben-Kategorien konfigurieren
@@ -550,6 +555,7 @@ app/
 /api/exporte/kundenmappe        GET?kundeId=
 /api/exporte/tour               GET(?tourname=)
 /api/exporte/datev              GET(?von,?bis) — DATEV-Export CSV
+/api/exporte/datev/archivieren  POST{von,bis} — DATEV-Export zusätzlich nach Nextcloud archivieren
 /api/exporte/bulk               POST — Bulk-Export
 /api/exporte/bestellvorschlag   GET — Bestellvorschlag CSV/PDF
 /api/exporte/zugferd            GET?lieferungId= — ZUGFeRD/Factur-X XML
@@ -612,6 +618,7 @@ app/
 /api/bestellungen/[id]          GET, PUT({aktion:"bestätigen"|"abschliessen"|"stornieren"}|{positionen[]}), DELETE
 /api/eingangsrechnungen         GET(?lieferantId,?status), POST
 /api/eingangsrechnungen/[id]    GET, PUT, DELETE
+/api/eingangsrechnungen/[id]/beleg  POST (Beleg-Upload, spiegelt nach Nextcloud Buchhaltung/), DELETE
 /api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
 /api/anlieferungen              GET(?lieferantId), POST
 /api/anlieferungen/[id]         GET, PUT, DELETE
@@ -633,12 +640,14 @@ app/
 -- Audit / Änderungshistorie --
 /api/audit                      GET(?entitaet,?entitaetId,?aktion,?von,?bis,?limit)
 
--- Google Drive --
-/api/drive/status               GET — Verbindungsstatus
-/api/drive/zentral              GET, POST — zentrale Ablage
-/api/drive/kunden/[id]          GET — Kunden-Ordner-Inhalt
-/api/drive/artikel/[id]         GET — Artikel-Ordner-Inhalt
-/api/drive/dokumente            GET — alle Drive-Dokumente
+-- Nextcloud --
+/api/nextcloud/status            GET — Verbindungsstatus
+/api/nextcloud/zentral           GET — zentrale Ablage
+/api/nextcloud/kunden/[id]       GET, POST — Kunden-Ordner-Inhalt + Direkt-Upload
+/api/nextcloud/artikel/[id]      GET — Artikel-Ordner-Inhalt (nur Lesezugriff, Uploads laufen über ArtikelDokument/ChargenZertifikat)
+/api/nextcloud/dokumente         GET, POST — Rechnung/Lieferschein/Angebot/Gutschrift in Kunden-Unterordner
+/api/nextcloud/backfill          POST — einmaligen Backfill-Job starten
+/api/nextcloud/backfill/status   GET — Backfill-Fortschritt (Polling)
 
 -- KI --
 /api/ki/analyze                 POST({image?,text?,feature}) — Bild-/Text-Analyse (wareneingang|lieferung|crm)
@@ -742,7 +751,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Benutzer | /einstellungen/benutzer | Multi-User, Passwort-Reset, Rollen |
 | E-Mail | /einstellungen/email | SMTP/Resend-Konfiguration + Test |
 | Backup | /einstellungen/backup | DB-Backup herunterladen |
-| Google Drive | /einstellungen/google-drive | Service-Account JSON hochladen, Root-Ordner |
+| Nextcloud | /einstellungen/nextcloud | Server-URL/App-Passwort, Root-Ordner, Zentrale Ordner, Backfill-Job |
 | Bankkonten | /einstellungen/bankkonten | IBAN/BIC für Rechnungen + Bankabgleich |
 | Nummernkreis | /einstellungen/nummernkreis | Artikelnummer-Prefix + Startnummer |
 | Ausgaben-Kategorien | /einstellungen/ausgaben | Ausgabenkategorien für Ausgabenbuch |
@@ -928,7 +937,8 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
 | `lib/email-templates.ts` | HTML-E-Mail-Templates (Rechnung, Mahnung, Angebot) |
 | `lib/firma.ts` | `loadFirmaDaten()` — lädt Firmen-Einstellungen aus DB (Interface `FirmaDaten`) |
 | `lib/girocode.ts` | EPC-QR-Code / GiroCode Generator (SEPA-Überweisungs-QR auf Rechnungen) |
-| `lib/googleDrive.ts` | Google Drive Service-Account-Integration (Dokument-Ablage) |
+| `lib/nextcloud.ts` | Nextcloud-Dokumentenabgleich via WebDAV (Ordnerstruktur, Upload, Verbindungstest) |
+| `lib/nextcloud-backfill.ts` | Einmaliger Backfill-Job: überträgt Altbestand nach Nextcloud (batched, idempotent) |
 | `lib/matif.ts` | MATIF/Euronext Futures via Yahoo Finance (Crumb-Auth, Symbols EBM/ERO/EMA) |
 | `lib/overpass.ts` | OpenStreetMap Overpass API — Abfrage von Landwirtschaftsflächen |
 | `lib/upload.ts` | `getUploadBase()` — Upload-Verzeichnis (Docker: `/data/uploads`, Dev: `./uploads`) |

@@ -6,7 +6,7 @@ import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
 import { formatEuro, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
-import DriveOrdner from "@/components/DriveOrdner";
+import NextcloudOrdner from "@/components/NextcloudOrdner";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -1731,11 +1731,11 @@ export default function ArtikelDetailPage() {
         </div>
       )}
 
-      {/* ── Tab: Google Drive ────────────────────────────────────────────────── */}
+      {/* ── Tab: Nextcloud ────────────────────────────────────────────────── */}
       {tab === "dokumente" && (
         <div className="mt-6">
-          <h3 className="font-semibold text-gray-800 mb-3">Google Drive</h3>
-          <DriveOrdner entityType="artikel" entityId={parseInt(id)} />
+          <h3 className="font-semibold text-gray-800 mb-3">Nextcloud</h3>
+          <NextcloudOrdner entityType="artikel" entityId={parseInt(id)} mode="status" />
         </div>
       )}
     </div>

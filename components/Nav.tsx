@@ -30,7 +30,7 @@ const MODULE_HREFS: Record<string, string[]> = {
   "modul.marktpreise": ["/marktpreise"],
   "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht"],
 };
-const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.google_drive"]);
+const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.nextcloud"]);
 
 const groups: NavGroup[] = [
   { label: "Dashboard", href: "/" },
