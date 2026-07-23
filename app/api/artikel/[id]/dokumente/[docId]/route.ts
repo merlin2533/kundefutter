@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readFile, unlink } from "fs/promises";
 import { resolveUploadPath } from "@/lib/upload";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest, { params }: Params) {
     let buffer: Buffer;
     try {
       buffer = await readFile(filePath);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Datei nicht auf Server gefunden" }, { status: 404 });
     }
 
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[artikel/dokumente] download failed:", err);
     return NextResponse.json({ error: "Fehler beim Laden" }, { status: 500 });
   }
@@ -53,12 +56,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     // Datei best-effort löschen
     try {
       await unlink(resolveUploadPath(doc.pfad));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignorieren
     }
     await prisma.artikelDokument.delete({ where: { id: docIdNum } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[artikel/dokumente] delete failed:", err);
     return NextResponse.json({ error: "Fehler beim Löschen" }, { status: 500 });
   }

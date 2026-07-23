@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { geocodeAdresse } from "@/lib/geocoding";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
           fehler++;
         }
       } catch (err) {
+        Sentry.captureException(err);
         console.error("Adress-Validierung Batch-Fehler für Kunde:", k.id, err);
         fehler++;
       }
@@ -96,6 +98,7 @@ export async function GET(req: NextRequest) {
       message: `${validiert} von ${kunden.length} Adressen geocodiert`,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Adress-Validierung GET error:", err);
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -127,6 +130,7 @@ export async function POST(req: NextRequest) {
     await prisma.kunde.update({ where: { id: kundeId }, data: { lat: coords.lat, lng: coords.lng, geocodeVersuche: 0 } });
     return NextResponse.json({ ok: true, lat: coords.lat, lng: coords.lng });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Adress-Validierung POST error:", err);
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: message }, { status: 500 });

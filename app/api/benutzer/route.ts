@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -10,7 +11,8 @@ async function passwortMinLaenge(): Promise<number> {
     const s = await prisma.einstellung.findUnique({ where: { key: "system.passwort_minlaenge" } });
     const n = s ? parseInt(s.value, 10) : NaN;
     return Number.isFinite(n) && n >= 4 ? n : 8;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return 8;
   }
 }
@@ -42,7 +44,8 @@ export async function GET() {
       take: 500,
     });
     return NextResponse.json(benutzer);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -57,7 +60,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -90,6 +94,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(user, { status: 201 });
   } catch (e) {
+    Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return NextResponse.json({ error: "Benutzername bereits vergeben" }, { status: 409 });
     }

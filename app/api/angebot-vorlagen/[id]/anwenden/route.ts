@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -22,7 +23,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -95,6 +97,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(angebot, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("P2025") || msg === "P2025") {
       return NextResponse.json({ error: "Vorlage nicht gefunden" }, { status: 404 });

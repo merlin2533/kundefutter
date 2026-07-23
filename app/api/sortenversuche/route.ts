@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["LAUFEND", "ABGESCHLOSSEN"]);
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
       take: 500,
     });
     return NextResponse.json(liste);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(versuch, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

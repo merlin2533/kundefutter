@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Muster-Vorgabewerte für eine Neuinstallation.
@@ -57,5 +58,6 @@ export async function ensureMusterDefaults(): Promise<void> {
     console.log(`[muster-seed] ${fehlende.length} Muster-Einstellungen für Neuinstallation angelegt.`);
   } catch (err) {
     console.error("[muster-seed] Konnte Muster-Einstellungen nicht anlegen:", err);
+    Sentry.captureException(err);
   }
 }

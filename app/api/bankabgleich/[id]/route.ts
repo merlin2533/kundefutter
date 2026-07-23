@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json(aktualisiert);
   } catch (err: unknown) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -114,6 +116,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     });
     return NextResponse.json(aktualisiert);
   } catch (err: unknown) {
+    Sentry.captureException(err);
     if ((err as { code?: string }).code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

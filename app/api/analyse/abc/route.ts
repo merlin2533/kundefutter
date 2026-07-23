@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/analyse/abc — ohne von/bis: letzte 12 Monate (rückwärtskompatibel).
@@ -168,6 +169,7 @@ export async function GET(req: NextRequest) {
       migrationen,
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("ABC-Analyse Fehler:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

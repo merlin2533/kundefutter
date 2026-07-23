@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addTage, berechneVerkaufspreis } from "@/lib/utils";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest) {
         artikel: { select: liefposArtikelSelect },
       },
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 
@@ -77,7 +79,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -201,7 +204,8 @@ export async function POST(req: NextRequest) {
     { ausgeloest: angelegt.length, lieferungen: angelegt.map((l) => l.id) },
     { status: 201 }
   );
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

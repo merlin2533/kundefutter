@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(sammelrechnungen);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Sammelrechnungen GET:", err);
     return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }
@@ -118,6 +120,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Sammelrechnung POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";

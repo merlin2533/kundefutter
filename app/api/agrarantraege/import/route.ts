@@ -4,6 +4,7 @@ import { Readable } from "stream";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -301,7 +302,8 @@ export async function POST(req: NextRequest) {
     try {
       new TextDecoder("utf-8", { fatal: true }).decode(buffer.slice(0, 4096));
       encoding = "utf8";
-    } catch { /* latin1 */ }
+    } catch (err) {
+      Sentry.captureException(err); /* latin1 */ }
 
     // Stream the raw bytes through readline — no full string allocation
     const nodeBuffer = Buffer.from(bytes);
@@ -321,7 +323,8 @@ export async function POST(req: NextRequest) {
   let body: { action?: string; url?: string; path?: string };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiger JSON-Body" }, { status: 400 });
   }
 
@@ -336,6 +339,7 @@ export async function POST(req: NextRequest) {
     try {
       fetchResponse = await fetch(url, { headers: { "Accept-Encoding": "gzip, deflate" } });
     } catch (e) {
+      Sentry.captureException(e);
       return NextResponse.json({ error: `Fetch-Fehler: ${String(e)}` }, { status: 502 });
     }
 
@@ -366,7 +370,8 @@ export async function POST(req: NextRequest) {
 
     try {
       await stat(filePath);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: `Datei nicht gefunden: ${filePath}` }, { status: 400 });
     }
 

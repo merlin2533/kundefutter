@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/statistik/crm?von=YYYY-MM&bis=YYYY-MM
@@ -110,6 +111,7 @@ export async function GET(req: NextRequest) {
       summe: { anzahl },
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Statistik/CRM API Fehler:", e);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && e instanceof Error ? e.message : "Datenbankfehler";

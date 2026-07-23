@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUploadBase } from "@/lib/upload";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -41,7 +42,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       try {
         const oldAbs = path.join(getUploadBase(), existing.belegPfad.replace(/^sachkunde\//, "sachkunde/"));
         await unlink(oldAbs);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         // ignore missing file
       }
     }
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true, belegPfad: relPfad, belegName: file.name });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Upload fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -80,7 +83,8 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     if (existing.belegPfad) {
       try {
         await unlink(path.join(getUploadBase(), existing.belegPfad));
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         // ignore
       }
     }
@@ -92,6 +96,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Datenbankfehler";
     return NextResponse.json({ error: msg }, { status: 500 });

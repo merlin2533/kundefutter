@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImage, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +58,12 @@ export async function POST(req: NextRequest) {
       tokensOut: result.tokensOut,
     });
   } catch (err) {
+    Sentry.captureException(err);
     const message = err instanceof Error ? err.message : "Unbekannter Fehler";
     try {
       await logError("analyze", message);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore logging errors
     }
     // Stack-/Detailtexte aus Provider-Fehlern nicht an den Client leaken.

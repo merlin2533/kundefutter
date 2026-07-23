@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
@@ -72,6 +73,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ jahr, daten: result });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },

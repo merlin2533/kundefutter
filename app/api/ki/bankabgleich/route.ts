@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { analyzeText, PROMPTS } from "@/lib/ai";
 import { zuBankBuchung, ladeAlleOffenenKandidaten } from "@/lib/bankabgleich-kandidaten";
 import { pairTextScore, daysBetween, type AiMatch, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
   let body: { umsatzIds?: unknown };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -122,6 +124,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ matches: antwort, tokensIn: result.tokensIn, tokensOut: result.tokensOut });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "KI-Fehler";
     return NextResponse.json({ error: message }, { status: 500 });

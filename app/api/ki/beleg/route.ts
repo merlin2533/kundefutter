@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeImage, getAiConfig, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       tokensOut: result.tokensOut,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("KI Beleg-Analyse Fehler:", err);
     return NextResponse.json(
       { error: "KI-Analyse fehlgeschlagen" },

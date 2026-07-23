@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // Prüft alle relevanten Daten und erzeugt neue Benachrichtigungen (idempotent).
@@ -168,6 +169,7 @@ export async function POST() {
 
     return NextResponse.json({ erstellt, geprüft: true });
   } catch (e) {
+    Sentry.captureException(e);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && e instanceof Error ? e.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

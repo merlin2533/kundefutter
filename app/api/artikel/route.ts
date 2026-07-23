@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -78,6 +79,7 @@ export async function GET(req: NextRequest) {
       headers: { "X-Total-Count": String(total) },
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Artikel GET error:", e);
     const isDev = process.env.NODE_ENV === "development";
     const raw = e instanceof Error ? e.message : "";
@@ -98,7 +100,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -127,7 +130,8 @@ export async function POST(req: NextRequest) {
       if (!data.artikelnummer) {
         const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
         const nk = nummernkreisRaw?.value
-          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+          ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch (err) {
+            Sentry.captureException(err); return null; } })()
           : null;
         const prefix = nk?.prefix ?? "ART-";
         const laenge = Number(nk?.laenge) || 5;
@@ -164,6 +168,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(artikel, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Artikel POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Artikel konnte nicht angelegt werden";

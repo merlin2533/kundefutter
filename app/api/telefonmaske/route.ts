@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -171,6 +172,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(results);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Telefonmaske GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

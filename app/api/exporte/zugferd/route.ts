@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -172,6 +173,7 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
   } catch (err) {
+    Sentry.captureException(err);
     const rawMessage = err instanceof Error ? err.message : "Interner Fehler";
     // P2025: Record not found
     if (rawMessage.includes("P2025")) {

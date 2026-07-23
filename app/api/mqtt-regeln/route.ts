@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 const MODI = ["ki", "direkt"] as const;
 const AKTIONEN = ["lieferung", "wareneingang", "benachrichtigung"] as const;
@@ -11,7 +12,8 @@ export async function GET() {
       take: 500,
     });
     return NextResponse.json(regeln);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -45,7 +47,8 @@ export async function POST(req: Request) {
       },
     });
     return NextResponse.json(regel, { status: 201 });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

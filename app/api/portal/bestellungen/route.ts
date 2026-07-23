@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPortalSession } from "@/lib/portal-auth";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -19,7 +20,8 @@ export async function GET() {
     });
 
     return NextResponse.json(aufgaben);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(aufgabe, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

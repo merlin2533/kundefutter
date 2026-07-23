@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -42,7 +43,8 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(items);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -52,7 +54,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -91,7 +94,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(item, { status: 201 });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Erstellen des Besuchstermins" }, { status: 500 });
   }
 }
@@ -108,7 +112,8 @@ export async function DELETE(req: NextRequest) {
 
     await prisma.kundeAktivitaet.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Löschen" }, { status: 500 });
   }
 }

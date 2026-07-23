@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/einstellungen/portal — alle Kunden mit Portal-Zugang-Status
@@ -15,7 +16,8 @@ export async function GET() {
     });
 
     return NextResponse.json(zugaenge);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(zugang, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2002") return NextResponse.json({ error: "Benutzername bereits vergeben" }, { status: 409 });
     const isDev = process.env.NODE_ENV === "development";
@@ -82,6 +85,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(zugang);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
@@ -98,6 +102,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.kundePortalZugang.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

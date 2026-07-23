@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { runNormalMatch, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
 import { zuBankBuchung, ladeAlleOffenenKandidaten } from "@/lib/bankabgleich-kandidaten";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
   let body: { von?: string; bis?: string; kontoBezeichnung?: string; dateToleranceDays?: number; amountTolerance?: number };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     body = {};
   }
 
@@ -107,6 +109,7 @@ export async function POST(req: NextRequest) {
       summary: result.summary,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

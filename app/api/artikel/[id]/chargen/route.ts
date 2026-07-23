@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/artikel/[id]/chargen
@@ -68,6 +69,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
     return NextResponse.json({ chargen });
   } catch (e) {
+    Sentry.captureException(e);
     const isDev = process.env.NODE_ENV === "development";
     console.error("Artikel-Chargen GET error:", e);
     const msg = isDev && e instanceof Error ? e.message : "Datenbankfehler";

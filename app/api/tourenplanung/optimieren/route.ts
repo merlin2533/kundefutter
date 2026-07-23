@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
   let body: OptimierungRequest;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 

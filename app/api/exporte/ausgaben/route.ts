@@ -4,6 +4,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +157,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "PDF-Export fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

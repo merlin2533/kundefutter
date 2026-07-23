@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -52,7 +53,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
     const user = await prisma.benutzer.findUnique({ where: { id }, select: SELECT });
     if (!user) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(user);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -71,7 +73,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -153,7 +156,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
       const s = await prisma.einstellung.findUnique({ where: { key: "system.passwort_minlaenge" } });
       const n = s ? parseInt(s.value, 10) : NaN;
       if (Number.isFinite(n) && n >= 4) minLaenge = n;
-    } catch { /* Standard 8 */ }
+    } catch (err) {
+      Sentry.captureException(err); /* Standard 8 */ }
     if (body.passwort.length < minLaenge) {
       return NextResponse.json({ error: `Passwort muss mindestens ${minLaenge} Zeichen haben` }, { status: 400 });
     }
@@ -164,6 +168,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
     const user = await prisma.benutzer.update({ where: { id }, data, select: SELECT });
     return NextResponse.json(user);
   } catch (e) {
+    Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
@@ -201,6 +206,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     await prisma.benutzer.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }

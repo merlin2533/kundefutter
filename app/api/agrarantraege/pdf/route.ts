@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -71,7 +72,8 @@ export async function GET(req: NextRequest) {
       // Maßnahmen-Tabelle
       if (antrag.massnahmen) {
         let massnahmen: Array<{ code: string; ziel: string; egfl: number; eler: number }> = [];
-        try { massnahmen = JSON.parse(antrag.massnahmen); } catch { /* ignore */ }
+        try { massnahmen = JSON.parse(antrag.massnahmen); } catch (err) {
+          Sentry.captureException(err); /* ignore */ }
 
         if (massnahmen.length > 0) {
           autoTable(doc, {

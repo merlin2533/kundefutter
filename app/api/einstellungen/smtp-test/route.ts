@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -29,6 +30,7 @@ export async function POST() {
     await transporter.verify();
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -115,6 +116,7 @@ export async function GET(req: NextRequest) {
     },
   });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Tour PDF error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";

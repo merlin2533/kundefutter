@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -110,6 +111,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ typ: typ === "artikel" ? "artikel" : "kunde", von, bis, items, schwellwertGut, schwellwertKritisch });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Deckungsbeitrag-Analyse Fehler:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

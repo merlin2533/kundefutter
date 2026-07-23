@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/statistik/kunden?von=YYYY-MM&bis=YYYY-MM&kategorie=Landwirt
@@ -76,6 +77,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Statistik/Kunden API Fehler:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -14,7 +15,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       include: { artikel: { select: artikelSafeSelect } },
     });
     return NextResponse.json(bedarfe);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -24,7 +26,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -41,7 +44,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       include: { artikel: { select: artikelSafeSelect } },
     });
     return NextResponse.json(bedarf);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Speichern des Bedarfs" }, { status: 500 });
   }
 }
@@ -51,7 +55,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -65,7 +70,8 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       where: { kundeId_artikelId: { kundeId: Number(id), artikelId } },
     });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Bedarf nicht gefunden" }, { status: 404 });
   }
 }

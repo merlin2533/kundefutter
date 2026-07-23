@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/einstellungen/mail-log — Liste der letzten 200 Mails
@@ -20,7 +21,8 @@ export async function GET() {
       },
     });
     return NextResponse.json(logs);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -32,7 +34,8 @@ export async function DELETE(req: NextRequest) {
   try {
     await prisma.mailLog.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Löschen" }, { status: 500 });
   }
 }

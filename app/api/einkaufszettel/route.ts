@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -228,6 +229,7 @@ export async function GET() {
 
     return NextResponse.json(ergebnis);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Datenbankfehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -314,6 +316,7 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ ok: true, count: eintraege.length });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Datenbankfehler";
     return NextResponse.json({ error: msg }, { status: 500 });

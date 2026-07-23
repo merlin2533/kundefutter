@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 // GET /api/bestellliste?status=offen&lieferantId=X
 export async function GET(req: NextRequest) {
@@ -29,7 +30,8 @@ export async function GET(req: NextRequest) {
       take: 500,
     });
     return NextResponse.json(positionen);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }

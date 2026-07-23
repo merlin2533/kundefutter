@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -109,7 +110,8 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "PDF-Generierung fehlgeschlagen" }, { status: 500 });
   }
 }

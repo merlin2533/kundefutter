@@ -4,6 +4,7 @@ import { fetchCurrentMeasurement } from "@/lib/pegelonline";
 import { sendEmail } from "@/lib/email";
 import { digestEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { Sentry } from "@/lib/sentry";
 
 // GET /api/cron          — führt alle Jobs aus (Docker-Hintergrundprozess, 30 min)
 // GET /api/cron?status=1 — gibt nur den letzten gespeicherten Status zurück (kein Run)
@@ -117,6 +118,7 @@ async function jobDigestEmail(): Promise<JobResult> {
       durationMs: Date.now() - t0,
     };
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return {
       job: "digest",
@@ -150,7 +152,8 @@ async function jobPegelstaende(): Promise<JobResult> {
           });
           updated++;
         }
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         fehler.push(s.stationUuid);
       }
     }
@@ -161,6 +164,7 @@ async function jobPegelstaende(): Promise<JobResult> {
       durationMs: Date.now() - t0,
     };
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return {
       job: "pegelstaende",
@@ -197,7 +201,8 @@ export async function GET(req: NextRequest) {
     const row = await prisma.einstellung.findUnique({ where: { key: "cron.letzterLauf" } }).catch(() => null);
     if (!row) return NextResponse.json({ ok: null, startedAt: null, jobs: [] });
     try { return NextResponse.json(JSON.parse(row.value)); }
-    catch { return NextResponse.json({ ok: null, startedAt: null, jobs: [] }); }
+    catch (err) {
+      Sentry.captureException(err); return NextResponse.json({ ok: null, startedAt: null, jobs: [] }); }
   }
 
   const startedAt = new Date().toISOString();

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import * as Sentry from "@sentry/nextjs";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { Mistral } from "@mistralai/mistralai";
@@ -652,8 +653,9 @@ async function logUsage(
         fehler,
       },
     });
-  } catch {
+  } catch (err) {
     console.error("KI-Nutzung konnte nicht gespeichert werden");
+    Sentry.captureException(err);
   }
 }
 
@@ -661,8 +663,9 @@ export async function logError(feature: string, error: string) {
   try {
     const cfg = await getAiConfig();
     await logUsage(cfg, feature, 0, 0, false, error);
-  } catch {
+  } catch (err) {
     console.error("logError fehlgeschlagen:", error);
+    Sentry.captureException(err);
   }
 }
 

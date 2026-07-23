@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -52,6 +53,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(analysen);
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Datenbankfehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -129,7 +131,8 @@ export async function POST(req: NextRequest) {
         // Empfehlungen
         empfehlungenJson: (() => {
           if (!body.empfehlungen) return null;
-          try { return JSON.stringify(body.empfehlungen); } catch { return null; }
+          try { return JSON.stringify(body.empfehlungen); } catch (err) {
+            Sentry.captureException(err); return null; }
         })(),
 
         notiz: strOrNull(body.notiz),
@@ -140,6 +143,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(analyse, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Speichern fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -156,6 +160,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.bodenanalyseAlbrecht.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }

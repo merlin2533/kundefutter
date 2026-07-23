@@ -885,6 +885,29 @@ Nutzt bereits geladene Artikel-Liste — keine zusätzlichen API-Calls.
   - `GET /api/ki/churn?kundeId=` — Churn-Risiko-Score
   - `POST /api/ki/preis-empfehlung` — KI-Preisempfehlung (intern)
 
+## Fehler-Reporting (Sentry/GlitchTip, `lib/sentry.ts`)
+
+**Regel: Jeder abgefangene Fehler wird an Sentry gemeldet — ohne Filter, ohne Ausnahme.**
+
+- `onRequestError` (`instrumentation.ts`) erfasst nur *unbehandelte* Exceptions. Sobald eine
+  Route/Funktion einen eigenen `try/catch` hat (Standardfall laut Checkliste), muss der
+  `catch`-Block selbst `Sentry.captureException(err)` aufrufen — sonst verschwindet der Fehler
+  spurlos in `console.error`.
+- **Jeder neue `try/catch`-Block** (API-Route, `lib/*.ts`, Hintergrund-Job) bekommt
+  `Sentry.captureException(err)` als erste Anweisung im `catch`. Import: `import { Sentry } from "@/lib/sentry";`.
+- **Kein Filtern nach "wichtig genug" oder "zu erwarten".** Auch vermeintlich harmlose Fallbacks
+  (z.B. Encoding-Fallback UTF-8→Latin1, KI-Retry, Cache-Miss) werden gemeldet. Mehr Rauschen in
+  GlitchTip ist ausdrücklich erwünscht — lieber zu viele Events als einen unsichtbaren Fehler.
+  Es werden keine Schweregrad-Filter, Sampling-Ausnahmen oder "non-critical, skip" Sonderfälle
+  für neue Catches eingebaut.
+- Einzige zulässige Ausnahme: Kontrollfluss, der explizit **kein Fehler** ist (z.B. abgelehnte
+  Session/JWT-Verifikation in `middleware.ts` bei fehlendem/abgelaufenem Login — das ist normales
+  Nutzerverhalten, kein Anwendungsfehler).
+- Bestehende Infrastruktur: `sentry.client.config.ts` / `sentry.server.config.ts` /
+  `sentry.edge.config.ts` (Init + DSN), `app/error.tsx` + `app/global-error.tsx` (React-Error-
+  Boundaries, melden bereits automatisch), `components/SentryUserContext.tsx` (Sentry-User-Kontext
+  aus Session).
+
 ## Authentifizierung (`lib/auth.ts`)
 
 - **JWT-Sessions** via `jose` + `bcryptjs` — Cookie `kundefutter_session` (7 Tage)

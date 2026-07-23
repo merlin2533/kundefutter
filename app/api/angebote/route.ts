@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -26,7 +27,8 @@ export async function GET(req: NextRequest) {
       where: { status: "OFFEN", gueltigBis: { lt: new Date() } },
       data: { status: "ABGELAUFEN" },
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     // Nicht-kritisch – weiter mit der Abfrage
   }
 
@@ -92,7 +94,8 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
     return NextResponse.json(mapResult(angebote));
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler beim Laden der Angebote" }, { status: 500 });
   }
 }
@@ -101,7 +104,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -174,6 +178,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(angebot, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Angebot POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Angebot konnte nicht angelegt werden";

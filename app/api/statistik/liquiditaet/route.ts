@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 
 function monatlichePersonalkosten(m: { typ: string; grundgehalt: number | null; minijobPauschale: number | null; stundenlohn: number | null; wochenstunden: number | null }): number {
   if (m.typ === "festgehalt") return m.grundgehalt ?? 0;
@@ -222,6 +223,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
