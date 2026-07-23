@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import { lagerStatus } from "@/lib/utils";
+import { matchArtikel as matchArtikelGelernt, normalisiereSuchtext } from "@/lib/kiMatching";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -51,11 +52,12 @@ interface KiErgebnis {
   positionen: KiPosition[];
 }
 
-type Konfidenz = "exakt" | "teilweise" | "keine";
+type Konfidenz = "exakt" | "teilweise" | "keine" | "gelernt";
 
 interface MatchedPosition {
   ki: KiPosition;
   artikelId: string;
+  vorschlagArtikelId: number | null;
   menge: number;
   einkaufspreis: number;
   chargeNr: string;
@@ -85,6 +87,12 @@ function lagerAmpel(
 }
 
 function konfidenzBadge(k: Konfidenz) {
+  if (k === "gelernt")
+    return (
+      <span className="inline-block rounded-full px-2 py-0.5 text-xs bg-indigo-100 text-indigo-800 font-medium">
+        Gelernt ✓
+      </span>
+    );
   if (k === "exakt")
     return (
       <span className="inline-block rounded-full px-2 py-0.5 text-xs bg-green-100 text-green-800 font-medium">
@@ -104,32 +112,19 @@ function konfidenzBadge(k: Konfidenz) {
   );
 }
 
-function matchArtikel(ki: KiPosition, alle: Artikel[]): { artikelId: string; konfidenz: Konfidenz } {
-  // 1. Exakter Artikelnummer-Match
-  if (ki.artikelnummer) {
-    const hit = alle.find(
-      (a) => a.artikelnummer.toLowerCase() === ki.artikelnummer!.toLowerCase()
-    );
-    if (hit) return { artikelId: String(hit.id), konfidenz: "exakt" };
-  }
-
-  // 2. Name enthält den erkannten Namen (case-insensitive)
-  const nameLower = ki.name.toLowerCase();
-  const containsHit = alle.find(
-    (a) =>
-      a.name.toLowerCase().includes(nameLower) ||
-      nameLower.includes(a.name.toLowerCase())
-  );
-  if (containsHit) return { artikelId: String(containsHit.id), konfidenz: "teilweise" };
-
-  // 3. Teile des Namens stimmen überein
-  const parts = nameLower.split(/\s+/).filter((p) => p.length > 3);
-  for (const part of parts) {
-    const partial = alle.find((a) => a.name.toLowerCase().includes(part));
-    if (partial) return { artikelId: String(partial.id), konfidenz: "teilweise" };
-  }
-
-  return { artikelId: "", konfidenz: "keine" };
+// Dünner Adapter über lib/kiMatching.matchArtikel: übernimmt dessen 5-stufige
+// Konfidenz (inkl. "gelernt" aus KiLernZuordnung) und bildet sie auf das hier
+// verwendete 3-stufige Schema ab ("exakt"/"teilweise"/"keine" + "gelernt").
+function matchArtikel(
+  ki: KiPosition,
+  alle: Artikel[],
+  gelernt?: Map<string, number>
+): { artikelId: string; vorschlagArtikelId: number | null; konfidenz: Konfidenz } {
+  const { artikel, konfidenz } = matchArtikelGelernt(ki, alle, gelernt);
+  if (!artikel) return { artikelId: "", vorschlagArtikelId: null, konfidenz: "keine" };
+  const mapped: Konfidenz =
+    konfidenz === "gelernt" ? "gelernt" : konfidenz === "hoch" ? "exakt" : konfidenz === "keine" ? "keine" : "teilweise";
+  return { artikelId: String(artikel.id), vorschlagArtikelId: artikel.id, konfidenz: mapped };
 }
 
 // ---- Stepper ---------------------------------------------------------------
@@ -287,11 +282,18 @@ function KiWareneingangWizard() {
       }
 
       // Build matched positions
+      const gelerntRes = await fetch("/api/ki/lernen?typ=artikel").catch(() => null);
+      const gelerntData = gelerntRes && gelerntRes.ok ? await gelerntRes.json() : { eintraege: [] };
+      const gelerntMap = new Map<string, number>(
+        (gelerntData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
+      );
+
       const matched: MatchedPosition[] = (ergebnis.positionen ?? []).map((ki) => {
-        const { artikelId, konfidenz } = matchArtikel(ki, artikel);
+        const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(ki, artikel, gelerntMap);
         return {
           ki,
           artikelId,
+          vorschlagArtikelId,
           menge: ki.menge ?? 1,
           einkaufspreis: ki.einzelpreis ?? 0,
           chargeNr: ki.chargeNr ?? "",
@@ -456,6 +458,18 @@ function KiWareneingangWizard() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `Fehler ${res.status}`);
+      }
+      // Lernkorrekturen melden (nur wo die finale Zuordnung vom KI-Vorschlag abweicht)
+      for (const pos of positionen) {
+        if (!pos.ki.name || !pos.artikelId) continue;
+        const finalId = parseInt(pos.artikelId, 10);
+        if (pos.vorschlagArtikelId !== finalId) {
+          fetch("/api/ki/lernen", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ typ: "artikel", suchtext: pos.ki.name, zielId: finalId }),
+          }).catch(() => {});
+        }
       }
       router.push("/lager");
     } catch (err: unknown) {

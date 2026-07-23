@@ -2,9 +2,13 @@
 
 import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
+import KonfidenzBadge from "@/components/KonfidenzBadge";
+import NeuArtikelInline from "@/components/NeuArtikelInline";
 import { lagerStatus } from "@/lib/utils";
+import { matchArtikel, matchKunde, normalisiereSuchtext, type Konfidenz } from "@/lib/kiMatching";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,20 +52,11 @@ interface KiErgebnis {
 interface ZuordnungsPosition {
   kiPosition: KiPosition;
   artikelId: string;
+  vorschlagArtikelId: number | null;
   menge: number;
   verkaufspreis: number;
-  konfidenz: "hoch" | "mittel" | "niedrig" | "keine";
+  konfidenz: Konfidenz;
   showNeuForm?: boolean;
-}
-
-interface NeuArtikelForm {
-  name: string;
-  artikelnummer: string;
-  einheit: string;
-  kategorie: string;
-  standardpreis: string;
-  lieferantId: string;
-  kiInhaltsstoffe: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -82,98 +77,6 @@ function lagerAmpel(
   return (
     <span className="text-green-600 text-xs">
       ● Auf Lager ({artikel.aktuellerBestand} {artikel.einheit})
-    </span>
-  );
-}
-
-function matchArtikel(
-  kiPos: KiPosition,
-  artikel: ArtikelRaw[]
-): { artikel: ArtikelRaw | null; konfidenz: ZuordnungsPosition["konfidenz"] } {
-  if (!artikel.length) return { artikel: null, konfidenz: "keine" };
-
-  if (kiPos.artikelnummer) {
-    const exact = artikel.find(
-      (a) => a.artikelnummer.toLowerCase() === kiPos.artikelnummer!.toLowerCase()
-    );
-    if (exact) return { artikel: exact, konfidenz: "hoch" };
-  }
-
-  const nameLower = kiPos.name.toLowerCase();
-
-  const nameContains = artikel.find(
-    (a) => a.name.toLowerCase().includes(nameLower) || nameLower.includes(a.name.toLowerCase())
-  );
-  if (nameContains) return { artikel: nameContains, konfidenz: "mittel" };
-
-  const words = nameLower.split(/\s+/).filter((w) => w.length > 2);
-  for (const word of words) {
-    const partial = artikel.find((a) => a.name.toLowerCase().includes(word));
-    if (partial) return { artikel: partial, konfidenz: "niedrig" };
-  }
-
-  return { artikel: null, konfidenz: "keine" };
-}
-
-function matchKunde(
-  kiKunde: { name: string; firma?: string; ort?: string },
-  kunden: KundeRaw[]
-): { kunde: KundeRaw | null; konfidenz: ZuordnungsPosition["konfidenz"] } {
-  if (!kunden.length) return { kunde: null, konfidenz: "keine" };
-
-  const search = (kiKunde.firma || kiKunde.name).toLowerCase();
-
-  const exact = kunden.find(
-    (k) => k.name.toLowerCase() === search || (k.firma && k.firma.toLowerCase() === search)
-  );
-  if (exact) return { kunde: exact, konfidenz: "hoch" };
-
-  const containsMatch =
-    search.length >= 3
-      ? kunden.find(
-          (k) =>
-            k.name.toLowerCase().includes(search) ||
-            (k.firma && k.firma.toLowerCase().includes(search)) ||
-            search.includes(k.name.toLowerCase())
-        )
-      : null;
-  if (containsMatch) return { kunde: containsMatch, konfidenz: "mittel" };
-
-  const words = search.split(/\s+/).filter((w) => w.length > 2);
-  for (const word of words) {
-    const partial = kunden.find(
-      (k) =>
-        k.name.toLowerCase().includes(word) ||
-        (k.firma && k.firma.toLowerCase().includes(word))
-    );
-    if (partial) return { kunde: partial, konfidenz: "niedrig" };
-  }
-
-  return { kunde: null, konfidenz: "keine" };
-}
-
-function KonfidenzBadge({ k }: { k: ZuordnungsPosition["konfidenz"] }) {
-  if (k === "hoch")
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-        Hoch
-      </span>
-    );
-  if (k === "mittel")
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-        Mittel
-      </span>
-    );
-  if (k === "niedrig")
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
-        Niedrig
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-      Keine
     </span>
   );
 }
@@ -228,214 +131,6 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
-// ─── Inline Artikel-Schnellanlage ─────────────────────────────────────────────
-
-const DEFAULT_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
-const DEFAULT_EINHEITEN = ["kg", "t", "l", "ml", "Stück", "Sack", "Big Bag", "Ballen", "Palette", "m²", "ha"];
-
-function NeuArtikelInline({
-  kiName,
-  kiEinheit,
-  lieferanten,
-  onCreated,
-  onCancel,
-}: {
-  kiName: string;
-  kiEinheit?: string;
-  lieferanten: LieferantRaw[];
-  onCreated: (artikel: ArtikelRaw) => void;
-  onCancel: () => void;
-}) {
-  const [form, setForm] = useState<NeuArtikelForm>({
-    name: kiName,
-    artikelnummer: "",
-    einheit: kiEinheit ?? "kg",
-    kategorie: "Futter",
-    standardpreis: "",
-    lieferantId: "",
-    kiInhaltsstoffe: false,
-  });
-  const [saving, setSaving] = useState(false);
-  const [kiSearching, setKiSearching] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleKiInhaltsstoffe() {
-    setKiSearching(true);
-    try {
-      const res = await fetch("/api/ki/inhaltsstoffe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, kategorie: form.kategorie }),
-      });
-      if (!res.ok) throw new Error("KI-Suche fehlgeschlagen");
-      // Inhaltsstoffe werden beim Anlegen mitgegeben — hier nur als Info
-      setForm((f) => ({ ...f, kiInhaltsstoffe: true }));
-    } catch {
-      setError("KI-Suche nicht verfügbar");
-    } finally {
-      setKiSearching(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!form.name.trim()) return;
-    setSaving(true);
-    setError("");
-    try {
-      const body: Record<string, unknown> = {
-        name: form.name.trim(),
-        einheit: form.einheit,
-        kategorie: form.kategorie,
-        standardpreis: parseFloat(form.standardpreis) || 0,
-        aktuellerBestand: 0,
-        mindestbestand: 0,
-        mwstSatz: 19,
-      };
-      if (form.artikelnummer) body.artikelnummer = form.artikelnummer;
-      if (form.lieferantId) {
-        body.lieferanten = [{ lieferantId: parseInt(form.lieferantId, 10), einkaufspreis: 0 }];
-      }
-
-      const res = await fetch("/api/artikel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Anlegen fehlgeschlagen");
-      }
-      const neuArtikel = await res.json();
-      onCreated({
-        id: neuArtikel.id,
-        name: neuArtikel.name,
-        artikelnummer: neuArtikel.artikelnummer ?? "",
-        einheit: neuArtikel.einheit,
-        standardpreis: neuArtikel.standardpreis ?? 0,
-        aktuellerBestand: 0,
-        mindestbestand: 0,
-        kategorie: neuArtikel.kategorie,
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="mt-3 p-4 rounded-lg border border-blue-200 bg-blue-50 space-y-3">
-      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Neuen Artikel anlegen</p>
-
-      {error && (
-        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">{error}</div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Artikelname *</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Artikelnummer</label>
-          <input
-            value={form.artikelnummer}
-            onChange={(e) => setForm((f) => ({ ...f, artikelnummer: e.target.value }))}
-            placeholder="Autom. vergeben"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
-          <select
-            value={form.kategorie}
-            onChange={(e) => setForm((f) => ({ ...f, kategorie: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {DEFAULT_KATEGORIEN.map((k) => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Einheit</label>
-          <input
-            list="einheiten-list-neu"
-            value={form.einheit}
-            onChange={(e) => setForm((f) => ({ ...f, einheit: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <datalist id="einheiten-list-neu">
-            {DEFAULT_EINHEITEN.map((e) => <option key={e} value={e} />)}
-          </datalist>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Standardpreis (€)</label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.standardpreis}
-            onChange={(e) => setForm((f) => ({ ...f, standardpreis: e.target.value }))}
-            placeholder="0.00"
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Lieferant zuordnen</label>
-          <select
-            value={form.lieferantId}
-            onChange={(e) => setForm((f) => ({ ...f, lieferantId: e.target.value }))}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">— kein Lieferant —</option>
-            {lieferanten.map((l) => (
-              <option key={l.id} value={String(l.id)}>{l.name}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <button
-          type="button"
-          onClick={handleKiInhaltsstoffe}
-          disabled={kiSearching || !form.name}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 transition-colors"
-        >
-          {kiSearching ? (
-            <span className="w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full animate-spin" />
-          ) : "🤖"}
-          {form.kiInhaltsstoffe ? "Inhaltsstoffe werden ergänzt ✓" : "KI-Inhaltsstoffe suchen"}
-        </button>
-
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !form.name.trim()}
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
-          >
-            {saving && <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            Anlegen & zuordnen
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function KiLieferungWizard() {
@@ -456,7 +151,8 @@ function KiLieferungWizard() {
   const [kunden, setKunden] = useState<KundeRaw[]>([]);
   const [lieferanten, setLieferanten] = useState<LieferantRaw[]>([]);
   const [kundeId, setKundeId] = useState("");
-  const [kundKonfidenz, setKundKonfidenz] = useState<ZuordnungsPosition["konfidenz"]>("keine");
+  const [vorschlagKundeId, setVorschlagKundeId] = useState<number | null>(null);
+  const [kundKonfidenz, setKundKonfidenz] = useState<Konfidenz>("keine");
   const [positionen, setPositionen] = useState<ZuordnungsPosition[]>([]);
   const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
   const [lieferStatus, setLieferStatus] = useState<"geplant" | "geliefert">("geplant");
@@ -503,7 +199,7 @@ function KiLieferungWizard() {
     setAnalyzeError("");
 
     try {
-      const [artikelRes, kundenRes, lieferantenRes, analyzeRes] = await Promise.all([
+      const [artikelRes, kundenRes, lieferantenRes, analyzeRes, gelerntKundeRes, gelerntArtikelRes] = await Promise.all([
         fetch("/api/artikel?limit=500"),
         fetch("/api/kunden?limit=500"),
         fetch("/api/lieferanten?limit=200"),
@@ -515,12 +211,16 @@ function KiLieferungWizard() {
             feature: "lieferung",
           }),
         }),
+        fetch("/api/ki/lernen?typ=kunde"),
+        fetch("/api/ki/lernen?typ=artikel"),
       ]);
 
       const artikelData = artikelRes.ok ? await artikelRes.json() : [];
       const kundenData = kundenRes.ok ? await kundenRes.json() : [];
       const lieferantenData = lieferantenRes.ok ? await lieferantenRes.json() : [];
       const analyzeData = await analyzeRes.json();
+      const gelerntKundeData = gelerntKundeRes.ok ? await gelerntKundeRes.json() : { eintraege: [] };
+      const gelerntArtikelData = gelerntArtikelRes.ok ? await gelerntArtikelRes.json() : { eintraege: [] };
 
       if (!analyzeRes.ok) throw new Error(analyzeData.error || "KI-Analyse fehlgeschlagen");
 
@@ -538,20 +238,29 @@ function KiLieferungWizard() {
       setKunden(kundenList);
       setLieferanten(lieferantenList);
 
+      const gelerntKundeMap = new Map<string, number>(
+        (gelerntKundeData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
+      );
+      const gelerntArtikelMap = new Map<string, number>(
+        (gelerntArtikelData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
+      );
+
       const ergebnis: KiErgebnis = analyzeData.ergebnis;
       setKiErgebnis(ergebnis);
 
       if (ergebnis.datum) setDatum(ergebnis.datum.slice(0, 10));
 
-      const { kunde: matchedKunde, konfidenz: kk } = matchKunde(ergebnis.kunde, kundenList);
+      const { kunde: matchedKunde, konfidenz: kk } = matchKunde(ergebnis.kunde, kundenList, gelerntKundeMap);
       setKundeId(matchedKunde ? String(matchedKunde.id) : "");
+      setVorschlagKundeId(matchedKunde ? matchedKunde.id : null);
       setKundKonfidenz(matchedKunde ? kk : "keine");
 
       const zugeordnet: ZuordnungsPosition[] = ergebnis.positionen.map((pos) => {
-        const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList);
+        const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList, gelerntArtikelMap);
         return {
           kiPosition: pos,
           artikelId: matchedArtikel ? String(matchedArtikel.id) : "",
+          vorschlagArtikelId: matchedArtikel ? matchedArtikel.id : null,
           menge: pos.menge,
           verkaufspreis: pos.einzelpreis ?? (matchedArtikel ? matchedArtikel.standardpreis : 0),
           konfidenz: matchedArtikel ? konfidenz : "keine",
@@ -617,6 +326,7 @@ function KiLieferungWizard() {
       {
         kiPosition: { name: "", menge: 1 },
         artikelId: "",
+        vorschlagArtikelId: null,
         menge: 1,
         verkaufspreis: 0,
         konfidenz: "keine",
@@ -641,6 +351,34 @@ function KiLieferungWizard() {
     );
   }
 
+  // ── Lernkorrekturen melden ────────────────────────────────────────────────
+  // Meldet nur Zuordnungen, bei denen die finale Auswahl vom ursprünglichen
+  // KI-Vorschlag abweicht — vermeidet unnötiges Rauschen bei bereits korrekten
+  // "hoch"-Treffern.
+
+  function meldeLernkorrekturen(finalerKundeId: number) {
+    const sendeAlias = (typ: "artikel" | "kunde", suchtext: string, zielId: number) => {
+      const text = suchtext.trim();
+      if (!text) return;
+      fetch("/api/ki/lernen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typ, suchtext: text, zielId }),
+      }).catch(() => {});
+    };
+
+    if (kiErgebnis && vorschlagKundeId !== finalerKundeId) {
+      sendeAlias("kunde", kiErgebnis.kunde.firma || kiErgebnis.kunde.name, finalerKundeId);
+    }
+    for (const pos of positionen) {
+      if (!pos.kiPosition.name || !pos.artikelId) continue;
+      const finalId = parseInt(pos.artikelId, 10);
+      if (pos.vorschlagArtikelId !== finalId) {
+        sendeAlias("artikel", pos.kiPosition.name, finalId);
+      }
+    }
+  }
+
   // ── Step 4: Submit ────────────────────────────────────────────────────────
 
   async function handleSubmit() {
@@ -651,13 +389,15 @@ function KiLieferungWizard() {
     setSubmitError("");
 
     try {
+      const finalerKundeId = parseInt(kundeId, 10);
       const res = await fetch("/api/lieferungen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kundeId: parseInt(kundeId, 10),
+          kundeId: finalerKundeId,
           datum: datum ? new Date(datum + "T00:00:00").toISOString() : new Date().toISOString(),
           status: lieferStatus,
+          quelle: "ki",
           positionen: validPositionen.map((p) => ({
             artikelId: parseInt(p.artikelId, 10),
             menge: p.menge,
@@ -671,6 +411,7 @@ function KiLieferungWizard() {
       }
       const neu = await res.json();
       setErstellteId(neu.id ?? null);
+      meldeLernkorrekturen(finalerKundeId);
 
       // Prüfen ob Artikel mit niedrigem/keinem Bestand vorhanden
       const niedrig = validPositionen.some((p) => {
@@ -739,7 +480,15 @@ function KiLieferungWizard() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900">KI-Lieferung anlegen</h1>
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold text-gray-900">KI-Lieferung anlegen</h1>
+        <Link
+          href="/ki/lieferung/batch"
+          className="text-sm font-medium text-green-700 hover:text-green-800 inline-flex items-center gap-1"
+        >
+          → Batch-Modus: mehrere Lieferscheine auf einmal
+        </Link>
+      </div>
       <Stepper current={step > 3 ? 4 : step} />
 
       {/* ─── Step 1: Upload ─────────────────────────────────────────────── */}

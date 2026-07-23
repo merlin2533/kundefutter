@@ -352,6 +352,7 @@ model Lieferung {
   skontoProzent        Float?   // z.B. 2.0 = 2% Skonto
   skontoTage           Int?     // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
   skontoGenutzt        Boolean  @default(false)
+  quelle               String?  // Herkunft: null = manuell, "ki" = KI-Einzel-Scan, "ki-batch" = KI-Batch-Erkennung
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -1832,4 +1833,56 @@ model MailLog {
 
   @@index([zeitpunkt])
   @@index([status])
+}
+
+// ─── KI-LIEFERUNG BATCH-MODUS ──────────────────────────────────────────────────
+
+model KiLieferungBatch {
+  id              Int       @id @default(autoincrement())
+  status          String    @default("offen") // offen | verarbeitung | bereit | abgeschlossen | verworfen
+  notiz           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  abgeschlossenAm DateTime?
+
+  items KiLieferungBatchItem[]
+
+  @@index([status])
+}
+
+model KiLieferungBatchItem {
+  id              Int              @id @default(autoincrement())
+  batchId         Int
+  batch           KiLieferungBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  reihenfolge     Int              @default(0)
+  dateiPfad       String           // relativ unter uploads/ki-lieferung-batch/<batchId>/
+  dateiName       String?
+  status          String           @default("wartet") // wartet | analysiert | fehler | uebernommen | verworfen
+  kiRohtext       String?          // rohes OCR-Ergebnis, für Fehlersuche
+  kiErgebnisJson  String?          // JSON: {kunde:{name,firma,ort}, datum, positionen:[...]}
+  kundeId         Int?
+  kundeKonfidenz  String?          // hoch | mittel | niedrig | keine | gelernt
+  positionenJson  String?          // JSON: [{kiPosition, artikelId, vorschlagArtikelId, menge, verkaufspreis, konfidenz}]
+  fehlendeFelder  String?          // JSON-Array von Hinweistexten, z.B. ["Kunde unklar", "Position 2: Preis fehlt"]
+  fehlerText      String?
+  entscheidung    String?          // null | "passt" | "passt_nicht"
+  lieferungId     Int?             // gesetzt nach erfolgreichem Abschluss
+  analysiertAm    DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@index([batchId])
+  @@index([status])
+}
+
+model KiLernZuordnung {
+  id               Int      @id @default(autoincrement())
+  typ              String   // "artikel" | "kunde"
+  suchtext         String   // normalisiert: trim + lowercase
+  zielId           Int      // Artikel.id bzw. Kunde.id
+  trefferAnzahl    Int      @default(1)
+  letzteVerwendung DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@unique([typ, suchtext])
+  @@index([typ])
 }

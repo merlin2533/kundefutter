@@ -105,6 +105,7 @@ const groups: NavGroup[] = [
       { href: "/sammelbestellung", label: "Sammelbestellung", section: "Lieferungen" },
       { href: "/streckengeschaeft", label: "Streckengeschäfte", section: "Lieferungen" },
       { href: "/ki/lieferung", label: "KI-Lieferung", section: "Lieferungen" },
+      { href: "/ki/lieferung/batch", label: "KI-Lieferung (Batch)", section: "Lieferungen" },
       { href: "/fahrer", label: "Fahrer-Cockpit", section: "Lieferungen" },
       { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
       { href: "/anlieferungen", label: "Erzeugerabrechnung", section: "Lieferungen" },
