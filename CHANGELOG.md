@@ -5,6 +5,21 @@ Alle nennenswerten Änderungen an AGRI-Office werden in dieser Datei dokumentier
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Geändert
+- **KI-Integration auf Mistral AI umgestellt** – OpenAI und Anthropic entfernt,
+  alle KI-Funktionen laufen jetzt über einen zentralen Mistral-Service
+  (`lib/ai.ts`). Dokumenterkennung (Bild/PDF) läuft einheitlich über das
+  dedizierte Mistral-OCR-Modell (`mistral-ocr-latest`).
+- **Neu: Diktieren via Mistral Voxtral** – echte Server-seitige
+  Audio-Transkription (`POST /api/ki/transcribe`, Modell `voxtral-mini-latest`)
+  ersetzt die bisherige rein client-seitige Browser-Spracherkennung in
+  `/ki/crm` und `/ki/sprache`.
+- **KI-Einstellungen vereinfacht** – nur noch ein API-Key (Mistral), alle
+  12 Feature-Prompts sind jetzt in der Prompt-Verwaltung editierbar
+  (zuvor nur 4 von 12).
+
 ## [1.0.0] – 2026-06-02
 
 Erste öffentliche Version (Public Release) des Warenwirtschafts- und CRM-Systems

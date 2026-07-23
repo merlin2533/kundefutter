@@ -136,10 +136,11 @@ Webbasiertes Warenwirtschafts- und CRM-System für den Landhandel (Futter, Düng
 - Schnellsuche: Artikel auswählen + Kunde → zeigt VK, Sonderpreis, aktuellen Lagerbestand
 
 ### KI-Integration
-- Provider: OpenAI (GPT-4o/4.1) oder Anthropic (Claude Sonnet/Haiku/Opus)
-- **Lieferschein-Erkennung per Foto** (`/ki/wareneingang`)
-- **Bestellungs-Erkennung** aus Bild (`/ki/lieferung`)
-- **CRM-Notizen** aus Foto/Sprache (`/ki/crm`)
+- Provider: Mistral AI (zentraler Service in `lib/ai.ts`)
+- **Lieferschein-Erkennung per Foto** (`/ki/wareneingang`) — Mistral OCR
+- **Bestellungs-Erkennung** aus Bild (`/ki/lieferung`) — Mistral OCR
+- **CRM-Notizen** aus Foto oder Diktat (`/ki/crm`) — Mistral OCR + Voxtral-Transkription
+- **Diktieren** (`/ki/sprache`) — Sprachmemo → Mistral Voxtral → CRM-Notiz
 - **Belegerkennung** für Ausgaben-OCR
 - **Churn-Risiko-Analyse** je Kunde
 - **Inhaltsstoff-Recherche**: KI schlägt Inhaltsstoffe eines Produktes vor

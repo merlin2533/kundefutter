@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PROMPTS } from "@/lib/ai";
+import { PROMPTS, analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
-import { analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ki-document";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";

@@ -106,10 +106,10 @@ Ausdruckbare Tourenliste für den Fahrer, konfigurierbare Tour-Namen.
 Eingehende Lieferscheine einfach fotografieren — AGRI-Office erkennt Artikel, Mengen und Lieferant automatisch.
 
 **CRM-Notizen aus dem Gespräch**
-Gesprächsnotizen direkt nach dem Kundenbesuch per Foto oder Spracheingabe erfassen. Die KI strukturiert den Inhalt automatisch.
+Gesprächsnotizen direkt nach dem Kundenbesuch per Foto oder Diktat erfassen. Die KI transkribiert und strukturiert den Inhalt automatisch.
 
-**Modell frei wählbar**
-Nutzen Sie OpenAI (GPT-4o, GPT-4.1) oder Anthropic (Claude Sonnet, Haiku, Opus) — mit eigenem API-Key, ohne Datenweitergabe.
+**Mistral AI — europäischer Anbieter**
+Texterkennung, Dokument-OCR und Spracherkennung (Diktieren) aus einer Hand — mit eigenem API-Key, ohne Datenweitergabe.
 
 ---
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import AudioRecorder from "@/components/AudioRecorder";
 
 interface Kunde {
   id: number;
@@ -10,46 +11,17 @@ interface Kunde {
   firma: string | null;
 }
 
-// Typen für Web Speech API (nicht überall in tsconfig enthalten)
-type SpeechRecognitionInstance = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: { resultIndex: number; results: { isFinal: boolean; 0: { transcript: string } }[] }) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
-
-function getSpeechRecognition(): SpeechRecognitionConstructor | undefined {
-  if (typeof window === "undefined") return undefined;
-  const w = window as Window & {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
-}
-
 export default function SprachmemoPage() {
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [kundeId, setKundeId] = useState("");
   const [transkription, setTranskription] = useState("");
-  const [aufnahme, setAufnahme] = useState(false);
-  const [sprachVerfuegbar, setSprachVerfuegbar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [gespeichert, setGespeichert] = useState(false);
   const [fehler, setFehler] = useState("");
 
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
   useEffect(() => {
-    setSprachVerfuegbar(!!getSpeechRecognition());
-
-    // Kunden laden
     fetch("/api/kunden?limit=200&aktiv=true")
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []);
@@ -59,49 +31,9 @@ export default function SprachmemoPage() {
     label: k.firma ? `${k.firma} (${k.name})` : k.name,
   }));
 
-  function startAufnahme() {
-    const SR = getSpeechRecognition();
-    if (!SR) return;
-
-    const recognition = new SR();
-    recognition.lang = "de-DE";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    let finalText = transkription;
-
-    recognition.onresult = (event) => {
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalText += (finalText ? " " : "") + result[0].transcript.trim();
-        } else {
-          interimText += result[0].transcript;
-        }
-      }
-      setTranskription(finalText + (interimText ? " " + interimText : ""));
-    };
-
-    recognition.onerror = () => {
-      setAufnahme(false);
-      setFehler("Fehler bei der Spracherkennung. Bitte erneut versuchen.");
-    };
-
-    recognition.onend = () => {
-      setTranskription(finalText);
-      setAufnahme(false);
-    };
-
-    recognition.start();
-    recognitionRef.current = recognition;
-    setAufnahme(true);
+  function handleTranscript(text: string) {
     setFehler("");
-  }
-
-  function stopAufnahme() {
-    recognitionRef.current?.stop();
-    setAufnahme(false);
+    setTranskription((prev) => (prev ? `${prev} ${text}` : text));
   }
 
   async function handleSpeichern() {
@@ -153,7 +85,7 @@ export default function SprachmemoPage() {
 
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Sprachmemo → CRM-Notiz</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Diktiere eine Notiz und speichere sie direkt als CRM-Aktivität beim Kunden.
+        Diktiere eine Notiz (transkribiert via Mistral) und speichere sie direkt als CRM-Aktivität beim Kunden.
       </p>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 space-y-5">
@@ -170,41 +102,13 @@ export default function SprachmemoPage() {
           />
         </div>
 
-        {/* Aufnahme-Button */}
-        <div className="flex flex-col items-center gap-3">
-          {sprachVerfuegbar ? (
-            <>
-              <button
-                type="button"
-                onClick={aufnahme ? stopAufnahme : startAufnahme}
-                className={`w-24 h-24 rounded-full text-3xl font-bold shadow-md transition-all ${
-                  aufnahme
-                    ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
-                    : "bg-green-700 hover:bg-green-800 text-white"
-                }`}
-                title={aufnahme ? "Aufnahme stoppen" : "Aufnahme starten"}
-              >
-                {aufnahme ? "⏹" : "🎤"}
-              </button>
-              <p className="text-sm text-gray-500">
-                {aufnahme ? (
-                  <span className="text-red-600 font-medium">Aufnahme läuft… klicken zum Stoppen</span>
-                ) : (
-                  "Klicken zum Starten der Spracherkennung"
-                )}
-              </p>
-            </>
-          ) : (
-            <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800 font-medium">
-                Spracherkennung nicht verfügbar
-              </p>
-              <p className="text-xs text-yellow-600 mt-1">
-                Dein Browser unterstützt keine Web Speech API. Bitte Text manuell eingeben.
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Aufnahme */}
+        <AudioRecorder
+          onTranscript={handleTranscript}
+          feature="sprachmemo"
+          maxDurationSec={180}
+          placeholder="Aufnahme starten (max. 3 Min.)"
+        />
 
         {/* Transkriptions-Textarea */}
         <div>
@@ -215,11 +119,7 @@ export default function SprachmemoPage() {
             value={transkription}
             onChange={(e) => setTranskription(e.target.value)}
             rows={6}
-            placeholder={
-              sprachVerfuegbar
-                ? "Hier erscheint der transkribierte Text. Du kannst ihn auch direkt bearbeiten…"
-                : "Text hier manuell eingeben…"
-            }
+            placeholder="Hier erscheint der transkribierte Text. Du kannst ihn auch direkt bearbeiten oder manuell eingeben…"
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-y"
           />
           {transkription.trim() && (

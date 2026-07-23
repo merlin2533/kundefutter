@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImage, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
+import { analyzeDocument, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 
@@ -29,13 +29,7 @@ export async function POST(req: NextRequest) {
     const category = text ? "language" : "ocr";
     const cfg = await getAiConfig(category);
 
-    if (cfg.provider === "openai" && !cfg.openaiKey) {
-      return NextResponse.json({ error: "OpenAI API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
-    }
-    if (cfg.provider === "anthropic" && !cfg.anthropicKey) {
-      return NextResponse.json({ error: "Anthropic API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
-    }
-    if (cfg.provider === "mistral" && !cfg.mistralKey) {
+    if (!cfg.mistralKey) {
       return NextResponse.json({ error: "Mistral API-Key nicht konfiguriert. Bitte unter Einstellungen → KI hinterlegen." }, { status: 400 });
     }
 
@@ -48,10 +42,10 @@ export async function POST(req: NextRequest) {
     // Text analysis (voice input) or image analysis
     const result = text
       ? await analyzeText(text, prompt, feature, cfg)
-      : await analyzeImage(image!, prompt, feature, cfg);
+      : await analyzeDocument(image!, prompt, feature, cfg);
 
     return NextResponse.json({
-      provider: cfg.provider,
+      provider: "mistral",
       modell: cfg.modell,
       ergebnis: result.parsed,
       tokensIn: result.tokensIn,
