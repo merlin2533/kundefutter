@@ -1046,4 +1046,28 @@ Regeln:
 - Einheiten: typischerweise "%", "mg/kg", "g/kg", "MJ/kg", "g/l", "IE/kg"
 - WICHTIG: Wenn du das exakte Produkt nicht kennst, ordne es anhand des Namens einem ähnlichen/verwandten Produkt zu.
 - Nur wenn du gar keine Zuordnung machen kannst, gib ein leeres Array und einen Hinweis zurück.`,
+
+  bankabgleich: `Du bist ein Buchhaltungs-Assistent für ein Agrarhandelsunternehmen. Gleiche Bankbuchungen mit
+offenen Rechnungen/Ausgaben ab, die der automatische Abgleich NICHT eindeutig zuordnen konnte.
+
+Eine Übereinstimmung liegt vor, wenn Bankbuchung und Kandidat sehr wahrscheinlich dieselbe Zahlung sind. Beachte:
+- Betrag ist vorzeichenbehaftet (positiv = Zahlungseingang, negativ = Zahlungsausgang). Beträge sollten nahezu gleich sein.
+- Datum kann leicht abweichen (Buchungs- vs. Rechnungsdatum), in der Regel wenige Tage bis wenige Wochen.
+- Namen/Verwendungszweck können unterschiedlich geschrieben sein (Abkürzungen, Tippfehler, zusätzliche Referenzen, Firmenzusätze wie GmbH/e.K.).
+- Ordne jede Bankbuchung höchstens einem Kandidaten zu und umgekehrt (1:1).
+- Ordne NICHT zu, wenn du unsicher bist (lieber weglassen als falsch zuordnen).
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in genau diesem Format (ohne Erklärtext, ohne Markdown):
+{
+  "matches": [
+    { "bankIndex": 0, "candidateKind": "lieferung", "candidateId": 42, "confidence": 0.8, "reason": "Kurze Begründung" }
+  ]
+}
+
+Regeln:
+- "bankIndex" ist der Index in die gesendete Liste der Bankbuchungen (0-basiert).
+- "candidateKind" ist genau einer von "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung".
+- "candidateId" MUSS eine der tatsächlich gesendeten Kandidaten-IDs sein — erfinde KEINE IDs.
+- "confidence" ist eine Zahl zwischen 0 und 1. Gib nur Treffer mit confidence >= 0.5 zurück.
+- Gib ein leeres "matches"-Array zurück, wenn du keinen einzigen sicheren Treffer findest.`,
 };
