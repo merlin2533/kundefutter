@@ -50,7 +50,7 @@ function getRechnungStatus(r: Rechnung): RechnungStatus {
 
 function StatusBadge({ status }: { status: RechnungStatus }) {
   const map = {
-    storniert: "bg-gray-200 text-gray-600 line-through",
+    storniert: "bg-red-100 text-red-800 line-through",
     bezahlt: "bg-green-100 text-green-800",
     ueberfaellig: "bg-red-100 text-red-800",
     offen: "bg-yellow-100 text-yellow-800",
