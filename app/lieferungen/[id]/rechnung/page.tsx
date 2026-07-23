@@ -7,6 +7,7 @@ import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
+import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
 
 interface ArtikelInfo {
   id: number;
@@ -83,6 +84,10 @@ export default function RechnungPrintPage() {
   const [mailModalOffen, setMailModalOffen] = useState(false);
   const [mailFehler, setMailFehler] = useState("");
   const [stornoLoading, setStornoLoading] = useState(false);
+  const [istAdmin, setIstAdmin] = useState(false);
+  const [loeschModalOpen, setLoeschModalOpen] = useState(false);
+  const [loeschLoading, setLoeschLoading] = useState(false);
+  const [loeschError, setLoeschError] = useState<string | undefined>(undefined);
   const [lsNrEdit, setLsNrEdit] = useState(false);
   const [lsNrInput, setLsNrInput] = useState("");
   const [lsNrSaving, setLsNrSaving] = useState(false);
@@ -214,6 +219,31 @@ export default function RechnungPrintPage() {
     }
   }
 
+  async function handleLoeschen(begruendung: string) {
+    setLoeschLoading(true);
+    setLoeschError(undefined);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_loeschen", begruendung }),
+      });
+      if (res.ok) {
+        setLoeschModalOpen(false);
+        // Ohne Rechnungsnummer würde diese Seite beim Neuladen sofort eine neue
+        // Rechnung erstellen (siehe init()) – daher zurück zur Lieferung navigieren.
+        router.push(`/lieferungen/${id}`);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setLoeschError((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
+      }
+    } catch {
+      setLoeschError("Netzwerkfehler beim Löschen.");
+    } finally {
+      setLoeschLoading(false);
+    }
+  }
+
   function downloadPdf() {
     const a = document.createElement("a");
     a.href = `/api/exporte/rechnung?lieferungId=${id}`;
@@ -317,6 +347,11 @@ export default function RechnungPrintPage() {
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       setCanShare(true);
     }
+
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setIstAdmin(d?.user?.rolle === "admin"))
+      .catch(() => setIstAdmin(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GiroCode erzeugen, sobald Firmen- und Rechnungsdaten vorliegen
@@ -598,6 +633,16 @@ export default function RechnungPrintPage() {
             <span className="hidden sm:inline">Storno aufheben</span>
           </button>
         )}
+        {istAdmin && lieferung?.rechnungNr && (
+          <button
+            onClick={() => { setLoeschError(undefined); setLoeschModalOpen(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-700 hover:bg-red-100 rounded-lg transition-colors text-sm"
+            title="Rechnung endgültig löschen (nur Administratoren)"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            <span className="hidden sm:inline">Löschen</span>
+          </button>
+        )}
         {lieferung?.rechnungVersendetAm && (
           <span
             className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
@@ -619,6 +664,15 @@ export default function RechnungPrintPage() {
           <span className="text-sm text-red-600 ml-1">{error}</span>
         )}
       </div>
+
+      <RechnungLoeschenModal
+        open={loeschModalOpen}
+        rechnungNr={lieferung?.rechnungNr ?? ""}
+        loading={loeschLoading}
+        error={loeschError}
+        onClose={() => { if (!loeschLoading) setLoeschModalOpen(false); }}
+        onConfirm={handleLoeschen}
+      />
 
       {lieferung && (
         <EmailVersandModal

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer, istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
@@ -585,6 +586,70 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     } catch (err) {
       Sentry.captureException(err);
       console.error("Rechnung-Storno error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // Rechnung endgültig aus der Datenbank löschen (kein Storno) – nur Admins, Begründung Pflicht
+  if (aktion === "rechnung_loeschen") {
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+
+    const me = await getCurrentUser();
+    if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+    if (me.rolle !== "admin") {
+      return NextResponse.json({ error: "Nur Administratoren dürfen Rechnungen löschen" }, { status: 403 });
+    }
+
+    const begruendung = typeof body.begruendung === "string" ? body.begruendung.trim() : "";
+    if (!begruendung) {
+      return NextResponse.json({ error: "Eine Begründung ist Pflicht" }, { status: 400 });
+    }
+
+    try {
+      const alt = await prisma.lieferung.findUnique({
+        where: { id: numId },
+        select: { rechnungNr: true },
+      });
+      if (!alt) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+      if (!alt.rechnungNr) {
+        return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
+      }
+      const alteRechnungNr = alt.rechnungNr;
+
+      // Nur die Rechnungs-Identität wird entfernt – Lieferung, Positionen, Lagerbewegungen
+      // und Teilzahlungen bleiben unangetastet erhalten.
+      const updated = await prisma.lieferung.update({
+        where: { id: numId },
+        data: {
+          rechnungNr: null,
+          rechnungDatum: null,
+          rechnungStorniert: null,
+          rechnungVersendetAm: null,
+          bezahltAm: null,
+        },
+        include: {
+          kunde: { include: { kontakte: true } },
+          positionen: { include: { artikel: { select: artikelSafeSelect } } },
+        },
+      });
+
+      void auditLog({
+        entitaet: "Lieferung",
+        entitaetId: numId,
+        aktion: "geloescht",
+        feld: "rechnungNr",
+        alterWert: alteRechnungNr,
+        neuerWert: null,
+        beschreibung: `Rechnung ${alteRechnungNr} endgültig gelöscht von ${me.benutzername} – Begründung: ${begruendung}`,
+      });
+
+      return NextResponse.json(updated);
+    } catch (err) {
+      Sentry.captureException(err);
+      console.error("Rechnung-Löschen error:", err);
       const isDev = process.env.NODE_ENV === "development";
       const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
       return NextResponse.json({ error: message }, { status: 400 });
