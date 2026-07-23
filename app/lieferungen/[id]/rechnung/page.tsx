@@ -496,9 +496,12 @@ export default function RechnungPrintPage() {
       {/* Screen-only controls – sticky so user always has a way out */}
       <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-1.5 p-2.5 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm no-print">
         <button
-          onClick={() => router.push(`/lieferungen/${id}`)}
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) router.back();
+            else router.push(`/lieferungen/${id}`);
+          }}
           className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors"
-          title="Schließen – zurück zur Lieferung"
+          title="Schließen – zurück zur vorherigen Seite"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>

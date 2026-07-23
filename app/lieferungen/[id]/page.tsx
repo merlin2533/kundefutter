@@ -836,10 +836,17 @@ export default function LieferungDetailPage() {
         </div>
       </div>
 
-      {/* Back link */}
-      <Link href="/lieferungen" className="text-sm text-green-700 hover:text-green-900 hover:underline mb-4 inline-block print:hidden">
-        ← Zurück zu Lieferungen
-      </Link>
+      {/* Back link – geht zur vorherigen Seite zurück (Rechnungen-/Lieferungen-Übersicht, Kundenakte, …),
+          fällt nur ohne Historie (Direktaufruf/neuer Tab) auf die Lieferungenliste zurück. */}
+      <button
+        onClick={() => {
+          if (typeof window !== "undefined" && window.history.length > 1) router.back();
+          else router.push("/lieferungen");
+        }}
+        className="text-sm text-green-700 hover:text-green-900 hover:underline mb-4 inline-block print:hidden"
+      >
+        ← Zurück
+      </button>
 
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 print:hidden">
