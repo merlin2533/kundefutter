@@ -6,6 +6,7 @@ import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 import SearchableSelect from "@/components/SearchableSelect";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
@@ -140,6 +141,7 @@ export default function LieferungDetailPage() {
 
   // E-Mail-Versand
   const [emailModalOffen, setEmailModalOffen] = useState(false);
+  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
@@ -1344,7 +1346,17 @@ export default function LieferungDetailPage() {
                   : 0;
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium">{pos.artikel.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {pos.artikel.name}
+                    <button
+                      type="button"
+                      onClick={() => setKundenModal({ id: pos.artikel.id, name: pos.artikel.name })}
+                      className="ml-1.5 text-gray-400 hover:text-green-700"
+                      title="Wer hat/bekommt diesen Artikel?"
+                    >
+                      👥
+                    </button>
+                  </td>
                   {/* Charge – inline edit, auch nachträglich (nach Lieferung/Rechnung) erfassbar */}
                   <td className="px-4 py-3 text-gray-500 text-xs font-mono">
                     {chargeEditId === pos.id ? (
@@ -1871,6 +1883,12 @@ export default function LieferungDetailPage() {
           </div>
         </div>
       )}
+      <ArtikelKundenModal
+        artikelId={kundenModal?.id ?? 0}
+        artikelName={kundenModal?.name ?? ""}
+        open={!!kundenModal}
+        onClose={() => setKundenModal(null)}
+      />
     </div>
   );
 }

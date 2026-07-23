@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
 import { formatDatum, formatEuro } from "@/lib/utils";
+import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 
 interface Position {
   id: number; menge: number; preis?: number | null; einheit: string;
@@ -26,6 +27,7 @@ export default function DetailPage() {
   const toast = useToast();
   const [v, setV] = useState<Vorbestellung | null>(null);
   const [loading, setLoading] = useState(true);
+  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
     fetch(`/api/vorbestellungen/${id}`)
@@ -115,7 +117,17 @@ export default function DetailPage() {
                 const preis = p.preis ?? p.artikel.standardpreis;
                 return (
                   <tr key={p.id} className="border-b">
-                    <td className="py-1">{p.artikel.name}</td>
+                    <td className="py-1">
+                      {p.artikel.name}
+                      <button
+                        type="button"
+                        onClick={() => setKundenModal({ id: p.artikel.id, name: p.artikel.name })}
+                        className="ml-1.5 text-gray-400 hover:text-green-700"
+                        title="Wer hat/bekommt diesen Artikel?"
+                      >
+                        👥
+                      </button>
+                    </td>
                     <td className="py-1">{p.menge}</td>
                     <td className="py-1">{p.einheit}</td>
                     <td className="py-1">{formatEuro(preis)}</td>
@@ -133,6 +145,12 @@ export default function DetailPage() {
           </table>
         </div>
       </Card>
+      <ArtikelKundenModal
+        artikelId={kundenModal?.id ?? 0}
+        artikelName={kundenModal?.name ?? ""}
+        open={!!kundenModal}
+        onClose={() => setKundenModal(null)}
+      />
     </div>
   );
 }

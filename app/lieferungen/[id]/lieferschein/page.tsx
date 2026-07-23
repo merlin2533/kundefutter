@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
@@ -19,6 +20,7 @@ interface Position {
   chargeNr?: string | null;
   notiz?: string | null;
   artikel: {
+    id: number;
     name: string;
     einheit: string;
     kategorie?: string | null;
@@ -727,7 +729,9 @@ export default function LieferscheinPage() {
                           {[pos.artikel.kategorie === "Duenger" ? "Dünger" : pos.artikel.kategorie, pos.artikel.unterkategorie].filter(Boolean).join(" / ")}
                         </div>
                       )}
-                      {pos.artikel.name}
+                      <Link href={`/artikel/${pos.artikel.id}`} style={{ color: "inherit", textDecoration: "underline" }}>
+                        {pos.artikel.name}
+                      </Link>
                       {pos.notiz && pos.notiz.trim().length > 0 && (
                         <div style={{ fontSize: "9pt", color: "#555", marginTop: "2px" }}>{pos.notiz}</div>
                       )}

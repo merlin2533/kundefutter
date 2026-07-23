@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
+import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 
 export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sammelrechnungLoading, setSammelrechnungLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -299,8 +301,28 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
                     {formatDatum(l.datum)}
                     <div className="sm:hidden text-xs text-gray-500 mt-0.5">{posSummary}{more}</div>
                   </td>
-                  <td className="hidden sm:table-cell px-3 py-2.5 text-gray-600 text-xs max-w-[180px] truncate">
-                    {posSummary}{more}
+                  <td className="hidden sm:table-cell px-3 py-2.5 text-gray-600 text-xs max-w-[220px]">
+                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      {l.positionen.slice(0, 2).map((p) => (
+                        <span key={p.id} className="inline-flex items-center gap-1 whitespace-nowrap">
+                          <Link href={`/artikel/${p.artikel.id}`} className="hover:text-green-700 hover:underline">
+                            {p.menge} {p.artikel.einheit} {p.artikel.name}
+                          </Link>
+                          {p.chargeNr && <span className="font-mono text-gray-400">[{p.chargeNr}]</span>}
+                          <button
+                            type="button"
+                            onClick={() => setKundenModal({ id: p.artikel.id, name: p.artikel.name })}
+                            className="text-gray-400 hover:text-green-700"
+                            title="Wer hat/bekommt diesen Artikel?"
+                          >
+                            👥
+                          </button>
+                        </span>
+                      ))}
+                      {l.positionen.length > 2 && (
+                        <span className="text-gray-400">+{l.positionen.length - 2}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono font-medium text-xs whitespace-nowrap">
                     {formatEuro(total)}
@@ -400,6 +422,12 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
           </tbody>
         </table>
       </div>
+      <ArtikelKundenModal
+        artikelId={kundenModal?.id ?? 0}
+        artikelName={kundenModal?.name ?? ""}
+        open={!!kundenModal}
+        onClose={() => setKundenModal(null)}
+      />
     </div>
   );
 }
