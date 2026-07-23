@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       html,
       fromName: firma.name,
       feature: "angebot",
+      entityId: angebotId,
       attachments: [{ filename: pdfFilename, content: pdfBuffer, contentType: "application/pdf" }],
     });
 

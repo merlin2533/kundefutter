@@ -72,15 +72,16 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - **Frühbezug/Vorbestellungen**: Saison-Staffeln (z.B. "Frühjahr 2026 — bis 31.07. -3%"), automatische Umwandlung in Lieferungen
 - **Sonderpreise**: Je Kunde und Artikel hinterlegt
 
-### 6. KI-Integration (5 Anwendungsfälle)
-1. **Wareneingang per Foto**: Lieferschein fotografieren → Artikel, Menge, Charge, Lieferant automatisch erkannt und eingebucht
+### 6. KI-Integration (Mistral AI, 6 Anwendungsfälle)
+1. **Wareneingang per Foto**: Lieferschein fotografieren → Artikel, Menge, Charge, Lieferant automatisch erkannt und eingebucht (Mistral OCR)
 2. **Inhaltsstoff-Recherche**: Artikelname eingeben → KI liefert vollständige Nährstoffzusammensetzung (N, P, K, S, Mg, Ca, Bor …)
-3. **CRM-Notizen aus Besuchsbericht**: Text oder Foto eines handschriftlichen Berichts → strukturierte CRM-Aktivität
-4. **Bestellungserfassung aus Bild**: Fotografierte Bestellliste → Lieferung vorbelegt
-5. **Churn-Risiko**: KI-basierter Abwanderungs-Score je Kunde aus Lieferhistorie
+3. **CRM-Notizen aus Besuchsbericht**: Text, Foto oder Diktat eines Berichts → strukturierte CRM-Aktivität
+4. **Diktieren**: Sprachmemos direkt einsprechen → Mistral Voxtral transkribiert, als CRM-Notiz gespeichert
+5. **Bestellungserfassung aus Bild**: Fotografierte Bestellliste → Lieferung vorbelegt
+6. **Churn-Risiko**: KI-basierter Abwanderungs-Score je Kunde aus Lieferhistorie
 - **Nutzungsstatistik & Kostenkontrolle**: Token-Kosten je Feature in Euro-Cent
-- **Unterstützte Modelle**: OpenAI GPT-4o, GPT-4.1 / Anthropic Claude Sonnet 4, Haiku 4, Opus 4
-- **Eigener API-Key** oder integriertes Kontingent
+- **Unterstützte Modelle**: Mistral AI — Chat/OCR (mistral-large-latest, mistral-ocr-latest) und Transkription (Voxtral)
+- **Eigener API-Key** (europäischer Anbieter, DSGVO-konform)
 
 ### 7. Agrar-spezifische Compliance-Funktionen
 - **DüV-Düngebedarfsermittlung**: N, P₂O₅, K₂O, MgO nach DüV Anlage 4; Ertragsziel, Vorfrucht, N-Min, Zwischenfrucht
@@ -164,7 +165,7 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - **Backend**: Next.js API Routes, Prisma 7 + SQLite via @libsql/client
 - **Deployment**: Docker auf VPS (Hetzner), Watchtower für Auto-Updates
 - **PWA**: Service Worker (Cache-First), Web App Manifest
-- **KI**: OpenAI SDK + Anthropic SDK — konfigurierbar via Einstellungen
+- **KI**: Mistral AI SDK (Chat, OCR, Voxtral-Transkription) — konfigurierbar via Einstellungen
 - **Druck/PDF**: window.print() + jsPDF, ZUGFeRD XML nach EN 16931
 - **Geocoding**: Nominatim (OpenStreetMap), OSRM für Routing
 - **Marktpreise**: Eurostat REST API, Yahoo Finance (MATIF Futures)
@@ -187,7 +188,7 @@ A: Ja. CSV-Import für Kunden, Artikel, Preislisten, Lieferanten. Enterprise: vo
 A: Lieferungen auswählen → AGRI-Office optimiert per OSRM die Reihenfolge → Tour-PDF für den Fahrer.
 
 **Q: Welche KI-Modelle werden unterstützt?**
-A: OpenAI GPT-4o, GPT-4.1 sowie Anthropic Claude Sonnet 4, Haiku 4, Opus 4. Eigener API-Key oder integriertes Kontingent.
+A: Mistral AI — Sprachmodelle (Mistral Large/Medium/Small), Dokument-OCR (Mistral OCR) und Diktieren (Voxtral). Eigener API-Key oder integriertes Kontingent.
 
 **Q: Ist AGRI-Office für kleine Betriebe geeignet?**
 A: Ja. Starter-Plan ab €49/Monat für bis zu 3 Nutzer.

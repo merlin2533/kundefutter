@@ -2,14 +2,14 @@
 
 AGRI-Office nutzt die folgenden Open-Source-Bibliotheken. Alle eingesetzten
 Laufzeit-Abhängigkeiten stehen unter permissiven Lizenzen (MIT, Apache-2.0,
-BSD, ISC, MIT-0). Stand: 2026-06-02, App-Version 1.0.0.
+BSD, ISC, MIT-0). Stand: 2026-07-23, App-Version 1.0.0.
 
 ## Laufzeit-Abhängigkeiten
 
 | Paket | Version | Lizenz |
 |---|---|---|
-| @anthropic-ai/sdk | 0.82.0 | MIT |
 | @libsql/client | 0.17.2 | MIT |
+| @mistralai/mistralai | 2.3.0 | Apache-2.0 |
 | @prisma/adapter-libsql | 7.6.0 | Apache-2.0 |
 | @prisma/client | 7.6.0 | Apache-2.0 |
 | bcryptjs | 3.0.3 | BSD-3-Clause |
@@ -22,7 +22,6 @@ BSD, ISC, MIT-0). Stand: 2026-06-02, App-Version 1.0.0.
 | lucide-react | 1.7.0 | ISC |
 | next | 16.2.10 | MIT |
 | nodemailer | 9.0.3 | MIT-0 |
-| openai | 6.33.0 | Apache-2.0 |
 | pdf-lib | 1.17.1 | MIT |
 | prisma | 7.7.0 | Apache-2.0 |
 | qrcode | 1.5.4 | MIT |
@@ -50,7 +49,7 @@ BSD, ISC, MIT-0). Stand: 2026-06-02, App-Version 1.0.0.
 | Eurostat REST API | Agrarrohstoff-Preisindizes | freie Nachnutzung mit Quellenangabe |
 | Open-Meteo | Wetter-/Spritzfenster-Prognose | CC BY 4.0 |
 | Yahoo Finance | MATIF-Futures (Euronext) | nur informativ |
-| OpenAI / Anthropic | KI-Funktionen (optional) | gemäß jeweiligem API-Vertrag |
+| Mistral AI | KI-Funktionen (optional) | gemäß jeweiligem API-Vertrag |
 
 > Eine maschinenlesbare Übersicht der Lizenzen kann jederzeit mit
 > `npx license-checker --summary` erzeugt werden.

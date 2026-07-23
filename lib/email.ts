@@ -76,6 +76,9 @@ export type SendEmailArgs = {
   attachments?: EmailAttachment[];
   fromName?: string;
   feature?: string;
+  /** ID der Quell-Entität (z.B. lieferungId/gutschriftId/angebotId), damit der
+   *  PDF-Anhang beim "Erneut senden" im Mail-Log neu erzeugt werden kann. */
+  entityId?: number;
 };
 
 function buildFromHeader(cfg: EmailConfig, fromName?: string): string {
@@ -146,6 +149,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         status: "gesendet",
         feature: args.feature ?? null,
         anhangNamen,
+        entityId: args.entityId ?? null,
       },
     }).catch(() => {}); // Log-Fehler nie nach oben werfen
   } catch (err) {
@@ -160,6 +164,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         fehler: err instanceof Error ? err.message : String(err),
         feature: args.feature ?? null,
         anhangNamen,
+        entityId: args.entityId ?? null,
       },
     }).catch(() => {});
     throw err;

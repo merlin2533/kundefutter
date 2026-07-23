@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PROMPTS } from "@/lib/ai";
-import { analyzeDocumentFile, parseJsonFromText, strOrNull } from "@/lib/ki-document";
+import { PROMPTS, analyzeDocumentFile, parseJsonFromText, strOrNull } from "@/lib/ai";
 import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";

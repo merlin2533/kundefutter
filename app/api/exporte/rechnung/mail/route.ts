@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
       html,
       fromName: firma.name,
       feature: "rechnung",
+      entityId: lieferungId,
       attachments: [
         { filename: pdfFilename, content: pdfBuffer, contentType: "application/pdf" },
       ],
