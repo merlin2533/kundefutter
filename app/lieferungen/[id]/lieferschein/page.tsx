@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { formatDatum } from "@/lib/utils";
 import DriveUploadButton from "@/components/DriveUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
+import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 
 interface Inhaltsstoff {
   id: number;
@@ -52,13 +53,23 @@ function GhsBadge({ klasse }: { klasse: string }) {
   );
 }
 
+interface Kontakt {
+  typ: string;
+  wert: string;
+  label?: string | null;
+  vorname?: string | null;
+  nachname?: string | null;
+  rechnungsEmail?: boolean;
+  lieferscheinEmail?: boolean;
+}
+
 interface Kunde {
   name: string;
   firma?: string | null;
   strasse?: string | null;
   plz?: string | null;
   ort?: string | null;
-  kontakte: { typ: string; wert: string }[];
+  kontakte: Kontakt[];
 }
 
 interface Lieferung {
@@ -72,6 +83,7 @@ interface Lieferung {
   angebotId?: number | null;
   rechnungNr?: string | null;
   lieferscheinNr?: string | null;
+  lieferscheinVersendetAm?: string | null;
   unterschriftPng?: string | null;
   positionen: Position[];
   kunde: Kunde;
@@ -90,6 +102,10 @@ export default function LieferscheinPage() {
   const [canShare, setCanShare] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [rechnungLoading, setRechnungLoading] = useState(false);
+  const [mailSending, setMailSending] = useState(false);
+  const [mailMsg, setMailMsg] = useState("");
+  const [mailModalOffen, setMailModalOffen] = useState(false);
+  const [mailFehler, setMailFehler] = useState("");
 
   // Digitale Unterschrift
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -286,6 +302,31 @@ export default function LieferscheinPage() {
     }
   }
 
+  async function handleMailSenden(empfaenger: string, cc: string) {
+    setMailSending(true);
+    setMailMsg("");
+    setMailFehler("");
+    try {
+      const res = await fetch("/api/exporte/lieferschein/mail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferungId: Number(id), empfaenger, cc }),
+      });
+      const data = await res.json() as { ok?: boolean; empfaenger?: string; error?: string };
+      if (data.ok) {
+        setMailMsg(`Lieferschein an ${data.empfaenger ?? empfaenger} gesendet.`);
+        setMailModalOffen(false);
+        setLieferung((prev) => (prev ? { ...prev, lieferscheinVersendetAm: new Date().toISOString() } : prev));
+      } else {
+        setMailFehler(data.error ?? "Fehler beim Versand.");
+      }
+    } catch {
+      setMailFehler("Netzwerkfehler beim E-Mail-Versand.");
+    } finally {
+      setMailSending(false);
+    }
+  }
+
   async function handleTeilen() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     const title = `Lieferschein ${lieferung?.id ?? ""}`;
@@ -443,6 +484,17 @@ export default function LieferscheinPage() {
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
         </button>
+        <button
+          onClick={() => { setMailMsg(""); setMailFehler(""); setMailModalOffen(true); }}
+          disabled={mailSending}
+          className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg transition-colors text-sm"
+          title="Per E-Mail senden"
+        >
+          {mailSending
+            ? <><svg className="w-5 h-5 animate-spin shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg><span className="hidden sm:inline">Sendet…</span></>
+            : <><svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg><span className="hidden sm:inline">E-Mail</span></>
+          }
+        </button>
         {!lieferung.rechnungNr && (
           <button
             onClick={inRechnungUmwandeln}
@@ -455,8 +507,22 @@ export default function LieferscheinPage() {
             <span className="sm:hidden">{rechnungLoading ? "…" : "Rechnung"}</span>
           </button>
         )}
+        {lieferung.lieferscheinVersendetAm && (
+          <span
+            className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
+            title={`Lieferschein wurde per E-Mail versendet am ${formatDatum(lieferung.lieferscheinVersendetAm)}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            Per E-Mail versendet ({formatDatum(lieferung.lieferscheinVersendetAm)})
+          </span>
+        )}
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
+        )}
+        {mailMsg && (
+          <span className={`text-xs font-medium ml-1 ${mailMsg.includes("gesendet") ? "text-green-700" : "text-red-600"}`}>
+            {mailMsg}
+          </span>
         )}
         <DriveUploadButton
           kundeId={lieferung.kundeId}
@@ -481,6 +547,18 @@ export default function LieferscheinPage() {
           }}
         />
       </div>
+
+      <EmailVersandModal
+        open={mailModalOffen}
+        onClose={() => setMailModalOffen(false)}
+        title={`Lieferschein ${lieferung.lieferscheinNr?.trim() || lieferung.id} versenden`}
+        kundenname={lieferung.kunde.firma ?? lieferung.kunde.name}
+        emailKontakte={(lieferung.kunde.kontakte ?? []).filter((k) => k.typ === "email") as EmailKontakt[]}
+        docType="lieferschein"
+        loading={mailSending}
+        fehler={mailFehler || undefined}
+        onSend={handleMailSenden}
+      />
 
       {/* Lieferschein document – als <table> aufgebaut, damit thead/tfoot beim Druck auf
           JEDER Seite wiederholt werden (Kopf + Fuß bei mehrseitigen Lieferscheinen). */}
