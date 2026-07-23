@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FUTTERWERTE, FUTTERGRUPPEN, type Futterwert } from "@/lib/futterwerte";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 const CUSTOM_KEY = "futterwerte.custom";
@@ -14,7 +15,8 @@ export async function GET() {
       try {
         const parsed = JSON.parse(setting.value);
         if (Array.isArray(parsed)) custom = parsed;
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         // ungültiges JSON ignorieren
       }
     }
@@ -23,7 +25,8 @@ export async function GET() {
       custom,
       gruppen: FUTTERGRUPPEN,
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ standard: FUTTERWERTE, custom: [], gruppen: FUTTERGRUPPEN });
   }
 }
@@ -61,6 +64,7 @@ export async function PUT(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, anzahl: sauber.length });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });

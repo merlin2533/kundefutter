@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchCurrentMeasurement, fetchStationByUuid } from "@/lib/pegelonline";
+import { Sentry } from "@/lib/sentry";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 Minuten
 
@@ -38,6 +39,7 @@ export async function GET() {
 
     return NextResponse.json(stationen);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -88,6 +90,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(neu, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -100,7 +103,8 @@ export async function DELETE(req: NextRequest) {
   try {
     await prisma.pegelstandCache.delete({ where: { stationUuid: uuid } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 }

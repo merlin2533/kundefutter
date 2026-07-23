@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(record);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("EingangsRechnungen GET [id] error:", err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -35,7 +37,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -68,6 +71,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(record);
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error("EingangsRechnungen PUT error:", err);
@@ -91,6 +95,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.eingangsRechnung.delete({ where: { id: nId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error("EingangsRechnungen DELETE error:", err);

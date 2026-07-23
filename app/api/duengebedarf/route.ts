@@ -8,6 +8,7 @@ import {
   FRUCHTARTEN_DUEV,
   type BedarfEingaben,
 } from "@/lib/duengebedarf";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/duengebedarf?schlagId=X
@@ -36,7 +37,8 @@ export async function GET(req: NextRequest) {
       });
       if (!eintrag) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
       return NextResponse.json(eintrag);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
     }
   }
@@ -54,7 +56,8 @@ export async function GET(req: NextRequest) {
         take: 200,
       });
       return NextResponse.json(eintraege);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
     }
   }
@@ -70,7 +73,8 @@ export async function GET(req: NextRequest) {
       take: 50,
     });
     return NextResponse.json(eintraege);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -130,6 +134,7 @@ export async function POST(req: NextRequest) {
     try {
       ergebnis = berechneDuengebedarf(eingaben);
     } catch (err) {
+      Sentry.captureException(err);
       const isDevCalc = process.env.NODE_ENV === "development";
       return NextResponse.json({ error: isDevCalc && err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
     }
@@ -158,6 +163,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(ergebnis);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -215,6 +221,7 @@ export async function PUT(req: NextRequest) {
     try {
       ergebnis = berechneDuengebedarf(eingaben);
     } catch (err) {
+      Sentry.captureException(err);
       const isDevCalc = process.env.NODE_ENV === "development";
       return NextResponse.json({ error: isDevCalc && err instanceof Error ? err.message : "Berechnungsfehler" }, { status: 400 });
     }
@@ -239,6 +246,7 @@ export async function PUT(req: NextRequest) {
     });
     return NextResponse.json({ ...ergebnis, gespeichert });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     const isDev = process.env.NODE_ENV === "development";
@@ -256,6 +264,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.duengebedarf.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

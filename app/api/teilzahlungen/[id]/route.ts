@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,6 +14,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.teilzahlung.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("P2025")) {
       return NextResponse.json({ error: "Teilzahlung nicht gefunden" }, { status: 404 });

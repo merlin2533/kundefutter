@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -15,6 +16,7 @@ export async function GET() {
     });
     return NextResponse.json(bewegungen);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Umbuchungen GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -24,7 +26,8 @@ export async function POST(req: NextRequest) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
   const { artikelId, menge, vonLagerort, nachLagerort, bemerkung } = body;
@@ -74,6 +77,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(bewegung, { status: 201 });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Umbuchungen POST error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

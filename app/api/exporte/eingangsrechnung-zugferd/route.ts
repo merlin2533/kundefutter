@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateZugferdXmlSimple } from "@/lib/zugferd-xml";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "ZUGFeRD-Export fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

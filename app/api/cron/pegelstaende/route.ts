@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Sentry } from "@/lib/sentry";
 
 // GET /api/cron/pegelstaende
 // Leitet an den zentralen Dispatcher /api/cron weiter (Abwärtskompatibilität).
@@ -12,7 +13,8 @@ export async function GET(req: NextRequest) {
     const res = await fetch(`${base}/api/cron`, { headers });
     const data = await res.json().catch(() => ({ ok: false, error: "Ungültige Antwort" }));
     return NextResponse.json(data, { status: res.status });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ ok: false, error: "Interner Fehler beim Weiterleiten" }, { status: 502 });
   }
 }

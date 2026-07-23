@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -17,6 +18,7 @@ export async function GET() {
 
     return NextResponse.json(values);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Lagerorte GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

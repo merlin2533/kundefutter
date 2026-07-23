@@ -8,6 +8,7 @@ import {
   type RationsEingabe,
   type NaehrstoffWerte,
 } from "@/lib/rationsberechnung";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,8 @@ export async function GET(req: NextRequest) {
       const parsed = JSON.parse(ber.parameter);
       eingabe = parsed.eingabe ?? null;
       ergebnis = parsed.ergebnis ?? null;
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return NextResponse.json({ error: "Berechnungsdaten beschädigt" }, { status: 500 });
     }
     if (!ergebnis) return NextResponse.json({ error: "Kein Ergebnis gespeichert" }, { status: 500 });
@@ -121,6 +123,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Export fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });
@@ -146,6 +149,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Export fehlgeschlagen";
     return NextResponse.json({ error: msg }, { status: 500 });

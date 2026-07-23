@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
 import { autoGeocodeKunde } from "@/lib/geocoding";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -25,7 +26,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
     if (!kunde) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(kunde);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -35,7 +37,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -127,6 +130,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(kunde);
   } catch (err) {
+    Sentry.captureException(err);
     const message = err instanceof Error ? err.message : String(err);
     if (message === "Nicht gefunden") {
       return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
@@ -144,7 +148,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       data: { aktiv: false },
     });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAppName } from "@/lib/appinfo";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,7 @@ export async function GET(_req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("iCal GET error:", err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

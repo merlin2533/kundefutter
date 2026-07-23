@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -33,6 +34,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!vorlage) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(vorlage);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("AngebotVorlage GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -46,7 +48,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -106,6 +109,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(vorlage);
   } catch (err) {
+    Sentry.captureException(err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("P2025") || msg === "P2025") {
       return NextResponse.json({ error: "Vorlage nicht gefunden" }, { status: 404 });
@@ -125,6 +129,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.angebotVorlage.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("P2025")) {
       return NextResponse.json({ error: "Vorlage nicht gefunden" }, { status: 404 });

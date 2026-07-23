@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,8 @@ export async function POST() {
       SELECT id, id, name, artikelnummer, kategorie FROM Artikel
     `);
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "FTS rebuild failed" }, { status: 500 });
   }
 }

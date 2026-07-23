@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,8 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({ kunden: kundenFts, artikel: artikelFts, lieferungen, angebote, aufgaben, ausgaben });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     // FTS5 tables not available yet — fall back to original contains-based search
     const [kunden, artikel, lieferungen, angebote, aufgaben, ausgaben] = await Promise.all([
       prisma.kunde.findMany({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(abrechnungen);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json({ error: isDev && err instanceof Error ? err.message : "Interner Fehler" }, { status: 500 });
   }
@@ -125,6 +127,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(abrechnung, { status: 201 });
     } catch (createErr) {
+      Sentry.captureException(createErr);
       const e = createErr as { code?: string };
       if (e.code === "P2002") {
         return NextResponse.json(
@@ -135,6 +138,7 @@ export async function POST(req: NextRequest) {
       throw createErr;
     }
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json({ error: isDev && err instanceof Error ? err.message : "Interner Fehler" }, { status: 500 });
   }

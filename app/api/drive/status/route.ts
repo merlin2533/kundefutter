@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { testVerbindung } from "@/lib/googleDrive";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -16,7 +17,8 @@ export async function GET() {
 
     const result = await testVerbindung();
     return NextResponse.json({ konfiguriert: true, verbunden: result.ok, email: result.email, fehler: result.fehler });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Verbindungstest fehlgeschlagen" }, { status: 500 });
   }
 }

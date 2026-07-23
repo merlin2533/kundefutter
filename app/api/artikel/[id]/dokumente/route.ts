@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getUploadBase } from "@/lib/upload";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -20,7 +21,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(docs);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[artikel/dokumente] upload failed:", err);
     const message = err instanceof Error ? err.message : "Upload fehlgeschlagen";
     return NextResponse.json({ error: message }, { status: 500 });

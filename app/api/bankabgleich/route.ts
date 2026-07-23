@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseKontoauszug } from "@/lib/bankimport";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ umsaetze, gesamt, offen });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
@@ -59,7 +61,8 @@ export async function POST(req: NextRequest) {
     let csvText: string;
     try {
       csvText = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       csvText = new TextDecoder("latin1").decode(buffer);
     }
 
@@ -107,6 +110,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ importiert, duplikate });
   } catch (err) {
+    Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Importfehler" }, { status: 500 });
   }

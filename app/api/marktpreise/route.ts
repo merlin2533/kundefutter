@@ -6,6 +6,7 @@ import {
   fetchEurostatOutput,
   PRODUKT_MAPPING,
 } from "@/lib/eurostat";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -18,7 +19,8 @@ async function getCacheMaxAgeDays(): Promise<number> {
     });
     const n = e ? parseInt(e.value, 10) : NaN;
     return Number.isFinite(n) && n >= 1 ? n : DEFAULT_CACHE_MAX_AGE_DAYS;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return DEFAULT_CACHE_MAX_AGE_DAYS;
   }
 }
@@ -119,9 +121,11 @@ export async function GET(request: NextRequest) {
             await prisma.$transaction(outputOps);
           }
         } catch (outputErr) {
+          Sentry.captureException(outputErr);
           console.warn("Eurostat Output-Preise nicht verfügbar:", outputErr);
         }
       } catch (refreshErr) {
+        Sentry.captureException(refreshErr);
         console.warn("Eurostat-Aktualisierung fehlgeschlagen, nutze Cache:", refreshErr);
         // Fall through to return cached data
       }
@@ -171,6 +175,7 @@ export async function GET(request: NextRequest) {
       quelle: "Eurostat apri_pi15_inq + apri_pi15_outq",
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.error("Marktpreise API Fehler:", error);
     return NextResponse.json(
       {

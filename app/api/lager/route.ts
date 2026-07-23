@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lagerStatus, istLagerrelevant } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -15,7 +16,8 @@ export async function GET(req: NextRequest) {
     });
     let extraKategorien: string[] = [];
     if (einstellungNoTracking?.value) {
-      try { extraKategorien = JSON.parse(einstellungNoTracking.value); } catch { /* ignore */ }
+      try { extraKategorien = JSON.parse(einstellungNoTracking.value); } catch (err) {
+        Sentry.captureException(err); /* ignore */ }
     }
 
     const artikel = await prisma.artikel.findMany({
@@ -35,6 +37,7 @@ export async function GET(req: NextRequest) {
     const gefiltert = status ? lager.filter((l) => l.lagerStatus === status) : lager;
     return NextResponse.json(gefiltert);
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Lager GET error:", e);
     return NextResponse.json({ error: "Datenbankfehler beim Laden des Lagers" }, { status: 500 });
   }

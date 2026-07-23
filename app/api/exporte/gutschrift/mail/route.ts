@@ -4,6 +4,7 @@ import { generiereGutschriftPdf } from "@/lib/pdfGenerator";
 import { sendEmail } from "@/lib/email";
 import { gutschriftEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // POST /api/exporte/gutschrift/mail
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
     const kundenname = gutschrift.kunde.firma ?? gutschrift.kunde.name;
     return NextResponse.json({ ok: true, empfaenger, kundenname });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: `E-Mail-Versand fehlgeschlagen: ${msg}` }, { status: 500 });

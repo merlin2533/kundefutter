@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -18,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
     return NextResponse.json(historie);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Preishistorie GET error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";

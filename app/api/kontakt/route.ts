@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { verifyToken, generateToken } from "@/lib/csrf";
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
+import { Sentry } from "@/lib/sentry";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,8 @@ export async function POST(req: NextRequest) {
   let form: FormData;
   try {
     form = await req.formData();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return json({ ok: false, error: "Ungültige Anfrage." }, 400);
   }
 

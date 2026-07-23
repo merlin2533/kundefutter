@@ -3,6 +3,7 @@ import { PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import { analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ki-document";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
       tokens: tokensIn + tokensOut,
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "KI-Analyse fehlgeschlagen";
     console.error("KI Sortenversuch-Analyse Fehler:", err);
     return NextResponse.json({ error: msg }, { status: 500 });

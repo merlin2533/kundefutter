@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -8,7 +9,8 @@ export async function POST(req: NextRequest) {
   let formData: FormData;
   try {
     formData = await req.formData();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültige Formulardaten" }, { status: 400 });
   }
 
@@ -21,7 +23,8 @@ export async function POST(req: NextRequest) {
   let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(buffer, { type: "buffer" });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datei konnte nicht gelesen werden (kein gültiges XLS/CSV)" }, { status: 400 });
   }
 
@@ -76,6 +79,7 @@ export async function POST(req: NextRequest) {
       });
       created++;
     } catch (err) {
+      Sentry.captureException(err);
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`Zeile ${rowNum} (${name}): ${msg}`);
       skipped++;

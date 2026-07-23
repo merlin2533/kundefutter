@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MONATE_KURZ } from "@/lib/utils";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -156,6 +157,7 @@ export async function GET(request: Request) {
       staerksterMonat,
     });
   } catch (e) {
+    Sentry.captureException(e);
     console.error("Saisonal-Analyse Fehler:", e);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }

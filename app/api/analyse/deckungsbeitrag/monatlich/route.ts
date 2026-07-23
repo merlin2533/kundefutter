@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -146,6 +147,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ gesamt, topArtikel, auftraege, von, bis });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Datenbankfehler";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

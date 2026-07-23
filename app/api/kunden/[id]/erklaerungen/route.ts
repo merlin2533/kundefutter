@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getUploadBase } from "@/lib/upload";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -18,7 +19,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       orderBy: { jahr: "desc" },
     });
     return NextResponse.json(erklaerungen);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(erklaerung, { status: 201 });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Erklaerung POST error:", err);
     const msg = isDev && err instanceof Error ? err.message : "Erklärung konnte nicht gespeichert werden";
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { Readable } from "stream";
 import { getBackupDir } from "@/lib/backup";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,8 @@ export async function GET(req: NextRequest) {
   let stat: fs.Stats;
   try {
     stat = fs.statSync(filePath);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datei nicht gefunden" }, { status: 404 });
   }
 

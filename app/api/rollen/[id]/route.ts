@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -16,7 +17,8 @@ function parseJson(raw: string): string[] {
   try {
     const p = JSON.parse(raw);
     return Array.isArray(p) ? p : [];
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }
@@ -50,7 +52,8 @@ export async function GET(_req: NextRequest, ctx: Params) {
       benutzerAnzahl: rolle._count.benutzer,
       _count: undefined,
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -69,7 +72,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
   let body: { bezeichnung?: string; beschreibung?: string; berechtigungen?: string[] };
   try {
     body = await req.json();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -99,6 +103,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
       _count: undefined,
     });
   } catch (e) {
+    Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
@@ -135,6 +140,7 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     await prisma.rolle.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }

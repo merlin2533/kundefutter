@@ -8,6 +8,7 @@ import {
   statistischePrognose,
   type MatifProdukt,
 } from "@/lib/matif";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -172,6 +173,7 @@ export async function GET(request: NextRequest) {
 
     return buildResponse(preise, letzteAktualisierung, false);
   } catch (error) {
+    Sentry.captureException(error);
     console.error("Marktpreise/Spot Fehler:", error);
     return NextResponse.json(
       { error: "Fehler beim Abrufen der MATIF-Daten", preise: [] },

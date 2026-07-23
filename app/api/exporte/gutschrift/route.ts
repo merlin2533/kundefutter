@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generiereGutschriftPdf } from "@/lib/pdfGenerator";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/exporte/gutschrift?gutschriftId=X — Gutschrift als PDF herunterladen
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ error: `PDF-Generierung fehlgeschlagen: ${msg}` }, { status: 500 });

@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -289,7 +290,8 @@ export async function GET(req: NextRequest) {
       "X-Export-Count": String(filtered.length),
     },
   });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Massenexport fehlgeschlagen" }, { status: 500 });
   }
 }

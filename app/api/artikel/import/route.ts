@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -11,7 +12,8 @@ export async function POST(req: NextRequest) {
   let formData: FormData;
   try {
     formData = await req.formData();
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültige Formulardaten" }, { status: 400 });
   }
 
@@ -24,7 +26,8 @@ export async function POST(req: NextRequest) {
   let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(buffer, { type: "buffer" });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datei konnte nicht gelesen werden (kein gültiges XLS/CSV)" }, { status: 400 });
   }
 
@@ -83,7 +86,8 @@ export async function POST(req: NextRequest) {
         if (!finalNummer) {
           const nummernkreisRaw = await tx.einstellung.findUnique({ where: { key: "artikel.nummernkreis" } });
           const nk = nummernkreisRaw?.value
-            ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch { return null; } })()
+            ? (() => { try { return JSON.parse(nummernkreisRaw.value); } catch (err) {
+              Sentry.captureException(err); return null; } })()
             : null;
           const prefix = nk?.prefix ?? "ART-";
           const laenge = Number(nk?.laenge) || 5;
@@ -168,6 +172,7 @@ export async function POST(req: NextRequest) {
         }
       });
     } catch (err) {
+      Sentry.captureException(err);
       const isDev = process.env.NODE_ENV === "development";
       const msg = isDev && err instanceof Error ? err.message : "Verarbeitungsfehler";
       errors.push(`Zeile ${rowNum} (${name}): ${msg}`);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { testConnection, type AiConfig } from "@/lib/ai";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     const result = await testConnection(cfg);
     return NextResponse.json(result);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseMahnwesenConfig } from "@/lib/mahnwesen-config";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -61,6 +62,7 @@ export async function GET() {
 
     return NextResponse.json(result);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Mahnwesen GET:", err);
     return NextResponse.json({ error: "Interner Fehler" }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -12,7 +13,8 @@ export async function PATCH(req: NextRequest, ctx: Params) {
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   let body;
-  try { body = await req.json(); } catch {
+  try { body = await req.json(); } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
@@ -43,7 +45,8 @@ export async function PATCH(req: NextRequest, ctx: Params) {
       },
     });
     return NextResponse.json(pos);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
   }
 }
@@ -57,7 +60,8 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
   try {
     await prisma.bestellposition.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   }
 }

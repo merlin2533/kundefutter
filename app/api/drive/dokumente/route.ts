@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadPdfToKundeOrdner, isDriveKonfiguriert, DokumentTyp } from "@/lib/googleDrive";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       driveLink: datei.webViewLink ?? `https://drive.google.com/file/d/${datei.id}/view`,
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[drive/dokumente POST]", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -149,6 +151,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("[drive/dokumente GET]", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";

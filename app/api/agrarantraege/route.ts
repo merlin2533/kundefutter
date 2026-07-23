@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json(items);
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Agrarantraege GET error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";
@@ -67,6 +69,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.antragEmpfaenger.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     console.error("Agrarantraege DELETE error:", err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Interner Fehler";

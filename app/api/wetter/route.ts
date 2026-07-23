@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getWetter5Tage } from "@/lib/weather";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    Sentry.captureException(err);
     const msg = isDev && err instanceof Error ? err.message : "Wetterdaten nicht verfügbar";
     return NextResponse.json({ error: msg }, { status: 502 });
   }

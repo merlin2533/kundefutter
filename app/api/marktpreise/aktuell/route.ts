@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PRODUKT_MAPPING } from "@/lib/eurostat";
+import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
@@ -82,6 +83,7 @@ export async function GET(_request: NextRequest) {
       },
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.error("Marktpreise Aktuell API Fehler:", error);
     return NextResponse.json(
       {

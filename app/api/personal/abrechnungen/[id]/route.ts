@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (!abrechnung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json(abrechnung);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     return NextResponse.json({ error: isDev && err instanceof Error ? err.message : "Interner Fehler" }, { status: 500 });
   }
@@ -84,6 +86,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         });
         return NextResponse.json(result);
       } catch (txErr) {
+        Sentry.captureException(txErr);
         const e = txErr as { code?: string };
         if (e.code === "NOT_FOUND") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
         if (e.code === "ALREADY_PAID") return NextResponse.json({ error: "Abrechnung wurde bereits ausgezahlt" }, { status: 409 });
@@ -107,6 +110,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json(updated);
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const e = err as { code?: string; message?: string };
     if (e.code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -132,6 +136,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     await prisma.gehaltsabrechnung.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const e = err as { code?: string; message?: string };
     return NextResponse.json({ error: isDev ? (e.message ?? "Fehler") : "Interner Fehler" }, { status: 500 });
