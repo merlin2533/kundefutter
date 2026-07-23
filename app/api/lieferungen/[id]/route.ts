@@ -50,7 +50,22 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const bezahlt = lieferung.teilzahlungen.reduce((sum, tz) => sum + tz.betrag, 0);
     const offenerBetrag = rundeKaufmaennisch(gesamtBrutto - bezahlt, 2);
 
-    return NextResponse.json({ ...lieferung, gesamtBetrag: rundeKaufmaennisch(gesamtBrutto, 2), offenerBetrag });
+    // Solange die Lieferung noch Entwurf (geplant, keine Rechnung) ist, mitliefern ob
+    // sich Kunden-Sonderpreise seit Erfassung geändert haben – Grundlage für den
+    // "Aktualisierte Preise verfügbar"-Hinweis auf der Detailseite. Bereits fakturierte
+    // Lieferungen (rechnungNr gesetzt) sind eingefroren und werden hier nicht geprüft.
+    let sonderpreise: { artikelId: number; preis: number; rabatt: number; updatedAt: Date }[] = [];
+    if (lieferung.status === "geplant" && !lieferung.rechnungNr) {
+      const artikelIds = [...new Set(lieferung.positionen.map((p) => p.artikelId))];
+      if (artikelIds.length > 0) {
+        sonderpreise = await prisma.kundeArtikelPreis.findMany({
+          where: { kundeId: lieferung.kundeId, artikelId: { in: artikelIds } },
+          select: { artikelId: true, preis: true, rabatt: true, updatedAt: true },
+        });
+      }
+    }
+
+    return NextResponse.json({ ...lieferung, gesamtBetrag: rundeKaufmaennisch(gesamtBrutto, 2), offenerBetrag, sonderpreise });
   } catch (e) {
     Sentry.captureException(e);
     console.error("Lieferung GET error:", e);
