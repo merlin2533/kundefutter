@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 
 const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
 
@@ -33,6 +34,7 @@ export default function BestelllistePage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "alle">("offen");
   const [updating, setUpdating] = useState<number | null>(null);
+  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -177,6 +179,14 @@ export default function BestelllistePage() {
                             <Link href={`/artikel/${pos.artikel.id}`} className="font-medium text-gray-900 hover:text-green-700 text-sm">
                               {pos.artikel.name}
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() => setKundenModal({ id: pos.artikel.id, name: pos.artikel.name })}
+                              className="text-gray-400 hover:text-green-700"
+                              title="Wer hat/bekommt diesen Artikel?"
+                            >
+                              👥
+                            </button>
                             <span className="text-xs text-gray-400 font-mono">{pos.artikel.artikelnummer}</span>
                             {lagerRelevant && (
                               pos.artikel.aktuellerBestand <= 0
@@ -258,6 +268,12 @@ export default function BestelllistePage() {
           })}
         </div>
       )}
+      <ArtikelKundenModal
+        artikelId={kundenModal?.id ?? 0}
+        artikelName={kundenModal?.name ?? ""}
+        open={!!kundenModal}
+        onClose={() => setKundenModal(null)}
+      />
     </div>
   );
 }

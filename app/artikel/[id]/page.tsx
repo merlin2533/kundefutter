@@ -7,6 +7,7 @@ import { P } from "@/lib/permissions";
 import { formatEuro, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
+import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -169,7 +170,7 @@ export default function ArtikelDetailPage() {
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe">("details");
+  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe" | "kunden">("details");
 
   // Details edit state
   const [editing, setEditing] = useState(false);
@@ -593,6 +594,7 @@ export default function ArtikelDetailPage() {
     { key: "preishistorie", label: "Preishistorie" },
     { key: "dokumente", label: "Dokumente" },
     { key: "bedarfe", label: "Bedarfe" },
+    { key: "kunden", label: "Kunden" },
   ] as const;
 
   return (
@@ -1728,6 +1730,13 @@ export default function ArtikelDetailPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* ── Tab: Kunden ──────────────────────────────────────────────────────── */}
+      {tab === "kunden" && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <ArtikelKundenUebersicht artikelId={artikel.id} />
         </div>
       )}
 

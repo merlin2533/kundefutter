@@ -48,6 +48,7 @@ export interface Lieferposition {
   id: number;
   menge: number;
   verkaufspreis: number;
+  chargeNr?: string | null;
   artikel: Artikel;
 }
 

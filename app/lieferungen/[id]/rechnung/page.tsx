@@ -9,6 +9,7 @@ import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 
 interface ArtikelInfo {
+  id: number;
   name: string;
   einheit: string;
   mwstSatz: number;
@@ -891,7 +892,11 @@ export default function RechnungPrintPage() {
                       {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
                     </div>
                   )}
-                  <div>{p.artikel.name}</div>
+                  <div>
+                    <Link href={`/artikel/${p.artikel.id}`} style={{ color: "inherit", textDecoration: "underline" }}>
+                      {p.artikel.name}
+                    </Link>
+                  </div>
                   {p.notiz && p.notiz.trim().length > 0 && (
                     <div style={{ fontSize: "9pt", color: "#555" }}>{p.notiz}</div>
                   )}
