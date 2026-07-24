@@ -10,6 +10,12 @@ export interface AusgewaehlteDatei {
 
 const MAX_SIZE_MB = 20;
 
+// Kleinere Auflösung/Qualität als beim Einzel-Upload (1600px/0.85): bei einer
+// Serie von 10–20 Fotos zählt die Gesamtmenge — die Mistral-OCR liest den
+// Text auch bei 1400px/0.75 zuverlässig, die Datei bleibt aber deutlich kleiner.
+const BATCH_MAX_RESOLUTION = 1400;
+const BATCH_QUALITY = 0.75;
+
 async function verarbeiteDatei(file: File): Promise<AusgewaehlteDatei | null> {
   if (file.size > MAX_SIZE_MB * 1024 * 1024) return null;
 
@@ -29,9 +35,14 @@ async function verarbeiteDatei(file: File): Promise<AusgewaehlteDatei | null> {
     reader.onload = (e) => resolve(e.target?.result as string);
     reader.readAsDataURL(file);
   });
-  const { dataUrl, blob } = await resizeImage(rawDataUrl, 1600);
+  const { dataUrl, blob } = await resizeImage(rawDataUrl, BATCH_MAX_RESOLUTION, BATCH_QUALITY);
   const resizedFile = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
   return { file: resizedFile, preview: dataUrl };
+}
+
+function formatDateigroesse(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function MultiCameraUpload({
@@ -53,8 +64,16 @@ export default function MultiCameraUpload({
     onChange(dateien.filter((_, i) => i !== idx));
   }
 
+  const gesamtgroesse = dateien.reduce((sum, d) => sum + d.file.size, 0);
+
   return (
     <div className="space-y-4">
+      {dateien.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>{dateien.length} Datei{dateien.length === 1 ? "" : "en"}</span>
+          <span>Gesamtgröße: {formatDateigroesse(gesamtgroesse)}</span>
+        </div>
+      )}
       {dateien.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {dateien.map((d, idx) => {
@@ -98,6 +117,8 @@ export default function MultiCameraUpload({
         onImageSelected={(file, preview) => onChange([...dateien, { file, preview }])}
         imageName="Lieferschein hinzufügen"
         multiple
+        maxResolution={BATCH_MAX_RESOLUTION}
+        quality={BATCH_QUALITY}
       />
 
       <div className="flex items-center gap-2">
