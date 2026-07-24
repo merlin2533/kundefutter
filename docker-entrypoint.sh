@@ -7,10 +7,11 @@ ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 warn() { echo "[$(date '+%H:%M:%S')] ⚠ $*"; }
 fail() { echo "[$(date '+%H:%M:%S')] ✗ $*" >&2; }
 
-# GlitchTip-DSN ist ein Write-only-Ingest-Key (kein Secret) — fest als
-# Standard hinterlegt, damit Startup-Fehler immer gemeldet werden, auch ohne
-# separate Umgebungsvariable pro Deployment. Per SENTRY_DSN überschreibbar.
-: "${SENTRY_DSN:=https://3a30aed56b4e4dd58ee5710244be23dc@glitchtip.resqio.io/2}"
+# Meldet Startup-Fehler an Sentry/GlitchTip, wenn SENTRY_DSN gesetzt ist.
+# Kein fest hinterlegter Standard-DSN — sonst würden Fehlerdaten aller
+# Deployments, die keine eigene SENTRY_DSN konfiguriert haben, standardmäßig
+# an ein fremdes/gemeinsames GlitchTip-Projekt gehen.
+: "${SENTRY_DSN:=}"
 
 # Meldet einen Startup-Fehler an Sentry/GlitchTip — läuft VOR dem Next.js-
 # Prozess (also bevor die normale Sentry-Instrumentierung aktiv ist), daher

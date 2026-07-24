@@ -289,6 +289,10 @@ export async function POST(req: NextRequest) {
         // Benachrichtigung.kundeId hat keinen FK-Constraint (kein @relation), muss aber
         // trotzdem mit umgehängt werden, damit alte Alerts nicht auf den gelöschten Kunden zeigen.
         tx.benachrichtigung.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
+        // KiLieferungBatchItem.kundeId hat ebenfalls keinen FK-Constraint. Ohne Umhängen bliebe
+        // ein noch offenes Batch-Item auf den gelöschten Kunden zeigen und würde beim späteren
+        // Übernehmen (Lieferung.kundeId hat einen FK) mit einem Fremdschlüssel-Fehler abbrechen.
+        tx.kiLieferungBatchItem.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
       ]);
 
       await tx.kunde.delete({ where: { id: quelleId } });

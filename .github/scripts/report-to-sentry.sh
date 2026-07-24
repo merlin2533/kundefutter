@@ -11,10 +11,10 @@ set -u
 
 JOB_LABEL="${1:-unbekannt}"
 
-# GlitchTip-DSN ist ein Write-only-Ingest-Key (kein Secret) — fest als
-# Standard hinterlegt, damit CI-Fehler immer gemeldet werden, auch ohne
-# konfiguriertes Repo-Secret. Per SENTRY_DSN-Secret überschreibbar.
-: "${SENTRY_DSN:=https://3a30aed56b4e4dd58ee5710244be23dc@glitchtip.resqio.io/2}"
+# Kein fest hinterlegter Standard-DSN — sonst würden CI-Fehlerdaten aller
+# Repos/Deployments ohne eigenes SENTRY_DSN-Secret standardmäßig an ein
+# fremdes/gemeinsames GlitchTip-Projekt gehen. No-op, wenn nicht gesetzt.
+: "${SENTRY_DSN:=}"
 
 RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}"
 
