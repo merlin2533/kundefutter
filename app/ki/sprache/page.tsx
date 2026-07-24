@@ -4,11 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import AudioRecorder from "@/components/AudioRecorder";
+import { fetchAlleSeiten } from "@/lib/kiMatching";
 
 interface Kunde {
   id: number;
   name: string;
   firma: string | null;
+}
+
+// Lädt alle aktiven Kunden vollständig durch — ein festes Limit würde bei
+// wachsendem Kundenstamm irgendwann wieder Einträge in der Auswahl fehlen
+// lassen (siehe fetchAlleSeiten in lib/kiMatching.ts).
+async function ladeAlleKunden(): Promise<Kunde[]> {
+  return fetchAlleSeiten<Kunde>(async (page) => {
+    const res = await fetch(`/api/kunden?aktiv=true&page=${page}&limit=1000`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
+  });
 }
 
 export default function SprachmemoPage() {
@@ -20,10 +33,7 @@ export default function SprachmemoPage() {
   const [fehler, setFehler] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=200&aktiv=true")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+    ladeAlleKunden().then(setKunden).catch(() => {});
   }, []);
 
   const kundenOptionen = kunden.map((k) => ({

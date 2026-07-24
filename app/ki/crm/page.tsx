@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import AudioRecorder from "@/components/AudioRecorder";
+import { fetchAlleSeiten } from "@/lib/kiMatching";
 
 interface Kunde {
   id: number;
@@ -12,6 +13,18 @@ interface Kunde {
   firma?: string | null;
   ort?: string | null;
   kontakte?: { name: string }[];
+}
+
+// Lädt alle aktiven Kunden vollständig durch — ein festes Limit würde bei
+// wachsendem Kundenstamm irgendwann wieder Einträge in der Zuordnung fehlen
+// lassen (siehe fetchAlleSeiten in lib/kiMatching.ts).
+async function ladeAlleKunden(): Promise<Kunde[]> {
+  return fetchAlleSeiten<Kunde>(async (page) => {
+    const res = await fetch(`/api/kunden?aktiv=true&page=${page}&limit=1000`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
+  });
 }
 
 interface KiErgebnis {
@@ -117,12 +130,7 @@ function KiCrmWizard() {
 
   // Load Kunden on mount
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=1000")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => {
-        setKunden(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {});
+    ladeAlleKunden().then(setKunden).catch(() => {});
   }, []);
 
   const kundenOptions = kunden.map((k) => {
