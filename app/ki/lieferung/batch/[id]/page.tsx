@@ -387,7 +387,7 @@ export default function KiLieferungBatchDetailPage() {
         body: JSON.stringify({ aktion: "verwerfen" }),
       });
       if (!res.ok) throw new Error("Verwerfen fehlgeschlagen");
-      router.push("/ki/lieferung/batch");
+      router.push("/ki/lieferung?modus=batch");
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setDiscarding(false);
@@ -431,7 +431,7 @@ export default function KiLieferungBatchDetailPage() {
     <div className="max-w-4xl mx-auto pb-28">
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">Batch #{batch.id}: Lieferscheine prüfen</h1>
-        <Link href="/ki/lieferung/batch" className="text-sm font-medium text-green-700 hover:text-green-800">
+        <Link href="/ki/lieferung?modus=batch" className="text-sm font-medium text-green-700 hover:text-green-800">
           ← Zur Batch-Übersicht
         </Link>
       </div>

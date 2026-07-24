@@ -97,6 +97,7 @@ export default function MultiCameraUpload({
       <CameraUpload
         onImageSelected={(file, preview) => onChange([...dateien, { file, preview }])}
         imageName="Lieferschein hinzufügen"
+        multiple
       />
 
       <div className="flex items-center gap-2">

@@ -127,8 +127,11 @@ export async function analyzeDocument(
       throw new Error("Mistral OCR konnte keinen Text aus dem Dokument extrahieren.");
     }
 
-    // Schritt 2: JSON-Extraktion via Sprachmodell
-    const languageCfg = config || (await getAiConfig("language"));
+    // Schritt 2: JSON-Extraktion via Sprachmodell — eigene Kategorie, unabhängig
+    // vom übergebenen OCR-Konfig laden. Sonst würde bei Aufrufern, die ihr
+    // ocrCfg als `config` durchreichen, "mistral-ocr-latest" (kein Chat-Modell)
+    // an client.chat.complete() gehen und JEDE Dokumentenanalyse fehlschlagen.
+    const languageCfg = await getAiConfig("language");
     const chatResponse = await client.chat.complete({
       model: languageCfg.modell,
       maxTokens: opts.maxTokens ?? 4096,
