@@ -10,6 +10,10 @@ interface CameraUploadProps {
   maxSizeMB?: number;
   /** Max pixel dimension (width or height). Images get resized before callback. Default 1600. */
   maxResolution?: number;
+  /** Bei true bleibt die Live-Kamera nach jeder Aufnahme offen, damit mehrere Fotos
+   *  hintereinander aufgenommen werden können (z.B. Batch-Upload), statt nach jedem
+   *  Foto zu schließen. */
+  multiple?: boolean;
 }
 
 /** Resize image client-side to save bandwidth and speed up AI analysis */
@@ -66,11 +70,13 @@ export default function CameraUpload({
   onRemove,
   maxSizeMB = 20,
   maxResolution = 1600,
+  multiple = false,
 }: CameraUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [multiShotCount, setMultiShotCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -123,6 +129,7 @@ export default function CameraUpload({
   // Start live camera stream (for devices that support getUserMedia)
   async function startCamera() {
     setCameraError("");
+    setMultiShotCount(0);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -165,9 +172,13 @@ export default function CameraUpload({
 
     const rawDataUrl = canvas.toDataURL("image/jpeg", 0.9);
     const { dataUrl, blob } = await resizeImage(rawDataUrl, maxResolution);
-    const file = new File([blob], `kamera-${Date.now()}.jpg`, { type: "image/jpeg" });
+    const file = new File([blob], `kamera-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`, { type: "image/jpeg" });
     onImageSelected(file, dataUrl);
-    stopCamera();
+    if (multiple) {
+      setMultiShotCount((c) => c + 1);
+    } else {
+      stopCamera();
+    }
   }
 
   function switchCamera() {
@@ -216,6 +227,16 @@ export default function CameraUpload({
             muted
             className="w-full h-full object-cover"
           />
+          {/* Zähler-Badge im Mehrfach-Modus */}
+          {multiple && (
+            <div className="absolute top-3 inset-x-0 flex justify-center">
+              <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur text-white text-xs font-semibold">
+                {multiShotCount === 0
+                  ? "Foto aufnehmen…"
+                  : `${multiShotCount} Foto${multiShotCount === 1 ? "" : "s"} aufgenommen`}
+              </span>
+            </div>
+          )}
           {/* Overlay controls */}
           <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/60 to-transparent flex items-center justify-center gap-4">
             <button
@@ -246,6 +267,19 @@ export default function CameraUpload({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
             </button>
+            {multiple && (
+              <button
+                type="button"
+                onClick={stopCamera}
+                disabled={multiShotCount === 0}
+                className="w-10 h-10 rounded-full bg-green-600 disabled:bg-white/20 disabled:cursor-not-allowed text-white flex items-center justify-center hover:bg-green-700 transition-colors"
+                title="Fertig"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
         <canvas ref={canvasRef} className="hidden" />
@@ -363,7 +397,7 @@ export default function CameraUpload({
       {/* Camera button */}
       <button
         type="button"
-        onClick={isMobile ? () => cameraInputRef.current?.click() : startCamera}
+        onClick={isMobile && !multiple ? () => cameraInputRef.current?.click() : startCamera}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-medium text-sm hover:bg-green-100 hover:border-green-300 transition-colors active:scale-[0.98]"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -374,7 +408,7 @@ export default function CameraUpload({
           />
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        Kamera verwenden
+        {multiple ? "Kamera verwenden (mehrere Fotos)" : "Kamera verwenden"}
       </button>
 
       {cameraError && (

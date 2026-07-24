@@ -59,6 +59,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       });
       return NextResponse.json(updated);
     } catch (err) {
+      Sentry.captureException(err);
       const message = err instanceof Error ? err.message : "Unbekannter Fehler";
       try {
         await logError("lieferung", message);
