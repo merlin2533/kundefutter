@@ -4,7 +4,12 @@ import { fetchCurrentMeasurement } from "@/lib/pegelonline";
 import { sendEmail } from "@/lib/email";
 import { digestEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
+import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
 import { Sentry } from "@/lib/sentry";
+
+const NEXTCLOUD_SYNC_KEY = "system.nextcloud.letzterAutoSync";
+const NEXTCLOUD_SYNC_MINDESTABSTAND_MS = 20 * 60 * 60 * 1000; // mind. 20h zwischen zwei Auto-Syncs → effektiv 1×/Tag
 
 // GET /api/cron          — führt alle Jobs aus (Docker-Hintergrundprozess, 30 min)
 // GET /api/cron?status=1 — gibt nur den letzten gespeicherten Status zurück (kein Run)
@@ -175,6 +180,55 @@ async function jobPegelstaende(): Promise<JobResult> {
   }
 }
 
+/**
+ * Läuft höchstens 1×/Tag (Gate über `system.nextcloud.letzterAutoSync`): stößt den
+ * bestehenden, idempotenten Backfill-Job an (überträgt nur, was noch fehlt — siehe
+ * `dateiExistiert()` in lib/nextcloud.ts). Fängt so alles ab, was der direkte
+ * Upload-Hook nach dem Erstellen von Lieferschein/Rechnung/Gutschrift verpasst hat
+ * (z.B. wegen eines vorübergehenden Netzwerkfehlers), ohne bei jedem 30-min-Tick
+ * die komplette Dokumentenliste unnötig gegen Nextcloud zu prüfen.
+ */
+async function jobNextcloudSync(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const konfiguriert = await isNextcloudKonfiguriert();
+    if (!konfiguriert) {
+      return { job: "nextcloudSync", ok: true, detail: { uebersprungen: "nicht konfiguriert" }, durationMs: Date.now() - t0 };
+    }
+
+    const letzterLaufRow = await prisma.einstellung.findUnique({ where: { key: NEXTCLOUD_SYNC_KEY } });
+    const letzterLauf = letzterLaufRow ? new Date(letzterLaufRow.value) : null;
+    if (letzterLauf && Date.now() - letzterLauf.getTime() < NEXTCLOUD_SYNC_MINDESTABSTAND_MS) {
+      return {
+        job: "nextcloudSync",
+        ok: true,
+        detail: { uebersprungen: "kürzlich bereits synchronisiert", letzterLauf: letzterLauf.toISOString() },
+        durationMs: Date.now() - t0,
+      };
+    }
+
+    const gestartet = await starteBackfillFallsMoeglich();
+    if (gestartet) {
+      const jetzt = new Date().toISOString();
+      await prisma.einstellung.upsert({
+        where: { key: NEXTCLOUD_SYNC_KEY },
+        create: { key: NEXTCLOUD_SYNC_KEY, value: jetzt },
+        update: { value: jetzt },
+      });
+    }
+    return { job: "nextcloudSync", ok: true, detail: { gestartet }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "nextcloudSync",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
@@ -209,6 +263,7 @@ export async function GET(req: NextRequest) {
   const results: JobResult[] = [];
   results.push(await jobPegelstaende());
   results.push(await jobDigestEmail());
+  results.push(await jobNextcloudSync());
 
   const allOk = results.every((r) => r.ok);
   await saveStatus(allOk, startedAt, results);

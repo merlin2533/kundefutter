@@ -25,6 +25,9 @@ import {
   uploadPdfToKundeOrdner,
   kundenOrdnerPfad,
   artikelOrdnerPfad,
+  kundenOrdnerPfadLegacy,
+  artikelOrdnerPfadLegacy,
+  verschiebeOrdner,
   buchhaltungsPfad,
 } from "./nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf, generiereGutschriftPdf } from "./pdfGenerator";
@@ -130,6 +133,54 @@ async function uploadFallsFehlend(
 }
 
 async function runBackfill(status: BackfillStatus): Promise<void> {
+  // ── 0. Ordner-Migration: ":" → "-" vor der ID (Nextcloud-Dateisystem-Kompatibilität) ──
+  // Bestehende Ordner "Name (ID:123)" werden zu "Name (ID-123)" verschoben, bevor
+  // irgendetwas hochgeladen wird — sonst würden neue Uploads (die bereits das neue
+  // Format verwenden) parallele Ordner statt der bestehenden Kunden-/Artikel-Ordner treffen.
+  status.aktuellerSchritt = "Ordner-Migration (Kunden)";
+  await speichereStatus(status);
+  for (let skip = 0; ; skip += BATCH_SIZE) {
+    const batch = await prisma.kunde.findMany({
+      select: { id: true, name: true },
+      orderBy: { id: "asc" },
+      skip,
+      take: BATCH_SIZE,
+    });
+    if (batch.length === 0) break;
+    for (const k of batch) {
+      status.gesamt.verarbeitet++;
+      try {
+        await verschiebeOrdner(kundenOrdnerPfadLegacy(k.id, k.name), kundenOrdnerPfad(k.id, k.name));
+      } catch (e) {
+        melde(status, "Kunde(Ordner-Migration)", k.id, e);
+      }
+    }
+    await speichereStatus(status);
+    if (batch.length < BATCH_SIZE) break;
+  }
+
+  status.aktuellerSchritt = "Ordner-Migration (Artikel)";
+  await speichereStatus(status);
+  for (let skip = 0; ; skip += BATCH_SIZE) {
+    const batch = await prisma.artikel.findMany({
+      select: { id: true, name: true },
+      orderBy: { id: "asc" },
+      skip,
+      take: BATCH_SIZE,
+    });
+    if (batch.length === 0) break;
+    for (const a of batch) {
+      status.gesamt.verarbeitet++;
+      try {
+        await verschiebeOrdner(artikelOrdnerPfadLegacy(a.id, a.name), artikelOrdnerPfad(a.id, a.name));
+      } catch (e) {
+        melde(status, "Artikel(Ordner-Migration)", a.id, e);
+      }
+    }
+    await speichereStatus(status);
+    if (batch.length < BATCH_SIZE) break;
+  }
+
   // ── 1. Sachkundenachweise ────────────────────────────────────────────────
   status.aktuellerSchritt = "Sachkundenachweise";
   await speichereStatus(status);

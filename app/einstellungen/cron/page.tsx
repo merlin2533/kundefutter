@@ -5,7 +5,7 @@ import Link from "next/link";
 interface JobResult {
   job: string;
   ok: boolean;
-  detail?: { stationen?: number; updated?: number; fehler?: string[] };
+  detail?: { stationen?: number; updated?: number; fehler?: string[]; uebersprungen?: string; gestartet?: boolean; letzterLauf?: string };
   error?: string;
   durationMs: number;
 }
@@ -26,6 +26,11 @@ const JOB_META: Record<string, { label: string; beschreibung: string; icon: stri
     label: "Digest-E-Mail",
     icon: "📧",
     beschreibung: "Tagesübersicht (Besuchstermine, Aufgaben, Mahnwesen, Sachkunde) an konfigurierte Admin-Adresse (alle 6h)",
+  },
+  nextcloudSync: {
+    label: "Nextcloud-Sync",
+    icon: "☁️",
+    beschreibung: "Überträgt fehlende Dokumente (Rechnungen, Lieferscheine, Gutschriften, Nachweise) nach Nextcloud — läuft höchstens 1×/Tag",
   },
 };
 
@@ -118,7 +123,7 @@ export default function CronVerwaltungPage() {
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Registrierte Jobs</h2>
 
-        {(["pegelstaende", "digest"] as const).map((jobId) => {
+        {(["pegelstaende", "digest", "nextcloudSync"] as const).map((jobId) => {
           const meta = JOB_META[jobId];
           const result = status?.jobs.find((j) => j.job === jobId);
           return (
@@ -166,6 +171,20 @@ export default function CronVerwaltungPage() {
                       </div>
                     </div>
                   )}
+                  {result.detail?.uebersprungen != null && (
+                    <div className="col-span-full">
+                      <p className="text-xs text-gray-400">Status</p>
+                      <p className="font-medium text-gray-600">Übersprungen — {result.detail.uebersprungen}</p>
+                    </div>
+                  )}
+                  {result.detail?.gestartet != null && (
+                    <div className="col-span-full">
+                      <p className="text-xs text-gray-400">Status</p>
+                      <p className="font-medium text-green-700">
+                        {result.detail.gestartet ? "Backfill gestartet — Fortschritt siehe Nextcloud-Einstellungen" : "Backfill läuft bereits"}
+                      </p>
+                    </div>
+                  )}
                   {result.error && (
                     <div className="col-span-full">
                       <p className="text-xs text-gray-400 mb-1">Fehler</p>
@@ -185,6 +204,11 @@ export default function CronVerwaltungPage() {
                 {jobId === "digest" && (
                   <Link href="/einstellungen/email" className="text-green-700 hover:underline">
                     Digest konfigurieren →
+                  </Link>
+                )}
+                {jobId === "nextcloudSync" && (
+                  <Link href="/einstellungen/nextcloud" className="text-green-700 hover:underline">
+                    Nextcloud konfigurieren →
                   </Link>
                 )}
               </div>
