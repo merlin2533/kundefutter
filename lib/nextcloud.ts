@@ -310,10 +310,25 @@ export function sanitizeOrdnerName(name: string): string {
 }
 
 export function kundenOrdnerPfad(kundeId: number, kundeName: string): string {
-  return `Kunden/${sanitizeOrdnerName(kundeName)} (ID:${kundeId})`;
+  return `Kunden/${sanitizeOrdnerName(kundeName)} (ID-${kundeId})`;
 }
 
 export function artikelOrdnerPfad(artikelId: number, artikelName: string): string {
+  return `Artikel/${sanitizeOrdnerName(artikelName)} (ID-${artikelId})`;
+}
+
+/**
+ * Alte Ordner-Pfade mit ":" statt "-" vor dem ID-Trennzeichen (bis 2026-07-24).
+ * ":" wird von manchen Nextcloud-Speicher-Backends (z.B. externe Windows-/exFAT-
+ * Dateisysteme) nicht unterstützt und führte zu Warnungen im Nextcloud-Client.
+ * Nur für die einmalige Umbenennungs-Migration im Backfill-Job (`lib/nextcloud-backfill.ts`)
+ * benötigt — neue Uploads verwenden ausschließlich `kundenOrdnerPfad`/`artikelOrdnerPfad`.
+ */
+export function kundenOrdnerPfadLegacy(kundeId: number, kundeName: string): string {
+  return `Kunden/${sanitizeOrdnerName(kundeName)} (ID:${kundeId})`;
+}
+
+export function artikelOrdnerPfadLegacy(artikelId: number, artikelName: string): string {
   return `Artikel/${sanitizeOrdnerName(artikelName)} (ID:${artikelId})`;
 }
 

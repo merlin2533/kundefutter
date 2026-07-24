@@ -13,6 +13,16 @@ export function istChargeNrPflichtFuerLieferschein(kategorie: string, lieferDatu
   return kategorie === "Futter" && lieferDatum >= CHARGENPFLICHT_FUTTER_AB;
 }
 
+/**
+ * Lädt das unter Einstellungen › Firma hinterlegte Standard-Zahlungsziel (Tage).
+ * Fällt auf 30 Tage zurück, falls kein Wert konfiguriert oder ungültig ist.
+ */
+export async function ladeStandardZahlungsziel(client: Tx | typeof prisma = prisma): Promise<number> {
+  const einstellung = await client.einstellung.findUnique({ where: { key: "firma.zahlungszielStandard" } });
+  const wert = parseInt(einstellung?.value ?? "", 10);
+  return !isNaN(wert) && wert >= 0 ? wert : 30;
+}
+
 export interface LieferungPositionInput {
   artikelId: number;
   menge: number;
@@ -46,7 +56,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
     // Batch-load all needed data upfront to avoid N+1 queries
     const artikelIds = positionen.map((p) => p.artikelId);
 
-    const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte] = await Promise.all([
+    const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte, zahlungsziel] = await Promise.all([
       tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true } }),
       tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
       tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
@@ -56,6 +66,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
           OR: [{ kundeId }, { kundeId: null }],
         },
       }),
+      ladeStandardZahlungsziel(tx),
     ]);
 
     const artikelMap = new Map(alleArtikel.map((a) => [a.id, a]));
@@ -110,6 +121,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         istStreckengeschaeft: input.istStreckengeschaeft ?? false,
         streckenLieferantId: input.streckenLieferantId ?? undefined,
         quelle: input.quelle,
+        zahlungsziel,
         positionen: { create: angereichert },
       },
       include: {

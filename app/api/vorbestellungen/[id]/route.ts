@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ladeStandardZahlungsziel } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -107,12 +108,14 @@ async function umwandelnInLieferung(vid: number) {
   const rabatt = vb.rabattProzent ?? 0;
 
   const lieferung = await prisma.$transaction(async (tx) => {
+    const zahlungsziel = await ladeStandardZahlungsziel(tx);
     const created = await tx.lieferung.create({
       data: {
         kundeId: vb.kundeId,
         datum: vb.lieferdatum ?? new Date(),
         status: "geplant",
         notiz: `Aus Vorbestellung ${vb.nummer} (${vb.saison})`,
+        zahlungsziel,
         positionen: {
           create: vb.positionen.map((p) => ({
             artikelId: p.artikelId,
