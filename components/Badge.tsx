@@ -43,6 +43,34 @@ export function GutschriftStatusBadge({ status }: { status: string }) {
   );
 }
 
+export function AngebotStatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    OFFEN: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+    ANGENOMMEN: "bg-green-100 text-green-800 border border-green-200",
+    ABGELEHNT: "bg-red-100 text-red-800 border border-red-200",
+    ABGELAUFEN: "bg-red-200 text-red-900 border border-red-300 font-semibold",
+  };
+  const labels: Record<string, string> = {
+    OFFEN: "Offen",
+    ANGENOMMEN: "Angenommen",
+    ABGELEHNT: "Abgelehnt",
+    ABGELAUFEN: "Abgelaufen",
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${map[status] ?? "bg-gray-100 text-gray-800"}`}>
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+export function VersendetBadge() {
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-100 text-teal-800 border border-teal-200">
+      ✓ Versendet
+    </span>
+  );
+}
+
 export function AuditAktionBadge({ aktion }: { aktion: string }) {
   const colors: Record<string, string> = {
     erstellt: "bg-green-100 text-green-800",

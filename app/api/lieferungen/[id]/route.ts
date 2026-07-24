@@ -1,33 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { naechsteRechnungsnummer, istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
+import { istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
 import { auditLog } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
+import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
 type Params = { params: Promise<{ id: string }> };
-
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-
-// Prüft, ob eine Rechnungsnummer bereits an eine andere Lieferung oder Sammelrechnung vergeben ist.
-async function rechnungsnummerVergeben(
-  tx: Tx,
-  nr: string,
-  exceptLieferungId: number | null,
-): Promise<boolean> {
-  const l = await tx.lieferung.findFirst({
-    where: { rechnungNr: nr, ...(exceptLieferungId ? { id: { not: exceptLieferungId } } : {}) },
-    select: { id: true },
-  });
-  if (l) return true;
-  const s = await tx.sammelrechnung.findFirst({ where: { rechnungNr: nr }, select: { id: true } });
-  return !!s;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
@@ -493,32 +477,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (aktion === "rechnung_erstellen") {
     try {
       const lieferung = await prisma.$transaction(async (tx) => {
-        // Pruefen ob bereits eine Rechnungsnummer existiert
-        const existing = await tx.lieferung.findUnique({ where: { id: Number(id) }, select: { rechnungNr: true } });
-        if (existing?.rechnungNr) {
-          throw new Error("Lieferung hat bereits eine Rechnungsnummer");
-        }
-
-        const [einstellung, prefixSetting] = await Promise.all([
-          tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } }),
-          tx.einstellung.findUnique({ where: { key: "system.nummernkreis.rechnung_prefix" } }),
-        ]);
-        const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null, prefixSetting?.value || "RE");
-
-        // Doppelte Rechnungsnummern verhindern (z.B. wenn der Zähler in den Einstellungen zurückgesetzt wurde)
-        if (await rechnungsnummerVergeben(tx, rechnungNr, Number(id))) {
-          throw new Error(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
-        }
-
-        await tx.einstellung.upsert({
-          where: { key: "letzte_rechnungsnummer" },
-          update: { value: rechnungNr },
-          create: { key: "letzte_rechnungsnummer", value: rechnungNr },
-        });
-
-        return tx.lieferung.update({
+        await vergebeRechnungsnummerFuerLieferung(tx, Number(id));
+        return tx.lieferung.findUniqueOrThrow({
           where: { id: Number(id) },
-          data: { rechnungNr, rechnungDatum: new Date() },
           include: {
             kunde: { include: { kontakte: true } },
             positionen: { include: { artikel: { select: artikelSafeSelect } } },

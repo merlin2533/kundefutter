@@ -46,6 +46,7 @@ interface KiPosition {
   menge: number;
   einheit?: string;
   einzelpreis?: number;
+  chargeNr?: string;
 }
 
 interface KiErgebnis {
@@ -62,6 +63,7 @@ interface BatchPosition {
   verkaufspreis: number;
   konfidenz: Konfidenz;
   showNeuForm?: boolean;
+  chargeNr: string;
 }
 
 interface BatchItem {
@@ -120,8 +122,9 @@ export default function KiLieferungBatchDetailPage() {
   const analyzeLoopStarted = useRef(false);
 
   const [finalizing, setFinalizing] = useState(false);
-  const [finalizeResult, setFinalizeResult] = useState<{ erstellt: number; uebersprungen: number; fehlgeschlagen: number } | null>(null);
+  const [finalizeResult, setFinalizeResult] = useState<{ erstellt: number; uebersprungen: number; fehlgeschlagen: number; rechnungenErstellt?: number } | null>(null);
   const [discarding, setDiscarding] = useState(false);
+  const [autoRechnung, setAutoRechnung] = useState(false);
 
   // ── Initial load ──────────────────────────────────────────────────────────
 
@@ -225,6 +228,7 @@ export default function KiLieferungBatchDetailPage() {
         menge: pos.menge,
         verkaufspreis: pos.einzelpreis ?? (matchedArtikel ? matchedArtikel.standardpreis : 0),
         konfidenz: matchedArtikel ? konfidenz : "keine",
+        chargeNr: pos.chargeNr ?? "",
       };
     });
 
@@ -316,7 +320,7 @@ export default function KiLieferungBatchDetailPage() {
     updateItem(item.id, (it) => ({ ...it, kundeId: neueId, kundeKonfidenz: neueId ? "hoch" : "keine" }));
   }
 
-  function setPositionFeld(item: BatchItem, idx: number, feld: "artikelId" | "menge" | "verkaufspreis", wert: string | number) {
+  function setPositionFeld(item: BatchItem, idx: number, feld: "artikelId" | "menge" | "verkaufspreis" | "chargeNr", wert: string | number) {
     updateItem(item.id, (it) => ({
       ...it,
       positionen: it.positionen.map((p, i) => {
@@ -365,7 +369,7 @@ export default function KiLieferungBatchDetailPage() {
       const res = await fetch(`/api/ki/lieferung/batch/${batchId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aktion: "abschliessen" }),
+        body: JSON.stringify({ aktion: "abschliessen", autoRechnung }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Abschließen fehlgeschlagen");
@@ -462,6 +466,7 @@ export default function KiLieferungBatchDetailPage() {
       {finalizeResult && (
         <div className="mb-6 p-4 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
           ✓ {finalizeResult.erstellt} Lieferung(en) angelegt
+          {!!finalizeResult.rechnungenErstellt && `, ${finalizeResult.rechnungenErstellt} Rechnung(en) automatisch erzeugt`}
           {finalizeResult.uebersprungen > 0 && `, ${finalizeResult.uebersprungen} übersprungen`}
           {finalizeResult.fehlgeschlagen > 0 && `, ${finalizeResult.fehlgeschlagen} fehlgeschlagen`}.
         </div>
@@ -607,6 +612,13 @@ export default function KiLieferungBatchDetailPage() {
                                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
                               />
                             </div>
+                            <input
+                              type="text"
+                              value={pos.chargeNr}
+                              onChange={(e) => setPositionFeld(item, idx, "chargeNr", e.target.value)}
+                              placeholder="Chargennummer (optional)"
+                              className="mt-2 border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-green-600"
+                            />
                             {pos.showNeuForm && (
                               <NeuArtikelInline
                                 kiName={pos.kiPosition.name}
@@ -639,6 +651,16 @@ export default function KiLieferungBatchDetailPage() {
             {uebersprungenCount > 0 && <span className="ml-3 text-gray-500">{uebersprungenCount} übersprungen</span>}
             {offenCount > 0 && <span className="ml-3 text-amber-600">{offenCount} noch offen</span>}
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={autoRechnung}
+              onChange={(e) => setAutoRechnung(e.target.checked)}
+              disabled={finalizing || discarding}
+              className="rounded border-gray-300 text-green-600 focus:ring-green-600"
+            />
+            Rechnung automatisch erzeugen
+          </label>
           <div className="flex gap-2">
             <button
               onClick={verwerfen}

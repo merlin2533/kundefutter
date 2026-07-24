@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
       datum: true,
       status: true,
       rechnungNr: true,
+      rechnungVersendetAm: true,
+      lieferscheinVersendetAm: true,
       kunde: { select: { name: true, firma: true } },
     },
     orderBy: { datum: "desc" },

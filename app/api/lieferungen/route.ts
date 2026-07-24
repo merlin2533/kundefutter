@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
@@ -15,6 +16,10 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const hatRechnung = searchParams.get("hatRechnung");
   const ohneRechnung = searchParams.get("ohneRechnung");
+  const sort = searchParams.get("sort");
+  const orderBy: Prisma.LieferungOrderByWithRelationInput[] = sort === "datum"
+    ? [{ datum: "desc" }, { id: "desc" }]
+    : [{ createdAt: "desc" }, { id: "desc" }];
 
   const GUELTIGE_STATUS = ["geplant", "geliefert", "storniert"];
   if (status && !GUELTIGE_STATUS.includes(status)) {
@@ -83,7 +88,7 @@ export async function GET(req: NextRequest) {
         prisma.lieferung.findMany({
           where,
           select,
-          orderBy: [{ datum: "desc" }, { id: "desc" }],
+          orderBy,
           skip: (page - 1) * limit,
           take: limit,
         }),
@@ -95,7 +100,7 @@ export async function GET(req: NextRequest) {
     const lieferungen = await prisma.lieferung.findMany({
       where,
       select,
-      orderBy: [{ datum: "desc" }, { id: "desc" }],
+      orderBy,
       take: limit,
     });
     return NextResponse.json(lieferungen);

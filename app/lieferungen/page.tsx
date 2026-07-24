@@ -57,6 +57,7 @@ export default function LieferungenPage() {
   const [kundeSearch, setKundeSearch] = useState<string>("");
   const [kundeIdFilter, setKundeIdFilter] = useState<string>("");
   const [kundeFilterName, setKundeFilterName] = useState<string>("");
+  const [sortFilter, setSortFilter] = useState<"createdAt" | "datum">("createdAt");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [statusChangingId, setStatusChangingId] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export default function LieferungenPage() {
     if (bisFilter) params.set("bis", bisFilter);
     if (kundeSearch) params.set("search", kundeSearch);
     if (kundeIdFilter) params.set("kundeId", kundeIdFilter);
+    params.set("sort", sortFilter);
     params.set("limit", String(PAGE_SIZE));
     params.set("page", String(pageNum));
     try {
@@ -101,7 +103,7 @@ export default function LieferungenPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter]);
+  }, [statusFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter, sortFilter]);
 
   // Filter geändert → zurück auf Seite 1
   useEffect(() => {
@@ -138,13 +140,14 @@ export default function LieferungenPage() {
     if (f.vonFilter) setVonFilter(f.vonFilter);
     if (f.bisFilter) setBisFilter(f.bisFilter);
     if (f.kundeSearch) setKundeSearch(f.kundeSearch);
+    if (f.sortFilter === "datum" || f.sortFilter === "createdAt") setSortFilter(f.sortFilter);
     setFiltersLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, vonFilter, bisFilter, kundeSearch })); } catch {}
-  }, [filtersLoaded, tab, statusFilter, vonFilter, bisFilter, kundeSearch]);
+    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, vonFilter, bisFilter, kundeSearch, sortFilter })); } catch {}
+  }, [filtersLoaded, tab, statusFilter, vonFilter, bisFilter, kundeSearch, sortFilter]);
 
   useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
 
@@ -367,6 +370,15 @@ export default function LieferungenPage() {
               onChange={(e) => setKundeSearch(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-green-700"
             />
+            <select
+              value={sortFilter}
+              onChange={(e) => setSortFilter(e.target.value as "createdAt" | "datum")}
+              title="Sortierung"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+            >
+              <option value="createdAt">Neueste Erstellung zuerst</option>
+              <option value="datum">Neuestes Lieferdatum zuerst</option>
+            </select>
           </div>
 
           {fetchError ? (

@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 export interface LieferungPositionInput {
   artikelId: number;
@@ -152,4 +154,55 @@ export async function erstelleLieferungMitPreisberechnung(
   }
 
   return { lieferung, kreditlimitWarnung, offenerBetrag, kreditlimit: kreditlimitWert };
+}
+
+// Prüft, ob eine Rechnungsnummer bereits an eine andere Lieferung oder Sammelrechnung vergeben ist.
+export async function rechnungsnummerVergeben(
+  tx: Tx,
+  nr: string,
+  exceptLieferungId: number | null,
+): Promise<boolean> {
+  const l = await tx.lieferung.findFirst({
+    where: { rechnungNr: nr, ...(exceptLieferungId ? { id: { not: exceptLieferungId } } : {}) },
+    select: { id: true },
+  });
+  if (l) return true;
+  const s = await tx.sammelrechnung.findFirst({ where: { rechnungNr: nr }, select: { id: true } });
+  return !!s;
+}
+
+/**
+ * Vergibt die nächste Rechnungsnummer (Zähler `letzte_rechnungsnummer`) an eine bestehende
+ * Lieferung und setzt `rechnungNr`/`rechnungDatum`. Wird sowohl von der manuellen
+ * Rechnungserstellung (PUT /api/lieferungen/[id], aktion=rechnung_erstellen) als auch von der
+ * KI-Batch-Erkennung (optionales "Rechnung automatisch erzeugen") genutzt.
+ */
+export async function vergebeRechnungsnummerFuerLieferung(tx: Tx, lieferungId: number): Promise<string> {
+  const existing = await tx.lieferung.findUnique({ where: { id: lieferungId }, select: { rechnungNr: true } });
+  if (existing?.rechnungNr) {
+    throw new Error("Lieferung hat bereits eine Rechnungsnummer");
+  }
+
+  const [einstellung, prefixSetting] = await Promise.all([
+    tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } }),
+    tx.einstellung.findUnique({ where: { key: "system.nummernkreis.rechnung_prefix" } }),
+  ]);
+  const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null, prefixSetting?.value || "RE");
+
+  if (await rechnungsnummerVergeben(tx, rechnungNr, lieferungId)) {
+    throw new Error(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
+  }
+
+  await tx.einstellung.upsert({
+    where: { key: "letzte_rechnungsnummer" },
+    update: { value: rechnungNr },
+    create: { key: "letzte_rechnungsnummer", value: rechnungNr },
+  });
+
+  await tx.lieferung.update({
+    where: { id: lieferungId },
+    data: { rechnungNr, rechnungDatum: new Date() },
+  });
+
+  return rechnungNr;
 }

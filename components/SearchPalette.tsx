@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { StatusBadge, AngebotStatusBadge, VersendetBadge } from "@/components/Badge";
 
 interface KundeResult {
   id: number;
@@ -24,6 +25,8 @@ interface LieferungResult {
   datum: string;
   status: string;
   rechnungNr: string | null;
+  rechnungVersendetAm: string | null;
+  lieferscheinVersendetAm: string | null;
   kunde: { name: string; firma: string | null } | null;
 }
 
@@ -174,7 +177,12 @@ function ResultSecondary({ item }: { item: ResultItem }) {
     const a = item.data;
     const kundenname = a.kunde?.firma ?? a.kunde?.name ?? "";
     const bis = a.gueltigBis ? ` · bis ${new Date(a.gueltigBis).toLocaleDateString("de-DE")}` : "";
-    return <span className="text-gray-500 text-sm">{kundenname ? `${kundenname} · ` : ""}{a.status}{bis}</span>;
+    return (
+      <span className="text-gray-500 text-sm inline-flex items-center gap-1.5 flex-wrap">
+        {kundenname ? `${kundenname}${bis}` : bis || null}
+        <AngebotStatusBadge status={a.status} />
+      </span>
+    );
   }
   if (item.type === "aufgabe") {
     const t = item.data;
@@ -189,9 +197,12 @@ function ResultSecondary({ item }: { item: ResultItem }) {
   }
   const l = item.data as LieferungResult;
   const date = l.datum ? new Date(l.datum).toLocaleDateString("de-DE") : "–";
+  const versendet = Boolean(l.rechnungVersendetAm || l.lieferscheinVersendetAm);
   return (
-    <span className="text-gray-500 text-sm">
-      {l.rechnungNr ? `${l.rechnungNr} · ` : ""}{date} · {l.status}
+    <span className="text-gray-500 text-sm inline-flex items-center gap-1.5 flex-wrap">
+      {l.rechnungNr ? `${l.rechnungNr} · ` : ""}{date}
+      <StatusBadge status={l.status} />
+      {versendet && <VersendetBadge />}
     </span>
   );
 }
