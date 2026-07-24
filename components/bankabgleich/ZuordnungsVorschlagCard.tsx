@@ -34,6 +34,10 @@ export interface ZuordnungsVorschlagCardProps {
   kiBegruendung?: string;
   /** Datum, das bei Annahme als "bezahlt" auf dem Zielobjekt gesetzt würde (ISO). */
   wirdBezahltAm: string;
+  /** Betragsabweichung in € zwischen Bankbuchung und Kandidat — nur bei Abweichungs-Treffern gesetzt. */
+  amountDiff?: number;
+  /** Datumsabweichung in Tagen zwischen Bankbuchung und Kandidat — nur bei Abweichungs-Treffern gesetzt. */
+  dayDiff?: number;
   onUebernehmen: (alsBezahltMarkieren: boolean) => void | Promise<void>;
   compact?: boolean;
 }
@@ -53,6 +57,8 @@ export default function ZuordnungsVorschlagCard({
   kiKonfidenz,
   kiBegruendung,
   wirdBezahltAm,
+  amountDiff,
+  dayDiff,
   onUebernehmen,
   compact,
 }: ZuordnungsVorschlagCardProps) {
@@ -86,6 +92,19 @@ export default function ZuordnungsVorschlagCard({
       <div className="font-semibold text-sm text-gray-900">{gegenpartei}</div>
       {bezeichnung && <div className="text-xs text-gray-500 mt-0.5">{bezeichnung}</div>}
       <div className="text-sm font-bold text-gray-800 mt-1">{formatEuro(betrag)}</div>
+      {(() => {
+        const zeigeBetrag = amountDiff !== undefined && amountDiff > 0.01;
+        const zeigeTage = dayDiff !== undefined && dayDiff > 0;
+        if (!zeigeBetrag && !zeigeTage) return null;
+        return (
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5">
+            Abweichung:{" "}
+            {zeigeBetrag && <>{formatEuro(amountDiff!)} Betrag</>}
+            {zeigeBetrag && zeigeTage && " · "}
+            {zeigeTage && <>{dayDiff} {dayDiff === 1 ? "Tag" : "Tage"}</>}
+          </div>
+        );
+      })()}
       {kiBegruendung && <div className="text-xs text-gray-500 mt-1 italic">„{kiBegruendung}&quot;</div>}
 
       <label className="flex items-center gap-2 mt-2 text-xs text-gray-600 cursor-pointer">

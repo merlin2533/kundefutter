@@ -882,10 +882,12 @@ model Kontoumsatz {
   kiKonfidenz      Float?    // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
   importDatum      DateTime  @default(now())
   importDatei      String?   // Name der Importdatei (für Rückverfolgung)
+  ignoriert        Boolean   @default(false) // manuell ausgeblendet (z.B. interne Umbuchung) — nicht zugeordnet, aber bewusst kein offener Posten
 
   @@index([buchungsdatum])
   @@index([zugeordnet])
   @@index([betrag])
+  @@index([ignoriert])
 }
 
 // ─── KI-NUTZUNG (AI Usage Statistics) ────────────────────────────────────────

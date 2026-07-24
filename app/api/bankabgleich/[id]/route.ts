@@ -22,6 +22,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       alsBezahltMarkieren = true,
       zuordnungsArt,
       kiKonfidenz,
+      ignoriert,
     } = body as {
       lieferungId?: number | null;
       sammelrechnungId?: number | null;
@@ -30,10 +31,24 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       alsBezahltMarkieren?: boolean;
       zuordnungsArt?: "manuell" | "automatisch" | "ki" | null;
       kiKonfidenz?: number | null;
+      ignoriert?: boolean;
     };
 
     const umsatz = await prisma.kontoumsatz.findUnique({ where: { id } });
     if (!umsatz) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+
+    // Reines Aus-/Einblenden (keine Zuordnung zu einer Rechnung/Ausgabe) — eigener, einfacher Pfad,
+    // der die Zuordnung selbst unangetastet lässt.
+    const istNurAusblenden =
+      ignoriert !== undefined &&
+      lieferungId === undefined &&
+      sammelrechnungId === undefined &&
+      ausgabeId === undefined &&
+      eingangsRechnungId === undefined;
+    if (istNurAusblenden) {
+      const aktualisiert = await prisma.kontoumsatz.update({ where: { id }, data: { ignoriert } });
+      return NextResponse.json(aktualisiert);
+    }
 
     const updateData: {
       zugeordnet: boolean;
