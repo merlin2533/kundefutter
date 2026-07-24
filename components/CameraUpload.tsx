@@ -141,6 +141,20 @@ export default function CameraUpload({
     if (file) handleFile(file);
   }
 
+  // Hängt den aktuellen Stream an <video> — läuft als Effekt statt direkt in
+  // startCamera()/switchCamera(), weil videoRef.current dort noch null ist:
+  // das <video>-Element existiert erst NACH dem Re-Render durch
+  // setCameraActive(true), nicht schon während der auslösenden Funktion.
+  useEffect(() => {
+    if (!cameraActive) return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (video && stream) {
+      video.srcObject = stream;
+      video.play().catch(() => {});
+    }
+  }, [cameraActive]);
+
   // Start live camera stream (for devices that support getUserMedia)
   async function startCamera() {
     setCameraError("");
@@ -151,10 +165,6 @@ export default function CameraUpload({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
       setCameraActive(true);
     } catch {
       // Fallback: Gerät/Browser unterstützt keine Live-Vorschau (getUserMedia) —
@@ -214,10 +224,6 @@ export default function CameraUpload({
           })
           .then((stream) => {
             streamRef.current = stream;
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              videoRef.current.play();
-            }
             setCameraActive(true);
           })
           .catch(() => setCameraError("Kamera wechseln fehlgeschlagen."));
