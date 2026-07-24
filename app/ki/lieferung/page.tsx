@@ -9,6 +9,7 @@ import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCam
 import KonfidenzBadge from "@/components/KonfidenzBadge";
 import DezimalInput from "@/components/DezimalInput";
 import NeuArtikelInline from "@/components/NeuArtikelInline";
+import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
 import { lagerStatus } from "@/lib/utils";
 import { matchArtikel, matchKunde, normalisiereSuchtext, type Konfidenz } from "@/lib/kiMatching";
 
@@ -158,6 +159,7 @@ function KiLieferungWizard() {
   const [kundeId, setKundeId] = useState("");
   const [vorschlagKundeId, setVorschlagKundeId] = useState<number | null>(null);
   const [kundKonfidenz, setKundKonfidenz] = useState<Konfidenz>("keine");
+  const [showNeuKundeForm, setShowNeuKundeForm] = useState(false);
   const [positionen, setPositionen] = useState<ZuordnungsPosition[]>([]);
   const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
   const [lieferStatus, setLieferStatus] = useState<"geplant" | "geliefert">("geplant");
@@ -394,6 +396,16 @@ function KiLieferungWizard() {
         };
       })
     );
+  }
+
+  function onKundeCreated(neu: NeuKundeErgebnis) {
+    const kunde: KundeRaw = { id: neu.id, name: neu.name, firma: neu.firma ?? undefined, ort: neu.ort ?? undefined };
+    setKunden((prev) => [...prev, kunde]);
+    setKundeId(String(kunde.id));
+    setVorschlagKundeId(kunde.id);
+    setKundKonfidenz("hoch");
+    setShowNeuKundeForm(false);
+    ladeSonderpreise(String(kunde.id));
   }
 
   // ── Lernkorrekturen melden ────────────────────────────────────────────────
@@ -704,6 +716,27 @@ function KiLieferungWizard() {
               placeholder="Kunde auswählen…"
               allowClear
             />
+            {!kundeId && !showNeuKundeForm && (
+              <button
+                type="button"
+                onClick={() => setShowNeuKundeForm(true)}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-2 inline-flex items-center gap-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Neuen Kunden anlegen
+              </button>
+            )}
+            {showNeuKundeForm && (
+              <NeuKundeInline
+                kiName={kiErgebnis?.kunde.name ?? ""}
+                kiFirma={kiErgebnis?.kunde.firma}
+                kiOrt={kiErgebnis?.kunde.ort}
+                onCreated={onKundeCreated}
+                onCancel={() => setShowNeuKundeForm(false)}
+              />
+            )}
           </div>
 
           {/* Datum + Status */}
