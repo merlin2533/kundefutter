@@ -138,8 +138,8 @@ export default function KiLieferungBatchDetailPage() {
     try {
       const [batchRes, artikelRes, kundenRes, lieferantenRes, gelerntKundeRes, gelerntArtikelRes] = await Promise.all([
         fetch(`/api/ki/lieferung/batch/${batchId}`),
-        fetch("/api/artikel?limit=500"),
-        fetch("/api/kunden?limit=500"),
+        fetch("/api/artikel?limit=2000&relations=false"),
+        fetch("/api/kunden?limit=1000"),
         fetch("/api/lieferanten?limit=200"),
         fetch("/api/ki/lernen?typ=kunde"),
         fetch("/api/ki/lernen?typ=artikel"),
