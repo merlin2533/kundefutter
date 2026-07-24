@@ -6,7 +6,6 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import EmailVersandModal from "@/components/EmailVersandModal";
-import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 
 interface ArtikelInfo {
   id: number;
@@ -162,7 +161,6 @@ export default function AngebotDetailPage() {
 
   // E-Mail-Versand
   const [emailModalOffen, setEmailModalOffen] = useState(false);
-  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
@@ -621,14 +619,13 @@ export default function AngebotDetailPage() {
                       <td className="px-3 sm:px-4 py-3">
                         <div className="font-medium text-gray-900">
                           {pos.artikel.name}
-                          <button
-                            type="button"
-                            onClick={() => setKundenModal({ id: pos.artikel.id, name: pos.artikel.name })}
+                          <Link
+                            href={`/artikel/${pos.artikel.id}?tab=kunden`}
                             className="ml-1.5 text-gray-400 hover:text-green-700"
                             title="Wer hat/bekommt diesen Artikel?"
                           >
                             👥
-                          </button>
+                          </Link>
                         </div>
                         {pos.notiz && <div className="text-xs text-gray-400 mt-0.5">{pos.notiz}</div>}
                         <div className="sm:hidden text-xs text-gray-500 mt-0.5">
@@ -731,12 +728,6 @@ export default function AngebotDetailPage() {
           </div>
         </div>
       )}
-      <ArtikelKundenModal
-        artikelId={kundenModal?.id ?? 0}
-        artikelName={kundenModal?.name ?? ""}
-        open={!!kundenModal}
-        onClose={() => setKundenModal(null)}
-      />
     </div>
   );
 }
