@@ -6,6 +6,7 @@ import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import KonfidenzBadge from "@/components/KonfidenzBadge";
 import NeuArtikelInline, { type NeuArtikelErgebnis } from "@/components/NeuArtikelInline";
+import DezimalInput from "@/components/DezimalInput";
 import {
   matchArtikel,
   matchKunde,
@@ -599,12 +600,9 @@ export default function KiLieferungBatchDetailPage() {
                                 placeholder="Menge"
                                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
                               />
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                              <DezimalInput
                                 value={pos.verkaufspreis}
-                                onChange={(e) => setPositionFeld(item, idx, "verkaufspreis", parseFloat(e.target.value) || 0)}
+                                onChange={(v) => setPositionFeld(item, idx, "verkaufspreis", v)}
                                 placeholder="VK-Preis (€)"
                                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
                               />
