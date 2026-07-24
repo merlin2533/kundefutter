@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { normalisiereSuchtext } from "@/lib/kiMatching";
 
-const GUELTIGE_TYPEN = ["artikel", "kunde"];
+const GUELTIGE_TYPEN = ["artikel", "kunde", "lieferant"];
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
