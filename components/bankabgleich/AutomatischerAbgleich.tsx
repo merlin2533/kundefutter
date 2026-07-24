@@ -101,6 +101,11 @@ export default function AutomatischerAbgleich({
   const [reviewAuswahl, setReviewAuswahl] = useState<Record<number, { drin: boolean; bezahlt: boolean }>>({});
   const [reviewBusy, setReviewBusy] = useState(false);
 
+  // Schnellübernahme: statt jede Zeile einzeln zu prüfen, alle "sicheren" 100%-Treffer nach
+  // kurzer Vorschau (Anzahl + Summe + Beispielzeilen) in einem Schritt übernehmen.
+  const [schnellOffen, setSchnellOffen] = useState(false);
+  const [schnellBusy, setSchnellBusy] = useState(false);
+
   const [kiLoading, setKiLoading] = useState(false);
 
   async function abgleichStarten() {
@@ -174,6 +179,24 @@ export default function AutomatischerAbgleich({
       setFehler("Einige Zuordnungen konnten nicht übernommen werden — bitte Liste prüfen.");
     } finally {
       setReviewBusy(false);
+    }
+  }
+
+  async function schnellUebernehmen() {
+    if (!ergebnis) return;
+    setSchnellBusy(true);
+    setFehler(null);
+    try {
+      for (const p of ergebnis.matched) {
+        await uebernehmen(p, true, "automatisch");
+        entferneAusListe(p.bank.umsatzId);
+      }
+      setSchnellOffen(false);
+      onUebernommen();
+    } catch {
+      setFehler("Einige Zuordnungen konnten nicht übernommen werden — bitte Liste prüfen.");
+    } finally {
+      setSchnellBusy(false);
     }
   }
 
@@ -272,12 +295,20 @@ export default function AutomatischerAbgleich({
           {tab === "matched" && (
             <div>
               {ergebnis.matched.length > 0 && (
-                <button
-                  onClick={reviewOeffnen}
-                  className="mb-3 px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium"
-                >
-                  Alle prüfen &amp; übernehmen
-                </button>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <button
+                    onClick={() => setSchnellOffen(true)}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                  >
+                    ✓ 100 % übernehmen ({ergebnis.matched.length})
+                  </button>
+                  <button
+                    onClick={reviewOeffnen}
+                    className="px-3 py-1.5 border border-green-700 text-green-700 hover:bg-green-50 rounded-lg text-sm font-medium"
+                  >
+                    Alle prüfen &amp; übernehmen
+                  </button>
+                </div>
               )}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ergebnis.matched.map((p) => (
@@ -292,6 +323,8 @@ export default function AutomatischerAbgleich({
                       betrag={p.kandidat.betrag}
                       konfidenz="hoch"
                       wirdBezahltAm={p.wirdBezahltAm}
+                      amountDiff={p.amountDiff}
+                      dayDiff={p.dayDiff}
                       onUebernehmen={(bezahlt) => einzelUebernehmen(p, bezahlt)}
                       compact
                     />
@@ -328,6 +361,8 @@ export default function AutomatischerAbgleich({
                       kiKonfidenz={p.konfidenz}
                       kiBegruendung={p.begruendung}
                       wirdBezahltAm={p.wirdBezahltAm}
+                      amountDiff={p.amountDiff}
+                      dayDiff={p.dayDiff}
                       onUebernehmen={(bezahlt) => einzelUebernehmen(p, bezahlt)}
                       compact
                     />
@@ -432,6 +467,55 @@ export default function AutomatischerAbgleich({
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
               >
                 {reviewBusy ? "Übernehme…" : "Bestätigen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {schnellOffen && ergebnis && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-5 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900">100 % Treffer übernehmen</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Kurzvorschau — alle sicheren Treffer werden ohne weitere Einzelprüfung als bezahlt übernommen.
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                <span className="text-gray-600">{ergebnis.matched.length} Buchungen</span>
+                <span className="font-semibold text-gray-900">
+                  {formatEuro(ergebnis.matched.reduce((s, p) => s + p.bank.betrag, 0))} gesamt
+                </span>
+              </div>
+              <div className="space-y-1 text-xs text-gray-600 max-h-40 overflow-y-auto">
+                {ergebnis.matched.slice(0, 5).map((p) => (
+                  <div key={p.bank.umsatzId} className="flex justify-between gap-2">
+                    <span className="truncate">
+                      {formatDatum(p.bank.datum)} · {p.kandidat.gegenpartei}
+                    </span>
+                    <span className="whitespace-nowrap">{formatEuro(p.bank.betrag)}</span>
+                  </div>
+                ))}
+                {ergebnis.matched.length > 5 && (
+                  <div className="text-gray-400">… und {ergebnis.matched.length - 5} weitere</div>
+                )}
+              </div>
+            </div>
+            <div className="p-5 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setSchnellOffen(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={schnellUebernehmen}
+                disabled={schnellBusy}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium"
+              >
+                {schnellBusy ? "Übernehme…" : `Alle ${ergebnis.matched.length} übernehmen`}
               </button>
             </div>
           </div>

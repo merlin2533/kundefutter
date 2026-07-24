@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     body = {};
   }
 
-  const where: Record<string, unknown> = { zugeordnet: false };
+  const where: Record<string, unknown> = { zugeordnet: false, ignoriert: false };
   if (body.von || body.bis) {
     where.buchungsdatum = {
       ...(body.von ? { gte: new Date(body.von) } : {}),

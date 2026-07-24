@@ -11,10 +11,19 @@ export async function GET(req: NextRequest) {
   const bis = searchParams.get("bis");
   const zugeordnet = searchParams.get("zugeordnet");
   const kontoBezeichnung = searchParams.get("kontoBezeichnung");
+  const importDatei = searchParams.get("importDatei");
+  const ignoriert = searchParams.get("ignoriert");
   const limit = Math.min(parseInt(searchParams.get("limit") || "200", 10) || 200, 500);
 
   const where: Record<string, unknown> = {};
 
+  // Manuell ausgeblendete Buchungen (z.B. interne Umbuchungen) verschwinden standardmäßig aus
+  // allen Ansichten — nur mit explizitem ignoriert=true (eigener "Ausgeblendet"-Filter) sichtbar.
+  where.ignoriert = ignoriert === "true";
+
+  // Zeitraum bezieht sich immer auf das Buchungsdatum der Bank (Überweisungseingang/-ausgang),
+  // unabhängig davon, wann eine zugehörige Rechnung gestellt wurde — die Datei kann weitere Daten
+  // (z.B. Wertstellung) enthalten, die hier bewusst nicht zur Filterung herangezogen werden.
   if (von || bis) {
     where.buchungsdatum = {
       ...(von ? { gte: new Date(von) } : {}),
@@ -26,6 +35,7 @@ export async function GET(req: NextRequest) {
   else if (zugeordnet === "false") where.zugeordnet = false;
 
   if (kontoBezeichnung) where.kontoBezeichnung = kontoBezeichnung;
+  if (importDatei) where.importDatei = importDatei;
 
   try {
     const [umsaetze, gesamt, offen] = await Promise.all([

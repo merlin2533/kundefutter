@@ -23,12 +23,26 @@ interface Kontoumsatz {
   eingangsRechnungId: number | null;
   kontoBezeichnung: string | null;
   importDatei: string | null;
+  ignoriert: boolean;
 }
 
 interface ApiResponse {
   umsaetze: Kontoumsatz[];
   gesamt: number;
   offen: number;
+}
+
+const FILTER_STORAGE_KEY = "bankabgleich-filter";
+
+// Merkt sich die Statusfilter-Wahl über localStorage (nicht sessionStorage), da der Bankabgleich
+// typischerweise über mehrere Wochen hinweg wiederholt aufgerufen wird — bereits abgeglichene
+// Buchungen sollen dabei nicht jedes Mal neu ausgeblendet werden müssen.
+function loadBankabgleichFilter(): { zugeordnetFilter?: "alle" | "offen" | "zugeordnet" | "ausgeblendet" } {
+  try {
+    return JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
 }
 
 type VorschlagTyp = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
@@ -47,6 +61,8 @@ interface Vorschlag {
   gegenpartei: string;
   betrag: number;
   konfidenz: "hoch" | "mittel" | "niedrig";
+  amountDiff: number;
+  dayDiff: number;
   wirdBezahltAm: string;
 }
 
@@ -62,8 +78,12 @@ function BankabgleichContent() {
 
   const [von, setVon] = useState(firstOfLastMonth);
   const [bis, setBis] = useState(todayStr);
-  const [zugeordnetFilter, setZugeordnetFilter] = useState<"alle" | "offen" | "zugeordnet">("alle");
+  // Server-sicherer Default; die gemerkte Wahl wird erst nach dem Mount übernommen (siehe Effekt
+  // unten) — sonst SSR/Client-Mismatch, da localStorage serverseitig nicht existiert.
+  const [zugeordnetFilter, setZugeordnetFilter] = useState<"alle" | "offen" | "zugeordnet" | "ausgeblendet">("offen");
   const [kontoFilter, setKontoFilter] = useState("");
+  const [rundeFilter, setRundeFilter] = useState("");
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
 
   const [umsaetze, setUmsaetze] = useState<Kontoumsatz[]>([]);
   const [gesamt, setGesamt] = useState(0);
@@ -78,17 +98,23 @@ function BankabgleichContent() {
   const [vorschlaegeLoading, setVorschlaegeLoading] = useState(false);
   const [zuordnungsFehler, setZuordnungsFehler] = useState<string | null>(null);
 
-  // Alle verfügbaren Konten
+  // Alle verfügbaren Konten / Import-Runden
   const [konten, setKonten] = useState<string[]>([]);
+  const [runden, setRunden] = useState<string[]>([]);
 
   async function laden() {
     setLoading(true);
     const params = new URLSearchParams();
     if (von) params.set("von", von);
     if (bis) params.set("bis", bis);
-    if (zugeordnetFilter === "offen") params.set("zugeordnet", "false");
-    else if (zugeordnetFilter === "zugeordnet") params.set("zugeordnet", "true");
+    if (zugeordnetFilter === "ausgeblendet") {
+      params.set("ignoriert", "true");
+    } else {
+      if (zugeordnetFilter === "offen") params.set("zugeordnet", "false");
+      else if (zugeordnetFilter === "zugeordnet") params.set("zugeordnet", "true");
+    }
     if (kontoFilter) params.set("kontoBezeichnung", kontoFilter);
+    if (rundeFilter) params.set("importDatei", rundeFilter);
 
     try {
       const res = await fetch(`/api/bankabgleich?${params}`);
@@ -109,16 +135,47 @@ function BankabgleichContent() {
           new Set(data.umsaetze.map((u) => u.kontoBezeichnung).filter(Boolean) as string[])
         );
         if (allKonten.length > 0) setKonten(allKonten);
+
+        // Extrahiere eindeutige Import-Runden (Dateiname), neueste zuerst
+        const allRunden = Array.from(
+          new Set(data.umsaetze.map((u) => u.importDatei).filter(Boolean) as string[])
+        );
+        if (allRunden.length > 0) setRunden(allRunden);
       }
     } finally {
       setLoading(false);
     }
   }
 
+  // Gemerkten Statusfilter erst nach dem Mount übernehmen (clientseitig) — hält den ersten
+  // Client-Render identisch zum Server-Render. Ein "runde"-Query-Parameter (Sprung direkt nach
+  // einem Import) hat Vorrang: dann soll man die gerade importierte Runde sofort sehen.
   useEffect(() => {
+    const runde = searchParams.get("runde");
+    if (runde) setRundeFilter(runde);
+    else {
+      const gespeichert = loadBankabgleichFilter();
+      if (gespeichert.zugeordnetFilter) setZugeordnetFilter(gespeichert.zugeordnetFilter);
+    }
+    setFiltersLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Statusfilter-Wahl merken (erst nach dem Wiederherstellen, sonst überschreiben wir sie sofort wieder)
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ zugeordnetFilter }));
+    } catch {
+      /* ignore */
+    }
+  }, [filtersLoaded, zugeordnetFilter]);
+
+  useEffect(() => {
+    if (!filtersLoaded) return;
     laden();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [von, bis, zugeordnetFilter, kontoFilter]);
+  }, [filtersLoaded, von, bis, zugeordnetFilter, kontoFilter, rundeFilter]);
 
   async function oeffneVorschlaege(umsatzId: number) {
     if (offenePanelId === umsatzId) {
@@ -165,6 +222,27 @@ function BankabgleichContent() {
   async function zuordnungAufheben(umsatzId: number) {
     if (!confirm("Zuordnung wirklich aufheben? Falls dadurch als bezahlt markiert, wird die Rechnung wieder als offen geführt.")) return;
     await fetch(`/api/bankabgleich/${umsatzId}`, { method: "DELETE" });
+    laden();
+  }
+
+  // Buchung manuell ausblenden (z.B. interne Umbuchung) — bleibt unzugeordnet, taucht aber in
+  // Offen/Zugeordnet/Alle nicht mehr auf; über den "Ausgeblendet"-Filter jederzeit einblendbar.
+  async function ausblenden(umsatzId: number) {
+    setOffenePanelId(null);
+    await fetch(`/api/bankabgleich/${umsatzId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ignoriert: true }),
+    });
+    laden();
+  }
+
+  async function einblenden(umsatzId: number) {
+    await fetch(`/api/bankabgleich/${umsatzId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ignoriert: false }),
+    });
     laden();
   }
 
@@ -238,17 +316,22 @@ function BankabgleichContent() {
             onChange={(e) => setBis(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           />
+          <p className="mt-1 text-xs text-gray-400 max-w-[16rem]">
+            Bezieht sich auf den Buchungstag bei der Bank — unabhängig davon, wann eine zugehörige
+            Rechnung gestellt wurde.
+          </p>
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Status</label>
           <select
             value={zugeordnetFilter}
-            onChange={(e) => setZugeordnetFilter(e.target.value as "alle" | "offen" | "zugeordnet")}
+            onChange={(e) => setZugeordnetFilter(e.target.value as "alle" | "offen" | "zugeordnet" | "ausgeblendet")}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           >
             <option value="alle">Alle</option>
             <option value="offen">Offen</option>
             <option value="zugeordnet">Zugeordnet</option>
+            <option value="ausgeblendet">Ausgeblendet</option>
           </select>
         </div>
         {konten.length > 1 && (
@@ -263,6 +346,26 @@ function BankabgleichContent() {
               {konten.map((k) => (
                 <option key={k} value={k}>
                   {k}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {(runden.length > 1 || rundeFilter) && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Import-Runde</label>
+            <select
+              value={rundeFilter}
+              onChange={(e) => setRundeFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 max-w-[14rem]"
+            >
+              <option value="">Alle Runden</option>
+              {rundeFilter && !runden.includes(rundeFilter) && (
+                <option value={rundeFilter}>{rundeFilter}</option>
+              )}
+              {runden.map((r) => (
+                <option key={r} value={r}>
+                  {r}
                 </option>
               ))}
             </select>
@@ -331,7 +434,11 @@ function BankabgleichContent() {
                       {u.gegenkontoName || u.gegenkonto || "—"}
                     </td>
                     <td className="px-3 py-2">
-                      {u.zugeordnet ? (
+                      {u.ignoriert ? (
+                        <span className="inline-flex items-center bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded font-medium">
+                          Ausgeblendet
+                        </span>
+                      ) : u.zugeordnet ? (
                         <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-medium">
                           Zugeordnet ✓
                           {u.lieferungId && (
@@ -369,13 +476,29 @@ function BankabgleichContent() {
                     </td>
                     <td className="px-3 py-2 text-right">
                       <div className="flex gap-2 justify-end items-center">
-                        {!u.zugeordnet ? (
+                        {u.ignoriert ? (
                           <button
-                            onClick={() => oeffneVorschlaege(u.id)}
-                            className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+                            onClick={() => einblenden(u.id)}
+                            className="text-xs text-gray-500 hover:text-green-700 hover:underline"
                           >
-                            {offenePanelId === u.id ? "Schließen" : "Zuordnen"}
+                            Einblenden
                           </button>
+                        ) : !u.zugeordnet ? (
+                          <>
+                            <button
+                              onClick={() => oeffneVorschlaege(u.id)}
+                              className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
+                            >
+                              {offenePanelId === u.id ? "Schließen" : "Zuordnen"}
+                            </button>
+                            <button
+                              onClick={() => ausblenden(u.id)}
+                              title="Buchung ausblenden (z.B. interne Umbuchung) — kein offener Posten"
+                              className="text-xs text-gray-400 hover:text-gray-700 hover:underline"
+                            >
+                              Ausblenden
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={() => zuordnungAufheben(u.id)}
@@ -418,6 +541,8 @@ function BankabgleichContent() {
                                   betrag={v.betrag}
                                   konfidenz={v.konfidenz}
                                   wirdBezahltAm={v.wirdBezahltAm}
+                                  amountDiff={v.amountDiff}
+                                  dayDiff={v.dayDiff}
                                   onUebernehmen={(alsBezahlt) => zuordnen(u.id, v, alsBezahlt)}
                                 />
                               ))}

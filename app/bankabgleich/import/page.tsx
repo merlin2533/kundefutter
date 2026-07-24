@@ -40,7 +40,7 @@ export default function BankabgleichImportPage() {
       }
 
       const msg = `${data.importiert} Buchungen importiert${data.duplikate > 0 ? `, ${data.duplikate} Duplikate übersprungen` : ""}.`;
-      router.push(`/bankabgleich?erfolg=${encodeURIComponent(msg)}`);
+      router.push(`/bankabgleich?erfolg=${encodeURIComponent(msg)}&runde=${encodeURIComponent(datei.name)}`);
     } catch {
       setFehler("Netzwerkfehler beim Import.");
       setLoading(false);
