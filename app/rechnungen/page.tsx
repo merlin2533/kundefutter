@@ -26,6 +26,7 @@ interface Rechnung {
   bezahltAm: string | null;
   zahlungsziel: number | null;
   rechnungStorniert: string | null;
+  rechnungVersendetAm: string | null;
 }
 
 type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt";
@@ -73,6 +74,7 @@ export default function RechnungenPage() {
   const [rechnungen, setRechnungen] = useState<Rechnung[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterStatus>("alle");
+  const [nurNichtVersendet, setNurNichtVersendet] = useState(false);
   const [search, setSearch] = useState<string>("");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -140,13 +142,14 @@ export default function RechnungenPage() {
     const f = loadRechnungFilters();
     if (f.filter) setFilter(f.filter);
     if (f.search) setSearch(f.search);
+    if (f.nurNichtVersendet) setNurNichtVersendet(true);
     setFiltersLoaded(true);
   }, []);
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("rechnungen-filters", JSON.stringify({ filter, search })); } catch {}
-  }, [filtersLoaded, filter, search]);
+    try { sessionStorage.setItem("rechnungen-filters", JSON.stringify({ filter, search, nurNichtVersendet })); } catch {}
+  }, [filtersLoaded, filter, search, nurNichtVersendet]);
 
   async function buchungSpeichern(id: number) {
     try {
@@ -190,7 +193,8 @@ export default function RechnungenPage() {
         r.rechnungNr.toLowerCase().includes(q) ||
         r.kunde.name.toLowerCase().includes(q) ||
         (r.kunde.firma ?? "").toLowerCase().includes(q);
-      return matchFilter && matchSearch;
+      const matchVersand = !nurNichtVersendet || !r.rechnungVersendetAm;
+      return matchFilter && matchSearch && matchVersand;
     })
     // Nach laufender Nummer sortieren: numerisches Suffix (NNNN-Teil) extrahieren, höchste zuerst
     .sort((a, b) => {
@@ -273,6 +277,17 @@ export default function RechnungenPage() {
               {f === "alle" ? "Alle" : f === "offen" ? "Offen" : f === "ueberfaellig" ? "Überfällig" : "Bezahlt"}
             </button>
           ))}
+          <button
+            onClick={() => setNurNichtVersendet((v) => !v)}
+            title="Nur Rechnungen anzeigen, die noch nicht per E-Mail versendet wurden"
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              nurNichtVersendet
+                ? "bg-amber-600 text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            ✉ Nicht versendet
+          </button>
         </div>
       </div>
 
@@ -328,6 +343,9 @@ export default function RechnungenPage() {
                         >
                           {r.rechnungNr}
                         </Link>
+                        {!r.rechnungVersendetAm && st !== "storniert" && (
+                          <span title="Noch nicht per E-Mail versendet" className="ml-1 text-amber-600 text-xs">✉</span>
+                        )}
                         <div className="sm:hidden text-xs text-gray-500 font-normal mt-0.5">
                           {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}
                         </div>

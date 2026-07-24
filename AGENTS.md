@@ -803,6 +803,8 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Mail-Log "Erneut senden" ohne PDF-Anhang (Rechnung/Gutschrift/Angebot kommt beim Kunden ohne Anhang an) | `MailLog` speichert nur `anhangNamen` (Dateinamen), nie die Binärdaten; Resend-Route hat nur Text/HTML erneut verschickt | `MailLog.entityId` ergänzt (Referenz auf Lieferung/Gutschrift/Angebot); `sendEmail()` speichert `entityId` mit; Resend-Route (`/api/einstellungen/mail-log/[id]/resend`) erzeugt den PDF-Anhang aus `feature`+`entityId` frisch neu, statt ihn wegzulassen; alte Log-Einträge ohne `entityId` liefern verständlichen Fehler statt stillem Anhangsverlust |
 | Lieferschein konnte trotz `KundeKontakt.lieferscheinEmail`-Flag nie per E-Mail versendet werden | Kein Mail-Endpunkt/Button für Lieferschein (nur Rechnung/Gutschrift/Angebot hatten Versand) | `POST /api/exporte/lieferschein/mail` + `lieferscheinEmail()`-Template + "E-Mail"-Button/`EmailVersandModal` auf `/lieferungen/[id]/lieferschein`; `Lieferung.lieferscheinVersendetAm` für "bereits versendet"-Anzeige |
 | KI-Modell konnte per Freitext (`<input list>`/Datalist) auf jeden beliebigen, ungültigen Modellnamen gesetzt werden | Kein zentraler Katalog, kein Whitelisting beim Speichern | `lib/ki-modelle.ts` als einzige Quelle der Wahrheit (Katalog + Standardwert je Kategorie); `/einstellungen/ki` nutzt `SearchableSelect`-Dropdown statt Freitext; `PUT /api/einstellungen` lehnt Werte außerhalb des Katalogs ab; `getAiConfig()` fällt bei ungültigem/veraltetem DB-Wert sauber auf den Standardwert zurück |
+| Rechnungen/Lieferscheine: kein Überblick, welche noch nicht per E-Mail versendet wurden | `rechnungVersendetAm`/`lieferscheinVersendetAm` existierten nur als Einzel-Anzeige auf der jeweiligen Druckseite, keine Liste/Filter | `/api/lieferungen` Query-Parameter `lieferscheinOffen=true`/`rechnungOffen=true`; Filter-Dropdown in `/lieferungen`, Toggle-Button "✉ Nicht versendet" in `/rechnungen`; ✉-Badge je Zeile wenn `*VersendetAm` leer |
+| KI-Batch-Erkennung: Menge als "18 x 25 kg" (Gebindeanzahl × Gebindegröße) wurde nicht multipliziert | Prompt (`PROMPTS.wareneingang`/`PROMPTS.lieferung` in `lib/ai.ts`) enthielt keine Regel für Mengen-Multiplikation | Anweisung ergänzt: bei "Anzahl x Gebindegröße" das Produkt beider Zahlen als `menge` setzen (18 × 25 = 450), nicht nur eine Zahl übernehmen |
 
 ## Schemata: Wichtige Felder
 
@@ -811,7 +813,8 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 - `ArtikelInhaltsstoff.name String` + `menge Float?` + `einheit String?` — 1:N pro Artikel
 - `AntragEmpfaenger.steuerNr String?`
 - `Lieferung.rechnungNr String?` + `rechnungDatum DateTime?`
-- `Lieferposition.chargeNr String?`
+- `Lieferposition.chargeNr String?` — bis 2026 immer Kannfeld; ab 2027-01-01 Pflichtfeld bei Artikel-Kategorie "Futter" (Rückverfolgbarkeit Tierfutter). Enforcement: `istChargeNrPflichtFuerLieferschein()` in `lib/lieferung.ts`, geprüft beim Statuswechsel geplant→geliefert in `app/api/lieferungen/[id]/route.ts` (PUT + PATCH/QR). Unabhängig vom allgemeinen, konfigurierbaren `Artikel.chargePflicht`-Hinweisflag (das zusätzlich Saatgut abdeckt, aber nie blockiert).
+- `Lieferung.rechnungVersendetAm DateTime?` / `Lieferung.lieferscheinVersendetAm DateTime?` — Zeitpunkt E-Mail-Versand; Filter dafür in `/api/lieferungen` (`rechnungOffen`/`lieferscheinOffen`)
 - `Artikel.notiz String?` — freie Notiz/Hinweis; wird beim Hinzufügen zu einer Lieferung in `Lieferposition.notiz` durchgeschleift und auf Lieferschein/Rechnung gedruckt (Abpackungshinweise bei gleichem kg-Preis)
 - `Kunde.lat Float?` + `lng Float?`
 - `Aufgabe.prioritaet` — "niedrig"|"normal"|"hoch"|"kritisch" (JSON-validiert)

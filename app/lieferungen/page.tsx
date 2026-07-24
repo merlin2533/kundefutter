@@ -15,6 +15,8 @@ interface Lieferung {
   status: string;
   notiz?: string;
   rechnungNr?: string | null;
+  rechnungVersendetAm?: string | null;
+  lieferscheinVersendetAm?: string | null;
   istStreckengeschaeft?: boolean;
   positionen: {
     id: number;
@@ -52,6 +54,7 @@ export default function LieferungenPage() {
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("alle");
+  const [versandFilter, setVersandFilter] = useState<"alle" | "lieferschein_offen" | "rechnung_offen">("alle");
   const [vonFilter, setVonFilter] = useState<string>("");
   const [bisFilter, setBisFilter] = useState<string>("");
   const [kundeSearch, setKundeSearch] = useState<string>("");
@@ -83,6 +86,8 @@ export default function LieferungenPage() {
     if (bisFilter) params.set("bis", bisFilter);
     if (kundeSearch) params.set("search", kundeSearch);
     if (kundeIdFilter) params.set("kundeId", kundeIdFilter);
+    if (versandFilter === "lieferschein_offen") params.set("lieferscheinOffen", "true");
+    if (versandFilter === "rechnung_offen") params.set("rechnungOffen", "true");
     params.set("sort", sortFilter);
     params.set("limit", String(PAGE_SIZE));
     params.set("page", String(pageNum));
@@ -103,7 +108,7 @@ export default function LieferungenPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter, sortFilter]);
+  }, [statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, kundeIdFilter, sortFilter]);
 
   // Filter geändert → zurück auf Seite 1
   useEffect(() => {
@@ -137,6 +142,7 @@ export default function LieferungenPage() {
     const f = loadLieferungFilters();
     if (f.tab) setTab(f.tab);
     if (f.statusFilter) setStatusFilter(f.statusFilter);
+    if (f.versandFilter === "lieferschein_offen" || f.versandFilter === "rechnung_offen") setVersandFilter(f.versandFilter);
     if (f.vonFilter) setVonFilter(f.vonFilter);
     if (f.bisFilter) setBisFilter(f.bisFilter);
     if (f.kundeSearch) setKundeSearch(f.kundeSearch);
@@ -146,8 +152,8 @@ export default function LieferungenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, vonFilter, bisFilter, kundeSearch, sortFilter })); } catch {}
-  }, [filtersLoaded, tab, statusFilter, vonFilter, bisFilter, kundeSearch, sortFilter]);
+    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, sortFilter })); } catch {}
+  }, [filtersLoaded, tab, statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, sortFilter]);
 
   useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
 
@@ -371,6 +377,16 @@ export default function LieferungenPage() {
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-green-700"
             />
             <select
+              value={versandFilter}
+              onChange={(e) => setVersandFilter(e.target.value as "alle" | "lieferschein_offen" | "rechnung_offen")}
+              title="Versand-Status"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+            >
+              <option value="alle">Versand: Alle</option>
+              <option value="lieferschein_offen">Lieferschein noch nicht versendet</option>
+              <option value="rechnung_offen">Rechnung noch nicht versendet</option>
+            </select>
+            <select
               value={sortFilter}
               onChange={(e) => setSortFilter(e.target.value as "createdAt" | "datum")}
               title="Sortierung"
@@ -460,6 +476,9 @@ export default function LieferungenPage() {
                                 className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors whitespace-nowrap"
                               >
                                 ✓ Lieferschein
+                                {!l.lieferscheinVersendetAm && (
+                                  <span title="Noch nicht per E-Mail versendet" className="text-amber-600">✉</span>
+                                )}
                               </Link>
                             ) : (
                               <button
@@ -482,6 +501,9 @@ export default function LieferungenPage() {
                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-800 border border-green-200 hover:bg-green-200 transition-colors whitespace-nowrap"
                                   >
                                     ✓ Rechnung
+                                    {!l.rechnungVersendetAm && (
+                                      <span title="Noch nicht per E-Mail versendet" className="text-amber-600">✉</span>
+                                    )}
                                   </Link>
                                 ) : (
                                   <Link
