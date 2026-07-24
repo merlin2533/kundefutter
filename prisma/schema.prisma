@@ -13,59 +13,59 @@ model Kunde {
   name             String
   firma            String?
   kategorie        String   @default("Sonstige")
-  verantwortlicher String?  // frei gewählt aus Mitarbeiterliste
-  betriebsnummer   String?  // z.B. aus AFIG/InVeKoS
-  flaeche          Float?   // ha, manuell erfasst
+  verantwortlicher String? // frei gewählt aus Mitarbeiterliste
+  betriebsnummer   String? // z.B. aus AFIG/InVeKoS
+  flaeche          Float? // ha, manuell erfasst
   strasse          String?
   plz              String?
   ort              String?
   land             String   @default("Deutschland")
   lat              Float?
   lng              Float?
-  geocodeVersuche  Int      @default(0)  // Anzahl gescheiterter Geocoding-Versuche; >= 2 → kein weiterer Auto-Versuch
+  geocodeVersuche  Int      @default(0) // Anzahl gescheiterter Geocoding-Versuche; >= 2 → kein weiterer Auto-Versuch
   notizen          String?
-  tags             String   @default("[]")  // JSON array of tag strings
-  ustIdNr          String?  // USt-Identifikationsnummer (für ZUGFeRD E-Rechnung)
+  tags             String   @default("[]") // JSON array of tag strings
+  ustIdNr          String? // USt-Identifikationsnummer (für ZUGFeRD E-Rechnung)
   aktiv            Boolean  @default(true)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  kontakte         KundeKontakt[]
-  bedarfe          KundeBedarf[]
-  artikelPreise    KundeArtikelPreis[]
-  lieferungen      Lieferung[]
-  mengenrabatte    Mengenrabatt[]
-  sammelrechnungen Sammelrechnung[]
-  aktivitaeten     KundeAktivitaet[]
-  antragDaten      AntragEmpfaenger[]
-  kundeNotizen     KundeNotiz[]
-  angebote         Angebot[]
-  schlaegte        KundeSchlag[]
-  aufgaben         Aufgabe[]
-  gutschriften     Gutschrift[]
-  anlieferungen    Anlieferung[]
-  bestellpositionen Bestellposition[]
-  kreditlimit          Float?    // max. offener Betrag in €
-  sachkundeNr          String?   // PSM-Sachkundenummer §9 PflSchG
-  sachkundeGueltigBis  DateTime? // Ablaufdatum Sachkundenachweis
+  kontakte            KundeKontakt[]
+  bedarfe             KundeBedarf[]
+  artikelPreise       KundeArtikelPreis[]
+  lieferungen         Lieferung[]
+  mengenrabatte       Mengenrabatt[]
+  sammelrechnungen    Sammelrechnung[]
+  aktivitaeten        KundeAktivitaet[]
+  antragDaten         AntragEmpfaenger[]
+  kundeNotizen        KundeNotiz[]
+  angebote            Angebot[]
+  schlaegte           KundeSchlag[]
+  aufgaben            Aufgabe[]
+  gutschriften        Gutschrift[]
+  anlieferungen       Anlieferung[]
+  bestellpositionen   Bestellposition[]
+  kreditlimit         Float? // max. offener Betrag in €
+  sachkundeNr         String? // PSM-Sachkundenummer §9 PflSchG
+  sachkundeGueltigBis DateTime? // Ablaufdatum Sachkundenachweis
 
-  psmAusbringungen     PsmAusbringung[]
-  kontrakte            Kontrakt[]
-  reklamationen        Reklamation[]
+  psmAusbringungen        PsmAusbringung[]
+  kontrakte               Kontrakt[]
+  reklamationen           Reklamation[]
   sprengstoffErklaerungen KundeSprengstoffErklaerung[]
-  sachkundenachweise   Sachkundenachweis[]
-  sortenversuche       Sortenversuch[]
-  vorbestellungen      Vorbestellung[]
-  tiere                KundeTier[]
-  rationsberechnungen  Rationsberechnung[]
+  sachkundenachweise      Sachkundenachweis[]
+  sortenversuche          Sortenversuch[]
+  vorbestellungen         Vorbestellung[]
+  tiere                   KundeTier[]
+  rationsberechnungen     Rationsberechnung[]
 
   // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
-  vvvoNr               String?   // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
+  vvvoNr String? // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
 
-  portalZugang         KundePortalZugang?
-  anbauplaene          Anbauplan[]
-  zertifizierungen     Zertifizierung[]
-  kampagnen            KampagneKunde[]
+  portalZugang     KundePortalZugang?
+  anbauplaene      Anbauplan[]
+  zertifizierungen Zertifizierung[]
+  kampagnen        KampagneKunde[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -73,14 +73,14 @@ model Kunde {
 }
 
 model KundeKontakt {
-  id               Int     @id @default(autoincrement())
-  kundeId          Int
-  typ              String  // telefon | mobil | email | fax
-  wert             String
-  label            String? // z.B. "Büro"
-  vorname          String?
-  nachname         String?
-  rechnungsEmail   Boolean @default(false) // Diese E-Mail für Rechnungsversand verwenden
+  id                Int     @id @default(autoincrement())
+  kundeId           Int
+  typ               String // telefon | mobil | email | fax
+  wert              String
+  label             String? // z.B. "Büro"
+  vorname           String?
+  nachname          String?
+  rechnungsEmail    Boolean @default(false) // Diese E-Mail für Rechnungsversand verwenden
   lieferscheinEmail Boolean @default(false) // Diese E-Mail für Lieferscheinversand verwenden
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
@@ -93,7 +93,7 @@ model KundeNotiz {
   kundeId  Int
   kunde    Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   text     String
-  thema    String?  // e.g. "Wichtig", "Offener Punkt", "Erledigt", "Info"
+  thema    String? // e.g. "Wichtig", "Offener Punkt", "Erledigt", "Info"
   erstellt DateTime @default(now())
 
   @@index([kundeId])
@@ -104,9 +104,9 @@ model KundeNotiz {
 model KundeSprengstoffErklaerung {
   id           Int      @id @default(autoincrement())
   kundeId      Int
-  jahr         Int      // Kalenderjahr der Erklärung
+  jahr         Int // Kalenderjahr der Erklärung
   datum        DateTime // Datum der Unterzeichnung
-  dokumentPfad String?  // optionaler Datei-Upload (unter /uploads/erklaerungen/)
+  dokumentPfad String? // optionaler Datei-Upload (unter /uploads/erklaerungen/)
   notiz        String?
   createdAt    DateTime @default(now())
 
@@ -119,15 +119,15 @@ model KundeSprengstoffErklaerung {
 // ─── CRM ──────────────────────────────────────────────────────────────────────
 
 model KundeAktivitaet {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   kundeId   Int
-  typ       String   // besuch | anruf | email | notiz | aufgabe
+  typ       String // besuch | anruf | email | notiz | aufgabe
   betreff   String
   inhalt    String?
-  datum     DateTime @default(now())
-  erledigt  Boolean  @default(false)
+  datum     DateTime  @default(now())
+  erledigt  Boolean   @default(false)
   faelligAm DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
@@ -140,14 +140,14 @@ model KundeAktivitaet {
 // ─── LIEFERANT ────────────────────────────────────────────────────────────────
 
 model Lieferant {
-  id              Int      @id @default(autoincrement())
-  name            String
-  ansprechpartner String?
-  email           String?
-  telefon         String?
-  strasse         String?
-  plz             String?
-  ort             String?
+  id                 Int      @id @default(autoincrement())
+  name               String
+  ansprechpartner    String?
+  email              String?
+  telefon            String?
+  strasse            String?
+  plz                String?
+  ort                String?
   notizen            String?
   iban               String?
   bic                String?
@@ -158,68 +158,69 @@ model Lieferant {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  artikelZuordnungen ArtikelLieferant[]
-  wareneingaenge     Wareneingang[]
-  bestellpositionen  Bestellposition[]
-  ausgaben           Ausgabe[]
-  bestellungen       Bestellung[]
-  eingangsRechnungen EingangsRechnung[]
-  streckenLieferungen Lieferung[] @relation("StreckenLieferant")
-  retouren           Retoure[]
+  artikelZuordnungen  ArtikelLieferant[]
+  wareneingaenge      Wareneingang[]
+  bestellpositionen   Bestellposition[]
+  ausgaben            Ausgabe[]
+  bestellungen        Bestellung[]
+  eingangsRechnungen  EingangsRechnung[]
+  streckenLieferungen Lieferung[]        @relation("StreckenLieferant")
+  retouren            Retoure[]
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
 
 model Artikel {
-  id               Int      @id @default(autoincrement())
-  artikelnummer    String   @unique
-  name             String
-  kategorie        String   // Futter | Duenger | Saatgut
-  unterkategorie   String?  // optional Subkategorie, z.B. Saatgut → Mais|Raps|Getreide|…
-  einheit          String   @default("kg") // kg | t | Sack | Liter | Stück
-  beschreibung     String?
-  notiz            String?  // freie Notiz/Hinweis, läuft auf Lieferpositionen durch (z.B. Abpackungsgrößen bei gleichem kg-Preis)
-  standardpreis    Float    @default(0)
-  preisStand       DateTime? // Datum, von wann der aktuelle Preis ist
-  mwstSatz         Float    @default(19) // 0 | 7 | 19
-  mindestbestand   Float    @default(0)
-  aktuellerBestand Float    @default(0)
-  aktiv                  Boolean  @default(true)
-  lagerort               String?  // optional: storage location label
-  liefergroesse          String?  // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
-  chargePflicht          Boolean  @default(false) // Chargennummer beim Warenausgang Pflicht
-  sprengstoffvorlaeufer  Boolean  @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
-  lagerTracking          Boolean  @default(true)  // false = kein Lagerbestand (Dienstleistungen, Beratung)
-  ghsKlassen             String?  // JSON array: ["GHS05","GHS07"] — Gefahrenpiktogramme
-  hSaetze                String?  // JSON: ["H302","H318"] — Hazard statements
-  pSaetze                String?  // JSON: ["P260","P280"] — Precautionary statements
-  signalwort             String?  // "Achtung" | "Gefahr" | null
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                    Int       @id @default(autoincrement())
+  artikelnummer         String    @unique
+  name                  String
+  kategorie             String // Futter | Duenger | Saatgut
+  unterkategorie        String? // optional Subkategorie, z.B. Saatgut → Mais|Raps|Getreide|…
+  einheit               String    @default("kg") // kg | t | Sack | Liter | Stück
+  beschreibung          String?
+  notiz                 String? // freie Notiz/Hinweis, läuft auf Lieferpositionen durch (z.B. Abpackungsgrößen bei gleichem kg-Preis)
+  standardpreis         Float     @default(0)
+  preisStand            DateTime? // Datum, von wann der aktuelle Preis ist
+  mwstSatz              Float     @default(19) // 0 | 7 | 19
+  mindestbestand        Float     @default(0)
+  aktuellerBestand      Float     @default(0)
+  aktiv                 Boolean   @default(true)
+  lagerort              String? // optional: storage location label
+  liefergroesse         String? // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
+  chargePflicht         Boolean   @default(false) // Chargennummer beim Warenausgang Pflicht
+  sprengstoffvorlaeufer Boolean   @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
+  lagerTracking         Boolean   @default(true) // false = kein Lagerbestand (Dienstleistungen, Beratung)
+  ghsKlassen            String? // JSON array: ["GHS05","GHS07"] — Gefahrenpiktogramme
+  hSaetze               String? // JSON: ["H302","H318"] — Hazard statements
+  pSaetze               String? // JSON: ["P260","P280"] — Precautionary statements
+  signalwort            String? // "Achtung" | "Gefahr" | null
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  inhaltsstoffe    ArtikelInhaltsstoff[]
-  lieferanten      ArtikelLieferant[]
-  kundePreise      KundeArtikelPreis[]
-  preisHistorie    ArtikelPreisHistorie[]
-  bedarfe          KundeBedarf[]
-  lieferpositionen Lieferposition[]
-  angebotPositionen AngebotPosition[]
-  lagerbewegungen  Lagerbewegung[]
-  wareineingangPos WareineingangPosition[]
-  dokumente        ArtikelDokument[]
-  mengenrabatte    Mengenrabatt[]
-  inventurPositionen InventurPosition[]
-  gutschriftPositionen GutschriftPosition[]
-  bestellpositionen Bestellposition[]
-  kampagneArtikel      KampagneArtikel[]
-  bestellungPositionen BestellungPosition[]
-  kontraktPositionen   KontraktPosition[]
+  inhaltsstoffe            ArtikelInhaltsstoff[]
+  lieferanten              ArtikelLieferant[]
+  kundePreise              KundeArtikelPreis[]
+  preisHistorie            ArtikelPreisHistorie[]
+  jahrespreise             ArtikelJahrespreis[]
+  bedarfe                  KundeBedarf[]
+  lieferpositionen         Lieferposition[]
+  angebotPositionen        AngebotPosition[]
+  lagerbewegungen          Lagerbewegung[]
+  wareineingangPos         WareineingangPosition[]
+  dokumente                ArtikelDokument[]
+  mengenrabatte            Mengenrabatt[]
+  inventurPositionen       InventurPosition[]
+  gutschriftPositionen     GutschriftPosition[]
+  bestellpositionen        Bestellposition[]
+  kampagneArtikel          KampagneArtikel[]
+  bestellungPositionen     BestellungPosition[]
+  kontraktPositionen       KontraktPosition[]
   angebotVorlagePositionen AngebotVorlagePosition[]
-  chargenZertifikate   ChargenZertifikat[]
-  vorbestellungPositionen VorbestellungPosition[]
-  fruehbezugStaffeln   FruehbezugsStaffel[]
-  anlieferungen        Anlieferung[]
-  retourePositionen    RetourePosition[]
+  chargenZertifikate       ChargenZertifikat[]
+  vorbestellungPositionen  VorbestellungPosition[]
+  fruehbezugStaffeln       FruehbezugsStaffel[]
+  anlieferungen            Anlieferung[]
+  retourePositionen        RetourePosition[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -228,11 +229,11 @@ model Artikel {
 }
 
 model ArtikelInhaltsstoff {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   artikelId Int
-  name      String   // z.B. "Schwefel", "Rohprotein", "Bor"
-  menge     Float?   // z.B. 90
-  einheit   String?  // z.B. "%", "mg/kg", "g/l"
+  name      String // z.B. "Schwefel", "Rohprotein", "Bor"
+  menge     Float? // z.B. 90
+  einheit   String? // z.B. "%", "mg/kg", "g/l"
 
   artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
 
@@ -241,15 +242,15 @@ model ArtikelInhaltsstoff {
 }
 
 model ArtikelDokument {
-  id          Int      @id @default(autoincrement())
-  artikelId   Int
-  name        String
-  dateiname   String   // original filename
-  pfad        String   // stored path under /uploads/artikel/
-  typ         String?  // MIME type
-  groesse     Int?     // bytes
-  notiz       String?
-  createdAt   DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  artikelId Int
+  name      String
+  dateiname String // original filename
+  pfad      String // stored path under /uploads/artikel/
+  typ       String? // MIME type
+  groesse   Int? // bytes
+  notiz     String?
+  createdAt DateTime @default(now())
 
   artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
 }
@@ -266,8 +267,9 @@ model ArtikelLieferant {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  artikel   Artikel   @relation(fields: [artikelId], references: [id], onDelete: Cascade)
-  lieferant Lieferant @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
+  artikel      Artikel                       @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+  lieferant    Lieferant                     @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
+  jahrespreise ArtikelLieferantJahrespreis[]
 
   @@unique([artikelId, lieferantId])
   @@index([lieferantId])
@@ -288,6 +290,41 @@ model ArtikelPreisHistorie {
   @@index([geaendertAm])
 }
 
+// Jahresgültigkeit Verkaufspreis: ein expliziter Preis je Kalenderjahr.
+// Fehlt ein Jahr, wird beim Lesen (lib/jahrespreis.ts) auf das nächstgelegene
+// bekannte Jahr zurückgegriffen und als "interpoliert" markiert — hier wird
+// nur der tatsächlich erfasste Preis gespeichert, keine berechneten Werte.
+model ArtikelJahrespreis {
+  id        Int      @id @default(autoincrement())
+  artikelId Int
+  jahr      Int
+  preis     Float
+  notiz     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+
+  @@unique([artikelId, jahr])
+  @@index([artikelId])
+}
+
+// Jahresgültigkeit Einkaufspreis je Lieferant (analog ArtikelJahrespreis)
+model ArtikelLieferantJahrespreis {
+  id                 Int      @id @default(autoincrement())
+  artikelLieferantId Int
+  jahr               Int
+  einkaufspreis      Float
+  notiz              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  artikelLieferant ArtikelLieferant @relation(fields: [artikelLieferantId], references: [id], onDelete: Cascade)
+
+  @@unique([artikelLieferantId, jahr])
+  @@index([artikelLieferantId])
+}
+
 // ─── PREISE & KONDITIONEN ─────────────────────────────────────────────────────
 
 model KundeArtikelPreis {
@@ -299,11 +336,29 @@ model KundeArtikelPreis {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  kunde   Kunde   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
-  artikel Artikel @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+  kunde        Kunde                   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  artikel      Artikel                 @relation(fields: [artikelId], references: [id], onDelete: Cascade)
+  jahrespreise KundeArtikelPreisJahr[]
 
   @@unique([kundeId, artikelId])
   @@index([artikelId])
+}
+
+// Jahresgültigkeit Kunden-Sonderpreis (analog ArtikelJahrespreis)
+model KundeArtikelPreisJahr {
+  id                  Int      @id @default(autoincrement())
+  kundeArtikelPreisId Int
+  jahr                Int
+  preis               Float
+  rabatt              Float    @default(0) // Prozent
+  notiz               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  kundeArtikelPreis KundeArtikelPreis @relation(fields: [kundeArtikelPreisId], references: [id], onDelete: Cascade)
+
+  @@unique([kundeArtikelPreisId, jahr])
+  @@index([kundeArtikelPreisId])
 }
 
 // ─── BEDARF (wiederkehrende Lieferungen) ──────────────────────────────────────
@@ -329,42 +384,42 @@ model KundeBedarf {
 // ─── LIEFERUNG ────────────────────────────────────────────────────────────────
 
 model Lieferung {
-  id               Int      @id @default(autoincrement())
-  kundeId          Int
-  datum            DateTime @default(now())
-  lieferDatum      DateTime? // tatsächliches Lieferdatum (falls abweichend von datum) – erscheint auf der Rechnung
-  status           String   @default("geplant") // geplant | geliefert | storniert
-  stornoBegründung String?
-  notiz            String?
-  rechnungNr       String?  // gesetzt wenn Rechnung erstellt wurde
-  rechnungDatum    DateTime?
-  lieferscheinNr   String?  // manuell anpassbare Lieferschein-Nummer (Default: Lieferungs-ID/Auftrag)
-  rechnungStorniert DateTime? // gesetzt wenn die Rechnung storniert wurde – verschwindet aus der Rechnungsliste
-  rechnungVersendetAm DateTime? // gesetzt wenn die Rechnung per E-Mail verschickt wurde
+  id                      Int       @id @default(autoincrement())
+  kundeId                 Int
+  datum                   DateTime  @default(now())
+  lieferDatum             DateTime? // tatsächliches Lieferdatum (falls abweichend von datum) – erscheint auf der Rechnung
+  status                  String    @default("geplant") // geplant | geliefert | storniert
+  stornoBegründung       String?
+  notiz                   String?
+  rechnungNr              String? // gesetzt wenn Rechnung erstellt wurde
+  rechnungDatum           DateTime?
+  lieferscheinNr          String? // manuell anpassbare Lieferschein-Nummer (Default: Lieferungs-ID/Auftrag)
+  rechnungStorniert       DateTime? // gesetzt wenn die Rechnung storniert wurde – verschwindet aus der Rechnungsliste
+  rechnungVersendetAm     DateTime? // gesetzt wenn die Rechnung per E-Mail verschickt wurde
   lieferscheinVersendetAm DateTime? // gesetzt wenn der Lieferschein per E-Mail verschickt wurde
-  bezahltAm        DateTime?
-  zahlungsziel     Int?      @default(30)  // Tage
-  wiederkehrend    Boolean  @default(false) // wurde automatisch angelegt
-  unterschriftPng  String?  // base64 PNG Kundenunterschrift bei Lieferung
-  fahrerId             Int?     // zugewiesener Fahrer (Benutzer)
-  istStreckengeschaeft Boolean  @default(false)  // Lieferant liefert direkt an Kunde
-  streckenLieferantId  Int?     // Lieferant der direkt liefert
-  skontoProzent        Float?   // z.B. 2.0 = 2% Skonto
-  skontoTage           Int?     // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
-  skontoGenutzt        Boolean  @default(false)
-  quelle               String?  // Herkunft: null = manuell, "ki" = KI-Einzel-Scan, "ki-batch" = KI-Batch-Erkennung
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  bezahltAm               DateTime?
+  zahlungsziel            Int?      @default(30) // Tage
+  wiederkehrend           Boolean   @default(false) // wurde automatisch angelegt
+  unterschriftPng         String? // base64 PNG Kundenunterschrift bei Lieferung
+  fahrerId                Int? // zugewiesener Fahrer (Benutzer)
+  istStreckengeschaeft    Boolean   @default(false) // Lieferant liefert direkt an Kunde
+  streckenLieferantId     Int? // Lieferant der direkt liefert
+  skontoProzent           Float? // z.B. 2.0 = 2% Skonto
+  skontoTage              Int? // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
+  skontoGenutzt           Boolean   @default(false)
+  quelle                  String? // Herkunft: null = manuell, "ki" = KI-Einzel-Scan, "ki-batch" = KI-Batch-Erkennung
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  kunde             Kunde            @relation(fields: [kundeId], references: [id])
+  kunde             Kunde             @relation(fields: [kundeId], references: [id])
   positionen        Lieferposition[]
   lagerbewegungen   Lagerbewegung[]
-  sammelrechnung    Sammelrechnung?  @relation(fields: [sammelrechnungId], references: [id])
+  sammelrechnung    Sammelrechnung?   @relation(fields: [sammelrechnungId], references: [id])
   sammelrechnungId  Int?
   gutschriften      Gutschrift[]
   bestellpositionen Bestellposition[]
   reklamationen     Reklamation[]
-  streckenLieferant Lieferant?       @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
+  streckenLieferant Lieferant?        @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
   teilzahlungen     Teilzahlung[]
 
   @@index([kundeId])
@@ -376,15 +431,17 @@ model Lieferung {
 }
 
 model Lieferposition {
-  id            Int     @id @default(autoincrement())
-  lieferungId   Int
-  artikelId     Int
-  menge         Float
-  verkaufspreis Float
-  einkaufspreis Float   @default(0)
-  chargeNr      String? // Chargen-/Losnummer (gesetzlich für Saatgut)
-  rabattProzent Float   @default(0) // Mengenrabatt der angewendet wurde
-  notiz         String? // Auftragsnummer / interne Notiz zur Position
+  id                Int     @id @default(autoincrement())
+  lieferungId       Int
+  artikelId         Int
+  menge             Float
+  verkaufspreis     Float
+  einkaufspreis     Float   @default(0)
+  chargeNr          String? // Chargen-/Losnummer (gesetzlich für Saatgut)
+  rabattProzent     Float   @default(0) // Mengenrabatt der angewendet wurde
+  notiz             String? // Auftragsnummer / interne Notiz zur Position
+  preisInterpoliert Boolean @default(false) // true = verkaufspreis wurde aus einem anderen Jahr übernommen (kein Jahrespreis fürs Lieferjahr erfasst)
+  preisQuelleJahr   Int? // Jahr, aus dem der Preis tatsächlich stammt, wenn preisInterpoliert=true
 
   lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
   artikel   Artikel   @relation(fields: [artikelId], references: [id])
@@ -396,15 +453,15 @@ model Lieferposition {
 // ─── WARENEINGANG ─────────────────────────────────────────────────────────────
 
 model Wareneingang {
-  id               Int      @id @default(autoincrement())
-  lieferantId      Int
-  datum            DateTime @default(now())
-  notiz            String?
-  istCrossDocking  Boolean  @default(false)
-  lieferungId      Int?     // direkt verknüpfte Lieferung bei Cross-Docking
-  createdAt        DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  lieferantId     Int
+  datum           DateTime @default(now())
+  notiz           String?
+  istCrossDocking Boolean  @default(false)
+  lieferungId     Int? // direkt verknüpfte Lieferung bei Cross-Docking
+  createdAt       DateTime @default(now())
 
-  lieferant       Lieferant              @relation(fields: [lieferantId], references: [id])
+  lieferant       Lieferant               @relation(fields: [lieferantId], references: [id])
   positionen      WareineingangPosition[]
   lagerbewegungen Lagerbewegung[]
 
@@ -419,12 +476,12 @@ model WareineingangPosition {
   artikelId         Int
   menge             Float
   einkaufspreis     Float
-  chargeNr          String?   // Chargen-/Losnummer (gesetzlich für Saatgut)
+  chargeNr          String? // Chargen-/Losnummer (gesetzlich für Saatgut)
   mhd               DateTime? // Mindesthaltbarkeitsdatum
-  bestellpositionId Int?      // verknüpfte Bestellposition (erfüllt diese Bestellung)
+  bestellpositionId Int? // verknüpfte Bestellposition (erfüllt diese Bestellung)
 
-  wareneingang   Wareneingang  @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
-  artikel        Artikel       @relation(fields: [artikelId], references: [id])
+  wareneingang    Wareneingang     @relation(fields: [wareneingangId], references: [id], onDelete: Cascade)
+  artikel         Artikel          @relation(fields: [artikelId], references: [id])
   bestellposition Bestellposition? @relation(fields: [bestellpositionId], references: [id])
 
   @@index([wareneingangId])
@@ -437,17 +494,17 @@ model WareineingangPosition {
 model Lagerbewegung {
   id             Int      @id @default(autoincrement())
   artikelId      Int
-  typ            String   // eingang | ausgang | korrektur | UMBUCHUNG
-  menge          Float    // positiv = Zugang, negativ = Abgang
+  typ            String // eingang | ausgang | korrektur | UMBUCHUNG
+  menge          Float // positiv = Zugang, negativ = Abgang
   bestandNach    Float
   datum          DateTime @default(now())
   notiz          String?
   lieferungId    Int?
   wareneingangId Int?
   retoureId      Int?
-  chargeNr       String?  // Chargennummer (aus Wareneingang oder Lieferung)
-  lagerortVon    String?  // source location (for Umbuchung)
-  lagerortNach   String?  // target location (for Umbuchung)
+  chargeNr       String? // Chargennummer (aus Wareneingang oder Lieferung)
+  lagerortVon    String? // source location (for Umbuchung)
+  lagerortNach   String? // target location (for Umbuchung)
 
   artikel      Artikel       @relation(fields: [artikelId], references: [id])
   lieferung    Lieferung?    @relation(fields: [lieferungId], references: [id])
@@ -465,14 +522,14 @@ model Lagerbewegung {
 
 model Retoure {
   id                 Int      @id @default(autoincrement())
-  nummer             String   @unique             // RET-YYYY-NNNN
+  nummer             String   @unique // RET-YYYY-NNNN
   lieferantId        Int
   datum              DateTime @default(now())
   grund              String   @default("Kommission") // Kommission|Mangel|Falschlieferung|Sonstiges
   notiz              String?
-  status             String   @default("GEBUCHT")    // GEBUCHT|STORNIERT
-  gutschriftBetrag   Float?                           // erwartete Lieferantengutschrift (netto)
-  eingangsRechnungId Int?                             // verknüpfte/erzeugte Eingangsrechnung (Gutschrift)
+  status             String   @default("GEBUCHT") // GEBUCHT|STORNIERT
+  gutschriftBetrag   Float? // erwartete Lieferantengutschrift (netto)
+  eingangsRechnungId Int? // verknüpfte/erzeugte Eingangsrechnung (Gutschrift)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -505,11 +562,11 @@ model RetourePosition {
 
 model Mengenrabatt {
   id            Int      @id @default(autoincrement())
-  kundeId       Int?     // null = gilt für alle Kunden
-  artikelId     Int?     // null = gilt für alle Artikel der Kategorie
-  kategorie     String?  // alternativ zu artikelId: gilt für ganze Kategorie
-  vonMenge      Float    // ab dieser Menge gilt der Rabatt
-  rabattProzent Float    // Rabatt in %
+  kundeId       Int? // null = gilt für alle Kunden
+  artikelId     Int? // null = gilt für alle Artikel der Kategorie
+  kategorie     String? // alternativ zu artikelId: gilt für ganze Kategorie
+  vonMenge      Float // ab dieser Menge gilt der Rabatt
+  rabattProzent Float // Rabatt in %
   aktiv         Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -520,21 +577,21 @@ model Mengenrabatt {
 // ─── SAMMELRECHNUNG ───────────────────────────────────────────────────────────
 
 model Sammelrechnung {
-  id           Int      @id @default(autoincrement())
-  kundeId      Int
-  rechnungNr   String?
+  id            Int       @id @default(autoincrement())
+  kundeId       Int
+  rechnungNr    String?
   rechnungDatum DateTime?
-  bezahltAm   DateTime?
-  zahlungsziel Int      @default(30)
-  notiz        String?
-  createdAt    DateTime @default(now())
+  bezahltAm     DateTime?
+  zahlungsziel  Int       @default(30)
+  notiz         String?
+  createdAt     DateTime  @default(now())
 
-  kunde       Kunde       @relation(fields: [kundeId], references: [id])
-  lieferungen Lieferung[]
+  kunde         Kunde         @relation(fields: [kundeId], references: [id])
+  lieferungen   Lieferung[]
   teilzahlungen Teilzahlung[]
   skontoProzent Float?
   skontoTage    Int?
-  skontoGenutzt Boolean  @default(false)
+  skontoGenutzt Boolean       @default(false)
 
   @@index([kundeId])
   @@index([rechnungDatum])
@@ -543,28 +600,28 @@ model Sammelrechnung {
 // ─── BESTELLLISTE (Lieferanten-Bestellungen) ─────────────────────────────────
 
 model Bestellposition {
-  id            Int       @id @default(autoincrement())
-  lieferantId   Int
-  artikelId     Int
-  kundeId       Int?      // Rückverfolgbarkeit: welcher Kunde
-  lieferungId   Int?      // Rückverfolgbarkeit: welche Lieferung
-  angebotId     Int?      // Rückverfolgbarkeit: welches Angebot
-  menge            Float
-  mengeGeliefert   Float     @default(0) // Summe bereits gelieferter Mengen (Teillieferungen)
-  einheit          String    @default("kg")
-  einkaufspreis    Float     @default(0)
-  status           String    @default("offen") // offen | bestellt | teilgeliefert | geliefert | storniert
-  bestelltAm       DateTime?
-  geliefertAm      DateTime?
-  notiz            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  lieferantId    Int
+  artikelId      Int
+  kundeId        Int? // Rückverfolgbarkeit: welcher Kunde
+  lieferungId    Int? // Rückverfolgbarkeit: welche Lieferung
+  angebotId      Int? // Rückverfolgbarkeit: welches Angebot
+  menge          Float
+  mengeGeliefert Float     @default(0) // Summe bereits gelieferter Mengen (Teillieferungen)
+  einheit        String    @default("kg")
+  einkaufspreis  Float     @default(0)
+  status         String    @default("offen") // offen | bestellt | teilgeliefert | geliefert | storniert
+  bestelltAm     DateTime?
+  geliefertAm    DateTime?
+  notiz          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  lieferant             Lieferant              @relation(fields: [lieferantId], references: [id])
-  artikel               Artikel                @relation(fields: [artikelId], references: [id])
-  kunde                 Kunde?                 @relation(fields: [kundeId], references: [id])
-  lieferung             Lieferung?             @relation(fields: [lieferungId], references: [id])
-  wareineingangPos      WareineingangPosition[]
+  lieferant        Lieferant               @relation(fields: [lieferantId], references: [id])
+  artikel          Artikel                 @relation(fields: [artikelId], references: [id])
+  kunde            Kunde?                  @relation(fields: [kundeId], references: [id])
+  lieferung        Lieferung?              @relation(fields: [lieferungId], references: [id])
+  wareineingangPos WareineingangPosition[]
 
   @@index([lieferantId])
   @@index([artikelId])
@@ -590,11 +647,11 @@ model InventurPosition {
   inventur    Inventur @relation(fields: [inventurId], references: [id], onDelete: Cascade)
   artikelId   Int
   artikel     Artikel  @relation(fields: [artikelId], references: [id])
-  sollBestand Float    // snapshot of bestand at time of inventur
-  istBestand  Float?   // counted value
-  differenz   Float?   // computed: istBestand - sollBestand
+  sollBestand Float // snapshot of bestand at time of inventur
+  istBestand  Float? // counted value
+  differenz   Float? // computed: istBestand - sollBestand
   bemerkung   String?
-  chargeNr    String?  // Chargennummer bei der Zählung (für chargenpflichtige Artikel)
+  chargeNr    String? // Chargennummer bei der Zählung (für chargenpflichtige Artikel)
 
   @@index([inventurId])
   @@index([artikelId])
@@ -611,11 +668,11 @@ model Einstellung {
 
 model MarktpreisCache {
   id          Int      @id @default(autoincrement())
-  dataset     String   // "apri_pi15_inq" (quartalsweise) oder "apri_pi15_ina" (jährlich)
-  produktCode String   // z.B. "206000" (Futtermittel)
-  produktName String   // z.B. "Futtermittel"
-  zeitraum    String   // z.B. "2024-Q3" oder "2024"
-  indexWert   Float    // Indexwert (2015 = 100)
+  dataset     String // "apri_pi15_inq" (quartalsweise) oder "apri_pi15_ina" (jährlich)
+  produktCode String // z.B. "206000" (Futtermittel)
+  produktName String // z.B. "Futtermittel"
+  zeitraum    String // z.B. "2024-Q3" oder "2024"
+  indexWert   Float // Indexwert (2015 = 100)
   einheit     String   @default("I15")
   land        String   @default("DE")
   abgerufenAm DateTime @default(now())
@@ -630,10 +687,10 @@ model AgrarflaechenCache {
   id           Int      @id @default(autoincrement())
   lat          Float
   lng          Float
-  radius       Int      // Meter
-  flaecheHa    Float    // Gesamtfläche in Hektar
-  polygonCount Int      // Anzahl Polygone
-  geojson      String   // GeoJSON FeatureCollection
+  radius       Int // Meter
+  flaecheHa    Float // Gesamtfläche in Hektar
+  polygonCount Int // Anzahl Polygone
+  geojson      String // GeoJSON FeatureCollection
   abgerufenAm  DateTime @default(now())
   createdAt    DateTime @default(now())
 
@@ -643,24 +700,24 @@ model AgrarflaechenCache {
 // ─── AGRARANTRÄGE (AFIG / agrarzahlungen.de) ──────────────────────────────────
 
 model AntragEmpfaenger {
-  id                        Int      @id @default(autoincrement())
-  haushaltsjahr             Int
-  name                      String   // Name des Begünstigten
-  plz                       String?
-  gemeinde                  String?
-  land                      String?
-  steuerNr                  String?  // Steuerliches Identifikationsmerkmal
-  egflGesamt                Float    @default(0)  // EGFL-Gesamtbetrag für diesen Begünstigten (Spalte 12)
-  elerGesamt                Float    @default(0)  // ELER-Gesamtbetrag EU-Mittel (Spalte 14)
-  nationalKofiGesamt        Float    @default(0)  // National kofinanzierter Gesamtbetrag (Spalte 16)
-  elerUndKofiGesamt         Float    @default(0)  // ELER + national Kofi (Spalte 17)
-  gesamtBetrag              Float    @default(0)  // EU-Betrag + Kofi gesamt (Spalte 18)
-  massnahmen                String?  // JSON: [{code, ziel, egfl, eler, nationalKofi, anfang, ende}]
-  mutterunternehmen         String?
-  importiertAm              DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  haushaltsjahr      Int
+  name               String // Name des Begünstigten
+  plz                String?
+  gemeinde           String?
+  land               String?
+  steuerNr           String? // Steuerliches Identifikationsmerkmal
+  egflGesamt         Float    @default(0) // EGFL-Gesamtbetrag für diesen Begünstigten (Spalte 12)
+  elerGesamt         Float    @default(0) // ELER-Gesamtbetrag EU-Mittel (Spalte 14)
+  nationalKofiGesamt Float    @default(0) // National kofinanzierter Gesamtbetrag (Spalte 16)
+  elerUndKofiGesamt  Float    @default(0) // ELER + national Kofi (Spalte 17)
+  gesamtBetrag       Float    @default(0) // EU-Betrag + Kofi gesamt (Spalte 18)
+  massnahmen         String? // JSON: [{code, ziel, egfl, eler, nationalKofi, anfang, ende}]
+  mutterunternehmen  String?
+  importiertAm       DateTime @default(now())
 
-  kundeId           Int?
-  kunde             Kunde?   @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+  kundeId Int?
+  kunde   Kunde? @relation(fields: [kundeId], references: [id], onDelete: SetNull)
 
   @@index([name])
   @@index([plz])
@@ -678,14 +735,14 @@ model Aufgabe {
   faelligAm    DateTime?
   erledigt     Boolean   @default(false)
   erledigtAm   DateTime?
-  prioritaet   String    @default("normal")  // niedrig | normal | hoch | kritisch
-  tags         String    @default("[]")       // JSON array of strings
-  typ          String    @default("aufgabe")  // aufgabe | anruf | besuch | email
+  prioritaet   String    @default("normal") // niedrig | normal | hoch | kritisch
+  tags         String    @default("[]") // JSON array of strings
+  typ          String    @default("aufgabe") // aufgabe | anruf | besuch | email
   kundeId      Int?
   erstellt     DateTime  @default(now())
   aktualisiert DateTime  @updatedAt
 
-  kunde        Kunde?    @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+  kunde Kunde? @relation(fields: [kundeId], references: [id], onDelete: SetNull)
 
   @@index([kundeId])
   @@index([erledigt])
@@ -697,18 +754,18 @@ model Aufgabe {
 // ─── ANGEBOTSWESEN ────────────────────────────────────────────────────────────
 
 model Angebot {
-  id          Int      @id @default(autoincrement())
-  nummer      String   @unique          // z.B. AN-2026-0001
-  datum       DateTime @default(now())
-  gueltigBis  DateTime?
-  status      String   @default("OFFEN") // OFFEN | ANGENOMMEN | ABGELEHNT | ABGELAUFEN
-  kundeId     Int
-  notiz       String?
-  erstellt    DateTime @default(now())
-  aktualisiert DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  nummer       String    @unique // z.B. AN-2026-0001
+  datum        DateTime  @default(now())
+  gueltigBis   DateTime?
+  status       String    @default("OFFEN") // OFFEN | ANGENOMMEN | ABGELEHNT | ABGELAUFEN
+  kundeId      Int
+  notiz        String?
+  erstellt     DateTime  @default(now())
+  aktualisiert DateTime  @updatedAt
 
-  kunde       Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
-  positionen  AngebotPosition[]
+  kunde      Kunde             @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  positionen AngebotPosition[]
 
   @@index([kundeId])
   @@index([status])
@@ -716,17 +773,19 @@ model Angebot {
 }
 
 model AngebotPosition {
-  id         Int    @id @default(autoincrement())
-  angebotId  Int
-  artikelId  Int
-  menge      Float
-  preis      Float  // Angebotspreis (netto)
-  rabatt     Float  @default(0)
-  einheit    String @default("kg")
-  notiz      String?
+  id                Int     @id @default(autoincrement())
+  angebotId         Int
+  artikelId         Int
+  menge             Float
+  preis             Float // Angebotspreis (netto)
+  rabatt            Float   @default(0)
+  einheit           String  @default("kg")
+  notiz             String?
+  preisInterpoliert Boolean @default(false) // true = preis wurde aus einem anderen Jahr übernommen
+  preisQuelleJahr   Int?
 
-  angebot    Angebot @relation(fields: [angebotId], references: [id], onDelete: Cascade)
-  artikel    Artikel @relation(fields: [artikelId], references: [id])
+  angebot Angebot @relation(fields: [angebotId], references: [id], onDelete: Cascade)
+  artikel Artikel @relation(fields: [artikelId], references: [id])
 
   @@index([angebotId])
   @@index([artikelId])
@@ -736,17 +795,17 @@ model AngebotPosition {
 
 model Gutschrift {
   id          Int      @id @default(autoincrement())
-  nummer      String   @unique  // GS-YYYY-NNNN
+  nummer      String   @unique // GS-YYYY-NNNN
   kundeId     Int
-  lieferungId Int?     // optional reference to original delivery
+  lieferungId Int? // optional reference to original delivery
   datum       DateTime @default(now())
-  grund       String   // Reklamation | Retoure | Preiskorrektur | Sonstiges
+  grund       String // Reklamation | Retoure | Preiskorrektur | Sonstiges
   notiz       String?
-  status      String   @default("OFFEN")  // OFFEN | VERBUCHT | STORNIERT
+  status      String   @default("OFFEN") // OFFEN | VERBUCHT | STORNIERT
   createdAt   DateTime @default(now())
 
-  kunde       Kunde              @relation(fields: [kundeId], references: [id])
-  lieferung   Lieferung?         @relation(fields: [lieferungId], references: [id])
+  kunde       Kunde                @relation(fields: [kundeId], references: [id])
+  lieferung   Lieferung?           @relation(fields: [lieferungId], references: [id])
   positionen  GutschriftPosition[]
   anlieferung Anlieferung?
 
@@ -759,11 +818,11 @@ model GutschriftPosition {
   gutschriftId Int
   artikelId    Int
   menge        Float
-  preis        Float   // unit price for credit
-  ruecknahme   Boolean @default(false)  // true = return to stock
+  preis        Float // unit price for credit
+  ruecknahme   Boolean @default(false) // true = return to stock
 
-  gutschrift   Gutschrift @relation(fields: [gutschriftId], references: [id], onDelete: Cascade)
-  artikel      Artikel    @relation(fields: [artikelId], references: [id])
+  gutschrift Gutschrift @relation(fields: [gutschriftId], references: [id], onDelete: Cascade)
+  artikel    Artikel    @relation(fields: [artikelId], references: [id])
 
   @@index([gutschriftId])
   @@index([artikelId])
@@ -774,13 +833,13 @@ model GutschriftPosition {
 model AuditLog {
   id           Int      @id @default(autoincrement())
   zeitpunkt    DateTime @default(now())
-  entitaet     String   // "Kunde" | "Artikel" | "Lieferung" | "Lager" | etc.
-  entitaetId   Int      // ID des betroffenen Datensatzes
-  aktion       String   // "erstellt" | "geaendert" | "geloescht"
-  feld         String?  // welches Feld geändert wurde (null bei erstellt/geloescht)
-  alterWert    String?  // alter Wert (als String)
-  neuerWert    String?  // neuer Wert (als String)
-  beschreibung String?  // lesbare Beschreibung
+  entitaet     String // "Kunde" | "Artikel" | "Lieferung" | "Lager" | etc.
+  entitaetId   Int // ID des betroffenen Datensatzes
+  aktion       String // "erstellt" | "geaendert" | "geloescht"
+  feld         String? // welches Feld geändert wurde (null bei erstellt/geloescht)
+  alterWert    String? // alter Wert (als String)
+  neuerWert    String? // neuer Wert (als String)
+  beschreibung String? // lesbare Beschreibung
 
   @@index([entitaet, entitaetId])
   @@index([zeitpunkt])
@@ -789,19 +848,19 @@ model AuditLog {
 // ─── SCHLAGKARTEI ─────────────────────────────────────────────────────────────
 
 model KundeSchlag {
-  id         Int      @id @default(autoincrement())
-  kundeId    Int
-  name       String                          // Schlagname / Feldname
-  flaeche    Float                           // ha
-  fruchtart  String?                         // Weizen, Raps, Gerste …
-  sorte      String?                         // Sortenname
-  vorfrucht  String?
-  aussaatJahr Int?
-  aussaatMenge Float?                        // kg/ha
-  notiz      String?
-  erstellt   DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  kundeId      Int
+  name         String // Schlagname / Feldname
+  flaeche      Float // ha
+  fruchtart    String? // Weizen, Raps, Gerste …
+  sorte        String? // Sortenname
+  vorfrucht    String?
+  aussaatJahr  Int?
+  aussaatMenge Float? // kg/ha
+  notiz        String?
+  erstellt     DateTime @default(now())
 
-  kunde            Kunde            @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kunde            Kunde                  @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   psmAusbringungen PsmAusbringung[]
   bodenproben      Bodenprobe[]
   albrechtAnalysen BodenanalyseAlbrecht[]
@@ -815,40 +874,40 @@ model KundeSchlag {
 // ─── AUSGABENBUCH (Betriebsausgaben / Eingangsrechnungen) ─────────────────────
 
 model Ausgabe {
-  id           Int       @id @default(autoincrement())
-  datum        DateTime  @default(now())
-  belegNr      String?   // Eingangsrechnungsnummer des Lieferanten
-  beschreibung String
-  betragNetto  Float
-  mwstSatz     Float     @default(19) // 0 | 7 | 19
-  kategorie    String    @default("Sonstige")
+  id                      Int        @id @default(autoincrement())
+  datum                   DateTime   @default(now())
+  belegNr                 String? // Eingangsrechnungsnummer des Lieferanten
+  beschreibung            String
+  betragNetto             Float
+  mwstSatz                Float      @default(19) // 0 | 7 | 19
+  kategorie               String     @default("Sonstige")
   // Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf |
   //             Telefon/Internet | Versicherung | Miete | Sonstige
-  lieferantId  Int?
-  lieferant    Lieferant? @relation(fields: [lieferantId], references: [id], onDelete: SetNull)
-  bezahltAm      DateTime?
-  notiz          String?
-  belegPfad      String?   // Relativer Pfad zur hochgeladenen Belegdatei (z.B. /uploads/belege/2026/20260403_42_RE-2026-1234.jpg)
-  belegDateiname String?   // Originaler Dateiname des Belegs
-  ausleger       String?   // Name der Person, die privat ausgelegt hat (null = Firmenzahlung)
-  erfasstVon     String?   // Benutzername der erfassenden Person
-  bezahltVon     String?   // Benutzername der Person, die als bezahlt markiert hat
+  lieferantId             Int?
+  lieferant               Lieferant? @relation(fields: [lieferantId], references: [id], onDelete: SetNull)
+  bezahltAm               DateTime?
+  notiz                   String?
+  belegPfad               String? // Relativer Pfad zur hochgeladenen Belegdatei (z.B. /uploads/belege/2026/20260403_42_RE-2026-1234.jpg)
+  belegDateiname          String? // Originaler Dateiname des Belegs
+  ausleger                String? // Name der Person, die privat ausgelegt hat (null = Firmenzahlung)
+  erfasstVon              String? // Benutzername der erfassenden Person
+  bezahltVon              String? // Benutzername der Person, die als bezahlt markiert hat
   // ── DATEV / Buchungskonten ────────────────────────────────────────────────
-  buchungstyp             String   @default("Betriebsausgabe")
+  buchungstyp             String     @default("Betriebsausgabe")
   // "Betriebsausgabe"|"Privatentnahme"|"Privateinlage"|"Reisekosten"|"Bewirtung"
-  sachkonto               String?  // DATEV Sachkontonummer z.B. "4660" — auto-befüllt, überschreibbar
-  kostenstelle            String?  // Kostenstelle (Freitext)
-  zahlungsweg             String?  // "Bar"|"Überweisung"|"EC"|"Kreditkarte"|"Privat"
+  sachkonto               String? // DATEV Sachkontonummer z.B. "4660" — auto-befüllt, überschreibbar
+  kostenstelle            String? // Kostenstelle (Freitext)
+  zahlungsweg             String? // "Bar"|"Überweisung"|"EC"|"Kreditkarte"|"Privat"
   // ── Reisekosten ───────────────────────────────────────────────────────────
   reiseZiel               String?
   reiseKm                 Float?
-  reiseKilometerpauschale Boolean  @default(false) // true → betragNetto = km × 0,30 €
+  reiseKilometerpauschale Boolean    @default(false) // true → betragNetto = km × 0,30 €
   reiseZweck              String?
   // ── Bewirtungskosten ──────────────────────────────────────────────────────
-  bewirtungTeilnehmer     String?  // Anwesende Personen
-  bewirtungZweck          String?  // Geschäftlicher Anlass
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  bewirtungTeilnehmer     String? // Anwesende Personen
+  bewirtungZweck          String? // Geschäftlicher Anlass
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
 
   @@index([datum])
   @@index([lieferantId])
@@ -863,26 +922,26 @@ model Ausgabe {
 // ─── BANKABGLEICH (Kontoauszug-Import & Zahlungszuordnung) ───────────────────
 
 model Kontoumsatz {
-  id               Int       @id @default(autoincrement())
-  kontoBezeichnung String?   // z.B. "Geschäftskonto Sparkasse"
-  buchungsdatum    DateTime
-  wertstellung     DateTime?
-  betrag           Float     // positiv = Eingang, negativ = Ausgang
-  waehrung         String    @default("EUR")
-  verwendungszweck String
-  gegenkonto       String?   // IBAN der Gegenpartei
-  gegenkontoName   String?   // Name der Gegenpartei
-  saldo            Float?
-  zugeordnet       Boolean   @default(false)
-  lieferungId      Int?
-  sammelrechnungId Int?
-  ausgabeId        Int?      // Zuordnung zu Betriebsausgabe
-  eingangsRechnungId Int?    // Zuordnung zu Lieferantenrechnung (Zahlungsausgang)
-  zuordnungsArt    String?   // "manuell" | "automatisch" | "ki" — wie die Zuordnung zustande kam
-  kiKonfidenz      Float?    // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
-  importDatum      DateTime  @default(now())
-  importDatei      String?   // Name der Importdatei (für Rückverfolgung)
-  ignoriert        Boolean   @default(false) // manuell ausgeblendet (z.B. interne Umbuchung) — nicht zugeordnet, aber bewusst kein offener Posten
+  id                 Int       @id @default(autoincrement())
+  kontoBezeichnung   String? // z.B. "Geschäftskonto Sparkasse"
+  buchungsdatum      DateTime
+  wertstellung       DateTime?
+  betrag             Float // positiv = Eingang, negativ = Ausgang
+  waehrung           String    @default("EUR")
+  verwendungszweck   String
+  gegenkonto         String? // IBAN der Gegenpartei
+  gegenkontoName     String? // Name der Gegenpartei
+  saldo              Float?
+  zugeordnet         Boolean   @default(false)
+  lieferungId        Int?
+  sammelrechnungId   Int?
+  ausgabeId          Int? // Zuordnung zu Betriebsausgabe
+  eingangsRechnungId Int? // Zuordnung zu Lieferantenrechnung (Zahlungsausgang)
+  zuordnungsArt      String? // "manuell" | "automatisch" | "ki" — wie die Zuordnung zustande kam
+  kiKonfidenz        Float? // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
+  importDatum        DateTime  @default(now())
+  importDatei        String? // Name der Importdatei (für Rückverfolgung)
+  ignoriert          Boolean   @default(false) // manuell ausgeblendet (z.B. interne Umbuchung) — nicht zugeordnet, aber bewusst kein offener Posten
 
   @@index([buchungsdatum])
   @@index([zugeordnet])
@@ -895,9 +954,9 @@ model Kontoumsatz {
 model KiNutzung {
   id          Int      @id @default(autoincrement())
   zeitpunkt   DateTime @default(now())
-  provider    String                           // "openai" | "anthropic"
-  modell      String                           // "gpt-4o" | "claude-sonnet-4-20250514" etc.
-  feature     String                           // "wareneingang" | "lieferung" | "crm"
+  provider    String // "openai" | "anthropic"
+  modell      String // "gpt-4o" | "claude-sonnet-4-20250514" etc.
+  feature     String // "wareneingang" | "lieferung" | "crm"
   tokensIn    Int
   tokensOut   Int
   kostenCent  Int      @default(0)
@@ -910,14 +969,14 @@ model KiNutzung {
 // ─── BENUTZER & ROLLEN ────────────────────────────────────────────────────────
 
 model Rolle {
-  id             Int       @id @default(autoincrement())
-  name           String    @unique   // "admin" | "buero" | "verkauf" | "lager" | "fahrer" | "buchhalter" | "readonly"
-  bezeichnung    String              // Anzeigename "Außendienst / Verkauf"
+  id             Int      @id @default(autoincrement())
+  name           String   @unique // "admin" | "buero" | "verkauf" | "lager" | "fahrer" | "buchhalter" | "readonly"
+  bezeichnung    String // Anzeigename "Außendienst / Verkauf"
   beschreibung   String?
-  berechtigungen String    @default("[]") // JSON-Array der Permission-IDs
-  istSystem      Boolean   @default(false) // System-Rollen können nicht gelöscht werden
-  erstelltAm     DateTime  @default(now())
-  geaendertAm    DateTime  @updatedAt
+  berechtigungen String   @default("[]") // JSON-Array der Permission-IDs
+  istSystem      Boolean  @default(false) // System-Rollen können nicht gelöscht werden
+  erstelltAm     DateTime @default(now())
+  geaendertAm    DateTime @updatedAt
 
   benutzer Benutzer[]
 }
@@ -944,20 +1003,20 @@ model Benutzer {
 // ─── PSM-AUSBRINGUNG (Pflanzenschutz) ─────────────────────────────────────────
 
 model PsmAusbringung {
-  id              Int       @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   kundeId         Int
   schlagId        Int?
   datum           DateTime
-  mittel          String    // PSM-Mittelname
+  mittel          String // PSM-Mittelname
   wirkstoff       String?
   menge           Float
-  einheit         String    @default("l/ha")
+  einheit         String   @default("l/ha")
   kultur          String?
-  flaeche         Float?    // ha
+  flaeche         Float? // ha
   anwendungsgrund String?
-  wartezeit       Int?      // Tage
+  wartezeit       Int? // Tage
   notiz           String?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime @default(now())
 
   kunde  Kunde        @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   schlag KundeSchlag? @relation(fields: [schlagId], references: [id], onDelete: SetNull)
@@ -970,16 +1029,16 @@ model PsmAusbringung {
 
 model Bestellung {
   id          Int       @id @default(autoincrement())
-  nummer      String    @unique  // BES-YYYY-NNNN
+  nummer      String    @unique // BES-YYYY-NNNN
   lieferantId Int
   datum       DateTime  @default(now())
   lieferdatum DateTime?
-  status      String    @default("OFFEN")  // OFFEN|BESTAETIGT|TEILGELIEFERT|ABGESCHLOSSEN|STORNIERT
+  status      String    @default("OFFEN") // OFFEN|BESTAETIGT|TEILGELIEFERT|ABGESCHLOSSEN|STORNIERT
   notiz       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  lieferant  Lieferant           @relation(fields: [lieferantId], references: [id])
+  lieferant  Lieferant            @relation(fields: [lieferantId], references: [id])
   positionen BestellungPosition[]
 
   @@index([lieferantId])
@@ -988,13 +1047,13 @@ model Bestellung {
 }
 
 model BestellungPosition {
-  id              Int     @id @default(autoincrement())
-  bestellungId    Int
-  artikelId       Int
-  menge           Float
-  mengeGeliefert  Float   @default(0)
-  preis           Float?
-  einheit         String  @default("kg")
+  id             Int    @id @default(autoincrement())
+  bestellungId   Int
+  artikelId      Int
+  menge          Float
+  mengeGeliefert Float  @default(0)
+  preis          Float?
+  einheit        String @default("kg")
 
   bestellung Bestellung @relation(fields: [bestellungId], references: [id], onDelete: Cascade)
   artikel    Artikel    @relation(fields: [artikelId], references: [id])
@@ -1006,16 +1065,16 @@ model BestellungPosition {
 // ─── KONTRAKTE (Rahmenverträge) ───────────────────────────────────────────────
 
 model Kontrakt {
-  id              Int       @id @default(autoincrement())
-  nummer          String    @unique  // KON-YYYY-NNNN
-  kundeId         Int
-  datum           DateTime  @default(now())
-  gueltigVon      DateTime
-  gueltigBis      DateTime
-  status          String    @default("AKTIV")  // AKTIV|ABGESCHLOSSEN|STORNIERT
-  notiz           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id         Int      @id @default(autoincrement())
+  nummer     String   @unique // KON-YYYY-NNNN
+  kundeId    Int
+  datum      DateTime @default(now())
+  gueltigVon DateTime
+  gueltigBis DateTime
+  status     String   @default("AKTIV") // AKTIV|ABGESCHLOSSEN|STORNIERT
+  notiz      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   kunde      Kunde              @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   positionen KontraktPosition[]
@@ -1026,13 +1085,15 @@ model Kontrakt {
 }
 
 model KontraktPosition {
-  id             Int     @id @default(autoincrement())
-  kontraktId     Int
-  artikelId      Int
-  menge          Float
-  mengeAbgerufen Float   @default(0)
-  preis          Float?
-  einheit        String  @default("kg")
+  id                Int     @id @default(autoincrement())
+  kontraktId        Int
+  artikelId         Int
+  menge             Float
+  mengeAbgerufen    Float   @default(0)
+  preis             Float?
+  einheit           String  @default("kg")
+  preisInterpoliert Boolean @default(false)
+  preisQuelleJahr   Int?
 
   kontrakt Kontrakt @relation(fields: [kontraktId], references: [id], onDelete: Cascade)
   artikel  Artikel  @relation(fields: [artikelId], references: [id])
@@ -1044,16 +1105,16 @@ model KontraktPosition {
 // ─── KAMPAGNEN / AKTIONSPREISE ────────────────────────────────────────────────
 
 model Kampagne {
-  id                   Int       @id @default(autoincrement())
-  name                 String
-  beschreibung         String?
-  von                  DateTime
-  bis                  DateTime
-  rabattProzent        Float?
-  aktiv                Boolean   @default(true)
-  zielgruppeKriterien  String?   // JSON: { ort?, plz?, kategorie?, tag?, bedarfArtikelId?, bedarfKategorie?, letzteKaufMonate? }
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                  Int      @id @default(autoincrement())
+  name                String
+  beschreibung        String?
+  von                 DateTime
+  bis                 DateTime
+  rabattProzent       Float?
+  aktiv               Boolean  @default(true)
+  zielgruppeKriterien String? // JSON: { ort?, plz?, kategorie?, tag?, bedarfArtikelId?, bedarfKategorie?, letzteKaufMonate? }
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   artikel KampagneArtikel[]
   kunden  KampagneKunde[]
@@ -1063,7 +1124,7 @@ model Kampagne {
 }
 
 model KampagneArtikel {
-  id          Int     @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   kampagneId  Int
   artikelId   Int
   sonderpreis Float?
@@ -1077,12 +1138,12 @@ model KampagneArtikel {
 }
 
 model KampagneKunde {
-  id         Int      @id @default(autoincrement())
+  id         Int @id @default(autoincrement())
   kampagneId Int
   kundeId    Int
 
-  kampagne   Kampagne @relation(fields: [kampagneId], references: [id], onDelete: Cascade)
-  kunde      Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kampagne Kampagne @relation(fields: [kampagneId], references: [id], onDelete: Cascade)
+  kunde    Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
   @@unique([kampagneId, kundeId])
   @@index([kampagneId])
@@ -1093,16 +1154,16 @@ model KampagneKunde {
 
 model Reklamation {
   id           Int       @id @default(autoincrement())
-  nummer       String    @unique  // RK-YYYY-NNNN
+  nummer       String    @unique // RK-YYYY-NNNN
   kundeId      Int
   lieferungId  Int?
   datum        DateTime  @default(now())
   betreff      String
   beschreibung String
-  kategorie    String    @default("Qualitaet")  // Qualitaet|Menge|Lieferung|Preis|Sonstiges
-  prioritaet   String    @default("normal")      // niedrig|normal|hoch|kritisch
-  status       String    @default("OFFEN")        // OFFEN|IN_BEARBEITUNG|GELOEST|GESCHLOSSEN
-  zugewiesen   String?   // Mitarbeiter-Name
+  kategorie    String    @default("Qualitaet") // Qualitaet|Menge|Lieferung|Preis|Sonstiges
+  prioritaet   String    @default("normal") // niedrig|normal|hoch|kritisch
+  status       String    @default("OFFEN") // OFFEN|IN_BEARBEITUNG|GELOEST|GESCHLOSSEN
+  zugewiesen   String? // Mitarbeiter-Name
   loesung      String?
   geloestAm    DateTime?
   createdAt    DateTime  @default(now())
@@ -1121,14 +1182,14 @@ model Reklamation {
 
 model Benachrichtigung {
   id         Int      @id @default(autoincrement())
-  typ        String   // "lagerbestand" | "sachkunde" | "kreditlimit" | "rechnung_faellig" | "reklamation"
+  typ        String // "lagerbestand" | "sachkunde" | "kreditlimit" | "rechnung_faellig" | "reklamation"
   titel      String
   text       String
-  prioritaet String   @default("info")  // "info" | "warnung" | "kritisch"
+  prioritaet String   @default("info") // "info" | "warnung" | "kritisch"
   gelesen    Boolean  @default(false)
   kundeId    Int?
   artikelId  Int?
-  link       String?  // Ziel-URL für Klick
+  link       String? // Ziel-URL für Klick
   createdAt  DateTime @default(now())
 
   @@index([gelesen])
@@ -1140,19 +1201,19 @@ model Benachrichtigung {
 // ─── EINGANGSRECHNUNGEN (Lieferanten) ─────────────────────────────────────────
 
 model EingangsRechnung {
-  id          Int       @id @default(autoincrement())
-  nummer      String?   // Rechnungsnummer des Lieferanten
-  lieferantId Int
-  datum       DateTime
-  faelligAm   DateTime?
-  betrag      Float
-  mwst        Float     @default(19)
-  status        String    @default("OFFEN")  // OFFEN|BEZAHLT|STORNIERT
+  id            Int       @id @default(autoincrement())
+  nummer        String? // Rechnungsnummer des Lieferanten
+  lieferantId   Int
+  datum         DateTime
+  faelligAm     DateTime?
+  betrag        Float
+  mwst          Float     @default(19)
+  status        String    @default("OFFEN") // OFFEN|BEZAHLT|STORNIERT
   zahlungsDatum DateTime?
-  belegpfad   String?
-  notiz       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  belegpfad     String?
+  notiz         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   lieferant Lieferant @relation(fields: [lieferantId], references: [id])
   retouren  Retoure[]
@@ -1195,13 +1256,13 @@ model AngebotVorlage {
 }
 
 model AngebotVorlagePosition {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   vorlageId Int
   artikelId Int
   menge     Float
-  preis     Float  @default(0)  // 0 = aktuellen Standardpreis verwenden
-  rabatt    Float  @default(0)
-  einheit   String @default("kg")
+  preis     Float   @default(0) // 0 = aktuellen Standardpreis verwenden
+  rabatt    Float   @default(0)
+  einheit   String  @default("kg")
   notiz     String?
 
   vorlage AngebotVorlage @relation(fields: [vorlageId], references: [id], onDelete: Cascade)
@@ -1217,8 +1278,8 @@ model ChargenZertifikat {
   chargeNr  String
   artikelId Int
   dateiname String
-  pfad      String   // /uploads/zertifikate/
-  typ       String?  // MIME type
+  pfad      String // /uploads/zertifikate/
+  typ       String? // MIME type
   groesse   Int?
   notiz     String?
   createdAt DateTime @default(now())
@@ -1234,8 +1295,8 @@ model ChargenZertifikat {
 model Umsatzziel {
   id         Int      @id @default(autoincrement())
   jahr       Int
-  monat      Int?     // null = Jahresziel
-  kategorie  String?  // null = gesamt; "Futter" | "Duenger" | "Saatgut" etc.
+  monat      Int? // null = Jahresziel
+  kategorie  String? // null = gesamt; "Futter" | "Duenger" | "Saatgut" etc.
   zielBetrag Float
   notiz      String?
   createdAt  DateTime @default(now())
@@ -1248,57 +1309,57 @@ model Umsatzziel {
 // ─── BODENPROBEN ──────────────────────────────────────────────────────────────
 
 model Bodenprobe {
-  id           Int       @id @default(autoincrement())
-  schlagId     Int
-  datum        DateTime                // Probenahmedatum
-  probenNr     String?                 // Labor-Probennummer
-  labor        String?                 // LUFA-NW | Eurofins | LKS | ...
-  tiefe        String?                 // "0-30 cm" | "30-60 cm"
-  pH           Float?
-  phosphor     Float?                  // P2O5 mg/100g Boden (CAL)
-  kalium       Float?                  // K2O mg/100g (CAL)
-  magnesium    Float?                  // Mg mg/100g (CaCl2)
-  bor          Float?                  // mg/kg
-  humus        Float?                  // %
-  nMin         Float?                  // kg N/ha (0-90cm)
-  cn           Float?                  // C/N-Verhältnis
-  bodenart     String?                 // S | lS | sL | L | T
-  bodenartGruppe String?               // z.B. "(h)" humos, "(s)" sandig — IfB/LUFA-NW-Zusatz
-  nutzungsart  String?                 // A=Acker | W=Grünland | G=Garten | F=Forst | O=Obstbau | X=Sonstige
-  pHSoll       String?                 // anzustrebender pH-Bereich z.B. "6,3-7,0"
-  auftragsNr   String?                 // Labor-Auftrags-Nr.
-  probenehmer  String?                 // "Auftraggeber" | Labormitarbeiter
-  kundeNrLabor String?                 // Kunden-Nr. beim Labor
+  id               Int      @id @default(autoincrement())
+  schlagId         Int
+  datum            DateTime // Probenahmedatum
+  probenNr         String? // Labor-Probennummer
+  labor            String? // LUFA-NW | Eurofins | LKS | ...
+  tiefe            String? // "0-30 cm" | "30-60 cm"
+  pH               Float?
+  phosphor         Float? // P2O5 mg/100g Boden (CAL)
+  kalium           Float? // K2O mg/100g (CAL)
+  magnesium        Float? // Mg mg/100g (CaCl2)
+  bor              Float? // mg/kg
+  humus            Float? // %
+  nMin             Float? // kg N/ha (0-90cm)
+  cn               Float? // C/N-Verhältnis
+  bodenart         String? // S | lS | sL | L | T
+  bodenartGruppe   String? // z.B. "(h)" humos, "(s)" sandig — IfB/LUFA-NW-Zusatz
+  nutzungsart      String? // A=Acker | W=Grünland | G=Garten | F=Forst | O=Obstbau | X=Sonstige
+  pHSoll           String? // anzustrebender pH-Bereich z.B. "6,3-7,0"
+  auftragsNr       String? // Labor-Auftrags-Nr.
+  probenehmer      String? // "Auftraggeber" | Labormitarbeiter
+  kundeNrLabor     String? // Kunden-Nr. beim Labor
   // Erweiterte Nährstoff-Werte
-  schwefel     Float?                  // SO₃ mg/100g (CAT) — wichtig für Raps, Mais, Getreide
-  zink         Float?                  // mg/kg (CAT)
-  kupfer       Float?                  // mg/kg (CAT)
-  mangan       Float?                  // mg/kg (CAT)
-  natrium      Float?                  // Na mg/kg (CAT)
-  kak          Float?                  // Kationenaustauschkapazität cmol+/kg
-  kalkbedarf   Float?                  // Kalkbedarf in t CaO/ha (aus pH + Bodenart, legacy)
-  kalkbedarfDt Float?                  // Kalkbedarf in dt CaO/ha — IfB/LUFA-Format
-  corg         Float?                  // Kohlenstoff (Corg) %
-  nGesamt      Float?                  // Gesamt-Stickstoff (N) %
+  schwefel         Float? // SO₃ mg/100g (CAT) — wichtig für Raps, Mais, Getreide
+  zink             Float? // mg/kg (CAT)
+  kupfer           Float? // mg/kg (CAT)
+  mangan           Float? // mg/kg (CAT)
+  natrium          Float? // Na mg/kg (CAT)
+  kak              Float? // Kationenaustauschkapazität cmol+/kg
+  kalkbedarf       Float? // Kalkbedarf in t CaO/ha (aus pH + Bodenart, legacy)
+  kalkbedarfDt     Float? // Kalkbedarf in dt CaO/ha — IfB/LUFA-Format
+  corg             Float? // Kohlenstoff (Corg) %
+  nGesamt          Float? // Gesamt-Stickstoff (N) %
   // Versorgungsklassen pro Nährstoff (VDLUFA/LWK Niedersachsen A–F)
-  klasse       String?                 // DEPRECATED — Sammel-Versorgungsklasse; Werte werden in klasseP/K/Mg gespiegelt
-  klasseP      String?
-  klasseK      String?
-  klasseMg     String?
-  klasseBor    String?
-  klasseSchwefel String?
-  klasseZink   String?
-  klasseKupfer String?
-  klasseMangan String?
-  klasseNatrium String?
+  klasse           String? // DEPRECATED — Sammel-Versorgungsklasse; Werte werden in klasseP/K/Mg gespiegelt
+  klasseP          String?
+  klasseK          String?
+  klasseMg         String?
+  klasseBor        String?
+  klasseSchwefel   String?
+  klasseZink       String?
+  klasseKupfer     String?
+  klasseMangan     String?
+  klasseNatrium    String?
   // Düngungsempfehlung als JSON-Blob (Tabelle aus PDF-Anlage)
-  empfehlungenJson String?             // {kalkDtHa, p2o5: {nutzung: kg}, k2o, mgO, cu, mn, b, zn, na}
-  notiz        String?
-  belegPfad    String?                 // /uploads/bodenproben/<id>.pdf
-  belegName    String?
-  createdAt    DateTime  @default(now())
+  empfehlungenJson String? // {kalkDtHa, p2o5: {nutzung: kg}, k2o, mgO, cu, mn, b, zn, na}
+  notiz            String?
+  belegPfad        String? // /uploads/bodenproben/<id>.pdf
+  belegName        String?
+  createdAt        DateTime @default(now())
 
-  schlag       KundeSchlag    @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  schlag        KundeSchlag    @relation(fields: [schlagId], references: [id], onDelete: Cascade)
   duengebedarfe Duengebedarf[]
 
   @@index([schlagId])
@@ -1308,21 +1369,21 @@ model Bodenprobe {
 // ─── DÜNGEBEDARFSERMITTLUNG (DüV) ────────────────────────────────────────────
 
 model Duengebedarf {
-  id            Int       @id @default(autoincrement())
-  schlagId      Int
-  bezeichnung   String?                   // Frei wählbarer Name der Berechnung
-  jahr          Int                       // Düngejahr
-  fruchtart     String                    // Snapshot zum Berechnungszeitpunkt
-  ertragsZiel   Float?                    // dt/ha
-  vorfrucht     String?
-  bodenprobeId  Int?
-  nBedarf       Float                     // kg N/ha (Ergebnis)
-  pBedarf       Float                     // kg P2O5/ha
-  kBedarf       Float                     // kg K2O/ha
-  mgBedarf      Float?                    // kg MgO/ha
-  parameter     String?                   // JSON: Berechnungs-Snapshot (Eingaben + Rechenweg)
-  notiz         String?
-  berechnetAm   DateTime  @default(now())
+  id           Int      @id @default(autoincrement())
+  schlagId     Int
+  bezeichnung  String? // Frei wählbarer Name der Berechnung
+  jahr         Int // Düngejahr
+  fruchtart    String // Snapshot zum Berechnungszeitpunkt
+  ertragsZiel  Float? // dt/ha
+  vorfrucht    String?
+  bodenprobeId Int?
+  nBedarf      Float // kg N/ha (Ergebnis)
+  pBedarf      Float // kg P2O5/ha
+  kBedarf      Float // kg K2O/ha
+  mgBedarf     Float? // kg MgO/ha
+  parameter    String? // JSON: Berechnungs-Snapshot (Eingaben + Rechenweg)
+  notiz        String?
+  berechnetAm  DateTime @default(now())
 
   schlag     KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
   bodenprobe Bodenprobe? @relation(fields: [bodenprobeId], references: [id], onDelete: SetNull)
@@ -1334,18 +1395,18 @@ model Duengebedarf {
 // ─── SACHKUNDENACHWEISE ───────────────────────────────────────────────────────
 
 model Sachkundenachweis {
-  id              Int       @id @default(autoincrement())
-  kundeId         Int
-  typ             String                  // "PSM-Sachkunde" | "Spritzgeraetekontrolle" | "Duengerschulung" | "Sprengstoff-Sachkunde" | "Sonstige"
-  nummer          String?
-  ausstellung     DateTime?
-  gueltigBis      DateTime?
-  ausgestelltVon  String?                 // Behörde / Kammer
-  notiz           String?
-  belegPfad       String?                 // /uploads/sachkunde/<id>.pdf
-  belegName       String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  kundeId        Int
+  typ            String // "PSM-Sachkunde" | "Spritzgeraetekontrolle" | "Duengerschulung" | "Sprengstoff-Sachkunde" | "Sonstige"
+  nummer         String?
+  ausstellung    DateTime?
+  gueltigBis     DateTime?
+  ausgestelltVon String? // Behörde / Kammer
+  notiz          String?
+  belegPfad      String? // /uploads/sachkunde/<id>.pdf
+  belegName      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
@@ -1357,24 +1418,24 @@ model Sachkundenachweis {
 // ─── SORTENVERSUCHE / DEMOFLÄCHEN ─────────────────────────────────────────────
 
 model Sortenversuch {
-  id           Int       @id @default(autoincrement())
-  name         String                    // "Wintergerste-Versuch 2025 Süd"
-  jahr         Int
-  kultur       String                    // Wintergerste | Mais | Raps | ...
-  standort     String?
-  kundeId      Int?
-  schlagId     Int?
-  flaeche      Float?                    // ha
-  status       String    @default("LAUFEND") // LAUFEND | ABGESCHLOSSEN
-  startDatum   DateTime?
-  endeDatum    DateTime?
-  notiz        String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id         Int       @id @default(autoincrement())
+  name       String // "Wintergerste-Versuch 2025 Süd"
+  jahr       Int
+  kultur     String // Wintergerste | Mais | Raps | ...
+  standort   String?
+  kundeId    Int?
+  schlagId   Int?
+  flaeche    Float? // ha
+  status     String    @default("LAUFEND") // LAUFEND | ABGESCHLOSSEN
+  startDatum DateTime?
+  endeDatum  DateTime?
+  notiz      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  kunde        Kunde?       @relation(fields: [kundeId], references: [id], onDelete: SetNull)
-  schlag       KundeSchlag? @relation(fields: [schlagId], references: [id], onDelete: SetNull)
-  positionen   SortenversuchPosition[]
+  kunde      Kunde?                  @relation(fields: [kundeId], references: [id], onDelete: SetNull)
+  schlag     KundeSchlag?            @relation(fields: [schlagId], references: [id], onDelete: SetNull)
+  positionen SortenversuchPosition[]
 
   @@index([jahr])
   @@index([kultur])
@@ -1382,17 +1443,17 @@ model Sortenversuch {
 }
 
 model SortenversuchPosition {
-  id              Int     @id @default(autoincrement())
-  versuchId       Int
-  sorte           String
-  saatstaerke     Float?                  // Körner/m² oder kg/ha
-  ertragDtHa      Float?                  // dt/ha
-  feuchteProzent  Float?
-  proteinProzent  Float?
-  hektolitergew   Float?                  // kg/hl (Getreide)
-  bonitur         Int?                    // 1-9 Note (Krankheit/Lager)
-  reife           String?                 // früh | mittel | spät
-  notiz           String?
+  id             Int     @id @default(autoincrement())
+  versuchId      Int
+  sorte          String
+  saatstaerke    Float? // Körner/m² oder kg/ha
+  ertragDtHa     Float? // dt/ha
+  feuchteProzent Float?
+  proteinProzent Float?
+  hektolitergew  Float? // kg/hl (Getreide)
+  bonitur        Int? // 1-9 Note (Krankheit/Lager)
+  reife          String? // früh | mittel | spät
+  notiz          String?
 
   versuch Sortenversuch @relation(fields: [versuchId], references: [id], onDelete: Cascade)
 
@@ -1403,21 +1464,21 @@ model SortenversuchPosition {
 // ─── VORBESTELLUNGEN (Saison-/Frühbezug) ──────────────────────────────────────
 
 model Vorbestellung {
-  id              Int       @id @default(autoincrement())
-  nummer          String    @unique               // VB-YYYY-NNNN
-  kundeId         Int
-  saison          String                          // "Frühjahr 2026" | "Herbst 2026"
-  bestelldatum    DateTime  @default(now())
-  lieferdatum     DateTime?                       // gewünschtes Lieferdatum
-  bestellfrist    DateTime?                       // Frist für Frühbezug
-  status          String    @default("OFFEN")     // OFFEN | BESTAETIGT | UMGEWANDELT | STORNIERT
-  rabattProzent   Float?                          // gewährter Frühbezugs-Rabatt
-  notiz           String?
-  lieferungId     Int?                            // bei Umwandlung zur Lieferung
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  nummer        String    @unique // VB-YYYY-NNNN
+  kundeId       Int
+  saison        String // "Frühjahr 2026" | "Herbst 2026"
+  bestelldatum  DateTime  @default(now())
+  lieferdatum   DateTime? // gewünschtes Lieferdatum
+  bestellfrist  DateTime? // Frist für Frühbezug
+  status        String    @default("OFFEN") // OFFEN | BESTAETIGT | UMGEWANDELT | STORNIERT
+  rabattProzent Float? // gewährter Frühbezugs-Rabatt
+  notiz         String?
+  lieferungId   Int? // bei Umwandlung zur Lieferung
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  kunde      Kunde                  @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kunde      Kunde                   @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   positionen VorbestellungPosition[]
 
   @@index([kundeId])
@@ -1427,14 +1488,16 @@ model Vorbestellung {
 }
 
 model VorbestellungPosition {
-  id              Int     @id @default(autoincrement())
-  vorbestellungId Int
-  artikelId       Int
-  menge           Float
-  preis           Float?                  // Frühbezugspreis (netto, optional)
-  einheit         String  @default("kg")
-  reserviert      Boolean @default(false) // automatische Lagerreservierung gesetzt?
-  notiz           String?
+  id                Int     @id @default(autoincrement())
+  vorbestellungId   Int
+  artikelId         Int
+  menge             Float
+  preis             Float? // Frühbezugspreis (netto, optional)
+  einheit           String  @default("kg")
+  reserviert        Boolean @default(false) // automatische Lagerreservierung gesetzt?
+  notiz             String?
+  preisInterpoliert Boolean @default(false)
+  preisQuelleJahr   Int?
 
   vorbestellung Vorbestellung @relation(fields: [vorbestellungId], references: [id], onDelete: Cascade)
   artikel       Artikel       @relation(fields: [artikelId], references: [id])
@@ -1444,16 +1507,16 @@ model VorbestellungPosition {
 }
 
 model FruehbezugsStaffel {
-  id              Int       @id @default(autoincrement())
-  saison          String                          // "Frühjahr 2026"
-  kategorie       String?                         // null = alle Kategorien
-  artikelId       Int?                            // null = ganze Kategorie / alle
-  bestellfrist    DateTime                        // bis wann muss bestellt sein
-  rabattProzent   Float                           // 3.0 = -3%
-  beschreibung    String?
-  aktiv           Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  saison        String // "Frühjahr 2026"
+  kategorie     String? // null = alle Kategorien
+  artikelId     Int? // null = ganze Kategorie / alle
+  bestellfrist  DateTime // bis wann muss bestellt sein
+  rabattProzent Float // 3.0 = -3%
+  beschreibung  String?
+  aktiv         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   artikel Artikel? @relation(fields: [artikelId], references: [id], onDelete: Cascade)
 
@@ -1468,10 +1531,10 @@ model FruehbezugsStaffel {
 // liefert den grünen Haken inkl. Bestelldatum auf der Auftragsbestätigung.
 model EinkaufStatus {
   id          Int      @id @default(autoincrement())
-  quelle      String   // "vorbestellung" | "lieferung" | "angebot"
-  positionId  Int      // ID der Quell-Position (VorbestellungPosition/Lieferposition/AngebotPosition)
+  quelle      String // "vorbestellung" | "lieferung" | "angebot"
+  positionId  Int // ID der Quell-Position (VorbestellungPosition/Lieferposition/AngebotPosition)
   artikelId   Int
-  lieferantId Int?     // bei welchem Lieferanten bestellt wurde
+  lieferantId Int? // bei welchem Lieferanten bestellt wurde
   menge       Float
   einheit     String   @default("kg")
   bestelltAm  DateTime @default(now())
@@ -1489,20 +1552,20 @@ model EinkaufStatus {
 
 /// Tier/Tiergruppe (Herde) je Kunde — Basis für die Rationsberechnung.
 model KundeTier {
-  id            Int      @id @default(autoincrement())
-  kundeId       Int
-  name          String                       // z.B. "Milchkuhherde Stall 1", "Wallach Falko"
-  tierart       String                       // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
-  nutzungsart   String                       // z.B. "Milchkuh laktierend", "Mastschwein Endmast", "Pferd Warmblut leichte Arbeit"
-  rasse         String?
-  anzahl        Int      @default(1)          // Tierzahl in der Gruppe
-  gewicht       Float?                        // durchschnittl. Lebendgewicht kg
-  leistung      Float?                        // Leistung: Milch kg/Tag | tgl. Zunahme g | Eier/Tag | …
-  leistungEinheit String?                     // "kg Milch/Tag" | "g Zunahme/Tag" | …
-  laktationstag Int?                          // optional bei Milchvieh
-  notiz         String?
-  erstellt      DateTime @default(now())
-  aktualisiert  DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  kundeId         Int
+  name            String // z.B. "Milchkuhherde Stall 1", "Wallach Falko"
+  tierart         String // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
+  nutzungsart     String // z.B. "Milchkuh laktierend", "Mastschwein Endmast", "Pferd Warmblut leichte Arbeit"
+  rasse           String?
+  anzahl          Int      @default(1) // Tierzahl in der Gruppe
+  gewicht         Float? // durchschnittl. Lebendgewicht kg
+  leistung        Float? // Leistung: Milch kg/Tag | tgl. Zunahme g | Eier/Tag | …
+  leistungEinheit String? // "kg Milch/Tag" | "g Zunahme/Tag" | …
+  laktationstag   Int? // optional bei Milchvieh
+  notiz           String?
+  erstellt        DateTime @default(now())
+  aktualisiert    DateTime @updatedAt
 
   kunde               Kunde               @relation(fields: [kundeId], references: [id], onDelete: Cascade)
   rationsberechnungen Rationsberechnung[]
@@ -1514,65 +1577,65 @@ model KundeTier {
 // ─── ALBRECHT-BODENANALYSE ────────────────────────────────────────────────────
 
 model BodenanalyseAlbrecht {
-  id              Int       @id @default(autoincrement())
-  schlagId        Int
-  datum           DateTime
-  probenId        String?   // Labor-Proben-ID (z.B. 26CB2353)
-  kultur          String?   // Zielkultur (z.B. KLG - TRI)
-  tiefe           String?
-  bodenart        String?
+  id       Int      @id @default(autoincrement())
+  schlagId Int
+  datum    DateTime
+  probenId String? // Labor-Proben-ID (z.B. 26CB2353)
+  kultur   String? // Zielkultur (z.B. KLG - TRI)
+  tiefe    String?
+  bodenart String?
 
   // Basisdaten
-  phH2O           Float?
-  phKCl           Float?
-  kak             Float?    // mmol/100g
-  humus           Float?    // %
-  nGesamt         Float?    // %
-  cn              Float?
-  nNachlieferung  Float?    // kg/ha
-  caCo3           Float?    // %
-  leitfaehigkeit  Float?    // mS/cm
+  phH2O          Float?
+  phKCl          Float?
+  kak            Float? // mmol/100g
+  humus          Float? // %
+  nGesamt        Float? // %
+  cn             Float?
+  nNachlieferung Float? // kg/ha
+  caCo3          Float? // %
+  leitfaehigkeit Float? // mS/cm
 
   // Kationen-Sättigung %
-  caSaettigung    Float?
-  mgSaettigung    Float?
-  kSaettigung     Float?
-  naSaettigung    Float?
-  hSaettigung     Float?
-  variabelSaett   Float?
+  caSaettigung  Float?
+  mgSaettigung  Float?
+  kSaettigung   Float?
+  naSaettigung  Float?
+  hSaettigung   Float?
+  variabelSaett Float?
 
   // Kationen-Vorräte kg/ha
-  caVorrat        Float?
-  mgVorrat        Float?
-  kVorrat         Float?
-  naVorrat        Float?
+  caVorrat Float?
+  mgVorrat Float?
+  kVorrat  Float?
+  naVorrat Float?
 
   // Anionen + Phosphor
-  schwefel        Float?    // ppm
-  p2o5Verfuegbar  Float?    // kg/ha
-  p2o5Vorrat      Float?    // kg/ha
+  schwefel       Float? // ppm
+  p2o5Verfuegbar Float? // kg/ha
+  p2o5Vorrat     Float? // kg/ha
 
   // Spurenelemente ppm
-  bor             Float?
-  eisen           Float?
-  mangan          Float?
-  kupfer          Float?
-  zink            Float?
-  chlorid         Float?
-  silizium        Float?
-  kobalt          Float?
-  molybdaen       Float?
-  selen           Float?
+  bor       Float?
+  eisen     Float?
+  mangan    Float?
+  kupfer    Float?
+  zink      Float?
+  chlorid   Float?
+  silizium  Float?
+  kobalt    Float?
+  molybdaen Float?
+  selen     Float?
 
   // Empfehlungen aus Bericht (JSON: [{mittel, menge, einheit, prioritaet}])
   empfehlungenJson String?
 
-  notiz           String?
-  belegPfad       String?
-  belegName       String?
-  createdAt       DateTime @default(now())
+  notiz     String?
+  belegPfad String?
+  belegName String?
+  createdAt DateTime @default(now())
 
-  schlag          KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  schlag KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
 
   @@index([schlagId])
   @@index([datum])
@@ -1582,14 +1645,14 @@ model BodenanalyseAlbrecht {
 model Rationsberechnung {
   id           Int      @id @default(autoincrement())
   bezeichnung  String
-  tierart      String                        // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
+  tierart      String // Rind | Schwein | Geflugel | Pferd | Schaf | Ziege
   nutzungsart  String
-  modus        String   @default("simple")   // simple | detail
-  kundeId      Int?                           // frei rechenbar → optional
-  kundeTierId  Int?                           // an hinterlegtes Tier gebunden → optional
+  modus        String   @default("simple") // simple | detail
+  kundeId      Int? // frei rechenbar → optional
+  kundeTierId  Int? // an hinterlegtes Tier gebunden → optional
   gewicht      Float?
   leistung     Float?
-  parameter    String                         // JSON: { eingaben, positionen[], bedarf, summe, bilanz, rechenweg, hinweise }
+  parameter    String // JSON: { eingaben, positionen[], bedarf, summe, bilanz, rechenweg, hinweise }
   notiz        String?
   erstellt     DateTime @default(now())
   aktualisiert DateTime @updatedAt
@@ -1607,22 +1670,22 @@ model Rationsberechnung {
 
 model Anlieferung {
   id              Int      @id @default(autoincrement())
-  nummer          String   @unique  // ANL-YYYY-NNNN
+  nummer          String   @unique // ANL-YYYY-NNNN
   datum           DateTime @default(now())
   kundeId         Int
   artikelId       Int
   menge           Float
   einheit         String   @default("t")
-  feuchte         Float?   // % Restfeuchte
-  qualitaet       String?  // z.B. "A-Qualität", "Futtergetreide"
+  feuchte         Float? // % Restfeuchte
+  qualitaet       String? // z.B. "A-Qualität", "Futtergetreide"
   preisProEinheit Float?
   gesamtBetrag    Float?
   notiz           String?
-  gutschriftId    Int?     @unique  // verknüpfte Gutschrift wenn erstellt
+  gutschriftId    Int?     @unique // verknüpfte Gutschrift wenn erstellt
   createdAt       DateTime @default(now())
 
-  kunde     Kunde      @relation(fields: [kundeId], references: [id])
-  artikel   Artikel    @relation(fields: [artikelId], references: [id])
+  kunde      Kunde       @relation(fields: [kundeId], references: [id])
+  artikel    Artikel     @relation(fields: [artikelId], references: [id])
   gutschrift Gutschrift? @relation(fields: [gutschriftId], references: [id])
 
   @@index([kundeId])
@@ -1632,21 +1695,21 @@ model Anlieferung {
 // ─── KUNDEN-SELF-SERVICE-PORTAL ───────────────────────────────────────────────
 
 model KundePortalZugang {
-  id            Int      @id @default(autoincrement())
-  kundeId       Int      @unique
-  benutzername  String   @unique
-  passwortHash  String
-  aktiv         Boolean  @default(true)
-  letzterLogin  DateTime?
-  createdAt     DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  kundeId      Int       @unique
+  benutzername String    @unique
+  passwortHash String
+  aktiv        Boolean   @default(true)
+  letzterLogin DateTime?
+  createdAt    DateTime  @default(now())
 
-  kunde         Kunde    @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 }
 
 // ─── DIGITALE ANBAUPLANUNG (FRUCHTFOLGE) ──────────────────────────────────────
 
 model Anbauplan {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   schlagId     Int
   kundeId      Int
   jahr         Int
@@ -1654,13 +1717,13 @@ model Anbauplan {
   sorte        String?
   aussaatDatum DateTime?
   ernteDatum   DateTime?
-  ertragDt     Float?   // dt/ha
-  status       String   @default("geplant") // geplant | ausgesaet | geerntet | abgebrochen
+  ertragDt     Float? // dt/ha
+  status       String    @default("geplant") // geplant | ausgesaet | geerntet | abgebrochen
   notiz        String?
-  erstellt     DateTime @default(now())
+  erstellt     DateTime  @default(now())
 
-  schlag  KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
-  kunde   Kunde       @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  schlag KundeSchlag @relation(fields: [schlagId], references: [id], onDelete: Cascade)
+  kunde  Kunde       @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
   @@index([schlagId])
   @@index([kundeId])
@@ -1670,21 +1733,21 @@ model Anbauplan {
 // ─── ZERTIFIZIERUNGS-TRACKER ──────────────────────────────────────────────────
 
 model Zertifizierung {
-  id               Int       @id @default(autoincrement())
-  kundeId          Int
-  typ              String    // "QS"|"GlobalGAP"|"Bio/Öko"|"Cross-Compliance"|"Ernte-Plus"|"DLG"|"Sonstige"
-  nummer           String?   // Zertifikatsnummer
-  ausstellerOrg    String?   // z.B. "QS GmbH", "LUFA"
+  id                Int       @id @default(autoincrement())
+  kundeId           Int
+  typ               String // "QS"|"GlobalGAP"|"Bio/Öko"|"Cross-Compliance"|"Ernte-Plus"|"DLG"|"Sonstige"
+  nummer            String? // Zertifikatsnummer
+  ausstellerOrg     String? // z.B. "QS GmbH", "LUFA"
   ausstellungsdatum DateTime?
-  ablaufdatum      DateTime?
-  status           String    @default("aktiv") // aktiv | abgelaufen | gesperrt
-  belegpfad        String?
-  belegname        String?
-  notiz            String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  ablaufdatum       DateTime?
+  status            String    @default("aktiv") // aktiv | abgelaufen | gesperrt
+  belegpfad         String?
+  belegname         String?
+  notiz             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  kunde            Kunde     @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  kunde Kunde @relation(fields: [kundeId], references: [id], onDelete: Cascade)
 
   @@index([kundeId])
   @@index([ablaufdatum])
@@ -1694,19 +1757,19 @@ model Zertifizierung {
 // ─── PEGELSTÄNDE (WSV Pegelonline) ───────────────────────────────────────────
 
 model PegelstandCache {
-  id           Int      @id @default(autoincrement())
-  stationUuid  String   @unique
-  stationKurz  String
-  stationLang  String
-  gewaesser    String
-  lat          Float?
-  lng          Float?
-  einheit      String   @default("cm")
-  wert         Float?
-  trend        Int?     // -1 fallend, 0 gleichbleibend, 1 steigend
-  messung      DateTime?
-  fetchedAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          Int       @id @default(autoincrement())
+  stationUuid String    @unique
+  stationKurz String
+  stationLang String
+  gewaesser   String
+  lat         Float?
+  lng         Float?
+  einheit     String    @default("cm")
+  wert        Float?
+  trend       Int? // -1 fallend, 0 gleichbleibend, 1 steigend
+  messung     DateTime?
+  fetchedAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([stationUuid])
 }
@@ -1716,10 +1779,10 @@ model PegelstandCache {
 model MqttRegel {
   id           Int      @id @default(autoincrement())
   name         String
-  source       String   @default("")  // z.B. MQTT-Broker-URL oder Quell-Label
+  source       String   @default("") // z.B. MQTT-Broker-URL oder Quell-Label
   topicPattern String
-  modus        String   @default("ki")  // "ki" | "direkt"
-  aktion       String   // "lieferung" | "wareneingang" | "benachrichtigung"
+  modus        String   @default("ki") // "ki" | "direkt"
+  aktion       String // "lieferung" | "wareneingang" | "benachrichtigung"
   aktiv        Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1733,7 +1796,7 @@ model Mitarbeiter {
   id                 Int       @id @default(autoincrement())
   vorname            String
   nachname           String
-  typ                String    @default("festgehalt")  // "festgehalt"|"minijob"|"stundenbasis"
+  typ                String    @default("festgehalt") // "festgehalt"|"minijob"|"stundenbasis"
   eintrittsdatum     DateTime
   austrittsdatum     DateTime?
   aktiv              Boolean   @default(true)
@@ -1742,9 +1805,9 @@ model Mitarbeiter {
   iban               String?
   bic                String?
   kontoinhaber       String?
-  grundgehalt        Float?    // monatl. brutto, typ=festgehalt
-  minijobPauschale   Float?    // typ=minijob
-  stundenlohn        Float?    // EUR/h, typ=stundenbasis
+  grundgehalt        Float? // monatl. brutto, typ=festgehalt
+  minijobPauschale   Float? // typ=minijob
+  stundenlohn        Float? // EUR/h, typ=stundenbasis
   wochenstunden      Float?
   urlaubstageProJahr Int       @default(0)
   kostenstelle       String?
@@ -1761,13 +1824,13 @@ model Mitarbeiter {
 }
 
 model Arbeitsstunde {
-  id            Int         @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   mitarbeiterId Int
   datum         DateTime
   stunden       Float
-  art           String      @default("arbeit")  // "arbeit"|"urlaub"|"krank"|"feiertag"
+  art           String   @default("arbeit") // "arbeit"|"urlaub"|"krank"|"feiertag"
   notiz         String?
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime @default(now())
 
   mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
 
@@ -1777,20 +1840,20 @@ model Arbeitsstunde {
 }
 
 model Gehaltsabrechnung {
-  id            Int         @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   mitarbeiterId Int
-  monat         Int         // 1-12
+  monat         Int // 1-12
   jahr          Int
-  stundenGesamt Float?      // nur stundenbasis
+  stundenGesamt Float? // nur stundenbasis
   brutto        Float
   netto         Float
-  abzuege       Float       @default(0)
+  abzuege       Float     @default(0)
   notiz         String?
-  status        String      @default("OFFEN")  // "OFFEN"|"ABGERECHNET"|"AUSGEZAHLT"
+  status        String    @default("OFFEN") // "OFFEN"|"ABGERECHNET"|"AUSGEZAHLT"
   zahlungsDatum DateTime?
-  ausgabeId     Int?        @unique
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  ausgabeId     Int?      @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Restrict)
 
@@ -1801,15 +1864,15 @@ model Gehaltsabrechnung {
 }
 
 model Urlaubsantrag {
-  id            Int         @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   mitarbeiterId Int
   von           DateTime
   bis           DateTime
   tage          Float
-  status        String      @default("BEANTRAGT")  // "BEANTRAGT"|"GENEHMIGT"|"ABGELEHNT"
+  status        String   @default("BEANTRAGT") // "BEANTRAGT"|"GENEHMIGT"|"ABGELEHNT"
   notiz         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   mitarbeiter Mitarbeiter @relation(fields: [mitarbeiterId], references: [id], onDelete: Cascade)
 
@@ -1827,11 +1890,11 @@ model MailLog {
   betreff     String
   textBody    String?
   htmlBody    String?
-  status      String   @default("gesendet")  // "gesendet" | "fehler"
+  status      String   @default("gesendet") // "gesendet" | "fehler"
   fehler      String?
-  feature     String?  // "rechnung" | "digest" | "mahnung" | "angebot" | "gutschrift" | "lieferschein" …
-  anhangNamen String?  // JSON-Array Dateinamen
-  entityId    Int?     // ID der Quelle (z.B. lieferungId/gutschriftId/angebotId) – nötig um den PDF-Anhang beim "Erneut senden" neu zu erzeugen
+  feature     String? // "rechnung" | "digest" | "mahnung" | "angebot" | "gutschrift" | "lieferschein" …
+  anhangNamen String? // JSON-Array Dateinamen
+  entityId    Int? // ID der Quelle (z.B. lieferungId/gutschriftId/angebotId) – nötig um den PDF-Anhang beim "Erneut senden" neu zu erzeugen
 
   @@index([zeitpunkt])
   @@index([status])
@@ -1853,24 +1916,24 @@ model KiLieferungBatch {
 }
 
 model KiLieferungBatchItem {
-  id              Int              @id @default(autoincrement())
-  batchId         Int
-  batch           KiLieferungBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  reihenfolge     Int              @default(0)
-  dateiPfad       String           // relativ unter uploads/ki-lieferung-batch/<batchId>/
-  dateiName       String?
-  status          String           @default("wartet") // wartet | analysiert | fehler | uebernommen | verworfen
-  kiRohtext       String?          // rohes OCR-Ergebnis, für Fehlersuche
-  kiErgebnisJson  String?          // JSON: {kunde:{name,firma,ort}, datum, positionen:[...]}
-  kundeId         Int?
-  kundeKonfidenz  String?          // hoch | mittel | niedrig | keine | gelernt
-  positionenJson  String?          // JSON: [{kiPosition, artikelId, vorschlagArtikelId, menge, verkaufspreis, konfidenz}]
-  fehlendeFelder  String?          // JSON-Array von Hinweistexten, z.B. ["Kunde unklar", "Position 2: Preis fehlt"]
-  fehlerText      String?
-  entscheidung    String?          // null | "passt" | "passt_nicht"
-  lieferungId     Int?             // gesetzt nach erfolgreichem Abschluss
-  analysiertAm    DateTime?
-  createdAt       DateTime         @default(now())
+  id             Int              @id @default(autoincrement())
+  batchId        Int
+  batch          KiLieferungBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  reihenfolge    Int              @default(0)
+  dateiPfad      String // relativ unter uploads/ki-lieferung-batch/<batchId>/
+  dateiName      String?
+  status         String           @default("wartet") // wartet | analysiert | fehler | uebernommen | verworfen
+  kiRohtext      String? // rohes OCR-Ergebnis, für Fehlersuche
+  kiErgebnisJson String? // JSON: {kunde:{name,firma,ort}, datum, positionen:[...]}
+  kundeId        Int?
+  kundeKonfidenz String? // hoch | mittel | niedrig | keine | gelernt
+  positionenJson String? // JSON: [{kiPosition, artikelId, vorschlagArtikelId, menge, verkaufspreis, konfidenz}]
+  fehlendeFelder String? // JSON-Array von Hinweistexten, z.B. ["Kunde unklar", "Position 2: Preis fehlt"]
+  fehlerText     String?
+  entscheidung   String? // null | "passt" | "passt_nicht"
+  lieferungId    Int? // gesetzt nach erfolgreichem Abschluss
+  analysiertAm   DateTime?
+  createdAt      DateTime         @default(now())
 
   @@index([batchId])
   @@index([status])
@@ -1878,9 +1941,9 @@ model KiLieferungBatchItem {
 
 model KiLernZuordnung {
   id               Int      @id @default(autoincrement())
-  typ              String   // "artikel" | "kunde"
-  suchtext         String   // normalisiert: trim + lowercase
-  zielId           Int      // Artikel.id bzw. Kunde.id
+  typ              String // "artikel" | "kunde"
+  suchtext         String // normalisiert: trim + lowercase
+  zielId           Int // Artikel.id bzw. Kunde.id
   trefferAnzahl    Int      @default(1)
   letzteVerwendung DateTime @default(now())
   createdAt        DateTime @default(now())

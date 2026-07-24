@@ -1,6 +1,7 @@
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getArtikelPreisFuerJahr } from "@/lib/jahrespreis";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr, notiz } = body;
+  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr, notiz, preisInterpoliert, preisQuelleJahr } = body;
 
   if (!artikelId || typeof artikelId !== "number") {
     return NextResponse.json({ error: "artikelId fehlt" }, { status: 400 });
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const lieferung = await prisma.lieferung.findUnique({
       where: { id: lieferungId },
-      select: { status: true },
+      select: { status: true, datum: true },
     });
     if (!lieferung) return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
     if (lieferung.status !== "geplant") {
@@ -46,7 +47,23 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
-    const vk = verkaufspreis !== undefined ? Number(verkaufspreis) : artikel.standardpreis;
+    // Wurde kein Preis übergeben (z.B. programmatischer Aufruf ohne Frontend-Vorauflösung),
+    // wird der Preis für das Jahr der Lieferung aufgelöst — inkl. Interpolationsmarkierung
+    // für Lieferschein/Rechnung, falls kein Jahrespreis fürs Lieferjahr erfasst ist.
+    let vk: number;
+    let interpoliert = false;
+    let quelleJahr: number | null = null;
+    if (verkaufspreis !== undefined) {
+      vk = Number(verkaufspreis);
+      interpoliert = Boolean(preisInterpoliert);
+      quelleJahr = typeof preisQuelleJahr === "number" ? preisQuelleJahr : null;
+    } else {
+      const lieferJahr = (lieferung.datum ?? new Date()).getFullYear();
+      const aufgeloest = await getArtikelPreisFuerJahr(artikelId, lieferJahr);
+      vk = aufgeloest.preis;
+      interpoliert = aufgeloest.interpoliert;
+      quelleJahr = aufgeloest.quelleJahr;
+    }
     const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : (artikel.lieferanten[0]?.einkaufspreis ?? 0);
     // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
     const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
@@ -60,6 +77,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         einkaufspreis: ek,
         chargeNr: chargeNr ?? null,
         notiz: posNotiz,
+        preisInterpoliert: interpoliert,
+        preisQuelleJahr: quelleJahr,
       },
       include: { artikel: { select: liefposArtikelSelect } },
     });

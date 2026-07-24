@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   // Nur ausgewählte Felder zulassen
-  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null; chargeNr?: string | null } = {};
+  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null; chargeNr?: string | null; preisInterpoliert?: boolean; preisQuelleJahr?: number | null } = {};
   if (body.rabattProzent !== undefined) {
     const r = Number(body.rabattProzent);
     if (isNaN(r) || r < 0 || r > 100) {
@@ -68,6 +68,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ error: "Verkaufspreis ungültig" }, { status: 400 });
     }
     updateData.verkaufspreis = v;
+    // Beim Preiswechsel Interpolations-Markierung mitgeben (Frontend löst Jahrespreis vorab auf)
+    // bzw. zurücksetzen, wenn kein Hinweis übergeben wurde.
+    updateData.preisInterpoliert = Boolean(body.preisInterpoliert);
+    updateData.preisQuelleJahr = typeof body.preisQuelleJahr === "number" ? body.preisQuelleJahr : null;
   }
   if (body.einkaufspreis !== undefined) {
     const e = Number(body.einkaufspreis);
