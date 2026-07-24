@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
     lng: true,
     aktiv: true,
     tags: true,
+    betriebsnummer: true,
+    vvvoNr: true,
     ...(withKontakte
       ? {
           kontakte: {

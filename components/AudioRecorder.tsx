@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 
 interface AudioRecorderProps {
   onTranscript: (text: string) => void;
-  feature: "crm" | "sprachmemo";
+  feature: "crm" | "sprachmemo" | "lieferung";
   maxDurationSec?: number;
   placeholder?: string;
   className?: string;

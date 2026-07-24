@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
+import AudioRecorder from "@/components/AudioRecorder";
 import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCameraUpload";
 import KonfidenzBadge from "@/components/KonfidenzBadge";
 import DezimalInput from "@/components/DezimalInput";
@@ -31,6 +32,8 @@ interface KundeRaw {
   name: string;
   firma?: string;
   ort?: string;
+  betriebsnummer?: string | null;
+  vvvoNr?: string | null;
 }
 
 interface LieferantRaw {
@@ -48,10 +51,12 @@ interface KiPosition {
 }
 
 interface KiErgebnis {
-  kunde: { name: string; firma?: string; ort?: string };
+  kunde: { name: string; firma?: string; ort?: string; betriebsnummer?: string };
   datum?: string;
   positionen: KiPosition[];
 }
+
+type EingabeModus = "bild" | "sprache";
 
 interface ZuordnungsPosition {
   kiPosition: KiPosition;
@@ -172,13 +177,15 @@ function Stepper({ current }: { current: number }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-function KiLieferungWizard() {
+function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeModus?: EingabeModus }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
   // Step 1
+  const [eingabeModus, setEingabeModus] = useState<EingabeModus>(initialEingabeModus);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [sprachText, setSprachText] = useState("");
 
   // Step 2
   const [kiErgebnis, setKiErgebnis] = useState<KiErgebnis | null>(null);
@@ -235,11 +242,20 @@ function KiLieferungWizard() {
   // ── Step 1 → 2: Analyse ───────────────────────────────────────────────────
 
   async function runAnalysis() {
-    if (!imagePreview) return;
+    if (eingabeModus === "bild" && !imagePreview) return;
+    if (eingabeModus === "sprache" && !sprachText.trim()) return;
     setAnalyzing(true);
     setAnalyzeError("");
 
     try {
+      const analyzeBody =
+        eingabeModus === "sprache"
+          ? { text: sprachText, feature: "lieferung" }
+          : {
+              image: imagePreview.includes(",") ? imagePreview.split(",")[1] : imagePreview,
+              feature: "lieferung",
+            };
+
       const [artikelList, kundenList, lieferantenList, analyzeRes, gelerntKundeRes, gelerntArtikelRes] = await Promise.all([
         ladeAlleArtikel(),
         ladeAlleKunden(),
@@ -247,10 +263,7 @@ function KiLieferungWizard() {
         fetch("/api/ki/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image: imagePreview.includes(",") ? imagePreview.split(",")[1] : imagePreview,
-            feature: "lieferung",
-          }),
+          body: JSON.stringify(analyzeBody),
         }),
         fetch("/api/ki/lernen?typ=kunde"),
         fetch("/api/ki/lernen?typ=artikel"),
@@ -474,7 +487,7 @@ function KiLieferungWizard() {
           kundeId: finalerKundeId,
           datum: datum ? new Date(datum + "T00:00:00").toISOString() : new Date().toISOString(),
           status: lieferStatus,
-          quelle: "ki",
+          quelle: eingabeModus === "sprache" ? "ki-sprache" : "ki",
           positionen: validPositionen.map((p) => ({
             artikelId: parseInt(p.artikelId, 10),
             menge: p.menge,
@@ -563,34 +576,114 @@ function KiLieferungWizard() {
       {/* ─── Step 1: Upload ─────────────────────────────────────────────── */}
       {step === 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4 text-gray-800">Bild hochladen</h2>
-          <p className="text-sm text-gray-500 mb-6">
-            Lade ein Foto einer Bestellung, eines Lieferscheins oder einer handschriftlichen
-            Notiz hoch. Die KI erkennt Kunde, Artikel und Mengen automatisch.
-          </p>
-
-          <CameraUpload
-            onImageSelected={(file, preview) => {
-              setImageFile(file);
-              setImagePreview(preview);
-            }}
-            imagePreview={imagePreview}
-            imageName={imageFile?.name ?? "Bestellung"}
-            onRemove={() => {
-              setImageFile(null);
-              setImagePreview("");
-            }}
-          />
-
-          <div className="mt-6 flex justify-end">
+          {/* Eingabemodus-Tabs */}
+          <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1">
             <button
-              onClick={goToAnalyze}
-              disabled={!imagePreview}
-              className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              type="button"
+              onClick={() => setEingabeModus("bild")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                eingabeModus === "bild"
+                  ? "bg-white text-green-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
             >
-              Weiter
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Bild / Kamera
+            </button>
+            <button
+              type="button"
+              onClick={() => setEingabeModus("sprache")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                eingabeModus === "sprache"
+                  ? "bg-white text-blue-700 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z" />
+              </svg>
+              Spracheingabe
             </button>
           </div>
+
+          {eingabeModus === "bild" && (
+            <>
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Bild hochladen</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Lade ein Foto einer Bestellung, eines Lieferscheins oder einer handschriftlichen
+                Notiz hoch. Die KI erkennt Kunde, Artikel und Mengen automatisch.
+              </p>
+
+              <CameraUpload
+                onImageSelected={(file, preview) => {
+                  setImageFile(file);
+                  setImagePreview(preview);
+                }}
+                imagePreview={imagePreview}
+                imageName={imageFile?.name ?? "Bestellung"}
+                onRemove={() => {
+                  setImageFile(null);
+                  setImagePreview("");
+                }}
+              />
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={goToAnalyze}
+                  disabled={!imagePreview}
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Weiter
+                </button>
+              </div>
+            </>
+          )}
+
+          {eingabeModus === "sprache" && (
+            <>
+              <h2 className="text-lg font-semibold mb-4 text-gray-800">Lieferung diktieren</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Sprich Kunde, Datum, Artikel und Mengen ein (max. 3 Minuten) — z.B. „Lieferung an
+                Hof Meyer morgen, 500 Kilo Rindermais und 2 Sack Mineralfutter, Betriebsnummer DE
+                03 1234 5678&quot;. Mistral transkribiert die Aufnahme, die KI erkennt anschließend
+                Kunde und Positionen.
+              </p>
+
+              <AudioRecorder
+                onTranscript={(text) =>
+                  setSprachText((prev) => (prev ? `${prev} ${text}` : text))
+                }
+                feature="lieferung"
+                maxDurationSec={180}
+                placeholder="Aufnahme starten (max. 3 Min.)"
+              />
+
+              {sprachText && (
+                <div className="mt-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Erkannter Text</label>
+                  <textarea
+                    value={sprachText}
+                    onChange={(e) => setSprachText(e.target.value)}
+                    rows={5}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                  />
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={goToAnalyze}
+                  disabled={!sprachText.trim()}
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Weiter
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -723,6 +816,12 @@ function KiLieferungWizard() {
                 <span className="font-medium text-gray-600">
                   {kiErgebnis.kunde.firma ?? kiErgebnis.kunde.name}
                 </span>
+              </p>
+            )}
+            {kiErgebnis?.kunde.betriebsnummer && (
+              <p className="text-xs text-gray-400 mb-2">
+                Betriebsnummer (erkannt):{" "}
+                <span className="font-medium text-gray-600">{kiErgebnis.kunde.betriebsnummer}</span>
               </p>
             )}
             <SearchableSelect
@@ -1207,6 +1306,7 @@ function KiLieferungWizard() {
                 setStep(0);
                 setImageFile(null);
                 setImagePreview("");
+                setSprachText("");
                 setKiErgebnis(null);
                 setPositionen([]);
                 setKundeId("");
@@ -1388,6 +1488,7 @@ function ModusSchalter({ modus }: { modus: "einzeln" | "batch" }) {
 function KiLieferungPageInner() {
   const searchParams = useSearchParams();
   const modus = searchParams.get("modus") === "batch" ? "batch" : "einzeln";
+  const eingabeParam: EingabeModus = searchParams.get("eingabe") === "sprache" ? "sprache" : "bild";
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -1398,7 +1499,11 @@ function KiLieferungPageInner() {
         <ModusSchalter modus={modus} />
       </div>
 
-      {modus === "batch" ? <KiLieferungBatchStart /> : <KiLieferungWizard />}
+      {modus === "batch" ? (
+        <KiLieferungBatchStart />
+      ) : (
+        <KiLieferungWizard initialEingabeModus={eingabeParam} />
+      )}
     </div>
   );
 }

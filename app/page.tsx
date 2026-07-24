@@ -392,6 +392,7 @@ const SCHNELLZUGRIFF = [
   { href: "/bestellliste", label: "Bestellliste", icon: "🛒", color: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
   { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100" },
   { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100" },
+  { href: "/ki/lieferung?eingabe=sprache", label: "Lieferung per Sprache", icon: "🎙️", color: "bg-red-50 border-red-200 hover:bg-red-100" },
 ];
 
 const TYP_BADGE: Record<string, string> = {
@@ -1613,6 +1614,23 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-400 mt-2">Einstellungen werden automatisch gespeichert.</p>
         </div>
       )}
+
+      {/* Lieferung per Sprache erfassen */}
+      <Link
+        href="/ki/lieferung?eingabe=sprache"
+        className="mb-5 flex items-center justify-between gap-4 bg-red-50 border border-red-200 rounded-xl shadow-sm px-4 py-3 hover:bg-red-100 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🎙️</span>
+          <div>
+            <p className="text-sm font-semibold text-red-800">Lieferung per Sprache erfassen</p>
+            <p className="text-xs text-red-600">
+              Kunde, Artikel und Mengen diktieren — die KI macht einen Vorschlag zur Bestätigung
+            </p>
+          </div>
+        </div>
+        <span className="text-red-500 text-lg">→</span>
+      </Link>
 
       {/* CRM Schnellerfassung + Lieferungen ohne Rechnung */}
       <CrmSchnellWidget />
