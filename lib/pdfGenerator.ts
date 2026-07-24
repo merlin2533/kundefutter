@@ -505,13 +505,13 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   type ColStyle = { cellWidth?: number | "auto"; halign?: "left" | "center" | "right" | "justify" };
   const columnStyles: Record<number, ColStyle> = {};
   let ci = 0;
-  columnStyles[ci++] = { cellWidth: 12 };                 // Pos.
+  columnStyles[ci++] = { cellWidth: 16 };                 // Pos.
   columnStyles[ci++] = { cellWidth: "auto" };             // Artikel
   if (hatCharge) columnStyles[ci++] = { cellWidth: 24 };  // Charge
   columnStyles[ci++] = { halign: "right", cellWidth: 18 };// Menge
-  columnStyles[ci++] = { cellWidth: 16 };                 // Einheit
+  columnStyles[ci++] = { cellWidth: 20 };                 // Einheit
   columnStyles[ci++] = { halign: "right", cellWidth: 24 };// Einzelpreis
-  if (hatRabatt) columnStyles[ci++] = { halign: "right", cellWidth: 18 }; // Rabatt %
+  if (hatRabatt) columnStyles[ci++] = { halign: "right", cellWidth: 20 }; // Rabatt %
   columnStyles[ci++] = { halign: "right", cellWidth: 26 };// Gesamt
 
   autoTable(doc, {
@@ -803,7 +803,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     headStyles: { fillColor: [22, 101, 52] },
     styles: { fontSize: 9 },
     columnStyles: {
-      0: { cellWidth: 12 },
+      0: { cellWidth: 16 },
       [hasCharge ? 3 : 2]: { halign: "right" },
     },
   });
@@ -1023,8 +1023,8 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
     columnStyles: hatRabatt
-      ? { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { cellWidth: 16 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 18 }, 6: { halign: "right", cellWidth: 26 } }
-      : { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+      ? { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { cellWidth: 20 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 20 }, 6: { halign: "right", cellWidth: 26 } }
+      : { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
   });
 
   const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
@@ -1290,7 +1290,7 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
     headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
-    columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+    columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
   });
 
   const finalYG = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
