@@ -29,22 +29,26 @@ const DEFAULT_EINHEITEN = ["kg", "t", "l", "ml", "Stück", "Sack", "Big Bag", "B
 export default function NeuArtikelInline({
   kiName,
   kiEinheit,
+  kiArtikelnummer,
+  kiPreis,
   lieferanten,
   onCreated,
   onCancel,
 }: {
   kiName: string;
   kiEinheit?: string;
+  kiArtikelnummer?: string;
+  kiPreis?: number;
   lieferanten: { id: number; name: string }[];
   onCreated: (artikel: NeuArtikelErgebnis) => void;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<NeuArtikelForm>({
     name: kiName,
-    artikelnummer: "",
+    artikelnummer: kiArtikelnummer ?? "",
     einheit: kiEinheit ?? "kg",
     kategorie: "Futter",
-    standardpreis: "",
+    standardpreis: kiPreis != null ? String(kiPreis) : "",
     lieferantId: "",
     kiInhaltsstoffe: false,
   });

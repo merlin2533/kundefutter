@@ -913,6 +913,8 @@ function KiLieferungWizard() {
                     <NeuArtikelInline
                       kiName={pos.kiPosition.name}
                       kiEinheit={pos.kiPosition.einheit}
+                      kiArtikelnummer={pos.kiPosition.artikelnummer}
+                      kiPreis={pos.kiPosition.einzelpreis}
                       lieferanten={lieferanten}
                       onCreated={(neu) => onArtikelCreated(idx, neu)}
                       onCancel={() => toggleNeuForm(idx, false)}
