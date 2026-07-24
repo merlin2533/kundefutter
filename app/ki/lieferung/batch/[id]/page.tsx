@@ -506,10 +506,10 @@ export default function KiLieferungBatchDetailPage() {
 
       <div className="space-y-4">
         {items.map((item, itemIdx) => (
-          <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="flex flex-col sm:flex-row">
               {/* Thumbnail */}
-              <div className="sm:w-40 shrink-0 bg-gray-50 border-b sm:border-b-0 sm:border-r border-gray-200 flex items-center justify-center p-3">
+              <div className="sm:w-40 shrink-0 bg-gray-50 border-b sm:border-b-0 sm:border-r border-gray-200 flex items-center justify-center p-3 rounded-t-xl sm:rounded-t-none sm:rounded-l-xl overflow-hidden">
                 {/\.pdf$/i.test(item.dateiPfad) ? (
                   <div className="text-center py-6">
                     <svg className="w-10 h-10 text-red-500 mx-auto mb-1" fill="currentColor" viewBox="0 0 24 24">
