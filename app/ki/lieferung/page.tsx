@@ -7,6 +7,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCameraUpload";
 import KonfidenzBadge from "@/components/KonfidenzBadge";
+import DezimalInput from "@/components/DezimalInput";
 import NeuArtikelInline from "@/components/NeuArtikelInline";
 import { lagerStatus } from "@/lib/utils";
 import { matchArtikel, matchKunde, normalisiereSuchtext, type Konfidenz } from "@/lib/kiMatching";
@@ -798,14 +799,10 @@ function KiLieferungWizard() {
                           <span className="ml-1 text-purple-600">★</span>
                         )}
                       </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <DezimalInput
                         value={pos.verkaufspreis}
-                        onChange={(e) =>
-                          updatePosition(idx, "verkaufspreis", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(v) => updatePosition(idx, "verkaufspreis", v)}
+                        placeholder="0,00"
                         className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
                       />
                     </div>
