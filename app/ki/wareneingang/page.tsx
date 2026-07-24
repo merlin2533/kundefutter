@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import { lagerStatus } from "@/lib/utils";
-import { matchArtikel as matchArtikelGelernt, normalisiereSuchtext } from "@/lib/kiMatching";
+import { matchArtikel as matchArtikelGelernt, normalisiereSuchtext, fetchAlleSeiten } from "@/lib/kiMatching";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -62,6 +62,30 @@ interface MatchedPosition {
   einkaufspreis: number;
   chargeNr: string;
   konfidenz: Konfidenz;
+}
+
+// ---- Vollständiges Laden (kein Limit) --------------------------------------
+// Artikel/Lieferanten werden für die manuelle Zuordnung komplett geladen —
+// ein festes Limit würde bei wachsendem Datenbestand irgendwann wieder
+// Einträge im Zuordnungs-Dropdown fehlen lassen (siehe fetchAlleSeiten).
+
+async function ladeAlleArtikel(): Promise<Artikel[]> {
+  return fetchAlleSeiten<Artikel>(async (page) => {
+    const res = await fetch(`/api/artikel?page=${page}&limit=2000&relations=false`);
+    if (!res.ok) return null;
+    const items = await res.json();
+    const total = Number(res.headers.get("X-Total-Count") ?? (Array.isArray(items) ? items.length : 0));
+    return { items: Array.isArray(items) ? items : [], total };
+  });
+}
+
+async function ladeAlleLieferanten(): Promise<Lieferant[]> {
+  return fetchAlleSeiten<Lieferant>(async (page) => {
+    const res = await fetch(`/api/lieferanten?page=${page}&limit=500`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
+  });
 }
 
 // ---- Helper ---------------------------------------------------------------
@@ -239,14 +263,8 @@ function KiWareneingangWizard() {
 
   // Load Artikel + Lieferanten once
   useEffect(() => {
-    fetch("/api/artikel?limit=500")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => setArtikel(Array.isArray(data) ? data : []))
-      .catch(() => {});
-    fetch("/api/lieferanten")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => setLieferanten(Array.isArray(data) ? data : []))
-      .catch(() => {});
+    ladeAlleArtikel().then(setArtikel).catch(() => {});
+    ladeAlleLieferanten().then(setLieferanten).catch(() => {});
   }, []);
 
   // ---- Step 2: KI Analyse --------------------------------------------------
