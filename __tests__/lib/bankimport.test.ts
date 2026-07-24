@@ -35,6 +35,27 @@ describe("parseKontoauszug", () => {
     expect(buchungen[1].betrag).toBeCloseTo(750.25, 2);
   });
 
+  it("erkennt bei genossenschaftlichem VR-Export den echten Zahlungsbeteiligten statt der eigenen Bank", () => {
+    // Typischer Volksbank/Raiffeisenbank-Export: enthält sowohl Spalten fürs EIGENE Konto
+    // ("Bankname Auftragskonto", gleicher Wert in jeder Zeile) als auch für die Gegenpartei
+    // ("Name Zahlungsbeteiligter"). Der generische Parser darf nicht auf die erste Spalte
+    // hereinfallen, die zufällig "name" enthält.
+    const csv =
+      "Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;" +
+      "Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;" +
+      "BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung\n" +
+      "Geschäftskonto;DE11111111111111111111;GENODEM1ABC;Volksbank in Ostwestfalen eG;" +
+      "21.07.2026;21.07.2026;Max Mustermann;DE22222222222222222222;GENODEM1XYZ;" +
+      "Überweisungsgutschr.;Rechnung RE-2026-042;341,06;EUR;1000,00\n";
+
+    const buchungen = parseKontoauszug(csv, "vr-export.csv");
+    expect(buchungen).toHaveLength(1);
+    expect(buchungen[0].gegenkontoName).toBe("Max Mustermann");
+    expect(buchungen[0].gegenkonto).toBe("DE22222222222222222222");
+    expect(buchungen[0].verwendungszweck).toBe("Rechnung RE-2026-042");
+    expect(buchungen[0].betrag).toBeCloseTo(341.06, 2);
+  });
+
   it("überspringt Zeilen ohne parsbares Datum und liefert bei fehlenden Pflichtspalten ein leeres Ergebnis", () => {
     const ohnePflichtspalten = "Name;Ort\nMax;Berlin\n";
     expect(parseKontoauszug(ohnePflichtspalten, "leer.csv")).toEqual([]);

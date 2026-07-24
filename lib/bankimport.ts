@@ -190,19 +190,38 @@ function parseING(lines: string[], sep: string): Buchung[] {
   return buchungen;
 }
 
+// Manche Banken (u.a. Volksbank/Raiffeisenbank "VR-NetWorld"-Export) liefern sowohl Spalten für
+// das EIGENE Konto ("Bankname Auftragskonto", "IBAN Auftragskonto") als auch für den tatsächlichen
+// Überweiser/Empfänger ("Name Zahlungsbeteiligter", "IBAN Zahlungsbeteiligter"). Ein simples
+// `.includes("name")` trifft zuerst auf "Bankname Auftragskonto" (eigene Bank, für jede Zeile
+// identisch) statt auf die eigentliche Gegenpartei — daher hier eigene-Konto-Spalten explizit ausschließen.
+function findColumnIndex(headers: string[], include: string[], exclude: string[] = []): number {
+  return headers.findIndex(
+    h => include.some(p => h.includes(p)) && !exclude.some(p => h.includes(p))
+  );
+}
+
 function parseGeneric(lines: string[], sep: string): Buchung[] {
   if (lines.length < 2) return [];
   const headers = splitCSVLine(lines[0], sep).map(h => unquote(h).toLowerCase());
+  const EIGENES_KONTO = ["auftragskonto", "eigenes konto", "eigenkonto"];
 
-  const idxDatum = headers.findIndex(h => h.includes("datum") || h.includes("buchung") || h.includes("date"));
-  const idxBetrag = headers.findIndex(h => h.includes("betrag") || h.includes("amount") || h.includes("summe"));
-  const idxText = headers.findIndex(h =>
-    h.includes("verwendung") || h.includes("zweck") || h.includes("buchungstext") || h.includes("text") || h.includes("description")
+  const idxDatum = findColumnIndex(headers, ["datum", "buchung", "date"]);
+  const idxBetrag = findColumnIndex(headers, ["betrag", "amount", "summe"]);
+  // Verwendungszweck bevorzugen — "buchungstext" ist nur eine grobe Umsatzart (z.B. "Lastschrift")
+  const idxText =
+    findColumnIndex(headers, ["verwendung", "zweck"], EIGENES_KONTO) >= 0
+      ? findColumnIndex(headers, ["verwendung", "zweck"], EIGENES_KONTO)
+      : findColumnIndex(headers, ["buchungstext", "text", "description"]);
+  const idxValuta = findColumnIndex(headers, ["valuta", "wertstellung"]);
+  const idxGegen = findColumnIndex(
+    headers,
+    ["zahlungsbeteiligter", "auftraggeber", "empfänger", "gegenüber", "name"],
+    [...EIGENES_KONTO, "bankname"]
   );
-  const idxValuta = headers.findIndex(h => h.includes("valuta") || h.includes("wertstellung"));
-  const idxGegen = headers.findIndex(h => h.includes("auftraggeber") || h.includes("empfänger") || h.includes("name") || h.includes("gegenüber"));
-  const idxWaehrung = headers.findIndex(h => h.includes("währung") || h.includes("waehrung") || h.includes("currency"));
-  const idxSaldo = headers.findIndex(h => h.includes("saldo") || h.includes("kontostand") || h.includes("balance"));
+  const idxGegenIban = findColumnIndex(headers, ["iban"], EIGENES_KONTO);
+  const idxWaehrung = findColumnIndex(headers, ["währung", "waehrung", "currency"]);
+  const idxSaldo = findColumnIndex(headers, ["saldo", "kontostand", "balance"]);
 
   if (idxDatum < 0 || idxBetrag < 0) return [];
 
@@ -220,6 +239,7 @@ function parseGeneric(lines: string[], sep: string): Buchung[] {
       waehrung: (idxWaehrung >= 0 ? cols[idxWaehrung] : "") || "EUR",
       verwendungszweck: (idxText >= 0 ? cols[idxText] : "") || "",
       gegenkontoName: idxGegen >= 0 ? cols[idxGegen] || undefined : undefined,
+      gegenkonto: idxGegenIban >= 0 ? cols[idxGegenIban] || undefined : undefined,
       saldo: idxSaldo >= 0 ? parseBetrag(cols[idxSaldo] || "") || undefined : undefined,
     });
   }
