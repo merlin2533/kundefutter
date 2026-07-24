@@ -4,11 +4,9 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
-import ArtikelKundenModal from "@/components/ArtikelKundenModal";
 
 export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
-  const [kundenModal, setKundenModal] = useState<{ id: number; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sammelrechnungLoading, setSammelrechnungLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -309,14 +307,13 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
                             {p.menge} {p.artikel.einheit} {p.artikel.name}
                           </Link>
                           {p.chargeNr && <span className="font-mono text-gray-400">[{p.chargeNr}]</span>}
-                          <button
-                            type="button"
-                            onClick={() => setKundenModal({ id: p.artikel.id, name: p.artikel.name })}
+                          <Link
+                            href={`/artikel/${p.artikel.id}?tab=kunden`}
                             className="text-gray-400 hover:text-green-700"
                             title="Wer hat/bekommt diesen Artikel?"
                           >
                             👥
-                          </button>
+                          </Link>
                         </span>
                       ))}
                       {l.positionen.length > 2 && (
@@ -422,12 +419,6 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
           </tbody>
         </table>
       </div>
-      <ArtikelKundenModal
-        artikelId={kundenModal?.id ?? 0}
-        artikelName={kundenModal?.name ?? ""}
-        open={!!kundenModal}
-        onClose={() => setKundenModal(null)}
-      />
     </div>
   );
 }

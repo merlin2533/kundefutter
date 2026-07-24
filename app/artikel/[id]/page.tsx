@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState, useCallback, Fragment } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, Fragment, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
@@ -160,9 +160,13 @@ function PreisChart({ data, formatEuroFn, formatDatumFn }: {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ArtikelDetailPage() {
+const ARTIKEL_TABS = ["details", "inhaltsstoffe", "lieferanten", "preishistorie", "jahrespreise", "dokumente", "bedarfe", "kunden"] as const;
+type ArtikelTab = (typeof ARTIKEL_TABS)[number];
+
+function ArtikelDetailContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const canSeeEk = usePermission(P.FELD_ARTIKEL_EINKAUFSPREIS);
   const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
 
@@ -171,7 +175,11 @@ export default function ArtikelDetailPage() {
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "jahrespreise" | "dokumente" | "bedarfe" | "kunden">("details");
+  const tabParam = searchParams.get("tab");
+  const tab: ArtikelTab = ARTIKEL_TABS.includes(tabParam as ArtikelTab) ? (tabParam as ArtikelTab) : "details";
+  function setTab(next: ArtikelTab) {
+    router.push(`/artikel/${id}?tab=${next}`, { scroll: false });
+  }
 
   // Details edit state
   const [editing, setEditing] = useState(false);
@@ -1902,5 +1910,13 @@ export default function ArtikelDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ArtikelDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <ArtikelDetailContent />
+    </Suspense>
   );
 }
