@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
+import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
 import { Kunde, Artikel, KundeArtikelPreis } from "../_shared";
 
 export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
@@ -11,6 +12,11 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
   const [form, setForm] = useState({ artikelId: "", preis: "", rabatt: "0" });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+
+  // Jahrespreise je Sonderpreis — lazy geladen beim Aufklappen einer Zeile
+  const [expandedArtikelId, setExpandedArtikelId] = useState<number | null>(null);
+  const [jahrespreiseByArtikel, setJahrespreiseByArtikel] = useState<Record<number, JahrespreisEintrag[]>>({});
+  const [loadingJahrespreiseFor, setLoadingJahrespreiseFor] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
@@ -58,6 +64,57 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
     }
   }
 
+  async function toggleJahrespreise(artikelId: number) {
+    if (expandedArtikelId === artikelId) { setExpandedArtikelId(null); return; }
+    setExpandedArtikelId(artikelId);
+    if (!(artikelId in jahrespreiseByArtikel)) {
+      setLoadingJahrespreiseFor(artikelId);
+      try {
+        const res = await fetch(`/api/kunden/${kunde.id}/preise/jahrespreise?artikelId=${artikelId}`);
+        const d = res.ok ? await res.json() : [];
+        setJahrespreiseByArtikel((prev) => ({ ...prev, [artikelId]: Array.isArray(d) ? d : [] }));
+      } finally {
+        setLoadingJahrespreiseFor(null);
+      }
+    }
+  }
+
+  async function saveJahrespreis(
+    artikelId: number,
+    eintrag: { jahr: number; preis: number; rabatt?: number; notiz: string | null },
+  ): Promise<boolean> {
+    const res = await fetch(`/api/kunden/${kunde.id}/preise/jahrespreise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artikelId, ...eintrag }),
+    });
+    if (!res.ok) return false;
+    const neu = await res.json();
+    setJahrespreiseByArtikel((prev) => {
+      const list = prev[artikelId] ?? [];
+      const idx = list.findIndex((e) => e.jahr === neu.jahr);
+      const updated = idx >= 0 ? [...list.slice(0, idx), neu, ...list.slice(idx + 1)] : [...list, neu];
+      return { ...prev, [artikelId]: updated };
+    });
+    onRefresh();
+    return true;
+  }
+
+  async function deleteJahrespreis(artikelId: number, jahr: number): Promise<boolean> {
+    const res = await fetch(`/api/kunden/${kunde.id}/preise/jahrespreise`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ artikelId, jahr }),
+    });
+    if (!res.ok) return false;
+    setJahrespreiseByArtikel((prev) => ({
+      ...prev,
+      [artikelId]: (prev[artikelId] ?? []).filter((e) => e.jahr !== jahr),
+    }));
+    onRefresh();
+    return true;
+  }
+
   function effectivePrice(p: KundeArtikelPreis) {
     return Math.round(p.preis * (1 - p.rabatt / 100) * 100) / 100;
   }
@@ -102,7 +159,8 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
                 const eff = effectivePrice(p);
                 const m = marge(p);
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50">
+                  <React.Fragment key={p.id}>
+                  <tr className="hover:bg-gray-50">
                     <td className="px-4 py-2.5">
                       <p className="font-medium">{p.artikel.name}</p>
                       <p className="text-xs text-gray-400">{p.artikel.artikelnummer}</p>
@@ -121,7 +179,13 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
                         </span>
                       ) : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => toggleJahrespreise(p.artikelId)}
+                        className={`text-xs mr-3 ${expandedArtikelId === p.artikelId ? "text-green-700 font-semibold" : "text-gray-400 hover:text-green-700"}`}
+                      >
+                        Jahre
+                      </button>
                       <button
                         onClick={() => handleDelete(p.artikelId)}
                         disabled={deleting === p.artikelId}
@@ -131,6 +195,24 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
                       </button>
                     </td>
                   </tr>
+                  {expandedArtikelId === p.artikelId && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        {loadingJahrespreiseFor === p.artikelId ? (
+                          <p className="text-xs text-gray-400">Lade Jahrespreise…</p>
+                        ) : (
+                          <JahrespreiseManager
+                            eintraege={jahrespreiseByArtikel[p.artikelId] ?? []}
+                            preisLabel="Sonderpreis"
+                            showRabatt
+                            onSave={(eintrag) => saveJahrespreis(p.artikelId, eintrag)}
+                            onDelete={(jahr) => deleteJahrespreis(p.artikelId, jahr)}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </tbody>

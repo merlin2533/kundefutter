@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
@@ -8,6 +8,7 @@ import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal } from 
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
+import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -170,7 +171,7 @@ export default function ArtikelDetailPage() {
   const [einheiten, setEinheiten] = useState<string[]>(FALLBACK_EINHEITEN);
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "dokumente" | "bedarfe" | "kunden">("details");
+  const [tab, setTab] = useState<"details" | "inhaltsstoffe" | "lieferanten" | "preishistorie" | "jahrespreise" | "dokumente" | "bedarfe" | "kunden">("details");
 
   // Details edit state
   const [editing, setEditing] = useState(false);
@@ -188,6 +189,16 @@ export default function ArtikelDetailPage() {
   const [preishistorie, setPreishistorie] = useState<PreishistorieEntry[]>([]);
   const [loadingPreis, setLoadingPreis] = useState(false);
   const [preisView, setPreisView] = useState<"grafik" | "tabelle">("grafik");
+
+  // Jahrespreise (Verkaufspreis)
+  const [jahrespreise, setJahrespreise] = useState<JahrespreisEintrag[]>([]);
+  const [jahrespreiseLoaded, setJahrespreiseLoaded] = useState(false);
+  const [loadingJahrespreise, setLoadingJahrespreise] = useState(false);
+
+  // Jahrespreise je Lieferant (Einkaufspreis) — lazy geladen beim Aufklappen einer Zeile
+  const [expandedLiefId, setExpandedLiefId] = useState<number | null>(null);
+  const [liefJahrespreise, setLiefJahrespreise] = useState<Record<number, JahrespreisEintrag[]>>({});
+  const [loadingLiefJahrespreise, setLoadingLiefJahrespreise] = useState<number | null>(null);
 
   // Lieferanten modal
   const [showLiefModal, setShowLiefModal] = useState(false);
@@ -282,8 +293,102 @@ export default function ArtikelDetailPage() {
         .then((d) => setLieferantenList(Array.isArray(d) ? d : []))
         .catch(() => {});
     }
+    if (tab === "jahrespreise" && !jahrespreiseLoaded) {
+      setLoadingJahrespreise(true);
+      fetch(`/api/artikel/${id}/jahrespreise`)
+        .then((r) => r.ok ? r.json() : [])
+        .then((d) => setJahrespreise(Array.isArray(d) ? d : []))
+        .catch(() => {})
+        .finally(() => { setLoadingJahrespreise(false); setJahrespreiseLoaded(true); });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // ── Jahrespreise (Verkaufspreis) ──────────────────────────────────────────
+  async function saveArtikelJahrespreis(eintrag: { jahr: number; preis: number; notiz: string | null }): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/jahrespreise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(eintrag),
+    });
+    if (!res.ok) return false;
+    const neu = await res.json();
+    setJahrespreise((prev) => {
+      const idx = prev.findIndex((e) => e.jahr === neu.jahr);
+      if (idx >= 0) { const copy = [...prev]; copy[idx] = neu; return copy; }
+      return [...prev, neu];
+    });
+    fetchArtikel();
+    return true;
+  }
+
+  async function deleteArtikelJahrespreis(jahr: number): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/jahrespreise`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jahr }),
+    });
+    if (!res.ok) return false;
+    setJahrespreise((prev) => prev.filter((e) => e.jahr !== jahr));
+    fetchArtikel();
+    return true;
+  }
+
+  // ── Jahrespreise je Lieferant (Einkaufspreis) ─────────────────────────────
+  async function toggleLiefJahrespreise(l: ArtikelLieferant) {
+    if (expandedLiefId === l.id) { setExpandedLiefId(null); return; }
+    setExpandedLiefId(l.id);
+    if (!(l.lieferantId in liefJahrespreise)) {
+      setLoadingLiefJahrespreise(l.id);
+      try {
+        const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/jahrespreise`);
+        const d = res.ok ? await res.json() : [];
+        const liste: JahrespreisEintrag[] = Array.isArray(d)
+          ? d.map((e: { jahr: number; einkaufspreis: number; notiz: string | null }) => ({ jahr: e.jahr, preis: e.einkaufspreis, notiz: e.notiz }))
+          : [];
+        setLiefJahrespreise((prev) => ({ ...prev, [l.lieferantId]: liste }));
+      } finally {
+        setLoadingLiefJahrespreise(null);
+      }
+    }
+  }
+
+  async function saveLiefJahrespreis(
+    l: ArtikelLieferant,
+    eintrag: { jahr: number; preis: number; notiz: string | null },
+  ): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/jahrespreise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jahr: eintrag.jahr, einkaufspreis: eintrag.preis, notiz: eintrag.notiz }),
+    });
+    if (!res.ok) return false;
+    const raw = await res.json();
+    const neu: JahrespreisEintrag = { jahr: raw.jahr, preis: raw.einkaufspreis, notiz: raw.notiz };
+    setLiefJahrespreise((prev) => {
+      const list = prev[l.lieferantId] ?? [];
+      const idx = list.findIndex((e) => e.jahr === neu.jahr);
+      const updated = idx >= 0 ? [...list.slice(0, idx), neu, ...list.slice(idx + 1)] : [...list, neu];
+      return { ...prev, [l.lieferantId]: updated };
+    });
+    fetchArtikel();
+    return true;
+  }
+
+  async function deleteLiefJahrespreis(l: ArtikelLieferant, jahr: number): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/jahrespreise`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jahr }),
+    });
+    if (!res.ok) return false;
+    setLiefJahrespreise((prev) => ({
+      ...prev,
+      [l.lieferantId]: (prev[l.lieferantId] ?? []).filter((e) => e.jahr !== jahr),
+    }));
+    fetchArtikel();
+    return true;
+  }
 
   // ── Details save ──────────────────────────────────────────────────────────
   async function saveDetails() {
@@ -592,6 +697,7 @@ export default function ArtikelDetailPage() {
     { key: "inhaltsstoffe", label: `Inhaltsstoffe${artikel.inhaltsstoffe.length ? ` (${artikel.inhaltsstoffe.length})` : ""}` },
     { key: "lieferanten", label: "Lieferanten" },
     { key: "preishistorie", label: "Preishistorie" },
+    { key: "jahrespreise", label: "Jahrespreise" },
     { key: "dokumente", label: "Dokumente" },
     { key: "bedarfe", label: "Bedarfe" },
     { key: "kunden", label: "Kunden" },
@@ -1307,7 +1413,8 @@ export default function ArtikelDetailPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {artikel.lieferanten.map((l) => (
-                    <tr key={l.id} className="hover:bg-gray-50">
+                    <Fragment key={l.id}>
+                    <tr className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">
                         {l.lieferant.name}
                         <div className="md:hidden text-xs text-gray-500 mt-0.5 font-mono">{l.lieferantenArtNr ?? ""}</div>
@@ -1364,6 +1471,15 @@ export default function ArtikelDetailPage() {
                           >
                             ✎
                           </button>
+                          {canSeeEk && (
+                            <button
+                              onClick={() => toggleLiefJahrespreise(l)}
+                              title="Jahrespreise"
+                              className={`text-xs px-1 ${expandedLiefId === l.id ? "text-green-700 font-semibold" : "text-gray-400 hover:text-green-700"}`}
+                            >
+                              Jahre
+                            </button>
+                          )}
                           <button
                             onClick={async () => {
                               if (!confirm(`Lieferant „${l.lieferant.name}" von diesem Artikel entfernen?`)) return;
@@ -1383,6 +1499,23 @@ export default function ArtikelDetailPage() {
                         </div>
                       </td>
                     </tr>
+                    {canSeeEk && expandedLiefId === l.id && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                          {loadingLiefJahrespreise === l.id ? (
+                            <p className="text-xs text-gray-400">Lade Jahrespreise…</p>
+                          ) : (
+                            <JahrespreiseManager
+                              eintraege={liefJahrespreise[l.lieferantId] ?? []}
+                              preisLabel="Einkaufspreis"
+                              onSave={(eintrag) => saveLiefJahrespreis(l, eintrag)}
+                              onDelete={(jahr) => deleteLiefJahrespreis(l, jahr)}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -1574,6 +1707,27 @@ export default function ArtikelDetailPage() {
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Jahrespreise ────────────────────────────────────────────────── */}
+      {tab === "jahrespreise" && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 max-w-2xl">
+          <p className="text-xs text-gray-500 mb-4">
+            Verkaufspreis je Kalenderjahr hinterlegen (z.B. Saisonpreise). Fehlt für ein angefragtes
+            Jahr ein Eintrag, wird automatisch der Preis des nächstgelegenen bekannten Jahres
+            übernommen — der aktuelle Standardpreis oben wird dabei laufend synchron gehalten.
+          </p>
+          {loadingJahrespreise ? (
+            <p className="text-gray-400 text-sm">Lade Jahrespreise…</p>
+          ) : (
+            <JahrespreiseManager
+              eintraege={jahrespreise}
+              preisLabel="Verkaufspreis"
+              onSave={saveArtikelJahrespreis}
+              onDelete={deleteArtikelJahrespreis}
+            />
           )}
         </div>
       )}
