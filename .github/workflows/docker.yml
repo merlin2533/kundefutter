@@ -102,6 +102,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # NEXT_PUBLIC_SENTRY_DSN muss beim Docker-Build vorliegen (Next.js backt
+          # NEXT_PUBLIC_-Variablen fest ins Client-Bundle ein) — ohne diesen Build-Arg
+          # bleibt die Browser-seitige Fehlermeldung an GlitchTip dauerhaft stumm,
+          # unabhängig vom SENTRY_DSN-Wert im laufenden Container.
+          build-args: |
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.SENTRY_DSN }}
           cache-from: type=gha          # GitHub Actions Cache → schnellere Builds
           cache-to: type=gha,mode=max
 

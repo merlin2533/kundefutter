@@ -10,6 +10,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_-Variablen werden von Next.js beim Build fest in das Client-Bundle
+# eingebacken — müssen daher als Build-ARG hier ankommen, ein Setzen zur Laufzeit
+# im Runner-Container wirkt sich auf den Client-Code nicht mehr aus.
+ARG NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN npx prisma generate
 RUN npm run build
 

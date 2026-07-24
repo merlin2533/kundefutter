@@ -11,6 +11,7 @@ services:
     environment:
       - DATABASE_URL=file:/data/kundefutter.db
       - NODE_ENV=production
+      - SENTRY_DSN=${SENTRY_DSN:-}
     restart: unless-stopped
 
 volumes:
