@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addTage, berechneVerkaufspreis } from "@/lib/utils";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { ladeStandardZahlungsziel } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -169,6 +170,7 @@ export async function POST(req: NextRequest) {
   const bedarfMap = new Map(bedarfeListe.map((b) => [b.id, b]));
 
   const angelegt = [];
+  const zahlungsziel = await ladeStandardZahlungsziel();
 
   for (const bedarfId of bedarfIds) {
     const bedarf = bedarfMap.get(bedarfId);
@@ -183,6 +185,7 @@ export async function POST(req: NextRequest) {
         datum: new Date(),
         wiederkehrend: true,
         notiz: `Automatisch angelegt aus Bedarf (Intervall: ${bedarf.intervallTage} Tage)`,
+        zahlungsziel,
         positionen: {
           create: [{
             artikelId: bedarf.artikelId,

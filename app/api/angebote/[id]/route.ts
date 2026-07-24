@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { ladeStandardZahlungsziel } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,10 @@ export async function PUT(req: NextRequest, ctx: Params) {
         });
 
         // 2. Sammelrechnung erstellen und mit Lieferung verknüpfen
-        const einstellung = await tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } });
+        const [einstellung, zahlungsziel] = await Promise.all([
+          tx.einstellung.findUnique({ where: { key: "letzte_rechnungsnummer" } }),
+          ladeStandardZahlungsziel(tx),
+        ]);
         const rechnungNr = naechsteRechnungsnummer(einstellung?.value ?? null);
         await tx.einstellung.upsert({
           where: { key: "letzte_rechnungsnummer" },
@@ -111,7 +115,7 @@ export async function PUT(req: NextRequest, ctx: Params) {
             kundeId: angebot.kundeId,
             rechnungNr,
             rechnungDatum: new Date(),
-            zahlungsziel: 30,
+            zahlungsziel,
           },
         });
         await tx.lieferung.update({
