@@ -10,9 +10,13 @@ interface CameraUploadProps {
   maxSizeMB?: number;
   /** Max pixel dimension (width or height). Images get resized before callback. Default 1600. */
   maxResolution?: number;
+  /** JPEG-Qualität beim Resizing (0–1). Default 0.85. Für Batch-Uploads mit vielen
+   *  Fotos empfiehlt sich ein niedrigerer Wert, damit die Gesamtmenge klein bleibt. */
+  quality?: number;
   /** Bei true bleibt die Live-Kamera nach jeder Aufnahme offen, damit mehrere Fotos
    *  hintereinander aufgenommen werden können (z.B. Batch-Upload), statt nach jedem
-   *  Foto zu schließen. */
+   *  Foto zu schließen. Fällt die Live-Kamera auf die native Kamera-App zurück, wird
+   *  diese nach jedem Foto automatisch erneut geöffnet, bis auf "Fertig" getippt wird. */
   multiple?: boolean;
 }
 
@@ -70,6 +74,7 @@ export default function CameraUpload({
   onRemove,
   maxSizeMB = 20,
   maxResolution = 1600,
+  quality = 0.85,
   multiple = false,
 }: CameraUploadProps) {
   const [dragging, setDragging] = useState(false);
@@ -77,6 +82,16 @@ export default function CameraUpload({
   const [cameraError, setCameraError] = useState("");
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [multiShotCount, setMultiShotCount] = useState(0);
+  // Bleibt true, solange im multiple-Modus die native Kamera-App (Fallback ohne
+  // Live-Vorschau) nach jedem Foto automatisch erneut geöffnet werden soll.
+  const [nativeLoopActive, setNativeLoopActive] = useState(false);
+  // Ref-Spiegel von nativeLoopActive für den verzögerten Re-Open-Check unten —
+  // vermeidet einen stale closure, falls "Fertig" zwischen Planung und
+  // Ausführung des setTimeout getippt wird.
+  const nativeLoopActiveRef = useRef(false);
+  useEffect(() => {
+    nativeLoopActiveRef.current = nativeLoopActive;
+  }, [nativeLoopActive]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -108,7 +123,7 @@ export default function CameraUpload({
       reader.onload = async (e) => {
         const rawDataUrl = e.target?.result as string;
         // Resize for faster upload & AI analysis
-        const { dataUrl, blob } = await resizeImage(rawDataUrl, maxResolution);
+        const { dataUrl, blob } = await resizeImage(rawDataUrl, maxResolution, quality);
         const resizedFile = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
           type: "image/jpeg",
         });
@@ -116,7 +131,7 @@ export default function CameraUpload({
       };
       reader.readAsDataURL(file);
     },
-    [onImageSelected, maxSizeMB, maxResolution]
+    [onImageSelected, maxSizeMB, maxResolution, quality]
   );
 
   function handleDrop(e: React.DragEvent) {
@@ -142,8 +157,12 @@ export default function CameraUpload({
       }
       setCameraActive(true);
     } catch {
-      // Fallback: use native file input with capture
+      // Fallback: Gerät/Browser unterstützt keine Live-Vorschau (getUserMedia) —
+      // native Kamera-App nutzen. Im multiple-Modus wird sie nach jedem Foto
+      // automatisch erneut geöffnet (siehe onChange unten), damit trotzdem eine
+      // Fotoserie ohne erneutes Antippen von "Kamera verwenden" möglich ist.
       if (cameraInputRef.current) {
+        if (multiple) setNativeLoopActive(true);
         cameraInputRef.current.click();
       } else {
         setCameraError("Kamera konnte nicht gestartet werden.");
@@ -171,7 +190,7 @@ export default function CameraUpload({
     ctx.drawImage(video, 0, 0);
 
     const rawDataUrl = canvas.toDataURL("image/jpeg", 0.9);
-    const { dataUrl, blob } = await resizeImage(rawDataUrl, maxResolution);
+    const { dataUrl, blob } = await resizeImage(rawDataUrl, maxResolution, quality);
     const file = new File([blob], `kamera-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`, { type: "image/jpeg" });
     onImageSelected(file, dataUrl);
     if (multiple) {
@@ -358,61 +377,91 @@ export default function CameraUpload({
   // Upload / Camera selection view
   return (
     <div className="space-y-3">
-      {/* Drop zone */}
-      <div
-        onDrop={handleDrop}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-xl p-8 sm:p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
-          dragging
-            ? "border-green-500 bg-green-50"
-            : "border-gray-300 hover:border-green-400 hover:bg-gray-50"
-        }`}
-      >
-        <svg
-          className="w-12 h-12 text-gray-300"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-700">
-            Datei hier ablegen oder <span className="text-green-700 underline">Datei auswählen</span>
+      {/* Fotoserie läuft über die native Kamera-App (kein Live-Vorschau-Support) */}
+      {nativeLoopActive ? (
+        <div className="rounded-xl border-2 border-green-200 bg-green-50 p-6 text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center">
+            <svg className="w-6 h-6 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-green-800">
+            Fotoserie läuft — Kamera-App öffnet sich nach jedem Foto automatisch erneut
           </p>
-          <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC, PDF</p>
+          <p className="text-xs text-green-700">
+            {multiShotCount === 0
+              ? "Noch kein Foto aufgenommen"
+              : `${multiShotCount} Foto${multiShotCount === 1 ? "" : "s"} aufgenommen`}
+          </p>
+          <button
+            type="button"
+            onClick={() => setNativeLoopActive(false)}
+            disabled={multiShotCount === 0}
+            className="px-5 py-2 rounded-lg text-sm font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Fertig
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Drop zone */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-xl p-8 sm:p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors ${
+              dragging
+                ? "border-green-500 bg-green-50"
+                : "border-gray-300 hover:border-green-400 hover:bg-gray-50"
+            }`}
+          >
+            <svg
+              className="w-12 h-12 text-gray-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-700">
+                Datei hier ablegen oder <span className="text-green-700 underline">Datei auswählen</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP, HEIC, PDF</p>
+            </div>
+          </div>
 
-      {/* Camera button */}
-      <button
-        type="button"
-        onClick={isMobile && !multiple ? () => cameraInputRef.current?.click() : startCamera}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-medium text-sm hover:bg-green-100 hover:border-green-300 transition-colors active:scale-[0.98]"
-      >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-          />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        {multiple ? "Kamera verwenden (mehrere Fotos)" : "Kamera verwenden"}
-      </button>
+          {/* Camera button */}
+          <button
+            type="button"
+            onClick={isMobile && !multiple ? () => cameraInputRef.current?.click() : startCamera}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-green-200 bg-green-50 text-green-700 font-medium text-sm hover:bg-green-100 hover:border-green-300 transition-colors active:scale-[0.98]"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {multiple ? "Kamera verwenden (mehrere Fotos)" : "Kamera verwenden"}
+          </button>
 
-      {cameraError && (
-        <p className="text-xs text-red-500 text-center">{cameraError}</p>
+          {cameraError && (
+            <p className="text-xs text-red-500 text-center">{cameraError}</p>
+          )}
+        </>
       )}
 
       <input
@@ -434,7 +483,25 @@ export default function CameraUpload({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
+          const hadFile = !!file;
           if (file) handleFile(file);
+          // Input zurücksetzen, damit dieselbe Datei erneut ausgewählt werden
+          // könnte und der nächste .click()-Aufruf zuverlässig ein change auslöst.
+          e.target.value = "";
+          if (multiple) {
+            if (hadFile) {
+              setMultiShotCount((c) => c + 1);
+              // Kamera-App nach kurzer Verzögerung automatisch erneut öffnen,
+              // solange die Fotoserie noch nicht mit "Fertig" beendet wurde.
+              window.setTimeout(() => {
+                if (nativeLoopActiveRef.current) cameraInputRef.current?.click();
+              }, 150);
+            } else {
+              // Nutzer hat die Kamera-App ohne Foto verlassen (Abbrechen) —
+              // Fotoserie beenden statt in einer Schleife hängen zu bleiben.
+              setNativeLoopActive(false);
+            }
+          }
         }}
       />
       <canvas ref={canvasRef} className="hidden" />
