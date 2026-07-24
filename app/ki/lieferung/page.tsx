@@ -1315,35 +1315,39 @@ function KiLieferungBatchStart() {
         </div>
       </div>
 
-      {!loadingBatches && offeneBatches.length > 0 && (
+      {!loadingBatches && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold mb-4 text-gray-800">Offene Batches fortsetzen</h2>
-          <div className="space-y-2">
-            {offeneBatches.map((b) => {
-              const s = batchStatusLabel(b.status);
-              const analysiert = (b.counts.analysiert ?? 0) + (b.counts.uebernommen ?? 0) + (b.counts.fehler ?? 0);
-              return (
-                <Link
-                  key={b.id}
-                  href={`/ki/lieferung/batch/${b.id}`}
-                  className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/50 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Batch #{b.id} — {b.itemCount} Lieferscheine
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {analysiert} von {b.itemCount} analysiert · erstellt am{" "}
-                      {new Date(b.createdAt).toLocaleDateString("de-DE")}
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>
-                    {s.label}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
+          {offeneBatches.length > 0 ? (
+            <div className="space-y-2">
+              {offeneBatches.map((b) => {
+                const s = batchStatusLabel(b.status);
+                const analysiert = (b.counts.analysiert ?? 0) + (b.counts.uebernommen ?? 0) + (b.counts.fehler ?? 0);
+                return (
+                  <Link
+                    key={b.id}
+                    href={`/ki/lieferung/batch/${b.id}`}
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/50 transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Batch #{b.id} — {b.itemCount} Lieferscheine
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {analysiert} von {b.itemCount} analysiert · erstellt am{" "}
+                        {new Date(b.createdAt).toLocaleDateString("de-DE")}
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>
+                      {s.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">Keine offenen Batches — alle Lieferscheine wurden verarbeitet.</p>
+          )}
         </div>
       )}
     </>
