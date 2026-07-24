@@ -13,6 +13,7 @@ import {
   matchKunde,
   berechneFehlendeFelder,
   normalisiereSuchtext,
+  fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
 
@@ -89,6 +90,39 @@ interface BatchDetail {
   items: BatchItem[];
 }
 
+// ─── Vollständiges Laden (kein Limit) ────────────────────────────────────────
+// Artikel/Kunden/Lieferanten werden für die manuelle Zuordnung komplett
+// geladen — ein festes Limit würde bei wachsendem Datenbestand irgendwann
+// wieder Einträge im Zuordnungs-Dropdown fehlen lassen (siehe fetchAlleSeiten).
+
+async function ladeAlleArtikel(): Promise<ArtikelRaw[]> {
+  return fetchAlleSeiten<ArtikelRaw>(async (page) => {
+    const res = await fetch(`/api/artikel?page=${page}&limit=2000&relations=false`);
+    if (!res.ok) return null;
+    const items = await res.json();
+    const total = Number(res.headers.get("X-Total-Count") ?? (Array.isArray(items) ? items.length : 0));
+    return { items: Array.isArray(items) ? items : [], total };
+  });
+}
+
+async function ladeAlleKunden(): Promise<KundeRaw[]> {
+  return fetchAlleSeiten<KundeRaw>(async (page) => {
+    const res = await fetch(`/api/kunden?page=${page}&limit=1000`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
+  });
+}
+
+async function ladeAlleLieferanten(): Promise<LieferantRaw[]> {
+  return fetchAlleSeiten<LieferantRaw>(async (page) => {
+    const res = await fetch(`/api/lieferanten?page=${page}&limit=500`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
+  });
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function meldeLernkorrektur(typ: "artikel" | "kunde", suchtext: string, zielId: number) {
@@ -136,11 +170,11 @@ export default function KiLieferungBatchDetailPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [batchRes, artikelRes, kundenRes, lieferantenRes, gelerntKundeRes, gelerntArtikelRes] = await Promise.all([
+      const [batchRes, artikelList, kundenList, lieferantenList, gelerntKundeRes, gelerntArtikelRes] = await Promise.all([
         fetch(`/api/ki/lieferung/batch/${batchId}`),
-        fetch("/api/artikel?limit=2000&relations=false"),
-        fetch("/api/kunden?limit=1000"),
-        fetch("/api/lieferanten?limit=200"),
+        ladeAlleArtikel(),
+        ladeAlleKunden(),
+        ladeAlleLieferanten(),
         fetch("/api/ki/lernen?typ=kunde"),
         fetch("/api/ki/lernen?typ=artikel"),
       ]);
@@ -148,15 +182,12 @@ export default function KiLieferungBatchDetailPage() {
       if (!batchRes.ok) throw new Error("Batch nicht gefunden");
       const batchData: BatchDetail = await batchRes.json();
 
-      const artikelData = artikelRes.ok ? await artikelRes.json() : [];
-      const kundenData = kundenRes.ok ? await kundenRes.json() : [];
-      const lieferantenData = lieferantenRes.ok ? await lieferantenRes.json() : [];
       const gelerntKundeData = gelerntKundeRes.ok ? await gelerntKundeRes.json() : { eintraege: [] };
       const gelerntArtikelData = gelerntArtikelRes.ok ? await gelerntArtikelRes.json() : { eintraege: [] };
 
-      setArtikel(Array.isArray(artikelData) ? artikelData : (artikelData.artikel ?? []));
-      setKunden(Array.isArray(kundenData) ? kundenData : (kundenData.kunden ?? []));
-      setLieferanten(Array.isArray(lieferantenData) ? lieferantenData : (lieferantenData.lieferanten ?? []));
+      setArtikel(artikelList);
+      setKunden(kundenList);
+      setLieferanten(lieferantenList);
       setGelerntKunde(new Map((gelerntKundeData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])));
       setGelerntArtikel(new Map((gelerntArtikelData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])));
       setBatch(batchData);

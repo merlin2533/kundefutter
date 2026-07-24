@@ -4,6 +4,28 @@
 
 export type Konfidenz = "hoch" | "mittel" | "niedrig" | "keine" | "gelernt";
 
+/**
+ * Lädt eine paginierte Liste-API vollständig durch (alle Seiten), statt sich
+ * auf ein festes Limit zu verlassen. Für die KI-Zuordnung muss immer der
+ * komplette Artikel-/Kunden-/Lieferantenbestand im Client verfügbar sein —
+ * ein starres Limit (z.B. 500) würde bei wachsendem Datenbestand irgendwann
+ * wieder Einträge im Zuordnungs-Dropdown verschwinden lassen.
+ */
+export async function fetchAlleSeiten<T>(
+  ladeSeite: (page: number) => Promise<{ items: T[]; total: number } | null>
+): Promise<T[]> {
+  const alle: T[] = [];
+  let page = 1;
+  for (;;) {
+    const seite = await ladeSeite(page);
+    if (!seite || seite.items.length === 0) break;
+    alle.push(...seite.items);
+    if (alle.length >= seite.total) break;
+    page++;
+  }
+  return alle;
+}
+
 export function normalisiereSuchtext(text: string): string {
   return text.trim().toLowerCase();
 }

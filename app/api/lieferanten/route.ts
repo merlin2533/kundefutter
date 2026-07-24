@@ -15,6 +15,34 @@ export async function GET(req: NextRequest) {
     ];
   }
 
+  // Paginierung nur wenn explizit angefragt (?page=) — hält bestehende Aufrufer,
+  // die ein flaches Array erwarten, unverändert; erlaubt aber vollständigen
+  // Durchlauf über alle Lieferanten für Clients, die wirklich alle brauchen
+  // (z.B. KI-Zuordnung), unabhängig von der Gesamtanzahl.
+  const pageParam = searchParams.get("page");
+  if (pageParam !== null) {
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    try {
+      const [lieferanten, total] = await Promise.all([
+        prisma.lieferant.findMany({
+          where,
+          include: {
+            artikelZuordnungen: { include: { artikel: true } },
+            _count: { select: { artikelZuordnungen: true } },
+          },
+          orderBy: { name: "asc" },
+          skip: (page - 1) * take,
+          take,
+        }),
+        prisma.lieferant.count({ where }),
+      ]);
+      return NextResponse.json({ data: lieferanten, total, page, limit: take });
+    } catch (err) {
+      Sentry.captureException(err);
+      return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+    }
+  }
+
   try {
     const lieferanten = await prisma.lieferant.findMany({
       where,
