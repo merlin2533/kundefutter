@@ -6,6 +6,7 @@ import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import KonfidenzBadge from "@/components/KonfidenzBadge";
 import NeuArtikelInline, { type NeuArtikelErgebnis } from "@/components/NeuArtikelInline";
+import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
 import DezimalInput from "@/components/DezimalInput";
 import {
   matchArtikel,
@@ -125,6 +126,9 @@ export default function KiLieferungBatchDetailPage() {
   const [finalizeResult, setFinalizeResult] = useState<{ erstellt: number; uebersprungen: number; fehlgeschlagen: number; rechnungenErstellt?: number } | null>(null);
   const [discarding, setDiscarding] = useState(false);
   const [autoRechnung, setAutoRechnung] = useState(false);
+  const [neuKundeItemId, setNeuKundeItemId] = useState<number | null>(null);
+  const [zoomBild, setZoomBild] = useState<{ src: string; alt: string } | null>(null);
+  const [finalizingItemId, setFinalizingItemId] = useState<number | null>(null);
 
   // ── Initial load ──────────────────────────────────────────────────────────
 
@@ -357,6 +361,16 @@ export default function KiLieferungBatchDetailPage() {
     }));
   }
 
+  function onKundeAngelegt(item: BatchItem, neu: NeuKundeErgebnis) {
+    const kunde: KundeRaw = { id: neu.id, name: neu.name, firma: neu.firma ?? undefined, ort: neu.ort ?? undefined };
+    setKunden((prev) => [...prev, kunde]);
+    updateItem(item.id, (it) => ({ ...it, kundeId: kunde.id, kundeKonfidenz: "hoch" }));
+    setNeuKundeItemId(null);
+    if (item.kiErgebnis) {
+      meldeLernkorrektur("kunde", item.kiErgebnis.kunde.firma || item.kiErgebnis.kunde.name, kunde.id);
+    }
+  }
+
   function setEntscheidung(item: BatchItem, entscheidung: "passt" | "passt_nicht") {
     updateItem(item.id, (it) => ({ ...it, entscheidung: it.entscheidung === entscheidung ? null : entscheidung }));
   }
@@ -379,6 +393,24 @@ export default function KiLieferungBatchDetailPage() {
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setFinalizing(false);
+    }
+  }
+
+  async function uebernehmeEinzeln(item: BatchItem) {
+    setFinalizingItemId(item.id);
+    try {
+      const res = await fetch(`/api/ki/lieferung/batch/${batchId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "abschliessen", itemId: item.id, autoRechnung }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Übernehmen fehlgeschlagen");
+      await ladeAlles();
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    } finally {
+      setFinalizingItemId(null);
     }
   }
 
@@ -486,8 +518,20 @@ export default function KiLieferungBatchDetailPage() {
                     <p className="text-xs text-gray-500 truncate">{item.dateiName}</p>
                   </div>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/api/uploads/${item.dateiPfad}`} alt={item.dateiName ?? `Lieferschein ${itemIdx + 1}`} className="max-h-40 max-w-full object-contain rounded" />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setZoomBild({
+                        src: `/api/uploads/${item.dateiPfad}`,
+                        alt: item.dateiName ?? `Lieferschein ${itemIdx + 1}`,
+                      })
+                    }
+                    title="Größer anzeigen"
+                    className="cursor-zoom-in"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`/api/uploads/${item.dateiPfad}`} alt={item.dateiName ?? `Lieferschein ${itemIdx + 1}`} className="max-h-40 max-w-full object-contain rounded" />
+                  </button>
                 )}
               </div>
 
@@ -565,6 +609,24 @@ export default function KiLieferungBatchDetailPage() {
                         placeholder="Kunde auswählen…"
                         allowClear
                       />
+                      {!item.kundeId && neuKundeItemId !== item.id && (
+                        <button
+                          type="button"
+                          onClick={() => setNeuKundeItemId(item.id)}
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-1"
+                        >
+                          + Neuen Kunden anlegen
+                        </button>
+                      )}
+                      {neuKundeItemId === item.id && (
+                        <NeuKundeInline
+                          kiName={item.kiErgebnis?.kunde.name ?? ""}
+                          kiFirma={item.kiErgebnis?.kunde.firma}
+                          kiOrt={item.kiErgebnis?.kunde.ort}
+                          onCreated={(neu) => onKundeAngelegt(item, neu)}
+                          onCancel={() => setNeuKundeItemId(null)}
+                        />
+                      )}
                     </div>
 
                     {/* Positionen */}
@@ -637,6 +699,22 @@ export default function KiLieferungBatchDetailPage() {
                         );
                       })}
                     </div>
+
+                    {item.entscheidung === "passt" && (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => uebernehmeEinzeln(item)}
+                          disabled={finalizingItemId === item.id}
+                          className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                        >
+                          {finalizingItemId === item.id && (
+                            <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          )}
+                          ✓ Nur diesen Lieferschein jetzt übernehmen
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -682,6 +760,30 @@ export default function KiLieferungBatchDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Bild-Zoom */}
+      {zoomBild && (
+        <div
+          className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
+          onClick={() => setZoomBild(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setZoomBild(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none"
+            title="Schließen"
+          >
+            ×
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoomBild.src}
+            alt={zoomBild.alt}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

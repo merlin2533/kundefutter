@@ -65,6 +65,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   }
   const aktion = body.aktion;
   const autoRechnung = body.autoRechnung === true;
+  // Optional: nur ein einzelnes Item übernehmen (Rest des Batches bleibt offen für später)
+  const itemId = body.itemId != null ? Number(body.itemId) : null;
+  if (body.itemId != null && (itemId === null || isNaN(itemId))) {
+    return NextResponse.json({ error: "Ungültige itemId" }, { status: 400 });
+  }
 
   try {
     const batch = await prisma.kiLieferungBatch.findUnique({
@@ -90,7 +95,12 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       let fehlgeschlagen = 0;
       let rechnungenErstellt = 0;
 
-      for (const item of batch.items) {
+      const zuVerarbeiten = itemId != null ? batch.items.filter((it) => it.id === itemId) : batch.items;
+      if (itemId != null && zuVerarbeiten.length === 0) {
+        return NextResponse.json({ error: "Item nicht gefunden" }, { status: 404 });
+      }
+
+      for (const item of zuVerarbeiten) {
         if (item.status === "uebernommen") {
           erstellt++;
           continue;
