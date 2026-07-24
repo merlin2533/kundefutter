@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
-import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung } from "@/lib/lieferung";
+import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -102,11 +102,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     // Status: geplant → geliefert: Bestand reduzieren (nicht bei Streckengeschäft)
     if (alt.status === "geplant" && data.status === "geliefert") {
-      if (!alt.istStreckengeschaeft) {
-        const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
-        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+      const artikelIds = [...new Set(alt.positionen.map((p) => p.artikelId))];
+      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
 
+      for (const pos of alt.positionen) {
+        const artikel = artikelMap.get(pos.artikelId);
+        if (artikel && istChargeNrPflichtFuerLieferschein(artikel.kategorie, alt.datum) && !pos.chargeNr) {
+          throw new Error(`Chargennummer ist bei Tierfutter-Positionen ab 2027 Pflicht (Artikel „${artikel.name}“)`);
+        }
+      }
+
+      if (!alt.istStreckengeschaeft) {
         for (const pos of alt.positionen) {
           const artikel = artikelMap.get(pos.artikelId);
           if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
@@ -422,13 +429,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       const updated = await prisma.$transaction(async (tx) => {
         const aktLieferung = await tx.lieferung.findUnique({
           where: { id: Number(id) },
-          select: { istStreckengeschaeft: true },
+          select: { istStreckengeschaeft: true, datum: true },
         });
+        const positionen = await tx.lieferposition.findMany({ where: { lieferungId: Number(id) } });
+        const artikelIds = [...new Set(positionen.map((p) => p.artikelId))];
+        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
+        for (const pos of positionen) {
+          const artikel = artikelMap.get(pos.artikelId);
+          if (artikel && aktLieferung && istChargeNrPflichtFuerLieferschein(artikel.kategorie, aktLieferung.datum) && !pos.chargeNr) {
+            throw new Error(`Chargennummer ist bei Tierfutter-Positionen ab 2027 Pflicht (Artikel „${artikel.name}“)`);
+          }
+        }
+
         if (!aktLieferung?.istStreckengeschaeft) {
-          const positionen = await tx.lieferposition.findMany({ where: { lieferungId: Number(id) } });
-          const artikelIds = [...new Set(positionen.map((p) => p.artikelId))];
-          const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-          const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
           for (const pos of positionen) {
             const artikel = artikelMap.get(pos.artikelId);
             if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;

@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
   const hatRechnung = searchParams.get("hatRechnung");
   const ohneRechnung = searchParams.get("ohneRechnung");
+  const lieferscheinOffen = searchParams.get("lieferscheinOffen");
+  const rechnungOffen = searchParams.get("rechnungOffen");
   const sort = searchParams.get("sort");
   const orderBy: Prisma.LieferungOrderByWithRelationInput[] = sort === "datum"
     ? [{ datum: "desc" }, { id: "desc" }]
@@ -38,6 +40,16 @@ export async function GET(req: NextRequest) {
     // stornierte Rechnungen bleiben in der Rechnungsliste sichtbar (mit Storno-Kennzeichnung)
   }
   if (ohneRechnung === "true") where.rechnungNr = null;
+  // Noch nicht per E-Mail versendete Lieferscheine/Rechnungen (für "Versand offen"-Filter)
+  if (lieferscheinOffen === "true") {
+    where.status = "geliefert";
+    where.lieferscheinVersendetAm = null;
+  }
+  if (rechnungOffen === "true") {
+    where.rechnungNr = { not: null };
+    where.rechnungStorniert = null;
+    where.rechnungVersendetAm = null;
+  }
   if (search) {
     // Suche auf eine sinnvolle Länge begrenzen (verhindert pathologische LIKE-Queries)
     const cleanSearch = search.slice(0, 80);

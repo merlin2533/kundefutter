@@ -390,7 +390,9 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
   ]
 }
 
-Wenn ein Feld nicht erkennbar ist, setze null. Extrahiere ALLE Positionen. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.`,
+Wenn ein Feld nicht erkennbar ist, setze null. Extrahiere ALLE Positionen. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.
+
+Mengenangabe "Anzahl x Gebindegröße": Steht die Menge als Multiplikation da (z.B. "18 x 25 kg", "20 Sack à 25 kg", "10 × 1000 kg"), ist das die Anzahl der Gebinde multipliziert mit dem Gewicht/Inhalt je Gebinde. Setze "menge" auf das Produkt aus beiden Zahlen (18 × 25 = 450), niemals nur eine der beiden Zahlen.`,
 
   lieferung: `Du bist ein Experte für die Analyse von Bestellungen und Aufträgen in der Agrarbranche.
 Analysiere das Bild und extrahiere Kunden- und Artikelinformationen.
@@ -415,7 +417,9 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
   ]
 }
 
-Wenn ein Feld nicht erkennbar ist, setze null. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.`,
+Wenn ein Feld nicht erkennbar ist, setze null. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.
+
+Mengenangabe "Anzahl x Gebindegröße": Steht die Menge als Multiplikation da (z.B. "18 x 25 kg", "20 Sack à 25 kg", "10 × 1000 kg"), ist das die Anzahl der Gebinde multipliziert mit dem Gewicht/Inhalt je Gebinde. Setze "menge" auf das Produkt aus beiden Zahlen (18 × 25 = 450), niemals nur eine der beiden Zahlen.`,
 
   crm: `Du bist ein CRM-Assistent für ein Agrarunternehmen.
 Analysiere den Input (Bild oder Text/Spracheingabe) und extrahiere Kundeninformationen und relevante Notizen.
