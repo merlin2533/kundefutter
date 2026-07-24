@@ -1,20 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+import { loeseKundePreiseFuerJahr } from "@/lib/jahrespreis";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params;
   try {
     const preise = await prisma.kundeArtikelPreis.findMany({
       where: { kundeId: Number(id) },
       include: { artikel: { select: artikelSafeSelect } },
     });
-    return NextResponse.json(preise);
+
+    const jahrParam = req.nextUrl.searchParams.get("jahr");
+    const jahr = jahrParam ? parseInt(jahrParam, 10) : null;
+    if (!jahr || isNaN(jahr)) return NextResponse.json(preise);
+
+    const aufloesungen = await loeseKundePreiseFuerJahr(preise, jahr);
+    const ergebnis = preise.map((p) => {
+      const auf = aufloesungen.get(p.id);
+      if (!auf) return p;
+      return {
+        ...p,
+        preisJahr: auf.preis,
+        preisJahrInterpoliert: auf.interpoliert,
+        preisJahrQuelleJahr: auf.quelleJahr,
+        preisJahrRichtung: auf.richtung,
+      };
+    });
+    return NextResponse.json(ergebnis);
   } catch (err) {
     Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

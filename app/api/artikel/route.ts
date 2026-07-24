@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
+import { loeseArtikelPreiseFuerJahr } from "@/lib/jahrespreis";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,31 @@ export async function GET(req: NextRequest) {
     const filtered = me && !hasPermission(me, P.FELD_ARTIKEL_EINKAUFSPREIS)
       ? (artikel as Record<string, unknown>[]).map((a) => filterArtikelFelder(a, me))
       : artikel;
-    return NextResponse.json(filtered, {
+
+    // Optional: Preis für ein bestimmtes Jahr auflösen (Jahresgültigkeiten), inkl.
+    // Kennzeichnung, wenn kein Preis für das Jahr erfasst ist und interpoliert wurde.
+    const jahrParam = searchParams.get("jahr");
+    const jahr = jahrParam ? parseInt(jahrParam, 10) : null;
+    let ergebnis: Record<string, unknown>[] = filtered as Record<string, unknown>[];
+    if (jahr && !isNaN(jahr)) {
+      const aufloesungen = await loeseArtikelPreiseFuerJahr(
+        artikel.map((a) => ({ id: a.id, standardpreis: a.standardpreis })),
+        jahr,
+      );
+      ergebnis = ergebnis.map((a) => {
+        const auf = aufloesungen.get(a.id as number);
+        if (!auf) return a;
+        return {
+          ...a,
+          preisJahr: auf.preis,
+          preisJahrInterpoliert: auf.interpoliert,
+          preisJahrQuelleJahr: auf.quelleJahr,
+          preisJahrRichtung: auf.richtung,
+        };
+      });
+    }
+
+    return NextResponse.json(ergebnis, {
       headers: { "X-Total-Count": String(total) },
     });
   } catch (e) {
