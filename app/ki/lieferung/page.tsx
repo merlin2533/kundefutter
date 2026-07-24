@@ -43,6 +43,7 @@ interface KiPosition {
   menge: number;
   einheit?: string;
   einzelpreis?: number;
+  chargeNr?: string;
 }
 
 interface KiErgebnis {
@@ -59,6 +60,8 @@ interface ZuordnungsPosition {
   verkaufspreis: number;
   konfidenz: Konfidenz;
   showNeuForm?: boolean;
+  preisUebernommen?: "global" | "individuell";
+  chargeNr: string;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -159,6 +162,7 @@ function KiLieferungWizard() {
   const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
   const [lieferStatus, setLieferStatus] = useState<"geplant" | "geliefert">("geplant");
   const [kundenSonderpreise, setKundenSonderpreise] = useState<Record<number, number>>({});
+  const [savingPreisIdx, setSavingPreisIdx] = useState<number | null>(null);
 
   // Step 4
   const [submitting, setSubmitting] = useState(false);
@@ -266,6 +270,7 @@ function KiLieferungWizard() {
           menge: pos.menge,
           verkaufspreis: pos.einzelpreis ?? (matchedArtikel ? matchedArtikel.standardpreis : 0),
           konfidenz: matchedArtikel ? konfidenz : "keine",
+          chargeNr: pos.chargeNr ?? "",
         };
       });
       setPositionen(zugeordnet);
@@ -291,7 +296,7 @@ function KiLieferungWizard() {
 
   function updatePosition(
     idx: number,
-    field: "artikelId" | "menge" | "verkaufspreis",
+    field: "artikelId" | "menge" | "verkaufspreis" | "chargeNr",
     val: string | number
   ) {
     setPositionen((prev) =>
@@ -310,6 +315,43 @@ function KiLieferungWizard() {
         return updated;
       })
     );
+  }
+
+  // Preis aus KI-Erkennung, der in den Artikel-Stammdaten (noch) nicht hinterlegt ist,
+  // dort nachpflegen — entweder als globaler Standardpreis oder als individueller
+  // Sonderpreis (KundeArtikelPreis) für den aktuell zugeordneten Kunden.
+  async function preisInStammdatenUebernehmen(idx: number, modus: "global" | "individuell") {
+    const pos = positionen[idx];
+    const artikelIdNum = parseInt(pos.artikelId, 10);
+    if (!artikelIdNum || !pos.verkaufspreis) return;
+    setSavingPreisIdx(idx);
+    try {
+      if (modus === "global") {
+        const res = await fetch(`/api/artikel/${artikelIdNum}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ standardpreis: pos.verkaufspreis }),
+        });
+        if (!res.ok) return;
+        setArtikel((prev) =>
+          prev.map((a) => (a.id === artikelIdNum ? { ...a, standardpreis: pos.verkaufspreis } : a))
+        );
+      } else {
+        if (!kundeId) return;
+        const res = await fetch(`/api/kunden/${kundeId}/preise`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ artikelId: artikelIdNum, preis: pos.verkaufspreis }),
+        });
+        if (!res.ok) return;
+        setKundenSonderpreise((prev) => ({ ...prev, [artikelIdNum]: pos.verkaufspreis }));
+      }
+      setPositionen((prev) =>
+        prev.map((p, i) => (i === idx ? { ...p, preisUebernommen: modus } : p))
+      );
+    } finally {
+      setSavingPreisIdx(null);
+    }
   }
 
   function toggleNeuForm(idx: number, show: boolean) {
@@ -332,6 +374,7 @@ function KiLieferungWizard() {
         menge: 1,
         verkaufspreis: 0,
         konfidenz: "keine",
+        chargeNr: "",
       },
     ]);
   }
@@ -404,6 +447,7 @@ function KiLieferungWizard() {
             artikelId: parseInt(p.artikelId, 10),
             menge: p.menge,
             verkaufspreis: p.verkaufspreis,
+            chargeNr: p.chargeNr.trim() || undefined,
           })),
         }),
       });
@@ -572,6 +616,9 @@ function KiLieferungWizard() {
                           <p className="font-medium text-gray-900">{pos.name}</p>
                           {pos.artikelnummer && (
                             <p className="text-xs text-gray-400">{pos.artikelnummer}</p>
+                          )}
+                          {pos.chargeNr && (
+                            <p className="text-xs text-gray-400">Charge: {pos.chargeNr}</p>
                           )}
                           <div className="sm:hidden text-xs text-gray-500 mt-0.5">
                             {pos.einheit ?? "—"}
@@ -808,6 +855,59 @@ function KiLieferungWizard() {
                     </div>
                   </div>
 
+                  {/* Chargennummer */}
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Chargennummer <span className="text-gray-400">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={pos.chargeNr}
+                      onChange={(e) => updatePosition(idx, "chargeNr", e.target.value)}
+                      placeholder="z.B. LOT-2024-001"
+                      className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    />
+                  </div>
+
+                  {/* Preis nicht in Stammdaten hinterlegt → Übernahme anbieten */}
+                  {gefundenerArtikel &&
+                    !gefundenerArtikel.standardpreis &&
+                    !hatSonderpreis &&
+                    pos.verkaufspreis > 0 &&
+                    !pos.preisUebernommen && (
+                      <div className="mt-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                        <p className="text-xs text-amber-800 mb-1.5">
+                          Für diesen Artikel ist noch kein Preis in den Stammdaten hinterlegt —
+                          erkannten Preis ({pos.verkaufspreis.toFixed(2)} €) übernehmen als:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => preisInStammdatenUebernehmen(idx, "global")}
+                            disabled={savingPreisIdx === idx}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 font-medium transition-colors"
+                          >
+                            🌐 Globaler Preis
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => preisInStammdatenUebernehmen(idx, "individuell")}
+                            disabled={savingPreisIdx === idx || !kundeId}
+                            title={!kundeId ? "Kunde zuerst auswählen" : undefined}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-40 font-medium transition-colors"
+                          >
+                            👤 Individueller Preis (nur dieser Kunde)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  {pos.preisUebernommen && (
+                    <p className="mt-2 text-xs font-medium text-green-700">
+                      ✓ Preis in Stammdaten übernommen als{" "}
+                      {pos.preisUebernommen === "global" ? "🌐 Globaler Preis" : "👤 Individueller Preis"}
+                    </p>
+                  )}
+
                   {/* Inline Neu-Anlage */}
                   {pos.showNeuForm && (
                     <NeuArtikelInline
@@ -929,6 +1029,7 @@ function KiLieferungWizard() {
                         <td className="px-4 py-2.5">
                           <p className="font-medium text-gray-900">{art?.name ?? pos.kiPosition.name}</p>
                           {art && <p className="text-xs text-gray-400">{art.artikelnummer}</p>}
+                          {pos.chargeNr && <p className="text-xs text-gray-400">Charge: {pos.chargeNr}</p>}
                           <div className="sm:hidden text-xs text-gray-500 mt-0.5">
                             {pos.verkaufspreis.toFixed(2)} € / Stk.
                           </div>

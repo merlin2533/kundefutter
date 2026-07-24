@@ -4,7 +4,7 @@ import { Sentry } from "@/lib/sentry";
 import { getUploadBase } from "@/lib/upload";
 import { rm } from "fs/promises";
 import path from "path";
-import { erstelleLieferungMitPreisberechnung } from "@/lib/lieferung";
+import { erstelleLieferungMitPreisberechnung, vergebeRechnungsnummerFuerLieferung } from "@/lib/lieferung";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +48,7 @@ interface BatchPositionInput {
   artikelId: string | number | null;
   menge: number;
   verkaufspreis?: number;
+  chargeNr?: string;
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
@@ -63,6 +64,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
   const aktion = body.aktion;
+  const autoRechnung = body.autoRechnung === true;
 
   try {
     const batch = await prisma.kiLieferungBatch.findUnique({
@@ -86,6 +88,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       let erstellt = 0;
       let uebersprungen = 0;
       let fehlgeschlagen = 0;
+      let rechnungenErstellt = 0;
 
       for (const item of batch.items) {
         if (item.status === "uebernommen") {
@@ -113,6 +116,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
               artikelId: Number(p.artikelId),
               menge: p.menge,
               verkaufspreis: p.verkaufspreis,
+              chargeNr: typeof p.chargeNr === "string" && p.chargeNr.trim() ? p.chargeNr.trim() : undefined,
             }));
           if (positionen.length === 0) {
             throw new Error("Keine gültigen Positionen");
@@ -126,6 +130,16 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
             quelle: "ki-batch",
             positionen,
           });
+
+          if (autoRechnung) {
+            try {
+              await prisma.$transaction((tx) => vergebeRechnungsnummerFuerLieferung(tx, lieferung.id));
+              rechnungenErstellt++;
+            } catch (err) {
+              // Rechnungserstellung ist nicht kritisch für die Übernahme der Lieferung — nur protokollieren
+              Sentry.captureException(err);
+            }
+          }
 
           await prisma.kiLieferungBatchItem.update({
             where: { id: item.id },
@@ -154,7 +168,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         },
       });
 
-      return NextResponse.json({ erstellt, uebersprungen, fehlgeschlagen });
+      return NextResponse.json({ erstellt, uebersprungen, fehlgeschlagen, rechnungenErstellt });
     }
 
     return NextResponse.json({ error: "Unbekannte Aktion" }, { status: 400 });
