@@ -623,6 +623,8 @@ export default function KiLieferungBatchDetailPage() {
                               <NeuArtikelInline
                                 kiName={pos.kiPosition.name}
                                 kiEinheit={pos.kiPosition.einheit}
+                                kiArtikelnummer={pos.kiPosition.artikelnummer}
+                                kiPreis={pos.kiPosition.einzelpreis}
                                 lieferanten={lieferanten}
                                 onCreated={(neu) => onArtikelAngelegt(item, idx, neu)}
                                 onCancel={() => toggleNeuForm(item, idx, false)}
