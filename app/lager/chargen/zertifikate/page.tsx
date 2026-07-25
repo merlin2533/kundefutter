@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Zertifikat {
   id: number;
@@ -76,7 +77,10 @@ export default function ChargenZertifikatePage() {
       if (fileRef.current) fileRef.current.value = "";
       load(search);
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setUploadError(d.error ?? "Fehler beim Hochladen");
     }
   }

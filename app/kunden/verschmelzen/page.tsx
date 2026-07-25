@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeListe {
   id: number;
@@ -170,7 +171,10 @@ export default function KundenVerschmelzenPage() {
     fetch("/api/kunden?limit=1000&kontakte=false")
       .then((r) => r.json())
       .then((data) => setKunden(Array.isArray(data) ? data : []))
-      .catch(() => setKunden([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setKunden([]);
+      })
       .finally(() => setLadeKunden(false));
   }, []);
 
@@ -187,7 +191,10 @@ export default function KundenVerschmelzenPage() {
     fetch(`/api/kunden/merge?zielId=${zielId}&quelleId=${quelleId}`)
       .then(async (res) => {
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
+          const err = await res.json().catch((err) => {
+            Sentry.captureException(err);
+            return ({});
+          });
           throw new Error(err.error ?? "Vorschau fehlgeschlagen");
         }
         return res.json();
@@ -209,7 +216,10 @@ export default function KundenVerschmelzenPage() {
         defaults.sachkunde = sachkundeZielLeer && !sachkundeQuelleLeer ? "quelle" : "ziel";
         setWahl(defaults);
       })
-      .catch((err) => setPreviewFehler(err.message ?? "Vorschau fehlgeschlagen"))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setPreviewFehler(err.message ?? "Vorschau fehlgeschlagen");
+      })
       .finally(() => setLadePreview(false));
   }, [zielId, quelleId]);
 
@@ -240,7 +250,10 @@ export default function KundenVerschmelzenPage() {
         felder[f] = sachkundeQuelle ? preview.quelle[f] : preview.ziel[f];
       }
       // Tags werden zusammengeführt statt gewählt (Vereinigung)
-      const parseTags = (t: string) => { try { const p = JSON.parse(t || "[]"); return Array.isArray(p) ? p : []; } catch { return []; } };
+      const parseTags = (t: string) => { try { const p = JSON.parse(t || "[]"); return Array.isArray(p) ? p : []; } catch (err) {
+        Sentry.captureException(err);
+        return [];
+      } };
       felder.tags = Array.from(new Set([...parseTags(preview.ziel.tags), ...parseTags(preview.quelle.tags)]));
 
       const res = await fetch("/api/kunden/merge", {
@@ -248,13 +261,17 @@ export default function KundenVerschmelzenPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ zielId: preview.ziel.id, quelleId: preview.quelle.id, felder }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       if (!res.ok) {
         setFehler(data.error ?? "Zusammenführen fehlgeschlagen");
         return;
       }
       router.push(`/kunden/${preview.ziel.id}`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Netzwerkfehler beim Zusammenführen");
     } finally {
       setSpeichern(false);

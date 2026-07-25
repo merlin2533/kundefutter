@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface FahrerPosition {
   benutzerId: number;
@@ -31,13 +32,17 @@ export default function FahrerStandortePage() {
     try {
       const res = await fetch("/api/fahrer/position");
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Laden der Fahrer-Positionen");
       }
       const data = await res.json();
       setPositionen(Array.isArray(data) ? data : []);
       setLetzteAktualisierung(new Date());
     } catch (err) {
+      Sentry.captureException(err);
       setFehler(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);

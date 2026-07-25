@@ -71,7 +71,8 @@ export async function getBackfillStatus(): Promise<BackfillStatus | null> {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as BackfillStatus;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }
@@ -140,7 +141,8 @@ function melde(status: BackfillStatus, entitaet: string, id: number, fehler: unk
 async function ladeDatei(relPfad: string): Promise<Buffer | null> {
   try {
     return await readFile(resolveUploadPath(relPfad));
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null; // Datei existiert lokal nicht mehr — überspringen statt abzubrechen
   }
 }
@@ -161,6 +163,7 @@ async function uploadFallsFehlend(
     await upload();
     status.gesamt.hochgeladen++;
   } catch (e) {
+    Sentry.captureException(e);
     melde(status, entitaet, id, e);
   }
 }
@@ -185,6 +188,7 @@ async function runBackfill(status: BackfillStatus): Promise<void> {
       try {
         await verschiebeOrdner(kundenOrdnerPfadLegacy(k.id, k.name), kundenOrdnerPfad(k.id, k.name));
       } catch (e) {
+        Sentry.captureException(e);
         melde(status, "Kunde(Ordner-Migration)", k.id, e);
       }
     }
@@ -207,6 +211,7 @@ async function runBackfill(status: BackfillStatus): Promise<void> {
       try {
         await verschiebeOrdner(artikelOrdnerPfadLegacy(a.id, a.name), artikelOrdnerPfad(a.id, a.name));
       } catch (e) {
+        Sentry.captureException(e);
         melde(status, "Artikel(Ordner-Migration)", a.id, e);
       }
     }
@@ -594,6 +599,7 @@ async function runBackfill(status: BackfillStatus): Promise<void> {
           await uploadZuBuchhaltung(g.datum.getFullYear(), g.datum.getMonth() + 1, "Gutschriften", zielName, pdfBuffer, "application/pdf");
         }
       } catch (e) {
+        Sentry.captureException(e);
         melde(status, "Gutschrift", g.id, e);
       }
     }

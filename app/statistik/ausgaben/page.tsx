@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import { downloadCSV } from "@/lib/csv";
+import * as Sentry from "@sentry/nextjs";
 
 interface KategorieRow {
   kategorie: string;
@@ -62,7 +63,8 @@ export default function StatistikAusgabenPage() {
         return;
       }
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

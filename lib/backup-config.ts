@@ -3,6 +3,7 @@
  * Enthält bewusst KEINE Node-Module (fs, prisma), damit auch Client-Komponenten
  * dies importieren können.
  */
+import * as Sentry from "@sentry/nextjs";
 
 export interface BackupConfig {
   /** Automatische Sicherung aktiviert */
@@ -31,7 +32,8 @@ export function parseBackupConfig(raw: string | null | undefined): BackupConfig 
       intervallStunden: Number.isFinite(intervall) && intervall >= 1 ? intervall : d.intervallStunden,
       aufbewahrung: Number.isFinite(aufbewahrung) && aufbewahrung >= 1 ? aufbewahrung : d.aufbewahrung,
     };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return { ...DEFAULT_BACKUP_CONFIG };
   }
 }

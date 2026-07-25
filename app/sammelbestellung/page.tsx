@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro, formatZahl } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Artikel {
   id: number;
@@ -90,7 +91,9 @@ export default function SammelbestellungPage() {
         const kunden = Array.isArray(kundenData) ? kundenData : (kundenData.kunden ?? []);
         setAlleKunden(kunden);
       })
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoadingArtikel(false));
   }, []);
 
@@ -121,7 +124,8 @@ export default function SammelbestellungPage() {
         fromBedarf: true,
       }));
       setPositionen(rows);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setBedarfe([]);
     } finally {
       setLoadingBedarfe(false);
@@ -191,6 +195,7 @@ export default function SammelbestellungPage() {
       setResult({ id: d.id, nummer: d.nummer });
       setStep(3);
     } catch (e) {
+      Sentry.captureException(e);
       setSaveError(e instanceof Error ? e.message : "Fehler");
     } finally {
       setSaving(false);

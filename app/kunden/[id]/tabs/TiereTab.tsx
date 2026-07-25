@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { inputClsSchlag } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeTier {
   id: number;
@@ -75,7 +76,10 @@ export default function TiereTab({ kundeId }: { kundeId: number }) {
           notiz: form.notiz || null,
         }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Fehler"); return; }
+      if (!res.ok) { const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      }); setError(d.error ?? "Fehler"); return; }
       resetForm();
       setShowForm(false);
       fetchTiere();

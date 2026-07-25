@@ -7,6 +7,7 @@ import { Card, KpiCard } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Schlag { id: number; name: string; kundeId: number; fruchtart?: string | null; vorfrucht?: string | null; flaeche: number; }
 interface Kunde { id: number; name: string; firma?: string | null; }
@@ -166,7 +167,10 @@ function Inner() {
         fetch(`/api/duengebedarf?schlagId=${schlagId}`).then(r => r.json()).then(d => setHistorie(Array.isArray(d) ? d : []));
       }
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Berechnungsfehler");
     }
   }
@@ -204,7 +208,10 @@ function Inner() {
           versorgungsklasseMg: e.versorgungsklasseMg ?? "",
           zwischenfruchtAngebaut: !!e.zwischenfruchtAngebaut,
         };
-      } catch { /* ignore */ }
+      } catch (err) {
+        Sentry.captureException(err);
+        /* ignore */
+      }
     } else {
       params = { ...eingaben, bezeichnung: h.bezeichnung ?? "", jahr: h.jahr, fruchtart: h.fruchtart, vorfrucht: h.vorfrucht ?? "" };
     }

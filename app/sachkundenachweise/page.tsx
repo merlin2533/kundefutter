@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Eintrag {
   id: number; kundeId: number; typ: string; nummer?: string | null;
@@ -13,7 +14,10 @@ interface Eintrag {
 }
 
 function loadSachkundeFilters() {
-  try { return JSON.parse(sessionStorage.getItem("sachkunde-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("sachkunde-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function Page() {
@@ -36,7 +40,9 @@ export default function Page() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("sachkunde-filters", JSON.stringify({ filterTyp, filterStatus })); } catch {}
+    try { sessionStorage.setItem("sachkunde-filters", JSON.stringify({ filterTyp, filterStatus })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, filterTyp, filterStatus]);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { Sentry } from "@/lib/sentry";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
@@ -23,9 +24,12 @@ async function ensureWalMode() {
     await prisma.$executeRawUnsafe('PRAGMA synchronous=NORMAL;');
     await prisma.$executeRawUnsafe('PRAGMA cache_size=10000;');
     await prisma.$executeRawUnsafe('PRAGMA temp_store=memory;');
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     // silently ignore (might not be SQLite)
   }
 }
 // Einmalig beim Start aufrufen (fire-and-forget)
-ensureWalMode().catch(() => {});
+ensureWalMode().catch((err) => {
+  Sentry.captureException(err);
+});

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import { formatDatum, formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number; menge: number; preis?: number | null; einheit: string;
@@ -20,7 +21,10 @@ interface Vorbestellung {
 }
 
 function loadVorbestellungFilters() {
-  try { return JSON.parse(sessionStorage.getItem("vorbestellung-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("vorbestellung-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function Page() {
@@ -40,7 +44,9 @@ export default function Page() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("vorbestellung-filters", JSON.stringify({ filterStatus, filterSaison })); } catch {}
+    try { sessionStorage.setItem("vorbestellung-filters", JSON.stringify({ filterStatus, filterSaison })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, filterStatus, filterSaison]);
 
   useEffect(() => {

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro, berechneMarge, lagerStatus } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelOption {
   value: string;
@@ -76,7 +77,9 @@ export default function PreisauskunftPage() {
           );
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Load kunde options
@@ -93,7 +96,9 @@ export default function PreisauskunftPage() {
           );
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Fetch artikel details + mengenrabatte when artikel changes
@@ -120,7 +125,9 @@ export default function PreisauskunftPage() {
           );
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoadingArtikel(false));
   }, [selectedArtikel]);
 
@@ -134,7 +141,9 @@ export default function PreisauskunftPage() {
     fetch(`/api/kunden/${selectedKunde}/preise`)
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setSonderpreise(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoadingPreise(false));
   }, [selectedKunde]);
 

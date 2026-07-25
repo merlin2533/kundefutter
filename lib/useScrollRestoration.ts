@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 /** Stellt die Scroll-Position einer Listenseite nach dem Browser-Back wieder her.
  *
@@ -28,7 +29,8 @@ export function useScrollRestoration(ready: boolean) {
         frame = 0;
         try {
           sessionStorage.setItem(`scroll:${pathname}`, String(window.scrollY));
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           /* sessionStorage kann disabled sein */
         }
       });
@@ -55,7 +57,8 @@ export function useScrollRestoration(ready: boolean) {
           window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
         }
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       /* ignore */
     }
   }, [ready, pathname]);

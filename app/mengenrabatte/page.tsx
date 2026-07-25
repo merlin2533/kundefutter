@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Mengenrabatt {
   id: number;
@@ -29,7 +30,8 @@ export default function MengenrabattePage() {
       }
       const data = await res.json();
       setRabatte(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setRabatte([]);
     } finally {
       setLoading(false);

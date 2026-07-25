@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface ExportCard {
   title: string;
@@ -107,7 +108,9 @@ export default function ExportePage() {
     fetch("/api/kunden")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   function updateState(typ: string, field: keyof ExportState, value: string) {
@@ -143,7 +146,10 @@ export default function ExportePage() {
       if (bulkTyp === "rechnung" && bulkRnrBis) params.set("rnrBis", bulkRnrBis);
       const res = await fetch(`/api/exporte/bulk?${params}`);
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setBulkError(data.error ?? "Export fehlgeschlagen");
         return;
       }
@@ -158,7 +164,8 @@ export default function ExportePage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setBulkError("Netzwerkfehler beim Massenexport");
     } finally {
       setBulkLoading(false);
@@ -208,7 +215,8 @@ export default function ExportePage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(blobUrl);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Fall back to direct navigation
       window.location.href = url;
     } finally {
@@ -232,7 +240,8 @@ export default function ExportePage() {
         return;
       }
       setArchivMeldung((prev) => ({ ...prev, [card.typ]: "In Nextcloud archiviert ✓" }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setArchivMeldung((prev) => ({ ...prev, [card.typ]: "Netzwerkfehler" }));
     } finally {
       setArchiving((prev) => ({ ...prev, [card.typ]: false }));

@@ -5,6 +5,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
 import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
 import { Kunde, Artikel, KundeArtikelPreis } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [artikel, setArtikel] = useState<Artikel[]>([]);
@@ -22,7 +23,9 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
     fetch("/api/artikel?aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleAdd(e: React.FormEvent) {
@@ -43,7 +46,8 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
       setShowAdd(false);
       setForm({ artikelId: "", preis: "", rabatt: "0" });
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setSaving(false);

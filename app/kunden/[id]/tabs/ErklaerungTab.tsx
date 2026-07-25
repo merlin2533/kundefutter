@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface SprengstoffErklaerung {
   id: number;
@@ -55,7 +56,10 @@ export default function ErklaerungTab({ kundeId }: { kundeId: number }) {
         });
       }
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler beim Speichern");
       } else {
         showToast("Erklärung gespeichert", "success");

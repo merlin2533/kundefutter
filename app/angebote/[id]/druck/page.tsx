@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
   id: number;
@@ -85,7 +86,10 @@ export default function AngebotDruckPage() {
         if (ld?.["system.logo"]) setLogo(ld["system.logo"]);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   async function handleTeilen() {
@@ -101,7 +105,8 @@ export default function AngebotDruckPage() {
         setShareMsg("Link kopiert");
         setTimeout(() => setShareMsg(""), 2500);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Benutzer hat Dialog abgebrochen
     }
   }
@@ -217,7 +222,8 @@ export default function AngebotDruckPage() {
               const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
               pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
               return pdf.output("datauristring").split(",")[1];
-            } catch {
+            } catch (err) {
+              Sentry.captureException(err);
               return null;
             }
           }}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
 import { formatPreis, lagerStatus } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -44,7 +45,10 @@ interface LieferantOption {
 }
 
 function loadArtikelFilters() {
-  try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+  try { return JSON.parse(sessionStorage.getItem("artikel-filters") ?? "{}") as Record<string, string>; } catch (err) {
+    Sentry.captureException(err);
+    return {} as Record<string, string>;
+  }
 }
 
 export default function ArtikelPage() {
@@ -97,7 +101,10 @@ export default function ArtikelPage() {
     try {
       const res = await fetch(`/api/artikel?${params}`);
       if (!res.ok) {
-        const d = await res.json().catch(() => ({})) as { error?: string };
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        }) as { error?: string };
         setFetchError(d.error ?? `Serverfehler ${res.status}`);
         setArtikel([]);
       } else {
@@ -106,7 +113,8 @@ export default function ArtikelPage() {
         const t = res.headers.get("X-Total-Count");
         if (t) setTotal(parseInt(t, 10));
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFetchError("Netzwerkfehler – Seite neu laden");
     } finally {
       setLoading(false);
@@ -130,7 +138,10 @@ export default function ArtikelPage() {
   // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch { /* ignore */ }
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }, [filtersLoaded, search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
@@ -179,7 +190,10 @@ export default function ArtikelPage() {
     for (const id of selected) {
       const res = await fetch(`/api/artikel/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({})) as { error?: string };
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        }) as { error?: string };
         errors.push(d.error ?? `Artikel ${id} konnte nicht gelöscht werden`);
       }
     }
@@ -196,21 +210,27 @@ export default function ArtikelPage() {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
         setSystemSettings(d);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.ok ? r.json() : [])
       .then((d: unknown) => { if (Array.isArray(d)) setLieferanten(d as LieferantOption[]); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
     fetch("/api/artikel/kategorien")
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string[]>) => setKategorienMap(d))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const aktuelleUnterkategorien = (() => {
@@ -239,7 +259,8 @@ export default function ArtikelPage() {
         const data = await res.json();
         setVorschau(data);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Vorschau nicht verfügbar — Import trotzdem erlauben
     } finally {
       setVorschauLoading(false);
@@ -260,7 +281,8 @@ export default function ArtikelPage() {
       if (!res.ok) { setImportResult({ neu: 0, aktualisiert: 0, lieferantenGesetzt: 0, skipped: 0, errors: [data.error ?? "Fehler"] }); return; }
       setImportResult(data);
       if ((data.neu ?? 0) > 0 || (data.aktualisiert ?? 0) > 0) load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setImportResult({ neu: 0, aktualisiert: 0, lieferantenGesetzt: 0, skipped: 0, errors: ["Netzwerkfehler"] });
     } finally {
       setImporting(false);
@@ -695,7 +717,10 @@ export default function ArtikelPage() {
                               const neu = await res.json();
                               router.push(`/artikel/${neu.id}`);
                             } else {
-                              const d = await res.json().catch(() => ({}));
+                              const d = await res.json().catch((err) => {
+                                Sentry.captureException(err);
+                                return ({});
+                              });
                               alert(d.error ?? "Duplizieren fehlgeschlagen");
                             }
                           }}
@@ -710,7 +735,10 @@ export default function ArtikelPage() {
                             if (!confirm(`"${a.name}" wirklich löschen?`)) return;
                             const res = await fetch(`/api/artikel/${a.id}`, { method: "DELETE" });
                             if (res.ok) load(page);
-                            else { const d = await res.json().catch(() => ({})); alert(d.error ?? "Löschen fehlgeschlagen"); }
+                            else { const d = await res.json().catch((err) => {
+                              Sentry.captureException(err);
+                              return ({});
+                            }); alert(d.error ?? "Löschen fehlgeschlagen"); }
                           }}
                           className="text-red-400 hover:text-red-600 transition-colors"
                           title="Löschen"

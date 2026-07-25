@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 type Benutzer = {
   id: number;
@@ -38,11 +39,15 @@ export default function BenutzerListePage() {
     try {
       const res = await fetch("/api/benutzer");
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
       setBenutzer(await res.json());
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);
@@ -58,12 +63,16 @@ export default function BenutzerListePage() {
     try {
       const res = await fetch(`/api/benutzer/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(data?.error ?? "Löschen fehlgeschlagen");
         return;
       }
       laden();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Netzwerkfehler");
     }
   }

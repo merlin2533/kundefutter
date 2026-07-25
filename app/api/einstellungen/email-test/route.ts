@@ -5,7 +5,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { to?: string };
+    const body = await req.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    }) as { to?: string };
     if (body.to) {
       await sendEmail({
         to: body.to,

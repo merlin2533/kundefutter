@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface Futterwert {
   name: string;
@@ -51,7 +52,10 @@ export default function FutterwertePage() {
         setCustom(Array.isArray(d.custom) ? d.custom : []);
         setGruppen(Array.isArray(d.gruppen) ? d.gruppen : []);
       })
-      .catch(() => toast.error("Laden fehlgeschlagen"))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return toast.error("Laden fehlgeschlagen");
+      })
       .finally(() => setLoading(false));
   }, [toast]);
 
@@ -77,7 +81,8 @@ export default function FutterwertePage() {
       if (!res.ok) { toast.error("Speichern fehlgeschlagen"); return; }
       const d = await res.json();
       toast.success(`${d.anzahl} eigene Futtermittel gespeichert`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       toast.error("Netzwerkfehler");
     } finally {
       setSaving(false);

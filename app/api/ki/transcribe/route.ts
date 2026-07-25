@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfig, transcribeAudio } from "@/lib/ai";
+import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ text: result.text, language: result.language });
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Transkription fehlgeschlagen";
     console.error("KI Transkription Fehler:", err);

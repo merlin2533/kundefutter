@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -67,11 +68,15 @@ function NeueGutschriftForm() {
     fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?limit=5000")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
       .then((d) => {
@@ -82,10 +87,15 @@ function NeueGutschriftForm() {
               setGutschriftGruende(parsed);
               setGrund(parsed[0]);
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Wenn lieferungId-Param gesetzt: Lieferung direkt laden und alles vorausfüllen
@@ -107,7 +117,9 @@ function NeueGutschriftForm() {
           })));
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -121,7 +133,9 @@ function NeueGutschriftForm() {
     fetch(`/api/lieferungen?kundeId=${kundeId}`)
       .then((r) => r.json())
       .then((d) => setLieferungen(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, [kundeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-fill positions from selected delivery
@@ -236,6 +250,7 @@ function NeueGutschriftForm() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/gutschriften/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { formatEuro, MONATE_KURZ } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -511,7 +512,8 @@ function LiquiditaetInner() {
         return;
       }
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

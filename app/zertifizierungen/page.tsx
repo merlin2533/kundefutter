@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Zertifizierung {
   id: number;
@@ -53,7 +54,8 @@ function ZertifizierungContent() {
       }
       const d = await res.json();
       setZertifizierungen(Array.isArray(d) ? d : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setZertifizierungen([]);
     } finally {
       setLoading(false);

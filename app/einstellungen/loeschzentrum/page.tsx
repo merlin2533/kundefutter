@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface DedupGroup {
   name: string;
@@ -46,7 +47,8 @@ export default function LoeschzentrumPage() {
       const data: DedupPreview = await res.json();
       setDedup(data);
       setExpandedGroups(new Set());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setDedupError("Vorschau konnte nicht geladen werden.");
     } finally {
       setDedupLoading(false);
@@ -65,13 +67,17 @@ export default function LoeschzentrumPage() {
         body: JSON.stringify({ confirm: true }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error ?? "Fehler");
       }
       const result = await res.json();
       setDedupResult(result);
       setDedup(null);
     } catch (e) {
+      Sentry.captureException(e);
       setDedupError(e instanceof Error ? e.message : "Bereinigung fehlgeschlagen");
     } finally {
       setDedupLoading(false);
@@ -86,7 +92,8 @@ export default function LoeschzentrumPage() {
       if (!res.ok) throw new Error("Fehler");
       const data = await res.json();
       setFtsResult((data as { ok?: boolean }).ok ? "Suchindex erfolgreich neu aufgebaut." : "Fehler beim Aufbauen.");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFtsResult("Fehler beim Aufbauen des Suchindex.");
     } finally {
       setFtsLoading(false);

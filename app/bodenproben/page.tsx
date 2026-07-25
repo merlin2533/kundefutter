@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Bodenprobe {
   id: number;
@@ -45,7 +46,10 @@ function klassenBadge(k?: string | null) {
 }
 
 function loadBodenprobenFilters() {
-  try { return JSON.parse(sessionStorage.getItem("bodenproben-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("bodenproben-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function BodenprobenSeite() {
@@ -67,7 +71,9 @@ export default function BodenprobenSeite() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("bodenproben-filters", JSON.stringify({ filterLabor, filterSchlag, filterKunde })); } catch {}
+    try { sessionStorage.setItem("bodenproben-filters", JSON.stringify({ filterLabor, filterSchlag, filterKunde })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, filterLabor, filterSchlag, filterKunde]);
 
   useEffect(() => {

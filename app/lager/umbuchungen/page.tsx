@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelOption {
   id: number;
@@ -122,10 +123,14 @@ export default function UmbuchungenPage() {
         fetchUmbuchungen();
         fetchLagerorte();
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler beim Speichern.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
       setSaving(false);

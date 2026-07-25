@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -69,10 +70,15 @@ function AusgabenContent() {
           try {
             const parsed = JSON.parse(d["ausgaben.kategorien"]);
             if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function laden() {

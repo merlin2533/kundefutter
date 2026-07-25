@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const defaultForm = {
   name: "",
@@ -53,10 +54,14 @@ export default function NeuerLieferantPage() {
       if (res.ok) {
         router.push("/lieferanten");
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler beim Speichern.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
       setSaving(false);

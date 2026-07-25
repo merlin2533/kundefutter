@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 
 export const SESSION_COOKIE = "kundefutter_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 Tage (Standardwert)
@@ -14,7 +15,8 @@ export async function getSessionMaxAge(): Promise<number> {
     if (!e?.value) return SESSION_MAX_AGE;
     const h = parseFloat(e.value);
     return Number.isFinite(h) && h > 0 ? Math.round(h * 3600) : SESSION_MAX_AGE;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return SESSION_MAX_AGE;
   }
 }
@@ -85,7 +87,8 @@ export async function verifySession(token: string | undefined): Promise<SessionP
       };
     }
     return null;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }
@@ -139,7 +142,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       berechtigungen: parseJson(user.berechtigungen),
       aktiv: user.aktiv,
     };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }
@@ -149,7 +153,8 @@ function parseJson(raw: string | undefined | null): string[] {
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }

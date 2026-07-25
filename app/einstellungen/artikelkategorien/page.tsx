@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -37,13 +38,19 @@ function EditableList({
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
         if (d[storeKey]) {
-          try { setItems(JSON.parse(d[storeKey])); } catch { /* ignore */ }
+          try { setItems(JSON.parse(d[storeKey])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         } else if (defaultItems) {
           setItems(defaultItems);
         }
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoaded(true);
+      });
   }, [storeKey, defaultItems]);
 
   async function save(list: string[]) {
@@ -143,7 +150,10 @@ export default function ArtikelkategorienPage() {
     try {
       const res = await fetch("/api/artikel/kategorien");
       if (res.ok) setCounts(await res.json());
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }
 
   useEffect(() => {
@@ -155,7 +165,10 @@ export default function ArtikelkategorienPage() {
         setChargenpflicht(chargenpflichtKategorienAusSettings(d));
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoaded(true);
+      });
     ladeStats();
   }, []);
 
@@ -174,7 +187,8 @@ export default function ArtikelkategorienPage() {
       });
       if (!res.ok) throw new Error();
       return true;
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       flash("Fehler beim Speichern", "err");
       return false;
     } finally {
@@ -194,7 +208,8 @@ export default function ArtikelkategorienPage() {
         body: JSON.stringify({ key: CHARGENPFLICHT_KATEGORIEN_KEY, value: JSON.stringify(list) }),
       });
       if (!res.ok) throw new Error();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       flash("Fehler beim Speichern", "err");
     }
   }

@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Artikel {
   id: number;
@@ -61,8 +62,14 @@ function KampagneNeuInner() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/artikel?limit=500").then((r) => r.json()).catch(() => []),
-      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch(() => []),
+      fetch("/api/artikel?limit=500").then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
+      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
     ]).then(([artData, kundenData]) => {
       setArtikel(Array.isArray(artData) ? artData : []);
       setAlleKunden(Array.isArray(kundenData) ? kundenData : []);
@@ -98,7 +105,10 @@ function KampagneNeuInner() {
         // letzteKaufMonate filter is client-side approximation for preview
         setSuchvorschau(results.filter((k) => !selectedKunden.some((s) => s.id === k.id)));
       })
-      .catch(() => setSuchvorschau([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSuchvorschau([]);
+      })
       .finally(() => setLoadingVorschau(false));
   }, [kriterien, selectedKunden]);
 
@@ -184,6 +194,7 @@ function KampagneNeuInner() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/kampagnen/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

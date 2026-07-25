@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import ZuordnungsVorschlagCard from "@/components/bankabgleich/ZuordnungsVorschlagCard";
 import AutomatischerAbgleich from "@/components/bankabgleich/AutomatischerAbgleich";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kontoumsatz {
   id: number;
@@ -40,7 +41,8 @@ const FILTER_STORAGE_KEY = "bankabgleich-filter";
 function loadBankabgleichFilter(): { zugeordnetFilter?: "alle" | "offen" | "zugeordnet" | "ausgeblendet" } {
   try {
     return JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) ?? "{}");
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return {};
   }
 }
@@ -166,7 +168,8 @@ function BankabgleichContent() {
     if (!filtersLoaded) return;
     try {
       localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ zugeordnetFilter }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       /* ignore */
     }
   }, [filtersLoaded, zugeordnetFilter]);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { KundeNotiz } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 const THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
 const THEMA_FARBEN: Record<string, string> = {
@@ -31,7 +32,10 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
         setNotizen(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [kundeId]);
 
   useEffect(() => {
@@ -42,10 +46,15 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
           try {
             const parsed = JSON.parse(d["system.notiz_themen"]);
             if (Array.isArray(parsed) && parsed.length) setThemen(parsed);
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleAdd() {
@@ -83,7 +92,8 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
         setNewThema(savedThema);
         showToast("Fehler beim Speichern", "error");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Revert on network error
       setNotizen((prev) => prev.filter((n) => n.id !== tempId));
       setNewText(savedText);
@@ -106,14 +116,19 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
         fetch(`/api/kunden/${kundeId}/notizen`)
           .then((r) => r.json())
           .then(setNotizen)
-          .catch(() => {});
+          .catch((err) => {
+            Sentry.captureException(err);
+          });
         showToast("Fehler beim Löschen", "error");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       fetch(`/api/kunden/${kundeId}/notizen`)
         .then((r) => r.json())
         .then(setNotizen)
-        .catch(() => {});
+        .catch((err) => {
+          Sentry.captureException(err);
+        });
       showToast("Fehler beim Löschen", "error");
     }
   }

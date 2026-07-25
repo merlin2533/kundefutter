@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
+import { Sentry } from "@/lib/sentry";
 
 export const PORTAL_SESSION_COOKIE = "kundefutter_portal_session";
 export const PORTAL_SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 Tage
@@ -46,7 +47,8 @@ export async function verifyPortalSession(token: string): Promise<PortalSessionP
       };
     }
     return null;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }
@@ -59,7 +61,8 @@ export async function getPortalSession(): Promise<{ kundeId: number; benutzernam
     const payload = await verifyPortalSession(token);
     if (!payload) return null;
     return { kundeId: payload.kundeId, benutzername: payload.benutzername };
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }

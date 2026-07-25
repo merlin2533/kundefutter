@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface CameraUploadProps {
   onImageSelected: (file: File, preview: string) => void;
@@ -151,7 +152,9 @@ export default function CameraUpload({
     const stream = streamRef.current;
     if (video && stream) {
       video.srcObject = stream;
-      video.play().catch(() => {});
+      video.play().catch((err) => {
+        Sentry.captureException(err);
+      });
     }
   }, [cameraActive]);
 
@@ -166,7 +169,8 @@ export default function CameraUpload({
       });
       streamRef.current = stream;
       setCameraActive(true);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Fallback: Gerät/Browser unterstützt keine Live-Vorschau (getUserMedia) —
       // native Kamera-App nutzen. Im multiple-Modus wird sie nach jedem Foto
       // automatisch erneut geöffnet (siehe onChange unten), damit trotzdem eine
@@ -226,7 +230,10 @@ export default function CameraUpload({
             streamRef.current = stream;
             setCameraActive(true);
           })
-          .catch(() => setCameraError("Kamera wechseln fehlgeschlagen."));
+          .catch((err) => {
+            Sentry.captureException(err);
+            return setCameraError("Kamera wechseln fehlgeschlagen.");
+          });
       }, 100);
     }
   }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { GutschriftStatusBadge } from "@/components/Badge";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface GutschriftPosition {
   id: number;
@@ -57,7 +58,10 @@ export default function GutschriftDetailPage() {
           setGutschrift(d);
         }
       })
-      .catch(() => setError("Fehler beim Laden"))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setError("Fehler beim Laden");
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -80,6 +84,7 @@ export default function GutschriftDetailPage() {
       if (!res.ok) throw new Error(data.error ?? "Fehler");
       setGutschrift(data);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSaving(false);
@@ -203,7 +208,10 @@ export default function GutschriftDetailPage() {
             const data = await res.json() as { ok?: boolean; error?: string };
             if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
             else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-          } catch { setEmailFehler("Versand fehlgeschlagen"); }
+          } catch (err) {
+            Sentry.captureException(err);
+            setEmailFehler("Versand fehlgeschlagen");
+          }
           finally { setEmailLoading(false); }
         }}
       />

@@ -458,7 +458,9 @@ export async function GET() {
   fetch(`${appUrl}/api/benachrichtigungen/pruefen`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-  }).catch(() => {});
+  }).catch((err) => {
+    Sentry.captureException(err);
+  });
 
   return NextResponse.json({
     kundenAktiv,

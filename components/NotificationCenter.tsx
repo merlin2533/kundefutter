@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 interface Benachrichtigung {
   id: number;
@@ -85,7 +86,8 @@ export default function NotificationCenter() {
       const rechnungen: NotifRechnung[] = (dash.faelligeRechnungen ?? []).slice(0, 5);
       const lagerAlarm: NotifArtikel[] = (dash.lagerKritisch ?? []).slice(0, 5);
       setLive({ aufgaben, rechnungen, lagerAlarm });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setLoading(false);
@@ -118,7 +120,8 @@ export default function NotificationCenter() {
         body: JSON.stringify({ gelesen: true }),
       });
       setItems((prev) => prev.filter((i) => i.id !== id));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     }
   }
@@ -127,7 +130,8 @@ export default function NotificationCenter() {
     try {
       await fetch("/api/benachrichtigungen/alle-gelesen", { method: "POST" });
       setItems([]);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     }
   }

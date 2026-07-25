@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Reklamation {
   id: number;
@@ -86,7 +87,10 @@ export default function ReklamationDetailPage({ params }: Params) {
         setZugewiesen(data.zugewiesen ?? "");
         setLoesungText(data.loesung ?? "");
       })
-      .catch(() => setError("Fehler beim Laden."))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setError("Fehler beim Laden.");
+      })
       .finally(() => setLoading(false));
   }, [rekId]);
 
@@ -117,7 +121,8 @@ export default function ReklamationDetailPage({ params }: Params) {
       setRek(updated);
       setSuccess("Gespeichert.");
       setTimeout(() => setSuccess(""), 3000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler.");
     } finally {
       setSaving(false);
@@ -141,7 +146,8 @@ export default function ReklamationDetailPage({ params }: Params) {
       }
       const updated: Reklamation = await res.json();
       setRek(updated);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler.");
     } finally {
       setSaving(false);
@@ -169,7 +175,8 @@ export default function ReklamationDetailPage({ params }: Params) {
       const updated: Reklamation = await res.json();
       setRek(updated);
       setShowLoesung(false);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler.");
     } finally {
       setSaving(false);
@@ -187,7 +194,8 @@ export default function ReklamationDetailPage({ params }: Params) {
         return;
       }
       router.push("/reklamationen");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler.");
     }
   }

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { GutschriftStatusBadge } from "@/components/Badge";
+import * as Sentry from "@sentry/nextjs";
 
 interface GutschriftPosition {
   menge: number;
@@ -22,7 +23,10 @@ interface Gutschrift {
 }
 
 function loadGutschriftFilters() {
-  try { return JSON.parse(sessionStorage.getItem("gutschriften-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("gutschriften-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function GutschriftenPage() {
@@ -46,7 +50,8 @@ export default function GutschriftenPage() {
       if (!res.ok) throw new Error(`Fehler ${res.status}`);
       const data = await res.json();
       setGutschriften(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setGutschriften([]);
     } finally {
       setLoading(false);
@@ -70,7 +75,9 @@ export default function GutschriftenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("gutschriften-filters", JSON.stringify({ statusFilter, vonFilter, bisFilter, search })); } catch {}
+    try { sessionStorage.setItem("gutschriften-filters", JSON.stringify({ statusFilter, vonFilter, bisFilter, search })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, statusFilter, vonFilter, bisFilter, search]);
 
   function betrag(gs: Gutschrift): number {

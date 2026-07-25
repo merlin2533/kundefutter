@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/Badge";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface StreckenLieferung {
   id: number;
@@ -39,7 +40,10 @@ function KpiCard({ label, value, sub, color }: { label: string; value: string | 
 }
 
 function loadFilters() {
-  try { return JSON.parse(sessionStorage.getItem("strecken-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("strecken-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function StreckengeschaeftPage() {
@@ -60,7 +64,9 @@ export default function StreckengeschaeftPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("strecken-filters", JSON.stringify({ statusFilter, suchtext })); } catch {}
+    try { sessionStorage.setItem("strecken-filters", JSON.stringify({ statusFilter, suchtext })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, statusFilter, suchtext]);
 
   useEffect(() => {
@@ -77,6 +83,7 @@ export default function StreckengeschaeftPage() {
         setLoading(false);
       })
       .catch((e) => {
+        Sentry.captureException(e);
         setError(e.message ?? "Fehler beim Laden");
         setLoading(false);
       });

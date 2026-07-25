@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -52,11 +53,15 @@ function BestellungNeuInner() {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?limit=500")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const lieferantenOptions = lieferanten.map((l) => ({
@@ -128,6 +133,7 @@ function BestellungNeuInner() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/bestellungen/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

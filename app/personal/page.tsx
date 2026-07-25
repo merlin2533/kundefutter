@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const TYPEN = ["alle", "festgehalt", "minijob", "stundenbasis"] as const;
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
@@ -11,7 +12,10 @@ const TYP_COLOR: Record<string, string> = {
 };
 
 function loadFilters() {
-  try { return JSON.parse(sessionStorage.getItem("personal-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("personal-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 interface Mitarbeiter {
@@ -46,7 +50,9 @@ export default function PersonalPage() {
   const [offeneAbrechnungen, setOffeneAbrechnungen] = useState<number>(0);
 
   useEffect(() => {
-    try { sessionStorage.setItem("personal-filters", JSON.stringify({ search, typ, nurAktive })); } catch {}
+    try { sessionStorage.setItem("personal-filters", JSON.stringify({ search, typ, nurAktive })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [search, typ, nurAktive]);
 
   useEffect(() => {

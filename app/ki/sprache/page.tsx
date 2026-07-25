@@ -5,6 +5,7 @@ import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import AudioRecorder from "@/components/AudioRecorder";
 import { fetchAlleSeiten } from "@/lib/kiMatching";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -33,7 +34,9 @@ export default function SprachmemoPage() {
   const [fehler, setFehler] = useState("");
 
   useEffect(() => {
-    ladeAlleKunden().then(setKunden).catch(() => {});
+    ladeAlleKunden().then(setKunden).catch((err) => {
+      Sentry.captureException(err);
+    });
   }, []);
 
   const kundenOptionen = kunden.map((k) => ({
@@ -70,7 +73,10 @@ export default function SprachmemoPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Speichern.");
       }
       setGespeichert(true);
@@ -78,6 +84,7 @@ export default function SprachmemoPage() {
       setKundeId("");
       setTimeout(() => setGespeichert(false), 3000);
     } catch (err) {
+      Sentry.captureException(err);
       setFehler(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSaving(false);

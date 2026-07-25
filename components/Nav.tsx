@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
+import * as Sentry from "@sentry/nextjs";
 
 interface NavChild {
   href: string;
@@ -269,10 +270,16 @@ const HISTORY_MAX = 8;
 interface HistoryEntry { href: string; title: string; ts: number }
 
 function loadHistory(): HistoryEntry[] {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"); } catch (err) {
+    Sentry.captureException(err);
+    return [];
+  }
 }
 function saveHistory(entries: HistoryEntry[]) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(entries)); } catch { /* ignore */ }
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(entries)); } catch (err) {
+    Sentry.captureException(err);
+    /* ignore */
+  }
 }
 function addHistoryEntry(pathname: string) {
   if (pathname === "/" || pathname.startsWith("/api/")) return;
@@ -361,7 +368,10 @@ function HeaderSearch() {
       try {
         const [suche, angeboteRes] = await Promise.all([
           fetch(`/api/suche?q=${encodeURIComponent(q)}`).then((r) => r.json()),
-          fetch(`/api/angebote?search=${encodeURIComponent(q)}`).then((r) => r.json()).catch(() => []),
+          fetch(`/api/angebote?search=${encodeURIComponent(q)}`).then((r) => r.json()).catch((err) => {
+            Sentry.captureException(err);
+            return [];
+          }),
         ]);
         const angebote: AngebotResult[] = Array.isArray(angeboteRes)
           ? angeboteRes.slice(0, 5)
@@ -369,7 +379,8 @@ function HeaderSearch() {
         setResults({ ...suche, angebote });
         setActiveIdx(0);
         setOpen(true);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [] });
         setOpen(true);
       } finally {
@@ -595,7 +606,9 @@ function UserMenu() {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.user) setUser(d.user); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -609,7 +622,10 @@ function UserMenu() {
   async function handleLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
     window.location.href = "/login";
   }
 
@@ -775,7 +791,9 @@ export default function Nav() {
         }
         setModulDisabledHrefs(disabled);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, [hideNav]);
 
   if (hideNav) return null;

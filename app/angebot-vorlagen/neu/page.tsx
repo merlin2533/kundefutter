@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelOption {
   id: number;
@@ -55,7 +56,9 @@ export default function AngebotVorlageNeuPage() {
     fetch("/api/artikel?limit=500")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => { if (Array.isArray(d)) setArtikel(d); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const artikelOptions = artikel.map((a) => ({
@@ -117,11 +120,15 @@ export default function AngebotVorlageNeuPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error ?? "Fehler beim Speichern");
       }
       router.push("/angebot-vorlagen");
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Speichern");
     } finally {
       setSaving(false);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
+import * as Sentry from "@sentry/nextjs";
 
 interface AngebotListItem {
   id: number;
@@ -33,7 +34,10 @@ const STATUS_FARBEN: Record<string, string> = {
 };
 
 function loadAngeboteFilters() {
-  try { return JSON.parse(sessionStorage.getItem("angebote-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("angebote-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function AngebotePage() {
@@ -65,7 +69,10 @@ export default function AngebotePage() {
         setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
         setLoading(false);
       })
-      .catch(() => { setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden"); });
+      .catch((err) => {
+        Sentry.captureException(err);
+        setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden");
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, search]);
 
@@ -81,7 +88,9 @@ export default function AngebotePage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch {}
+    try { sessionStorage.setItem("angebote-filters", JSON.stringify({ statusFilter, search })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, statusFilter, search]);
 
   function handleSearch(e: React.FormEvent) {

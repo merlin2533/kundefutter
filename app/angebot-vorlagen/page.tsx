@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
   id: number;
@@ -65,6 +66,7 @@ export default function AngebotVorlagenPage() {
       const data = await res.json();
       setVorlagen(Array.isArray(data) ? data : []);
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);
@@ -79,7 +81,10 @@ export default function AngebotVorlagenPage() {
         const d = await res.json();
         setKunden(Array.isArray(d) ? d : (d.kunden ?? []));
       }
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
       setKundenLoading(false);
     }
   }
@@ -91,12 +96,16 @@ export default function AngebotVorlagenPage() {
     try {
       const res = await fetch(`/api/angebot-vorlagen/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert((d as { error?: string }).error ?? "Fehler beim Löschen");
         return;
       }
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Fehler beim Löschen");
     }
   }
@@ -121,13 +130,17 @@ export default function AngebotVorlagenPage() {
         body: JSON.stringify({ kundeId: Number(selectedKundeId) }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error ?? "Fehler");
       }
       const angebot = await res.json();
       setApplyVorlage(null);
       router.push(`/angebote/${angebot.id}`);
     } catch (e) {
+      Sentry.captureException(e);
       setApplyError(e instanceof Error ? e.message : "Fehler beim Erstellen des Angebots");
     } finally {
       setApplying(false);

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_CACHE_TAGE = 7;
 
@@ -21,7 +22,8 @@ export default function MarktpreiseEinstellungenPage() {
       const data: Record<string, string> = await res.json();
       const n = parseInt(data["system.marktpreise_cache_tage"] ?? "", 10);
       if (Number.isFinite(n) && n >= 1) setCacheTage(n);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -46,7 +48,8 @@ export default function MarktpreiseEinstellungenPage() {
       if (!res.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
@@ -61,7 +64,8 @@ export default function MarktpreiseEinstellungenPage() {
       const res = await fetch("/api/marktpreise?force=true");
       if (!res.ok) throw new Error();
       setRefreshMsg("Marktpreis-Daten wurden von Eurostat aktualisiert.");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Aktualisierung fehlgeschlagen – Eurostat ggf. nicht erreichbar.");
     } finally {
       setRefreshing(false);

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeResult {
   id: number;
@@ -102,7 +103,8 @@ function SearchResultsInner() {
       setLieferungenLimit(SHOWN_PER_PAGE);
       setAngeboteLimit(SHOWN_PER_PAGE);
       setAufgabenLimit(SHOWN_PER_PAGE);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [] });
     } finally {
       setLoading(false);

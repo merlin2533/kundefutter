@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { KundeSchlag, inputClsSchlag } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 interface DuengebedarfEintrag {
   id: number;
@@ -114,7 +115,10 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
           nMin: e.nMin != null ? String(e.nMin) : "",
           zwischenfruchtAngebaut: !!e.zwischenfruchtAngebaut,
         };
-      } catch { /* ignore */ }
+      } catch (err) {
+        Sentry.captureException(err);
+        /* ignore */
+      }
     }
     setForm(f);
     setFormSchlagId(eintrag.schlagId);
@@ -148,7 +152,10 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
       const method = editId != null ? "PUT" : "POST";
       const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Berechnung fehlgeschlagen.");
         return;
       }

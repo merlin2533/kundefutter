@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface FirmaEinstellungen {
   name: string;
@@ -105,7 +106,8 @@ export default function MahnwesenPage() {
           bic: firmaData["firma.bic"] ?? "",
         });
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der überfälligen Rechnungen.");
     } finally {
       setLoading(false);
@@ -126,7 +128,8 @@ export default function MahnwesenPage() {
       });
       if (!res.ok) throw new Error("Fehler");
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Markieren als bezahlt.");
     } finally {
       setActionLoading(null);
@@ -148,7 +151,10 @@ export default function MahnwesenPage() {
         body: JSON.stringify({ lieferungIds: ids }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setSepaFehler(data?.error ?? "SEPA-Export fehlgeschlagen.");
         return;
       }
@@ -162,7 +168,8 @@ export default function MahnwesenPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setSepaFehler("Netzwerkfehler beim SEPA-Export.");
     } finally {
       setSepaLoading(false);
@@ -626,12 +633,16 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                       }),
                     });
                     if (!res.ok) {
-                      const err = await res.json().catch(() => ({}));
+                      const err = await res.json().catch((err) => {
+                        Sentry.captureException(err);
+                        return ({});
+                      });
                       setKiError(err.error ?? "Generierung fehlgeschlagen");
                     } else {
                       setKiResult(await res.json());
                     }
-                  } catch {
+                  } catch (err) {
+                    Sentry.captureException(err);
                     setKiError("Netzwerkfehler");
                   } finally {
                     setKiLoading(false);
@@ -711,7 +722,10 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
             } else {
               setEmailModalFehler(data.error ?? "Versand fehlgeschlagen");
             }
-          } catch { setEmailModalFehler("Versand fehlgeschlagen"); }
+          } catch (err) {
+            Sentry.captureException(err);
+            setEmailModalFehler("Versand fehlgeschlagen");
+          }
           finally { setEmailModalLoading(false); }
         }}
       />

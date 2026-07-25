@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Card } from "@/components/Card";
 import type { KundeMarker } from "./GebietsMap";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Dynamic import (ssr: false) — leaflet requires browser APIs ─────────────
 
@@ -72,7 +73,8 @@ export default function GebietsanalysePage() {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       setCenter([lat, lng]);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler bei der Adresssuche");
     } finally {
       setGeocoding(false);
@@ -104,7 +106,8 @@ export default function GebietsanalysePage() {
       }
       const data: AnalyseResult = await res.json();
       setResult(data);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Analyse");
     } finally {
       setLoading(false);

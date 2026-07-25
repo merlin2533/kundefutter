@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { PERMISSION_META, ALL_PERMISSIONS } from "@/lib/permissions";
+import * as Sentry from "@sentry/nextjs";
 
 type Rolle = {
   id: number;
@@ -57,7 +58,10 @@ export default function BenutzerBearbeitenPage() {
         fetch("/api/rollen"),
       ]);
       if (!bRes.ok) {
-        const data = await bRes.json().catch(() => ({}));
+        const data = await bRes.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(data?.error ?? `HTTP ${bRes.status}`);
       }
       const b: Benutzer = await bRes.json();
@@ -69,10 +73,14 @@ export default function BenutzerBearbeitenPage() {
       // berechtigungen aus JSON parsen falls noch String
       const perms = Array.isArray(b.berechtigungen)
         ? b.berechtigungen
-        : (() => { try { return JSON.parse(b.berechtigungen as unknown as string); } catch { return []; } })();
+        : (() => { try { return JSON.parse(b.berechtigungen as unknown as string); } catch (err) {
+          Sentry.captureException(err);
+          return [];
+        } })();
       setOverrides(perms);
       if (rRes.ok) setRollen(await rRes.json());
     } catch (e) {
+      Sentry.captureException(e);
       setFehler(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);
@@ -117,7 +125,10 @@ export default function BenutzerBearbeitenPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setFehler(data?.error ?? `HTTP ${res.status}`);
         setSaving(false);
         return;
@@ -125,7 +136,8 @@ export default function BenutzerBearbeitenPage() {
       setPasswort("");
       setSaved(true);
       laden();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Netzwerkfehler");
     } finally {
       setSaving(false);
@@ -138,12 +150,16 @@ export default function BenutzerBearbeitenPage() {
     try {
       const res = await fetch(`/api/benutzer/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(data?.error ?? "Löschen fehlgeschlagen");
         return;
       }
       router.push("/einstellungen/benutzer");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Netzwerkfehler");
     }
   }

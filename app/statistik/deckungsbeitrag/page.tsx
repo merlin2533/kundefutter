@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { formatEuro, formatPercent, MONATE_KURZ } from "@/lib/utils";
 import Link from "next/link";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -305,7 +306,8 @@ export default function DeckungsbeitragPage() {
       const res = await fetch(`/api/analyse/deckungsbeitrag?gruppierung=${typ}&von=${von}&bis=${bis}`);
       if (!res.ok) throw new Error();
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Daten");
     } finally {
       setLoading(false);
@@ -322,7 +324,8 @@ export default function DeckungsbeitragPage() {
       if (!res.ok) throw new Error();
       const d = await res.json();
       setMonatlichData(Array.isArray(d.gesamt) ? d : null);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setMonatlichError("Fehler beim Laden der Monatsdaten");
     } finally {
       setMonatlichLoading(false);

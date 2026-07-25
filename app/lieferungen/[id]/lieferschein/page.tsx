@@ -6,6 +6,7 @@ import { formatDatum } from "@/lib/utils";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface Inhaltsstoff {
   id: number;
@@ -135,10 +136,14 @@ export default function LieferscheinPage() {
         setLieferung((prev) => (prev ? { ...prev, lieferscheinNr: updated.lieferscheinNr ?? null } : prev));
         setLsNrEdit(false);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Lieferschein-Nr. konnte nicht gespeichert werden.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Speichern der Lieferschein-Nr.");
     } finally {
       setLsNrSaving(false);
@@ -171,6 +176,7 @@ export default function LieferscheinPage() {
         setFooterData(ftrData);
         if (logoData["system.logo"]) setLogo(logoData["system.logo"]);
       } catch (err) {
+        Sentry.captureException(err);
         setError(err instanceof Error ? err.message : "Fehler beim Laden");
       } finally {
         setLoading(false);
@@ -292,12 +298,16 @@ export default function LieferscheinPage() {
         body: JSON.stringify({ aktion: "rechnung_erstellen" }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(d.error ?? "Fehler beim Erstellen der Rechnung");
         return;
       }
       router.push(`/lieferungen/${id}/rechnung`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Netzwerkfehler beim Erstellen der Rechnung");
     } finally {
       setRechnungLoading(false);
@@ -322,7 +332,8 @@ export default function LieferscheinPage() {
       } else {
         setMailFehler(data.error ?? "Fehler beim Versand.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setMailFehler("Netzwerkfehler beim E-Mail-Versand.");
     } finally {
       setMailSending(false);
@@ -342,7 +353,8 @@ export default function LieferscheinPage() {
         setShareMsg("Link kopiert");
         setTimeout(() => setShareMsg(""), 2500);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Benutzer hat Dialog abgebrochen
     }
   }
@@ -395,7 +407,10 @@ export default function LieferscheinPage() {
         body: JSON.stringify({ unterschriftPng: dataUrl }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setUnterschriftMsg(d.error ?? "Fehler beim Speichern");
         return;
       }
@@ -404,7 +419,8 @@ export default function LieferscheinPage() {
       if (lieferung) {
         setLieferung({ ...lieferung, unterschriftPng: dataUrl });
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setUnterschriftMsg("Netzwerkfehler – bitte nochmal versuchen");
     } finally {
       setUnterschriftSaving(false);
@@ -546,7 +562,8 @@ export default function LieferscheinPage() {
               const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
               pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
               return pdf.output("datauristring").split(",")[1];
-            } catch {
+            } catch (err) {
+              Sentry.captureException(err);
               return null;
             }
           }}
@@ -752,7 +769,10 @@ export default function LieferscheinPage() {
                               )}
                             </div>
                           );
-                        } catch { return null; }
+                        } catch (err) {
+                          Sentry.captureException(err);
+                          return null;
+                        }
                       })()}
                     </td>
                     {hasCharge && (
@@ -789,7 +809,10 @@ export default function LieferscheinPage() {
             try {
               const k: string[] = JSON.parse(p.artikel.ghsKlassen || "[]");
               return k.length > 0;
-            } catch { return false; }
+            } catch (err) {
+              Sentry.captureException(err);
+              return false;
+            }
           });
           if (gefahrPositionen.length === 0) return null;
 
@@ -800,7 +823,10 @@ export default function LieferscheinPage() {
               </div>
               {gefahrPositionen.map((p) => {
                 let klassen: string[] = [];
-                try { klassen = JSON.parse(p.artikel.ghsKlassen || "[]"); } catch { /* ignore */ }
+                try { klassen = JSON.parse(p.artikel.ghsKlassen || "[]"); } catch (err) {
+                  Sentry.captureException(err);
+                  /* ignore */
+                }
                 const hSaetze = (p.artikel.hSaetze || "").trim();
                 const pSaetze = (p.artikel.pSaetze || "").trim();
                 return (

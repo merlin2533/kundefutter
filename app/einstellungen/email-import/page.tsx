@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 type Values = {
   "email.import.aktiv": string;
@@ -60,7 +61,8 @@ export default function EmailImportPage() {
         ),
       );
       setMsg("Gespeichert.");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setMsg("Fehler beim Speichern.");
     } finally {
       setSaving(false);

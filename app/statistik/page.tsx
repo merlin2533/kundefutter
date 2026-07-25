@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, MONATE_KURZ } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -411,7 +412,10 @@ export default function StatistikPage() {
   const [loading, setLoading] = useState(false);
   const [favoriten, setFavoriten] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem("statistik_favoriten") ?? "[]"); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem("statistik_favoriten") ?? "[]"); } catch (err) {
+      Sentry.captureException(err);
+      return [];
+    }
   });
 
   function toggleFavorit(href: string) {

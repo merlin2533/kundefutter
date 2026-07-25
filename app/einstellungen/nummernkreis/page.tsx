@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_ARTIKEL = { prefix: "ART-", laenge: 5, naechste: 1 };
 
@@ -41,7 +42,10 @@ export default function NummernkreisePage() {
             if (nk.prefix !== undefined) setPrefix(nk.prefix);
             if (nk.laenge !== undefined) setLaenge(Number(nk.laenge));
             if (nk.naechste !== undefined) setNaechste(Number(nk.naechste));
-          } catch { /* defaults */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* defaults */
+          }
         }
         if (systemData["system.nummernkreis.angebot_prefix"])
           setAngebotPrefix(systemData["system.nummernkreis.angebot_prefix"]);
@@ -62,7 +66,10 @@ export default function NummernkreisePage() {
           setRechnungNaechste(reJahr === new Date().getFullYear() ? reSeq + 1 : 1);
         }
       })
-      .catch(() => setError("Fehler beim Laden der Einstellungen."))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setError("Fehler beim Laden der Einstellungen.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -123,7 +130,8 @@ export default function NummernkreisePage() {
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

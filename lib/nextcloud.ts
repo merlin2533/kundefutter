@@ -11,6 +11,7 @@
 
 import { XMLParser } from "fast-xml-parser";
 import { prisma } from "./prisma";
+import { Sentry } from "@/lib/sentry";
 
 // ─── Einstellungen ────────────────────────────────────────────────────────────
 
@@ -103,7 +104,10 @@ async function mkcol(cfg: NextcloudConfig, absolutePfadSegment: string): Promise
     headers: { Authorization: authHeader(cfg), Depth: "0", "Content-Type": "application/xml" },
   })
     .then((r) => r.status === 207)
-    .catch(() => false);
+    .catch((err) => {
+      Sentry.captureException(err);
+      return false;
+    });
   if (existiertBereits) return;
   throw new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
 }
@@ -314,6 +318,7 @@ export async function testVerbindung(): Promise<{ ok: boolean; fehler?: string }
     try {
       await ensureOrdner(""); // legt den konfigurierten Root-Ordner an, falls er noch nicht existiert
     } catch (e) {
+      Sentry.captureException(e);
       const msg = e instanceof Error ? e.message : String(e);
       return {
         ok: false,
@@ -323,6 +328,7 @@ export async function testVerbindung(): Promise<{ ok: boolean; fehler?: string }
 
     return { ok: true };
   } catch (e) {
+    Sentry.captureException(e);
     return { ok: false, fehler: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -430,7 +436,8 @@ export async function listeDateienImKundenUnterordner(
 ): Promise<NextcloudDatei[]> {
   try {
     return await listeDateien(joinPfad(kundenOrdnerPfad(kundeId, kundeName), unterordner));
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }

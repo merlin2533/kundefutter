@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
 
@@ -35,14 +36,16 @@ export default function NeuerKundePage() {
         if (d["system.kundenkategorien"]) {
           try {
             setKategorien(JSON.parse(d["system.kundenkategorien"]));
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         }
         if (d["system.mitarbeiter"]) {
           try {
             setMitarbeiter(JSON.parse(d["system.mitarbeiter"]));
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         }
@@ -83,13 +86,17 @@ export default function NeuerKundePage() {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return null;
+        });
         throw new Error(data?.error || "Fehler beim Speichern");
       }
 
       const kunde = await res.json();
       router.push("/kunden/" + kunde.id);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSaving(false);

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 type Provider = "smtp" | "resend";
 
@@ -131,7 +132,8 @@ export default function EmailEinstellungenPage() {
         ),
       );
       return true;
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return false;
     }
   }
@@ -162,7 +164,8 @@ export default function EmailEinstellungenPage() {
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       setTestMailResult(data.ok ? "Test-Mail gesendet" : `Fehler: ${data.error ?? "Unbekannt"}`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setTestMailResult("Versand fehlgeschlagen");
     } finally {
       setSendingTestMail(false);
@@ -182,7 +185,8 @@ export default function EmailEinstellungenPage() {
       const res = await fetch("/api/einstellungen/email-test", { method: "POST" });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       setTestMsg(data.ok ? "Verbindung erfolgreich" : `Fehler: ${data.error ?? "Unbekannt"}`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setTestMsg("Verbindung fehlgeschlagen");
     } finally {
       setTesting(false);

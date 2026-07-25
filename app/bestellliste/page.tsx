@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
 
@@ -45,7 +46,8 @@ export default function BestelllistePage() {
       }
       const data = await res.json();
       setPositionen(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setPositionen([]);
     } finally {
       setLoading(false);

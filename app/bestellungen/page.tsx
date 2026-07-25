@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -58,7 +59,9 @@ function BestellungenListeInner() {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -71,7 +74,10 @@ function BestellungenListeInner() {
       if (!res.ok) { setLoading(false); return; }
       const d = await res.json();
       setData(Array.isArray(d) ? d : []);
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
       setLoading(false);
     }
   }, [statusFilter, lieferantId]);

@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export default function PortalLoginPage() {
         return;
       }
       router.push("/portal");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Verbindungsfehler");
     } finally {
       setLoading(false);

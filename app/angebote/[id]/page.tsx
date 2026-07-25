@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
   id: number;
@@ -89,7 +90,9 @@ export default function AngebotDetailPage() {
     fetch("/api/artikel?limit=2000&relations=false")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => { if (Array.isArray(d)) setArtikelListe(d); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   function startPosEdit() {
@@ -153,6 +156,7 @@ export default function AngebotDetailPage() {
       setSuccess("Positionen gespeichert.");
       setTimeout(() => setSuccess(""), 2500);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Speichern der Positionen");
     } finally {
       setPosSaving(false);
@@ -187,7 +191,10 @@ export default function AngebotDetailPage() {
         setGueltigBis(d.gueltigBis ? d.gueltigBis.split("T")[0] : "");
         setLoading(false);
       })
-      .catch((e: unknown) => { setError(e instanceof Error ? e.message : "Ladefehler"); setLoading(false); });
+      .catch((e: unknown) => {
+        Sentry.captureException(e);
+        setError(e instanceof Error ? e.message : "Ladefehler"); setLoading(false);
+      });
   }
 
   async function handleUpdate(data: Record<string, unknown>) {
@@ -212,6 +219,7 @@ export default function AngebotDetailPage() {
       setSuccess("Gespeichert.");
       setTimeout(() => setSuccess(""), 2500);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSaving(false);
@@ -245,7 +253,9 @@ export default function AngebotDetailPage() {
       fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setVorlageKunden(Array.isArray(d) ? d : []))
-        .catch(() => {})
+        .catch((err) => {
+          Sentry.captureException(err);
+        })
         .finally(() => setVorlageKundenLoading(false));
     }
   }
@@ -275,6 +285,7 @@ export default function AngebotDetailPage() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Erstellen");
       router.push(`/angebote/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Erstellen der Vorlage");
       setVorlageWorking(false);
       setShowVorlageModal(false);
@@ -290,7 +301,8 @@ export default function AngebotDetailPage() {
       } else {
         setError("Fehler beim Löschen");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Löschen");
     }
   }
@@ -433,7 +445,10 @@ export default function AngebotDetailPage() {
             const data = await res.json() as { ok?: boolean; error?: string };
             if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
             else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-          } catch { setEmailFehler("Versand fehlgeschlagen"); }
+          } catch (err) {
+            Sentry.captureException(err);
+            setEmailFehler("Versand fehlgeschlagen");
+          }
           finally { setEmailLoading(false); }
         }}
       />

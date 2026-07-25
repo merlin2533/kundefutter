@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferposition {
   menge: number;
@@ -54,7 +55,10 @@ function StatusBadge({ status }: { status: "bezahlt" | "ueberfaellig" | "offen" 
 }
 
 function loadSammelrechnungFilters() {
-  try { return JSON.parse(sessionStorage.getItem("sammelrechnungen-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("sammelrechnungen-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function SammelrechnungenPage() {
@@ -75,7 +79,8 @@ export default function SammelrechnungenPage() {
       const res = await fetch(`/api/sammelrechnungen?${params}`);
       if (!res.ok) throw new Error("Fehler beim Laden");
       setItems(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Sammelrechnungen.");
     } finally {
       setLoading(false);
@@ -94,7 +99,9 @@ export default function SammelrechnungenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("sammelrechnungen-filters", JSON.stringify({ statusFilter, search })); } catch {}
+    try { sessionStorage.setItem("sammelrechnungen-filters", JSON.stringify({ statusFilter, search })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, statusFilter, search]);
 
   async function markiereBezahlt(id: number) {
@@ -107,7 +114,8 @@ export default function SammelrechnungenPage() {
       });
       if (!res.ok) throw new Error("Fehler");
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Markieren als bezahlt.");
     } finally {
       setActionLoading(null);
@@ -121,7 +129,8 @@ export default function SammelrechnungenPage() {
       const res = await fetch(`/api/sammelrechnungen/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Fehler");
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Löschen.");
     } finally {
       setActionLoading(null);

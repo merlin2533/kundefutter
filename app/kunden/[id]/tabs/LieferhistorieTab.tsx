@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -100,7 +101,8 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
       URL.revokeObjectURL(url);
       setSelectedIds(new Set());
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setSammelrechnungLoading(false);

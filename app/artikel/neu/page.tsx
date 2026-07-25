@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_EINHEITEN,
@@ -48,7 +49,9 @@ export default function NeuerArtikelPage() {
         setEinheiten(parseListSetting(d, "system.einheiten", DEFAULT_EINHEITEN));
         setSystemSettings(d);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const aktuelleUnterkategorien =
@@ -95,7 +98,8 @@ export default function NeuerArtikelPage() {
       }
       if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
     } finally {
       setKiSearching(false);
@@ -137,10 +141,14 @@ export default function NeuerArtikelPage() {
         const data = await res.json();
         router.push("/artikel/" + data.id);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler beim Speichern.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
       setSaving(false);

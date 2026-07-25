@@ -6,6 +6,7 @@ import { formatEuro, formatDatum } from "@/lib/utils";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
 import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferung {
   id: number;
@@ -43,7 +44,10 @@ interface WiederkehrendBedarf {
 }
 
 function loadLieferungFilters() {
-  try { return JSON.parse(sessionStorage.getItem("lieferung-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("lieferung-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function LieferungenPage() {
@@ -94,7 +98,10 @@ export default function LieferungenPage() {
     try {
       const res = await fetch(`/api/lieferungen?${params}`);
       if (!res.ok) {
-        const d = await res.json().catch(() => ({})) as { error?: string };
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        }) as { error?: string };
         setFetchError(d.error ?? `Serverfehler ${res.status}`);
         setLieferungen([]);
       } else {
@@ -103,7 +110,8 @@ export default function LieferungenPage() {
         setTotal(typeof json.total === "number" ? json.total : 0);
         setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFetchError("Netzwerkfehler – Seite neu laden");
     } finally {
       setLoading(false);
@@ -134,7 +142,9 @@ export default function LieferungenPage() {
     fetch(`/api/kunden/${kid}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((k) => { if (k) setKundeFilterName(k.firma ? `${k.firma} (${k.name})` : k.name); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
@@ -152,7 +162,9 @@ export default function LieferungenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, sortFilter })); } catch {}
+    try { sessionStorage.setItem("lieferung-filters", JSON.stringify({ tab, statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, sortFilter })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, tab, statusFilter, versandFilter, vonFilter, bisFilter, kundeSearch, sortFilter]);
 
   useScrollRestoration(tab === "liste" && !loading && lieferungen.length > 0);
@@ -262,7 +274,10 @@ export default function LieferungenPage() {
         body: JSON.stringify({ status: "geliefert" }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(d.error ?? "Status konnte nicht geändert werden");
         return;
       }

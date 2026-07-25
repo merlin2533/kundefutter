@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nextcloud nicht konfiguriert", nichtKonfiguriert: true }, { status: 503 });
     }
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    });
     const { von: vonStr, bis: bisStr } = body as { von?: string; bis?: string };
 
     const today = new Date();

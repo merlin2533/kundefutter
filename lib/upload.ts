@@ -1,5 +1,6 @@
 import path from "path";
 import { existsSync, accessSync, constants } from "fs";
+import { Sentry } from "@/lib/sentry";
 
 /**
  * Liefert das Basisverzeichnis für hochgeladene Dateien.
@@ -13,7 +14,8 @@ export function getUploadBase(): string {
       accessSync("/data", constants.W_OK);
       return "/data/uploads";
     }
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     // fällt auf lokales Verzeichnis zurück
   }
   return path.join(process.cwd(), "uploads");

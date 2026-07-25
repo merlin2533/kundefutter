@@ -23,6 +23,7 @@
  */
 
 import QRCode from "qrcode";
+import * as Sentry from "@sentry/nextjs";
 
 export interface GiroCodeInput {
   empfaenger: string;
@@ -100,7 +101,8 @@ export async function erzeugeGiroCodeDataUrl(input: GiroCodeInput): Promise<stri
       width: 220,
       color: { dark: "#000000", light: "#ffffff" },
     });
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }

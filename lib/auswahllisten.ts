@@ -3,6 +3,7 @@
 // Werte werden in der Tabelle `Einstellung` als JSON-Array unter
 // `system.<key>` gespeichert und können unter
 // /einstellungen/stammdaten gepflegt werden.
+import * as Sentry from "@sentry/nextjs";
 
 export const DEFAULT_SAATGUT_KULTUREN = [
   "Mais",
@@ -40,7 +41,8 @@ export function chargenpflichtKategorienAusSettings(
     if (Array.isArray(parsed)) {
       return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
     }
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     /* ignore */
   }
   return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
@@ -106,7 +108,8 @@ export function parseListSetting(
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
     }
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     /* ignore */
   }
   return fallback;

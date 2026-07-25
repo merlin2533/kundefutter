@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
+import { Sentry } from "@/lib/sentry";
 
 // Rate limiter: max 5 E-Mails/Sekunde = min. 200ms Abstand
 const MIN_INTERVAL_MS = 200;
@@ -151,8 +152,11 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         anhangNamen,
         entityId: args.entityId ?? null,
       },
-    }).catch(() => {}); // Log-Fehler nie nach oben werfen
+    }).catch((err) => {
+      Sentry.captureException(err);
+    }); // Log-Fehler nie nach oben werfen
   } catch (err) {
+    Sentry.captureException(err);
     // Log fehlgeschlagenen Versand
     await prisma.mailLog.create({
       data: {
@@ -166,7 +170,9 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         anhangNamen,
         entityId: args.entityId ?? null,
       },
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
     throw err;
   }
 }

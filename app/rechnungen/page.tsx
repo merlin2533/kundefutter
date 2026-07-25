@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferposition {
   id: number;
@@ -66,7 +67,10 @@ function StatusBadge({ status }: { status: RechnungStatus }) {
 }
 
 function loadRechnungFilters() {
-  try { return JSON.parse(sessionStorage.getItem("rechnungen-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("rechnungen-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function RechnungenPage() {
@@ -90,7 +94,10 @@ export default function RechnungenPage() {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setIstAdmin(d?.user?.rolle === "admin"))
-      .catch(() => setIstAdmin(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setIstAdmin(false);
+      });
   }, []);
 
   async function rechnungLoeschen(begruendung: string) {
@@ -107,10 +114,14 @@ export default function RechnungenPage() {
         setLoeschRechnung(null);
         load();
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setLoeschError((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setLoeschError("Netzwerkfehler beim Löschen.");
     } finally {
       setLoeschLoading(false);
@@ -132,7 +143,10 @@ export default function RechnungenPage() {
         setRechnungen(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(() => { setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden"); });
+      .catch((err) => {
+        Sentry.captureException(err);
+        setLoading(false); setFetchError((prev) => prev ?? "Netzwerkfehler – Seite neu laden");
+      });
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -148,7 +162,9 @@ export default function RechnungenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("rechnungen-filters", JSON.stringify({ filter, search, nurNichtVersendet })); } catch {}
+    try { sessionStorage.setItem("rechnungen-filters", JSON.stringify({ filter, search, nurNichtVersendet })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, filter, search, nurNichtVersendet]);
 
   async function buchungSpeichern(id: number) {
@@ -160,7 +176,8 @@ export default function RechnungenPage() {
       });
       setBuchungId(null);
       load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setLoading(false);
     }
   }
@@ -174,7 +191,8 @@ export default function RechnungenPage() {
         body: JSON.stringify({ bezahltAm: null }),
       });
       load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setLoading(false);
     }
   }

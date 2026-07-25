@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 export interface MahnwesenConfig {
   /** Tage überfällig ab denen Mahnstufe 1 (Zahlungserinnerung) gilt */
   stufe1Tage: number;
@@ -39,7 +40,8 @@ export function parseMahnwesenConfig(raw: string | null | undefined): MahnwesenC
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return { ...DEFAULT_MAHNWESEN_CONFIG };
   }
   const d = DEFAULT_MAHNWESEN_CONFIG;

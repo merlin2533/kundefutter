@@ -1,6 +1,7 @@
 // Server-Helfer: lädt die (konfigurierbare) Liste chargenpflichtiger
 // Artikelkategorien aus der Einstellung-Tabelle.
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 import {
   CHARGENPFLICHT_KATEGORIEN_KEY,
   DEFAULT_CHARGENPFLICHT_KATEGORIEN,
@@ -18,7 +19,8 @@ export async function getChargenpflichtKategorien(): Promise<string[]> {
     return chargenpflichtKategorienAusSettings(
       row ? { [CHARGENPFLICHT_KATEGORIEN_KEY]: row.value } : {},
     );
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
   }
 }

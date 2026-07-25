@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import NotizenTab from "./NotizenTab";
+import * as Sentry from "@sentry/nextjs";
 
 interface Aktivitaet {
   id: number;
@@ -78,7 +79,10 @@ export default function CrmTab({ kundeId, autoOpen }: { kundeId: number; autoOpe
       setShowForm(false);
       fetch_();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setSaveError(d.error ?? "Fehler beim Speichern.");
     }
   }

@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -30,7 +31,9 @@ function NeueAufgabeForm() {
     fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,7 +62,10 @@ function NeueAufgabeForm() {
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((err as { error?: string }).error ?? "Fehler beim Speichern");
         return;
       }
@@ -69,7 +75,8 @@ function NeueAufgabeForm() {
       } else {
         router.push("/aufgaben");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler – bitte erneut versuchen");
     } finally {
       setSaving(false);

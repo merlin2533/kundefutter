@@ -5,6 +5,7 @@ import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -96,7 +97,9 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         setLaden(false);
       });
     });
-    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.benutzername) setLoginUser(d.benutzername); }).catch(() => {});
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => { if (d?.benutzername) setLoginUser(d.benutzername); }).catch((err) => {
+      Sentry.captureException(err);
+    });
     fetch("/api/lieferanten").then(r => r.ok ? r.json() : []).then(d => setLieferanten(Array.isArray(d) ? d : []));
     Promise.all([
       fetch("/api/einstellungen?prefix=ausgaben.").then(r => r.json()),
@@ -106,16 +109,27 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         try {
           const parsed = JSON.parse(d["ausgaben.kategorien"]);
           if (Array.isArray(parsed) && parsed.length) setKategorienList(parsed);
-        } catch { /* ignore */ }
+        } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
       if (d["ausgaben.kostenstellen"]) {
-        try { setKostenstellenList(JSON.parse(d["ausgaben.kostenstellen"]) ?? []); } catch { /* ignore */ }
+        try { setKostenstellenList(JSON.parse(d["ausgaben.kostenstellen"]) ?? []); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
       if (d["ausgaben.sachkonten"]) {
-        try { setSachkontoMap(JSON.parse(d["ausgaben.sachkonten"]) ?? {}); } catch { /* ignore */ }
+        try { setSachkontoMap(JSON.parse(d["ausgaben.sachkonten"]) ?? {}); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
       if (dv["datev.sachkontenrahmen"] === "SKR04") setKontenrahmen("SKR04");
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }, []);
 
   // Auto-suggest Sachkonto nur wenn nicht bereits manuell gesetzt
@@ -188,7 +202,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
       if (d.mwstSatz !== undefined) setMwstSatz(String(d.mwstSatz));
       if (d.kategorie) setKategorie(d.kategorie);
       setKiHinweis("Felder wurden automatisch ausgefüllt – bitte prüfen.");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiHinweis("KI-Analyse fehlgeschlagen.");
     } finally {
       setKiLaeding(false);

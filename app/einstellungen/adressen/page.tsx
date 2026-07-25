@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 function BatchAdressValidierung() {
   const [stats, setStats] = useState<{ total: number; ohneKoords: number; geocodeFailed: number; ausstehend: number } | null>(null);
@@ -15,7 +16,9 @@ function BatchAdressValidierung() {
     fetch("/api/kunden/adress-validierung")
       .then((r) => r.json())
       .then((d) => setStats(d))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function startBatch() {
@@ -43,7 +46,8 @@ function BatchAdressValidierung() {
             body: JSON.stringify({ kundeId: kunde.id }),
           });
           if (!postRes.ok) errCount++;
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           errCount++;
         }
         processed++;
@@ -58,7 +62,9 @@ function BatchAdressValidierung() {
     fetch("/api/kunden/adress-validierung")
       .then((r) => r.json())
       .then((d) => setStats(d))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }
 
   return (

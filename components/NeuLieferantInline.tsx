@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export interface NeuLieferantErgebnis {
   id: number;
@@ -42,6 +43,7 @@ export default function NeuLieferantInline({
       const neu = await res.json();
       onCreated({ id: neu.id, name: neu.name });
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setSaving(false);

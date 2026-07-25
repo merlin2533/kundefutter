@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Static label mapping for known route segments
 const SEGMENT_LABELS: Record<string, string> = {
@@ -80,7 +81,8 @@ async function fetchEntityName(entity: EntityRoute, id: string): Promise<string>
       case "aufgaben": return data.betreff ?? `Aufgabe #${id}`;
       case "lieferanten": return data.name ?? `#${id}`;
     }
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return `#${id}`;
   }
 }

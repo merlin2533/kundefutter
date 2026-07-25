@@ -4,6 +4,7 @@ import { KpiCard, Card } from "@/components/Card";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface ChurnKunde {
   id: number;
@@ -39,7 +40,10 @@ function ChurnWidget() {
         const liste = d?.kunden;
         setKunden(Array.isArray(liste) ? liste.slice(0, 5) : []);
       })
-      .catch(() => setKunden([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setKunden([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -254,11 +258,17 @@ function useDashboardWidgets() {
               try {
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed)) setAktiv(parsed as WidgetId[]);
-              } catch { /* use default */ }
+              } catch (err) {
+                Sentry.captureException(err);
+                /* use default */
+              }
             }
           });
       })
-      .catch(() => { /* use default */ })
+      .catch((err) => {
+        Sentry.captureException(err);
+        /* use default */
+      })
       .finally(() => setLoaded(true));
   }, []);
 
@@ -269,7 +279,9 @@ function useDashboardWidgets() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: widgetKey, value: JSON.stringify(next) }),
-      }).catch(() => {});
+      }).catch((err) => {
+        Sentry.captureException(err);
+      });
       return next;
     });
   }
@@ -311,7 +323,10 @@ function BenachrichtigungenWidget() {
     fetch("/api/benachrichtigungen?gelesen=false")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setItems(Array.isArray(d) ? d.slice(0, 5) : []))
-      .catch(() => setItems([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setItems([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -320,7 +335,9 @@ function BenachrichtigungenWidget() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ gelesen: true }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
@@ -460,7 +477,10 @@ function PegelstaendeWidget() {
     fetch("/api/pegelstaende")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setStationen(Array.isArray(d) ? d : []))
-      .catch(() => setStationen([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setStationen([]);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -473,7 +493,10 @@ function PegelstaendeWidget() {
       fetch(`/api/pegelstaende/suche?q=${encodeURIComponent(suchQuery)}`)
         .then((r) => r.ok ? r.json() : [])
         .then((d) => setSuchErg(Array.isArray(d) ? d : []))
-        .catch(() => setSuchErg([]))
+        .catch((err) => {
+          Sentry.captureException(err);
+          return setSuchErg([]);
+        })
         .finally(() => setSearching(false));
     }, 350);
     return () => clearTimeout(t);
@@ -485,7 +508,9 @@ function PegelstaendeWidget() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uuid }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
     setAdding(false);
     setAddOpen(false);
     setSuchQuery("");
@@ -494,7 +519,9 @@ function PegelstaendeWidget() {
   }
 
   async function removeStation(uuid: string) {
-    await fetch(`/api/pegelstaende?uuid=${encodeURIComponent(uuid)}`, { method: "DELETE" }).catch(() => {});
+    await fetch(`/api/pegelstaende?uuid=${encodeURIComponent(uuid)}`, { method: "DELETE" }).catch((err) => {
+      Sentry.captureException(err);
+    });
     setStationen((prev) => prev.filter((s) => s.stationUuid !== uuid));
   }
 
@@ -622,7 +649,9 @@ function CrmSchnellWidget() {
           })));
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleSave(e: React.FormEvent) {
@@ -643,7 +672,10 @@ function CrmSchnellWidget() {
       setOpen(false);
       setTimeout(() => setSaved(false), 2000);
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setError(d.error ?? "Fehler beim Speichern.");
     }
   }
@@ -743,7 +775,10 @@ function WetterWidget() {
     fetch("/api/wetter")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setTage(Array.isArray(d) ? d : []))
-      .catch(() => setTage([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setTage([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -805,7 +840,10 @@ function BesuchstermineWidget() {
         if (!Array.isArray(d)) { setTermine([]); return; }
         setTermine(d.filter((t) => new Date(t.datum) <= in7Tagen).slice(0, 8));
       })
-      .catch(() => setTermine([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setTermine([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -859,7 +897,10 @@ function SachkundenachweiseWidget() {
     fetch("/api/sachkundenachweise?ablaufendIn=60")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setItems(Array.isArray(d) ? d.slice(0, 8) : []))
-      .catch(() => setItems([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setItems([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -927,7 +968,10 @@ function SprengstoffNachweiseWidget() {
     fetch("/api/sachkundenachweise?ablaufendIn=90&typ=Sprengstoff-Sachkunde")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setItems(Array.isArray(d) ? d : []))
-      .catch(() => setItems([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setItems([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -1048,7 +1092,10 @@ function ReklamationenKritischWidget() {
         if (!Array.isArray(d)) { setItems([]); return; }
         setItems(d.filter((r) => r.prioritaet === "hoch" || r.prioritaet === "kritisch").slice(0, 8));
       })
-      .catch(() => setItems([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setItems([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -1109,7 +1156,10 @@ function BudgetWidget() {
     fetch(`/api/budget?jahr=${jahr}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setData(d ?? null))
-      .catch(() => setData(null))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setData(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -1181,7 +1231,10 @@ function AngebotePipelineWidget() {
     fetch(`/api/statistik/angebote?von=${von}&bis=${bis}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setData(d ?? null))
-      .catch(() => setData(null))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setData(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -1250,7 +1303,10 @@ function VorbestellungenWidget() {
     fetch("/api/vorbestellungen?status=OFFEN")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setItems(Array.isArray(d) ? d.slice(0, 8) : []))
-      .catch(() => setItems([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setItems([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -1310,7 +1366,10 @@ function PersonalAbrechnungWidget() {
     fetch(`/api/personal/abrechnungen/offen?monat=${now.getMonth() + 1}&jahr=${now.getFullYear()}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setOffene(Array.isArray(d) ? d : []))
-      .catch(() => setOffene([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setOffene([]);
+      })
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const tag = now.getDate();
@@ -1413,14 +1472,18 @@ export default function DashboardPage() {
           setLastUpdated(new Date());
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   };
 
   const loadMatif = () => {
     fetch("/api/marktpreise/spot")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { const m = d as MatifData | null; if (m?.preise) setMatif(m); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   };
 
   useEffect(() => {
@@ -1432,7 +1495,10 @@ export default function DashboardPage() {
       .then((d: Record<string, string>) => {
         setOnboardingDone(d["system.onboarding_done"] === "1");
       })
-      .catch(() => setOnboardingDone(true)); // Don't show on error
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setOnboardingDone(true);
+      }); // Don't show on error
     const interval = setInterval(loadData, 60_000);
     const matifInterval = setInterval(loadMatif, 6 * 60 * 60_000); // 6h
     return () => { clearInterval(interval); clearInterval(matifInterval); };

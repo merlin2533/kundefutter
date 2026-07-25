@@ -6,6 +6,7 @@ import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import type { WetterTag } from "@/lib/weather";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kontakt { typ: string; wert: string; }
 interface Artikel { id: number; name: string; einheit: string; standardpreis: number; einkaufspreis?: number; }
@@ -162,7 +163,8 @@ async function fetchRouteLegs(waypoints: { lat: number; lng: number }[]): Promis
       distanceKm: leg.distance / 1000,
       durationMin: leg.duration / 60,
     }));
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }
@@ -226,7 +228,10 @@ export default function TourenplanungPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d["system.tournamen"]) {
-          try { setGespeicherteTournamen(JSON.parse(d["system.tournamen"])); } catch { /* ignore */ }
+          try { setGespeicherteTournamen(JSON.parse(d["system.tournamen"])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       });
   }, []);
@@ -272,7 +277,8 @@ export default function TourenplanungPage() {
       .then((data) => {
         setWetter(Array.isArray(data) ? data : []);
       })
-      .catch(() => {
+      .catch((err) => {
+        Sentry.captureException(err);
         setWetterFehler(true);
       })
       .finally(() => setWetterLoading(false));

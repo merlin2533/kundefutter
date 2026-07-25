@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -202,13 +203,17 @@ export default function LieferantDetailPage() {
       const params = new URLSearchParams({ zielId: String(zielId), quellIds: quellen.join(",") });
       const res = await fetch(`/api/lieferanten/merge?${params}`);
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Vorschau fehlgeschlagen");
       }
       const data: MergeVorschau = await res.json();
       setVorschau(data);
       setExpandedQuelle(new Set());
     } catch (e) {
+      Sentry.captureException(e);
       setMergeError(e instanceof Error ? e.message : "Vorschau konnte nicht geladen werden");
     } finally {
       setVorschauLoading(false);
@@ -234,7 +239,10 @@ export default function LieferantDetailPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Verschmelzung fehlgeschlagen");
       }
       const data = await res.json();
@@ -248,6 +256,7 @@ export default function LieferantDetailPage() {
         fetchLieferant();
       }
     } catch (e) {
+      Sentry.captureException(e);
       setMergeError(e instanceof Error ? e.message : "Verschmelzung fehlgeschlagen");
     } finally {
       setMergeLoading(false);
@@ -316,7 +325,10 @@ export default function LieferantDetailPage() {
       setEditing(false);
       fetchLieferant();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setSaveError(d.error ?? "Fehler beim Speichern.");
     }
   }
@@ -329,7 +341,10 @@ export default function LieferantDetailPage() {
     if (res.ok) {
       router.push("/lieferanten");
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       alert(d.error ?? "Fehler beim Löschen");
       setDeleting(false);
     }
