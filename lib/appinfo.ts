@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Sentry } from "@/lib/sentry";
+import * as Sentry from "@sentry/nextjs";
 
 /** Standard-Produktname, falls keine individuelle Bezeichnung hinterlegt ist. */
 export const DEFAULT_APP_NAME = "AGRI-Office";

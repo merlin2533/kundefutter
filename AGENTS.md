@@ -809,6 +809,8 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Nextcloud-Client warnte bei jedem Kunden-/Artikelordner: "Ordnernamen, die das Zeichen ':' enthalten, werden von diesem Dateisystem nicht unterstützt" | `kundenOrdnerPfad`/`artikelOrdnerPfad` hängten `(ID:${id})` mit Doppelpunkt an — von manchen Nextcloud-Speicher-Backends (externe Windows-/exFAT-Dateisysteme) nicht unterstützt | Format auf `(ID-${id})` geändert; `kundenOrdnerPfadLegacy`/`artikelOrdnerPfadLegacy` in `lib/nextcloud.ts` für die alten Pfade; einmalige Umbenennungs-Migration (`verschiebeOrdner`) als Schritt 0 in `lib/nextcloud-backfill.ts`, läuft automatisch bei jedem Backfill/Auto-Sync mit |
 | Standard-Zahlungsziel (`firma.zahlungszielStandard`) wurde bei neu angelegten Lieferungen/Rechnungen nie gezogen | `Lieferung.create()` setzte `zahlungsziel` nirgends explizit → Prisma-Schema-`@default(30)` griff immer, unabhängig von der Einstellung (betraf manuelle Lieferungserfassung, Vorbestellung→Lieferung, Angebot→Sammelrechnung, wiederkehrende Lieferungen) | `ladeStandardZahlungsziel(tx)` in `lib/lieferung.ts` als zentrale Quelle; wird jetzt in `erstelleLieferungMitPreisberechnung()` sowie in `app/api/angebote/[id]/route.ts`, `app/api/vorbestellungen/[id]/route.ts` und `app/api/lieferungen/wiederkehrend/route.ts` beim `create` explizit gesetzt statt sich auf den Schema-Default zu verlassen |
 | "Wer hat diesen Artikel bekommen?" öffnete überall (Lieferung/Vorbestellung/Angebot/Bestellliste/Kunde-Lieferhistorie) ein Modal-Popup (`ArtikelKundenModal`) statt einer echten Seite | Popup-Pattern verstößt gegen die "keine Modals für Formulare/Ansichten"-Regel dieses Projekts | `ArtikelKundenModal` entfernt; die 👥-Icons an Artikelpositionen sind jetzt `Link`s auf `/artikel/[id]?tab=kunden` — Artikel-Detailseite liest den Tab per `useSearchParams` (Suspense-Boundary), Tab-Klicks schreiben ihn per `router.push` zurück in die URL; `ArtikelKundenUebersicht` selbst (Tab-Inhalt) unverändert |
+| `Buffer` an `new NextResponse(buffer, …)` bzw. `fetch(url, {body: buffer})` → `next build` bricht mit `Type 'Buffer<ArrayBufferLike>' is not assignable to type 'BodyInit'` (TS2345/TS2322) | Aktuelle `@types/node`-Version macht `Buffer` strukturell nicht mehr direkt kompatibel zu `BodyInit`; `tsc --noEmit` fängt das zwar auch ab, wird aber leicht übersehen weil `next build` es erst in der abschließenden TypeScript-Prüfung nach dem Webpack-Kompilieren meldet | Buffer explizit zu `Uint8Array` wandeln: `new NextResponse(new Uint8Array(pdfBuffer), {…})` bzw. `body: new Uint8Array(buffer)` — betroffen u.a. `app/api/exporte/gutschrift/route.ts`, `lib/nextcloud.ts` (`uploadDatei`/`davFetch`-PUT) |
+| Sentry-Rollout brach den Docker-Build: "You're importing a module that depends on next/headers... but you are using it in the Pages Router" | `lib/appinfo.ts`/`lib/matif.ts` importierten `@/lib/sentry` (zieht `lib/auth.ts` → `next/headers` nach), wurden aber direkt von `"use client"`-Seiten importiert (`app/gebietsanalyse/page.tsx`, `app/marktpreise/page.tsx` u.a.) — reine `tsc --noEmit`-Prüfung findet das NICHT, nur der echte Webpack-Build (`npm run build`) | Beide auf `import * as Sentry from "@sentry/nextjs"` umgestellt (siehe "Bekannte client-sichere `lib/*.ts`-Module" oben); **Lehre:** vor jedem `@/lib/sentry`-Import in einem `lib/*.ts`-Modul mit `npm run build` (nicht nur `tsc --noEmit`) verifizieren, ob das Modul von Client-Code erreichbar ist — bereits vorhandene server-only Importe (z.B. `prisma`) im selben Modul sind dafür KEIN verlässliches Signal |
 
 ## Schemata: Wichtige Felder
 
@@ -945,16 +947,25 @@ Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
   erhalten, damit sich das Resolve-Verhalten der Kette nicht ändert:
   `.catch((err) => { Sentry.captureException(err); return fallback; })`.
 - **Import je nach Bundle-Ziel:**
-  - Server-only (API-Routes, die meisten `lib/*.ts`): `import { Sentry } from "@/lib/sentry";`
-  - Alles, was auch von einer `"use client"`-Komponente importiert werden kann (Client-Pages,
-    `components/**`, sowie `lib/*.ts`-Module ohne server-only Importe wie `prisma`/`fs`/
-    `next/server`/`next/headers`): `import * as Sentry from "@sentry/nextjs";` direkt — **nicht**
-    `@/lib/sentry`, da dieser Wrapper `next/server` und `lib/auth.ts` (bcryptjs, jose, prisma)
-    nachzieht und damit den Client-Build bricht, sobald das Modul im Browser-Bundle landet.
-    Bekannte client-sichere `lib/*.ts`-Module mit diesem Muster: `lib/auswahllisten.ts`,
-    `lib/backup-config.ts`, `lib/girocode.ts`, `lib/mahnwesen-config.ts`, `lib/matif.ts`,
-    `lib/prisma.ts` (Re-Export-Kette `lib/sentry.ts → lib/auth.ts → lib/prisma.ts` sonst zirkulär),
-    `lib/useScrollRestoration.ts`.
+  - Server-only (API-Routes, `lib/*.ts`-Module die garantiert nie von einer `"use client"`-Datei
+    importiert werden — auch nicht transitiv über ein anderes `lib/*.ts`): `import { Sentry } from "@/lib/sentry";`
+  - Alles, was direkt oder transitiv von einer `"use client"`-Komponente importiert werden kann
+    (Client-Pages, `components/**`, sowie jedes `lib/*.ts`-Modul, das — egal über wie viele
+    Zwischenschritte — von so einer Datei importiert wird): `import * as Sentry from "@sentry/nextjs";`
+    direkt — **nicht** `@/lib/sentry`, da dieser Wrapper `next/headers` (über `lib/auth.ts`) und
+    `next/server` nachzieht; sobald das im Browser-Bundle landet, bricht der Build hart mit
+    "You're importing a module that depends on next/server/next/headers...".
+    **Wichtig:** Ob ein Modul *bereits andere* server-only Importe hat (z.B. `prisma`), sagt NICHTS
+    darüber aus, ob `@/lib/sentry` sicher ist — `prisma` allein lässt den Client-Build i.d.R. nicht
+    hart fehlschlagen, `next/headers`/`next/server` (über `@/lib/sentry`) dagegen schon. Einzig
+    entscheidend: wird die Datei von irgendeiner `"use client"`-Datei erreicht (direkt oder über
+    beliebig viele `lib/*.ts`-Zwischenschritte, `import type` zählt nicht mit)? Im Zweifel mit
+    `npm run build` verifizieren, nicht nur `tsc --noEmit` (der TypeScript-Checker prüft keine
+    Client/Server-Bundle-Grenzen).
+    Bekannte client-sichere `lib/*.ts`-Module mit diesem Muster: `lib/appinfo.ts`,
+    `lib/auswahllisten.ts`, `lib/backup-config.ts`, `lib/girocode.ts`, `lib/mahnwesen-config.ts`,
+    `lib/matif.ts`, `lib/prisma.ts` (Re-Export-Kette `lib/sentry.ts → lib/auth.ts → lib/prisma.ts`
+    sonst zirkulär), `lib/useScrollRestoration.ts`.
 - **Kein Filtern nach "wichtig genug" oder "zu erwarten".** Auch vermeintlich harmlose Fallbacks
   (z.B. Encoding-Fallback UTF-8→Latin1, KI-Retry, Cache-Miss) werden gemeldet. Mehr Rauschen in
   GlitchTip ist ausdrücklich erwünscht — lieber zu viele Events als einen unsichtbaren Fehler.
