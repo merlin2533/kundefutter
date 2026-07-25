@@ -183,7 +183,7 @@ export async function uploadDatei(
   const res = await davFetch(url, {
     method: "PUT",
     headers: { Authorization: authHeader(cfg), "Content-Type": mimeType },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
   if (res.status !== 201 && res.status !== 204) {
     // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.

@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         console.warn("[nextcloud] Gutschrift-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
       });
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
