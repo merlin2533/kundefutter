@@ -7,6 +7,7 @@ import Link from "next/link";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Tabs — lazy-geladen, damit nur der aktive Tab im Bundle landet ──────────
 const tabLoading = () => <p className="text-sm text-gray-400">Lade…</p>;
@@ -95,7 +96,8 @@ export default function KundeDetailPage() {
       setShowRueckruf(false);
       setRueckrufNotiz("");
       setTimeout(() => setRueckrufSuccess(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setRueckrufSaving(false);

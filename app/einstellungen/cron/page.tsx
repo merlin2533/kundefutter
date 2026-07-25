@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface JobResult {
   job: string;
@@ -45,7 +46,10 @@ export default function CronVerwaltungPage() {
   const [loading, setLoading] = useState(true);
 
   async function ladeStatus() {
-    const res = await fetch("/api/cron?status=1").catch(() => null);
+    const res = await fetch("/api/cron?status=1").catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    });
     if (res?.ok) {
       const d = await res.json();
       setStatus(d);
@@ -57,7 +61,10 @@ export default function CronVerwaltungPage() {
 
   async function jetztAusfuehren() {
     setRunning(true);
-    const res = await fetch("/api/cron").catch(() => null);
+    const res = await fetch("/api/cron").catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    });
     if (res) {
       const d = await res.json();
       setStatus(d);

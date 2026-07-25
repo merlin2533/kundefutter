@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { Kunde, kontaktIcon } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [showAdd, setShowAdd] = useState(false);
@@ -32,7 +33,10 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
       fd.append("file", file);
       const res = await fetch("/api/ki/visitenkarte", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setKiError(err.error ?? "Erkennung fehlgeschlagen");
         return;
       }
@@ -55,7 +59,8 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
       if (d.strasse || d.plz || d.ort) teile.push(`Adresse: ${[d.strasse, d.plz, d.ort].filter(Boolean).join(", ")}`);
       if (d.website) teile.push(`Web: ${d.website}`);
       setKiInfo(teile.length ? `✓ Erkannt. Zusätzlich erkannt (nicht übernommen): ${teile.join(" · ")}` : "✓ Visitenkarte erkannt — Felder vorausgefüllt.");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiError("Netzwerkfehler bei KI-Analyse");
     } finally {
       setKiLoading(false);
@@ -99,7 +104,8 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
       setShowAdd(false);
       setForm({ vorname: "", nachname: "", label: "", telefon: "", mobil: "", email: "", fax: "" });
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setSaving(false);
@@ -148,7 +154,8 @@ export default function KontakteTab({ kunde, onRefresh }: { kunde: Kunde; onRefr
       if (!res.ok) throw new Error();
       setEditingId(null);
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setSaving(false);

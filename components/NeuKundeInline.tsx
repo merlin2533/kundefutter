@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export interface NeuKundeErgebnis {
   id: number;
@@ -75,6 +76,7 @@ export default function NeuKundeInline({
         ort: neuKunde.ort ?? null,
       });
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setSaving(false);

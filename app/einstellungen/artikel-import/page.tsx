@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { STAMMDATEN_GRUPPEN } from "@/lib/artikel-stammdaten";
+import * as Sentry from "@sentry/nextjs";
 
 interface GruppeStatus {
   titel: string;
@@ -36,7 +37,8 @@ export default function ArtikelImportPage() {
       const res = await fetch("/api/einstellungen/artikel-import");
       if (!res.ok) throw new Error("Fehler beim Laden");
       setStatus(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Status konnte nicht geladen werden.");
     } finally {
       setLoading(false);
@@ -60,7 +62,8 @@ export default function ArtikelImportPage() {
       if (!res.ok) throw new Error("Import fehlgeschlagen");
       setResult(await res.json());
       await ladeStatus();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Import fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setImporting(null);
@@ -75,7 +78,8 @@ export default function ArtikelImportPage() {
       const res = await fetch("/api/einstellungen/artikel-import?action=sync-inhaltsstoffe");
       if (!res.ok) throw new Error("Synchronisation fehlgeschlagen");
       setSyncResult(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Synchronisation fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setSyncing(false);
@@ -98,12 +102,16 @@ export default function ArtikelImportPage() {
         body: fd,
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(data.error ?? "Upload fehlgeschlagen");
       }
       setResult(await res.json());
       await ladeStatus();
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Upload fehlgeschlagen.");
     } finally {
       setImporting(null);

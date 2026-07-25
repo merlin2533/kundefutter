@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface FirmaSettings {
   "firma.name": string;
@@ -150,7 +151,8 @@ export default function FirmaPage() {
       const d1 = await r1.json();
       const d2 = await r2.json();
       setForm((prev) => ({ ...prev, ...d1, ...d2 }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -202,7 +204,8 @@ export default function FirmaPage() {
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

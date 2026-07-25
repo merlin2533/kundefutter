@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -47,11 +48,15 @@ function KontraktNeuInner() {
     fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?limit=500")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const kundenOptions = kunden.map((k) => ({
@@ -121,6 +126,7 @@ function KontraktNeuInner() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/kontrakte/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

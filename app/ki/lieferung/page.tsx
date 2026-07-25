@@ -13,6 +13,7 @@ import NeuArtikelInline from "@/components/NeuArtikelInline";
 import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
 import { lagerStatus } from "@/lib/utils";
 import { matchArtikel, matchKunde, normalisiereSuchtext, fetchAlleSeiten, type Konfidenz } from "@/lib/kiMatching";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -236,7 +237,10 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
           return pos;
         })
       );
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }
 
   // ── Step 1 → 2: Analyse ───────────────────────────────────────────────────
@@ -316,6 +320,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
 
       setStep(2);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setAnalyzeError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setAnalyzing(false);
@@ -454,7 +459,9 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ typ, suchtext: text, zielId }),
-      }).catch(() => {});
+      }).catch((err) => {
+        Sentry.captureException(err);
+      });
     };
 
     if (kiErgebnis && vorschlagKundeId !== finalerKundeId) {
@@ -513,6 +520,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
 
       setStep(4 as number);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setSubmitError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setSubmitting(false);
@@ -1358,7 +1366,9 @@ function KiLieferungBatchStart() {
     fetch("/api/ki/lieferung/batch")
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setBatches(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoadingBatches(false));
   }, []);
 
@@ -1378,6 +1388,7 @@ function KiLieferungBatchStart() {
       const neu = await res.json();
       router.push(`/ki/lieferung/batch/${neu.id}`);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setStarting(false);
     }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 type Modus = "charge" | "artikel";
 
@@ -148,13 +149,17 @@ export default function RueckverfolgungPage() {
     try {
       const res = await fetch(`/api/lager/chargen?${params}`);
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler bei der Suche");
         return;
       }
       const data: Result = await res.json();
       setResult(data);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler");
     } finally {
       setSearching(false);

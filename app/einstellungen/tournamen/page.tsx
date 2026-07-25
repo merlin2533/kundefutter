@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 function TourNamenEditor() {
   const [items, setItems] = useState<string[]>([]);
@@ -14,10 +15,15 @@ function TourNamenEditor() {
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
         if (d["system.tournamen"]) {
-          try { setItems(JSON.parse(d["system.tournamen"])); } catch { /* ignore */ }
+          try { setItems(JSON.parse(d["system.tournamen"])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function save(list: string[]) {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeResult {
   id: number;
@@ -35,7 +36,8 @@ export default function GdprPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setSucheResult(Array.isArray(data.kunden) ? data.kunden : Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setSucheResult([]);
     } finally {
       setSucheLoading(false);
@@ -55,7 +57,8 @@ export default function GdprPage() {
       a.download = `kundendaten-${id}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Export fehlgeschlagen.");
     } finally {
       setExportLoading(false);
@@ -78,13 +81,17 @@ export default function GdprPage() {
     try {
       const res = await fetch(`/api/kunden/${deleteKundeId}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error ?? "Löschung fehlgeschlagen");
       }
       setDeleteResult(`Kundendaten für „${deleteKundeName}" wurden gelöscht.`);
       setDeleteKundeId(null);
       setSucheResult((prev) => prev?.filter((k) => k.id !== deleteKundeId) ?? null);
     } catch (e) {
+      Sentry.captureException(e);
       setDeleteError(e instanceof Error ? e.message : "Fehler beim Löschen");
     } finally {
       setDeleteLoading(false);

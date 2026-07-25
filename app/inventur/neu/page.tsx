@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 export default function NeueInventurPage() {
   const router = useRouter();
@@ -18,7 +19,10 @@ export default function NeueInventurPage() {
         const aktiv = list.filter((a) => a.aktiv);
         setArtikelAnzahl(aktiv.length);
       })
-      .catch(() => setArtikelAnzahl(0));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setArtikelAnzahl(0);
+      });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -32,12 +36,16 @@ export default function NeueInventurPage() {
         body: JSON.stringify({ bezeichnung: bezeichnung.trim() || undefined }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Erstellen");
       }
       const inv = await res.json();
       router.push(`/inventur/${inv.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

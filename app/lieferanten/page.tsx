@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -17,7 +18,10 @@ interface Lieferant {
 }
 
 function loadLieferantFilters() {
-  try { return JSON.parse(sessionStorage.getItem("lieferanten-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("lieferanten-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function LieferantenPage() {
@@ -40,7 +44,8 @@ export default function LieferantenPage() {
       }
       const data = await res.json();
       setLieferanten(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setLieferanten([]);
     } finally {
       setLoading(false);
@@ -61,7 +66,9 @@ export default function LieferantenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("lieferanten-filters", JSON.stringify({ search })); } catch {}
+    try { sessionStorage.setItem("lieferanten-filters", JSON.stringify({ search })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, search]);
 
   return (

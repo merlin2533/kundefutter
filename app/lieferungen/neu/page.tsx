@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -186,7 +187,8 @@ function NeueLieferungInner() {
           try {
             const k = await fetch(`/api/kunden/${vorauswahlId}`).then((r) => (r.ok ? r.json() : null));
             if (k && k.id) kundenData = [k, ...kundenData];
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         }
@@ -222,7 +224,8 @@ function NeueLieferungInner() {
                 }));
               }
             }
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             // ignore, fallback to empty form
           }
         } else if (!isNaN(vorauswahlId)) {
@@ -242,7 +245,10 @@ function NeueLieferungInner() {
     fetch(`/api/kampagnen/fuer-kunde?kundeId=${kundeId}`)
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKampagnen(Array.isArray(d) ? d : []))
-      .catch(() => setKampagnen([]));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setKampagnen([]);
+      });
   }, [kundeId]);
 
   // Wenn Kunde oder Positionen wechseln: prüfen ob Sprengstoffvorläufer betroffen
@@ -264,7 +270,10 @@ function NeueLieferungInner() {
         setErklaerungOk(Array.isArray(data) && data.some((e) => e.jahr === aktuellesJahr));
         setErklaerungBestaetigt(false);
       })
-      .catch(() => setErklaerungOk(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setErklaerungOk(false);
+      });
   }, [kundeId, positionen, artikel]);
 
   function updatePosition(idx: number, field: keyof NewPosition, value: string | number) {
@@ -310,7 +319,8 @@ function NeueLieferungInner() {
           })
         );
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore — EK stays as resolved from cached list
     }
   }
@@ -383,12 +393,16 @@ function NeueLieferungInner() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Speichern");
       }
       const neu = await res.json();
       router.push(`/lieferungen/${neu.id}/lieferschein`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Speichern.");
     } finally {
       setSaving(false);

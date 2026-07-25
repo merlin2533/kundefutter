@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, getJahreListeNum, MONATE_KURZ } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const MONAT_LABELS = MONATE_KURZ;
 
@@ -187,7 +188,8 @@ export default function SaisonalPage() {
       const res = await fetch(`/api/analyse/saisonal?jahre=${jahre.join(",")}`);
       if (!res.ok) throw new Error();
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Daten");
     } finally {
       setLoading(false);

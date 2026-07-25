@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface MqttRegel {
   id: number;
@@ -73,7 +74,10 @@ export default function MqttAutomatisierungPage() {
       setFormOpen(false);
       await laden();
     } else {
-      const d = await res.json().catch(() => ({})) as { error?: string };
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      }) as { error?: string };
       setMsg(d.error ?? "Fehler beim Speichern");
     }
     setSaving(false);
@@ -108,7 +112,8 @@ export default function MqttAutomatisierungPage() {
         });
       }
       await laden();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Ungültiges JSON-Format");
     }
     e.target.value = "";

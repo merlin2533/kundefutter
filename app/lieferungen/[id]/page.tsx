@@ -9,6 +9,7 @@ import EmailVersandModal from "@/components/EmailVersandModal";
 import SearchableSelect from "@/components/SearchableSelect";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number;
@@ -234,7 +235,10 @@ export default function LieferungDetailPage() {
         const data = await res.json();
         setTeilzahlungen(Array.isArray(data) ? data : []);
       }
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
       setTzLoading(false);
     }
   }
@@ -260,13 +264,17 @@ export default function LieferungDetailPage() {
         body: JSON.stringify({ skontoProzent: prozent, skontoTage: tage, skontoGenutzt: skontoGenutztEdit }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
       }
       setSkontoSaved(true);
       setTimeout(() => setSkontoSaved(false), 2000);
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       setSkontoError(e instanceof Error ? e.message : "Fehler beim Speichern.");
     } finally {
       setSkontoSaving(false);
@@ -286,7 +294,10 @@ export default function LieferungDetailPage() {
         body: JSON.stringify({ lieferungId: Number(id), betrag, datum: new Date(tzDatum).toISOString(), notiz: tzNotiz.trim() || null }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
       }
       setShowAddTz(false);
@@ -295,6 +306,7 @@ export default function LieferungDetailPage() {
       setTzDatum(new Date().toISOString().slice(0, 10));
       await loadTeilzahlungen();
     } catch (e) {
+      Sentry.captureException(e);
       setTzError(e instanceof Error ? e.message : "Fehler");
     } finally {
       setTzSaving(false);
@@ -306,12 +318,18 @@ export default function LieferungDetailPage() {
     try {
       const res = await fetch(`/api/teilzahlungen/${tzId}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert((d as { error?: string }).error ?? "Fehler beim Löschen.");
         return;
       }
       await loadTeilzahlungen();
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }
 
   function startRabattEdit(pos: Position) {
@@ -337,7 +355,10 @@ export default function LieferungDetailPage() {
         body: JSON.stringify({ rabattProzent: neu }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(d.error ?? "Fehler beim Speichern");
         return;
       }
@@ -355,7 +376,10 @@ export default function LieferungDetailPage() {
       body: JSON.stringify({ [field]: value }),
     });
     if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       alert(d.error ?? "Fehler beim Speichern");
       return;
     }
@@ -387,11 +411,15 @@ export default function LieferungDetailPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error || "Fehler beim Speichern");
       }
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       setRechnungNrError(e instanceof Error ? e.message : "Fehler beim Speichern.");
     } finally {
       setActionLoading(false);
@@ -410,7 +438,8 @@ export default function LieferungDetailPage() {
         await load();
         setNotizLieferungEditing(false);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setNotizLieferungSaving(false);
@@ -423,11 +452,15 @@ export default function LieferungDetailPage() {
     fetch("/api/artikel?limit=2000&relations=false")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/lieferanten?limit=500")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setLieferanten(d); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   function openAddPos() {
@@ -471,7 +504,10 @@ export default function LieferungDetailPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setAddPosError((d as { error?: string }).error ?? "Fehler beim Hinzufügen.");
         return;
       }
@@ -487,12 +523,16 @@ export default function LieferungDetailPage() {
     try {
       const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, { method: "DELETE" });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Fehler beim Löschen.");
         return;
       }
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Löschen der Position.");
     }
   }
@@ -501,11 +541,15 @@ export default function LieferungDetailPage() {
     fetch("/api/einstellungen?prefix=firma.")
       .then(r => r.ok ? r.json() : {})
       .then(raw => { const d = raw as Record<string, string>; setFirmaData(d); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/einstellungen?prefix=system.logo")
       .then(r => r.ok ? r.json() : {})
       .then(raw => { const d = raw as Record<string, string>; if (d?.["system.logo"]) setLogo(d["system.logo"]); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function markiereGeliefert() {
@@ -529,7 +573,8 @@ export default function LieferungDetailPage() {
       if (!res.ok) throw new Error("Fehler beim Aktualisieren");
       await load();
       setShowRechnungNachGeliefert(true);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Aktualisieren des Status.");
     } finally {
       setActionLoading(false);
@@ -553,7 +598,8 @@ export default function LieferungDetailPage() {
       setStornoBegrundung("");
       if (hatRechnung) setShowGutschriftNachStornoHint(true);
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setStornoError("Fehler beim Stornieren.");
     } finally {
       setActionLoading(false);
@@ -580,7 +626,8 @@ export default function LieferungDetailPage() {
       });
       if (!res.ok) throw new Error("Fehler beim Erstellen der Rechnung");
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Erstellen der Rechnung.");
     } finally {
       setActionLoading(false);
@@ -598,7 +645,8 @@ export default function LieferungDetailPage() {
       });
       if (!res.ok) throw new Error("Fehler beim Aktualisieren");
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Markieren als bezahlt.");
     } finally {
       setActionLoading(false);
@@ -621,13 +669,17 @@ export default function LieferungDetailPage() {
         body: JSON.stringify({ zahlungsziel: tage }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
       }
       setZahlungszielSaved(true);
       setTimeout(() => setZahlungszielSaved(false), 2000);
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       setZahlungszielError(e instanceof Error ? e.message : "Fehler beim Speichern des Zahlungsziels.");
     } finally {
       setActionLoading(false);
@@ -649,13 +701,17 @@ export default function LieferungDetailPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
       }
       setLieferDatumSaved(true);
       setTimeout(() => setLieferDatumSaved(false), 2000);
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler beim Speichern des Lieferdatums.");
     } finally {
       setActionLoading(false);
@@ -680,13 +736,17 @@ export default function LieferungDetailPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
       }
       setStreckeSaved(true);
       setTimeout(() => setStreckeSaved(false), 2000);
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       setStreckeError(e instanceof Error ? e.message : "Fehler beim Speichern.");
     } finally {
       setStreckeSaving(false);
@@ -702,7 +762,10 @@ export default function LieferungDetailPage() {
         body: JSON.stringify({ verkaufspreis: neuerPreis }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Fehler beim Übernehmen des Preises.");
         return;
       }
@@ -724,7 +787,10 @@ export default function LieferungDetailPage() {
           body: JSON.stringify({ verkaufspreis: u.neuerPreis }),
         });
         if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
+          const d = await res.json().catch((err) => {
+            Sentry.captureException(err);
+            return ({});
+          });
           setError((d as { error?: string }).error ?? "Fehler beim Übernehmen der Preise.");
           return;
         }
@@ -1258,9 +1324,13 @@ export default function LieferungDetailPage() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ status: "geplant" }),
                         });
-                        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Fehler");
+                        if (!res.ok) throw new Error((await res.json().catch((err) => {
+                          Sentry.captureException(err);
+                          return ({});
+                        })).error ?? "Fehler");
                         await load();
                       } catch (e) {
+                        Sentry.captureException(e);
                         setError(e instanceof Error ? e.message : "Fehler beim Zurücksetzen.");
                       } finally {
                         setActionLoading(false);
@@ -1393,7 +1463,10 @@ export default function LieferungDetailPage() {
               const data = await res.json() as { ok?: boolean; error?: string };
               if (data.ok) { setEmailErfolg(`Versendet an ${empfaenger}`); setEmailModalOffen(false); }
               else setEmailFehler(data.error ?? "Versand fehlgeschlagen");
-            } catch { setEmailFehler("Versand fehlgeschlagen"); }
+            } catch (err) {
+              Sentry.captureException(err);
+              setEmailFehler("Versand fehlgeschlagen");
+            }
             finally { setEmailLoading(false); }
           }}
         />

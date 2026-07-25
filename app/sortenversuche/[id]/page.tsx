@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number; sorte: string; saatstaerke?: number | null; ertragDtHa?: number | null;
@@ -60,7 +61,8 @@ export default function DetailPage() {
       if (!r.ok) throw new Error();
       setV((prev) => prev ? { ...prev, notiz: notizEdit.trim() || null } : prev);
       toast.success("Notiz gespeichert");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       toast.error("Notiz konnte nicht gespeichert werden");
     } finally {
       setNotizSaving(false);

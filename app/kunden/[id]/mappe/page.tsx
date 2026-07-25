@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kontakt { id: number; typ: string; wert: string; label?: string | null }
 interface Bedarf { id: number; menge: number; intervallTage: number; notiz?: string | null; artikel: { name: string; einheit: string } }
@@ -38,9 +39,18 @@ export default function KundenmappePage() {
   useEffect(() => {
     Promise.all([
       fetch(`/api/kunden/${id}`).then((r) => r.json()),
-      fetch(`/api/kunden/aktivitaeten?kundeId=${id}&limit=30`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/kunden/${id}/notizen`).then((r) => r.json()).catch(() => []),
-      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()).catch(() => ({})),
+      fetch(`/api/kunden/aktivitaeten?kundeId=${id}&limit=30`).then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
+      fetch(`/api/kunden/${id}/notizen`).then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
+      fetch("/api/einstellungen?prefix=firma.").then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      }),
     ]).then(([k, akt, noti, einst]) => {
       setKunde(k as Kunde | null);
       setAktivitaeten(Array.isArray(akt) ? akt : []);

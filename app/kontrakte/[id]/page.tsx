@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface KontraktPosition {
   id: number;
@@ -81,7 +82,10 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
         return r.json();
       })
       .then((d: Kontrakt) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   async function handleAktion(aktion: string) {
@@ -101,7 +105,8 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
       }
       const updated: Kontrakt = await res.json();
       setData(updated);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Aktualisieren.");
     } finally {
       setSaving(false);

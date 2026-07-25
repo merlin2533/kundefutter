@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { albrechtBewertung, albrechtAmpel, ALBRECHT_DISCLAIMER, BewertungErgebnis } from "@/lib/albrecht";
+import * as Sentry from "@sentry/nextjs";
 
 interface SchlagInfo {
   id: number;
@@ -127,7 +128,10 @@ function BewertungTabelle({ bewertung }: { bewertung: BewertungErgebnis[] }) {
 function EmpfehlungenListe({ json }: { json: string | null }) {
   if (!json) return null;
   let items: { mittel: string; menge: string; einheit: string; prioritaet: string }[] = [];
-  try { items = JSON.parse(json); } catch { return null; }
+  try { items = JSON.parse(json); } catch (err) {
+    Sentry.captureException(err);
+    return null;
+  }
   if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <div className="mt-3">
@@ -173,7 +177,10 @@ export default function AlbrechtTab({ kundeId }: { kundeId: number }) {
     fetch(`/api/bodenanalyse?kundeId=${kundeId}`)
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => setAnalysen(Array.isArray(d) ? d : []))
-      .catch(() => setError("Laden fehlgeschlagen"))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setError("Laden fehlgeschlagen");
+      })
       .finally(() => setLoading(false));
   }, [kundeId]);
 

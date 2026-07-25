@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 
@@ -78,7 +79,8 @@ export default function OnboardingPage() {
         firma.bic && saveSetting("firma.bic", firma.bic),
       ].filter(Boolean));
       setStep(3);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern der Firmendaten.");
     } finally {
       setLoading(false);
@@ -109,7 +111,8 @@ export default function OnboardingPage() {
         }
       }
       setStep(4);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Anlegen des Artikels.");
     } finally {
       setLoading(false);
@@ -143,7 +146,8 @@ export default function OnboardingPage() {
       // Mark onboarding as done
       await saveSetting("system.onboarding_done", "1");
       setStep(5);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Anlegen des Kunden.");
     } finally {
       setLoading(false);

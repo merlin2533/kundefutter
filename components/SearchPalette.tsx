@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, AngebotStatusBadge, VersendetBadge } from "@/components/Badge";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeResult {
   id: number;
@@ -251,7 +252,8 @@ function CrmInlineForm({ initialKunde, onBack, onClose }: CrmFormProps) {
         const kunden: KundeResult[] = Array.isArray(data) ? data : (data.kunden ?? []);
         setKundeSuggestions(kunden);
         setShowSuggestions(true);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setKundeSuggestions([]);
       }
     }, 200);
@@ -293,6 +295,7 @@ function CrmInlineForm({ initialKunde, onBack, onClose }: CrmFormProps) {
       setSaved(true);
       setTimeout(() => onClose(), 900);
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler");
     } finally {
       setSaving(false);
@@ -441,7 +444,8 @@ export default function SearchPalette() {
         const data: SearchResults = await res.json();
         setResults(data);
         setActiveIndex(0);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [], ausgaben: [] });
       } finally {
         setLoading(false);

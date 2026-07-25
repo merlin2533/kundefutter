@@ -152,7 +152,9 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         anhangNamen,
         entityId: args.entityId ?? null,
       },
-    }).catch(() => {}); // Log-Fehler nie nach oben werfen
+    }).catch((err) => {
+      Sentry.captureException(err);
+    }); // Log-Fehler nie nach oben werfen
   } catch (err) {
     Sentry.captureException(err);
     // Log fehlgeschlagenen Versand
@@ -168,7 +170,9 @@ export async function sendEmail(args: SendEmailArgs): Promise<void> {
         anhangNamen,
         entityId: args.entityId ?? null,
       },
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
     throw err;
   }
 }

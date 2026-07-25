@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Artikel {
   id: number;
@@ -53,12 +54,15 @@ export default function NeuerMengenrabattPage() {
               setArtikelKategorien(parsed);
               setFormKategorie(parsed[0]);
             }
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,11 +97,15 @@ export default function NeuerMengenrabattPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Speichern");
       }
       router.push("/mengenrabatte");
     } catch (err) {
+      Sentry.captureException(err);
       setFormError(err instanceof Error ? err.message : "Fehler beim Speichern");
     } finally {
       setSaving(false);

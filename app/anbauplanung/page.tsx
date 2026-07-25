@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Schlag {
   id: number;
@@ -258,7 +259,10 @@ function AnbauplanungContent() {
     // Persist filters in sessionStorage
     try {
       sessionStorage.setItem("anbauplanung-filters", JSON.stringify({ jahr, kundeId, schlagId }));
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
     load();
   }, [jahr, kundeId, schlagId, ansicht]);
 

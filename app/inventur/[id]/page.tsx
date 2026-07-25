@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
   id: number;
@@ -161,7 +162,10 @@ export default function InventurDetailPage() {
       setInventur(data);
       setSaveSuccess(true);
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setSaveError(d.error ?? "Fehler beim Speichern.");
     }
     setSaving(false);

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { MONATE_KURZ, getJahreListeNum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const MONATE = MONATE_KURZ;
 const STATUS_COLOR: Record<string, string> = {
@@ -12,7 +13,10 @@ const STATUS_COLOR: Record<string, string> = {
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
 
 function loadFilters() {
-  try { return JSON.parse(sessionStorage.getItem("personal-abrechnungen-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("personal-abrechnungen-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 interface Abrechnung {
@@ -39,7 +43,9 @@ export default function AbrechnungenPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    try { sessionStorage.setItem("personal-abrechnungen-filters", JSON.stringify({ monat, jahr, status: statusFilter })); } catch {}
+    try { sessionStorage.setItem("personal-abrechnungen-filters", JSON.stringify({ monat, jahr, status: statusFilter })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [monat, jahr, statusFilter]);
 
   function loadData() {

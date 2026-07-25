@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 type Quelle = "lieferung" | "vorbestellung" | "angebot";
 
@@ -87,7 +88,8 @@ export default function ArtikelKundenUebersicht({ artikelId }: { artikelId: numb
         if (cancelled) return;
         setVorgaenge(Array.isArray(data?.vorgaenge) ? data.vorgaenge : []);
       })
-      .catch(() => {
+      .catch((err) => {
+        Sentry.captureException(err);
         if (!cancelled) setError("Konnte Kundendaten nicht laden.");
       })
       .finally(() => {

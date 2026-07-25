@@ -317,7 +317,10 @@ export async function POST(req: NextRequest) {
 
   // ── Stammdaten-Import (JSON) ───────────────────────────────────────────────
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    });
     const gruppenTitel: string | undefined = body.gruppenTitel;
 
     const zuImportieren = gruppenTitel

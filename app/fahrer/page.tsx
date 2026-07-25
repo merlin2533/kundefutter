@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Artikel {
   name: string;
@@ -78,12 +79,16 @@ export default function FahrerCockpit() {
       const bisStr = new Date(heute.getFullYear(), heute.getMonth(), heute.getDate(), 23, 59, 59, 999).toISOString();
       const res = await fetch(`/api/lieferungen?status=geplant&von=${encodeURIComponent(vonStr)}&bis=${encodeURIComponent(bisStr)}&limit=100`);
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(d.error ?? "Fehler beim Laden der Lieferungen");
       }
       const data: Lieferung[] = await res.json();
       setLieferungen(Array.isArray(data) ? data : []);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);
@@ -103,7 +108,10 @@ export default function FahrerCockpit() {
         body: JSON.stringify({ status: "geliefert" }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(d.error ?? "Fehler beim Aktualisieren des Status");
         return;
       }
@@ -112,7 +120,8 @@ export default function FahrerCockpit() {
         setSuccessId(null);
         lade();
       }, 1200);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Netzwerkfehler – bitte nochmal versuchen");
     } finally {
       setUpdatingId(null);
@@ -136,10 +145,14 @@ export default function FahrerCockpit() {
             body: JSON.stringify({ lat, lng, genauigkeit, tourname }),
           });
           if (!res.ok) {
-            const d = await res.json().catch(() => ({}));
+            const d = await res.json().catch((err) => {
+              Sentry.captureException(err);
+              return ({});
+            });
             setGpsFehler(d.error ?? "Fehler beim Senden der Position");
           }
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           setGpsFehler("Netzwerkfehler beim Senden der Position");
         } finally {
           setGpsSending(false);
@@ -175,7 +188,10 @@ export default function FahrerCockpit() {
     setLetztePosition(null);
     try {
       await fetch("/api/fahrer/position", { method: "DELETE" });
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }, []);
 
   // Cleanup on unmount

@@ -242,7 +242,9 @@ async function saveStatus(ok: boolean, startedAt: string, results: JobResult[]) 
     where: { key: "cron.letzterLauf" },
     create: { key: "cron.letzterLauf", value: payload },
     update: { value: payload },
-  }).catch(() => {});
+  }).catch((err) => {
+    Sentry.captureException(err);
+  });
 }
 
 export async function GET(req: NextRequest) {
@@ -252,7 +254,10 @@ export async function GET(req: NextRequest) {
 
   // Status-only — kein Run
   if (req.nextUrl.searchParams.get("status") === "1") {
-    const row = await prisma.einstellung.findUnique({ where: { key: "cron.letzterLauf" } }).catch(() => null);
+    const row = await prisma.einstellung.findUnique({ where: { key: "cron.letzterLauf" } }).catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    });
     if (!row) return NextResponse.json({ ok: null, startedAt: null, jobs: [] });
     try { return NextResponse.json(JSON.parse(row.value)); }
     catch (err) {

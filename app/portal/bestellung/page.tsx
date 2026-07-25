@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 export default function PortalBestellungPage() {
   const [artikelName, setArtikelName] = useState("");
@@ -36,7 +37,8 @@ export default function PortalBestellungPage() {
       setArtikelName("");
       setMenge("");
       setNotiz("");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Verbindungsfehler");
     } finally {
       setSaving(false);

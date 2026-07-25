@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeOption {
   id: number;
@@ -102,7 +103,9 @@ function ReklamationenInner() {
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : d.kunden ?? []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const fetchReklamationen = useCallback(async () => {
@@ -116,7 +119,8 @@ function ReklamationenInner() {
       if (!res.ok) { setReklamationen([]); return; }
       const data = await res.json();
       setReklamationen(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setReklamationen([]);
     } finally {
       setLoading(false);

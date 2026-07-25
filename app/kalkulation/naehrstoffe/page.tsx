@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Artikel {
   id: number;
@@ -189,7 +190,9 @@ export default function NaehrstoffkalkulatorPage() {
     fetch("/api/artikel?kategorie=Futter&limit=200")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {

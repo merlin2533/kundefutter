@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
 import { KI_MODELLE, KI_MODELL_STANDARD } from "@/lib/ki-modelle";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Typen ───────────────────────────────────────────────────────────────────
 
@@ -138,7 +139,8 @@ export default function KiEinstellungenPage() {
         if (val) loadedPrompts[f.key] = val;
       }
       setPrompts(loadedPrompts);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der KI-Einstellungen.");
     } finally {
       setLoading(false);
@@ -153,7 +155,8 @@ export default function KiEinstellungenPage() {
         const res = await fetch("/api/ki/statistik?tage=30");
         if (!res.ok) throw new Error();
         setStatistik(await res.json());
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setStatistikError("Statistik konnte nicht geladen werden.");
       } finally {
         setStatistikLoading(false);
@@ -189,7 +192,8 @@ export default function KiEinstellungenPage() {
         setHasMistralKey(true);
       }
       return true;
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       return false;
     }
   }
@@ -231,7 +235,8 @@ export default function KiEinstellungenPage() {
       });
       const data = res.ok ? await res.json() : { ok: false, error: "Serveranfrage fehlgeschlagen" };
       setTestResult(data);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setTestResult({ ok: false, error: "Netzwerkfehler" });
     } finally {
       setTesting(false);
@@ -251,7 +256,8 @@ export default function KiEinstellungenPage() {
       if (!res.ok) throw new Error("Speichern fehlgeschlagen");
       setPromptSaved(featureKey);
       setTimeout(() => setPromptSaved(null), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError(`Fehler beim Speichern des ${featureKey}-Prompts.`);
     } finally {
       setSavingPrompt(null);
@@ -269,7 +275,8 @@ export default function KiEinstellungenPage() {
       if (!res.ok) throw new Error("Zurücksetzen fehlgeschlagen");
       setPromptSaved(featureKey);
       setTimeout(() => setPromptSaved(null), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError(`Fehler beim Zurücksetzen des ${featureKey}-Prompts.`);
     }
   }

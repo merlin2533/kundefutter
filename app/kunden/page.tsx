@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeKontakt {
   id: number;
@@ -30,7 +31,10 @@ interface Kunde {
 const PAGE_LIMIT = 100;
 
 function loadKundenFilters() {
-  try { return JSON.parse(sessionStorage.getItem("kunden-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("kunden-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function KundenPage() {
@@ -58,7 +62,10 @@ export default function KundenPage() {
       params.set("limit", String(PAGE_LIMIT));
       const res = await fetch(`/api/kunden?${params.toString()}`);
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(err.error ?? `HTTP ${res.status}`);
       }
       const json = await res.json();
@@ -69,6 +76,7 @@ export default function KundenPage() {
       }
       setTotal(json.total ?? null);
     } catch (err) {
+      Sentry.captureException(err);
       console.error("Kunden laden fehlgeschlagen:", err);
       if (currentPage === 1) setKunden([]);
     } finally {
@@ -88,7 +96,9 @@ export default function KundenPage() {
   // Persist filters to sessionStorage (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("kunden-filters", JSON.stringify({ search, nurAktiv, tagFilter })); } catch {}
+    try { sessionStorage.setItem("kunden-filters", JSON.stringify({ search, nurAktiv, tagFilter })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, search, nurAktiv, tagFilter]);
 
   // Reset to page 1 when filters change
@@ -111,7 +121,10 @@ export default function KundenPage() {
     try {
       const res = await fetch(`/api/kunden/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         alert(err.error ?? "Fehler beim Löschen");
         return;
       }
@@ -135,7 +148,8 @@ export default function KundenPage() {
       if (!res.ok) { setImportResult({ created: 0, skipped: 0, errors: [data.error ?? "Fehler"] }); return; }
       setImportResult(data);
       if (data.created > 0) { setPage(1); fetchKunden(1); }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setImportResult({ created: 0, skipped: 0, errors: ["Netzwerkfehler"] });
     } finally {
       setImporting(false);
@@ -315,7 +329,10 @@ export default function KundenPage() {
                               <span key={tag} className="px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">{tag}</span>
                             ))}
                           </div>
-                        ) : null; } catch { return null; } })()}
+                        ) : null; } catch (err) {
+                          Sentry.captureException(err);
+                          return null;
+                        } })()}
                       </td>
                       <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{kunde.firma ?? "—"}</td>
                       <td className="hidden md:table-cell text-center px-2 py-3">

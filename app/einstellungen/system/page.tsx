@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 // Laufzeit-Abhängigkeiten (deckungsgleich mit THIRD-PARTY-LICENSES.md).
 // Bei neuen Paketen hier UND in THIRD-PARTY-LICENSES.md ergänzen
@@ -75,7 +76,9 @@ export default function SystemPage() {
           setFirmenname(String(data["firma.name"]));
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     return () => {
       aktiv = false;
     };

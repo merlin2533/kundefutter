@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -48,7 +49,9 @@ function NeueSammelrechnungForm() {
         const val = parseInt(d["firma.zahlungszielStandard"] ?? "", 10);
         if (!isNaN(val) && val >= 0) setZahlungsziel(String(val));
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -90,6 +93,7 @@ function NeueSammelrechnungForm() {
       }
       router.push("/sammelrechnungen");
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Erstellen");
     } finally {
       setLoading(false);

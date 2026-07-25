@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Typen (Spiegel der Lib-Typen) ───────────────────────────────────────────
 type TierartKey = "Rind" | "Schwein" | "Geflugel" | "Pferd" | "Schaf" | "Ziege";
@@ -106,18 +107,27 @@ function RationsInner() {
 
   // ── Stammdaten laden ──────────────────────────────────────────────────────
   useEffect(() => {
-    fetch("/api/rationsberechnung?meta=1").then((r) => r.json()).then(setMeta).catch(() => {});
+    fetch("/api/rationsberechnung?meta=1").then((r) => r.json()).then(setMeta).catch((err) => {
+      Sentry.captureException(err);
+    });
     fetch("/api/kunden?limit=2000").then((r) => r.json())
-      .then((d) => setKunden(Array.isArray(d) ? d : (d?.kunden ?? []))).catch(() => {});
+      .then((d) => setKunden(Array.isArray(d) ? d : (d?.kunden ?? []))).catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?kategorie=Futter&limit=500").then((r) => r.json())
-      .then((d) => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? []))).catch(() => {});
+      .then((d) => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? []))).catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // ── Tiere des gewählten Kunden ────────────────────────────────────────────
   useEffect(() => {
     if (!kundeId) { setTiere([]); return; }
     fetch(`/api/kunden/${kundeId}/tiere`).then((r) => (r.ok ? r.json() : []))
-      .then((d) => setTiere(Array.isArray(d) ? d : [])).catch(() => setTiere([]));
+      .then((d) => setTiere(Array.isArray(d) ? d : [])).catch((err) => {
+        Sentry.captureException(err);
+        return setTiere([]);
+      });
   }, [kundeId]);
 
   // ── Tier-Auswahl füllt die Eingaben vor ───────────────────────────────────
@@ -138,7 +148,10 @@ function RationsInner() {
     if (tierId) url += `?kundeTierId=${tierId}`;
     else if (kundeId) url += `?kundeId=${kundeId}`;
     fetch(url).then((r) => (r.ok ? r.json() : []))
-      .then((d) => setHistorie(Array.isArray(d) ? d : [])).catch(() => setHistorie([]));
+      .then((d) => setHistorie(Array.isArray(d) ? d : [])).catch((err) => {
+        Sentry.captureException(err);
+        return setHistorie([]);
+      });
   }, [tierId, kundeId]);
   useEffect(() => { ladeHistorie(); }, [ladeHistorie]);
 
@@ -206,7 +219,10 @@ function RationsInner() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         toast.error(err.error ?? "Berechnung fehlgeschlagen");
         return;
       }
@@ -217,7 +233,8 @@ function RationsInner() {
         toast.success("Berechnung gespeichert");
         ladeHistorie();
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       toast.error("Netzwerkfehler");
     } finally {
       setRechnet(false);
@@ -241,7 +258,8 @@ function RationsInner() {
       a.download = `Ration_${(bezeichnung || tierart).replace(/[^a-zA-Z0-9]/g, "_")}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       toast.error("Export fehlgeschlagen");
     }
   }

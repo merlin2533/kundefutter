@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface RetourePosition {
   menge: number;
@@ -48,7 +49,8 @@ export default function RetourenPage() {
       if (!res.ok) throw new Error(`Fehler ${res.status}`);
       const data = await res.json();
       setRetouren(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setRetouren([]);
     } finally {
       setLoading(false);

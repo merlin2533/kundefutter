@@ -3,6 +3,7 @@
 import { useState, useEffect, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeOption {
   id: number;
@@ -90,7 +91,10 @@ function NeuAnbauplanContent() {
             if (Array.isArray(parsed) && parsed.length > 0) {
               setFruchtarten(parsed);
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       });
   }, []);

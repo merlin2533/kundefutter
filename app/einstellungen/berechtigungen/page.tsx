@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PERMISSION_META, ROLLE_PRESETS, ALL_PERMISSIONS } from "@/lib/permissions";
+import * as Sentry from "@sentry/nextjs";
 
 type Rolle = {
   id: number;
@@ -74,7 +75,8 @@ export default function BerechtigungenPage() {
       ]);
       if (rRes.ok) setRollen(await rRes.json());
       if (bRes.ok) setBenutzer(await bRes.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Fehler beim Laden");
     } finally {
       setLoading(false);
@@ -115,7 +117,10 @@ export default function BerechtigungenPage() {
         body: JSON.stringify({ berechtigungen }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setFehler(d?.error ?? "Speichern fehlgeschlagen");
       }
     } finally {
@@ -127,7 +132,10 @@ export default function BerechtigungenPage() {
     if (!confirm(`Rolle „${rolle.bezeichnung}" wirklich löschen?`)) return;
     const res = await fetch(`/api/rollen/${rolle.id}`, { method: "DELETE" });
     if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       alert(d?.error ?? "Löschen fehlgeschlagen");
       return;
     }
@@ -144,7 +152,10 @@ export default function BerechtigungenPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: neuerName, bezeichnung: neueBezeichnung, preset: neuerPreset || undefined }),
       });
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       if (!res.ok) { setAnlegenFehler(d?.error ?? "Fehler"); return; }
       setNeueRolleOffen(false);
       setNeuerName("");

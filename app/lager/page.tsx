@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
 import { formatEuro, formatDatum, lagerStatus, istLagerrelevant } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,10 @@ const inputCls =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
 
 function loadLagerFilters() {
-  try { return JSON.parse(sessionStorage.getItem("lager-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+  try { return JSON.parse(sessionStorage.getItem("lager-filters") ?? "{}") as Record<string, string>; } catch (err) {
+    Sentry.captureException(err);
+    return {} as Record<string, string>;
+  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -80,7 +84,10 @@ export default function LagerPage() {
   // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("lager-filters", JSON.stringify({ search, filter, kategorieFilter, datumVon, datumBis })); } catch { /* ignore */ }
+    try { sessionStorage.setItem("lager-filters", JSON.stringify({ search, filter, kategorieFilter, datumVon, datumBis })); } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }, [filtersLoaded, search, filter, kategorieFilter, datumVon, datumBis]);
 
   const fetchArtikel = useCallback(async () => {
@@ -163,7 +170,10 @@ export default function LagerPage() {
       setKorrekturArtikel(null);
       fetchArtikel();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setKorrekturError(d.error ?? "Fehler beim Speichern.");
     }
   }

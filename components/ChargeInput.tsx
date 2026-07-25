@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface ChargeMeta {
   chargeNr: string;
@@ -52,7 +53,9 @@ export default function ChargeInput({
         if (cancelled) return;
         setChargen(Array.isArray(d.chargen) ? d.chargen : []);
       })
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

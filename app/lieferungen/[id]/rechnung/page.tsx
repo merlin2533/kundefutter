@@ -8,6 +8,7 @@ import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
   id: number;
@@ -111,10 +112,14 @@ export default function RechnungPrintPage() {
         setLieferung((prev) => (prev ? { ...prev, lieferscheinNr: updated.lieferscheinNr ?? null } : prev));
         setLsNrEdit(false);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Lieferschein-Nr. konnte nicht gespeichert werden.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Speichern der Lieferschein-Nr.");
     } finally {
       setLsNrSaving(false);
@@ -135,10 +140,14 @@ export default function RechnungPrintPage() {
         setLieferung((prev) => (prev ? { ...prev, rechnungNr: updated.rechnungNr ?? prev.rechnungNr } : prev));
         setReNrEdit(false);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Rechnungsnummer konnte nicht gespeichert werden.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Speichern der Rechnungsnummer.");
     } finally {
       setReNrSaving(false);
@@ -160,10 +169,14 @@ export default function RechnungPrintPage() {
         setLieferung((prev) => (prev ? { ...prev, rechnungDatum: updated.rechnungDatum ?? null } : prev));
         setRdEdit(false);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Rechnungsdatum konnte nicht gespeichert werden.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Speichern des Rechnungsdatums.");
     } finally {
       setRdSaving(false);
@@ -187,10 +200,14 @@ export default function RechnungPrintPage() {
       if (res.ok) {
         setLieferung(await res.json());
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Storno fehlgeschlagen.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Storno.");
     } finally {
       setStornoLoading(false);
@@ -209,10 +226,14 @@ export default function RechnungPrintPage() {
       if (res.ok) {
         setLieferung(await res.json());
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError((d as { error?: string }).error ?? "Aktion fehlgeschlagen.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler.");
     } finally {
       setStornoLoading(false);
@@ -234,10 +255,14 @@ export default function RechnungPrintPage() {
         // Rechnung erstellen (siehe init()) – daher zurück zur Lieferung navigieren.
         router.push(`/lieferungen/${id}`);
       } else {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setLoeschError((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setLoeschError("Netzwerkfehler beim Löschen.");
     } finally {
       setLoeschLoading(false);
@@ -280,7 +305,8 @@ export default function RechnungPrintPage() {
         heightLeft -= pageH;
       }
       pdf.save(`Rechnung_${(lieferung?.rechnungNr ?? `LS-${id}`).replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("PDF konnte nicht erzeugt werden.");
     } finally {
       setVorschauPdfLoading(false);
@@ -313,7 +339,10 @@ export default function RechnungPrintPage() {
           if (patchRes.ok) {
             data = await patchRes.json();
           } else {
-            const errBody = await patchRes.json().catch(() => ({}));
+            const errBody = await patchRes.json().catch((err) => {
+              Sentry.captureException(err);
+              return ({});
+            });
             // If it failed because one already exists, reload to get current data
             if ((errBody as { error?: string }).error?.includes("bereits")) {
               data = await loadLieferung();
@@ -325,7 +354,8 @@ export default function RechnungPrintPage() {
         }
 
         setLieferung(data);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setError("Fehler beim Laden der Lieferung.");
       } finally {
         setLoading(false);
@@ -342,7 +372,9 @@ export default function RechnungPrintPage() {
       setFirmaData(fd as Record<string, string>);
       if ((ld as Record<string, string>)["system.logo"]) setLogo((ld as Record<string, string>)["system.logo"]);
       setFooterData(ftr as Record<string, string>);
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
 
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       setCanShare(true);
@@ -351,7 +383,10 @@ export default function RechnungPrintPage() {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setIstAdmin(d?.user?.rolle === "admin"))
-      .catch(() => setIstAdmin(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setIstAdmin(false);
+      });
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // GiroCode erzeugen, sobald Firmen- und Rechnungsdaten vorliegen
@@ -377,7 +412,9 @@ export default function RechnungPrintPage() {
     let cancelled = false;
     erzeugeGiroCodeDataUrl({ empfaenger, iban, bic, betrag: brutto, verwendungszweck: verwendung })
       .then((url) => { if (!cancelled && url) setGiroCode(url); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     return () => { cancelled = true; };
   }, [lieferung, firmaData]);
 
@@ -396,7 +433,8 @@ export default function RechnungPrintPage() {
         setShareMsg("Link kopiert");
         setTimeout(() => setShareMsg(""), 2500);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Benutzer hat Dialog abgebrochen – ignorieren
     }
   }
@@ -419,7 +457,8 @@ export default function RechnungPrintPage() {
       } else {
         setMailFehler(data.error ?? "Fehler beim Versand.");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setMailFehler("Netzwerkfehler beim E-Mail-Versand.");
     } finally {
       setMailSending(false);
@@ -608,7 +647,8 @@ export default function RechnungPrintPage() {
                 const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
                 pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
                 return pdf.output("datauristring").split(",")[1];
-              } catch {
+              } catch (err) {
+                Sentry.captureException(err);
                 return null;
               }
             }}

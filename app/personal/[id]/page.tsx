@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MONATE_KURZ, getJahreListeNum, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
 const TYP_COLOR: Record<string, string> = {
@@ -192,7 +193,10 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     if (res.ok) {
       setMa((prev) => prev ? { ...prev, aktiv: false } : prev);
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setAbrError(d.error ?? "Fehler beim Deaktivieren");
     }
   }

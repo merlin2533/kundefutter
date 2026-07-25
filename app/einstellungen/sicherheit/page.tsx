@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_MIN_LAENGE = 8;
 const DEFAULT_SESSION_STUNDEN = 168; // 7 Tage
@@ -40,7 +41,8 @@ export default function SicherheitEinstellungenPage() {
         const n2 = parseInt(data2["system.passwort_minlaenge"] ?? "", 10);
         if (Number.isFinite(n2) && n2 >= 4) setMinLaenge(n2);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -74,7 +76,8 @@ export default function SicherheitEinstellungenPage() {
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

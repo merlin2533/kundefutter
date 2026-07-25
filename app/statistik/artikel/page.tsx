@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelRow {
   artikelId: number;
@@ -48,7 +49,8 @@ export default function StatistikArtikelPage() {
       const res = await fetch(`/api/statistik/artikel?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Rastert ein Bild (auch SVG) client-seitig auf Canvas und exportiert es als
@@ -55,7 +56,9 @@ function FirmenlogoEditor() {
           setLogo(d["system.logo"]);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -71,7 +74,8 @@ function FirmenlogoEditor() {
       try {
         const png = await rasterizeToPng(reader.result as string);
         setPreview(png);
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setError("Bild konnte nicht verarbeitet werden. Bitte ein anderes Format versuchen.");
       }
     };
@@ -95,7 +99,8 @@ function FirmenlogoEditor() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern des Logos.");
     } finally {
       setSaving(false);
@@ -117,7 +122,8 @@ function FirmenlogoEditor() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Entfernen des Logos.");
     } finally {
       setSaving(false);
@@ -200,7 +206,9 @@ function AppNameEditor() {
       .then((d: Record<string, string>) => {
         if (d["system.appname"]) setAppName(d["system.appname"]);
       })
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -216,7 +224,8 @@ function AppNameEditor() {
       if (!res.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern des App-Namens.");
     } finally {
       setSaving(false);

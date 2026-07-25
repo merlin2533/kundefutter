@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 const TYPEN = [
   { value: "besuch",  label: "Besuch",  icon: "🏠" },
@@ -45,7 +46,10 @@ export default function NeueAktivitaetPage() {
         }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d.error ?? "Fehler beim Speichern");
         return;
       }

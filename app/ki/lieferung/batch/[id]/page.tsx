@@ -8,6 +8,7 @@ import KonfidenzBadge from "@/components/KonfidenzBadge";
 import NeuArtikelInline, { type NeuArtikelErgebnis } from "@/components/NeuArtikelInline";
 import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
 import DezimalInput from "@/components/DezimalInput";
+import * as Sentry from "@sentry/nextjs";
 import {
   matchArtikel,
   matchKunde,
@@ -132,7 +133,9 @@ function meldeLernkorrektur(typ: "artikel" | "kunde", suchtext: string, zielId: 
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ typ, suchtext: text, zielId }),
-  }).catch(() => {});
+  }).catch((err) => {
+    Sentry.captureException(err);
+  });
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -192,6 +195,7 @@ export default function KiLieferungBatchDetailPage() {
       setGelerntArtikel(new Map((gelerntArtikelData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])));
       setBatch(batchData);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);
@@ -222,7 +226,10 @@ export default function KiLieferungBatchDetailPage() {
           });
           if (res.status === 400) {
             // Globales Konfigurationsproblem (z.B. fehlender API-Key) — weitere Versuche sind zwecklos
-            const d = await res.json().catch(() => ({}));
+            const d = await res.json().catch((err) => {
+              Sentry.captureException(err);
+              return ({});
+            });
             setLoadError(d.error || "KI-Analyse nicht möglich");
             break;
           }
@@ -230,7 +237,8 @@ export default function KiLieferungBatchDetailPage() {
             const updatedRaw = await res.json();
             await verarbeiteAnalyseErgebnis(item.id, updatedRaw);
           }
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           // einzelnes Item schlägt fehl — weiter mit dem nächsten
         }
         erledigt++;
@@ -305,7 +313,9 @@ export default function KiLieferungBatchDetailPage() {
         fehlendeFelder,
         entscheidung,
       }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }
 
   // ── Item-Korrekturen ──────────────────────────────────────────────────────
@@ -328,7 +338,9 @@ export default function KiLieferungBatchDetailPage() {
         fehlendeFelder: item.fehlendeFelder,
         entscheidung: item.entscheidung,
       }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }
 
   function updateItem(itemId: number, updater: (item: BatchItem) => BatchItem) {
@@ -421,6 +433,7 @@ export default function KiLieferungBatchDetailPage() {
       setFinalizeResult(d);
       await ladeAlles();
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setFinalizing(false);
@@ -439,6 +452,7 @@ export default function KiLieferungBatchDetailPage() {
       if (!res.ok) throw new Error(d.error || "Übernehmen fehlgeschlagen");
       await ladeAlles();
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setFinalizingItemId(null);
@@ -457,6 +471,7 @@ export default function KiLieferungBatchDetailPage() {
       if (!res.ok) throw new Error("Verwerfen fehlgeschlagen");
       router.push("/ki/lieferung?modus=batch");
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setDiscarding(false);
     }

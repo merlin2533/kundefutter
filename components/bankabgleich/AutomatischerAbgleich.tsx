@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import ZuordnungsVorschlagCard from "./ZuordnungsVorschlagCard";
+import * as Sentry from "@sentry/nextjs";
 
 type Typ = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
 
@@ -150,7 +151,8 @@ export default function AutomatischerAbgleich({
       await uebernehmen(paar, alsBezahltMarkieren, paar.konfidenz != null ? "ki" : "automatisch", paar.konfidenz);
       entferneAusListe(paar.bank.umsatzId);
       onUebernommen();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Übernehmen fehlgeschlagen.");
     }
   }
@@ -175,7 +177,8 @@ export default function AutomatischerAbgleich({
       }
       setReviewOffen(false);
       onUebernommen();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Einige Zuordnungen konnten nicht übernommen werden — bitte Liste prüfen.");
     } finally {
       setReviewBusy(false);
@@ -193,7 +196,8 @@ export default function AutomatischerAbgleich({
       }
       setSchnellOffen(false);
       onUebernommen();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Einige Zuordnungen konnten nicht übernommen werden — bitte Liste prüfen.");
     } finally {
       setSchnellBusy(false);
@@ -212,7 +216,10 @@ export default function AutomatischerAbgleich({
         body: JSON.stringify({ umsatzIds }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setFehler(d.error ?? "KI-Abgleich fehlgeschlagen.");
         return;
       }

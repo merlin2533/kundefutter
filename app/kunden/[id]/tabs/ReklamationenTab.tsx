@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeReklamation {
   id: number;
@@ -34,7 +35,10 @@ export default function ReklamationenTab({ kundeId }: { kundeId: number }) {
     fetch(`/api/reklamationen?kundeId=${kundeId}`)
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setListe(Array.isArray(d) ? d : []))
-      .catch(() => setListe([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setListe([]);
+      })
       .finally(() => setLoading(false));
   }, [kundeId]);
 

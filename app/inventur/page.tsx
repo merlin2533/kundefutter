@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Inventur {
   id: number;
@@ -38,7 +39,8 @@ export default function InventurPage() {
       }
       const data = await res.json();
       setInventuren(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setInventuren([]);
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -47,14 +48,18 @@ export default function NeueRechnungPage() {
     fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setKunden(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
       .then((r) => r.json())
       .then((d) => {
         const val = parseInt(d["firma.zahlungszielStandard"] ?? "30", 10);
         if (!isNaN(val) && val >= 0) setZahlungsziel(val);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Nächste Rechnungsnummer vorladen (nur zur Anzeige)
@@ -77,7 +82,10 @@ export default function NeueRechnungPage() {
           setNaechsteNr(`RE-${jahr}-${String(num).padStart(4, "0")}`);
         }
       })
-      .catch(() => setNaechsteNr("(wird automatisch vergeben)"));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setNaechsteNr("(wird automatisch vergeben)");
+      });
   }, []);
 
   // Lieferungen für gewählten Kunden laden (nur ohne Rechnung)
@@ -95,7 +103,9 @@ export default function NeueRechnungPage() {
         // Alle vorauswählen
         setAusgewaehlt(list.map((l) => l.id));
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, [kundeId]);
 
   function toggleLieferung(id: number) {
@@ -160,7 +170,8 @@ export default function NeueRechnungPage() {
       } else {
         router.push("/rechnungen");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Unbekannter Fehler beim Erstellen der Rechnung.");
     } finally {
       setSaving(false);

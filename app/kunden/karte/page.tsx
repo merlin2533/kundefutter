@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,8 @@ async function geocodeKunde(kundeId: number): Promise<{ lat: number; lng: number
     if (!res.ok) return null;
     const data = await res.json();
     return data.lat != null ? { lat: data.lat, lng: data.lng } : null;
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return null;
   }
 }

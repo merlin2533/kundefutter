@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface KampagneArtikel {
   id: number;
@@ -118,8 +119,14 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/artikel?limit=500").then((r) => r.json()).catch(() => []),
-      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch(() => []),
+      fetch("/api/artikel?limit=500").then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
+      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch((err) => {
+        Sentry.captureException(err);
+        return [];
+      }),
     ]).then(([artData, kundenData]) => {
       setAllArtikel(Array.isArray(artData) ? artData : []);
       setAlleKunden(Array.isArray(kundenData) ? kundenData : []);
@@ -150,11 +157,17 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
           try {
             const kr = JSON.parse(d.zielgruppeKriterien);
             setEditKriterien({ ort: kr.ort ?? "", plz: kr.plz ?? "", kategorie: kr.kategorie ?? "", tag: kr.tag ?? "" });
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   const loadKundePotenzial = useCallback(async () => {
@@ -220,7 +233,10 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
       .then((data: AlleKunde[]) => {
         setSuchvorschau((Array.isArray(data) ? data : []).filter((k) => !editKunden.some((s) => s.id === k.id)));
       })
-      .catch(() => setSuchvorschau([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSuchvorschau([]);
+      })
       .finally(() => setLoadingVorschau(false));
   }
 
@@ -281,7 +297,8 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
       setEditing(false);
       // Reload potenzial if on that tab
       if (activeTab === "kunden") loadKundePotenzial();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
@@ -294,7 +311,8 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
     try {
       await fetch(`/api/kampagnen/${id}`, { method: "DELETE" });
       router.push("/kampagnen");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setDeleting(false);
     }
   }

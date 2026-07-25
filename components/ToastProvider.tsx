@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useCallback } from "react";
 import { Toast } from "./Toast";
+import * as Sentry from "@sentry/nextjs";
 
 interface ToastItem {
   id: number;
@@ -27,6 +28,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const showToast = useCallback((message: string, type: "success" | "error") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
+    if (type === "error") {
+      Sentry.captureMessage(message, "error");
+    }
   }, []);
 
   const removeToast = useCallback((id: number) => {

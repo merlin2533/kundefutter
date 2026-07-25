@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface RetourePosition {
   id: number;
@@ -53,11 +54,15 @@ export default function RetoureDetailPage() {
         body: JSON.stringify({ aktion: "stornieren" }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error((d as { error?: string }).error || "Storno fehlgeschlagen");
       }
       await load();
     } catch (e) {
+      Sentry.captureException(e);
       alert(e instanceof Error ? e.message : "Fehler");
     } finally {
       setBusy(false);

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface PegelstandEintrag {
   id: number;
@@ -106,7 +107,8 @@ export default function TagesansichtPage() {
         setPegel(Array.isArray(p) ? p : []);
       }
       setAktualisiert(new Date());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setData(null);
     } finally {
       setLoading(false);
@@ -154,7 +156,8 @@ export default function TagesansichtPage() {
       setTimeout(() => {
         setErfasst((prev) => { const n = { ...prev }; delete n[kundeId]; return n; });
       }, 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     }
   }
@@ -509,7 +512,9 @@ function PegelKarteInner({ stationen }: { stationen: PegelstandEintrag[] }) {
           .bindPopup(`<strong>${s.stationKurz}</strong><br>${s.gewaesser}<br>${wertLabel}`)
           .addTo(map);
       });
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }, [stationen]);
 
   return <div ref={mapRef} className="w-full h-full" />;
