@@ -21,8 +21,8 @@ export async function geocodeAdresse(
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return null;
     return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }
@@ -57,8 +57,7 @@ export async function autoGeocodeKunde(
         data: { geocodeVersuche: { increment: 1 } },
       });
     }
-  } catch (err) {
-    Sentry.captureException(err);
-    // fire-and-forget: Fehler still ignorieren
+  } catch (e) {
+    Sentry.captureException(e); // fire-and-forget: Fehler wird nur gemeldet, nicht weitergereicht
   }
 }

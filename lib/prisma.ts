@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { Sentry } from "@/lib/sentry";
+// Direkter @sentry/nextjs-Import statt @/lib/sentry — vermeidet einen zirkulären
+// Import (lib/sentry.ts → lib/auth.ts → lib/prisma.ts), da dieses Modul sehr
+// früh und von praktisch allem im Backend geladen wird.
+import * as Sentry from "@sentry/nextjs";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
@@ -24,12 +27,9 @@ async function ensureWalMode() {
     await prisma.$executeRawUnsafe('PRAGMA synchronous=NORMAL;');
     await prisma.$executeRawUnsafe('PRAGMA cache_size=10000;');
     await prisma.$executeRawUnsafe('PRAGMA temp_store=memory;');
-  } catch (err) {
-    Sentry.captureException(err);
-    // silently ignore (might not be SQLite)
+  } catch (e) {
+    Sentry.captureException(e); // könnte theoretisch bei Nicht-SQLite auftreten, wird aber trotzdem gemeldet
   }
 }
 // Einmalig beim Start aufrufen (fire-and-forget)
-ensureWalMode().catch((err) => {
-  Sentry.captureException(err);
-});
+ensureWalMode().catch(() => {});

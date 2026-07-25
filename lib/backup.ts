@@ -93,9 +93,8 @@ export function pruneAutoBackups(keep: number): number {
     try {
       fs.unlinkSync(path.join(dir, f));
       deleted++;
-    } catch (err) {
-      Sentry.captureException(err);
-      /* ignore */
+    } catch (e) {
+      Sentry.captureException(e);
     }
   }
   return deleted;
@@ -151,9 +150,8 @@ export async function restoreFromFile(sourcePath: string): Promise<{ sicherung: 
   // WAL-Puffer leeren und Verbindung trennen
   try {
     await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");
-  } catch (err) {
-    Sentry.captureException(err);
-    // Ignorieren – DB ist vielleicht read-only oder bereits getrennt
+  } catch (e) {
+    Sentry.captureException(e); // Ignorieren – DB ist vielleicht read-only oder bereits getrennt
   }
 
   await prisma.$disconnect();
@@ -162,10 +160,7 @@ export async function restoreFromFile(sourcePath: string): Promise<{ sicherung: 
   for (const suffix of ["-wal", "-shm"]) {
     const f = dbPath + suffix;
     if (fs.existsSync(f)) {
-      try { fs.unlinkSync(f); } catch (err) {
-        Sentry.captureException(err);
-        /* ignorieren */
-      }
+      try { fs.unlinkSync(f); } catch (e) { Sentry.captureException(e); }
     }
   }
 

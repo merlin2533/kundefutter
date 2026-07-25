@@ -1,4 +1,7 @@
+// Client-safer Direkt-Import (kein next/server o.ä.) — diese Datei wird auch
+// von "use client"-Seiten importiert (z.B. app/einstellungen/mahnwesen/page.tsx).
 import * as Sentry from "@sentry/nextjs";
+
 export interface MahnwesenConfig {
   /** Tage überfällig ab denen Mahnstufe 1 (Zahlungserinnerung) gilt */
   stufe1Tage: number;
@@ -40,8 +43,8 @@ export function parseMahnwesenConfig(raw: string | null | undefined): MahnwesenC
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(raw);
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return { ...DEFAULT_MAHNWESEN_CONFIG };
   }
   const d = DEFAULT_MAHNWESEN_CONFIG;

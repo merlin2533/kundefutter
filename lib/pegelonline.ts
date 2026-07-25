@@ -1,5 +1,6 @@
-// WSV Pegelonline REST API v2
 import { Sentry } from "@/lib/sentry";
+
+// WSV Pegelonline REST API v2
 const BASE = "https://pegelonline.wsv.de/webservices/rest-api/v2";
 
 export interface PegelStation {
@@ -46,8 +47,8 @@ export async function fetchCurrentMeasurement(uuid: string): Promise<PegelMessun
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     return await res.json() as PegelMessung;
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }
@@ -58,8 +59,8 @@ export async function fetchStationByUuid(uuid: string): Promise<PegelStation | n
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     return await res.json() as PegelStation;
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }

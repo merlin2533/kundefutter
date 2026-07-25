@@ -23,6 +23,8 @@
  */
 
 import QRCode from "qrcode";
+// Funktioniert sowohl serverseitig als auch im Browser — daher Direkt-Import aus
+// @sentry/nextjs statt @/lib/sentry (das next/server + Prisma nach sich zieht).
 import * as Sentry from "@sentry/nextjs";
 
 export interface GiroCodeInput {
@@ -101,8 +103,8 @@ export async function erzeugeGiroCodeDataUrl(input: GiroCodeInput): Promise<stri
       width: 220,
       color: { dark: "#000000", light: "#ffffff" },
     });
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }

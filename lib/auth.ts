@@ -15,8 +15,8 @@ export async function getSessionMaxAge(): Promise<number> {
     if (!e?.value) return SESSION_MAX_AGE;
     const h = parseFloat(e.value);
     return Number.isFinite(h) && h > 0 ? Math.round(h * 3600) : SESSION_MAX_AGE;
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return SESSION_MAX_AGE;
   }
 }
@@ -87,8 +87,7 @@ export async function verifySession(token: string | undefined): Promise<SessionP
       };
     }
     return null;
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch {
     return null;
   }
 }
@@ -142,8 +141,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       berechtigungen: parseJson(user.berechtigungen),
       aktiv: user.aktiv,
     };
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }
@@ -153,8 +152,8 @@ function parseJson(raw: string | undefined | null): string[] {
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return [];
   }
 }

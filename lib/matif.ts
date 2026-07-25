@@ -9,7 +9,8 @@
  * Yahoo Finance erfordert seit 2024 ein Crumb-Token + Session-Cookie.
  * Ablauf: fc.yahoo.com → Cookie → getcrumb → Crumb für Chart-API.
  */
-import * as Sentry from "@sentry/nextjs";
+
+import { Sentry } from "@/lib/sentry";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -183,14 +184,13 @@ async function getYahooAuth(): Promise<YahooAuth | null> {
 
         _auth = { crumb, cookie, expiresAt: Date.now() + 55 * 60 * 1_000 };
         return _auth;
-      } catch (err) {
-        Sentry.captureException(err);
+      } catch (e) {
+        Sentry.captureException(e);
         continue;
       }
     }
-  } catch (err) {
-    Sentry.captureException(err);
-    // Auth-Fehler — wird ohne Crumb weiterversucht
+  } catch (e) {
+    Sentry.captureException(e); // Auth-Fehler — wird ohne Crumb weiterversucht
   }
 
   return null;
@@ -273,9 +273,8 @@ async function doFetchMatif(range: string): Promise<MatifProdukt[]> {
           statPrognose: statistischePrognose(verlauf),
         });
         parsed = true;
-      } catch (err) {
-        Sentry.captureException(err);
-        // Host nicht erreichbar – nächsten versuchen
+      } catch (e) {
+        Sentry.captureException(e); // Host nicht erreichbar – nächsten versuchen
       }
     }
   }

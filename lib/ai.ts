@@ -297,20 +297,11 @@ function detectIsPdf(base64: string): boolean {
 }
 
 export function parseJsonFromText(text: string): Record<string, unknown> {
-  try { return JSON.parse(text); } catch (err) {
-    Sentry.captureException(err);
-    /* fall */
-  }
+  try { return JSON.parse(text); } catch (e) { Sentry.captureException(e); /* fall */ }
   const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (match) { try { return JSON.parse(match[1]); } catch (err) {
-    Sentry.captureException(err);
-    /* fall */
-  } }
+  if (match) { try { return JSON.parse(match[1]); } catch (e) { Sentry.captureException(e); /* fall */ } }
   const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch (err) {
-    Sentry.captureException(err);
-    /* fall */
-  } }
+  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch (e) { Sentry.captureException(e); /* fall */ } }
   return { rawText: text };
 }
 

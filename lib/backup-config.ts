@@ -1,7 +1,8 @@
 /**
  * Client-sichere Typen & Parsing für die Backup-Konfiguration.
  * Enthält bewusst KEINE Node-Module (fs, prisma), damit auch Client-Komponenten
- * dies importieren können.
+ * dies importieren können. Sentry-Import daher direkt aus @sentry/nextjs statt
+ * @/lib/sentry (das next/server + Prisma nach sich zieht).
  */
 import * as Sentry from "@sentry/nextjs";
 
@@ -32,8 +33,8 @@ export function parseBackupConfig(raw: string | null | undefined): BackupConfig 
       intervallStunden: Number.isFinite(intervall) && intervall >= 1 ? intervall : d.intervallStunden,
       aufbewahrung: Number.isFinite(aufbewahrung) && aufbewahrung >= 1 ? aufbewahrung : d.aufbewahrung,
     };
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return { ...DEFAULT_BACKUP_CONFIG };
   }
 }

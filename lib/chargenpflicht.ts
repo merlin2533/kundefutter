@@ -19,8 +19,8 @@ export async function getChargenpflichtKategorien(): Promise<string[]> {
     return chargenpflichtKategorienAusSettings(
       row ? { [CHARGENPFLICHT_KATEGORIEN_KEY]: row.value } : {},
     );
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
   }
 }

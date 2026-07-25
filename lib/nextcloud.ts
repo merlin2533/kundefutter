@@ -11,7 +11,7 @@
 
 import { XMLParser } from "fast-xml-parser";
 import { prisma } from "./prisma";
-import { Sentry } from "@/lib/sentry";
+import { Sentry } from "./sentry";
 
 // ─── Einstellungen ────────────────────────────────────────────────────────────
 
@@ -90,26 +90,48 @@ function buildWebViewLink(cfg: NextcloudConfig, relOrdnerPfad: string): string {
   return `${cfg.serverUrl}/apps/files/?dir=${encodeURIComponent(dir)}`;
 }
 
+const MAX_RATE_LIMIT_VERSUCHE = 4;
+
+/**
+ * fetch()-Wrapper für alle WebDAV-Aufrufe: wiederholt bei HTTP 429 (Rate-Limit)
+ * automatisch mit Backoff (respektiert einen `Retry-After`-Header, falls vorhanden).
+ * Nötig, weil z.B. der Backfill-Job hunderte Requests direkt hintereinander ohne
+ * jede Drosselung feuert — bei einem Nextcloud-Server/Reverse-Proxy mit Rate-Limiting
+ * führt das sonst zu vermeidbaren 429-Fehlern, obwohl die Zugangsdaten gültig sind.
+ */
+async function davFetch(url: string, init: RequestInit, versuch = 1): Promise<Response> {
+  const res = await fetch(url, init);
+  if (res.status === 429 && versuch < MAX_RATE_LIMIT_VERSUCHE) {
+    const retryAfterSek = parseInt(res.headers.get("Retry-After") ?? "", 10);
+    const wartezeitMs = Number.isFinite(retryAfterSek) && retryAfterSek > 0 ? retryAfterSek * 1000 : versuch * 1000;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(wartezeitMs, 10_000)));
+    return davFetch(url, init, versuch + 1);
+  }
+  return res;
+}
+
 async function mkcol(cfg: NextcloudConfig, absolutePfadSegment: string): Promise<void> {
   const url = urlFuerAbsolutenPfad(cfg, absolutePfadSegment);
-  const res = await fetch(url, { method: "MKCOL", headers: { Authorization: authHeader(cfg) } });
+  const res = await davFetch(url, { method: "MKCOL", headers: { Authorization: authHeader(cfg) } });
   // 201 = angelegt, 405 = existiert bereits (Method Not Allowed auf vorhandener Collection)
   if (res.status === 201 || res.status === 405) return;
   // Manche Nextcloud-/Reverse-Proxy-Konfigurationen antworten auf MKCOL gegen einen
   // bereits vorhandenen Ordner uneinheitlich (z.B. 401 statt 405). Vor dem Fehlschlag
   // per PROPFIND prüfen, ob der Ordner tatsächlich schon existiert — falls ja, den
   // vorhandenen Ordner einfach übernehmen und nutzen statt einen Fehler zu werfen.
-  const existiertBereits = await fetch(url, {
+  const existiertBereits = await davFetch(url, {
     method: "PROPFIND",
     headers: { Authorization: authHeader(cfg), Depth: "0", "Content-Type": "application/xml" },
   })
     .then((r) => r.status === 207)
-    .catch((err) => {
-      Sentry.captureException(err);
+    .catch((e) => {
+      Sentry.captureException(e);
       return false;
     });
   if (existiertBereits) return;
-  throw new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
+  const fehler = new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
+  Sentry.captureException(fehler);
+  throw fehler;
 }
 
 /**
@@ -158,13 +180,15 @@ export async function uploadDatei(
   const zielAbsPfad = joinPfad(absPfad(cfg, relPfad), safeName);
   const url = urlFuerAbsolutenPfad(cfg, zielAbsPfad);
 
-  const res = await fetch(url, {
+  const res = await davFetch(url, {
     method: "PUT",
     headers: { Authorization: authHeader(cfg), "Content-Type": mimeType },
     body: buffer,
   });
   if (res.status !== 201 && res.status !== 204) {
-    throw new Error(`Nextcloud-Upload fehlgeschlagen (${res.status}): ${safeName}`);
+    const fehler = new Error(`Nextcloud-Upload fehlgeschlagen (${res.status}): ${safeName}`);
+    Sentry.captureException(fehler);
+    throw fehler;
   }
 
   return {
@@ -184,10 +208,12 @@ export async function uploadDatei(
 export async function dateiExistiert(relPfadMitDatei: string): Promise<boolean> {
   const cfg = await requireConfig();
   const url = urlFuerAbsolutenPfad(cfg, absPfad(cfg, relPfadMitDatei));
-  const res = await fetch(url, { method: "HEAD", headers: { Authorization: authHeader(cfg) } });
+  const res = await davFetch(url, { method: "HEAD", headers: { Authorization: authHeader(cfg) } });
   if (res.status === 200 || res.status === 204) return true;
   if (res.status === 404) return false;
-  throw new Error(`Nextcloud: Existenzprüfung fehlgeschlagen (${res.status}): ${relPfadMitDatei}`);
+  const fehler = new Error(`Nextcloud: Existenzprüfung fehlgeschlagen (${res.status}): ${relPfadMitDatei}`);
+  Sentry.captureException(fehler);
+  throw fehler;
 }
 
 /**
@@ -198,13 +224,15 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
   const cfg = await requireConfig();
   const altUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, altRelPfad));
   const neuUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, neuRelPfad));
-  const res = await fetch(altUrl, {
+  const res = await davFetch(altUrl, {
     method: "MOVE",
     headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
   });
   if (res.status === 404) return;
   if (res.status !== 201 && res.status !== 204) {
-    throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
+    const fehler = new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
+    Sentry.captureException(fehler);
+    throw fehler;
   }
 }
 
@@ -265,14 +293,16 @@ function parsePropfindListe(xml: string): PropfindEintrag[] {
 export async function listeDateien(relPfad: string): Promise<NextcloudDatei[]> {
   const cfg = await requireConfig();
   const url = urlFuerAbsolutenPfad(cfg, absPfad(cfg, relPfad));
-  const res = await fetch(url, {
+  const res = await davFetch(url, {
     method: "PROPFIND",
     headers: { Authorization: authHeader(cfg), Depth: "1", "Content-Type": "application/xml" },
     body: PROPFIND_BODY,
   });
   if (res.status === 404) return [];
   if (res.status !== 207) {
-    throw new Error(`Nextcloud: Ordner konnte nicht gelistet werden (${res.status}): ${relPfad}`);
+    const fehler = new Error(`Nextcloud: Ordner konnte nicht gelistet werden (${res.status}): ${relPfad}`);
+    Sentry.captureException(fehler);
+    throw fehler;
   }
   const xml = await res.text();
   const webViewLink = buildWebViewLink(cfg, relPfad);
@@ -307,13 +337,23 @@ export async function testVerbindung(): Promise<{ ok: boolean; fehler?: string }
     // App-Passwort schon das Anlegen des Root-Ordners fehl, bevor die Zugangsdaten
     // überhaupt geprüft wurden, egal welcher Ordnername konfiguriert ist.
     const wurzelUrl = urlFuerAbsolutenPfad(cfg, "");
-    const authRes = await fetch(wurzelUrl, {
+    const authRes = await davFetch(wurzelUrl, {
       method: "PROPFIND",
       headers: { Authorization: authHeader(cfg), Depth: "0", "Content-Type": "application/xml" },
       body: PROPFIND_BODY,
     });
-    if (authRes.status === 401 || authRes.status === 403) return { ok: false, fehler: "Zugangsdaten ungültig" };
-    if (authRes.status !== 207) return { ok: false, fehler: `Unerwartete Antwort vom Server (${authRes.status})` };
+    if (authRes.status === 401 || authRes.status === 403) {
+      Sentry.captureException(new Error("Nextcloud-Verbindungstest: Zugangsdaten ungültig"));
+      return { ok: false, fehler: "Zugangsdaten ungültig" };
+    }
+    if (authRes.status === 429) {
+      Sentry.captureException(new Error("Nextcloud-Verbindungstest: Rate-Limit (429) trotz Retry"));
+      return { ok: false, fehler: "Nextcloud hat zu viele Anfragen abgelehnt (429 Too Many Requests). Bitte kurz warten und erneut versuchen." };
+    }
+    if (authRes.status !== 207) {
+      Sentry.captureException(new Error(`Nextcloud-Verbindungstest: Unerwartete Antwort (${authRes.status})`));
+      return { ok: false, fehler: `Unerwartete Antwort vom Server (${authRes.status})` };
+    }
 
     try {
       await ensureOrdner(""); // legt den konfigurierten Root-Ordner an, falls er noch nicht existiert
@@ -436,8 +476,8 @@ export async function listeDateienImKundenUnterordner(
 ): Promise<NextcloudDatei[]> {
   try {
     return await listeDateien(joinPfad(kundenOrdnerPfad(kundeId, kundeName), unterordner));
-  } catch (err) {
-    Sentry.captureException(err);
+  } catch (e) {
+    Sentry.captureException(e);
     return [];
   }
 }

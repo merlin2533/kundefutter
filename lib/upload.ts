@@ -14,9 +14,8 @@ export function getUploadBase(): string {
       accessSync("/data", constants.W_OK);
       return "/data/uploads";
     }
-  } catch (err) {
-    Sentry.captureException(err);
-    // fällt auf lokales Verzeichnis zurück
+  } catch (e) {
+    Sentry.captureException(e); // fällt auf lokales Verzeichnis zurück
   }
   return path.join(process.cwd(), "uploads");
 }
