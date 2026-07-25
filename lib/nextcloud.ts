@@ -295,15 +295,32 @@ export async function listeDateien(relPfad: string): Promise<NextcloudDatei[]> {
 export async function testVerbindung(): Promise<{ ok: boolean; fehler?: string }> {
   try {
     const cfg = await requireConfig();
-    await ensureOrdner(""); // legt den Root-Ordner an, falls er noch nicht existiert
-    const url = urlFuerAbsolutenPfad(cfg, absPfad(cfg, ""));
-    const res = await fetch(url, {
+
+    // Zugangsdaten zuerst mit einem reinen Lesezugriff prüfen (PROPFIND auf die
+    // persönliche DAV-Wurzel, unabhängig vom konfigurierten Root-Ordner, ohne MKCOL).
+    // So wird ein Auth-Fehler klar als "Zugangsdaten ungültig" gemeldet, statt als
+    // kryptischer MKCOL-Fehlercode — sonst schlägt bei falschem/abgelaufenem
+    // App-Passwort schon das Anlegen des Root-Ordners fehl, bevor die Zugangsdaten
+    // überhaupt geprüft wurden, egal welcher Ordnername konfiguriert ist.
+    const wurzelUrl = urlFuerAbsolutenPfad(cfg, "");
+    const authRes = await fetch(wurzelUrl, {
       method: "PROPFIND",
       headers: { Authorization: authHeader(cfg), Depth: "0", "Content-Type": "application/xml" },
       body: PROPFIND_BODY,
     });
-    if (res.status === 401 || res.status === 403) return { ok: false, fehler: "Zugangsdaten ungültig" };
-    if (res.status !== 207) return { ok: false, fehler: `Unerwartete Antwort vom Server (${res.status})` };
+    if (authRes.status === 401 || authRes.status === 403) return { ok: false, fehler: "Zugangsdaten ungültig" };
+    if (authRes.status !== 207) return { ok: false, fehler: `Unerwartete Antwort vom Server (${authRes.status})` };
+
+    try {
+      await ensureOrdner(""); // legt den konfigurierten Root-Ordner an, falls er noch nicht existiert
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return {
+        ok: false,
+        fehler: `Zugangsdaten sind gültig, aber der Ordner konnte nicht angelegt werden (${msg}). Bitte Schreibrechte des App-Passworts prüfen oder den Ordner manuell in Nextcloud anlegen.`,
+      };
+    }
+
     return { ok: true };
   } catch (e) {
     return { ok: false, fehler: e instanceof Error ? e.message : String(e) };
