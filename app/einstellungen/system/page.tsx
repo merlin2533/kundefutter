@@ -59,6 +59,9 @@ const NAMENSNENNUNGEN: { quelle: string; zweck: string; bedingung: string }[] = 
 export default function SystemPage() {
   const [buildInfo, setBuildInfo] = useState<{ version?: string; env?: string } | null>(null);
   const [firmenname, setFirmenname] = useState<string>("");
+  const [sentryStatus, setSentryStatus] = useState<{ serverDsnConfigured: boolean; buildTimeClientDsnHint: boolean } | null>(null);
+  const [sentryTesting, setSentryTesting] = useState<"server" | "browser" | null>(null);
+  const [sentryResult, setSentryResult] = useState<string | null>(null);
 
   useEffect(() => {
     setBuildInfo({
@@ -66,6 +69,65 @@ export default function SystemPage() {
       env: process.env.NODE_ENV ?? "–",
     });
   }, []);
+
+  useEffect(() => {
+    fetch("/api/einstellungen/sentry-test")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setSentryStatus(data);
+      })
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
+  }, []);
+
+  async function sentryServerTest() {
+    setSentryTesting("server");
+    setSentryResult(null);
+    try {
+      const res = await fetch("/api/einstellungen/sentry-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "manueller Test aus /einstellungen/system" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSentryResult(`Fehler: ${data.error ?? "unbekannt"}`);
+        return;
+      }
+      setSentryResult(
+        data.dsnConfigured
+          ? `Server-Event gesendet (eventId ${data.eventId}). In GlitchTip nachsehen — kommt es dort NICHT an, liegt es an Netzwerk/DSN-Gültigkeit/Projekt, nicht am Code.`
+          : `SENTRY_DSN ist auf dem Server NICHT gesetzt — der Event wurde lokal "erzeugt" (eventId ${data.eventId}), kann aber nirgends ankommen. SENTRY_DSN in der .env neben docker-compose(.prod).yml setzen und Container neu erzeugen.`
+      );
+    } catch (err) {
+      Sentry.captureException(err);
+      setSentryResult("Netzwerkfehler beim Server-Test.");
+    } finally {
+      setSentryTesting(null);
+    }
+  }
+
+  function sentryBrowserTest() {
+    setSentryTesting("browser");
+    setSentryResult(null);
+    try {
+      const eventId = Sentry.captureException(new Error("GlitchTip-Browser-Verbindungstest von /einstellungen/system"));
+      // process.env.NEXT_PUBLIC_SENTRY_DSN wird von Next.js beim Build direkt in
+      // dieses Client-Bundle eingesetzt — zuverlässiger Indikator als der
+      // serverseitige Laufzeit-Check, der nur zufällig denselben Wert sehen könnte.
+      const clientDsnBaked = Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN);
+      if (!clientDsnBaked) {
+        setSentryResult(
+          `Browser-Event "gesendet" (eventId ${eventId}) — NEXT_PUBLIC_SENTRY_DSN war beim Docker-Build aber nicht gesetzt, kommt also nirgends an. Muss als Build-ARG bzw. GitHub-Actions-Secret SENTRY_DSN gesetzt sein (Neustart allein reicht nicht, Image muss neu gebaut werden).`
+        );
+      } else {
+        setSentryResult(`Browser-Event gesendet (eventId ${eventId}). In GlitchTip nachsehen.`);
+      }
+    } finally {
+      setSentryTesting(null);
+    }
+  }
 
   useEffect(() => {
     let aktiv = true;
@@ -115,6 +177,52 @@ export default function SystemPage() {
           <p className="text-gray-500 text-xs mb-1">Datenbank</p>
           <p className="text-gray-700">SQLite via Prisma (lokale DB-Datei)</p>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4 mb-6">
+        <h2 className="text-lg font-semibold mb-1">Fehler-Reporting (GlitchTip)</h2>
+        <p className="text-sm text-gray-500">
+          Jeder abgefangene Fehler wird an GlitchTip gemeldet — aber nur, wenn die DSN
+          tatsächlich konfiguriert ist. Diese beiden Tests erzeugen je einen echten
+          Test-Event; taucht er in GlitchTip nicht auf, liegt es an DSN/Netzwerk/Projekt,
+          nicht am Code.
+        </p>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className={`rounded-lg px-4 py-3 ${sentryStatus?.serverDsnConfigured ? "bg-green-50" : "bg-amber-50"}`}>
+            <p className="text-gray-500 text-xs mb-1">Server-DSN (SENTRY_DSN)</p>
+            <p className="font-semibold">
+              {sentryStatus === null ? "…" : sentryStatus.serverDsnConfigured ? "✓ gesetzt" : "✗ nicht gesetzt"}
+            </p>
+          </div>
+          <div className={`rounded-lg px-4 py-3 ${process.env.NEXT_PUBLIC_SENTRY_DSN ? "bg-green-50" : "bg-amber-50"}`}>
+            <p className="text-gray-500 text-xs mb-1">Browser-DSN (NEXT_PUBLIC_SENTRY_DSN, Build-Zeit)</p>
+            <p className="font-semibold">{process.env.NEXT_PUBLIC_SENTRY_DSN ? "✓ gesetzt" : "✗ nicht gesetzt"}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={sentryServerTest}
+            disabled={sentryTesting !== null}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {sentryTesting === "server" ? "Sende…" : "Server-Test senden"}
+          </button>
+          <button
+            type="button"
+            onClick={sentryBrowserTest}
+            disabled={sentryTesting !== null}
+            className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {sentryTesting === "browser" ? "Sende…" : "Browser-Test senden"}
+          </button>
+        </div>
+
+        {sentryResult && (
+          <p className="text-sm bg-gray-50 rounded-lg px-4 py-3 whitespace-pre-wrap">{sentryResult}</p>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
