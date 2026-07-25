@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export interface NeuArtikelErgebnis {
   id: number;
@@ -67,7 +68,8 @@ export default function NeuArtikelInline({
       if (!res.ok) throw new Error("KI-Suche fehlgeschlagen");
       // Inhaltsstoffe werden beim Anlegen mitgegeben — hier nur als Info
       setForm((f) => ({ ...f, kiInhaltsstoffe: true }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("KI-Suche nicht verfügbar");
     } finally {
       setKiSearching(false);
@@ -114,6 +116,7 @@ export default function NeuArtikelInline({
         kategorie: neuArtikel.kategorie,
       });
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setSaving(false);

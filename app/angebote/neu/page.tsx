@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -128,7 +129,8 @@ function NeuesAngebotForm() {
       }
       const data: PreisEmpfehlung = await res.json();
       setPreisEmpfehlungen((prev) => ({ ...prev, [index]: data }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setPreisEmpfehlungen((prev) => ({ ...prev, [index]: null }));
     } finally {
       setPreisLadend((prev) => ({ ...prev, [index]: false }));
@@ -139,11 +141,15 @@ function NeuesAngebotForm() {
     fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?aktiv=true&limit=2000&relations=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
       .then((raw) => {
@@ -152,10 +158,15 @@ function NeuesAngebotForm() {
           try {
             const parsed = JSON.parse(d["system.einheiten"]);
             if (Array.isArray(parsed) && parsed.length) setEinheiten(parsed);
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   // Auto-load Bedarfe when ausBedarfen=true and a kundeId is set
@@ -191,7 +202,8 @@ function NeuesAngebotForm() {
         setPositionen(neuPositionen);
         setBedarfenGeladen(true);
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setLoadingBedarfe(false);
@@ -282,6 +294,7 @@ function NeuesAngebotForm() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/angebote/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

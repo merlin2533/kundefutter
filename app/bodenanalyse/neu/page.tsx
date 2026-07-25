@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import {
   albrechtBewertung,
   ALBRECHT_DISCLAIMER,
@@ -196,7 +197,10 @@ function NeueAnalyseFormInner() {
     fetch(`/api/kunden/${kundeId}/schlaegte`)
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
-      .catch(() => setSchlaegte([]))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSchlaegte([]);
+      })
       .finally(() => setSchlaegteLoading(false));
   }, [kundeId]);
 
@@ -241,7 +245,10 @@ function NeueAnalyseFormInner() {
         body: JSON.stringify({ name: newSchlagName.trim(), flaeche: flaecheNum, fruchtart: newSchlagFruchtart || null }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setSchlagError(d?.error ?? "Speichern fehlgeschlagen");
         return;
       }
@@ -252,7 +259,8 @@ function NeueAnalyseFormInner() {
       setNewSchlagName("");
       setNewSchlagFlaeche("");
       setNewSchlagFruchtart("");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setSchlagError("Netzwerkfehler");
     } finally {
       setSavingSchlag(false);
@@ -314,13 +322,17 @@ function NeueAnalyseFormInner() {
       });
 
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(d?.error ?? "Speichern fehlgeschlagen");
         return;
       }
 
       router.push("/bodenanalyse");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler");
     } finally {
       setSaving(false);

@@ -7,6 +7,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import KonfidenzBadge from "@/components/KonfidenzBadge";
 import NeuLieferantInline, { type NeuLieferantErgebnis } from "@/components/NeuLieferantInline";
 import DezimalInput from "@/components/DezimalInput";
+import * as Sentry from "@sentry/nextjs";
 import {
   matchKunde,
   normalisiereSuchtext,
@@ -82,7 +83,9 @@ function meldeLernkorrektur(suchtext: string, zielId: number) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ typ: "lieferant", suchtext: text, zielId }),
-  }).catch(() => {});
+  }).catch((err) => {
+    Sentry.captureException(err);
+  });
 }
 
 function berechneFehlendeFelder(item: {
@@ -149,6 +152,7 @@ export default function EingangsrechnungBatchDetailPage() {
       );
       setBatch(batchData);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);
@@ -178,7 +182,10 @@ export default function EingangsrechnungBatchDetailPage() {
             body: JSON.stringify({ itemId: item.id }),
           });
           if (res.status === 400) {
-            const d = await res.json().catch(() => ({}));
+            const d = await res.json().catch((err) => {
+              Sentry.captureException(err);
+              return ({});
+            });
             setLoadError(d.error || "KI-Analyse nicht möglich");
             break;
           }
@@ -186,7 +193,8 @@ export default function EingangsrechnungBatchDetailPage() {
             const updatedRaw = await res.json();
             await verarbeiteAnalyseErgebnis(item.id, updatedRaw);
           }
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           // einzelnes Item schlägt fehl — weiter mit dem nächsten
         }
         erledigt++;
@@ -266,7 +274,9 @@ export default function EingangsrechnungBatchDetailPage() {
         fehlendeFelder,
         entscheidung,
       }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }
 
   // ── Item-Korrekturen ──────────────────────────────────────────────────────
@@ -287,7 +297,9 @@ export default function EingangsrechnungBatchDetailPage() {
         fehlendeFelder: item.fehlendeFelder,
         entscheidung: item.entscheidung,
       }),
-    }).catch(() => {});
+    }).catch((err) => {
+      Sentry.captureException(err);
+    });
   }
 
   function updateItem(itemId: number, updater: (item: BatchItem) => BatchItem) {
@@ -334,7 +346,8 @@ export default function EingangsrechnungBatchDetailPage() {
       setBatch((prev) =>
         prev ? { ...prev, items: prev.items.map((it) => (it.id === item.id ? { ...it, ibanGespeichert: true } : it)) } : prev
       );
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     }
   }
@@ -358,6 +371,7 @@ export default function EingangsrechnungBatchDetailPage() {
       setFinalizeResult(d);
       await ladeAlles();
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setFinalizing(false);
@@ -376,6 +390,7 @@ export default function EingangsrechnungBatchDetailPage() {
       if (!res.ok) throw new Error(d.error || "Übernehmen fehlgeschlagen");
       await ladeAlles();
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setFinalizingItemId(null);
@@ -394,6 +409,7 @@ export default function EingangsrechnungBatchDetailPage() {
       if (!res.ok) throw new Error("Verwerfen fehlgeschlagen");
       router.push("/eingangsrechnungen/neu?modus=batch");
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setLoadError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setDiscarding(false);
     }

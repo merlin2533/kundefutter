@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface MailLogEntry {
   id: number;
@@ -90,7 +91,8 @@ export default function MailLogPage() {
       const data = await res.json() as { ok?: boolean; error?: string };
       setResendMsg((prev) => ({ ...prev, [id]: data.ok ? "Erneut gesendet" : (data.error ?? "Fehler") }));
       if (data.ok) await loadLogs(); // refresh to show new log entry
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setResendMsg((prev) => ({ ...prev, [id]: "Versand fehlgeschlagen" }));
     } finally {
       setResending(null);

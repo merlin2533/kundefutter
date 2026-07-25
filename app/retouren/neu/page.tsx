@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -68,11 +69,15 @@ function NeueRetoureForm() {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?limit=500")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const lieferantNum = lieferantId ? Number(lieferantId) : null;
@@ -167,6 +172,7 @@ function NeueRetoureForm() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/retouren/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

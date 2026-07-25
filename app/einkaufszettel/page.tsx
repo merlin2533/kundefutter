@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface QuellPosition {
   quelle: "vorbestellung" | "lieferung" | "angebot";
@@ -56,7 +57,10 @@ function datum(d: string): string {
 type Filter = "offen" | "bestellt" | "alle";
 
 function loadEinkaufszettelFilters() {
-  try { return JSON.parse(sessionStorage.getItem("einkaufszettel-filters") ?? "{}") as Record<string, string>; } catch { return {} as Record<string, string>; }
+  try { return JSON.parse(sessionStorage.getItem("einkaufszettel-filters") ?? "{}") as Record<string, string>; } catch (err) {
+    Sentry.captureException(err);
+    return {} as Record<string, string>;
+  }
 }
 
 export default function EinkaufszettelPage() {
@@ -91,7 +95,10 @@ export default function EinkaufszettelPage() {
   // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("einkaufszettel-filters", JSON.stringify({ filter })); } catch { /* ignore */ }
+    try { sessionStorage.setItem("einkaufszettel-filters", JSON.stringify({ filter })); } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }, [filtersLoaded, filter]);
 
   function toggle(key: string) {

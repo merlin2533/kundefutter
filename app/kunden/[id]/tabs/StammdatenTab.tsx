@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
 import KontakteTab from "./KontakteTab";
+import * as Sentry from "@sentry/nextjs";
 
 export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -27,7 +28,10 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
         setWettbNotizen(Array.isArray(data) ? data.filter((n) => n.thema === "Wettbewerber") : []);
         setWettbNotizenLoading(false);
       })
-      .catch(() => setWettbNotizenLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setWettbNotizenLoading(false);
+      });
   }, [kunde.id]);
 
   async function handleWettbAdd() {
@@ -80,18 +84,29 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
         if (d["system.kundenkategorien"]) {
-          try { setKategorien(JSON.parse(d["system.kundenkategorien"])); } catch { /* ignore */ }
+          try { setKategorien(JSON.parse(d["system.kundenkategorien"])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
         if (d["system.mitarbeiter"]) {
-          try { setMitarbeiter(JSON.parse(d["system.mitarbeiter"])); } catch { /* ignore */ }
+          try { setMitarbeiter(JSON.parse(d["system.mitarbeiter"])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [tags, setTags] = useState<string[]>(() => {
-    try { return JSON.parse(kunde.tags || "[]"); } catch { return []; }
+    try { return JSON.parse(kunde.tags || "[]"); } catch (err) {
+      Sentry.captureException(err);
+      return [];
+    }
   });
   const [newTag, setNewTag] = useState("");
 
@@ -123,7 +138,10 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
       sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
       vvvoNr: kunde.vvvoNr ?? "",
     });
-    setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch { return []; } });
+    setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch (err) {
+      Sentry.captureException(err);
+      return [];
+    } });
     setError("");
     setEditing(true);
   }
@@ -158,7 +176,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
       if (!res.ok) throw new Error();
       setEditing(false);
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
@@ -299,7 +318,10 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
               ))}
             </div>
           </div>
-        ) : null; } catch { return null; } })()}
+        ) : null; } catch (err) {
+          Sentry.captureException(err);
+          return null;
+        } })()}
         <p className="text-xs text-gray-400">
           Erstellt: {formatDatum(kunde.createdAt)} · Geändert: {formatDatum(kunde.updatedAt)}
         </p>

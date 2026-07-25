@@ -399,14 +399,16 @@ Wenn ein Feld nicht erkennbar ist, setze null. Extrahiere ALLE Positionen. Charg
 Mengenangabe "Anzahl x Gebindegröße": Steht die Menge als Multiplikation da (z.B. "18 x 25 kg", "20 Sack à 25 kg", "10 × 1000 kg"), ist das die Anzahl der Gebinde multipliziert mit dem Gewicht/Inhalt je Gebinde. Setze "menge" auf das Produkt aus beiden Zahlen (18 × 25 = 450), niemals nur eine der beiden Zahlen.`,
 
   lieferung: `Du bist ein Experte für die Analyse von Bestellungen und Aufträgen in der Agrarbranche.
-Analysiere das Bild und extrahiere Kunden- und Artikelinformationen.
+Der Input ist entweder ein Bild (Foto eines Lieferscheins/einer Bestellung) oder ein Text aus einer
+Spracheingabe/einem Diktat. Analysiere den Input und extrahiere Kunden- und Artikelinformationen.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 {
   "kunde": {
     "name": "Kundenname",
     "firma": "Firmenname falls vorhanden",
-    "ort": "Ort falls erkennbar"
+    "ort": "Ort falls erkennbar",
+    "betriebsnummer": "Betriebsnummer/VVVO-Nummer falls genannt, sonst null"
   },
   "datum": "YYYY-MM-DD",
   "positionen": [
@@ -422,6 +424,10 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 }
 
 Wenn ein Feld nicht erkennbar ist, setze null. Chargennummern sind besonders wichtig bei Saatgut, Düngemitteln und Futtermitteln — achte auf Begriffe wie Charge, Los, Lot, Batch, Ch.-Nr., L-Nr.
+Bei Spracheingabe: Zahlwörter und mündliche Mengenangaben (z.B. "zwei Tonnen", "fünfzig Kilo",
+"drei Sack") korrekt in "menge" + "einheit" übersetzen. Eine genannte Zahlenfolge im Kontext von
+"Betriebsnummer", "VVVO-Nummer" oder ähnlich klingenden, möglicherweise durch Spracherkennung leicht
+verfälschten Begriffen gehört in "betriebsnummer", nicht in eine Artikelposition.
 
 Mengenangabe "Anzahl x Gebindegröße": Steht die Menge als Multiplikation da (z.B. "18 x 25 kg", "20 Sack à 25 kg", "10 × 1000 kg"), ist das die Anzahl der Gebinde multipliziert mit dem Gewicht/Inhalt je Gebinde. Setze "menge" auf das Produkt aus beiden Zahlen (18 × 25 = 450), niemals nur eine der beiden Zahlen.`,
 

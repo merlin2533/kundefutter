@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number;
@@ -47,6 +48,7 @@ export default function QrLieferungPage() {
         setFirmaName(eData["firma.name"] || eData["firma.firmenname"] || "");
         if (logoData["system.logo"]) setLogo(logoData["system.logo"]);
       } catch (err) {
+        Sentry.captureException(err);
         setError(err instanceof Error ? err.message : "Fehler beim Laden");
       } finally {
         setLoading(false);
@@ -69,6 +71,7 @@ export default function QrLieferungPage() {
       setLieferung(data);
       setConfirmed(true);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Fehler beim Bestätigen");
     } finally {
       setConfirming(false);

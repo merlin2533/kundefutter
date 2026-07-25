@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCameraUpload";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -44,7 +45,9 @@ function EingangsrechnungBatchStart() {
     fetch("/api/ki/eingangsrechnung/batch")
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setBatches(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
       .finally(() => setLoadingBatches(false));
   }, []);
 
@@ -64,6 +67,7 @@ function EingangsrechnungBatchStart() {
       const neu = await res.json();
       router.push(`/eingangsrechnungen/batch/${neu.id}`);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setStarting(false);
     }
@@ -185,7 +189,9 @@ function EingangsrechnungNeuInner() {
         if (!Array.isArray(data)) return;
         setOffeneBatches(data.filter((b) => b.status !== "abgeschlossen").length);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   return (
@@ -238,7 +244,9 @@ function EingangsrechnungEinzelnForm() {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const lieferantenOptions = lieferanten.map((l) => ({
@@ -318,7 +326,8 @@ function EingangsrechnungEinzelnForm() {
       setZugferdHint(
         [matchHint, parts.length ? `Erkannte Daten: ${parts.join(", ")}` : ""].filter(Boolean).join(" — ")
       );
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Lesen der Datei");
     } finally {
       setZugferdLoading(false);
@@ -389,7 +398,8 @@ function EingangsrechnungEinzelnForm() {
       setKiHint(
         [matchHint, parts.length ? `Erkannte Daten: ${parts.join(", ")}` : ""].filter(Boolean).join(" — ")
       );
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiHint("Fehler beim Lesen der Datei");
     } finally {
       setKiLoading(false);
@@ -406,7 +416,10 @@ function EingangsrechnungEinzelnForm() {
         body: JSON.stringify({ iban: erkannteIban.iban, bic: erkannteIban.bic }),
       });
       setIbanSaved(true);
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -443,6 +456,7 @@ function EingangsrechnungEinzelnForm() {
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
       router.push(`/eingangsrechnungen/${data.id}`);
     } catch (err) {
+      Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
       setSaving(false);
     }

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { DEFAULT_FRUCHTARTEN, parseListSetting } from "@/lib/auswahllisten";
 import { KundeSchlag, inputClsSchlag } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
@@ -36,7 +37,9 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => setFruchtarten(parseListSetting(d, "system.fruchtarten", DEFAULT_FRUCHTARTEN)))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const fetchSchlaegte = useCallback(async () => {
@@ -74,7 +77,10 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
           notiz: form.notiz || null,
         }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? "Fehler"); return; }
+      if (!res.ok) { const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      }); setError(d.error ?? "Fehler"); return; }
       resetForm();
       setShowForm(false);
       fetchSchlaegte();
@@ -105,7 +111,10 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
       fd.append("file", file);
       const res = await fetch("/api/ki/schlaegte", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setAiResult({ imported: 0, skipped: 0, error: err.error ?? "Erkennung fehlgeschlagen" });
         return;
       }
@@ -144,7 +153,8 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
       }
       setAiResult({ imported, skipped });
       if (imported > 0) fetchSchlaegte();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setAiResult({ imported: 0, skipped: 0, error: "Netzwerkfehler" });
     } finally {
       setAiImporting(false);

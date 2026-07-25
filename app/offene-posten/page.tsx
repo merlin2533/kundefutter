@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface OffenerPosten {
   lieferungId: number;
@@ -70,7 +71,10 @@ function OffenePostenInner() {
                 : 0;
               tzMap.set(l.id as number, summe);
             }
-          } catch { /* ignore */ }
+          } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         })
       );
 
@@ -136,6 +140,7 @@ function OffenePostenInner() {
 
       setPosten(result);
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);

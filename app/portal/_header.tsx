@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 export default function PortalHeaderClient() {
   const router = useRouter();
@@ -9,7 +10,10 @@ export default function PortalHeaderClient() {
   async function handleLogout() {
     try {
       await fetch("/api/portal/auth/logout", { method: "POST" });
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
     router.push("/portal/login");
   }
 

@@ -6,6 +6,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import AudioRecorder from "@/components/AudioRecorder";
 import { fetchAlleSeiten } from "@/lib/kiMatching";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -130,7 +131,9 @@ function KiCrmWizard() {
 
   // Load Kunden on mount
   useEffect(() => {
-    ladeAlleKunden().then(setKunden).catch(() => {});
+    ladeAlleKunden().then(setKunden).catch((err) => {
+      Sentry.captureException(err);
+    });
   }, []);
 
   const kundenOptions = kunden.map((k) => {
@@ -198,6 +201,7 @@ function KiCrmWizard() {
       setKundeId(id);
       setKonfidenz(k);
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setAnalyzeError(e instanceof Error ? e.message : "Analyse fehlgeschlagen.");
     } finally {
       setAnalyzing(false);
@@ -235,6 +239,7 @@ function KiCrmWizard() {
       setKundeId(id);
       setKonfidenz(k);
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setAnalyzeError(e instanceof Error ? e.message : "Analyse fehlgeschlagen.");
     } finally {
       setAnalyzing(false);
@@ -267,6 +272,7 @@ function KiCrmWizard() {
       if (!res.ok) throw new Error(`Fehler ${res.status}`);
       router.push("/crm");
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setSaveError(e instanceof Error ? e.message : "Speichern fehlgeschlagen.");
       setSaving(false);
     }

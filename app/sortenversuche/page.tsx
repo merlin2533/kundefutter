@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number; sorte: string; ertragDtHa?: number | null; proteinProzent?: number | null;
@@ -16,7 +17,10 @@ interface Versuch {
 }
 
 function loadSortenFilters() {
-  try { return JSON.parse(sessionStorage.getItem("sortenversuche-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("sortenversuche-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function Page() {
@@ -38,7 +42,9 @@ export default function Page() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("sortenversuche-filters", JSON.stringify({ filterKultur, filterJahr, filterSorte })); } catch {}
+    try { sessionStorage.setItem("sortenversuche-filters", JSON.stringify({ filterKultur, filterJahr, filterSorte })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, filterKultur, filterJahr, filterSorte]);
 
   useEffect(() => {

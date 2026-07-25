@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import { downloadCSV } from "@/lib/csv";
+import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelUnterMindest {
   id: number;
@@ -66,7 +67,8 @@ export default function StatistikLagerPage() {
       const res = await fetch(`/api/statistik/lager?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

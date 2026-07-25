@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeKontakt {
   id: number;
@@ -26,7 +27,8 @@ function getEmail(k: Kunde): string {
 function parseTags(k: Kunde): string[] {
   try {
     return JSON.parse(k.tags ?? "[]");
-  } catch {
+  } catch (err) {
+    Sentry.captureException(err);
     return [];
   }
 }
@@ -73,7 +75,10 @@ export default function MailverteilerPage() {
         setAllKunden(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, []);
 
   // Alle vorhandenen Tags sammeln

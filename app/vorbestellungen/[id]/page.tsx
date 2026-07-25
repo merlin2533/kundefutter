@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
 import { formatDatum, formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Position {
   id: number; menge: number; preis?: number | null; einheit: string;
@@ -53,7 +54,10 @@ export default function DetailPage() {
       toast.success("Lieferung erstellt");
       router.push(`/lieferungen/${data.lieferungId}`);
     } else {
-      const err = await r.json().catch(() => ({}));
+      const err = await r.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Fehler");
     }
   }

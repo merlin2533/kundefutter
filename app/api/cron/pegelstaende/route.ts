@@ -11,7 +11,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(`${base}/api/cron`, { headers });
-    const data = await res.json().catch(() => ({ ok: false, error: "Ungültige Antwort" }));
+    const data = await res.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({ ok: false, error: "Ungültige Antwort" });
+    });
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     Sentry.captureException(err);

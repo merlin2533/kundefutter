@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export default function LieferantenEinstellungenPage() {
   const [zahlungsziel, setZahlungsziel] = useState("");
@@ -21,7 +22,9 @@ export default function LieferantenEinstellungenPage() {
         setSkonto(d["firma.skonto"] ?? "");
         setLieferbedingungen(d["firma.lieferbedingungen"] ?? "");
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
 
     fetch("/api/einstellungen?prefix=system.")
       .then((r) => r.json())
@@ -29,7 +32,8 @@ export default function LieferantenEinstellungenPage() {
         if (d["system.mwstsaetze"]) {
           try {
             setMwstsaetze(JSON.parse(d["system.mwstsaetze"]));
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         } else {
@@ -37,7 +41,10 @@ export default function LieferantenEinstellungenPage() {
         }
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoaded(true);
+      });
   }, []);
 
   async function saveSetting(key: string, value: string) {

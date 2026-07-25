@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 function ListenEditor({ settingKey, label, placeholder }: { settingKey: string; label: string; placeholder: string }) {
   const [items, setItems] = useState<string[]>([]);
@@ -14,10 +15,15 @@ function ListenEditor({ settingKey, label, placeholder }: { settingKey: string; 
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
         if (d[settingKey]) {
-          try { setItems(JSON.parse(d[settingKey])); } catch { /* ignore */ }
+          try { setItems(JSON.parse(d[settingKey])); } catch (err) {
+            Sentry.captureException(err);
+            /* ignore */
+          }
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, [settingKey]);
 
   async function save(list: string[]) {

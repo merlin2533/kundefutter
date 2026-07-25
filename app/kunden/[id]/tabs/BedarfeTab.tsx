@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Kunde, Artikel, KundeSchlag } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 interface AbgeleiteterBedarf {
   fruchtart: string;
@@ -43,7 +44,9 @@ export default function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefre
     fetch("/api/artikel?aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleLadeSchlaegte() {
@@ -67,7 +70,8 @@ export default function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefre
           };
         });
       setAbgeleiteteBedarfe(bedarfe);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setLoadingSchlaegte(false);
@@ -103,7 +107,8 @@ export default function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefre
       setNArtikelId("");
       setPArtikelId("");
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setUebernehmen(false);
@@ -129,7 +134,8 @@ export default function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefre
       setShowAdd(false);
       setForm({ artikelId: "", menge: "", intervallTage: "30", notiz: "" });
       onRefresh();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     } finally {
       setSaving(false);

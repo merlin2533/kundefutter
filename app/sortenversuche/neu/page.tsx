@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
 interface PositionRow {
@@ -52,7 +53,10 @@ export default function NeuPage() {
       fd.append("file", file);
       const res = await fetch("/api/ki/sortenversuch", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setKiError(err.error ?? "Erkennung fehlgeschlagen");
         return;
       }
@@ -84,7 +88,8 @@ export default function NeuPage() {
       }));
       if (rows.length > 0) setPositionen(rows);
       setKiInfo(`✓ ${rows.length} Sortenpositionen erkannt${json.hinweis ? ` · ${json.hinweis}` : ""}`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiError("Netzwerkfehler bei KI-Analyse");
     } finally {
       setKiLoading(false);
@@ -117,7 +122,10 @@ export default function NeuPage() {
       toast.success("Versuch gespeichert");
       router.push("/sortenversuche");
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Fehler");
     }
   }

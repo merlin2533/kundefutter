@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 type ImportResult = {
   ok: boolean;
@@ -32,7 +33,8 @@ export default function EinstellungenAgrarantraegePage() {
       const data = await res.json();
       setImportResult(data);
       if (data.ok && fileRef.current) fileRef.current.value = "";
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setImportResult({ ok: false, error: "Netzwerkfehler beim Import" });
     } finally {
       setImporting(false);
@@ -54,8 +56,12 @@ export default function EinstellungenAgrarantraegePage() {
       let data: ImportResult;
       try {
         data = await res.json();
-      } catch {
-        const text = await res.text().catch(() => "");
+      } catch (err) {
+        Sentry.captureException(err);
+        const text = await res.text().catch((err) => {
+          Sentry.captureException(err);
+          return "";
+        });
         if (res.status === 502 || res.status === 504) {
           data = {
             ok: false,
@@ -69,7 +75,8 @@ export default function EinstellungenAgrarantraegePage() {
         }
       }
       setAutoImportResult(data);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setAutoImportResult({
         ok: false,
         error:

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface ModulToggle {
   key: string;
@@ -50,7 +51,8 @@ export default function ModuleEinstellungenPage() {
         }
         return updated;
       });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -75,7 +77,8 @@ export default function ModuleEinstellungenPage() {
       );
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

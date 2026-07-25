@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface NextcloudStatus {
   konfiguriert: boolean;
@@ -66,7 +67,10 @@ export default function NextcloudEinstellungenPage() {
     if (einst["system.nextcloud.username"]) setUsername(einst["system.nextcloud.username"]);
     if (einst["system.nextcloud.rootPfad"]) setRootPfad(einst["system.nextcloud.rootPfad"]);
     if (einst["system.nextcloud.zentralOrdner"]) {
-      try { setZentralOrdner(JSON.parse(einst["system.nextcloud.zentralOrdner"])); } catch { /* ignore */ }
+      try { setZentralOrdner(JSON.parse(einst["system.nextcloud.zentralOrdner"])); } catch (err) {
+        Sentry.captureException(err);
+        /* ignore */
+      }
     }
   }
 
@@ -108,7 +112,9 @@ export default function NextcloudEinstellungenPage() {
       // eine andere Nextcloud-Instanz meinen; alter Status würde sonst irreführend
       // weiterlaufen/-angezeigt. Erneuter Lauf überträgt trotzdem nur, was am Ziel fehlt.
       if (neuVerbunden) {
-        await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch(() => {});
+        await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch((err) => {
+          Sentry.captureException(err);
+        });
         setBackfill(null);
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       }
@@ -116,7 +122,8 @@ export default function NextcloudEinstellungenPage() {
       setAppPassword("");
       await ladeStatus();
       if (neuVerbunden) await ladeBackfillStatus();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
@@ -131,7 +138,9 @@ export default function NextcloudEinstellungenPage() {
     // frisch starten können, statt einen alten "Abgeschlossen"-Stand aus der vorherigen
     // Verbindung anzuzeigen. Bereits vorhandene Dateien werden beim erneuten Lauf ohnehin
     // übersprungen (dateiExistiert-Prüfung) — nur was am Ziel fehlt, wird übertragen.
-    await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch(() => {});
+    await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch((err) => {
+      Sentry.captureException(err);
+    });
     setBackfill(null);
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     await ladeStatus();
@@ -140,7 +149,10 @@ export default function NextcloudEinstellungenPage() {
   async function backfillZuruecksetzen() {
     setBackfillFehler("");
     const res = await fetch("/api/nextcloud/backfill", { method: "DELETE" });
-    const json = await res.json().catch(() => ({}));
+    const json = await res.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    });
     if (!res.ok) {
       setBackfillFehler(json.error ?? "Status konnte nicht zurückgesetzt werden");
       return;

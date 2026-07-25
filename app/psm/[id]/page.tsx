@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -67,7 +68,9 @@ function PSMDetailInner({ id }: { id: string }) {
     fetch("/api/kunden?limit=500")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : (d.kunden ?? [])))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -94,7 +97,10 @@ function PSMDetailInner({ id }: { id: string }) {
         });
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   useEffect(() => {
@@ -102,7 +108,10 @@ function PSMDetailInner({ id }: { id: string }) {
     fetch(`/api/kunden/${form.kundeId}/schlaegte`)
       .then((r) => r.json())
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
-      .catch(() => setSchlaegte([]));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSchlaegte([]);
+      });
   }, [form.kundeId]);
 
   async function handleSave(e: React.FormEvent) {
@@ -141,7 +150,8 @@ function PSMDetailInner({ id }: { id: string }) {
       const updated: PSMAusbringung = await res.json();
       setData(updated);
       setEditing(false);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
@@ -154,7 +164,8 @@ function PSMDetailInner({ id }: { id: string }) {
     try {
       await fetch(`/api/psm/${id}`, { method: "DELETE" });
       router.push("/psm");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setDeleting(false);
     }
   }

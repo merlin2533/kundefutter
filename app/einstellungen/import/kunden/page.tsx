@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeVorschau {
   name: string;
@@ -47,7 +48,8 @@ export default function KundenImportPage() {
       setVorschau(data.vorschau);
       setDuplikate(data.duplikate);
       setAusgewaehlt(new Set(data.vorschau.map((_, i) => i)));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Fehler beim Analysieren der Datei.");
     } finally {
       setLoading(false);
@@ -70,7 +72,8 @@ export default function KundenImportPage() {
       setVorschau([]);
       setDuplikate([]);
       setFile(null);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Fehler beim Importieren der Kunden.");
     } finally {
       setLoading(false);

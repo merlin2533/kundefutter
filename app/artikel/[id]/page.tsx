@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
 import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
   DEFAULT_UNTERKATEGORIEN,
@@ -284,7 +285,9 @@ function ArtikelDetailContent() {
         setEinheiten(parseListSetting(d, "system.einheiten", FALLBACK_EINHEITEN));
         setSystemSettings(d);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -293,20 +296,27 @@ function ArtikelDetailContent() {
       fetch(`/api/artikel/${id}/preishistorie`)
         .then((r) => r.json())
         .then((d) => { setPreishistorie(d); setLoadingPreis(false); })
-        .catch(() => setLoadingPreis(false));
+        .catch((err) => {
+          Sentry.captureException(err);
+          return setLoadingPreis(false);
+        });
     }
     if (tab === "lieferanten" && lieferantenList.length === 0) {
       fetch("/api/lieferanten")
         .then((r) => r.ok ? r.json() : [])
         .then((d) => setLieferantenList(Array.isArray(d) ? d : []))
-        .catch(() => {});
+        .catch((err) => {
+          Sentry.captureException(err);
+        });
     }
     if (tab === "jahrespreise" && !jahrespreiseLoaded) {
       setLoadingJahrespreise(true);
       fetch(`/api/artikel/${id}/jahrespreise`)
         .then((r) => r.ok ? r.json() : [])
         .then((d) => setJahrespreise(Array.isArray(d) ? d : []))
-        .catch(() => {})
+        .catch((err) => {
+          Sentry.captureException(err);
+        })
         .finally(() => { setLoadingJahrespreise(false); setJahrespreiseLoaded(true); });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -431,7 +441,10 @@ function ArtikelDetailContent() {
       setEditing(false);
       fetchArtikel();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setDetailsError(d.error ?? "Fehler beim Speichern.");
     }
   }
@@ -527,7 +540,10 @@ function ArtikelDetailContent() {
       setLievForm({ lieferantId: "", artikelNrBeiLieferant: "", einkaufspreis: "", mindestbestellmenge: "", lieferzeit: "", bevorzugt: false });
       fetchArtikel();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setLiefError(d.error ?? "Fehler beim Speichern.");
     }
   }
@@ -605,7 +621,10 @@ function ArtikelDetailContent() {
       setUploadFile(null);
       fetchArtikel();
     } else {
-      const d = await res.json().catch(() => ({}));
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setUploadError(d.error ?? "Fehler beim Hochladen.");
     }
   }
@@ -672,7 +691,8 @@ function ArtikelDetailContent() {
       }
       if (data.aehnlicheProdukte?.length) setKiAehnliche(data.aehnlicheProdukte);
       if (data.hinweis) setKiHinweis(data.hinweis);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiHinweis("Netzwerkfehler bei KI-Suche.");
     } finally {
       setKiSearching(false);
@@ -1495,7 +1515,10 @@ function ArtikelDetailContent() {
                               if (res.ok) {
                                 setArtikel({ ...artikel, lieferanten: artikel.lieferanten.filter((x) => x.id !== l.id) });
                               } else {
-                                const d = await res.json().catch(() => ({})) as { error?: string };
+                                const d = await res.json().catch((err) => {
+                                  Sentry.captureException(err);
+                                  return ({});
+                                }) as { error?: string };
                                 alert(d.error ?? "Löschen fehlgeschlagen");
                               }
                             }}

@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -24,7 +25,9 @@ function LoginForm() {
         if (d?.firmenname) setFirmenname(d.firmenname);
         if (d?.logo) setLogo(d.logo);
       })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -38,7 +41,10 @@ function LoginForm() {
         body: JSON.stringify({ benutzername, passwort }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setFehler(data?.error ?? "Anmeldung fehlgeschlagen");
         setSaving(false);
         return;
@@ -46,7 +52,8 @@ function LoginForm() {
       // Hard-Navigation, damit Middleware/Cookie beim ersten Request auf
       // der Ziel-Seite korrekt anliegen und keine stale Client-Caches bleiben.
       window.location.href = next.startsWith("/") ? next : "/";
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Netzwerkfehler");
       setSaving(false);
     }

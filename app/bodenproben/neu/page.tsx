@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 import {
   ableiteVersorgungsklasseP,
   ableiteVersorgungsklasseK,
@@ -93,7 +94,10 @@ function NeuInner() {
       .then(r => r.ok ? r.json() : {})
       .then(d => {
         const raw = (d as Record<string, string>)["system.fruchtarten"];
-        if (raw) { try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFruchtarten(parsed); } catch { /* ignore */ } }
+        if (raw) { try { const parsed = JSON.parse(raw); if (Array.isArray(parsed)) setFruchtarten(parsed); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        } }
       });
   }, []);
 
@@ -151,7 +155,10 @@ function NeuInner() {
       fd.append("file", file);
       const res = await fetch("/api/ki/bodenprobe", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setKiError((err as { error?: string }).error ?? "KI-Analyse fehlgeschlagen");
         return;
       }
@@ -240,7 +247,8 @@ function NeuInner() {
         felderGefuellt: gefuellt,
         hinweis: typeof d.hinweis === "string" ? d.hinweis : null,
       });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiError("Netzwerkfehler bei KI-Analyse");
     } finally {
       setKiLoading(false);
@@ -265,7 +273,10 @@ function NeuInner() {
       }),
     });
     setSaving(false);
-    const json = await res.json().catch(() => ({}));
+    const json = await res.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    });
     if (res.ok && Array.isArray(json.erstellt) && json.erstellt.length > 0) {
       toast.success("Bodenprobe gespeichert");
       router.push("/bodenproben");
@@ -324,7 +335,10 @@ function NeuInner() {
     });
     setMultiSaving(false);
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Speichern fehlgeschlagen");
       return;
     }

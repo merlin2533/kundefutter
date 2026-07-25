@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface AntragEmpfaenger {
   id: number;
@@ -40,7 +41,10 @@ function formatEurAntrag(n: number) {
 function MassnahmenBadges({ json }: { json: string | null }) {
   if (!json) return <span className="text-gray-400 text-xs">—</span>;
   let items: Massnahme[] = [];
-  try { items = JSON.parse(json); } catch { return <span className="text-red-400 text-xs">Parse-Fehler</span>; }
+  try { items = JSON.parse(json); } catch (err) {
+    Sentry.captureException(err);
+    return <span className="text-red-400 text-xs">Parse-Fehler</span>;
+  }
   return (
     <div className="flex flex-wrap gap-1">
       {items.slice(0, 5).map((m, i) => (
@@ -87,7 +91,8 @@ export default function AgrarantraegeePage() {
       let list: AntragEmpfaenger[] = Array.isArray(data) ? data : [];
       if (nurUnverknuepft) list = list.filter((i) => !i.kundeId);
       setItems(list);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setItems([]);
     } finally {
       setLoading(false);
@@ -394,7 +399,10 @@ export default function AgrarantraegeePage() {
                             <tbody>
                               {(() => {
                                 let ms: Massnahme[] = [];
-                                try { ms = JSON.parse(item.massnahmen!); } catch { return null; }
+                                try { ms = JSON.parse(item.massnahmen!); } catch (err) {
+                                  Sentry.captureException(err);
+                                  return null;
+                                }
                                 return ms.map((m, i) => (
                                   <tr key={i} className="border-t border-green-100">
                                     <td className="py-1 pr-3 font-mono font-medium">{m.code}</td>

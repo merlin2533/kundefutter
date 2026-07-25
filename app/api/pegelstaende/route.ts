@@ -34,7 +34,9 @@ export async function GET() {
       (s) => Date.now() - s.fetchedAt.getTime() > CACHE_TTL_MS
     );
     if (stale.length > 0) {
-      Promise.all(stale.map((s) => refreshStation(s.stationUuid))).catch(() => {});
+      Promise.all(stale.map((s) => refreshStation(s.stationUuid))).catch((err) => {
+        Sentry.captureException(err);
+      });
     }
 
     return NextResponse.json(stationen);

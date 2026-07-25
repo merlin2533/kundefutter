@@ -241,7 +241,10 @@ export async function POST(req: NextRequest) {
 
   // Import anwenden
   try {
-    const body = await req.json().catch(() => null) as {
+    const body = await req.json().catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    }) as {
       lieferantId?: number;
       updates?: { artikelId: number; ekNeu: number }[];
       neueArtikel?: { name: string; ekNeu: number; liefergroesse?: string | null }[];

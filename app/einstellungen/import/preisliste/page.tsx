@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -51,7 +52,10 @@ export default function PreislisteImportPage() {
     fetch("/api/einstellungen/preisliste-import?action=lieferanten")
       .then((r) => r.json())
       .then((d) => { const data = d as { lieferanten?: Lieferant[] }; setLieferanten(data.lieferanten ?? []); })
-      .catch(() => setFehler("Lieferanten konnten nicht geladen werden."));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setFehler("Lieferanten konnten nicht geladen werden.");
+      });
   }, []);
 
   async function analysieren() {
@@ -77,6 +81,7 @@ export default function PreislisteImportPage() {
       });
       setAktionen(initial);
     } catch (e) {
+      Sentry.captureException(e);
       setFehler(e instanceof Error ? e.message : "Fehler beim Analysieren der Datei.");
     } finally {
       setLoading(false);
@@ -113,6 +118,7 @@ export default function PreislisteImportPage() {
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (e) {
+      Sentry.captureException(e);
       setFehler(e instanceof Error ? e.message : "Import fehlgeschlagen.");
     } finally {
       setLoading(false);

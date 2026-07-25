@@ -3,6 +3,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Aufgabe {
   id: number;
@@ -54,7 +55,10 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
         try {
           const tags: string[] = JSON.parse(a.tags);
           setTagsInput(tags.join(", "));
-        } catch { /* empty */ }
+        } catch (err) {
+          Sentry.captureException(err);
+          /* empty */
+        }
       });
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.json())
@@ -86,7 +90,10 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setError(err.error ?? "Fehler beim Speichern");
       setSaving(false);
       return;

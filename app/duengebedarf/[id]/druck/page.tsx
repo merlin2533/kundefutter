@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import * as Sentry from "@sentry/nextjs";
 
 interface Rechenweg {
   nBasis: number;
@@ -102,7 +103,10 @@ export default function DuengebedarfDruckPage() {
           iban: map["iban"] ?? "",
         });
       })
-      .catch(() => setFehler("Daten konnten nicht geladen werden."))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setFehler("Daten konnten nicht geladen werden.");
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -131,7 +135,10 @@ export default function DuengebedarfDruckPage() {
       const p = JSON.parse(eintrag.parameter);
       eingaben = p.eingaben ?? null;
       rechenweg = p.rechenweg ?? null;
-    } catch { /* ignore */ }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    }
   }
 
   const berechnetAm = new Date(eintrag.berechnetAm).toLocaleDateString("de-DE");

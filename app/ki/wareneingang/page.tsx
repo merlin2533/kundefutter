@@ -6,6 +6,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import { lagerStatus } from "@/lib/utils";
 import { matchArtikel as matchArtikelGelernt, normalisiereSuchtext, fetchAlleSeiten } from "@/lib/kiMatching";
+import * as Sentry from "@sentry/nextjs";
 
 // ---- Types ----------------------------------------------------------------
 
@@ -263,8 +264,12 @@ function KiWareneingangWizard() {
 
   // Load Artikel + Lieferanten once
   useEffect(() => {
-    ladeAlleArtikel().then(setArtikel).catch(() => {});
-    ladeAlleLieferanten().then(setLieferanten).catch(() => {});
+    ladeAlleArtikel().then(setArtikel).catch((err) => {
+      Sentry.captureException(err);
+    });
+    ladeAlleLieferanten().then(setLieferanten).catch((err) => {
+      Sentry.captureException(err);
+    });
   }, []);
 
   // ---- Step 2: KI Analyse --------------------------------------------------
@@ -300,7 +305,10 @@ function KiWareneingangWizard() {
       }
 
       // Build matched positions
-      const gelerntRes = await fetch("/api/ki/lernen?typ=artikel").catch(() => null);
+      const gelerntRes = await fetch("/api/ki/lernen?typ=artikel").catch((err) => {
+        Sentry.captureException(err);
+        return null;
+      });
       const gelerntData = gelerntRes && gelerntRes.ok ? await gelerntRes.json() : { eintraege: [] };
       const gelerntMap = new Map<string, number>(
         (gelerntData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
@@ -322,6 +330,7 @@ function KiWareneingangWizard() {
 
       setStep(2);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setAnalyseError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setAnalysing(false);
@@ -411,7 +420,10 @@ function KiWareneingangWizard() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(err.error ?? `Fehler ${res.status}`);
       }
       const neu = await res.json();
@@ -434,6 +446,7 @@ function KiWareneingangWizard() {
       setCreateForIdx(null);
       setCreateForm(null);
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setCreateError(err instanceof Error ? err.message : "Anlegen fehlgeschlagen");
     } finally {
       setCreating(false);
@@ -474,7 +487,10 @@ function KiWareneingangWizard() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         throw new Error(err.error ?? `Fehler ${res.status}`);
       }
       // Lernkorrekturen melden (nur wo die finale Zuordnung vom KI-Vorschlag abweicht)
@@ -486,11 +502,14 @@ function KiWareneingangWizard() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ typ: "artikel", suchtext: pos.ki.name, zielId: finalId }),
-          }).catch(() => {});
+          }).catch((err) => {
+            Sentry.captureException(err);
+          });
         }
       }
       router.push("/lager");
     } catch (err: unknown) {
+      Sentry.captureException(err);
       setBookError(err instanceof Error ? err.message : "Unbekannter Fehler");
     } finally {
       setBooking(false);

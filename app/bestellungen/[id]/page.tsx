@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface BestellPosition {
   id: number;
@@ -77,7 +78,10 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
         setMengenGeliefert(mg);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   async function handleStatusChange(aktion: string) {
@@ -97,7 +101,8 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
       }
       const updated: Bestellung = await res.json();
       setData(updated);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Aktualisieren.");
     } finally {
       setSaving(false);
@@ -125,7 +130,8 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
       }
       const updated: Bestellung = await res.json();
       setData(updated);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
+import * as Sentry from "@sentry/nextjs";
 
 export default function MahnwesenEinstellungenPage() {
   const [cfg, setCfg] = useState<MahnwesenConfig>(DEFAULT_MAHNWESEN_CONFIG);
@@ -17,7 +18,8 @@ export default function MahnwesenEinstellungenPage() {
       if (!res.ok) throw new Error();
       const data: Record<string, string> = await res.json();
       setCfg(parseMahnwesenConfig(data["system.mahnwesen"]));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -50,7 +52,8 @@ export default function MahnwesenEinstellungenPage() {
       if (!res.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

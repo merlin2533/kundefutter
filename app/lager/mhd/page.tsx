@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface MhdPosition {
   id: number;
@@ -41,7 +42,10 @@ export default function MhdPage() {
         setPositionen(Array.isArray(d) ? d : []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, []);
 
   const gefiltert = positionen.filter((p) => {

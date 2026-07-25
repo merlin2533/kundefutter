@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -76,7 +77,9 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -96,7 +99,10 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
         });
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [id]);
 
   const lieferantenOptions = lieferanten.map((l) => ({
@@ -118,7 +124,8 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
       if (!res.ok) { const d = await res.json(); setError(d.error ?? "Fehler."); return; }
       const updated: Eingangsrechnung = await res.json();
       setData(updated);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Aktualisieren.");
     } finally {
       setSaving(false);
@@ -151,7 +158,8 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
       const updated: Eingangsrechnung = await res.json();
       setData(updated);
       setEditing(false);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
@@ -171,7 +179,8 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
       const json = await res.json();
       if (!res.ok) { setBelegFehler(json.error ?? "Upload fehlgeschlagen"); return; }
       setData((d) => (d ? { ...d, belegpfad: json.belegpfad } : d));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setBelegFehler("Upload fehlgeschlagen");
     } finally {
       setBelegUploading(false);
@@ -184,7 +193,8 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
     try {
       await fetch(`/api/eingangsrechnungen/${id}`, { method: "DELETE" });
       router.push("/eingangsrechnungen");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setDeleting(false);
     }
   }

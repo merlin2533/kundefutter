@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeOption {
   id: number;
@@ -39,7 +40,9 @@ function NeuInner() {
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : d.kunden ?? []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const initialLieferungId = searchParams.get("lieferungId") ?? "";
@@ -55,7 +58,10 @@ function NeuInner() {
           setLieferungId(initialLieferungId);
         }
       })
-      .catch(() => setLieferungen([]));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLieferungen([]);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kundeId]);
 
@@ -87,7 +93,8 @@ function NeuInner() {
         return;
       }
       router.push("/reklamationen");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
       setSaving(false);

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface BewertungDetail {
   umsatz: number;
@@ -69,6 +70,7 @@ export default function KundenbewertungPage() {
         setLoading(false);
       })
       .catch((e) => {
+        Sentry.captureException(e);
         setFehler(e.message);
         setLoading(false);
       });

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface BesuchKunde {
   id: number;
@@ -70,7 +71,10 @@ function dayLabel(d: string) {
 }
 
 function loadBesuchsTermineFilters() {
-  try { return JSON.parse(sessionStorage.getItem("besuchstermine-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("besuchstermine-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function BesuchstermineListPage() {
@@ -88,7 +92,8 @@ export default function BesuchstermineListPage() {
       const res = await fetch("/api/besuchstermine");
       const data = await res.json();
       setTermine(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       showToast("Fehler beim Laden der Besuchstermine", "error");
     } finally {
       setLoading(false);
@@ -104,7 +109,9 @@ export default function BesuchstermineListPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("besuchstermine-filters", JSON.stringify({ search })); } catch {}
+    try { sessionStorage.setItem("besuchstermine-filters", JSON.stringify({ search })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, search]);
 
   useEffect(() => {
@@ -119,7 +126,8 @@ export default function BesuchstermineListPage() {
       if (!res.ok) throw new Error();
       setTermine((prev) => prev.filter((t) => t.id !== id));
       showToast("Besuchstermin gelöscht", "success");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       showToast("Fehler beim Löschen", "error");
     } finally {
       setDeleting(null);
@@ -338,7 +346,8 @@ export default function BesuchstermineListPage() {
                                 } else {
                                   setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: false, fehler: data.error ?? "Versand fehlgeschlagen" } }));
                                 }
-                              } catch {
+                              } catch (err) {
+                                Sentry.captureException(err);
                                 setEmailState((prev) => ({ ...prev, [tid]: { ...prev[tid], loading: false, fehler: "Versand fehlgeschlagen" } }));
                               }
                             }}

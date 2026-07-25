@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_WARNUNG = 10;
 const DEFAULT_FEHLER = 0;
@@ -23,7 +24,8 @@ export default function KalkulationEinstellungenPage() {
       const f = parseFloat(data["system.marge_fehler_prozent"] ?? "");
       if (Number.isFinite(w)) setWarnungProzent(w);
       if (Number.isFinite(f)) setFehlerProzent(f);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -51,7 +53,8 @@ export default function KalkulationEinstellungenPage() {
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

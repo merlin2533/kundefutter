@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export default function BenutzerNeuPage() {
   const router = useRouter();
@@ -35,13 +36,17 @@ export default function BenutzerNeuPage() {
         body: JSON.stringify({ benutzername, name, email, rolle, passwort }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setFehler(data?.error ?? `HTTP ${res.status}`);
         setSaving(false);
         return;
       }
       router.push("/einstellungen/benutzer");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Netzwerkfehler");
       setSaving(false);
     }

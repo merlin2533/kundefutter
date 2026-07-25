@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface Props {
   /** Kunde-ID für die Zuordnung in Nextcloud */
@@ -63,6 +64,7 @@ export default function NextcloudUploadButton({ kundeId, typ, dateiName, getInha
 
       setTimeout(() => setStatus("idle"), 5000);
     } catch (err) {
+      Sentry.captureException(err);
       setFehler(err instanceof Error ? err.message : "Fehler beim Upload");
       setStatus("error");
     }

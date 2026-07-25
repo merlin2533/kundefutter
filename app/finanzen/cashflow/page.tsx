@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferung {
   id: number;
@@ -96,7 +97,8 @@ export default function CashflowPage() {
           const d = await aRes.json();
           setAusgaben(Array.isArray(d) ? d : []);
         }
-      } catch {
+      } catch (err) {
+        Sentry.captureException(err);
         setError("Fehler beim Laden der Cashflow-Daten.");
       } finally {
         setLoading(false);

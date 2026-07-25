@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Nachweis {
   id: number;
@@ -61,7 +62,10 @@ export default function SachkundenachweiseTab({ kundeId }: { kundeId: number }) 
       const json = await res.json();
       setListe(l => l.map(e => e.id === id ? { ...e, belegPfad: json.belegPfad, belegName: json.belegName } : e));
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       alert(err.error ?? "Upload fehlgeschlagen");
     }
   }

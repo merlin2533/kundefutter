@@ -5,6 +5,7 @@ import Link from "next/link";
 import { KpiCard } from "@/components/Card";
 import { formatEuro, formatPercent } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
+import * as Sentry from "@sentry/nextjs";
 
 interface KundeABC {
   id: number;
@@ -148,7 +149,8 @@ export default function ABCPage() {
       const res = await fetch(`/api/analyse/abc?von=${jahr}-${vonMonat}&bis=${jahr}-${bisMonat}${vp}`);
       if (!res.ok) throw new Error();
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Daten");
     } finally {
       setLoading(false);

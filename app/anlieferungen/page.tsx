@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatDatum, formatMenge } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Anlieferung {
   id: number;
@@ -49,6 +50,7 @@ function AnlieferungenInner() {
       const data = await res.json();
       setAnlieferungen(Array.isArray(data) ? data : []);
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler");
     } finally {
       setLoading(false);
@@ -81,7 +83,8 @@ function AnlieferungenInner() {
         return;
       }
       await load();
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       alert("Netzwerkfehler");
     }
   }

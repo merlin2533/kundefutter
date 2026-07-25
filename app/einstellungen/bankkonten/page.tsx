@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface Bankkonto {
   name: string;
@@ -27,11 +28,13 @@ export default function BankkontenPage() {
         try {
           const parsed = JSON.parse(data["bankabgleich.konten"]);
           if (Array.isArray(parsed)) setKonten(parsed);
-        } catch {
+        } catch (err) {
+          Sentry.captureException(err);
           // keep empty
         }
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -82,7 +85,8 @@ export default function BankkontenPage() {
       if (!res.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

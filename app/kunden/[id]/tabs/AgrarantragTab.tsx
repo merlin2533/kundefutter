@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface AntragDaten {
   id: number;
@@ -53,7 +54,10 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
     fetch(`/api/agrarantraege?kundeId=${kundeId}`)
       .then((r) => r.json())
       .then((d) => { setAntragDaten(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }
 
   async function saveMeta() {
@@ -178,7 +182,10 @@ export default function AgrarantragTab({ kundeId }: { kundeId: number }) {
           <div className="space-y-3">
             {antragDaten.map((antrag) => {
               let massnahmen: AntragMassnahme[] = [];
-              try { if (antrag.massnahmen) massnahmen = JSON.parse(antrag.massnahmen); } catch { /* ignore */ }
+              try { if (antrag.massnahmen) massnahmen = JSON.parse(antrag.massnahmen); } catch (err) {
+                Sentry.captureException(err);
+                /* ignore */
+              }
               return (
                 <div key={antrag.id} className="border border-gray-200 rounded-lg overflow-x-auto">
                   <button

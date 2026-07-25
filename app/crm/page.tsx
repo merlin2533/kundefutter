@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Aktivitaet {
   id: number;
@@ -39,7 +40,10 @@ const TYP_META: Record<string, { label: string; color: string; icon: string }> =
 const TYPEN_KEYS = Object.keys(TYP_META);
 
 function loadCrmFilters() {
-  try { return JSON.parse(sessionStorage.getItem("crm-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("crm-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function CrmPage() {
@@ -87,7 +91,9 @@ export default function CrmPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("crm-filters", JSON.stringify({ mainTab, typFilter, searchText })); } catch {}
+    try { sessionStorage.setItem("crm-filters", JSON.stringify({ mainTab, typFilter, searchText })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, mainTab, typFilter, searchText]);
 
   useEffect(() => {

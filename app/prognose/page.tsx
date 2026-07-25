@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 function exportCsv(gruppen: BestellvorschlagGruppe[], mengenOverride: Record<number, number>) {
   const rows: string[][] = [["Lieferant", "Artikel", "Artikelnummer", "Einheit", "Vorgeschlagene Menge", "Aktueller Bestand", "Mindestbestand"]];
@@ -225,7 +226,8 @@ function PrognoseTab({
         return a.reichweiteTage - b.reichweiteTage;
       });
       setRows(sorted);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Prognose.");
     } finally {
       setLoading(false);
@@ -339,7 +341,8 @@ function BestellvorschlagTab({
       const normalized = Array.isArray(data) ? data : [];
       setGruppen(normalized);
       onGruppenChange?.(normalized);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden des Bestellvorschlags.");
     } finally {
       setLoading(false);

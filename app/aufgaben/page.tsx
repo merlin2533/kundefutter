@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface Aufgabe {
   id: number;
@@ -43,7 +44,10 @@ function isUeberfaellig(faelligAm: string | null, erledigt: boolean) {
 }
 
 function loadAufgabenFilters() {
-  try { return JSON.parse(sessionStorage.getItem("aufgaben-filters") ?? "{}"); } catch { return {}; }
+  try { return JSON.parse(sessionStorage.getItem("aufgaben-filters") ?? "{}"); } catch (err) {
+    Sentry.captureException(err);
+    return {};
+  }
 }
 
 export default function AufgabenPage() {
@@ -81,7 +85,9 @@ export default function AufgabenPage() {
 
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("aufgaben-filters", JSON.stringify({ status, prioritaet, tagFilter })); } catch {}
+    try { sessionStorage.setItem("aufgaben-filters", JSON.stringify({ status, prioritaet, tagFilter })); } catch (err) {
+      Sentry.captureException(err);
+    }
   }, [filtersLoaded, status, prioritaet, tagFilter]);
 
   useEffect(() => {
@@ -111,7 +117,8 @@ export default function AufgabenPage() {
         );
         showToast("Fehler beim Speichern", "error");
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // Revert on network error
       setAufgaben((prev) =>
         prev.map((x) => (x.id === a.id ? { ...x, erledigt: a.erledigt } : x))
@@ -219,7 +226,10 @@ export default function AufgabenPage() {
                 {aufgaben.map((a) => {
                   const ueberfaellig = isUeberfaellig(a.faelligAm, a.erledigt);
                   let tags: string[] = [];
-                  try { tags = JSON.parse(a.tags); } catch { /* empty */ }
+                  try { tags = JSON.parse(a.tags); } catch (err) {
+                    Sentry.captureException(err);
+                    /* empty */
+                  }
                   return (
                     <tr
                       key={a.id}

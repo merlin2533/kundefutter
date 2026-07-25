@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface AudioRecorderProps {
   onTranscript: (text: string) => void;
-  feature: "crm" | "sprachmemo";
+  feature: "crm" | "sprachmemo" | "lieferung";
   maxDurationSec?: number;
   placeholder?: string;
   className?: string;
@@ -66,7 +67,10 @@ export default function AudioRecorder({
 
         const res = await fetch("/api/ki/transcribe", { method: "POST", body: fd });
         if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
+          const d = await res.json().catch((err) => {
+            Sentry.captureException(err);
+            return ({});
+          });
           throw new Error(d.error ?? `Fehler ${res.status}`);
         }
         const data = await res.json();
@@ -74,6 +78,7 @@ export default function AudioRecorder({
         if (text) onTranscript(text);
         else setError("Keine Sprache erkannt. Bitte erneut versuchen.");
       } catch (e) {
+        Sentry.captureException(e);
         setError(e instanceof Error ? e.message : "Transkription fehlgeschlagen.");
       } finally {
         setIsTranscribing(false);
@@ -124,6 +129,7 @@ export default function AudioRecorder({
         }
       }, 500);
     } catch (e) {
+      Sentry.captureException(e);
       const domError = e as DOMException;
       setError(
         domError?.name === "NotAllowedError"

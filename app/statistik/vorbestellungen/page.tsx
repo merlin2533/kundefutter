@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatPercent } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import { downloadCSV } from "@/lib/csv";
+import * as Sentry from "@sentry/nextjs";
 
 interface StatusRow {
   status: string;
@@ -59,7 +60,8 @@ export default function StatistikVorbestellungenPage() {
       const res = await fetch(`/api/statistik/vorbestellungen?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

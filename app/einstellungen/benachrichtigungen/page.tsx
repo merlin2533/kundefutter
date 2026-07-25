@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface AlertToggle {
   key: string;
@@ -55,7 +56,8 @@ export default function BenachrichtigungenEinstellungenPage() {
         }
         setSettings(map);
       })
-      .catch(() => {
+      .catch((err) => {
+        Sentry.captureException(err);
         const map: Record<string, boolean> = {};
         for (const t of ALERT_TYPEN) map[t.key] = true;
         setSettings(map);
@@ -74,7 +76,8 @@ export default function BenachrichtigungenEinstellungenPage() {
       });
       if (!res.ok) throw new Error("Fehler beim Speichern");
       setSettings((prev) => ({ ...prev, [key]: value }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern der Einstellung.");
     } finally {
       setSaving(null);
@@ -90,7 +93,8 @@ export default function BenachrichtigungenEinstellungenPage() {
       if (!res.ok) throw new Error("Fehler beim Prüfen");
       const d = await res.json();
       setPruefenResult({ erstellt: d.erstellt ?? 0 });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Prüfen der Benachrichtigungen.");
     } finally {
       setPruefenLoading(false);

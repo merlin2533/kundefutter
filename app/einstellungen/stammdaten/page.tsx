@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_SAATGUT_KULTUREN,
   DEFAULT_EINHEITEN,
@@ -42,7 +43,8 @@ function EditableList({
         if (d[storeKey]) {
           try {
             setItems(JSON.parse(d[storeKey]));
-          } catch {
+          } catch (err) {
+            Sentry.captureException(err);
             /* ignore */
           }
         } else if (defaultItems) {
@@ -50,7 +52,10 @@ function EditableList({
         }
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoaded(true);
+      });
   }, [storeKey, defaultItems]);
 
   async function save(list: string[]) {
@@ -148,7 +153,10 @@ function SubkategorienSection() {
         setKategorien(parseListSetting(d, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN));
         setLoaded(true);
       })
-      .catch(() => setLoaded(true));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoaded(true);
+      });
   }, []);
 
   if (!loaded) return <p className="text-sm text-gray-400 p-4">Lade…</p>;

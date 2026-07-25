@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/Card";
 import { useToast } from "@/components/ToastProvider";
 import { formatDatum } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Staffel {
   id: number; saison: string; kategorie?: string | null; artikelId?: number | null;
@@ -43,7 +44,10 @@ export default function Page() {
       setForm({ saison: `Frühjahr ${new Date().getFullYear()}`, kategorie: "", bestellfrist: "", rabattProzent: "", beschreibung: "" });
       laden();
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Fehler");
     }
   }

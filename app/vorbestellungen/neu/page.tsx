@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
 interface Artikel { id: number; name: string; einheit: string; standardpreis: number; kategorie: string; }
@@ -99,7 +100,10 @@ function Inner() {
       toast.success("Vorbestellung erstellt");
       router.push("/vorbestellungen");
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Fehler");
     }
   }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { ANGEBOT_STATUS_LABELS, ANGEBOT_STATUS_FARBEN } from "../_shared";
+import * as Sentry from "@sentry/nextjs";
 
 interface AngebotListItem {
   id: number;
@@ -23,7 +24,10 @@ export default function AngeboteTab({ kundeId }: { kundeId: number }) {
     fetch(`/api/angebote?kundeId=${kundeId}`)
       .then((r) => r.json())
       .then((d) => { setAngebote(Array.isArray(d) ? d : []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [kundeId]);
 
   return (

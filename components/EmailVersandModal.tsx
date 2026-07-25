@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export interface EmailKontakt {
   wert: string;
@@ -80,7 +81,9 @@ export default function EmailVersandModal({
           setCc(d["email.cc"] ?? "");
           setDefaultCcLoaded(true);
         })
-        .catch(() => {});
+        .catch((err) => {
+          Sentry.captureException(err);
+        });
     }
   }, [open, emailKontakte, docType, defaultCcLoaded]);
 

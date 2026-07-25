@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
 import { PRODUKT_BAUM, type ProduktNode } from "@/lib/eurostat";
 import type { MatifProdukt } from "@/lib/matif";
+import * as Sentry from "@sentry/nextjs";
 
 // ─── MATIF Zeitraumfilter + Chart ─────────────────────────────────────────────
 
@@ -1159,6 +1160,7 @@ function MatifSpotSection() {
         );
       }
     } catch (err) {
+      Sentry.captureException(err);
       if (err instanceof DOMException && err.name === "AbortError") {
         setFehler("Zeitüberschreitung beim Laden der MATIF-Daten");
       } else {
@@ -1494,6 +1496,7 @@ export default function MarktpreisePage() {
         })
       );
     } catch (err) {
+      Sentry.captureException(err);
       if (err instanceof DOMException && err.name === "AbortError") {
         setError("Zeitüberschreitung beim Laden der Marktpreise");
       } else {

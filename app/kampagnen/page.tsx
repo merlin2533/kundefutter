@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kampagne {
   id: number;
@@ -42,7 +43,10 @@ export default function KampagnenPage() {
       if (!res.ok) { setLoading(false); return; }
       const d = await res.json();
       setData(Array.isArray(d) ? d : []);
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
       setLoading(false);
     }
   }, []);

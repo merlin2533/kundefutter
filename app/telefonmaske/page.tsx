@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kontakt {
   id: number;
@@ -72,7 +73,8 @@ export default function TelefonmaskePage() {
       if (!res.ok) throw new Error(`Fehler ${res.status}`);
       const data = await res.json();
       setResults(Array.isArray(data) ? data : []);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setResults([]);
     } finally {
       setLoading(false);
@@ -101,7 +103,8 @@ export default function TelefonmaskePage() {
       setTimeout(() => {
         setErfasst((prev) => { const n = { ...prev }; delete n[kundeId]; return n; });
       }, 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       // ignore
     }
   }

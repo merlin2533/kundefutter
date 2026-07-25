@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 const WetterWidget = dynamic(() => import("@/components/WetterWidget"), { ssr: false });
 
@@ -54,7 +55,9 @@ function PSMNeuInner() {
     fetch("/api/kunden?limit=500")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : (d.kunden ?? [])))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   useEffect(() => {
@@ -62,7 +65,10 @@ function PSMNeuInner() {
     fetch(`/api/kunden/${form.kundeId}/schlaegte`)
       .then((r) => r.json())
       .then((d) => setSchlaegte(Array.isArray(d) ? d : []))
-      .catch(() => setSchlaegte([]));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSchlaegte([]);
+      });
     // Fetch kunde geo for WetterWidget
     const found = kunden.find((k) => k.id === parseInt(form.kundeId, 10));
     if (found?.lat != null && found?.lng != null) {
@@ -107,7 +113,8 @@ function PSMNeuInner() {
         return;
       }
       router.push("/psm");
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { WetterTag } from "@/lib/weather";
+import * as Sentry from "@sentry/nextjs";
 
 interface Props {
   lat: number;
@@ -79,7 +80,8 @@ export default function WetterWidget({ lat, lng, compact = false }: Props) {
         setTage(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        Sentry.captureException(err);
         if (cancelled) return;
         setError(true);
         setLoading(false);

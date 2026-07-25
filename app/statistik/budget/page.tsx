@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getBudgetJahre, MONATE_KURZ } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 const KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege", "Sonstiges"];
 const BUDGET_JAHRE = getBudgetJahre();
@@ -81,6 +82,7 @@ export default function BudgetPage() {
       const d: BudgetData = await res.json();
       setData(d);
     } catch (e) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);
@@ -132,6 +134,7 @@ export default function BudgetPage() {
       }
       await loadData();
     } catch (e) {
+      Sentry.captureException(e);
       alert(e instanceof Error ? e.message : "Fehler");
     } finally {
       setSaving(false);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import { downloadCSV } from "@/lib/csv";
+import * as Sentry from "@sentry/nextjs";
 
 interface GruppenRow {
   label: string;
@@ -138,7 +139,8 @@ export default function StatistikReklamationenPage() {
         offeneAnzahl: json.offeneAnzahl ?? 0,
         summe: json.summe ?? { anzahl: 0 },
       });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Laden.");
     } finally {
       setLoading(false);

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/Card";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useToast } from "@/components/ToastProvider";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
 
@@ -45,7 +46,10 @@ function Inner() {
       fd.append("file", file);
       const res = await fetch("/api/ki/sachkundenachweis", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setKiError(err.error ?? "KI-Analyse fehlgeschlagen");
         return;
       }
@@ -71,7 +75,8 @@ function Inner() {
         n++;
       }
       setKiResult({ felder: n, hinweis: d.hinweis });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setKiError("Netzwerkfehler bei KI-Analyse");
     } finally {
       setKiLoading(false);
@@ -92,7 +97,10 @@ function Inner() {
       toast.success("Nachweis gespeichert");
       router.push("/sachkundenachweise");
     } else {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       toast.error(err.error ?? "Fehler");
     }
   }

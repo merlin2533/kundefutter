@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface KontraktPosition {
   id: number;
@@ -91,7 +92,9 @@ function KontrakteListeInner() {
     fetch("/api/kunden?limit=500")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : (d.kunden ?? [])))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -104,7 +107,10 @@ function KontrakteListeInner() {
       if (!res.ok) { setLoading(false); return; }
       const d = await res.json();
       setData(Array.isArray(d) ? d : []);
-    } catch { /* ignore */ } finally {
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
       setLoading(false);
     }
   }, [statusFilter, kundeId]);

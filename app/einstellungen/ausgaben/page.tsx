@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { SACHKONTEN_SKR03, ZAHLUNGSWEGE } from "@/lib/datev";
+import * as Sentry from "@sentry/nextjs";
 
 const DEFAULT_KATEGORIEN = [
   "Wareneinkauf",
@@ -56,18 +57,31 @@ export default function AusgabenEinstellungenPage() {
         try {
           const parsed = JSON.parse(data["ausgaben.kategorien"]);
           if (Array.isArray(parsed)) setKategorien(parsed);
-        } catch { /* keep defaults */ }
+        } catch (err) {
+          Sentry.captureException(err);
+          /* keep defaults */
+        }
       }
       if (data["ausgaben.sachkonten"]) {
-        try { setSachkontoMap(JSON.parse(data["ausgaben.sachkonten"]) ?? {}); } catch { /* ignore */ }
+        try { setSachkontoMap(JSON.parse(data["ausgaben.sachkonten"]) ?? {}); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
       if (data["ausgaben.kostenstellen"]) {
-        try { setKostenstellen(JSON.parse(data["ausgaben.kostenstellen"]) ?? []); } catch { /* ignore */ }
+        try { setKostenstellen(JSON.parse(data["ausgaben.kostenstellen"]) ?? []); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
       if (data["ausgaben.gegenkonten"]) {
-        try { setGegenkonten(prev => ({ ...prev, ...JSON.parse(data["ausgaben.gegenkonten"]) })); } catch { /* ignore */ }
+        try { setGegenkonten(prev => ({ ...prev, ...JSON.parse(data["ausgaben.gegenkonten"]) })); } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
+        }
       }
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -98,7 +112,10 @@ export default function AusgabenEinstellungenPage() {
       await saveKey("ausgaben.kategorien", JSON.stringify(kategorien));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch { setError("Fehler beim Speichern."); }
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
     finally { setSaving(false); }
   }
 

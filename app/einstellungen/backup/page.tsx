@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
+import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_BACKUP_CONFIG,
   parseBackupConfig,
@@ -56,6 +57,7 @@ export default function BackupPage() {
       const data = await res.json();
       setBackups(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     } finally {
       setLoading(false);
@@ -68,7 +70,8 @@ export default function BackupPage() {
       if (!res.ok) return;
       const data: Record<string, string> = await res.json();
       setCfg(parseBackupConfig(data["system.backup"]));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       /* Standardwerte beibehalten */
     }
   }
@@ -86,7 +89,8 @@ export default function BackupPage() {
       if (!res.ok) throw new Error();
       setCfgSaved(true);
       setTimeout(() => setCfgSaved(false), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Automatik-Einstellungen konnten nicht gespeichert werden.");
     } finally {
       setCfgSaving(false);
@@ -112,6 +116,7 @@ export default function BackupPage() {
       setSuccess(`Backup erstellt: ${entry.filename} (${formatBytes(entry.size)})`);
       await loadBackups();
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     } finally {
       setCreating(false);
@@ -133,6 +138,7 @@ export default function BackupPage() {
       setSuccess("Backup gelöscht.");
       await loadBackups();
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     }
   }
@@ -164,6 +170,7 @@ export default function BackupPage() {
           "Server wird neu gestartet – bitte Seite in ~10 Sekunden neu laden."
       );
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     } finally {
       setRestoringFile(null);
@@ -202,6 +209,7 @@ export default function BackupPage() {
           "Server wird neu gestartet – bitte Seite in ~10 Sekunden neu laden."
       );
     } catch (e: unknown) {
+      Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Unbekannter Fehler");
     } finally {
       setUploading(false);

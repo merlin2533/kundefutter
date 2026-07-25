@@ -12,7 +12,10 @@ export const dynamic = "force-dynamic";
 // ein frisch eingegebener Key hier bereits als aktueller DB-Wert ankommt.
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch((err) => {
+      Sentry.captureException(err);
+      return ({});
+    });
     const { modell } = body as Record<string, unknown>;
 
     const stored = await getAiConfig("language");

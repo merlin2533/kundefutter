@@ -53,7 +53,9 @@ export async function DELETE(req: NextRequest, ctx: Params) {
     if (!record) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
     const filePath = resolveUploadPath(record.pfad);
-    await fs.unlink(filePath).catch(() => {});
+    await fs.unlink(filePath).catch((err) => {
+      Sentry.captureException(err);
+    });
     await prisma.chargenZertifikat.delete({ where: { id: numId } });
     return NextResponse.json({ ok: true });
   } catch (err) {

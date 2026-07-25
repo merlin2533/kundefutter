@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import { formatEuro } from "@/lib/utils";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
 interface Artikel { id: number; name: string; einheit: string; kategorie: string; }
@@ -32,11 +33,15 @@ function NeueAnlieferungInner() {
     fetch("/api/kunden?limit=1000")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/artikel?limit=1000")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? [])))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -71,7 +76,8 @@ function NeueAnlieferungInner() {
       const data = await res.json();
       setSuccess(`Anlieferung ${data.nummer} gespeichert.`);
       setTimeout(() => router.push("/anlieferungen"), 1200);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler beim Speichern");
     } finally {
       setLoading(false);

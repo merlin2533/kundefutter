@@ -153,7 +153,10 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
     to: [email],
     subject: "Ihre AGRI-Office-Anfrage ist eingegangen",
     html: confirmHtml,
-  }).catch((err) => console.error("Resend confirmation error:", err));
+  }).catch((err) => {
+    Sentry.captureException(err);
+    return console.error("Resend confirmation error:", err);
+  });
 
   return json({
     ok: true,

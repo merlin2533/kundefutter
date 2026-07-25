@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface DatevSettings {
   "datev.beraternummer": string;
@@ -72,7 +73,8 @@ export default function DatevEinstellungenPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       setForm((prev) => ({ ...prev, ...data }));
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
     } finally {
       setLoading(false);
@@ -95,7 +97,8 @@ export default function DatevEinstellungenPage() {
       if (!res.ok) throw new Error();
       setSaved(key);
       setTimeout(() => setSaved(null), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError(`Fehler beim Speichern von "${key}".`);
     } finally {
       setSaving(null);
@@ -118,7 +121,8 @@ export default function DatevEinstellungenPage() {
       );
       setSaved("all");
       setTimeout(() => setSaved(null), 2000);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(null);

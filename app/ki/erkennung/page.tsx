@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/Card";
+import * as Sentry from "@sentry/nextjs";
 
 interface RouterResult {
   typ: string;
@@ -40,13 +41,17 @@ export default function ErkennungPage() {
       fd.append("file", f);
       const res = await fetch("/api/ki/router", { method: "POST", body: fd });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+        const err = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
         setError(err.error ?? "Erkennung fehlgeschlagen");
         return;
       }
       const json = await res.json() as RouterResult;
       setResult(json);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setError("Netzwerkfehler bei KI-Analyse");
     } finally {
       setLoading(false);

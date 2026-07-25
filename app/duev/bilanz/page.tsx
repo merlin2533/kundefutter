@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 interface BilanzEintrag {
   kundeId: number;
@@ -26,7 +27,10 @@ export default function DuevBilanzPage() {
         setDaten(Array.isArray(d.daten) ? d.daten : []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setLoading(false);
+      });
   }, [jahr]);
 
   const ueberschritten = daten.filter((e) => e.grenzwertUeberschritten).length;

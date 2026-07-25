@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
@@ -27,7 +28,9 @@ function NeuenBesuchsterminForm() {
     fetch("/api/kunden?limit=500&aktiv=true")
       .then((r) => r.json())
       .then((d) => { const data = d as { data?: Kunde[] }; setKunden(data.data ?? []); })
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,7 +54,10 @@ function NeuenBesuchsterminForm() {
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return ({});
+      });
       setError(err.error ?? "Fehler beim Speichern");
       setSaving(false);
       return;

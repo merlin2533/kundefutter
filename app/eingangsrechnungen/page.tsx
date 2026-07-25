@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
+import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
   id: number;
@@ -74,7 +75,9 @@ function EingangsrechnungenListeInner() {
     fetch("/api/lieferanten?limit=500")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
-      .catch(() => {});
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
   }, []);
 
   const fetchData = useCallback(async (pageNum: number) => {
@@ -92,7 +95,8 @@ function EingangsrechnungenListeInner() {
       setData(Array.isArray(json.data) ? json.data : []);
       setTotal(typeof json.total === "number" ? json.total : 0);
       setTotalPages(typeof json.totalPages === "number" ? json.totalPages : 1);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFetchError("Netzwerkfehler – Seite neu laden");
     } finally {
       setLoading(false);

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 
 export default function BankabgleichImportPage() {
   const router = useRouter();
@@ -41,7 +42,8 @@ export default function BankabgleichImportPage() {
 
       const msg = `${data.importiert} Buchungen importiert${data.duplikate > 0 ? `, ${data.duplikate} Duplikate übersprungen` : ""}.`;
       router.push(`/bankabgleich?erfolg=${encodeURIComponent(msg)}&runde=${encodeURIComponent(datei.name)}`);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       setFehler("Netzwerkfehler beim Import.");
       setLoading(false);
     }
