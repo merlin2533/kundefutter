@@ -226,7 +226,13 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
     method: "MOVE",
     headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
   });
-  if (res.status === 404) return;
+  if (res.status === 404) return; // Quellordner existiert nicht (nichts zu migrieren)
+  // 412 = Zielordner existiert bereits (Overwrite: "F" verhindert das Überschreiben).
+  // Kommt vor, wenn im alten und neuen Ordnerformat parallel schon Dateien liegen
+  // (z.B. Upload vor UND nach der ":"→"-"-Migration). Kein Fehler — der neue Ordner
+  // wird ohnehin verwendet, der alte bleibt unangetastet bestehen statt bei jedem
+  // erneuten Sync-Lauf erneut als Fehler gemeldet zu werden.
+  if (res.status === 412) return;
   if (res.status !== 201 && res.status !== 204) {
     // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
     throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
@@ -459,6 +465,18 @@ export async function uploadZuBuchhaltung(
   mimeType?: string
 ): Promise<NextcloudDatei> {
   return uploadDatei(buchhaltungsPfad(jahr, monat, unterordner), fileName, buffer, mimeType);
+}
+
+/**
+ * Baut den Nextcloud-Weblink für einen Ordner unter "Zentral/" (siehe
+ * `system.nextcloud.zentralOrdner`-Einstellung, frei benannte Ordner, die der
+ * Admin selbst in Nextcloud anlegt). Gibt null zurück, wenn Nextcloud nicht
+ * konfiguriert ist.
+ */
+export async function zentralOrdnerLink(relPfad: string): Promise<string | null> {
+  const cfg = await getConfig();
+  if (!cfg) return null;
+  return buildWebViewLink(cfg, joinPfad("Zentral", relPfad));
 }
 
 /**
