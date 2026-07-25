@@ -126,13 +126,19 @@ export async function starteBackfillFallsMoeglich(): Promise<boolean> {
  * ist idempotent (`dateiExistiert()`-Prüfung vor jedem Upload): ein neuer Lauf nach dem
  * Reset überspringt automatisch alles, was am Zielort bereits vorhanden ist, und
  * überträgt nur, was dort noch fehlt.
+ *
+ * Setzt auch das "Ordner-Migration abgeschlossen"-Flag zurück — ein Reset soll
+ * wirklich bei null anfangen (z.B. bei Verbindung zu einer anderen Nextcloud-
+ * Instanz). Die Migration selbst bleibt idempotent und teuer nur bei tatsächlich
+ * vorhandenen Legacy-Ordnern, ein erneuter Durchlauf gegen eine leere/bereits
+ * migrierte Instanz ist günstig (nur 404-Antworten).
  */
 export async function resetBackfillStatus(): Promise<{ ok: boolean; laeuftNoch?: boolean }> {
   const bestehend = await getBackfillStatus();
   if (bestehend?.laufend && !istVerwaist(bestehend)) {
     return { ok: false, laeuftNoch: true };
   }
-  await prisma.einstellung.deleteMany({ where: { key: STATUS_KEY } });
+  await prisma.einstellung.deleteMany({ where: { key: { in: [STATUS_KEY, MIGRATION_ABGESCHLOSSEN_KEY] } } });
   return { ok: true };
 }
 

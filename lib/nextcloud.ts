@@ -472,6 +472,18 @@ export async function uploadZuBuchhaltung(
 }
 
 /**
+ * Baut den Nextcloud-Weblink für einen Ordner unter "Zentral/" (siehe
+ * `system.nextcloud.zentralOrdner`-Einstellung, frei benannte Ordner, die der
+ * Admin selbst in Nextcloud anlegt). Gibt null zurück, wenn Nextcloud nicht
+ * konfiguriert ist.
+ */
+export async function zentralOrdnerLink(relPfad: string): Promise<string | null> {
+  const cfg = await getConfig();
+  if (!cfg) return null;
+  return buildWebViewLink(cfg, joinPfad("Zentral", relPfad));
+}
+
+/**
  * Listet Dateien in einem Kunden-Unterordner. Gibt ein leeres Array zurück,
  * wenn Nextcloud nicht konfiguriert ist oder der Ordner noch nicht existiert.
  */
