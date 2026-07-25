@@ -931,21 +931,48 @@ Dokument-OCR und Diktieren laufen alle über Mistral, konfigurierbar unter `/ein
 ## Fehler-Reporting (Sentry/GlitchTip, `lib/sentry.ts`)
 
 **Regel: Jeder abgefangene Fehler wird an Sentry gemeldet — ohne Filter, ohne Ausnahme.**
+Umgesetzt projektweit (App Router, `lib/*.ts`, Client-Komponenten, Promise-Ketten) — siehe
+Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
 
 - `onRequestError` (`instrumentation.ts`) erfasst nur *unbehandelte* Exceptions. Sobald eine
   Route/Funktion einen eigenen `try/catch` hat (Standardfall laut Checkliste), muss der
   `catch`-Block selbst `Sentry.captureException(err)` aufrufen — sonst verschwindet der Fehler
   spurlos in `console.error`.
-- **Jeder neue `try/catch`-Block** (API-Route, `lib/*.ts`, Hintergrund-Job) bekommt
-  `Sentry.captureException(err)` als erste Anweisung im `catch`. Import: `import { Sentry } from "@/lib/sentry";`.
+- **Jeder neue `try/catch`-Block** (API-Route, `lib/*.ts`, Hintergrund-Job, Client-Komponente)
+  bekommt `Sentry.captureException(err)` als erste Anweisung im `catch`.
+- **Jede neue Promise-`.catch(...)`-Kette** mit Inline-Callback meldet den Fehler genauso. Bei
+  Concise-Body-Arrows (`.catch(() => fallback)`) den Rückgabewert per explizitem `return`
+  erhalten, damit sich das Resolve-Verhalten der Kette nicht ändert:
+  `.catch((err) => { Sentry.captureException(err); return fallback; })`.
+- **Import je nach Bundle-Ziel:**
+  - Server-only (API-Routes, die meisten `lib/*.ts`): `import { Sentry } from "@/lib/sentry";`
+  - Alles, was auch von einer `"use client"`-Komponente importiert werden kann (Client-Pages,
+    `components/**`, sowie `lib/*.ts`-Module ohne server-only Importe wie `prisma`/`fs`/
+    `next/server`/`next/headers`): `import * as Sentry from "@sentry/nextjs";` direkt — **nicht**
+    `@/lib/sentry`, da dieser Wrapper `next/server` und `lib/auth.ts` (bcryptjs, jose, prisma)
+    nachzieht und damit den Client-Build bricht, sobald das Modul im Browser-Bundle landet.
+    Bekannte client-sichere `lib/*.ts`-Module mit diesem Muster: `lib/auswahllisten.ts`,
+    `lib/backup-config.ts`, `lib/girocode.ts`, `lib/mahnwesen-config.ts`, `lib/matif.ts`,
+    `lib/prisma.ts` (Re-Export-Kette `lib/sentry.ts → lib/auth.ts → lib/prisma.ts` sonst zirkulär),
+    `lib/useScrollRestoration.ts`.
 - **Kein Filtern nach "wichtig genug" oder "zu erwarten".** Auch vermeintlich harmlose Fallbacks
   (z.B. Encoding-Fallback UTF-8→Latin1, KI-Retry, Cache-Miss) werden gemeldet. Mehr Rauschen in
   GlitchTip ist ausdrücklich erwünscht — lieber zu viele Events als einen unsichtbaren Fehler.
   Es werden keine Schweregrad-Filter, Sampling-Ausnahmen oder "non-critical, skip" Sonderfälle
   für neue Catches eingebaut.
-- Einzige zulässige Ausnahme: Kontrollfluss, der explizit **kein Fehler** ist (z.B. abgelehnte
-  Session/JWT-Verifikation in `middleware.ts` bei fehlendem/abgelaufenem Login — das ist normales
-  Nutzerverhalten, kein Anwendungsfehler).
+- **Kein Doppel-Reporting:** Ruft ein `catch`-Block direkt danach einen gemeinsamen Fehler-Helfer
+  auf, der den Fehler bereits selbst an Sentry meldet (z.B. `melde()` in
+  `lib/nextcloud-backfill.ts`), wird am Call-Site **nicht** zusätzlich `captureException`
+  aufgerufen — sonst landet derselbe Fehler doppelt in GlitchTip.
+- Einzige zulässige Ausnahme: Kontrollfluss, der explizit **kein Fehler** ist — abgelehnte/
+  abgelaufene Session- oder JWT-Verifikation, weil das normales Nutzerverhalten ist, kein
+  Anwendungsfehler. Gilt für `middleware.ts` genauso wie für die inhaltlich identische Prüfung in
+  `lib/auth.ts` (`verifySession()`) und `lib/portal-auth.ts` (`verifyPortalSession()`,
+  `getPortalSession()`) — dort bewusst **kein** `Sentry.captureException` im `catch`.
+- **Fehler-Toasts:** `useToast().error(message)` (`components/ToastProvider.tsx`) meldet jede
+  Fehler-Toast zentral per `Sentry.captureMessage(message, "error")` in `showToast()` — neue
+  Aufrufstellen müssen dafür nichts zusätzlich tun, die Meldung passiert automatisch am
+  gemeinsamen Einstiegspunkt.
 - Bestehende Infrastruktur: `sentry.client.config.ts` / `sentry.server.config.ts` /
   `sentry.edge.config.ts` (Init + DSN), `app/error.tsx` + `app/global-error.tsx` (React-Error-
   Boundaries, melden bereits automatisch), `components/SentryUserContext.tsx` (Sentry-User-Kontext
@@ -1092,3 +1119,4 @@ Vor jedem Code-Schreiben:
 19. **sessionStorage für Filter**: `useSearchParams` + Suspense vermeiden → Filter-Zustand in `sessionStorage` persistieren; beim Remount (Back-Navigation) wiederherstellen
 20. **Checkbox-Toggle-Bug**: `<td onClick>` NIEMALS `toggleSelect` aufrufen wenn das `<input type="checkbox">` denselben Handler im `onChange` hat — doppelter Toggle = Netto-Null
 21. **Import-Spalten testen**: Immer Export-Spaltenname gegen `ARTIKEL_ALIAS` in `lib/import-utils.ts` prüfen; bei Mismatch wird der gesamte Block (inkl. EK/Lieferant) übersprungen
+22. **Sentry in jedem neuen `catch`**: `Sentry.captureException(err)` als erste Anweisung, auch in `.catch(...)`-Ketten; Import `@/lib/sentry` nur wenn das Modul garantiert server-only bleibt, sonst `@sentry/nextjs` direkt (siehe Abschnitt "Fehler-Reporting")
