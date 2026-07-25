@@ -668,6 +668,7 @@ app/
 /api/einstellungen              GET(?prefix=), PUT({key,value})
 /api/einstellungen/smtp-test    POST — SMTP-Verbindung testen
 /api/einstellungen/email-test   POST — Test-E-Mail senden
+/api/einstellungen/sentry-test  GET (DSN gesetzt?) / POST (echten Test-Event an GlitchTip senden, eventId zurückgeben)
 /api/einstellungen/artikel-import     GET/PUT — Artikel-Import-Konfiguration
 /api/einstellungen/preisliste-import  GET/PUT — Preislisten-Import-Konfiguration
 /api/suche                      GET(?q=) — Kunden/Artikel/Lieferungen/Inhaltsstoffe, min 2 Zeichen
@@ -746,7 +747,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Lager | /einstellungen/lager | Mindestbestände |
 | Adressen | /einstellungen/adressen | Batch-Geocoding |
 | Tour-Namen | /einstellungen/tournamen | system.tournamen JSON-Array |
-| System | /einstellungen/system | Version, DB |
+| System | /einstellungen/system | Version, DB, GlitchTip-Diagnose (DSN-Status + Server-/Browser-Test-Event) |
 | Stammdaten | /einstellungen/stammdaten | Kategorien, Einheiten, Unterkategorien je Kategorie, Lagerorte, Fruchtarten |
 | Lieferanten | /einstellungen/lieferanten | Zahlungskonditionen, MwSt |
 | Agraranträge (AFIG) | /einstellungen/agrarantraege | CSV-Import UI |
@@ -988,6 +989,16 @@ Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
   `sentry.edge.config.ts` (Init + DSN), `app/error.tsx` + `app/global-error.tsx` (React-Error-
   Boundaries, melden bereits automatisch), `components/SentryUserContext.tsx` (Sentry-User-Kontext
   aus Session).
+- **DSN-Diagnose:** Fehlt `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`, laufen alle `captureException()`-
+  Aufrufe unbemerkt ins Leere — kein Crash, kein Log, GlitchTip bekommt schlicht nie etwas. Die drei
+  `sentry.*.config.ts` loggen daher jetzt beim Start laut per `console.warn`, wenn ihre jeweilige DSN
+  leer ist (sichtbar in `docker logs`/Browser-Konsole). `/einstellungen/system` zeigt den DSN-Status
+  beider Seiten an und hat zwei Buttons ("Server-Test senden" / "Browser-Test senden", via
+  `POST /api/einstellungen/sentry-test` bzw. direktem `Sentry.captureException()` im Client), die
+  einen echten Test-Event auslösen — kommt der in GlitchTip nicht an, liegt es an DSN/Netzwerk/
+  Projekt-Konfiguration, nicht am Code. `NEXT_PUBLIC_SENTRY_DSN` wird beim `docker build` eingebacken
+  (Dockerfile `ARG` + GitHub-Actions-Secret `SENTRY_DSN`) — ein Container-Neustart allein ändert daran
+  nichts, dafür muss das Image neu gebaut werden.
 
 ## Authentifizierung (`lib/auth.ts`)
 
