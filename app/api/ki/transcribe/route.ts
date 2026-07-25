@@ -3,7 +3,7 @@ import { getAiConfig, transcribeAudio } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 
-const VALID_FEATURES = ["crm", "sprachmemo"] as const;
+const VALID_FEATURES = ["crm", "sprachmemo", "lieferung"] as const;
 type Feature = (typeof VALID_FEATURES)[number];
 
 export async function POST(req: NextRequest) {

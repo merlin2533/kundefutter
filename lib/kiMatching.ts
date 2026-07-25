@@ -88,18 +88,26 @@ export interface MatchKundeInput {
   name: string;
   firma?: string;
   ort?: string;
+  betriebsnummer?: string | null;
 }
 
 export interface MatchableKunde {
   id: number;
   name: string;
   firma?: string;
+  betriebsnummer?: string | null;
+  vvvoNr?: string | null;
+}
+
+function normalisiereNummer(nr: string): string {
+  return nr.replace(/\s+/g, "").toUpperCase();
 }
 
 /**
  * Ordnet einen KI-erkannten Kunden einem bestehenden Kunden zu. Prüft zuerst
- * gelernte Korrekturen (KiLernZuordnung), dann exakten Namens-/Firmentreffer,
- * dann Teilstring, dann Wort-Teiltreffer.
+ * gelernte Korrekturen (KiLernZuordnung), dann eine genannte Betriebsnummer/
+ * VVVO-Nummer (eindeutiger als ein gesprochener Name), dann exakten Namens-/
+ * Firmentreffer, dann Teilstring, dann Wort-Teiltreffer.
  */
 export function matchKunde<T extends MatchableKunde>(
   kiKunde: MatchKundeInput,
@@ -115,6 +123,18 @@ export function matchKunde<T extends MatchableKunde>(
     if (gelerntId != null) {
       const treffer = kunden.find((k) => k.id === gelerntId);
       if (treffer) return { kunde: treffer, konfidenz: "gelernt" };
+    }
+  }
+
+  if (kiKunde.betriebsnummer) {
+    const gesuchteNr = normalisiereNummer(kiKunde.betriebsnummer);
+    if (gesuchteNr) {
+      const treffer = kunden.find((k) => {
+        const bnr = k.betriebsnummer ? normalisiereNummer(k.betriebsnummer) : "";
+        const vvvo = k.vvvoNr ? normalisiereNummer(k.vvvoNr) : "";
+        return (bnr && bnr === gesuchteNr) || (vvvo && vvvo === gesuchteNr);
+      });
+      if (treffer) return { kunde: treffer, konfidenz: "hoch" };
     }
   }
 
