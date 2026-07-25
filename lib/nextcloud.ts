@@ -129,9 +129,9 @@ async function mkcol(cfg: NextcloudConfig, absolutePfadSegment: string): Promise
       return false;
     });
   if (existiertBereits) return;
-  const fehler = new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
-  Sentry.captureException(fehler);
-  throw fehler;
+  // Wird von jedem Aufrufer (ensureOrdner()-Kette) selbst gemeldet — hier nicht
+  // zusätzlich Sentry.captureException(), sonst landet derselbe Fehler doppelt in GlitchTip.
+  throw new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
 }
 
 /**
@@ -186,9 +186,8 @@ export async function uploadDatei(
     body: buffer,
   });
   if (res.status !== 201 && res.status !== 204) {
-    const fehler = new Error(`Nextcloud-Upload fehlgeschlagen (${res.status}): ${safeName}`);
-    Sentry.captureException(fehler);
-    throw fehler;
+    // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
+    throw new Error(`Nextcloud-Upload fehlgeschlagen (${res.status}): ${safeName}`);
   }
 
   return {
@@ -211,9 +210,8 @@ export async function dateiExistiert(relPfadMitDatei: string): Promise<boolean> 
   const res = await davFetch(url, { method: "HEAD", headers: { Authorization: authHeader(cfg) } });
   if (res.status === 200 || res.status === 204) return true;
   if (res.status === 404) return false;
-  const fehler = new Error(`Nextcloud: Existenzprüfung fehlgeschlagen (${res.status}): ${relPfadMitDatei}`);
-  Sentry.captureException(fehler);
-  throw fehler;
+  // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
+  throw new Error(`Nextcloud: Existenzprüfung fehlgeschlagen (${res.status}): ${relPfadMitDatei}`);
 }
 
 /**
@@ -230,9 +228,8 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
   });
   if (res.status === 404) return;
   if (res.status !== 201 && res.status !== 204) {
-    const fehler = new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
-    Sentry.captureException(fehler);
-    throw fehler;
+    // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
+    throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
   }
 }
 
@@ -300,9 +297,8 @@ export async function listeDateien(relPfad: string): Promise<NextcloudDatei[]> {
   });
   if (res.status === 404) return [];
   if (res.status !== 207) {
-    const fehler = new Error(`Nextcloud: Ordner konnte nicht gelistet werden (${res.status}): ${relPfad}`);
-    Sentry.captureException(fehler);
-    throw fehler;
+    // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
+    throw new Error(`Nextcloud: Ordner konnte nicht gelistet werden (${res.status}): ${relPfad}`);
   }
   const xml = await res.text();
   const webViewLink = buildWebViewLink(cfg, relPfad);
