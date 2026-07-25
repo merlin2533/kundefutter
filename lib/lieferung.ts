@@ -5,6 +5,14 @@ import { Sentry } from "@/lib/sentry";
 
 type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
+// Rückverfolgbarkeitspflicht Futtermittel: ab diesem Lieferdatum ist die Chargennummer
+// bei Tierfutter-Positionen im Lieferschein Pflichtfeld, davor bleibt sie ein Kannfeld.
+const CHARGENPFLICHT_FUTTER_AB = new Date("2027-01-01T00:00:00.000Z");
+
+export function istChargeNrPflichtFuerLieferschein(kategorie: string, lieferDatum: Date): boolean {
+  return kategorie === "Futter" && lieferDatum >= CHARGENPFLICHT_FUTTER_AB;
+}
+
 /**
  * Lädt das unter Einstellungen › Firma hinterlegte Standard-Zahlungsziel (Tage).
  * Fällt auf 30 Tage zurück, falls kein Wert konfiguriert oder ungültig ist.

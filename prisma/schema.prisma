@@ -1941,13 +1941,57 @@ model KiLieferungBatchItem {
 
 model KiLernZuordnung {
   id               Int      @id @default(autoincrement())
-  typ              String // "artikel" | "kunde"
+  typ              String // "artikel" | "kunde" | "lieferant"
   suchtext         String // normalisiert: trim + lowercase
-  zielId           Int // Artikel.id bzw. Kunde.id
+  zielId           Int // Artikel.id bzw. Kunde.id bzw. Lieferant.id
   trefferAnzahl    Int      @default(1)
   letzteVerwendung DateTime @default(now())
   createdAt        DateTime @default(now())
 
   @@unique([typ, suchtext])
   @@index([typ])
+}
+
+// ─── KI-EINGANGSRECHNUNG BATCH-MODUS ───────────────────────────────────────────
+
+model KiEingangsrechnungBatch {
+  id              Int       @id @default(autoincrement())
+  status          String    @default("offen") // offen | verarbeitung | bereit | abgeschlossen | verworfen
+  notiz           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  abgeschlossenAm DateTime?
+
+  items KiEingangsrechnungBatchItem[]
+
+  @@index([status])
+}
+
+model KiEingangsrechnungBatchItem {
+  id                 Int                     @id @default(autoincrement())
+  batchId            Int
+  batch              KiEingangsrechnungBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  reihenfolge        Int                     @default(0)
+  dateiPfad          String // relativ unter uploads/ki-eingangsrechnung-batch/<batchId>/
+  dateiName          String?
+  status             String                  @default("wartet") // wartet | analysiert | fehler | uebernommen | verworfen
+  kiRohtext          String? // rohes OCR-Ergebnis, für Fehlersuche
+  kiErgebnisJson     String? // JSON: {datum, belegNr, faelligAm, beschreibung, betragNetto, mwstSatz, betragBrutto, lieferant, iban, bic}
+  lieferantId        Int?
+  lieferantKonfidenz String? // hoch | mittel | niedrig | keine | gelernt
+  nummer             String?
+  datum              String? // YYYY-MM-DD
+  faelligAm          String? // YYYY-MM-DD
+  betragNetto        Float?
+  mwstSatz           Float?
+  notiz              String?
+  fehlendeFelder     String? // JSON-Array von Hinweistexten, z.B. ["Lieferant unklar", "Rechnungsnummer fehlt"]
+  fehlerText         String?
+  entscheidung       String? // null | "passt" | "passt_nicht"
+  eingangsRechnungId Int? // gesetzt nach erfolgreichem Abschluss
+  analysiertAm       DateTime?
+  createdAt          DateTime                @default(now())
+
+  @@index([batchId])
+  @@index([status])
 }

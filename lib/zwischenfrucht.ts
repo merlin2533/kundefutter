@@ -40,17 +40,23 @@ export const ZWISCHENFRUCHT_ARTEN: ZwischenfruchtArt[] = [
   { id: "alexandrinerklee", name: "Alexandrinerklee", familie: "Leguminosen", tkg: 3 },
   { id: "inkarnatklee", name: "Inkarnatklee", familie: "Leguminosen", tkg: 3.5 },
   { id: "rotklee", name: "Rotklee", familie: "Leguminosen", tkg: 2 },
+  { id: "weissklee", name: "Weißklee", familie: "Leguminosen", tkg: 0.65 },
   { id: "esparsette", name: "Esparsette (unentspelzt)", familie: "Leguminosen", tkg: 18 },
+  { id: "serradella", name: "Serradella", familie: "Leguminosen", tkg: 13 },
+  { id: "bockshornklee", name: "Bockshornklee", familie: "Leguminosen", tkg: 15 },
   { id: "sommerwicke", name: "Sommerwicke", familie: "Leguminosen", tkg: 75 },
   { id: "winterwicke", name: "Winterwicke (Zottelwicke)", familie: "Leguminosen", tkg: 50 },
   { id: "ackerbohne", name: "Ackerbohne", familie: "Leguminosen", tkg: 450 },
   { id: "futtererbse", name: "Futtererbse", familie: "Leguminosen", tkg: 200 },
   { id: "blaue_lupine", name: "Blaue Lupine", familie: "Leguminosen", tkg: 170 },
   { id: "gelbe_lupine", name: "Gelbe Lupine", familie: "Leguminosen", tkg: 130 },
+  { id: "weisse_lupine", name: "Weiße Lupine", familie: "Leguminosen", tkg: 350 },
   { id: "platterbse", name: "Platterbse", familie: "Leguminosen", tkg: 120 },
   { id: "rauhafer", name: "Rauhafer (Saathafer)", familie: "Gräser", tkg: 32 },
+  { id: "winterroggen", name: "Winterroggen (Grünroggen)", familie: "Gräser", tkg: 30 },
   { id: "sudangras", name: "Sudangras / Sorghum-Hybride", familie: "Gräser", tkg: 10 },
   { id: "weidelgras", name: "Welsches Weidelgras", familie: "Gräser", tkg: 2.2 },
+  { id: "deutsches_weidelgras", name: "Deutsches Weidelgras", familie: "Gräser", tkg: 2 },
 ];
 
 export function findZwischenfruchtArt(id: string): ZwischenfruchtArt | undefined {
