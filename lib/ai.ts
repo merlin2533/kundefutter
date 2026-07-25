@@ -152,6 +152,7 @@ export async function analyzeDocument(
     await logUsage(languageCfg, feature, tokensIn, tokensOut, true);
     return { raw: text, parsed, tokensIn, tokensOut };
   } catch (err) {
+    Sentry.captureException(err);
     await logUsage(ocrCfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral OCR Fehler");
     throw err;
   }
@@ -213,6 +214,7 @@ export async function analyzeText(
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
     return { raw: responseText, parsed, tokensIn, tokensOut };
   } catch (err) {
+    Sentry.captureException(err);
     await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral Fehler");
     throw err;
   }
@@ -242,6 +244,7 @@ export async function transcribeAudio(
     await logUsage(cfg, feature, tokensIn, tokensOut, true);
     return { text: response.text, language: response.language, tokensIn, tokensOut };
   } catch (err) {
+    Sentry.captureException(err);
     await logUsage(cfg, feature, 0, 0, false, err instanceof Error ? err.message : "Mistral Transkriptions-Fehler");
     throw err;
   }
@@ -294,11 +297,11 @@ function detectIsPdf(base64: string): boolean {
 }
 
 export function parseJsonFromText(text: string): Record<string, unknown> {
-  try { return JSON.parse(text); } catch { /* fall */ }
+  try { return JSON.parse(text); } catch (e) { Sentry.captureException(e); /* fall */ }
   const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (match) { try { return JSON.parse(match[1]); } catch { /* fall */ } }
+  if (match) { try { return JSON.parse(match[1]); } catch (e) { Sentry.captureException(e); /* fall */ } }
   const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch { /* fall */ } }
+  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch (e) { Sentry.captureException(e); /* fall */ } }
   return { rawText: text };
 }
 
@@ -361,6 +364,7 @@ export async function testConnection(cfg: AiConfig): Promise<{ ok: boolean; erro
     });
     return { ok: true };
   } catch (err) {
+    Sentry.captureException(err);
     const isDev = process.env.NODE_ENV === "development";
     const msg = isDev && err instanceof Error ? err.message : "Verbindung fehlgeschlagen";
     return { ok: false, error: msg };

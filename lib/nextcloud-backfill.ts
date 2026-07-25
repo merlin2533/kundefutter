@@ -71,7 +71,8 @@ export async function getBackfillStatus(): Promise<BackfillStatus | null> {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as BackfillStatus;
-  } catch {
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }
@@ -131,6 +132,7 @@ export async function resetBackfillStatus(): Promise<{ ok: boolean; laeuftNoch?:
 }
 
 function melde(status: BackfillStatus, entitaet: string, id: number, fehler: unknown) {
+  Sentry.captureException(fehler);
   status.gesamt.fehler++;
   if (status.fehlerListe.length < MAX_FEHLER) {
     status.fehlerListe.push({ entitaet, id, fehler: fehler instanceof Error ? fehler.message : String(fehler) });
@@ -140,8 +142,9 @@ function melde(status: BackfillStatus, entitaet: string, id: number, fehler: unk
 async function ladeDatei(relPfad: string): Promise<Buffer | null> {
   try {
     return await readFile(resolveUploadPath(relPfad));
-  } catch {
-    return null; // Datei existiert lokal nicht mehr — überspringen statt abzubrechen
+  } catch (e) {
+    Sentry.captureException(e); // Datei existiert lokal nicht mehr — überspringen statt abzubrechen
+    return null;
   }
 }
 

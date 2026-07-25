@@ -10,6 +10,8 @@
  * Ablauf: fc.yahoo.com → Cookie → getcrumb → Crumb für Chart-API.
  */
 
+import { Sentry } from "@/lib/sentry";
+
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -182,12 +184,13 @@ async function getYahooAuth(): Promise<YahooAuth | null> {
 
         _auth = { crumb, cookie, expiresAt: Date.now() + 55 * 60 * 1_000 };
         return _auth;
-      } catch {
+      } catch (e) {
+        Sentry.captureException(e);
         continue;
       }
     }
-  } catch {
-    // Auth-Fehler — wird ohne Crumb weiterversucht
+  } catch (e) {
+    Sentry.captureException(e); // Auth-Fehler — wird ohne Crumb weiterversucht
   }
 
   return null;
@@ -270,8 +273,8 @@ async function doFetchMatif(range: string): Promise<MatifProdukt[]> {
           statPrognose: statistischePrognose(verlauf),
         });
         parsed = true;
-      } catch {
-        // Host nicht erreichbar – nächsten versuchen
+      } catch (e) {
+        Sentry.captureException(e); // Host nicht erreichbar – nächsten versuchen
       }
     }
   }
