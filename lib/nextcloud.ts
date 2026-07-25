@@ -228,7 +228,13 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
     method: "MOVE",
     headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
   });
-  if (res.status === 404) return;
+  if (res.status === 404) return; // Quellordner existiert nicht (nichts zu migrieren)
+  // 412 = Zielordner existiert bereits (Overwrite: "F" verhindert das Überschreiben).
+  // Kommt vor, wenn im alten und neuen Ordnerformat parallel schon Dateien liegen
+  // (z.B. Upload vor UND nach der ":"→"-"-Migration). Kein Fehler — der neue Ordner
+  // wird ohnehin verwendet, der alte bleibt unangetastet bestehen statt bei jedem
+  // erneuten Sync-Lauf erneut als Fehler gemeldet zu werden.
+  if (res.status === 412) return;
   if (res.status !== 201 && res.status !== 204) {
     const fehler = new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
     Sentry.captureException(fehler);

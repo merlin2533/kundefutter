@@ -33,6 +33,11 @@ import {
 import { generiereRechnungPdf, generiereLieferscheinPdf, generiereGutschriftPdf } from "./pdfGenerator";
 
 const STATUS_KEY = "system.nextcloud.backfillStatus";
+// Sobald die ":" → "-" Ordner-Migration (Schritt 0) einmal fehlerfrei durchgelaufen
+// ist, wird sie bei künftigen Läufen übersprungen. Reduziert unnötigen WebDAV-
+// Traffic bei jedem erneuten Sync (z.B. nach "Zurücksetzen") und damit auch das
+// Risiko, ein Rate-Limit (429) beim Nextcloud-Server auszulösen.
+const MIGRATION_ABGESCHLOSSEN_KEY = "system.nextcloud.ordnerMigrationAbgeschlossen";
 const BATCH_SIZE = 200;
 const MAX_FEHLER = 100;
 // Ohne Fortschritt seit mehr als 15 Minuten gilt ein "laufend"-Status als verwaist
@@ -173,48 +178,66 @@ async function runBackfill(status: BackfillStatus): Promise<void> {
   // Bestehende Ordner "Name (ID:123)" werden zu "Name (ID-123)" verschoben, bevor
   // irgendetwas hochgeladen wird — sonst würden neue Uploads (die bereits das neue
   // Format verwenden) parallele Ordner statt der bestehenden Kunden-/Artikel-Ordner treffen.
-  status.aktuellerSchritt = "Ordner-Migration (Kunden)";
-  await speichereStatus(status);
-  for (let skip = 0; ; skip += BATCH_SIZE) {
-    const batch = await prisma.kunde.findMany({
-      select: { id: true, name: true },
-      orderBy: { id: "asc" },
-      skip,
-      take: BATCH_SIZE,
-    });
-    if (batch.length === 0) break;
-    for (const k of batch) {
-      status.gesamt.verarbeitet++;
-      try {
-        await verschiebeOrdner(kundenOrdnerPfadLegacy(k.id, k.name), kundenOrdnerPfad(k.id, k.name));
-      } catch (e) {
-        melde(status, "Kunde(Ordner-Migration)", k.id, e);
-      }
-    }
+  // Läuft nur einmal: sobald sie fehlerfrei durchgelaufen ist, entstehen keine neuen
+  // Legacy-Ordner mehr (neue Uploads nutzen ausschließlich das neue Format), daher wird
+  // sie bei künftigen Läufen übersprungen — spart unnötigen WebDAV-Traffic (und damit
+  // Rate-Limit-Risiko) bei jedem erneuten Sync.
+  if (await getEinstellung(MIGRATION_ABGESCHLOSSEN_KEY)) {
+    status.aktuellerSchritt = "Ordner-Migration (bereits abgeschlossen, übersprungen)";
     await speichereStatus(status);
-    if (batch.length < BATCH_SIZE) break;
-  }
+  } else {
+    const fehlerVorMigration = status.gesamt.fehler;
 
-  status.aktuellerSchritt = "Ordner-Migration (Artikel)";
-  await speichereStatus(status);
-  for (let skip = 0; ; skip += BATCH_SIZE) {
-    const batch = await prisma.artikel.findMany({
-      select: { id: true, name: true },
-      orderBy: { id: "asc" },
-      skip,
-      take: BATCH_SIZE,
-    });
-    if (batch.length === 0) break;
-    for (const a of batch) {
-      status.gesamt.verarbeitet++;
-      try {
-        await verschiebeOrdner(artikelOrdnerPfadLegacy(a.id, a.name), artikelOrdnerPfad(a.id, a.name));
-      } catch (e) {
-        melde(status, "Artikel(Ordner-Migration)", a.id, e);
-      }
-    }
+    status.aktuellerSchritt = "Ordner-Migration (Kunden)";
     await speichereStatus(status);
-    if (batch.length < BATCH_SIZE) break;
+    for (let skip = 0; ; skip += BATCH_SIZE) {
+      const batch = await prisma.kunde.findMany({
+        select: { id: true, name: true },
+        orderBy: { id: "asc" },
+        skip,
+        take: BATCH_SIZE,
+      });
+      if (batch.length === 0) break;
+      for (const k of batch) {
+        status.gesamt.verarbeitet++;
+        try {
+          await verschiebeOrdner(kundenOrdnerPfadLegacy(k.id, k.name), kundenOrdnerPfad(k.id, k.name));
+        } catch (e) {
+          melde(status, "Kunde(Ordner-Migration)", k.id, e);
+        }
+      }
+      await speichereStatus(status);
+      if (batch.length < BATCH_SIZE) break;
+    }
+
+    status.aktuellerSchritt = "Ordner-Migration (Artikel)";
+    await speichereStatus(status);
+    for (let skip = 0; ; skip += BATCH_SIZE) {
+      const batch = await prisma.artikel.findMany({
+        select: { id: true, name: true },
+        orderBy: { id: "asc" },
+        skip,
+        take: BATCH_SIZE,
+      });
+      if (batch.length === 0) break;
+      for (const a of batch) {
+        status.gesamt.verarbeitet++;
+        try {
+          await verschiebeOrdner(artikelOrdnerPfadLegacy(a.id, a.name), artikelOrdnerPfad(a.id, a.name));
+        } catch (e) {
+          melde(status, "Artikel(Ordner-Migration)", a.id, e);
+        }
+      }
+      await speichereStatus(status);
+      if (batch.length < BATCH_SIZE) break;
+    }
+
+    // Nur als abgeschlossen markieren, wenn diese Migration keine neuen Fehler
+    // verursacht hat — bei echten Fehlern (z.B. Berechtigungen) soll der nächste
+    // Lauf es erneut versuchen, statt den kaputten Zustand dauerhaft zu übernehmen.
+    if (status.gesamt.fehler === fehlerVorMigration) {
+      await setEinstellung(MIGRATION_ABGESCHLOSSEN_KEY, "true");
+    }
   }
 
   // ── 1. Sachkundenachweise ────────────────────────────────────────────────
