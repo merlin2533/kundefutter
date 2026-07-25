@@ -1,4 +1,5 @@
 import { getAppName } from "@/lib/appinfo";
+import { Sentry } from "@/lib/sentry";
 
 const OSM_URL = "https://nominatim.openstreetmap.org/search";
 
@@ -20,7 +21,8 @@ export async function geocodeAdresse(
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return null;
     return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch {
+  } catch (e) {
+    Sentry.captureException(e);
     return null;
   }
 }
@@ -55,7 +57,7 @@ export async function autoGeocodeKunde(
         data: { geocodeVersuche: { increment: 1 } },
       });
     }
-  } catch {
-    // fire-and-forget: Fehler still ignorieren
+  } catch (e) {
+    Sentry.captureException(e); // fire-and-forget: Fehler wird nur gemeldet, nicht weitergereicht
   }
 }

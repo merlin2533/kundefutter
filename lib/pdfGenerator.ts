@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { Sentry } from "@/lib/sentry";
 import { formatDatum, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
@@ -125,8 +126,8 @@ function zeichneStornoWasserzeichen(doc: jsPDF, text = "STORNO"): void {
       baseline: "middle",
       angle: 45,
     });
-  } catch {
-    /* Wasserzeichen ist rein optisch – Fehler ignorieren */
+  } catch (e) {
+    Sentry.captureException(e); // Wasserzeichen ist rein optisch – Fehler ignorieren
   } finally {
     if (typeof anyDoc.restoreGraphicsState === "function") anyDoc.restoreGraphicsState();
   }
@@ -380,8 +381,8 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
       const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
       doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
       logoBreiteMm = 40;
-    } catch {
-      // Ungültiges Bildformat - ignorieren
+    } catch (e) {
+      Sentry.captureException(e); // Ungültiges Bildformat - ignorieren
     }
   }
 
@@ -636,8 +637,8 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
         doc.setTextColor(120);
         doc.text("Scan & Pay", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
         giroCodeRendered = true;
-      } catch {
-        // Bild-Einbettung fehlgeschlagen – ignorieren
+      } catch (e) {
+        Sentry.captureException(e); // Bild-Einbettung fehlgeschlagen – ignorieren
       }
     }
   }
@@ -710,8 +711,8 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
       const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
       doc.addImage(logo.dataUrl, format, 14, 12, 45, 22, undefined, "FAST");
       logoBreiteMm = 45;
-    } catch {
-      // ignore
+    } catch (e) {
+      Sentry.captureException(e);
     }
   }
 
@@ -937,7 +938,9 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
       const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
       doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
       logoBreiteMm = 40;
-    } catch { /* ignore */ }
+    } catch (e) {
+      Sentry.captureException(e);
+    }
   }
 
   doc.setFontSize(13);
@@ -1203,7 +1206,9 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
       const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
       doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
       logoBreiteMm = 40;
-    } catch { /* ignore */ }
+    } catch (e) {
+      Sentry.captureException(e);
+    }
   }
 
   doc.setFontSize(13);

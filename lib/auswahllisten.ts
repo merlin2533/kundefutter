@@ -3,6 +3,10 @@
 // Werte werden in der Tabelle `Einstellung` als JSON-Array unter
 // `system.<key>` gespeichert und können unter
 // /einstellungen/stammdaten gepflegt werden.
+//
+// Wird auch von "use client"-Seiten importiert — daher Direkt-Import aus
+// @sentry/nextjs statt @/lib/sentry (das next/server + Prisma nach sich zieht).
+import * as Sentry from "@sentry/nextjs";
 
 export const DEFAULT_SAATGUT_KULTUREN = [
   "Mais",
@@ -40,8 +44,8 @@ export function chargenpflichtKategorienAusSettings(
     if (Array.isArray(parsed)) {
       return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
     }
-  } catch {
-    /* ignore */
+  } catch (e) {
+    Sentry.captureException(e);
   }
   return DEFAULT_CHARGENPFLICHT_KATEGORIEN;
 }
@@ -106,8 +110,8 @@ export function parseListSetting(
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
     }
-  } catch {
-    /* ignore */
+  } catch (e) {
+    Sentry.captureException(e);
   }
   return fallback;
 }
