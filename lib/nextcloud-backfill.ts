@@ -35,6 +35,11 @@ import { generiereRechnungPdf, generiereLieferscheinPdf, generiereGutschriftPdf 
 const STATUS_KEY = "system.nextcloud.backfillStatus";
 const BATCH_SIZE = 200;
 const MAX_FEHLER = 100;
+// Ohne Fortschritt seit mehr als 15 Minuten gilt ein "laufend"-Status als verwaist
+// (z.B. weil der Container während des Laufs neu deployed/neu gestartet wurde —
+// Watchtower zieht bei jedem Merge nach main ein neues Image). Ein fire-and-forget-Job
+// stirbt dabei lautlos mit dem Prozess, der Status bliebe sonst für immer auf "laufend".
+const VERWAIST_MS = 15 * 60 * 1000;
 
 export interface BackfillFehler {
   entitaet: string;
@@ -46,6 +51,7 @@ export interface BackfillStatus {
   laufend: boolean;
   gestartet: string;
   beendet?: string;
+  zuletztAktualisiert: string;
   aktuellerSchritt: string;
   gesamt: { verarbeitet: number; hochgeladen: number; uebersprungen: number; fehler: number };
   fehlerListe: BackfillFehler[];
@@ -71,17 +77,26 @@ export async function getBackfillStatus(): Promise<BackfillStatus | null> {
 }
 
 async function speichereStatus(status: BackfillStatus): Promise<void> {
+  status.zuletztAktualisiert = new Date().toISOString();
   await setEinstellung(STATUS_KEY, JSON.stringify(status));
+}
+
+/** Ein "laufend"-Status ohne Fortschritt seit VERWAIST_MS gehört zu einem toten Prozess. */
+export function istVerwaist(status: BackfillStatus): boolean {
+  if (!status.laufend) return false;
+  const letzte = status.zuletztAktualisiert ?? status.gestartet;
+  return Date.now() - new Date(letzte).getTime() > VERWAIST_MS;
 }
 
 /** Startet den Backfill-Job, falls nicht bereits einer läuft. Gibt false zurück, wenn bereits ein Job aktiv ist. */
 export async function starteBackfillFallsMoeglich(): Promise<boolean> {
   const bestehend = await getBackfillStatus();
-  if (bestehend?.laufend) return false;
+  if (bestehend?.laufend && !istVerwaist(bestehend)) return false;
 
   const status: BackfillStatus = {
     laufend: true,
     gestartet: new Date().toISOString(),
+    zuletztAktualisiert: new Date().toISOString(),
     aktuellerSchritt: "Wird gestartet…",
     gesamt: { verarbeitet: 0, hochgeladen: 0, uebersprungen: 0, fehler: 0 },
     fehlerListe: [],
@@ -95,6 +110,24 @@ export async function starteBackfillFallsMoeglich(): Promise<boolean> {
   });
 
   return true;
+}
+
+/**
+ * Setzt den Backfill-Status vollständig zurück (Reset-Button, oder beim Trennen/
+ * Neuverbinden der Nextcloud-Zugangsdaten). Ein tatsächlich noch aktiv laufender,
+ * nicht verwaister Job wird dabei nicht abgebrochen — der nächste Start bleibt bis
+ * dahin über `starteBackfillFallsMoeglich()` blockiert. Der eigentliche Datentransfer
+ * ist idempotent (`dateiExistiert()`-Prüfung vor jedem Upload): ein neuer Lauf nach dem
+ * Reset überspringt automatisch alles, was am Zielort bereits vorhanden ist, und
+ * überträgt nur, was dort noch fehlt.
+ */
+export async function resetBackfillStatus(): Promise<{ ok: boolean; laeuftNoch?: boolean }> {
+  const bestehend = await getBackfillStatus();
+  if (bestehend?.laufend && !istVerwaist(bestehend)) {
+    return { ok: false, laeuftNoch: true };
+  }
+  await prisma.einstellung.deleteMany({ where: { key: STATUS_KEY } });
+  return { ok: true };
 }
 
 function melde(status: BackfillStatus, entitaet: string, id: number, fehler: unknown) {

@@ -94,6 +94,17 @@ async function mkcol(cfg: NextcloudConfig, absolutePfadSegment: string): Promise
   const res = await fetch(url, { method: "MKCOL", headers: { Authorization: authHeader(cfg) } });
   // 201 = angelegt, 405 = existiert bereits (Method Not Allowed auf vorhandener Collection)
   if (res.status === 201 || res.status === 405) return;
+  // Manche Nextcloud-/Reverse-Proxy-Konfigurationen antworten auf MKCOL gegen einen
+  // bereits vorhandenen Ordner uneinheitlich (z.B. 401 statt 405). Vor dem Fehlschlag
+  // per PROPFIND prüfen, ob der Ordner tatsächlich schon existiert — falls ja, den
+  // vorhandenen Ordner einfach übernehmen und nutzen statt einen Fehler zu werfen.
+  const existiertBereits = await fetch(url, {
+    method: "PROPFIND",
+    headers: { Authorization: authHeader(cfg), Depth: "0", "Content-Type": "application/xml" },
+  })
+    .then((r) => r.status === 207)
+    .catch(() => false);
+  if (existiertBereits) return;
   throw new Error(`Nextcloud: Ordner konnte nicht angelegt werden (${res.status}): ${absolutePfadSegment}`);
 }
 

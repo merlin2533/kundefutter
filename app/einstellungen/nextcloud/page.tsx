@@ -18,6 +18,7 @@ interface BackfillStatus {
   laufend: boolean;
   gestartet?: string;
   beendet?: string;
+  verwaist?: boolean;
   aktuellerSchritt?: string;
   gesamt?: { verarbeitet: number; hochgeladen: number; uebersprungen: number; fehler: number };
   fehlerListe?: { entitaet: string; id: number; fehler: string }[];
@@ -115,7 +116,27 @@ export default function NextcloudEinstellungenPage() {
   async function trennen() {
     if (!confirm("Nextcloud-Verbindung wirklich trennen? Der Abgleich wird damit deaktiviert.")) return;
     await fetch("/api/einstellungen", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "system.nextcloud.appPassword", value: "" }) });
+    // Status der einmaligen Datenübernahme zurücksetzen — beim Trennen und erneuten
+    // Verbinden (auch mit einer anderen Nextcloud-Instanz) soll die Übernahme wieder
+    // frisch starten können, statt einen alten "Abgeschlossen"-Stand aus der vorherigen
+    // Verbindung anzuzeigen. Bereits vorhandene Dateien werden beim erneuten Lauf ohnehin
+    // übersprungen (dateiExistiert-Prüfung) — nur was am Ziel fehlt, wird übertragen.
+    await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch(() => {});
+    setBackfill(null);
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     await ladeStatus();
+  }
+
+  async function backfillZuruecksetzen() {
+    setBackfillFehler("");
+    const res = await fetch("/api/nextcloud/backfill", { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setBackfillFehler(json.error ?? "Status konnte nicht zurückgesetzt werden");
+      return;
+    }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    setBackfill(null);
   }
 
   async function speichereZentralOrdner() {
@@ -291,13 +312,33 @@ export default function NextcloudEinstellungenPage() {
           <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-3">{backfillFehler}</p>
         )}
 
-        <button
-          onClick={backfillStarten}
-          disabled={backfill?.laufend || !status?.verbunden}
-          className="px-4 py-2 bg-white border border-green-300 text-green-700 text-sm font-medium rounded-lg hover:bg-green-50 disabled:opacity-50"
-        >
-          {backfill?.laufend ? "Läuft…" : "Bestehende Dokumente übertragen"}
-        </button>
+        {backfill?.laufend && backfill.verwaist && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+            Seit über 15 Minuten kein Fortschritt — der letzte Lauf wurde vermutlich durch einen
+            Neustart (z.B. ein Deployment) unterbrochen. Mit „Zurücksetzen" kann ein neuer Lauf
+            gestartet werden; bereits übertragene Dateien werden dabei übersprungen.
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={backfillStarten}
+            disabled={(backfill?.laufend && !backfill.verwaist) || !status?.verbunden}
+            className="px-4 py-2 bg-white border border-green-300 text-green-700 text-sm font-medium rounded-lg hover:bg-green-50 disabled:opacity-50"
+          >
+            {backfill?.laufend && !backfill.verwaist ? "Läuft…" : "Bestehende Dokumente übertragen"}
+          </button>
+          {backfill && (backfill.laufend || backfill.beendet) && (
+            <button
+              onClick={backfillZuruecksetzen}
+              disabled={backfill.laufend && !backfill.verwaist}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              title={backfill.laufend && !backfill.verwaist ? "Läuft noch — erst abwarten oder auf Verwaist-Erkennung warten" : "Status leeren, ohne bereits übertragene Dateien erneut hochzuladen"}
+            >
+              Zurücksetzen
+            </button>
+          )}
+        </div>
 
         {backfill && (backfill.laufend || backfill.beendet) && (
           <div className="mt-4 space-y-2 text-sm">
