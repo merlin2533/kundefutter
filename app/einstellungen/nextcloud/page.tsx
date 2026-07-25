@@ -100,6 +100,7 @@ export default function NextcloudEinstellungenPage() {
     setSaving(true);
     setFehler("");
     setSaved(false);
+    const neuVerbunden = !!appPassword; // neues App-Passwort = echtes (Neu-)Verbinden, ggf. mit anderer Instanz
     try {
       await Promise.all([
         fetch("/api/einstellungen", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "system.nextcloud.serverUrl", value: serverUrl.trim().replace(/\/+$/, "") }) }),
@@ -107,9 +108,20 @@ export default function NextcloudEinstellungenPage() {
         fetch("/api/einstellungen", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "system.nextcloud.rootPfad", value: rootPfad.trim() || "/AGRI-Office" }) }),
         ...(appPassword ? [fetch("/api/einstellungen", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "system.nextcloud.appPassword", value: appPassword }) })] : []),
       ]);
+      // Status der einmaligen Datenübernahme zurücksetzen — ein neues App-Passwort kann
+      // eine andere Nextcloud-Instanz meinen; alter Status würde sonst irreführend
+      // weiterlaufen/-angezeigt. Erneuter Lauf überträgt trotzdem nur, was am Ziel fehlt.
+      if (neuVerbunden) {
+        await fetch("/api/nextcloud/backfill", { method: "DELETE" }).catch((err) => {
+          Sentry.captureException(err);
+        });
+        setBackfill(null);
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      }
       setSaved(true);
       setAppPassword("");
       await ladeStatus();
+      if (neuVerbunden) await ladeBackfillStatus();
     } catch (err) {
       Sentry.captureException(err);
       setFehler("Speichern fehlgeschlagen.");
