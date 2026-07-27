@@ -101,19 +101,40 @@ export default function KategorieVerlaufPage() {
   );
   const jahre = data?.jahre ?? [];
 
+  const exportParams = new URLSearchParams({ kategorie, unterkategorie, jahrVon, jahrBis });
+  if (kundeSuche.trim()) exportParams.set("kundeSuche", kundeSuche.trim());
+
   return (
     <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-          <Link href="/statistik" className="hover:text-green-700">Statistik</Link>
-          <span>›</span>
-          <span className="text-gray-800 font-medium">Kategorie-Verlauf</span>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <Link href="/statistik" className="hover:text-green-700">Statistik</Link>
+            <span>›</span>
+            <span className="text-gray-800 font-medium">Kategorie-Verlauf</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Kategorie-Verlauf je Kunde</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Welcher Kunde hat in welchem Jahr welchen Artikel einer Kategorie erhalten — z.&nbsp;B. für die
+            Fruchtfolgeplanung (Zwischenfrucht, Getreide, …) im nächsten Jahr.
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">Kategorie-Verlauf je Kunde</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Welcher Kunde hat in welchem Jahr welchen Artikel einer Kategorie erhalten — z.&nbsp;B. für die
-          Fruchtfolgeplanung (Zwischenfrucht, Getreide, …) im nächsten Jahr.
-        </p>
+        {kunden.length > 0 && (
+          <div className="flex items-center gap-2 flex-none">
+            <a
+              href={`/api/statistik/kategorie-verlauf/export?${exportParams}`}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Excel-Export
+            </a>
+            <a
+              href={`/api/statistik/kategorie-verlauf/pdf?${exportParams}`}
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              PDF-Export
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Filter */}
