@@ -31,5 +31,11 @@ async function ensureWalMode() {
     Sentry.captureException(e); // könnte theoretisch bei Nicht-SQLite auftreten, wird aber trotzdem gemeldet
   }
 }
-// Einmalig beim Start aufrufen (fire-and-forget)
-ensureWalMode().catch(() => {});
+// Einmalig beim Start aufrufen (fire-and-forget). Der eigene catch oben deckt
+// nur die PRAGMA-Aufrufe ab — alles davor/danach (z.B. ein kaputter Client)
+// landete hier vorher in einem leeren Handler. Bewusst `captureException` statt
+// lib/logger.ts: die Import-Kette dieses sehr früh geladenen Moduls soll
+// unverändert bleiben.
+ensureWalMode().catch((e) => {
+  Sentry.captureException(e);
+});

@@ -11,6 +11,9 @@ services:
     environment:
       - DATABASE_URL=file:/data/kundefutter.db
       - NODE_ENV=production
+      # Optional: das Image hat einen fest hinterlegten Standard-DSN
+      # (lib/sentry-dsn.ts). Nur setzen, um auf ein eigenes GlitchTip-Projekt
+      # umzulenken — oder auf "off", um das Reporting lokal abzuschalten.
       - SENTRY_DSN=${SENTRY_DSN:-}
     restart: unless-stopped
 

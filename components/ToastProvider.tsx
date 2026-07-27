@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useCallback } from "react";
 import { Toast } from "./Toast";
-import * as Sentry from "@sentry/nextjs";
+import { log } from "@/lib/logger";
 
 interface ToastItem {
   id: number;
@@ -29,7 +29,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     if (type === "error") {
-      Sentry.captureMessage(message, "error");
+      // Bewusst log.warn und NICHT captureMessage: der Toast-Text ist ein
+      // generischer String ohne Stacktrace ("Fehler beim Speichern"), der in
+      // GlitchTip alle Aufrufstellen zu einem einzigen Issue kollabieren ließe.
+      // Das aussagekräftige Issue kommt von FetchErrorMonitor (mit Pfad +
+      // Status) bzw. vom captureException der jeweiligen Aufrufstelle — der
+      // Toast landet hier nur noch im Log-Strom, ohne Doppelmeldung.
+      log.warn(`Fehler-Toast: ${message}`, { quelle: "toast" });
     }
   }, []);
 

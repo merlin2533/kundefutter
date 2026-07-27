@@ -102,12 +102,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # NEXT_PUBLIC_SENTRY_DSN muss beim Docker-Build vorliegen (Next.js backt
-          # NEXT_PUBLIC_-Variablen fest ins Client-Bundle ein) — ohne diesen Build-Arg
-          # bleibt die Browser-seitige Fehlermeldung an GlitchTip dauerhaft stumm,
-          # unabhängig vom SENTRY_DSN-Wert im laufenden Container.
-          build-args: |
-            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          # Kein NEXT_PUBLIC_SENTRY_DSN-Build-Arg mehr: der Standard-DSN ist in
+          # lib/sentry-dsn.ts fest hinterlegt und wird beim Build automatisch ins
+          # Client-Bundle eingebacken. Würde hier ein (womöglich veraltetes)
+          # SENTRY_DSN-Secret übergeben, meldete der Browser des offiziellen
+          # Images an ein anderes Projekt als der Server. Das ARG im Dockerfile
+          # bleibt als dokumentierter Notausgang für eigene Builds bestehen.
           no-cache: true                # GitHub Actions Cache deaktiviert
 
       - name: Image digest

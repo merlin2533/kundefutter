@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
@@ -30,6 +31,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export default function BestelllistePage() {
+  const { showToast } = useToast();
   const [positionen, setPositionen] = useState<Bestellposition[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"offen" | "bestellt" | "alle">("offen");
@@ -41,6 +43,8 @@ export default function BestelllistePage() {
     try {
       const res = await fetch(`/api/bestellliste?status=${param}`);
       if (!res.ok) {
+        // Ohne Rückmeldung sähe ein HTTP-Fehler wie eine leere Bestellliste aus.
+        showToast("Bestellliste konnte nicht geladen werden.", "error");
         setPositionen([]);
         return;
       }
@@ -48,6 +52,7 @@ export default function BestelllistePage() {
       setPositionen(Array.isArray(data) ? data : []);
     } catch (err) {
       Sentry.captureException(err);
+      showToast("Bestellliste konnte nicht geladen werden.", "error");
       setPositionen([]);
     } finally {
       setLoading(false);

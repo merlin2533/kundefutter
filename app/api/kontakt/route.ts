@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { verifyToken, generateToken } from "@/lib/csrf";
 import { createRateLimiter, getClientIp } from "@/lib/rate-limit";
 import { Sentry } from "@/lib/sentry";
+import { log } from "@/lib/logger";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -143,7 +144,11 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0}
   });
 
   if (error) {
-    console.error("Resend notification error:", error);
+    // Kein catch-Block, sondern ein Fehler im SDK-Rückgabewert — ohne diese
+    // Meldung ginge ein verlorener Lead nur ins Container-Log.
+    log.error("Resend: Benachrichtigung zur Kontaktanfrage fehlgeschlagen", error, {
+      empfaenger: "info@agri-office.de",
+    });
     return json({ ok: false, error: "E-Mail konnte nicht gesendet werden. Bitte rufen Sie uns direkt an." }, 502);
   }
 

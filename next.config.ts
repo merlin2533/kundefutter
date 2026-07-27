@@ -2,8 +2,14 @@ import type { NextConfig } from "next";
 import { randomUUID } from "crypto";
 import { version as appVersion } from "./package.json";
 import { withSentryConfig } from "@sentry/nextjs";
+// Relativer Import (nicht "@/lib/…"): next.config.ts wird außerhalb des
+// Next-Bundles geladen, der tsconfig-Alias greift hier nicht zuverlässig.
+import { sentrySecurityReportUrl } from "./lib/sentry-dsn";
 
-const buildId = randomUUID();
+// Next lädt diese Config mehrfach (Client-/Server-Compile, Worker). Ein
+// randomUUID() pro Auswertung würde Client und Server unterschiedliche
+// `release`-Werte an GlitchTip melden — daher bevorzugt der Commit-SHA.
+const buildId = process.env.GITHUB_SHA?.slice(0, 7) || randomUUID();
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -31,6 +37,23 @@ const nextConfig: NextConfig = {
     // - Sentry/GlitchTip-Fehlerreporting (dynamischer DSN-Host, daher https: pauschal)
     // Google Fonts werden NUR auf der separaten statischen web/-Landingpage genutzt,
     // nicht in der Next-App (app/layout.tsx bindet keine externen Fonts ein).
+    // CSP-Verstöße werden per `report-uri` an GlitchTip gemeldet.
+    //
+    // ACHTUNG — hier wirkt SENTRY_DSN nur zur BUILD-Zeit: Next wertet
+    // `headers()` beim Build aus und schreibt das Ergebnis in
+    // `routes-manifest.json`. Ein `SENTRY_DSN=off` im laufenden Container
+    // schaltet also Issues und Logs ab, NICHT aber diesen CSP-Report-Endpunkt —
+    // dafür muss das Image mit `SENTRY_DSN=off` neu gebaut werden. Betrifft
+    // ausschließlich CSP-Verstoßmeldungen (keine Anwendungsdaten).
+    //
+    // BEWUSST NUR `report-uri`, kein `report-to`/`Reporting-Endpoints`:
+    // GlitchTips Security-Endpunkt akzeptiert ausschließlich das Legacy-Format
+    // (`{"csp-report":{…}}`), die neue Reporting-API sendet dagegen ein Array
+    // als `application/reports+json` und wird abgelehnt. Zusätzlich ignoriert
+    // Chromium `report-uri`, sobald `report-to` gesetzt ist — die Kombination
+    // hätte in Chrome/Edge also GAR KEINE Reports mehr geliefert.
+    const cspReportUrl = sentrySecurityReportUrl();
+
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -42,6 +65,7 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
+      ...(cspReportUrl ? [`report-uri ${cspReportUrl}`] : []),
     ].join("; ");
 
     return [
@@ -84,11 +108,22 @@ const nextConfig: NextConfig = {
 export default withSentryConfig(nextConfig, {
   // GlitchTip-compatible: disable Sentry-specific build features we don't need
   silent: true,
-  disableLogger: true,
   // Don't upload source maps to Sentry — GlitchTip doesn't support it via this plugin
   sourcemaps: { disable: true },
-  // Disable automatic instrumentation wrapping (we do it manually via instrumentation.ts)
-  autoInstrumentServerFunctions: false,
-  autoInstrumentMiddleware: false,
-  autoInstrumentAppDirectory: false,
+  // Ab SDK 10 gehören diese Optionen unter `webpack` (Top-Level ist deprecated).
+  webpack: {
+    // Ersetzt das deprecated `disableLogger` — entfernt die Debug-Logging-
+    // Statements des SDK aus dem Bundle. Betrifft NICHT die Sentry-Logs
+    // (enableLogs), die dieses Projekt für console.* nutzt.
+    treeshake: { removeDebugLogging: true },
+    // Route-Handler/Server-Funktionen instrumentieren wir nicht automatisch —
+    // unbehandelte Exceptions deckt `onRequestError` in instrumentation.ts ab.
+    autoInstrumentServerFunctions: false,
+    autoInstrumentAppDirectory: false,
+    // Middleware DAGEGEN schon: ohne Wrapping erreicht kein einziger
+    // middleware.ts-Crash GlitchTip — auch nicht der harte throw bei fehlendem
+    // SESSION_SECRET. Gewrappt werden nur Exceptions; abgelehnte/abgelaufene
+    // Sessions bleiben wie dokumentiert stumm (AGENTS.md-Ausnahme).
+    autoInstrumentMiddleware: true,
+  },
 });

@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
 import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
@@ -168,6 +169,7 @@ function ArtikelDetailContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const canSeeEk = usePermission(P.FELD_ARTIKEL_EINKAUFSPREIS);
   const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
 
@@ -248,7 +250,17 @@ function ArtikelDetailContent() {
   const fetchArtikel = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/artikel/${id}`);
-    if (!res.ok) { setLoading(false); return; }
+    if (!res.ok) {
+      // Ohne Rückmeldung blieb die Seite einfach leer.
+      showToast(
+        res.status === 404
+          ? "Artikel nicht gefunden."
+          : "Artikel konnte nicht geladen werden.",
+        "error"
+      );
+      setLoading(false);
+      return;
+    }
     const data: Artikel = await res.json();
     setArtikel(data);
     setEditForm({
@@ -273,7 +285,7 @@ function ArtikelDetailContent() {
     setPreisRaw(data.standardpreis != null ? String(data.standardpreis).replace(".", ",") : "");
     setMindestRaw(data.mindestbestand != null ? String(data.mindestbestand).replace(".", ",") : "");
     setLoading(false);
-  }, [id]);
+  }, [id, showToast]);
 
   useEffect(() => { fetchArtikel(); }, [fetchArtikel]);
 

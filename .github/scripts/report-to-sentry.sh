@@ -11,10 +11,18 @@ set -u
 
 JOB_LABEL="${1:-unbekannt}"
 
-# Kein fest hinterlegter Standard-DSN — sonst würden CI-Fehlerdaten aller
-# Repos/Deployments ohne eigenes SENTRY_DSN-Secret standardmäßig an ein
-# fremdes/gemeinsames GlitchTip-Projekt gehen. No-op, wenn nicht gesetzt.
-: "${SENTRY_DSN:=}"
+# Standard-DSN fest hinterlegt, damit CI-Fehler auch ohne gesetztes
+# SENTRY_DSN-Secret gemeldet werden — identisch zu DEFAULT_SENTRY_DSN in
+# lib/sentry-dsn.ts (dort ist die Quelle der Wahrheit; Shell kann das
+# TS-Modul nicht importieren, __tests__/lib/sentry-dsn.test.ts hält beide
+# Literale synchron).
+# Übersteuern: Repo-Secret SENTRY_DSN setzen. Abschalten: SENTRY_DSN=off
+: "${SENTRY_DSN:=https://3a30aed56b4e4dd58ee5710244be23dc@glitchtip.resqio.io/2}"
+
+# Abschalt-Werte auf leer normalisieren → der node-Aufruf unten wird zum No-op.
+case "$(printf '%s' "$SENTRY_DSN" | tr '[:upper:]' '[:lower:]')" in
+  off|none|false|0|disabled|aus) SENTRY_DSN="" ;;
+esac
 
 RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-}/actions/runs/${GITHUB_RUN_ID:-}"
 

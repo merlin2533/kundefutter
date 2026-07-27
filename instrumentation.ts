@@ -11,6 +11,7 @@ export async function register() {
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
   const { Sentry } = await import("@/lib/sentry");
+  const { log } = await import("@/lib/logger");
 
   const { registerProcessErrorHandlers } = await import("@/lib/process-error-handlers");
   registerProcessErrorHandlers();
@@ -25,8 +26,12 @@ export async function register() {
     startBackupScheduler();
   } catch (err) {
     // Sentry sichtbar machen, bevor der Prozess ggf. durch einen kaputten
-    // Serverstart abstürzt (z.B. DB nicht erreichbar).
-    Sentry.captureException(err);
+    // Serverstart abstürzt (z.B. DB nicht erreichbar). flush() ist hier
+    // wichtig, weil direkt danach geworfen wird.
+    log.fatal("[instrumentation] Serverstart fehlgeschlagen", err);
+    await Sentry.flush(2000).catch(() => {
+      /* Start-Abbruch nicht durch ein fehlgeschlagenes flush() verschleiern */
+    });
     throw err;
   }
 }

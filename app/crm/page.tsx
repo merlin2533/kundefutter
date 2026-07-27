@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 interface Aktivitaet {
@@ -47,6 +48,7 @@ function loadCrmFilters() {
 }
 
 export default function CrmPage() {
+  const { showToast } = useToast();
   const [mainTab, setMainTab] = useState<"liste" | "kalender">("liste");
   const [items, setItems] = useState<Aktivitaet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,11 +74,16 @@ export default function CrmPage() {
   const fetchItems = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/kunden/aktivitaeten?offene=1");
-    if (!res.ok) { setLoading(false); return; }
+    if (!res.ok) {
+      // Ohne Rückmeldung sähe ein HTTP-Fehler wie "keine offenen Aktivitäten" aus.
+      showToast("CRM-Aktivitäten konnten nicht geladen werden.", "error");
+      setLoading(false);
+      return;
+    }
     const data = await res.json();
     setItems(Array.isArray(data) ? data : []);
     setLoading(false);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 

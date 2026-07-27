@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { log } from "@/lib/logger";
 
 export const SESSION_COOKIE = "kundefutter_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 Tage (Standardwert)
@@ -32,13 +33,14 @@ export function getSessionSecret(): Uint8Array {
     if (!warnedAboutFallback) {
       warnedAboutFallback = true;
       if (process.env.NODE_ENV === "production") {
-        console.error(
+        // Als Issue melden, nicht nur ins Container-Log: in Produktion mit
+        // Dev-Fallback-Secret zu laufen ist eine gravierende Fehlkonfiguration,
+        // die niemand in `docker logs` entdeckt.
+        log.fatal(
           "[auth] CRITICAL: SESSION_SECRET nicht gesetzt – Dev-Fallback wird in Produktion verwendet! Bitte SESSION_SECRET setzen.",
         );
       } else {
-        console.warn(
-          "[auth] SESSION_SECRET nicht gesetzt – Dev-Fallback aktiv.",
-        );
+        log.warn("[auth] SESSION_SECRET nicht gesetzt – Dev-Fallback aktiv.");
       }
     }
     return new TextEncoder().encode(DEV_FALLBACK_SECRET);
