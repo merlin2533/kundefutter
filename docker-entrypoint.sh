@@ -107,6 +107,26 @@ if [ -z "$SESSION_SECRET" ]; then
   fi
 fi
 
+# CRON_SECRET aus /data/cron-secret laden oder generieren (gleiches Muster wie
+# SESSION_SECRET). /api/cron lehnt JEDEN Aufruf ab, wenn kein CRON_SECRET gesetzt
+# ist (isAuthorized() in app/api/cron/route.ts: "Kein Secret gesetzt → immer
+# ablehnen") — ohne diesen Block schlägt der eigene Cron-Dispatcher weiter unten
+# in JEDER Standard-Installation (docker-compose.prod.yml setzt kein CRON_SECRET)
+# alle 30 Minuten mit 401 fehl und meldet das dauerhaft an Sentry/GlitchTip.
+if [ -z "$CRON_SECRET" ]; then
+  if [ -f "/data/cron-secret" ]; then
+    CRON_SECRET=$(cat /data/cron-secret)
+    export CRON_SECRET
+    log "CRON_SECRET aus /data/cron-secret geladen"
+  else
+    CRON_SECRET=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")
+    export CRON_SECRET
+    echo "$CRON_SECRET" > /data/cron-secret
+    chmod 600 /data/cron-secret
+    log "CRON_SECRET generiert und in /data/cron-secret gespeichert"
+  fi
+fi
+
 # Upload-Verzeichnisse best effort anlegen
 mkdir -p /data/uploads/artikel 2>/dev/null || warn "/data/uploads/artikel nicht anlegbar"
 mkdir -p public/uploads/artikel 2>/dev/null || warn "public/uploads/artikel nicht anlegbar"

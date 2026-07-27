@@ -33,7 +33,13 @@ async function jobDigestEmail(): Promise<JobResult> {
 
     const empfaenger = get("email.digest");
     if (!empfaenger) {
-      return { job: "digest", ok: false, error: "Keine Digest-Adresse konfiguriert (Einstellungen → Mail)", durationMs: Date.now() - t0 };
+      // Wie jobNextcloudSync(): "nicht konfiguriert" ist ein optionaler, normaler
+      // Zustand (kein Admin hat je eine Digest-Adresse hinterlegt), kein Fehler.
+      // ok:false hätte den gesamten Cron-Run bei JEDER Installation ohne Digest-
+      // Konfiguration dauerhaft als fehlgeschlagen markiert und alle 30 Minuten
+      // eine Sentry/GlitchTip-Meldung ausgelöst (docker-entrypoint.sh meldet jeden
+      // Lauf mit ok!==true als Fehler).
+      return { job: "digest", ok: true, detail: { uebersprungen: "keine Digest-Adresse konfiguriert" }, durationMs: Date.now() - t0 };
     }
 
     const heute = new Date(); heute.setHours(0, 0, 0, 0);

@@ -33,7 +33,20 @@ const nextProc = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
   stdio: 'inherit',
 });
 
+// Gesetzt, sobald WIR selbst nextProc per SIGTERM beenden (geplanter Shutdown
+// über das SIGTERM-Handler unten, oder als Aufräumschritt nach einer bereits
+// gemeldeten uncaughtException) — unterscheidet einen erwarteten Exit (auch
+// code=143, d.h. SIGTERM) von einem echten, unerwarteten Absturz von Next.js.
+// Ohne diese Unterscheidung meldete JEDER `docker stop`/Neustart/Deploy (ganz
+// normale SIGTERM-Shutdowns) ein FATAL-Issue "unerwartet beendet" an
+// Sentry/GlitchTip — obwohl der Exit exakt so beabsichtigt war.
+let geplanterShutdown = false;
+
 nextProc.on('exit', (code) => {
+  if (geplanterShutdown) {
+    console.log(`[geo-server] Next.js-Prozess beendet (code=${code}) — geplanter Shutdown.`);
+    return;
+  }
   console.error(`[geo-server] Next.js-Prozess beendet (code=${code}). Geo-Proxy wird gestoppt.`);
   melde(`[geo-server] Next.js-Prozess unerwartet beendet (code=${code})`, {
     level: 'fatal',
@@ -58,7 +71,10 @@ process.on('uncaughtException', (err) => {
   });
   // Wie in lib/process-error-handlers.ts: nach einer uncaught Exception ist der
   // Zustand undefiniert. PID 1 muss sich beenden, damit Docker neu startet —
-  // sonst bleibt ein halb funktionsfähiger Proxy stehen.
+  // sonst bleibt ein halb funktionsfähiger Proxy stehen. Der Kill ist geplant
+  // (die eigentliche Ursache ist oben bereits gemeldet) — kein zweites,
+  // redundantes "next-exit"-Issue für denselben Vorfall.
+  geplanterShutdown = true;
   nextProc.kill('SIGTERM');
   setTimeout(() => process.exit(1), 300);
 });
@@ -244,6 +260,7 @@ waitForNextJs().then(function() {
 
   // Graceful Shutdown
   process.on('SIGTERM', function() {
+    geplanterShutdown = true;
     server.close(function() {
       nextProc.kill('SIGTERM');
       setTimeout(function() { process.exit(0); }, 2000);
