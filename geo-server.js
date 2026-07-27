@@ -42,16 +42,24 @@ const nextProc = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
 // Sentry/GlitchTip — obwohl der Exit exakt so beabsichtigt war.
 let geplanterShutdown = false;
 
-nextProc.on('exit', (code) => {
+// HTTP-Server des Geo-Proxys — erst innerhalb von waitForNextJs().then() gesetzt,
+// aber schon hier deklariert, damit der Signal-Handler unten (der VOR Ablauf
+// dieses Promises registriert wird) ihn referenzieren kann.
+let server = null;
+
+nextProc.on('exit', (code, signal) => {
   if (geplanterShutdown) {
-    console.log(`[geo-server] Next.js-Prozess beendet (code=${code}) — geplanter Shutdown.`);
+    console.log(`[geo-server] Next.js-Prozess beendet (code=${code}, signal=${signal}) — geplanter Shutdown.`);
     return;
   }
-  console.error(`[geo-server] Next.js-Prozess beendet (code=${code}). Geo-Proxy wird gestoppt.`);
-  melde(`[geo-server] Next.js-Prozess unerwartet beendet (code=${code})`, {
+  console.error(`[geo-server] Next.js-Prozess beendet (code=${code}, signal=${signal}). Geo-Proxy wird gestoppt.`);
+  // `signal` mitmelden: bei einem SIGKILL (z.B. OOM-Killer, abgelaufene
+  // Docker-Gnadenfrist) ist `code` null und die eigentliche Ursache ging bisher
+  // verloren — die Meldung lautete nur noch "code=null".
+  melde(`[geo-server] Next.js-Prozess unerwartet beendet (code=${code}, signal=${signal})`, {
     level: 'fatal',
     fingerprint: ['geo-server', 'next-exit'],
-    extra: { exitCode: code },
+    extra: { exitCode: code, signal: signal },
   });
   // Kurz warten, damit die Meldung noch rausgeht — aber niemals den Shutdown
   // an einem HTTP-Request aufhängen.
@@ -85,6 +93,30 @@ process.on('unhandledRejection', (reason) => {
     fingerprint: ['geo-server', 'unhandledRejection'],
   });
 });
+
+// ── Geordneter Shutdown (SIGTERM/SIGINT) ─────────────────────────────────────
+// Muss HIER auf Modulebene registriert werden, nicht erst innerhalb von
+// waitForNextJs().then() — der Health-Check dort kann bis zu 90s dauern, und
+// ohne Handler in diesem Fenster beendet Node PID 1 bei einem Signal sofort
+// per Default (kein SIGTERM ans Kind, kein server.close()). Das Next-Kind
+// blieb dadurch bei einem Deploy/`docker stop` während des Starts verwaist
+// zurück — verifiziert: kein geordneter Shutdown, keinerlei Meldung.
+function shutdown(signal) {
+  if (geplanterShutdown) return;         // doppelte Signale ignorieren
+  geplanterShutdown = true;              // ab hier ist JEDER Kind-Exit erwartet
+  console.log(`[geo-server] ${signal} empfangen — geordneter Shutdown.`);
+  nextProc.kill('SIGTERM');
+  if (server) {
+    server.close();
+    // server.close() feuert seinen Callback erst, wenn alle Keep-Alive-
+    // Verbindungen beendet sind — das kann Dockers Gnadenfrist bis zum
+    // SIGKILL überschreiten. Offene Sockets sofort kappen statt zu warten.
+    if (server.closeAllConnections) server.closeAllConnections();
+  }
+  setTimeout(function() { process.exit(0); }, 2000).unref();
+}
+process.on('SIGTERM', function() { shutdown('SIGTERM'); });
+process.on('SIGINT',  function() { shutdown('SIGINT'); });
 
 // ── Warten bis Next.js bereit ist ────────────────────────────────────────────
 function waitForNextJs(retries, interval) {
@@ -143,7 +175,7 @@ function forbiddenHtml(ip) {
 // ── Geo-Proxy starten (nachdem Next.js bereit ist) ───────────────────────────
 waitForNextJs().then(function() {
 
-  const server = http.createServer(function(req, res) {
+  server = http.createServer(function(req, res) {
     const ip = clientIp(req);
 
     if (!isAllowed(ip)) {
@@ -184,7 +216,12 @@ waitForNextJs().then(function() {
       // — sonst produziert jeder Verbindungsabbruch ein Issue.
       const abbruch = err.code === 'ECONNRESET' || err.code === 'EPIPE';
       console.error('[geo-proxy] Upstream-Fehler:', err.message);
-      if (!abbruch) {
+      // Während eines geordneten Shutdowns ist Next.js bereits beendet oder
+      // wird gerade beendet — ECONNREFUSED auf noch offenen Keep-Alive-Sockets
+      // ist in diesem Fenster der Normalfall, kein neuer Vorfall (sonst legt
+      // jeder Deploy/`docker stop` ein neues Issue an). Ausserhalb eines
+      // Shutdowns bleibt JEDER Proxy-Fehler unverändert meldepflichtig.
+      if (!abbruch && !geplanterShutdown) {
         melde(`[geo-proxy] Upstream-Fehler: ${err.code || err.message}`, {
           // Fingerprint ohne variable Anteile, damit GlitchTip gruppiert statt
           // pro abweichender Meldung ein neues Issue anzulegen.
@@ -226,7 +263,10 @@ waitForNextJs().then(function() {
     up.on('error', function(err) {
       const abbruch = err && (err.code === 'ECONNRESET' || err.code === 'EPIPE');
       console.error('[geo-proxy] WebSocket-Upgrade fehlgeschlagen:', err && err.message);
-      if (!abbruch) {
+      // Siehe proxyReq.on('error') oben: während eines geordneten Shutdowns ist
+      // ein ECONNREFUSED erwartet, kein neuer Vorfall. Ausserhalb bleibt jeder
+      // Fehler unverändert meldepflichtig.
+      if (!abbruch && !geplanterShutdown) {
         melde(`[geo-proxy] WebSocket-Upgrade fehlgeschlagen: ${(err && err.code) || (err && err.message)}`, {
           level: 'warning',
           fingerprint: ['geo-proxy', 'ws-upgrade', String((err && err.code) || 'unknown')],
@@ -258,14 +298,9 @@ waitForNextJs().then(function() {
     );
   });
 
-  // Graceful Shutdown
-  process.on('SIGTERM', function() {
-    geplanterShutdown = true;
-    server.close(function() {
-      nextProc.kill('SIGTERM');
-      setTimeout(function() { process.exit(0); }, 2000);
-    });
-  });
+  // Graceful Shutdown: siehe shutdown()/SIGTERM/SIGINT-Handler weiter oben
+  // (bewusst auf Modulebene registriert, nicht hier — sonst existieren sie
+  // während des bis zu 90s langen Startfensters von waitForNextJs() nicht).
 
 }).catch(function(err) {
   console.error(err.message);
@@ -276,7 +311,13 @@ waitForNextJs().then(function() {
     fingerprint: ['geo-server', 'start-failed'],
     extra: { stack: err && err.stack },
   });
-  nextProc.kill();
+  // Als geplant markieren: die Ursache wurde oben bereits gemeldet. Ohne diese
+  // Zeile sieht der 'exit'-Handler geplanterShutdown === false, wenn Next.js
+  // sich nach dem folgenden kill() beendet (code=143, identisch zu einem
+  // SIGTERM-Shutdown) — und erzeugt ein zweites, redundantes FATAL-Issue
+  // "unerwartet beendet" für exakt denselben Vorfall.
+  geplanterShutdown = true;
+  nextProc.kill('SIGTERM');
   // Kurzer Aufschub, damit die Meldung den Prozess noch verlassen kann.
   setTimeout(function() { process.exit(1); }, 300);
 });
