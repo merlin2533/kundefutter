@@ -488,7 +488,7 @@ function HeaderSearch() {
 
       {/* Dropdown */}
       {open && (hasResults || showEmpty) && (
-        <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 w-80 md:w-96 max-h-[26rem] overflow-y-auto z-[90]">
+        <div className="absolute right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-gray-100 w-80 md:w-96 max-w-[calc(100vw-0.5rem)] max-h-[26rem] overflow-y-auto z-[90]">
           {showEmpty && (
             <p className="text-center text-gray-500 text-sm py-8">Keine Treffer für &ldquo;{query}&rdquo;</p>
           )}
@@ -568,7 +568,7 @@ function RecentPages() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-56 z-[90] py-1">
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-56 max-w-[calc(100vw-0.5rem)] z-[90] py-1">
           <p className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-100">
             Zuletzt besucht
           </p>
@@ -651,7 +651,7 @@ function UserMenu() {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-60 z-[90] py-1">
+        <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-gray-100 w-60 max-w-[calc(100vw-0.5rem)] z-[90] py-1">
           <div className="px-3 py-2 border-b border-gray-100">
             <div className="text-sm font-semibold text-gray-800 truncate">{user.name}</div>
             <div className="text-xs text-gray-500 truncate">
@@ -821,7 +821,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="bg-green-800 text-white shadow-md relative z-[1000]">
+    <header className="bg-green-800 text-white shadow-md relative z-40">
       <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
         {/* Logo */}
         <div className="flex-shrink-0">
