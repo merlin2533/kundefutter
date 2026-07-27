@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
     const cKunden = kunden.filter((k) => k.klasse === "C");
 
     // ── Migrations-Vergleich (optional) ──────────────────────────────────────
-    let migrationen: {
+    const migrationen: {
       kundeId: number; name: string; firma: string | null;
       klasseAktuell: "A" | "B" | "C";
       klasseVorperiode: "A" | "B" | "C" | "neu" | "weg";

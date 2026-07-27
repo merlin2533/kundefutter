@@ -337,7 +337,7 @@ export default function NextcloudEinstellungenPage() {
         {backfill?.laufend && backfill.verwaist && (
           <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
             Seit über 15 Minuten kein Fortschritt — der letzte Lauf wurde vermutlich durch einen
-            Neustart (z.B. ein Deployment) unterbrochen. Mit „Zurücksetzen" kann ein neuer Lauf
+            Neustart (z.B. ein Deployment) unterbrochen. Mit „Zurücksetzen&rdquo; kann ein neuer Lauf
             gestartet werden; bereits übertragene Dateien werden dabei übersprungen.
           </p>
         )}

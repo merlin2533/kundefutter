@@ -214,6 +214,8 @@ export async function dateiExistiert(relPfadMitDatei: string): Promise<boolean> 
   throw new Error(`Nextcloud: Existenzprüfung fehlgeschlagen (${res.status}): ${relPfadMitDatei}`);
 }
 
+const MAX_MOVE_KONFLIKT_VERSUCHE = 3;
+
 /**
  * Verschiebt einen Ordner (z.B. bei Kunden-/Artikel-Umbenennung). No-op, falls
  * der Quellordner noch nicht existiert (z.B. neu angelegter Kunde ohne Dateien).
@@ -222,12 +224,33 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
   const cfg = await requireConfig();
   const altUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, altRelPfad));
   const neuUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, neuRelPfad));
-  const res = await davFetch(altUrl, {
-    method: "MOVE",
-    headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
-  });
-  if (res.status === 404) return; // Quellordner existiert nicht (nichts zu migrieren)
-  if (res.status === 201 || res.status === 204) return;
+  // Elternordner (identisch für alten UND neuen Pfad, nur der letzte Namensteil
+  // ändert sich) — wird bei Konflikten unten für einen erzwungenen Re-Scan genutzt.
+  const elternUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, altRelPfad).split("/").slice(0, -1).join("/"));
+
+  let res: Response | undefined;
+  for (let versuch = 1; versuch <= MAX_MOVE_KONFLIKT_VERSUCHE; versuch++) {
+    res = await davFetch(altUrl, {
+      method: "MOVE",
+      headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
+    });
+    if (res.status === 404) return; // Quellordner existiert nicht (nichts zu migrieren)
+    if (res.status === 201 || res.status === 204) return;
+    if (res.status !== 409 && res.status !== 412) break;
+    if (versuch === MAX_MOVE_KONFLIKT_VERSUCHE) break;
+    // Beobachtet bei externen Speicher-Backends (z.B. Windows-/exFAT-Freigaben, siehe
+    // kundenOrdnerPfadLegacy-Kommentar): Nextclouds Datei-Cache (oc_filecache) für
+    // solche Mounts kann kurzzeitig veraltet sein, sodass MOVE einen Konflikt gegen
+    // den echten Speicher meldet, den die folgende PROPFIND-Prüfung (die nur den
+    // Cache befragt) noch nicht sieht. Ein PROPFIND mit Depth 1 auf den Elternordner
+    // stößt bei External Storage einen Re-Scan des Verzeichnisses an; kurz danach
+    // erneut versuchen, bevor wir von einem echten, dauerhaften Konflikt ausgehen.
+    await davFetch(elternUrl, {
+      method: "PROPFIND",
+      headers: { Authorization: authHeader(cfg), Depth: "1", "Content-Type": "application/xml" },
+    }).catch((e) => Sentry.captureException(e));
+    await new Promise((resolve) => setTimeout(resolve, versuch * 400));
+  }
   // 412 (RFC-konform) bzw. 409 (in freier Wildbahn beobachtet, z.B. bei diesem
   // Nextcloud-Server) = Zielordner existiert bereits (Overwrite: "F" verhindert
   // das Überschreiben). Kommt vor, wenn im alten und neuen Ordnerformat parallel
@@ -248,7 +271,7 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
     });
   if (zielExistiertBereits) return;
   // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
-  throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res.status})`);
+  throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res!.status})`);
 }
 
 // ─── Dateiliste (PROPFIND) ────────────────────────────────────────────────────
