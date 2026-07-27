@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAppName } from "@/lib/appinfo";
 import { Sentry } from "@/lib/sentry";
@@ -17,7 +17,7 @@ function escapeIcalText(text: string): string {
     .replace(/\n/g, "\\n");
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   const now = new Date();
 
   try {

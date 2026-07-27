@@ -40,7 +40,7 @@ export default function ImportPage() {
       </div>
       <h1 className="text-2xl font-bold mb-2">Import</h1>
       <p className="text-sm text-gray-500 mb-8">
-        Stammdaten aus Excel-Dateien importieren. Über "Vorlage" eine Muster-Datei herunterladen.
+        Stammdaten aus Excel-Dateien importieren. Über &quot;Vorlage&quot; eine Muster-Datei herunterladen.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -142,12 +142,6 @@ export default function AngebotDruckPage() {
   const firmaOrt = firma["firma.ort"] ?? "";
   const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
   const firmaEmail = firma["firma.email"] ?? "";
-  const firmaSteuernr = firma["firma.steuernummer"] ?? "";
-  const firmaUstId = firma["firma.ustIdNr"] ?? "";
-  const firmaOeko = firma["firma.oekoNummer"] ?? "";
-  const firmaIban = firma["firma.iban"] ?? "";
-  const firmaBic = firma["firma.bic"] ?? "";
-  const firmaBankname = firma["firma.bank"] ?? "";
   const firmaAdresse = [firmaStrasse, [firmaPlz, firmaOrt].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");

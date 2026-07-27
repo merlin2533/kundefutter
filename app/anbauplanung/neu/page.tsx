@@ -51,7 +51,6 @@ function NeuAnbauplanContent() {
 
   const [kunden, setKunden] = useState<KundeOption[]>([]);
   const [kundeSearch, setKundeSearch] = useState("");
-  const [selectedKunde, setSelectedKunde] = useState<KundeOption | null>(null);
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
   const [fruchtarten, setFruchtarten] = useState<string[]>(FRUCHTARTEN_STANDARD);
 
@@ -65,7 +64,6 @@ function NeuAnbauplanContent() {
         .then((r) => r.ok ? r.json() : null)
         .then((d) => {
           if (d) {
-            setSelectedKunde({ id: d.id, name: d.name, firma: d.firma });
             setKundeSearch(d.firma ?? d.name);
           }
         });
@@ -169,7 +167,6 @@ function NeuAnbauplanContent() {
               value={kundeSearch}
               onChange={(e) => {
                 setKundeSearch(e.target.value);
-                setSelectedKunde(null);
                 setKundeId("");
                 setSchlagId("");
               }}
@@ -184,7 +181,6 @@ function NeuAnbauplanContent() {
                     type="button"
                     onClick={() => {
                       setKundeId(String(k.id));
-                      setSelectedKunde(k);
                       setKundeSearch(k.firma ?? k.name);
                       setKunden([]);
                       setSchlagId("");

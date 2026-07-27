@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 
@@ -223,7 +223,6 @@ function FruchtfolgeMatrix({ plaene, jahre }: { plaene: Anbauplan[]; jahre: numb
 }
 
 function AnbauplanungContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const aktuellesJahr = new Date().getFullYear();
@@ -238,7 +237,7 @@ function AnbauplanungContent() {
   const [kundeSearch, setKundeSearch] = useState("");
   const [schlaegte, setSchlaegte] = useState<Schlag[]>([]);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (kundeId) params.set("kundeId", kundeId);
@@ -253,7 +252,7 @@ function AnbauplanungContent() {
     const d = await res.json();
     setPlaene(Array.isArray(d) ? d : []);
     setLoading(false);
-  }
+  }, [kundeId, schlagId, ansicht, jahr]);
 
   useEffect(() => {
     // Persist filters in sessionStorage
@@ -264,7 +263,7 @@ function AnbauplanungContent() {
       /* ignore */
     }
     load();
-  }, [jahr, kundeId, schlagId, ansicht]);
+  }, [jahr, kundeId, schlagId, ansicht, load]);
 
   useEffect(() => {
     if (kundeId) {
