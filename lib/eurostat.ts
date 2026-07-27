@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { logEreignis } from "@/lib/logger";
 
 // Eurostat API configuration
 const EUROSTAT_BASE =
@@ -170,7 +171,11 @@ function parseJsonStat(
 
   const dimensions = data.dimension as Record<string, unknown> | undefined;
   if (!dimensions) {
-    console.warn("Eurostat: keine Dimensionsdaten gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat: keine Dimensionsdaten gefunden",
+      fingerprint: ["eurostat-schema", "input", "dimensions"],
+    });
     return results;
   }
 
@@ -179,7 +184,11 @@ function parseJsonStat(
     category: { index: Record<string, number>; label?: Record<string, string> };
   };
   if (!productDim?.category?.index) {
-    console.warn("Eurostat: keine product-Dimension gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat: keine product-Dimension gefunden",
+      fingerprint: ["eurostat-schema", "input", "product"],
+    });
     return results;
   }
   const productIndex = productDim.category.index;
@@ -189,7 +198,11 @@ function parseJsonStat(
     category: { index: Record<string, number>; label?: Record<string, string> };
   };
   if (!timeDim?.category?.index) {
-    console.warn("Eurostat: keine time-Dimension gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat: keine time-Dimension gefunden",
+      fingerprint: ["eurostat-schema", "input", "time"],
+    });
     return results;
   }
   const timeIndex = timeDim.category.index;
@@ -198,7 +211,11 @@ function parseJsonStat(
   // The flat value array/object
   const values = data.value as Record<string, number>;
   if (!values) {
-    console.warn("Eurostat: keine Wertdaten gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat: keine Wertdaten gefunden",
+      fingerprint: ["eurostat-schema", "input", "values"],
+    });
     return results;
   }
 
@@ -250,14 +267,23 @@ function parseJsonStatOutput(json: Record<string, unknown>): EurostatEntry[] {
 
   const dimensions = data.dimension as Record<string, unknown> | undefined;
   if (!dimensions) {
-    console.warn("Eurostat Output: keine Dimensionsdaten gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat Output: keine Dimensionsdaten gefunden",
+      fingerprint: ["eurostat-schema", "output", "dimensions"],
+    });
     return results;
   }
 
   // Find the product/outputidx dimension - try different names
   const outputDimKey = ['outputidx', 'product', 'indic_ag', 'prc_typ'].find(k => dimensions[k]);
   if (!outputDimKey) {
-    console.warn('Eurostat output: no product dimension found. Available:', Object.keys(dimensions));
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat Output: keine product-Dimension gefunden",
+      ctx: { verfuegbar: Object.keys(dimensions), },
+      fingerprint: ["eurostat-schema", "output", "product"],
+    });
     return results;
   }
 
@@ -269,7 +295,11 @@ function parseJsonStatOutput(json: Record<string, unknown>): EurostatEntry[] {
     category: { index: Record<string, number> }
   };
   if (!timeDim?.category?.index) {
-    console.warn("Eurostat Output: keine time-Dimension gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat Output: keine time-Dimension gefunden",
+      fingerprint: ["eurostat-schema", "output", "time"],
+    });
     return results;
   }
 
@@ -279,7 +309,11 @@ function parseJsonStatOutput(json: Record<string, unknown>): EurostatEntry[] {
   const timeCount = Object.keys(timeIndex).length;
   const values = data.value as Record<string, number>;
   if (!values) {
-    console.warn("Eurostat Output: keine Wertdaten gefunden");
+    logEreignis({
+      level: "error",
+      meldung: "Eurostat Output: keine Wertdaten gefunden",
+      fingerprint: ["eurostat-schema", "output", "values"],
+    });
     return results;
   }
 

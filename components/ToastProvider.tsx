@@ -32,10 +32,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       // Bewusst log.warn und NICHT captureMessage: der Toast-Text ist ein
       // generischer String ohne Stacktrace ("Fehler beim Speichern"), der in
       // GlitchTip alle Aufrufstellen zu einem einzigen Issue kollabieren ließe.
-      // Das aussagekräftige Issue kommt von FetchErrorMonitor (mit Pfad +
-      // Status) bzw. vom captureException der jeweiligen Aufrufstelle — der
-      // Toast landet hier nur noch im Log-Strom, ohne Doppelmeldung.
-      log.warn(`Fehler-Toast: ${message}`, { quelle: "toast" });
+      // Das aussagekräftige Issue kommt vom captureException der jeweiligen
+      // Aufrufstelle bzw. der Nachweis aus lib/fetch-reporter.ts (mit Pfad +
+      // Status) — der Toast landet hier nur im Log-Strom, ohne Doppelmeldung.
+      log.warn(`Fehler-Toast: ${message}`, {
+        quelle: "toast",
+        pfad: typeof window !== "undefined" ? window.location.pathname : undefined,
+      });
     }
   }, []);
 

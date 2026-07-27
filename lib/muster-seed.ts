@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import * as Sentry from "@sentry/nextjs";
+import { log } from "@/lib/logger";
 
 /**
  * Muster-Vorgabewerte für eine Neuinstallation.
@@ -55,7 +56,11 @@ export async function ensureMusterDefaults(): Promise<void> {
     if (fehlende.length === 0) return;
 
     await prisma.einstellung.createMany({ data: fehlende });
-    console.log(`[muster-seed] ${fehlende.length} Muster-Einstellungen für Neuinstallation angelegt.`);
+    // log.info statt console.log — s. lib/backup.ts: console.log erreicht
+    // GlitchTip nicht, und die Erstinstallation ist ein revisionsrelevantes Ereignis.
+    log.info("[muster-seed] Muster-Einstellungen für Neuinstallation angelegt", {
+      anzahl: fehlende.length,
+    });
   } catch (err) {
     console.error("[muster-seed] Konnte Muster-Einstellungen nicht anlegen:", err);
     Sentry.captureException(err);

@@ -8,6 +8,7 @@ import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerat
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
+import { log } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 
@@ -359,7 +360,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
         const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
         const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
         await uploadPdfToKundeOrdner(result.kundeId, result.kunde.name, "Lieferscheine", fileName, pdfBuffer);
-        console.log(`[nextcloud] Lieferschein ${lieferungIdNum} für Kunde ${result.kunde.name} hochgeladen`);
+        log.info("[nextcloud] Lieferschein hochgeladen", {
+          lieferungId: lieferungIdNum,
+          kunde: result.kunde.name,
+        });
       })
       .catch((e: unknown) => {
         Sentry.captureException(e);
@@ -472,7 +476,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           const pdfBuffer = await generiereLieferscheinPdf(lieferungIdNum);
           const fileName = `Lieferschein-${lieferungIdNum}-${datumStr}.pdf`;
           await uploadPdfToKundeOrdner(kundeId, kundeName, "Lieferscheine", fileName, pdfBuffer);
-          console.log(`[nextcloud] Lieferschein ${lieferungIdNum} für Kunde ${kundeName} hochgeladen`);
+          log.info("[nextcloud] Lieferschein hochgeladen", {
+            lieferungId: lieferungIdNum,
+            kunde: kundeName,
+          });
         })
         .catch((e: unknown) => {
           Sentry.captureException(e);
@@ -508,7 +515,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           const pdfBuffer = await generiereRechnungPdf(Number(id));
           const fileName = `Rechnung-${lieferung.rechnungNr?.replace(/\//g, "-")}.pdf`;
           await uploadPdfToKundeOrdner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen", fileName, pdfBuffer);
-          console.log(`[nextcloud] Rechnung ${lieferung.rechnungNr} für Kunde ${lieferung.kunde.name} hochgeladen`);
+          log.info("[nextcloud] Rechnung hochgeladen", {
+            rechnungNr: lieferung.rechnungNr,
+            kunde: lieferung.kunde.name,
+          });
         })
         .catch((e: unknown) => {
           Sentry.captureException(e);

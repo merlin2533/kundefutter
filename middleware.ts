@@ -89,6 +89,21 @@ function originMismatch(req: NextRequest, pathname: string): boolean {
   try {
     return new URL(origin).host !== host;
   } catch {
+    // Nicht parsebarer Origin-Header -> wir blocken (unten HTTP 403). Anders als
+    // eine abgelehnte Session ist das KEIN normales Nutzerverhalten, sondern
+    // entweder ein kaputter Client oder ein Angriffsversuch — also die einzige
+    // Sicherheitsentscheidung hier, die eine Spur hinterlassen muss.
+    //
+    // Bewusst rohes console.warn statt `log.*`: middleware.ts läuft in der
+    // Edge-Runtime, und ein Import von lib/logger.ts zieht dort den
+    // Sentry-Edge-Build samt `process.features` in den Bundle-Graph (Next warnt
+    // beim Build: "A Node.js API is used which is not supported in the Edge
+    // Runtime"). Die consoleLoggingIntegration in sentry.edge.config.ts nimmt
+    // diesen Aufruf ohnehin auf — gleiches Ergebnis, ohne den Import.
+    console.warn("[middleware] Origin-Header nicht parsebar — Request blockiert", {
+      pathname,
+      methode: req.method,
+    });
     return true;
   }
 }

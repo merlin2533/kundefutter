@@ -988,11 +988,21 @@ const eventId = log.error("Speichern fehlgeschlagen", err, { kundeId });
 ### `console.*` landet automatisch in GlitchTip
 
 `enableLogs: true` + `Sentry.consoleLoggingIntegration({ levels: ["info","warn","error"] })` sind in
-`sentry.server.config.ts` und `instrumentation-client.ts` aktiv (Edge bewusst ohne
-Console-Integration). Damit erreichen **alle** vorhandenen `console.*`-Aufrufe den GlitchTip-**Log**-Strom,
-ohne dass sie angefasst werden müssen — als Logs, nicht als Issues. Die Altbestands-Aufrufe müssen
-daher nicht migriert werden; neuer Code nutzt trotzdem `log.*`.
-GlitchTip 6.1.8 unterstützt Logs (`enabledFeatures: ["logs","uptime","mcp"]`).
+**allen drei** Configs aktiv (`sentry.server.config.ts`, `instrumentation-client.ts`,
+`sentry.edge.config.ts`). Damit erreichen **alle** vorhandenen `console.*`-Aufrufe den
+GlitchTip-**Log**-Strom, ohne dass sie angefasst werden müssen — als Logs, nicht als Issues. Die
+Altbestands-Aufrufe müssen daher nicht migriert werden; neuer Code nutzt trotzdem `log.*`.
+GlitchTip 6.1.8 unterstützt Logs (`enabledFeatures: ["logs","uptime","mcp"]`, gegen die Instanz mit
+einem `type: "log"`-Envelope verifiziert → HTTP 200).
+
+**`console.log`/`console.debug` sind NICHT in der Level-Liste** und erreichen GlitchTip nicht. Wer
+ein Ereignis dauerhaft sichtbar braucht (z.B. „Backup wurde erstellt" — der einzige positive
+Nachweis, dass der Scheduler läuft), nutzt `log.info`, nicht `console.log`.
+
+**Ausnahme `middleware.ts`:** dort bewusst rohes `console.warn` statt `log.*`. Ein Import von
+`lib/logger.ts` zieht in der Edge-Runtime den Sentry-Edge-Build samt `process.features` in den
+Bundle-Graph, was `npm run build` mit „A Node.js API is used which is not supported in the Edge
+Runtime" quittiert. Die Console-Integration der Edge-Config nimmt den Aufruf ohnehin auf.
 
 **Ein Fehler erscheint damit i.d.R. zweimal: als Issue (Alarm) und als Log (Zeitachse). Das ist
 beabsichtigt und kein Verstoß gegen die Doppel-Reporting-Regel** — die verbietet zwei *Issues*
@@ -1008,6 +1018,18 @@ gemeldet. Erwartete Fälle (401 auf `/api/auth/*`, 404 auf Suche/Telefonmaske), 
 (Nominatim/OSRM) und Next-Interna sind ausgenommen.
 Ein `if (!res.ok)`-Zweig braucht deshalb **keine** eigene Sentry-Meldung mehr — wohl aber eine
 **Rückmeldung an den Nutzer** (Toast/`setError`), sonst sieht ein HTTP 500 wie „keine Daten" aus.
+
+Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
+- **Dedup-Fenster (60 s)** pro Pfad+Methode+Status. Die App pollt an drei Stellen im Minutentakt
+  (Dashboard, `NotificationCenter` auf *jeder* Seite, Fahrer-Standorte); ohne Deckel erzeugte ein
+  einzelner offener Tab bei DB-Ausfall unbegrenzt viele Einträge.
+- **401 ist generell ausgenommen**, nicht nur auf `/api/auth/*`: `middleware.ts` liefert 401 für
+  *jeden* `/api/*`-Pfad, sobald die Session abgelaufen ist. Ein über Nacht offener Tab würde sonst
+  dauerhaft melden.
+- Der Antwortkörper wird nur bei 5xx **und** vorhandenem `content-length ≤ 8 KB` gelesen. Fehlt der
+  Header (chunked/gestreamt — der Normalfall bei Next-500-HTML-Seiten), wird bewusst NICHT gelesen;
+  `Number(null ?? "0")` ergäbe 0 und würde den Deckel unterlaufen. Das Lesen läuft außerdem
+  **ohne `await`** vor dem `return res`, damit die Aufrufstelle nicht auf die Diagnose wartet.
 
 - `onRequestError` (`instrumentation.ts`) erfasst nur *unbehandelte* Exceptions. Sobald eine
   Route/Funktion einen eigenen `try/catch` hat (Standardfall laut Checkliste), muss der
@@ -1071,6 +1093,19 @@ Ein `if (!res.ok)`-Zweig braucht deshalb **keine** eigene Sentry-Meldung mehr �
   `app/global-error.tsx` (React-Error-Boundaries, melden bereits automatisch),
   `components/SentryUserContext.tsx` (Sentry-User-Kontext aus Session, **clientseitig**),
   `lib/process-error-handlers.ts` (`uncaughtException`/`unhandledRejection` + `flush`).
+- **`uncaughtException` MUSS den Prozess beenden.** Node beendet sich dort standardmäßig mit Code 1,
+  worauf Docker neu startet; registriert man einen Handler, entfällt das — der Server läuft dann in
+  undefiniertem Zustand weiter. `lib/process-error-handlers.ts` und `geo-server.js` holen das
+  Beenden daher explizit nach, aber erst **nach** dem `flush()`. Bei `unhandledRejection` bewusst
+  nicht (definierter Zustand). Diesen `process.exit(1)` nicht entfernen.
+- **Reporting darf nie zum Fehlerverstärker werden.** `logEreignis` fängt eigene Fehler ab (es wird
+  fast nur aus `catch`-Blöcken gerufen — würde es werfen, ersetzte der Logger-Fehler den
+  Originalfehler). In `geo-server.js` sind `ECONNRESET`/`EPIPE` von der Meldung ausgenommen, weil
+  Client-Abbrüche Alltag sind, und `req`/`res`/`proxyRes` haben `error`-Handler: ohne die wurde ein
+  Verbindungsabbruch über den `uncaughtException`-Handler zu einem FATAL-Issue.
+- **Fingerprints bei variablen Meldungen.** `scripts/sentry-store-report.cjs` unterstützt
+  `fingerprint`; `geo-server.js` setzt ihn überall, wo die Meldung einen variablen Anteil
+  (Fehlercode, Exit-Code) enthält — sonst legt GlitchTip pro Variante ein eigenes Issue an.
 - **Kein serverseitiger User-Kontext.** `Sentry.getIsolationScope().setUser()` wäre naheliegend, ist
   hier aber **falsch**: der Isolation-Scope wird pro Request nur von
   `wrapRouteHandlerWithSentry`/`wrapMiddlewareWithSentry` geforkt, und
