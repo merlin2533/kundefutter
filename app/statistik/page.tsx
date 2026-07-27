@@ -64,6 +64,7 @@ const QUICK_LINKS = [
   { href: "/statistik/artikel", icon: "📦", title: "Artikel" },
   { href: "/statistik/abc", icon: "🔤", title: "ABC-Analyse" },
   { href: "/statistik/saisonal", icon: "🗓️", title: "Saisonal" },
+  { href: "/statistik/kategorie-verlauf", icon: "🌱", title: "Kategorie-Verlauf" },
   { href: "/statistik/angebote", icon: "📝", title: "Angebote" },
   { href: "/statistik/crm", icon: "📞", title: "CRM-Aktivität" },
   { href: "/statistik/vorbestellungen", icon: "⏱", title: "Vorbestellungen" },
