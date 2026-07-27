@@ -699,6 +699,14 @@ export default function ArtikelPage() {
                     <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{bevorzugterLieferant(a)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <Link
+                          href={`/artikel/${a.id}?tab=kunden`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-gray-400 hover:text-green-700 transition-colors p-1"
+                          title="Wer hat/bekommt diesen Artikel?"
+                        >
+                          👥
+                        </Link>
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
