@@ -219,10 +219,12 @@ export default function KategorieVerlaufPage() {
                               {einträgeJahr.map((e) => (
                                 <span
                                   key={e.artikelId}
-                                  title={`${e.menge.toLocaleString("de-DE")} ${e.einheit ?? ""}`}
                                   className="inline-block text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200 whitespace-nowrap"
                                 >
                                   {e.artikelName}
+                                  <span className="text-green-600">
+                                    {" · "}{e.menge.toLocaleString("de-DE")} {e.einheit ?? ""}
+                                  </span>
                                 </span>
                               ))}
                             </div>
