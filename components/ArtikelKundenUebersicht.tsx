@@ -65,15 +65,25 @@ function istOffen(v: Vorgang): boolean {
   return true; // Vorbestellung (OFFEN/BESTAETIGT) und Angebot (OFFEN) sind stets "offen"
 }
 
-export default function ArtikelKundenUebersicht({ artikelId }: { artikelId: number }) {
+export default function ArtikelKundenUebersicht({
+  artikelId,
+  initialCharge,
+}: {
+  artikelId: number;
+  initialCharge?: string;
+}) {
   const [vorgaenge, setVorgaenge] = useState<Vorgang[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [aktiveQuellen, setAktiveQuellen] = useState<Set<Quelle>>(
     new Set<Quelle>(["lieferung", "vorbestellung", "angebot"])
   );
-  const [chargeFilter, setChargeFilter] = useState("");
+  const [chargeFilter, setChargeFilter] = useState(initialCharge ?? "");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (initialCharge) setChargeFilter(initialCharge);
+  }, [initialCharge]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +171,14 @@ export default function ArtikelKundenUebersicht({ artikelId }: { artikelId: numb
     }
     return Array.from(map.values()).sort((a, b) => (a.letzteDatum < b.letzteDatum ? 1 : -1));
   }, [gefiltert]);
+
+  // Über die Suche mit vorausgefüllter Charge angekommen — Treffer direkt aufklappen statt
+  // den Nutzer nach dem Deep-Link nochmal manuell expandieren zu lassen.
+  useEffect(() => {
+    if (!initialCharge || gruppen.length === 0) return;
+    setExpanded(new Set(gruppen.map((g) => g.kundeId)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCharge, gruppen.length]);
 
   if (loading) return <p className="text-sm text-gray-500 py-6 text-center">Lädt…</p>;
   if (error) return <p className="text-sm text-red-600 py-6 text-center">{error}</p>;

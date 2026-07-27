@@ -1921,7 +1921,7 @@ function ArtikelDetailContent() {
       {/* ── Tab: Kunden ──────────────────────────────────────────────────────── */}
       {tab === "kunden" && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <ArtikelKundenUebersicht artikelId={artikel.id} />
+          <ArtikelKundenUebersicht artikelId={artikel.id} initialCharge={searchParams.get("charge") ?? undefined} />
         </div>
       )}
 
