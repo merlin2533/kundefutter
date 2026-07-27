@@ -7,6 +7,25 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 
 ## [Unreleased]
 
+### Behoben (GlitchTip-Sweep)
+- **Cron-Dispatcher scheiterte in jeder Standard-Installation dauerhaft mit 401** (GlitchTip
+  AGRI-C) – `docker-compose.prod.yml` setzt kein `CRON_SECRET`, `isAuthorized()` in
+  `app/api/cron/route.ts` lehnt aber ohne gesetztes Secret jeden Aufruf ab. Der eingebaute
+  Cron-Dispatcher in `docker-entrypoint.sh` konnte sich damit nie selbst authentifizieren und
+  meldete alle 30 Minuten einen Fehler an Sentry/GlitchTip. `CRON_SECRET` wird jetzt – analog zu
+  `SESSION_SECRET` – beim ersten Start automatisch generiert und dauerhaft in
+  `/data/cron-secret` gespeichert.
+- **`/api/cron` meldete sich als fehlgeschlagen, wenn keine Digest-E-Mail-Adresse konfiguriert
+  war** – `jobDigestEmail()` gab `ok:false` zurück, obwohl der Digest ein rein optionales Feature
+  ist (`jobNextcloudSync()` behandelt eine fehlende Konfiguration bereits korrekt als
+  übersprungen). Jetzt konsistent `ok:true` mit `detail.uebersprungen`.
+- **`[geo-server] Next.js-Prozess unerwartet beendet (code=143)`** (GlitchTip AGRI-D) –
+  `geo-server.js` meldete jeden Exit von Next.js als FATAL-Issue, auch bei einem ganz normalen,
+  selbst ausgelösten `SIGTERM`-Shutdown (`docker stop`, Neustart, Deploy). Ein neuer
+  `geplanterShutdown`-Merker unterscheidet jetzt einen beabsichtigten von einem echten,
+  unerwarteten Absturz; als Nebeneffekt entfällt auch das bisherige Wettrennen zweier
+  `process.exit()`-Aufrufe beim Herunterfahren.
+
 ### Behoben (Nachzug zum GlitchTip-Reporting)
 - **Server lief nach `uncaughtException` kaputt weiter** – der neue Handler in
   `lib/process-error-handlers.ts` hatte Nodes Standardverhalten (Exit 1 → Docker-Neustart)
