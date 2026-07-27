@@ -29,6 +29,7 @@ interface KundeGruppe {
   offenNachQuelle: Record<Quelle, number>;
   letzteDatum: string;
   vorgaenge: Vorgang[];
+  chargen: string[];
 }
 
 const QUELLE_LABEL: Record<Quelle, string> = {
@@ -157,6 +158,7 @@ export default function ArtikelKundenUebersicht({
           offenNachQuelle: { lieferung: 0, vorbestellung: 0, angebot: 0 },
           letzteDatum: v.datum,
           vorgaenge: [],
+          chargen: [],
         };
         map.set(v.kundeId, g);
       }
@@ -167,6 +169,7 @@ export default function ArtikelKundenUebersicht({
         g.offenNachQuelle[v.quelle] += v.menge;
       }
       if (v.datum > g.letzteDatum) g.letzteDatum = v.datum;
+      if (v.chargeNr && !g.chargen.includes(v.chargeNr)) g.chargen.push(v.chargeNr);
       g.vorgaenge.push(v);
     }
     return Array.from(map.values()).sort((a, b) => (a.letzteDatum < b.letzteDatum ? 1 : -1));
@@ -239,6 +242,7 @@ export default function ArtikelKundenUebersicht({
                 <th className="py-2 pr-3">Kunde</th>
                 <th className="py-2 pr-3">Bereits geliefert</th>
                 <th className="py-2 pr-3">Noch offen</th>
+                <th className="py-2 pr-3 hidden md:table-cell">Charge(n)</th>
                 <th className="py-2 pr-3 hidden sm:table-cell">Letzte Aktivität</th>
                 <th className="py-2 pr-3 w-8" />
               </tr>
@@ -252,6 +256,11 @@ export default function ArtikelKundenUebersicht({
                         {g.kundeName}
                       </Link>
                       {g.kundeOrt && <span className="text-xs text-gray-400 ml-1">({g.kundeOrt})</span>}
+                      {g.chargen.length > 0 && (
+                        <div className="md:hidden text-xs text-blue-700 font-mono mt-0.5">
+                          {g.chargen.join(", ")}
+                        </div>
+                      )}
                     </td>
                     <td className="py-2 pr-3 text-green-700 font-medium">
                       {g.geliefertMenge > 0 ? g.geliefertMenge : "—"}
@@ -272,6 +281,19 @@ export default function ArtikelKundenUebersicht({
                         "—"
                       )}
                     </td>
+                    <td className="py-2 pr-3 hidden md:table-cell">
+                      {g.chargen.length > 0 ? (
+                        <span className="inline-flex flex-wrap items-center gap-1">
+                          {g.chargen.map((c) => (
+                            <span key={c} className="font-mono text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5">
+                              {c}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 hidden sm:table-cell text-gray-500 text-xs">
                       {new Date(g.letzteDatum).toLocaleDateString("de-DE")}
                     </td>
@@ -288,7 +310,7 @@ export default function ArtikelKundenUebersicht({
                   </tr>
                   {expanded.has(g.kundeId) && (
                     <tr className="bg-gray-50">
-                      <td colSpan={5} className="px-3 py-2">
+                      <td colSpan={6} className="px-3 py-2">
                         <ul className="space-y-1">
                           {g.vorgaenge
                             .slice()
