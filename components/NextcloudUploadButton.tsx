@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { log } from "@/lib/logger";
 
 interface Props {
   /** Kunde-ID für die Zuordnung in Nextcloud */
@@ -37,6 +38,12 @@ export default function NextcloudUploadButton({ kundeId, typ, dateiName, getInha
     try {
       const inhalt = await getInhalt();
       if (!inhalt) {
+        // Kein catch, kein fetch — ohne diese Meldung wäre ein Fehler in der
+        // clientseitigen PDF-Erzeugung vollständig unsichtbar.
+        log.error("PDF-Erzeugung für Nextcloud-Upload lieferte kein Ergebnis", undefined, {
+          dateiName,
+          typ,
+        });
         setFehler("PDF konnte nicht erstellt werden.");
         setStatus("error");
         return;

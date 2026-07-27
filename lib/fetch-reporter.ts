@@ -24,15 +24,39 @@ type MarkiertesFenster = Window & { [MARKER]?: boolean };
 /** Erwartete Nicht-Fehler: nicht angemeldet / bewusst leeres Lookup-Ergebnis. */
 function istErwartet(pfad: string, status: number): boolean {
   if (status === 401) {
-    // Session-Prüfungen und Portal-Endpunkte liefern im abgemeldeten Zustand
-    // regulär 401 — normales Nutzerverhalten, kein Anwendungsfehler.
-    return pfad.startsWith("/api/auth/") || pfad.startsWith("/api/portal/auth/");
+    // 401 ist GRUNDSÄTZLICH kein Anwendungsfehler: `middleware.ts` gibt das für
+    // JEDEN /api/*-Pfad zurück, sobald die Session abgelaufen ist. Ein über
+    // Nacht offener Tab würde sonst über alle gepollten Endpunkte hinweg einen
+    // dauerhaften Meldungsstrom erzeugen.
+    return true;
   }
   if (status === 404) {
     // Lookups, die "nicht gefunden" als gültiges Ergebnis kennen.
     return pfad.startsWith("/api/suche") || pfad.startsWith("/api/telefonmaske");
   }
   return false;
+}
+
+/**
+ * Deckel gegen Dauerfeuer: die App pollt an mehreren Stellen im Minutentakt
+ * (Dashboard, NotificationCenter auf jeder Seite, Fahrer-Standorte). Fällt die
+ * DB aus, würde ein einzelner offener Tab sonst unbegrenzt Einträge erzeugen.
+ * Gleiche Meldung (Pfad+Methode+Status) daher höchstens einmal pro Fenster.
+ */
+const DEDUP_FENSTER_MS = 60_000;
+const zuletztGemeldet = new Map<string, number>();
+
+function darfMelden(schluessel: string, jetzt: number): boolean {
+  const vorher = zuletztGemeldet.get(schluessel);
+  if (vorher !== undefined && jetzt - vorher < DEDUP_FENSTER_MS) return false;
+  zuletztGemeldet.set(schluessel, jetzt);
+  // Die Map darf nicht unbegrenzt wachsen (lange Sitzungen, viele Pfade).
+  if (zuletztGemeldet.size > 200) {
+    for (const [k, t] of zuletztGemeldet) {
+      if (jetzt - t >= DEDUP_FENSTER_MS) zuletztGemeldet.delete(k);
+    }
+  }
+  return true;
 }
 
 /**
@@ -68,8 +92,13 @@ function methodeAusEingabe(input: RequestInfo | URL, init?: RequestInit): string
 /** Antwortkörper eines Serverfehlers als Zusatzkontext — klein und gedeckelt. */
 async function fehlerDetail(res: Response): Promise<string | undefined> {
   try {
-    const laenge = Number(res.headers.get("content-length") ?? "0");
-    if (laenge > 8192) return undefined;
+    // Fehlt `content-length` — der Normalfall bei chunked/gestreamten Antworten,
+    // also z.B. bei jeder Next.js-500-HTML-Seite — ist die Größe UNBEKANNT.
+    // Dann bewusst nicht lesen: `Number(null ?? "0")` ergäbe 0 und würde den
+    // Deckel unterlaufen, sodass der komplette Body gepuffert würde.
+    const rohLaenge = res.headers.get("content-length");
+    const laenge = rohLaenge === null ? NaN : Number(rohLaenge);
+    if (!Number.isFinite(laenge) || laenge <= 0 || laenge > 8192) return undefined;
     const text = await res.clone().text();
     return text.slice(0, 500) || undefined;
   } catch {
@@ -100,21 +129,35 @@ export function installFetchReporter(): void {
     try {
       const res = await originalFetch(input, init);
 
-      if (pfad && !res.ok && !istErwartet(pfad, res.status)) {
+      if (
+        pfad &&
+        !res.ok &&
+        !istErwartet(pfad, res.status) &&
+        darfMelden(`${methode} ${pfad} ${res.status}`, Date.now())
+      ) {
         // Query bewusst abgeschnitten: bessere Gruppierung, keine PII.
         const meldung = `HTTP ${res.status} ${methode} ${pfad}`;
-        const detail = res.status >= 500 ? await fehlerDetail(res) : undefined;
-        logEreignis({
-          level: res.status >= 500 ? "error" : "warn",
-          meldung,
-          ctx: { pfad, methode, status: res.status, ...(detail ? { detail } : {}) },
-          issue: false,
-        });
+        const basisCtx = { pfad, methode, status: res.status };
+
+        if (res.status >= 500) {
+          // Den Antwortkörper NICHT awaiten, bevor die Aufrufstelle ihre
+          // Response bekommt — sonst wartet sie auf unser Diagnose-Lesen.
+          void fehlerDetail(res).then((detail) => {
+            logEreignis({
+              level: "error",
+              meldung,
+              ctx: detail ? { ...basisCtx, detail } : basisCtx,
+              issue: false,
+            });
+          });
+        } else {
+          logEreignis({ level: "warn", meldung, ctx: basisCtx, issue: false });
+        }
       }
 
       return res;
     } catch (err) {
-      if (pfad) {
+      if (pfad && darfMelden(`${methode} ${pfad} netz`, Date.now())) {
         const abgebrochen = err instanceof Error && err.name === "AbortError";
         const offline =
           typeof navigator !== "undefined" && navigator.onLine === false;

@@ -42,6 +42,19 @@ function melde(meldung, fehler) {
   }
 }
 
+// Fehler im Top-Level-Scope oder im fetch-Handler erreichen keinen der beiden
+// Handler unten — ohne diese zwei Listener wäre ein kaputter Service Worker
+// (der die gesamte PWA lahmlegt) vollständig unsichtbar.
+self.addEventListener('error', (event) => {
+  melde(
+    `[sw] unbehandelter Fehler: ${event && event.message ? event.message : 'unbekannt'}`,
+    event && event.error
+  );
+});
+self.addEventListener('unhandledrejection', (event) => {
+  melde('[sw] unbehandelte Promise-Rejection', event && event.reason);
+});
+
 self.addEventListener('install', (event) => {
   // Offline-Seite vorab cachen (minimaler Cache nur für Offline-Fallback)
   event.waitUntil(

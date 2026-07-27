@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import * as Sentry from "@sentry/nextjs";
+import { log } from "@/lib/logger";
 import {
   type BackupConfig,
   DEFAULT_BACKUP_CONFIG,
@@ -180,7 +181,11 @@ export function startBackupScheduler(): void {
   const tick = async () => {
     try {
       const entry = await runAutoBackupIfDue();
-      if (entry) console.log(`[backup] Automatische Sicherung erstellt: ${entry.filename}`);
+      // log.info statt console.log: console.log ist NICHT in der Level-Liste der
+      // consoleLoggingIntegration und erreicht GlitchTip deshalb nicht. Das ist
+      // aber der einzige positive Nachweis, dass der Scheduler überhaupt läuft —
+      // ein stillstehendes Backup erzeugt naturgemäß keinen Fehler.
+      if (entry) log.info(`[backup] Automatische Sicherung erstellt`, { datei: entry.filename });
     } catch (err) {
       console.error("[backup] Automatische Sicherung fehlgeschlagen:", err);
       Sentry.captureException(err);

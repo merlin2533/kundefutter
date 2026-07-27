@@ -15,8 +15,14 @@ Sentry.init({
   environment: process.env.NODE_ENV ?? "production",
   release: `${process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"}+${process.env.NEXT_PUBLIC_BUILD_ID ?? "dev"}`,
 
-  // Console-Integration hier bewusst NICHT: middleware.ts loggt praktisch nicht,
-  // und der Edge-Bundle soll klein bleiben. Issues (captureException) laufen
-  // unabhängig davon.
+  // Console-Integration AUCH hier: ohne sie wäre `enableLogs` tote
+  // Konfiguration (es sieht aus wie "Logs an", greift aber nur für
+  // Sentry.logger.*, das dieses Projekt nicht benutzt). Vor allem verhindert sie
+  // eine stille Asymmetrie: `log.warn()` in middleware.ts fährt seinen
+  // Log-Strom über console.* und wäre sonst spurlos verschwunden, während
+  // `log.error()` funktioniert hätte.
   enableLogs: true,
+  integrations: [
+    Sentry.consoleLoggingIntegration({ levels: ["info", "warn", "error"] }),
+  ],
 });

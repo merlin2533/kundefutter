@@ -37,6 +37,7 @@ nextProc.on('exit', (code) => {
   console.error(`[geo-server] Next.js-Prozess beendet (code=${code}). Geo-Proxy wird gestoppt.`);
   melde(`[geo-server] Next.js-Prozess unerwartet beendet (code=${code})`, {
     level: 'fatal',
+    fingerprint: ['geo-server', 'next-exit'],
     extra: { exitCode: code },
   });
   // Kurz warten, damit die Meldung noch rausgeht — aber niemals den Shutdown
@@ -45,16 +46,28 @@ nextProc.on('exit', (code) => {
 });
 
 // Fehler außerhalb jedes Handlers — sonst stirbt PID 1 komplett lautlos.
+let beendetSich = false;
 process.on('uncaughtException', (err) => {
+  if (beendetSich) return;
+  beendetSich = true;
   console.error('[geo-server] uncaughtException:', err && err.message);
   melde(`[geo-server] uncaughtException: ${err && err.message}`, {
     level: 'fatal',
+    fingerprint: ['geo-server', 'uncaughtException', String((err && err.code) || (err && err.name) || 'unknown')],
     extra: { stack: err && err.stack },
   });
+  // Wie in lib/process-error-handlers.ts: nach einer uncaught Exception ist der
+  // Zustand undefiniert. PID 1 muss sich beenden, damit Docker neu startet —
+  // sonst bleibt ein halb funktionsfähiger Proxy stehen.
+  nextProc.kill('SIGTERM');
+  setTimeout(() => process.exit(1), 300);
 });
 process.on('unhandledRejection', (reason) => {
   console.error('[geo-server] unhandledRejection:', reason);
-  melde(`[geo-server] unhandledRejection: ${reason}`, { level: 'error' });
+  melde(`[geo-server] unhandledRejection: ${reason}`, {
+    level: 'error',
+    fingerprint: ['geo-server', 'unhandledRejection'],
+  });
 });
 
 // ── Warten bis Next.js bereit ist ────────────────────────────────────────────
@@ -143,16 +156,34 @@ waitForNextJs().then(function() {
       function(proxyRes) {
         res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
+        // Bricht die Upstream-Antwort mitten im Stream ab, ist das ein
+        // unbehandeltes 'error'-Event -> uncaughtException in PID 1.
+        proxyRes.on('error', function() { res.destroy(); });
       }
     );
 
     proxyReq.on('error', function(err) {
+      // ECONNRESET/EPIPE bedeutet hier fast immer: der Client (Handy, Tab
+      // geschlossen) hat abgebrochen. Das ist Alltag und kein Anwendungsfehler
+      // — sonst produziert jeder Verbindungsabbruch ein Issue.
+      const abbruch = err.code === 'ECONNRESET' || err.code === 'EPIPE';
       console.error('[geo-proxy] Upstream-Fehler:', err.message);
-      melde(`[geo-proxy] Upstream-Fehler: ${err.message}`, {
-        extra: { pfad: req.url, methode: req.method, code: err.code },
-      });
+      if (!abbruch) {
+        melde(`[geo-proxy] Upstream-Fehler: ${err.code || err.message}`, {
+          // Fingerprint ohne variable Anteile, damit GlitchTip gruppiert statt
+          // pro abweichender Meldung ein neues Issue anzulegen.
+          fingerprint: ['geo-proxy', 'upstream', String(err.code || 'unknown')],
+          extra: { pfad: req.url, methode: req.method, code: err.code },
+        });
+      }
       if (!res.headersSent) { res.writeHead(502); res.end('Bad Gateway'); }
     });
+
+    // Ohne diese beiden Handler wird ein Client-Abbruch mitten im Request zu
+    // einem unbehandelten 'error'-Event und damit (über den
+    // uncaughtException-Handler oben) zu einem FATAL-Issue plus Prozessende.
+    req.on('error', function() { proxyReq.destroy(); });
+    res.on('error', function() { proxyReq.destroy(); });
 
     req.pipe(proxyReq, { end: true });
   });
@@ -177,11 +208,15 @@ waitForNextJs().then(function() {
       if (upHead && upHead.length) upSock.unshift(upHead);
     });
     up.on('error', function(err) {
+      const abbruch = err && (err.code === 'ECONNRESET' || err.code === 'EPIPE');
       console.error('[geo-proxy] WebSocket-Upgrade fehlgeschlagen:', err && err.message);
-      melde(`[geo-proxy] WebSocket-Upgrade fehlgeschlagen: ${err && err.message}`, {
-        level: 'warning',
-        extra: { pfad: req.url, code: err && err.code },
-      });
+      if (!abbruch) {
+        melde(`[geo-proxy] WebSocket-Upgrade fehlgeschlagen: ${(err && err.code) || (err && err.message)}`, {
+          level: 'warning',
+          fingerprint: ['geo-proxy', 'ws-upgrade', String((err && err.code) || 'unknown')],
+          extra: { pfad: req.url, code: err && err.code },
+        });
+      }
       socket.destroy();
     });
     // Auch der Client-Socket selbst kann brechen (Verbindungsabbruch) — ohne
@@ -192,8 +227,9 @@ waitForNextJs().then(function() {
 
   server.on('error', function(err) {
     console.error('[geo-server] Server-Fehler:', err && err.message);
-    melde(`[geo-server] Server-Fehler: ${err && err.message}`, {
+    melde(`[geo-server] Server-Fehler: ${(err && err.code) || (err && err.message)}`, {
       level: 'fatal',
+      fingerprint: ['geo-server', 'server-error', String((err && err.code) || 'unknown')],
       extra: { code: err && err.code, port: PUBLIC_PORT },
     });
   });
@@ -220,6 +256,7 @@ waitForNextJs().then(function() {
   // ausschließlich in `docker logs`.
   melde(`[geo-server] Start fehlgeschlagen: ${err && err.message}`, {
     level: 'fatal',
+    fingerprint: ['geo-server', 'start-failed'],
     extra: { stack: err && err.stack },
   });
   nextProc.kill();

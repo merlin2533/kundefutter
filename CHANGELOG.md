@@ -7,6 +7,40 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 
 ## [Unreleased]
 
+### Behoben (Nachzug zum GlitchTip-Reporting)
+- **Server lief nach `uncaughtException` kaputt weiter** – der neue Handler in
+  `lib/process-error-handlers.ts` hatte Nodes Standardverhalten (Exit 1 → Docker-Neustart)
+  ersetzt, ohne es nachzuholen. Beendet sich jetzt explizit nach dem `flush()`; dasselbe in
+  `geo-server.js`.
+- **FATAL-Issue-Flut bei Client-Abbrüchen** – `geo-server.js` hatte keine `error`-Handler auf
+  `req`/`res`/`proxyRes`, sodass jeder Verbindungsabbruch (Mobilgeräte: Alltag) über den
+  `uncaughtException`-Handler zu einem FATAL-Issue wurde. `ECONNRESET`/`EPIPE` werden nicht mehr
+  gemeldet, und alle Meldungen tragen stabile Fingerprints (Reporter unterstützt `fingerprint`) —
+  vorher legte jede abweichende Meldung ein eigenes Issue an.
+- **`lib/fetch-reporter.ts`: Body-Deckel griff genau dann nicht, wenn er gebraucht wurde** – ohne
+  `content-length`-Header (chunked/gestreamt, z.B. jede Next-500-HTML-Seite) ergab
+  `Number(null ?? "0")` null und der komplette Body wurde gepuffert. Das Diagnose-Lesen blockiert
+  außerdem nicht mehr die Aufrufstelle.
+- **Kein Deckel gegen Dauerfeuer** – Dedup-Fenster (60 s je Pfad+Methode+Status) ergänzt; die App
+  pollt an drei Stellen im Minutentakt. 401 ist jetzt generell ausgenommen, weil die Middleware das
+  für *jeden* `/api/*`-Pfad liefert, sobald die Session abläuft.
+- **`logEreignis`**: `{level:"debug", issue:true}` verlor das Issue in Produktion (verhielt sich
+  still anders als in Dev); fängt eigene Fehler jetzt ab, damit ein Logger-Fehler nie den
+  Originalfehler ersetzt; `zuFehler(undefined, …)` liefert wieder die reine Fallback-Meldung.
+- **Tote `enableLogs`-Config in der Edge-Runtime** – ohne Console-Integration wirkungslos; jetzt in
+  allen drei Configs aktiv. Damit verschwindet auch die Asymmetrie, dass `log.warn` in der
+  Middleware spurlos gewesen wäre, `log.error` aber nicht.
+- **Stille Fehlerpfade nachgezogen**: 8 Schema-Guards in `lib/eurostat.ts` (leere Marktdaten bei
+  geänderter Eurostat-API), fehlgeschlagene PDF-Erzeugung in `components/NextcloudUploadButton.tsx`,
+  stummes HTTP 403 bei nicht parsebarem `Origin`-Header in `middleware.ts`.
+- **`console.log` erreicht GlitchTip nicht** (nicht in der Level-Liste) – Backup-Erstellung,
+  Erstinstallation und Nextcloud-Uploads laufen daher über `log.info`. Beim Backup war das der
+  einzige positive Nachweis, dass der Scheduler überhaupt läuft.
+- Globale `error`/`unhandledrejection`-Handler im Service Worker – vorher waren Fehler im
+  Top-Level-Scope und im `fetch`-Handler unsichtbar.
+- Tests für `lib/logger.ts` (18) und `lib/fetch-reporter.ts` (20) ergänzt; der Logger-Test hat den
+  `debug`/`issue`-Bug und die `zuFehler`-Regression gefunden.
+
 ### Geändert
 - **GlitchTip-DSN fest im Image hinterlegt** – `lib/sentry-dsn.ts` ist die einzige Quelle
   der Wahrheit; jeder Container meldet Fehler ohne jede Konfiguration. Übersteuern per

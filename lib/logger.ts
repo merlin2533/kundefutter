@@ -47,6 +47,9 @@ function beschreibe(wert: unknown): string {
  */
 export function zuFehler(wert: unknown, fallbackMeldung: string): Error {
   if (wert instanceof Error) return wert;
+  // Ohne diesen Zweig würde die Meldung zu "… : undefined" — der angehängte
+  // Wert trägt dann keine Information, verschlechtert aber die Lesbarkeit.
+  if (wert === undefined || wert === null) return new Error(fallbackMeldung);
   return new Error(`${fallbackMeldung}: ${beschreibe(wert)}`);
 }
 
@@ -70,41 +73,58 @@ export function logEreignis(ereignis: LogEreignis): string | undefined {
   const { level, meldung, fehler, ctx, fingerprint } = ereignis;
   const mitIssue = ereignis.issue ?? (level === "error" || level === "fatal");
 
-  // debug ist reine lokale Diagnose und wird in Produktion nicht ausgegeben.
-  if (level === "debug" && !isDev) return undefined;
+  // `debug` ist reine lokale Diagnose: in Produktion wird der LOG-Eintrag
+  // unterdrückt. Ein ausdrücklich angefordertes Issue (`issue: true`) wird
+  // davon NICHT unterdrückt — sonst verhielte sich derselbe Aufruf in Dev und
+  // Produktion unterschiedlich (und zwar still).
+  const logUnterdruecken = level === "debug" && !isDev;
+  if (logUnterdruecken && !mitIssue) return undefined;
 
   let eventId: string | undefined;
 
+  // Diese Funktion wird fast ausschließlich AUS catch-Blöcken heraus gerufen.
+  // Würde sie selbst werfen, ersetzte der Logger-Fehler den Originalfehler —
+  // deshalb darf hier nichts nach außen dringen.
   if (mitIssue) {
-    // Sentrys SeverityLevel kennt "warning", nicht "warn".
-    const sentryLevel: Sentry.SeverityLevel = level === "warn" ? "warning" : level;
+    try {
+      // Sentrys SeverityLevel kennt "warning", nicht "warn".
+      const sentryLevel: Sentry.SeverityLevel = level === "warn" ? "warning" : level;
 
-    if (fehler !== undefined && fehler !== null) {
-      eventId = Sentry.captureException(zuFehler(fehler, meldung), {
-        level: sentryLevel,
-        extra: { meldung, ...(ctx ?? {}) },
-        ...(fingerprint ? { fingerprint } : {}),
-      });
-    } else {
-      // Kein echter Fehler vorhanden: NICHT `new Error(meldung)` bauen — der
-      // Stacktrace zeigte dann auf diese Datei, und GlitchTip würde völlig
-      // unzusammenhängende Meldungen zu einem Issue zusammenfassen. Stattdessen
-      // captureMessage mit explizitem Fingerprint aus der Meldung.
-      eventId = Sentry.captureMessage(meldung, {
-        level: sentryLevel,
-        extra: ctx,
-        fingerprint: fingerprint ?? ["logger", meldung],
-      });
+      if (fehler !== undefined && fehler !== null) {
+        eventId = Sentry.captureException(zuFehler(fehler, meldung), {
+          level: sentryLevel,
+          extra: { meldung, ...(ctx ?? {}) },
+          ...(fingerprint ? { fingerprint } : {}),
+        });
+      } else {
+        // Kein echter Fehler vorhanden: NICHT `new Error(meldung)` bauen — der
+        // Stacktrace zeigte dann auf diese Datei, und GlitchTip würde völlig
+        // unzusammenhängende Meldungen zu einem Issue zusammenfassen. Stattdessen
+        // captureMessage mit explizitem Fingerprint aus der Meldung.
+        eventId = Sentry.captureMessage(meldung, {
+          level: sentryLevel,
+          extra: ctx,
+          fingerprint: fingerprint ?? ["logger", meldung],
+        });
+      }
+    } catch {
+      // Bewusst stumm: hier zu melden wäre zirkulär.
     }
   }
 
+  if (logUnterdruecken) return eventId;
+
   // Log-Strom immer schreiben — mit eventId, damit Log und Issue korrelierbar sind.
-  const konsolenLevel = level === "fatal" ? "error" : level;
-  const konsolenCtx = eventId ? { ...(ctx ?? {}), eventId } : ctx;
-  if (konsolenCtx && Object.keys(konsolenCtx).length > 0) {
-    console[konsolenLevel](meldung, konsolenCtx);
-  } else {
-    console[konsolenLevel](meldung);
+  try {
+    const konsolenLevel = level === "fatal" ? "error" : level;
+    const konsolenCtx = eventId ? { ...(ctx ?? {}), eventId } : ctx;
+    if (konsolenCtx && Object.keys(konsolenCtx).length > 0) {
+      console[konsolenLevel](meldung, konsolenCtx);
+    } else {
+      console[konsolenLevel](meldung);
+    }
+  } catch {
+    // s.o. — ein kaputtes console darf den Aufrufer nicht mitreißen.
   }
 
   return eventId;

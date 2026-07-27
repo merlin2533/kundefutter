@@ -31,7 +31,7 @@ function dsnErmitteln() {
  * Promise zurück, das immer erfüllt wird (auch bei Netzwerkfehlern).
  *
  * @param {string} meldung
- * @param {{level?: string, tags?: Record<string,string>, extra?: Record<string,unknown>}} [optionen]
+ * @param {{level?: string, tags?: Record<string,string>, extra?: Record<string,unknown>, fingerprint?: string[]}} [optionen]
  * @returns {Promise<void>}
  */
 function melde(meldung, optionen) {
@@ -55,6 +55,11 @@ function melde(meldung, optionen) {
       server_name: process.env.HOSTNAME || undefined,
       tags: Object.assign({ source: 'geo-server' }, opt.tags || {}),
       extra: opt.extra || {},
+      // Ohne Fingerprint gruppiert GlitchTip nach der Message — und weil die
+      // Aufrufer variable Anteile (Fehlercode, Exit-Code) einsetzen, würde
+      // jede Variante ein eigenes Issue. Aufrufer setzen daher einen stabilen
+      // Fingerprint; ohne Angabe bleibt das Default-Verhalten.
+      fingerprint: Array.isArray(opt.fingerprint) ? opt.fingerprint : undefined,
     });
 
     return fetch('https://' + host + '/api/' + projectId + '/store/', {
