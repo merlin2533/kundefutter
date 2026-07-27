@@ -375,12 +375,21 @@ export default function LagerPage() {
                         </td>
                         <td className="hidden lg:table-cell px-4 py-3 text-gray-600">{bev?.lieferant.name ?? "—"}</td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => openKorrektur(a)}
-                            className="text-xs px-2.5 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-600 font-medium transition-colors whitespace-nowrap"
-                          >
-                            Korrektur
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <Link
+                              href={`/artikel/${a.id}?tab=kunden`}
+                              className="text-gray-400 hover:text-green-700 transition-colors p-1"
+                              title="Wer hat/bekommt diesen Artikel?"
+                            >
+                              👥
+                            </Link>
+                            <button
+                              onClick={() => openKorrektur(a)}
+                              className="text-xs px-2.5 py-2 rounded-lg border border-gray-300 hover:bg-gray-100 text-gray-600 font-medium transition-colors whitespace-nowrap"
+                            >
+                              Korrektur
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
