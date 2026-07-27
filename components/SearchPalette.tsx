@@ -55,6 +55,19 @@ interface AusgabeResult {
   buchungstyp: string | null;
 }
 
+interface ChargeResult {
+  artikelId: number;
+  artikelName: string;
+  einheit: string | null;
+  chargeNr: string;
+  menge: number;
+  lieferungId: number;
+  datum: string;
+  status: string;
+  kundeId: number;
+  kundeName: string;
+}
+
 interface SearchResults {
   kunden: KundeResult[];
   artikel: ArtikelResult[];
@@ -62,6 +75,7 @@ interface SearchResults {
   angebote: AngebotResult[];
   aufgaben: AufgabeResult[];
   ausgaben: AusgabeResult[];
+  chargen: ChargeResult[];
 }
 
 type ResultItem =
@@ -70,7 +84,8 @@ type ResultItem =
   | { type: "lieferung"; data: LieferungResult }
   | { type: "angebot"; data: AngebotResult }
   | { type: "aufgabe"; data: AufgabeResult }
-  | { type: "ausgabe"; data: AusgabeResult };
+  | { type: "ausgabe"; data: AusgabeResult }
+  | { type: "charge"; data: ChargeResult };
 
 function getHref(item: ResultItem): string {
   switch (item.type) {
@@ -80,6 +95,7 @@ function getHref(item: ResultItem): string {
     case "angebot":    return `/angebote/${item.data.id}`;
     case "aufgabe":    return `/aufgaben/${item.data.id}`;
     case "ausgabe":    return `/ausgaben/${item.data.id}`;
+    case "charge":     return `/artikel/${item.data.artikelId}?tab=kunden&charge=${encodeURIComponent(item.data.chargeNr)}`;
   }
 }
 
@@ -91,6 +107,7 @@ function flattenResults(results: SearchResults): ResultItem[] {
   for (const a of (results.angebote ?? [])) items.push({ type: "angebot", data: a });
   for (const t of (results.aufgaben ?? [])) items.push({ type: "aufgabe", data: t });
   for (const x of (results.ausgaben ?? [])) items.push({ type: "ausgabe", data: x });
+  for (const c of (results.chargen ?? [])) items.push({ type: "charge", data: c });
   return items;
 }
 
@@ -143,12 +160,21 @@ function AusgabeIcon() {
   );
 }
 
+function ChargeIcon() {
+  return (
+    <svg className="w-4 h-4 text-teal-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M3 11l8.586-8.586a2 2 0 012.828 0l6.172 6.172a2 2 0 010 2.828L12 20l-9-9z" />
+    </svg>
+  );
+}
+
 function ResultIcon({ type }: { type: ResultItem["type"] }) {
   if (type === "kunde")     return <KundeIcon />;
   if (type === "artikel")   return <ArtikelIcon />;
   if (type === "angebot")   return <AngebotIcon />;
   if (type === "aufgabe")   return <AufgabeIcon />;
   if (type === "ausgabe")   return <AusgabeIcon />;
+  if (type === "charge")    return <ChargeIcon />;
   return <LieferungIcon />;
 }
 
@@ -158,6 +184,7 @@ function ResultPrimary({ item }: { item: ResultItem }) {
   if (item.type === "angebot") return <span className="font-medium text-gray-900">{item.data.nummer}</span>;
   if (item.type === "aufgabe") return <span className={`font-medium ${item.data.erledigt ? "line-through text-gray-400" : "text-gray-900"}`}>{item.data.betreff}</span>;
   if (item.type === "ausgabe") return <span className="font-medium text-gray-900">{item.data.beschreibung}</span>;
+  if (item.type === "charge")  return <span className="font-medium text-gray-900 font-mono">{item.data.chargeNr}</span>;
   const l = item.data as LieferungResult;
   const kundenname = l.kunde?.firma || l.kunde?.name || "–";
   return <span className="font-medium text-gray-900">{kundenname}</span>;
@@ -195,6 +222,15 @@ function ResultSecondary({ item }: { item: ResultItem }) {
     const date = x.datum ? new Date(x.datum).toLocaleDateString("de-DE") : "–";
     const parts = [x.kategorie, x.buchungstyp].filter(Boolean).join(" · ");
     return <span className="text-gray-500 text-sm">{betrag} · {date}{parts ? ` · ${parts}` : ""}</span>;
+  }
+  if (item.type === "charge") {
+    const c = item.data;
+    const date = c.datum ? new Date(c.datum).toLocaleDateString("de-DE") : "–";
+    return (
+      <span className="text-gray-500 text-sm">
+        {c.artikelName} · {c.kundeName} · {c.menge} {c.einheit ?? ""} · {date}
+      </span>
+    );
   }
   const l = item.data as LieferungResult;
   const date = l.datum ? new Date(l.datum).toLocaleDateString("de-DE") : "–";
@@ -446,7 +482,7 @@ export default function SearchPalette() {
         setActiveIndex(0);
       } catch (err) {
         Sentry.captureException(err);
-        setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [], ausgaben: [] });
+        setResults({ kunden: [], artikel: [], lieferungen: [], angebote: [], aufgaben: [], ausgaben: [], chargen: [] });
       } finally {
         setLoading(false);
       }
@@ -516,6 +552,7 @@ export default function SearchPalette() {
       { label: "Angebote",    type: "angebot" as const,  typParam: "angebote",    items: flatItems.filter((i) => i.type === "angebot") },
       { label: "Aufgaben",    type: "aufgabe" as const,  typParam: "aufgaben",    items: flatItems.filter((i) => i.type === "aufgabe") },
       { label: "Ausgaben",    type: "ausgabe" as const,  typParam: "ausgaben",    items: flatItems.filter((i) => i.type === "ausgabe") },
+      { label: "Chargen",     type: "charge" as const,   typParam: "chargen",     items: flatItems.filter((i) => i.type === "charge") },
     ] as Section[]
   ).filter((s) => s.items.length > 0);
 
@@ -637,9 +674,12 @@ export default function SearchPalette() {
                       const idx = sectionStart + i;
                       const isActive = idx === activeIndex;
                       const isKunde = item.type === "kunde";
+                      const itemKey = item.type === "charge"
+                        ? `charge-${item.data.artikelId}-${item.data.lieferungId}`
+                        : `${item.type}-${item.data.id}`;
                       return (
                         <button
-                          key={`${item.type}-${item.data.id}`}
+                          key={itemKey}
                           data-active={isActive}
                           onMouseEnter={() => setActiveIndex(idx)}
                           onClick={() => navigate(item)}
