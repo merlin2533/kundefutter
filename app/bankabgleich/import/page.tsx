@@ -134,7 +134,7 @@ export default function BankabgleichImportPage() {
         <h3 className="font-semibold mb-2">Hinweise zum Import</h3>
         <ul className="space-y-1 text-xs list-disc list-inside">
           <li>Duplikate (gleiche Datum + Betrag + Verwendungszweck) werden automatisch erkannt und übersprungen.</li>
-          <li>CSV-Export in Ihrem Online-Banking unter "Kontoumsätze" / "Kontoauszug herunterladen".</li>
+          <li>CSV-Export in Ihrem Online-Banking unter &quot;Kontoumsätze&quot; / &quot;Kontoauszug herunterladen&quot;.</li>
           <li>Zeichenkodierung: UTF-8 und ISO-8859-1 (Windows-Zeichensatz) werden automatisch erkannt.</li>
         </ul>
       </div>
