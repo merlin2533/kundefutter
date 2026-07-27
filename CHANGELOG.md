@@ -25,6 +25,21 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
   `geplanterShutdown`-Merker unterscheidet jetzt einen beabsichtigten von einem echten,
   unerwarteten Absturz; als Nebeneffekt entfällt auch das bisherige Wettrennen zweier
   `process.exit()`-Aufrufe beim Herunterfahren.
+- **Nachzug zu AGRI-D: dieselbe FATAL-Meldung trat noch einmal auf (GlitchTip AGRI-E)** – das
+  gemeldete Ereignis stammte noch vom alten Image, das beim Deploy des AGRI-D-Fixes lief, deckte
+  aber drei echte Restlücken im `geplanterShutdown`-Merker auf: (1) der dritte Kill-Aufruf, wenn
+  `waitForNextJs()` nach 90 Versuchen aufgibt, setzte den Merker nicht – der `exit`-Handler meldete
+  dadurch ein zweites, redundantes FATAL für einen Vorfall, der eine Zeile vorher bereits als "Start
+  fehlgeschlagen" gemeldet wurde; (2) der `SIGTERM`-Handler wurde erst innerhalb von
+  `waitForNextJs().then()` registriert und existierte damit während des bis zu 90 s langen
+  Startfensters gar nicht – ein Signal in diesem Fenster (z.B. Deploy mitten im Start) beendete PID 1
+  per Node-Default sofort und ließ das Next-Kind verwaist zurück, ganz ohne Meldung; (3) es fehlte
+  ein `SIGINT`-Handler. Der Signal-Handler ist jetzt auf Modulebene registriert (existiert ab dem
+  ersten Moment), behandelt `SIGTERM` und `SIGINT` gleich und kappt offene Verbindungen sofort statt
+  auf `server.close()` zu warten. Der `exit`-Handler meldet zusätzlich das Kill-`signal` mit (z.B.
+  `SIGKILL` beim OOM-Killer war bisher nur als `code=null` sichtbar), und Proxy-Fehler
+  (`ECONNREFUSED` u.ä.) werden während eines laufenden geordneten Shutdowns nicht mehr als Fehler
+  gemeldet – außerhalb eines Shutdowns bleibt jeder Proxy-Fehler unverändert meldepflichtig.
 
 ### Behoben (Nachzug zum GlitchTip-Reporting)
 - **Server lief nach `uncaughtException` kaputt weiter** – der neue Handler in
