@@ -68,11 +68,16 @@ export default function AufgabenPage() {
     if (prioritaet) params.set("prioritaet", prioritaet);
     if (tagFilter.trim()) params.set("tag", tagFilter.trim());
     const res = await fetch(`/api/aufgaben?${params}`);
-    if (!res.ok) { setLoading(false); return; }
+    if (!res.ok) {
+      // Ohne Rückmeldung sähe ein HTTP-Fehler wie "keine Aufgaben vorhanden" aus.
+      showToast("Aufgaben konnten nicht geladen werden.", "error");
+      setLoading(false);
+      return;
+    }
     const data = await res.json();
     setAufgaben(Array.isArray(data) ? data : []);
     setLoading(false);
-  }, [status, prioritaet, tagFilter]);
+  }, [status, prioritaet, tagFilter, showToast]);
 
   // Gespeicherte Filter erst nach dem Mount wiederherstellen (verhindert SSR/Client-Hydration-Mismatch, React #418)
   useEffect(() => {

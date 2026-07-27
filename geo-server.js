@@ -16,6 +16,9 @@ const http         = require('http');
 const { spawn }    = require('child_process');
 const path         = require('path');
 const geoip        = require('geoip-lite');
+// Abhängigkeitsfreier GlitchTip-Reporter — dieser Prozess ist PID 1 und läuft
+// außerhalb des Next-Bundles, hat also keinen Zugriff auf das Sentry-SDK.
+const melde        = require('./scripts/sentry-store-report.cjs');
 
 const PUBLIC_PORT = parseInt(process.env.PORT                   || '3000', 10);
 const NEXT_PORT   = parseInt(process.env.NEXT_PORT              || '3001', 10);
@@ -32,7 +35,26 @@ const nextProc = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
 
 nextProc.on('exit', (code) => {
   console.error(`[geo-server] Next.js-Prozess beendet (code=${code}). Geo-Proxy wird gestoppt.`);
-  process.exit(code ?? 1);
+  melde(`[geo-server] Next.js-Prozess unerwartet beendet (code=${code})`, {
+    level: 'fatal',
+    extra: { exitCode: code },
+  });
+  // Kurz warten, damit die Meldung noch rausgeht — aber niemals den Shutdown
+  // an einem HTTP-Request aufhängen.
+  setTimeout(() => process.exit(code ?? 1), 300);
+});
+
+// Fehler außerhalb jedes Handlers — sonst stirbt PID 1 komplett lautlos.
+process.on('uncaughtException', (err) => {
+  console.error('[geo-server] uncaughtException:', err && err.message);
+  melde(`[geo-server] uncaughtException: ${err && err.message}`, {
+    level: 'fatal',
+    extra: { stack: err && err.stack },
+  });
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[geo-server] unhandledRejection:', reason);
+  melde(`[geo-server] unhandledRejection: ${reason}`, { level: 'error' });
 });
 
 // ── Warten bis Next.js bereit ist ────────────────────────────────────────────
@@ -51,6 +73,10 @@ function waitForNextJs(retries, interval) {
       console.log('[geo-server] Next.js bereit auf :' + NEXT_PORT);
       resolve();
     }).on('error', function() {
+      // Bewusst KEINE Meldung: solange Next.js noch startet, ist ein
+      // Verbindungsfehler der Normalfall (bis zu `retries` mal pro Start).
+      // Der echte Fehlerfall — alle Versuche erschöpft — wird über das
+      // reject() oben und den finalen .catch() am Dateiende gemeldet.
       setTimeout(function() { new Promise(tryOnce).then(resolve, reject); }, interval);
     }).setTimeout(800, function() { this.destroy(); });
   });
@@ -122,6 +148,9 @@ waitForNextJs().then(function() {
 
     proxyReq.on('error', function(err) {
       console.error('[geo-proxy] Upstream-Fehler:', err.message);
+      melde(`[geo-proxy] Upstream-Fehler: ${err.message}`, {
+        extra: { pfad: req.url, methode: req.method, code: err.code },
+      });
       if (!res.headersSent) { res.writeHead(502); res.end('Bad Gateway'); }
     });
 
@@ -147,8 +176,26 @@ waitForNextJs().then(function() {
       socket.pipe(upSock);
       if (upHead && upHead.length) upSock.unshift(upHead);
     });
-    up.on('error', function() { socket.destroy(); });
+    up.on('error', function(err) {
+      console.error('[geo-proxy] WebSocket-Upgrade fehlgeschlagen:', err && err.message);
+      melde(`[geo-proxy] WebSocket-Upgrade fehlgeschlagen: ${err && err.message}`, {
+        level: 'warning',
+        extra: { pfad: req.url, code: err && err.code },
+      });
+      socket.destroy();
+    });
+    // Auch der Client-Socket selbst kann brechen (Verbindungsabbruch) — ohne
+    // Handler wäre das eine uncaughtException in PID 1.
+    socket.on('error', function() { socket.destroy(); });
     up.end();
+  });
+
+  server.on('error', function(err) {
+    console.error('[geo-server] Server-Fehler:', err && err.message);
+    melde(`[geo-server] Server-Fehler: ${err && err.message}`, {
+      level: 'fatal',
+      extra: { code: err && err.code, port: PUBLIC_PORT },
+    });
   });
 
   server.listen(PUBLIC_PORT, '0.0.0.0', function() {
@@ -169,6 +216,13 @@ waitForNextJs().then(function() {
 
 }).catch(function(err) {
   console.error(err.message);
+  // Startabbruch von PID 1 → Container-Crash-Loop. Ohne diese Meldung stand das
+  // ausschließlich in `docker logs`.
+  melde(`[geo-server] Start fehlgeschlagen: ${err && err.message}`, {
+    level: 'fatal',
+    extra: { stack: err && err.stack },
+  });
   nextProc.kill();
-  process.exit(1);
+  // Kurzer Aufschub, damit die Meldung den Prozess noch verlassen kann.
+  setTimeout(function() { process.exit(1); }, 300);
 });

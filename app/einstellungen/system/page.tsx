@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { resolveClientSentryDsn } from "@/lib/sentry-dsn";
+
+// Wird beim Build ins Client-Bundle inlined (fällt auf den im Image
+// hinterlegten Standard-DSN zurück) — deshalb außerhalb der Komponente.
+const clientDsnAktiv = Boolean(resolveClientSentryDsn());
 
 // Laufzeit-Abhängigkeiten (deckungsgleich mit THIRD-PARTY-LICENSES.md).
 // Bei neuen Paketen hier UND in THIRD-PARTY-LICENSES.md ergänzen
@@ -59,7 +64,12 @@ const NAMENSNENNUNGEN: { quelle: string; zweck: string; bedingung: string }[] = 
 export default function SystemPage() {
   const [buildInfo, setBuildInfo] = useState<{ version?: string; env?: string } | null>(null);
   const [firmenname, setFirmenname] = useState<string>("");
-  const [sentryStatus, setSentryStatus] = useState<{ serverDsnConfigured: boolean; buildTimeClientDsnHint: boolean } | null>(null);
+  const [sentryStatus, setSentryStatus] = useState<{
+    dsnAktiv: boolean;
+    herkunft: "env" | "default" | "off";
+    host: string | null;
+    projektId: string | null;
+  } | null>(null);
   const [sentryTesting, setSentryTesting] = useState<"server" | "browser" | null>(null);
   const [sentryResult, setSentryResult] = useState<string | null>(null);
 
@@ -96,9 +106,9 @@ export default function SystemPage() {
         return;
       }
       setSentryResult(
-        data.dsnConfigured
-          ? `Server-Event gesendet (eventId ${data.eventId}). In GlitchTip nachsehen — kommt es dort NICHT an, liegt es an Netzwerk/DSN-Gültigkeit/Projekt, nicht am Code.`
-          : `SENTRY_DSN ist auf dem Server NICHT gesetzt — der Event wurde lokal "erzeugt" (eventId ${data.eventId}), kann aber nirgends ankommen. SENTRY_DSN in der .env neben docker-compose(.prod).yml setzen und Container neu erzeugen.`
+        data.dsnAktiv
+          ? `Server-Event + Test-Log gesendet (eventId ${data.eventId}). In GlitchTip unter "Issues" UND "Logs" nachsehen — kommt nur eins von beiden an, klemmt genau dieser Kanal. Kommt gar nichts an, liegt es an Netzwerk/DSN-Gültigkeit/Projekt, nicht am Code.`
+          : `Das Reporting ist per SENTRY_DSN=off abgeschaltet — der Event wurde lokal "erzeugt" (eventId ${data.eventId}), kann aber nirgends ankommen. SENTRY_DSN entfernen, um den im Image hinterlegten Standard-DSN wieder zu nutzen.`
       );
     } catch (err) {
       Sentry.captureException(err);
@@ -113,13 +123,12 @@ export default function SystemPage() {
     setSentryResult(null);
     try {
       const eventId = Sentry.captureException(new Error("GlitchTip-Browser-Verbindungstest von /einstellungen/system"));
-      // process.env.NEXT_PUBLIC_SENTRY_DSN wird von Next.js beim Build direkt in
-      // dieses Client-Bundle eingesetzt — zuverlässiger Indikator als der
-      // serverseitige Laufzeit-Check, der nur zufällig denselben Wert sehen könnte.
-      const clientDsnBaked = Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN);
-      if (!clientDsnBaked) {
+      // resolveClientSentryDsn() wird beim Build ins Client-Bundle inlined und
+      // fällt auf den im Image hinterlegten Standard-DSN zurück — es gibt also
+      // keinen "nicht gesetzt"-Fall mehr, nur noch "bewusst abgeschaltet".
+      if (!resolveClientSentryDsn()) {
         setSentryResult(
-          `Browser-Event "gesendet" (eventId ${eventId}) — NEXT_PUBLIC_SENTRY_DSN war beim Docker-Build aber nicht gesetzt, kommt also nirgends an. Muss als Build-ARG bzw. GitHub-Actions-Secret SENTRY_DSN gesetzt sein (Neustart allein reicht nicht, Image muss neu gebaut werden).`
+          `Browser-Event "gesendet" (eventId ${eventId}) — das Browser-Reporting ist per NEXT_PUBLIC_SENTRY_DSN=off abgeschaltet, es kommt also nirgends an.`
         );
       } else {
         setSentryResult(`Browser-Event gesendet (eventId ${eventId}). In GlitchTip nachsehen.`);
@@ -182,22 +191,41 @@ export default function SystemPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4 mb-6">
         <h2 className="text-lg font-semibold mb-1">Fehler-Reporting (GlitchTip)</h2>
         <p className="text-sm text-gray-500">
-          Jeder abgefangene Fehler wird an GlitchTip gemeldet — aber nur, wenn die DSN
-          tatsächlich konfiguriert ist. Diese beiden Tests erzeugen je einen echten
-          Test-Event; taucht er in GlitchTip nicht auf, liegt es an DSN/Netzwerk/Projekt,
-          nicht am Code.
+          Der GlitchTip-DSN ist fest im Image hinterlegt — dieses Deployment meldet
+          also ohne jede Konfiguration. Mit <code className="text-xs">SENTRY_DSN</code>{" "}
+          lässt sich ein eigenes Projekt einsetzen, mit{" "}
+          <code className="text-xs">SENTRY_DSN=off</code> das Reporting abschalten.
+          Die beiden Tests erzeugen je einen echten Test-Event; taucht er in GlitchTip
+          nicht auf, liegt es an Netzwerk/DSN-Gültigkeit/Projekt, nicht am Code.
         </p>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className={`rounded-lg px-4 py-3 ${sentryStatus?.serverDsnConfigured ? "bg-green-50" : "bg-amber-50"}`}>
-            <p className="text-gray-500 text-xs mb-1">Server-DSN (SENTRY_DSN)</p>
+          <div className={`rounded-lg px-4 py-3 ${sentryStatus === null || sentryStatus.dsnAktiv ? "bg-green-50" : "bg-amber-50"}`}>
+            <p className="text-gray-500 text-xs mb-1">Server-Reporting</p>
             <p className="font-semibold">
-              {sentryStatus === null ? "…" : sentryStatus.serverDsnConfigured ? "✓ gesetzt" : "✗ nicht gesetzt"}
+              {sentryStatus === null
+                ? "…"
+                : !sentryStatus.dsnAktiv
+                  ? "✗ abgeschaltet (SENTRY_DSN=off)"
+                  : sentryStatus.herkunft === "env"
+                    ? "✓ aktiv (eigene DSN)"
+                    : "✓ aktiv (Standard aus Image)"}
             </p>
+            {sentryStatus?.host && (
+              <p className="text-gray-500 text-xs mt-1">
+                {sentryStatus.host} · Projekt {sentryStatus.projektId}
+              </p>
+            )}
           </div>
-          <div className={`rounded-lg px-4 py-3 ${process.env.NEXT_PUBLIC_SENTRY_DSN ? "bg-green-50" : "bg-amber-50"}`}>
-            <p className="text-gray-500 text-xs mb-1">Browser-DSN (NEXT_PUBLIC_SENTRY_DSN, Build-Zeit)</p>
-            <p className="font-semibold">{process.env.NEXT_PUBLIC_SENTRY_DSN ? "✓ gesetzt" : "✗ nicht gesetzt"}</p>
+          <div className={`rounded-lg px-4 py-3 ${clientDsnAktiv ? "bg-green-50" : "bg-amber-50"}`}>
+            <p className="text-gray-500 text-xs mb-1">Browser-Reporting (Build-Zeit)</p>
+            <p className="font-semibold">
+              {clientDsnAktiv
+                ? process.env.NEXT_PUBLIC_SENTRY_DSN
+                  ? "✓ aktiv (eigene DSN)"
+                  : "✓ aktiv (Standard aus Image)"
+                : "✗ abgeschaltet"}
+            </p>
           </div>
         </div>
 

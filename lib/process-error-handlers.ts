@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { log } from "@/lib/logger";
 
 let registered = false;
 
@@ -14,11 +15,19 @@ export function registerProcessErrorHandlers() {
   registered = true;
 
   process.on("uncaughtException", (err) => {
-    Sentry.captureException(err);
-    console.error("[instrumentation] uncaughtException:", err);
+    log.fatal("[instrumentation] uncaughtException", err);
+    // Ohne flush() kann der Event mit dem sterbenden Prozess verloren gehen.
+    // Bewusst fire-and-forget: der Handler darf nicht blockieren.
+    void Sentry.flush(2000).catch(() => {
+      // flush() selbst darf hier nichts mehr werfen — sonst Endlosschleife
+      // über denselben uncaughtException-Handler.
+    });
   });
+
   process.on("unhandledRejection", (reason) => {
-    Sentry.captureException(reason);
-    console.error("[instrumentation] unhandledRejection:", reason);
+    log.error("[instrumentation] unhandledRejection", reason);
+    void Sentry.flush(2000).catch(() => {
+      /* siehe oben */
+    });
   });
 }

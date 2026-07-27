@@ -13,6 +13,9 @@ COPY . .
 # NEXT_PUBLIC_-Variablen werden von Next.js beim Build fest in das Client-Bundle
 # eingebacken — müssen daher als Build-ARG hier ankommen, ein Setzen zur Laufzeit
 # im Runner-Container wirkt sich auf den Client-Code nicht mehr aus.
+# Optional: bleibt das ARG leer, greift der fest hinterlegte Standard-DSN aus
+# lib/sentry-dsn.ts — der Browser meldet also auch ohne Build-Secret an GlitchTip.
+# Nur setzen, um auf ein anderes Projekt umzulenken oder mit "off" abzuschalten.
 ARG NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN npx prisma generate
@@ -43,8 +46,9 @@ RUN npm install --ignore-scripts --no-fund --no-audit prisma dotenv geoip-lite &
                            /app/node_modules/@prisma \
                            /app/node_modules/prisma
 
-# Geo-Proxy
+# Geo-Proxy (+ abhängigkeitsfreier GlitchTip-Reporter für PID 1)
 COPY geo-server.js ./
+COPY scripts/sentry-store-report.cjs ./scripts/
 
 # Entrypoint script
 COPY docker-entrypoint.sh ./

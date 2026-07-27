@@ -7,19 +7,33 @@ ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 warn() { echo "[$(date '+%H:%M:%S')] ⚠ $*"; }
 fail() { echo "[$(date '+%H:%M:%S')] ✗ $*" >&2; }
 
-# Meldet Startup-Fehler an Sentry/GlitchTip, wenn SENTRY_DSN gesetzt ist.
-# Kein fest hinterlegter Standard-DSN — sonst würden Fehlerdaten aller
-# Deployments, die keine eigene SENTRY_DSN konfiguriert haben, standardmäßig
-# an ein fremdes/gemeinsames GlitchTip-Projekt gehen.
-: "${SENTRY_DSN:=}"
+# Meldet Startup-Fehler an Sentry/GlitchTip.
+# Der Standard-DSN ist bewusst fest hinterlegt, damit JEDER Container dieses
+# Images ohne zusätzliche Konfiguration meldet — identisch zu
+# DEFAULT_SENTRY_DSN in lib/sentry-dsn.ts (dort ist die Quelle der Wahrheit;
+# Shell kann das TS-Modul nicht importieren, __tests__/lib/sentry-dsn.test.ts
+# hält beide Literale synchron).
+# Übersteuern: SENTRY_DSN=<eigene-dsn>   Abschalten: SENTRY_DSN=off
+#
+# WICHTIG: $SENTRY_DSN selbst wird NICHT verändert und NICHT gesetzt, wenn es
+# leer war. Sonst würde die Next.js-Anwendung ein exportiertes "" bzw. den hier
+# eingesetzten Default sehen und `SENTRY_DSN=off` käme dort nie an — der
+# Abschalter würde also nur diesen Shell-Reporter treffen, nicht die App.
+# Der Reporter unten nutzt daher die separate Variable SENTRY_REPORT_DSN.
+SENTRY_REPORT_DSN="${SENTRY_DSN:-https://3a30aed56b4e4dd58ee5710244be23dc@glitchtip.resqio.io/2}"
+
+# Abschalt-Werte auf leer normalisieren, damit report_to_sentry() zum No-op wird.
+case "$(printf '%s' "$SENTRY_REPORT_DSN" | tr '[:upper:]' '[:lower:]')" in
+  off|none|false|0|disabled|aus) SENTRY_REPORT_DSN="" ;;
+esac
 
 # Meldet einen Startup-Fehler an Sentry/GlitchTip — läuft VOR dem Next.js-
 # Prozess (also bevor die normale Sentry-Instrumentierung aktiv ist), daher
 # per rohem HTTP-POST gegen die Sentry-Store-API. $1=Nachricht, $2=Logdatei
 # mit Details (optional).
 report_to_sentry() {
-  SENTRY_MSG="$1" SENTRY_LOGFILE="$2" node -e '
-    const dsn = process.env.SENTRY_DSN;
+  SENTRY_REPORT_DSN="$SENTRY_REPORT_DSN" SENTRY_MSG="$1" SENTRY_LOGFILE="$2" node -e '
+    const dsn = process.env.SENTRY_REPORT_DSN;
     const m = /^https?:\/\/([^@]+)@([^/]+)\/(.+)$/.exec(dsn || "");
     if (!m) { process.exit(0); }
     const [, key, host, projectId] = m;

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
@@ -49,6 +50,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function BestellungenListeInner() {
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const [data, setData] = useState<Bestellung[]>([]);
   const [loading, setLoading] = useState(true);
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
@@ -71,16 +73,20 @@ function BestellungenListeInner() {
     if (lieferantId) params.set("lieferantId", lieferantId);
     try {
       const res = await fetch(`/api/bestellungen?${params}`);
-      if (!res.ok) { setLoading(false); return; }
+      if (!res.ok) {
+        // Ohne Rückmeldung sähe ein HTTP-Fehler wie "keine Bestellungen" aus.
+        showToast("Bestellungen konnten nicht geladen werden.", "error");
+        return;
+      }
       const d = await res.json();
       setData(Array.isArray(d) ? d : []);
     } catch (err) {
       Sentry.captureException(err);
-      /* ignore */
+      showToast("Bestellungen konnten nicht geladen werden.", "error");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, lieferantId]);
+  }, [statusFilter, lieferantId, showToast]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

@@ -932,18 +932,89 @@ Dokument-OCR und Diktieren laufen alle über Mistral, konfigurierbar unter `/ein
   - `GET /api/ki/churn?kundeId=` — Churn-Risiko-Score (kein KI-Aufruf, reiner Algorithmus)
   - `POST /api/ki/preis-empfehlung` — KI-Preisempfehlung (intern, kein KI-Aufruf, reine Statistik)
 
-## Fehler-Reporting (Sentry/GlitchTip, `lib/sentry.ts`)
+## Fehler-Reporting (Sentry/GlitchTip, `lib/logger.ts`)
 
-**Regel: Jeder abgefangene Fehler wird an Sentry gemeldet — ohne Filter, ohne Ausnahme.**
+**Regel: Jeder abgefangene Fehler wird an GlitchTip gemeldet — ohne Filter, ohne Ausnahme.**
 Umgesetzt projektweit (App Router, `lib/*.ts`, Client-Komponenten, Promise-Ketten) — siehe
 Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
 
+### Fest hinterlegter DSN — funktioniert ohne Konfiguration
+
+`lib/sentry-dsn.ts` ist die **einzige Quelle der Wahrheit** für die DSN. Sie ist bewusst fest im
+Code hinterlegt (`DEFAULT_SENTRY_DSN`), damit **jeder** Container dieses Images ohne gesetztes
+Secret an GlitchTip meldet. Ein DSN ist kein Geheimnis: er liegt bei jeder Web-App offen im
+Browser-Bundle und erlaubt ausschließlich das Einsenden, nicht das Lesen von Events.
+
+| Ziel | Vorgehen |
+|------|----------|
+| Standard nutzen | nichts tun |
+| Eigenes GlitchTip-Projekt | `SENTRY_DSN=<eigene-dsn>` (Browser zusätzlich: Build-ARG `NEXT_PUBLIC_SENTRY_DSN`) |
+| Reporting abschalten | `SENTRY_DSN=off` (auch `none`/`false`/`0`/`disabled`/`aus`) |
+
+`SENTRY_DSN=off` wirkt zur Laufzeit für Issues und Logs. **Eine Ausnahme:** der
+CSP-`report-uri`-Header wird von Next beim Build in `routes-manifest.json` geschrieben — um auch
+CSP-Verstoßmeldungen abzuschalten, muss das Image mit `SENTRY_DSN=off` neu gebaut werden.
+
+Diese Begründung bitte **nicht zurückdrehen**: die Kommentare in `docker-entrypoint.sh` und
+`.github/scripts/report-to-sentry.sh` haben früher genau davor gewarnt — der Zweck ist jetzt
+ausdrücklich, dass jedes Deployment meldet, mit `off` als Opt-out.
+
+Der DSN-Literal existiert zwangsläufig **vierfach**, weil Shell, Service Worker und der
+PID-1-Reporter das TS-Modul nicht importieren können: `lib/sentry-dsn.ts` (Quelle),
+`docker-entrypoint.sh`, `.github/scripts/report-to-sentry.sh`, `scripts/sentry-store-report.cjs`
+und `public/sw.js`. **`__tests__/lib/sentry-dsn.test.ts` hält alle Kopien synchron** — beim Ändern
+des DSN also alle Stellen anpassen, der Test schlägt sonst fehl.
+
+### `lib/logger.ts` ist der Einstieg für neuen Code
+
+```ts
+import { log } from "@/lib/logger";
+
+log.info("Import gestartet", { datei: name });
+log.warn("Eurostat: product-Dimension fehlt", { dataset });
+const eventId = log.error("Speichern fehlgeschlagen", err, { kundeId });
+```
+
+- `log.error`/`log.fatal` schreiben ins Log **und** erzeugen das GlitchTip-Issue. **Nicht
+  zusätzlich `Sentry.captureException(err)` aufrufen** — das wäre Doppel-Reporting.
+- `log.debug`/`info`/`warn` landen nur im Log-Strom (kein Issue). `debug` wird in Produktion
+  nicht ausgegeben.
+- Für Sonderfälle (Issue unterdrücken, eigener Fingerprint) gibt es `logEreignis({ … issue: false })`.
+- **`Sentry.logger.*` NICHT verwenden.** Der Log-Strom läuft ausschließlich über `console.*` +
+  `consoleLoggingIntegration`; ein direkter `Sentry.logger`-Aufruf käme doppelt an.
+- **Reihenfolge der `console`-Argumente nicht umstellen** (Message zuerst, Kontext-Objekt als
+  zweites Argument): so bleibt `docker logs` lesbar und der Kontext in GlitchTip durchsuchbar.
+
+### `console.*` landet automatisch in GlitchTip
+
+`enableLogs: true` + `Sentry.consoleLoggingIntegration({ levels: ["info","warn","error"] })` sind in
+`sentry.server.config.ts` und `instrumentation-client.ts` aktiv (Edge bewusst ohne
+Console-Integration). Damit erreichen **alle** vorhandenen `console.*`-Aufrufe den GlitchTip-**Log**-Strom,
+ohne dass sie angefasst werden müssen — als Logs, nicht als Issues. Die Altbestands-Aufrufe müssen
+daher nicht migriert werden; neuer Code nutzt trotzdem `log.*`.
+GlitchTip 6.1.8 unterstützt Logs (`enabledFeatures: ["logs","uptime","mcp"]`).
+
+**Ein Fehler erscheint damit i.d.R. zweimal: als Issue (Alarm) und als Log (Zeitachse). Das ist
+beabsichtigt und kein Verstoß gegen die Doppel-Reporting-Regel** — die verbietet zwei *Issues*
+für denselben Fehler.
+
+### Fetch-Fehler im Browser: kein Wrapper nötig
+
+`lib/fetch-reporter.ts` umhüllt `window.fetch` einmalig (installiert aus
+`instrumentation-client.ts` nach `Sentry.init()`). Jede Non-OK-Antwort und jeder Netzwerkfehler auf
+`/api/*` wird automatisch gemeldet — **Aufrufstellen brauchen dafür nichts zu tun.** Bewusst nur
+Log-Strom, kein Issue: den eigentlichen Fehler hat der Server schon mit echtem Stacktrace als Issue
+gemeldet. Erwartete Fälle (401 auf `/api/auth/*`, 404 auf Suche/Telefonmaske), Fremd-Hosts
+(Nominatim/OSRM) und Next-Interna sind ausgenommen.
+Ein `if (!res.ok)`-Zweig braucht deshalb **keine** eigene Sentry-Meldung mehr — wohl aber eine
+**Rückmeldung an den Nutzer** (Toast/`setError`), sonst sieht ein HTTP 500 wie „keine Daten" aus.
+
 - `onRequestError` (`instrumentation.ts`) erfasst nur *unbehandelte* Exceptions. Sobald eine
   Route/Funktion einen eigenen `try/catch` hat (Standardfall laut Checkliste), muss der
-  `catch`-Block selbst `Sentry.captureException(err)` aufrufen — sonst verschwindet der Fehler
-  spurlos in `console.error`.
+  `catch`-Block selbst melden — sonst verschwindet der Fehler spurlos in `console.error`.
 - **Jeder neue `try/catch`-Block** (API-Route, `lib/*.ts`, Hintergrund-Job, Client-Komponente)
-  bekommt `Sentry.captureException(err)` als erste Anweisung im `catch`.
+  meldet im `catch`: `log.error("…", err, ctx)` (neu, bevorzugt) oder `Sentry.captureException(err)`
+  (Bestand, weiterhin gültig) — aber nie beides zusammen.
 - **Jede neue Promise-`.catch(...)`-Kette** mit Inline-Callback meldet den Fehler genauso. Bei
   Concise-Body-Arrows (`.catch(() => fallback)`) den Rückgabewert per explizitem `return`
   erhalten, damit sich das Resolve-Verhalten der Kette nicht ändert:
@@ -965,9 +1036,15 @@ Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
     `npm run build` verifizieren, nicht nur `tsc --noEmit` (der TypeScript-Checker prüft keine
     Client/Server-Bundle-Grenzen).
     Bekannte client-sichere `lib/*.ts`-Module mit diesem Muster: `lib/appinfo.ts`,
-    `lib/auswahllisten.ts`, `lib/backup-config.ts`, `lib/girocode.ts`, `lib/mahnwesen-config.ts`,
-    `lib/matif.ts`, `lib/prisma.ts` (Re-Export-Kette `lib/sentry.ts → lib/auth.ts → lib/prisma.ts`
-    sonst zirkulär), `lib/useScrollRestoration.ts`.
+    `lib/auswahllisten.ts`, `lib/backup-config.ts`, `lib/fetch-reporter.ts`, `lib/girocode.ts`,
+    `lib/logger.ts`, `lib/mahnwesen-config.ts`, `lib/matif.ts`, `lib/prisma.ts`,
+    `lib/sentry-dsn.ts`, `lib/useScrollRestoration.ts`.
+    Hinweis: `lib/sentry.ts` ist inzwischen nur noch ein Re-Export von `@sentry/nextjs` (der
+    `withSentry`-Wrapper ist entfallen) und zieht `next/headers` nicht mehr nach. Die Regel bleibt
+    trotzdem bestehen — sie schützt davor, dass ein künftiger server-only Import im Wrapper den
+    Client-Build wieder bricht.
+    `lib/sentry-dsn.ts` muss **importfrei** bleiben: es wird von Client-Bundle, Server, Edge und
+    `next.config.ts` (außerhalb des Next-Bundles, per relativem Import `./lib/sentry-dsn`) genutzt.
 - **Kein Filtern nach "wichtig genug" oder "zu erwarten".** Auch vermeintlich harmlose Fallbacks
   (z.B. Encoding-Fallback UTF-8→Latin1, KI-Retry, Cache-Miss) werden gemeldet. Mehr Rauschen in
   GlitchTip ist ausdrücklich erwünscht — lieber zu viele Events als einen unsichtbaren Fehler.
@@ -983,23 +1060,48 @@ Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
   `lib/auth.ts` (`verifySession()`) und `lib/portal-auth.ts` (`verifyPortalSession()`,
   `getPortalSession()`) — dort bewusst **kein** `Sentry.captureException` im `catch`.
 - **Fehler-Toasts:** `useToast().error(message)` (`components/ToastProvider.tsx`) meldet jede
-  Fehler-Toast zentral per `Sentry.captureMessage(message, "error")` in `showToast()` — neue
-  Aufrufstellen müssen dafür nichts zusätzlich tun, die Meldung passiert automatisch am
-  gemeinsamen Einstiegspunkt.
-- Bestehende Infrastruktur: `sentry.client.config.ts` / `sentry.server.config.ts` /
-  `sentry.edge.config.ts` (Init + DSN), `app/error.tsx` + `app/global-error.tsx` (React-Error-
-  Boundaries, melden bereits automatisch), `components/SentryUserContext.tsx` (Sentry-User-Kontext
-  aus Session).
-- **DSN-Diagnose:** Fehlt `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`, laufen alle `captureException()`-
-  Aufrufe unbemerkt ins Leere — kein Crash, kein Log, GlitchTip bekommt schlicht nie etwas. Die drei
-  `sentry.*.config.ts` loggen daher jetzt beim Start laut per `console.warn`, wenn ihre jeweilige DSN
-  leer ist (sichtbar in `docker logs`/Browser-Konsole). `/einstellungen/system` zeigt den DSN-Status
-  beider Seiten an und hat zwei Buttons ("Server-Test senden" / "Browser-Test senden", via
-  `POST /api/einstellungen/sentry-test` bzw. direktem `Sentry.captureException()` im Client), die
-  einen echten Test-Event auslösen — kommt der in GlitchTip nicht an, liegt es an DSN/Netzwerk/
-  Projekt-Konfiguration, nicht am Code. `NEXT_PUBLIC_SENTRY_DSN` wird beim `docker build` eingebacken
-  (Dockerfile `ARG` + GitHub-Actions-Secret `SENTRY_DSN`) — ein Container-Neustart allein ändert daran
-  nichts, dafür muss das Image neu gebaut werden.
+  Fehler-Toast zentral über `log.warn()` in `showToast()` — neue Aufrufstellen müssen dafür nichts
+  zusätzlich tun. Bewusst **kein** `captureMessage` mehr: der Toast-Text ist ein generischer String
+  ohne Stacktrace ("Fehler beim Speichern"), der in GlitchTip alle Aufrufstellen zu einem einzigen
+  Issue kollabieren ließ. Das aussagekräftige Issue kommt jetzt vom Server bzw. von
+  `lib/fetch-reporter.ts` (mit Pfad + Status).
+- Bestehende Infrastruktur: `instrumentation-client.ts` (Browser-Init; ersetzt die ab SDK 9
+  deprecated `sentry.client.config.ts`, die unter Turbopack gar nicht mehr griff),
+  `sentry.server.config.ts` / `sentry.edge.config.ts` (Init + DSN), `app/error.tsx` +
+  `app/global-error.tsx` (React-Error-Boundaries, melden bereits automatisch),
+  `components/SentryUserContext.tsx` (Sentry-User-Kontext aus Session, **clientseitig**),
+  `lib/process-error-handlers.ts` (`uncaughtException`/`unhandledRejection` + `flush`).
+- **Kein serverseitiger User-Kontext.** `Sentry.getIsolationScope().setUser()` wäre naheliegend, ist
+  hier aber **falsch**: der Isolation-Scope wird pro Request nur von
+  `wrapRouteHandlerWithSentry`/`wrapMiddlewareWithSentry` geforkt, und
+  `webpack.autoInstrumentAppDirectory` ist `false`. Ohne Fork ist der Scope prozessweit — der Nutzer
+  würde also requestübergreifend leaken und Events falsch zugeordnet. Nicht ohne
+  `autoInstrumentAppDirectory: true` nachrüsten.
+- **`middleware.ts` ist instrumentiert** (`webpack.autoInstrumentMiddleware: true` in
+  `next.config.ts`). Vorher erreichte kein einziger Middleware-Crash GlitchTip — auch nicht der harte
+  `throw` bei fehlendem `SESSION_SECRET`. Gewrappt werden nur Exceptions; abgelehnte Sessions bleiben
+  wie unten dokumentiert stumm.
+- **CSP-Verstöße** gehen per `report-uri` an GlitchTip (`next.config.ts`). Bewusst **ohne**
+  `report-to`/`Reporting-Endpoints`: GlitchTips Security-Endpunkt akzeptiert nur das Legacy-Format
+  `{"csp-report":{…}}`, und Chromium ignoriert `report-uri`, sobald `report-to` gesetzt ist — die
+  Kombination hätte in Chrome/Edge gar keine Reports mehr geliefert. Nicht „modernisieren".
+- **Prozesse ohne Bundle** melden über einen rohen POST an den Store-Endpunkt, weil dort kein
+  Sentry-SDK verfügbar ist: `geo-server.js` (Produktions-Entrypoint/PID 1) via
+  `scripts/sentry-store-report.cjs`, `public/sw.js` inline, `docker-entrypoint.sh` und
+  `.github/scripts/report-to-sentry.sh` via `node -e`. Bewusst kein `require("@sentry/node")` in
+  `geo-server.js`: das Runner-Image installiert nur `prisma`/`dotenv`/`geoip-lite`, alles andere
+  hängt am `.next/standalone`-Trace und darf für PID 1 keine Voraussetzung sein.
+- **DSN-Diagnose:** Ein „DSN fehlt"-Zustand existiert nicht mehr — ohne Konfiguration greift der
+  Standard-DSN. Stumm ist das Reporting nur noch, wenn es per `SENTRY_DSN=off` bewusst abgeschaltet
+  wurde; dann warnen die Configs beim Start per `console.warn` (sichtbar in `docker logs`).
+  `/einstellungen/system` zeigt die **effektive** DSN (Host, Projekt-ID, Herkunft
+  `default`/`env`/`off`, ohne den Key) und hat zwei Buttons ("Server-Test senden" / "Browser-Test
+  senden", via `POST /api/einstellungen/sentry-test` bzw. direktem `Sentry.captureException()` im
+  Client). Der Server-Test erzeugt **Issue UND Log** — kommt nur eins von beiden in GlitchTip an,
+  weiß man sofort, welcher Kanal klemmt.
+- **`release`** ist in allen Configs auf `NEXT_PUBLIC_APP_VERSION+NEXT_PUBLIC_BUILD_ID` gesetzt. Die
+  Build-ID kommt aus `GITHUB_SHA` (Fallback `randomUUID()`), weil Next die Config mehrfach auswertet
+  und ein reines `randomUUID()` Client und Server unterschiedliche Releases melden ließe.
 
 ## Authentifizierung (`lib/auth.ts`)
 
@@ -1015,6 +1117,10 @@ Checkliste unten für den genauen Umsetzungsstandard bei neuem Code.
 | Datei | Zweck |
 |-------|-------|
 | `lib/auth.ts` | JWT-Session (jose + bcryptjs), Login/Logout, Session-Validierung |
+| `lib/logger.ts` | **Zentraler Logger** — `log.debug/info/warn/error/fatal` + `logEreignis()`; schreibt `console.*` (→ GlitchTip-Log) und erzeugt bei `error`/`fatal` das Issue |
+| `lib/sentry-dsn.ts` | Einzige Quelle der Wahrheit für die GlitchTip-DSN (`DEFAULT_SENTRY_DSN`, `resolveSentryDsn()`, `sentrySecurityReportUrl()`, `parseDsn()`) — bewusst importfrei |
+| `lib/fetch-reporter.ts` | Umhüllt `window.fetch` einmalig; meldet fehlgeschlagene `/api/*`-Aufrufe automatisch in den Log-Strom |
+| `scripts/sentry-store-report.cjs` | Abhängigkeitsfreier GlitchTip-Reporter für `geo-server.js` (PID 1, außerhalb des Next-Bundles) |
 | `lib/audit.ts` | `auditLog()` + `auditChanges()` — schreibt in `AuditLog`-Tabelle |
 | `lib/bankimport.ts` | Parser für CSV-Kontoauszüge (MT940-ähnlich, deutsche Formate) |
 | `lib/email.ts` | E-Mail-Versand via SMTP (nodemailer) oder Resend, `loadEmailConfig()` |
@@ -1142,4 +1248,6 @@ Vor jedem Code-Schreiben:
 19. **sessionStorage für Filter**: `useSearchParams` + Suspense vermeiden → Filter-Zustand in `sessionStorage` persistieren; beim Remount (Back-Navigation) wiederherstellen
 20. **Checkbox-Toggle-Bug**: `<td onClick>` NIEMALS `toggleSelect` aufrufen wenn das `<input type="checkbox">` denselben Handler im `onChange` hat — doppelter Toggle = Netto-Null
 21. **Import-Spalten testen**: Immer Export-Spaltenname gegen `ARTIKEL_ALIAS` in `lib/import-utils.ts` prüfen; bei Mismatch wird der gesamte Block (inkl. EK/Lieferant) übersprungen
-22. **Sentry in jedem neuen `catch`**: `Sentry.captureException(err)` als erste Anweisung, auch in `.catch(...)`-Ketten; Import `@/lib/sentry` nur wenn das Modul garantiert server-only bleibt, sonst `@sentry/nextjs` direkt (siehe Abschnitt "Fehler-Reporting")
+22. **Meldung in jedem neuen `catch`**: `log.error("…", err, ctx)` aus `@/lib/logger` als erste Anweisung, auch in `.catch(...)`-Ketten. `log.error` macht Log **und** Issue in einem Aufruf — **nicht zusätzlich** `Sentry.captureException(err)` (Doppel-Reporting). Bestehende `captureException`-Aufrufe bleiben gültig; Import dann `@/lib/sentry` nur wenn das Modul garantiert server-only bleibt, sonst `@sentry/nextjs` direkt (siehe Abschnitt "Fehler-Reporting")
+23. **`console.*` statt Logger ist erlaubt, aber nicht bevorzugt**: `console.*` erreicht GlitchTip automatisch als Log (`consoleLoggingIntegration`). Neuer Code nutzt trotzdem `log.*`, weil dort Kontext + Issue-Erzeugung mitgeliefert werden.
+24. **`if (!res.ok)` im Frontend braucht Nutzer-Feedback, kein Sentry**: die Meldung an GlitchTip übernimmt `lib/fetch-reporter.ts` automatisch. Was fehlen darf: ein Toast/`setError` — ohne das sieht ein HTTP 500 für den Nutzer wie „keine Daten" aus.

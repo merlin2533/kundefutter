@@ -15,8 +15,10 @@ services:
     environment:
       - DATABASE_URL=file:/data/kundefutter.db
       - NODE_ENV=production
-      # Server-seitiges Sentry/GlitchTip-Reporting bleibt sonst stumm — Wert aus
-      # einer lokalen .env-Datei neben dieser Compose-Datei setzen (nicht committen).
+      # Optional: das Image hat einen fest hinterlegten Standard-DSN
+      # (lib/sentry-dsn.ts), meldet also auch ohne diesen Eintrag an GlitchTip.
+      # Hier nur nötig, um auf ein eigenes Projekt umzulenken (eigene DSN) oder
+      # das Reporting abzuschalten (SENTRY_DSN=off).
       - SENTRY_DSN=${SENTRY_DSN:-}
     restart: unless-stopped
 
