@@ -530,6 +530,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     // platziert autoTable Zeilen näher am Seitenende als die später gezeichnete Fußzeile
     // Platz braucht → Überlappung von Zeilentext und Fußzeile beim Seitenumbruch.
     margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    // Verhindert, dass eine einzelne Zeile (mehrzeilige Artikelzelle) mitten im Text über
+    // einen Seitenumbruch hinweg aufgeteilt wird — die ganze Zeile wandert stattdessen
+    // gemeinsam auf die nächste Seite.
+    rowPageBreak: "avoid",
     headStyles: {
       fillColor: COL_TABLE_HEAD_BG,
       textColor: [51, 51, 51],
@@ -815,6 +819,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     // (zeichneLieferscheinFusszeile beginnt bei pageHeight-19), Top-Rand für den
     // Fortsetzungskopf auf Folgeseiten — verhindert Überlappung beim Seitenumbruch.
     margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: 26, left: 14 },
+    rowPageBreak: "avoid",
     headStyles: { fillColor: [22, 101, 52] },
     styles: { fontSize: 9 },
     columnStyles: {
@@ -1037,6 +1042,10 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
     body: angebotBody,
     theme: "plain",
     margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    // Verhindert, dass eine einzelne Zeile (mehrzeilige Artikelzelle) mitten im Text über
+    // einen Seitenumbruch hinweg aufgeteilt wird — die ganze Zeile wandert stattdessen
+    // gemeinsam auf die nächste Seite.
+    rowPageBreak: "avoid",
     headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
@@ -1308,6 +1317,10 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
     body: gutschriftBody,
     theme: "plain",
     margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    // Verhindert, dass eine einzelne Zeile (mehrzeilige Artikelzelle) mitten im Text über
+    // einen Seitenumbruch hinweg aufgeteilt wird — die ganze Zeile wandert stattdessen
+    // gemeinsam auf die nächste Seite.
+    rowPageBreak: "avoid",
     headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
@@ -1537,6 +1550,10 @@ export async function generiereRechnungsuebersichtPdf(rechnungsuebersichtId: num
     body,
     theme: "plain",
     margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    // Verhindert, dass eine einzelne Zeile (mehrzeilige Artikelzelle) mitten im Text über
+    // einen Seitenumbruch hinweg aufgeteilt wird — die ganze Zeile wandert stattdessen
+    // gemeinsam auf die nächste Seite.
+    rowPageBreak: "avoid",
     headStyles: {
       fillColor: COL_TABLE_HEAD_BG,
       textColor: [51, 51, 51],
