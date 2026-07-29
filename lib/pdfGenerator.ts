@@ -405,11 +405,14 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.text("Rechnung", 196, 20, { align: "right" });
 
   // Meta-Tabelle (Rechnungsnummer, Rechnungsdatum, Fällig am)
-  // Zeilenabstand leicht verdichtet, damit die Trennlinie deutlich oberhalb des
-  // Anschriftfelds (Fenster ab 45 mm) bleibt und nicht ins Adressfeld ragt.
+  // Start bei y=27 (nicht y=23!): der 20pt-fette "Rechnung"-Titel bei y=20 hat einen
+  // Unterlängen-Buchstaben (das "g"), der bis knapp unter y=22 reicht — bei y=23 lief
+  // die erste Meta-Zeile sichtbar in den Titel hinein. y=27 hält denselben Abstand wie
+  // die Titel/Meta-Lücke bei Angebot/Gutschrift und bleibt trotzdem deutlich oberhalb
+  // des Anschriftfelds (Fenster ab 45 mm).
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  let metaY = 23;
+  let metaY = 27;
   const metaLabelX = 155;
   const metaValueX = 196;
   const drawMetaZeile = (label: string, value: string, bold = false) => {
