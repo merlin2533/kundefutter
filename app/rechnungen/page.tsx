@@ -237,14 +237,24 @@ export default function RechnungenPage() {
           <h1 className="text-2xl font-bold text-gray-900">Rechnungen</h1>
           <p className="text-sm text-gray-500 mt-0.5">Alle erstellten Rechnungen aus Lieferscheinen</p>
         </div>
-        <Link
-          href="/rechnungen/neu"
-          title="Neue Rechnung"
-          className="inline-flex items-center gap-1.5 w-auto text-center bg-green-700 hover:bg-green-800 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neue Rechnung</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/rechnungsuebersicht/neu"
+            title="Rechnungsübersicht erstellen"
+            className="inline-flex items-center gap-1.5 w-auto text-center bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+            <span className="hidden sm:inline">Übersicht erstellen</span>
+          </Link>
+          <Link
+            href="/rechnungen/neu"
+            title="Neue Rechnung"
+            className="inline-flex items-center gap-1.5 w-auto text-center bg-green-700 hover:bg-green-800 text-white px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Neue Rechnung</span>
+          </Link>
+        </div>
       </div>
 
       {/* KPI-Kacheln */}

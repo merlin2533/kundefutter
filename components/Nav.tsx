@@ -119,6 +119,7 @@ const groups: NavGroup[] = [
     children: [
       { href: "/rechnungen", label: "Rechnungen", section: "Ausgangsbelege" },
       { href: "/sammelrechnungen", label: "Sammelrechnungen", section: "Ausgangsbelege" },
+      { href: "/rechnungsuebersicht", label: "Rechnungsübersichten", section: "Ausgangsbelege" },
       { href: "/gutschriften", label: "Gutschriften", section: "Ausgangsbelege" },
       { href: "/mahnwesen", label: "Mahnwesen", section: "Ausgangsbelege" },
       { href: "/offene-posten", label: "Offene Posten", section: "Ausgangsbelege" },
@@ -201,6 +202,7 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/statistik/liquiditaet": "Liquiditätsanalyse",
   "/rechnungen": "Rechnungen",
   "/sammelrechnungen": "Sammelrechnungen",
+  "/rechnungsuebersicht": "Rechnungsübersichten",
   "/gutschriften": "Gutschriften",
   "/mahnwesen": "Mahnwesen",
   "/bankabgleich": "Bankabgleich",

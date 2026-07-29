@@ -1399,3 +1399,200 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   });
   return Buffer.from(doc.output("arraybuffer"));
 }
+
+/**
+ * Generiert die Übersicht einer Rechnungsuebersicht als PDF-Buffer: reine
+ * Zusammenfassungstabelle über bereits ausgestellte Einzelrechnungen (Rechnungsnr.,
+ * Datum, Status, Nettobetrag je Rechnung) + Gesamtsumme. Erzeugt KEINE neue
+ * Rechnungsnummer und ändert nichts an den referenzierten Lieferungen/Rechnungen —
+ * dient nur als Sammelüberblick (z.B. Monatsübersicht für einen Kunden).
+ * Der Nettobetrag je Rechnung folgt bewusst derselben Konvention wie die Beträge
+ * in der Rechnungsliste (/rechnungen) und im Sammelrechnungs-Auswahlformular:
+ * Menge × Verkaufspreis × (1 − Rabatt%), ohne MwSt-Aufschlag.
+ */
+export async function generiereRechnungsuebersichtPdf(rechnungsuebersichtId: number): Promise<Buffer> {
+  const uebersicht = await prisma.rechnungsuebersicht.findUnique({
+    where: { id: rechnungsuebersichtId },
+    include: {
+      kunde: { select: { id: true, name: true, firma: true, strasse: true, plz: true, ort: true } },
+      eintraege: {
+        select: {
+          lieferung: {
+            select: {
+              id: true,
+              rechnungNr: true,
+              rechnungDatum: true,
+              datum: true,
+              bezahltAm: true,
+              rechnungStorniert: true,
+              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!uebersicht) throw new Error(`Rechnungsuebersicht ${rechnungsuebersichtId} nicht gefunden`);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+  zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+
+  const k = uebersicht.kunde;
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch { /* ignore */ }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Rechnungsübersicht", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_MUTED);
+  doc.text(`Erstellt am ${formatDatum(uebersicht.createdAt)}`, 196, 27, { align: "right" });
+  if (uebersicht.titel) doc.text(uebersicht.titel, 196, 32, { align: "right" });
+
+  const sepY = 44;
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  let ey = sepY + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(136);
+  doc.text("KUNDE", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+
+  ey += 6;
+  if (uebersicht.notiz?.trim()) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(uebersicht.notiz.trim(), 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, ey + i * 4));
+    ey += notizLines.length * 4 + 4;
+  }
+  ey += 2;
+
+  function nettoBetrag(positionen: { menge: number; verkaufspreis: number; rabattProzent: number }[]) {
+    return positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0);
+  }
+  function status(l: { bezahltAm: Date | null; rechnungStorniert: Date | null; rechnungDatum: Date | null; datum: Date }) {
+    if (l.rechnungStorniert) return "Storniert";
+    if (l.bezahltAm) return "Bezahlt";
+    return "Offen";
+  }
+
+  const lieferungen = uebersicht.eintraege
+    .map((e) => e.lieferung)
+    .sort((a, b) => new Date(a.rechnungDatum ?? a.datum).getTime() - new Date(b.rechnungDatum ?? b.datum).getTime());
+
+  const head = [["Nr.", "Rechnungsnummer", "Datum", "Status", "Nettobetrag"]];
+  const body = lieferungen.map((l, i) => [
+    String(i + 1),
+    l.rechnungNr ?? "—",
+    formatDatum(l.rechnungDatum ?? l.datum),
+    status(l),
+    formatEuro(nettoBetrag(l.positionen)),
+  ]);
+
+  autoTable(doc, {
+    startY: ey + 2,
+    head,
+    body,
+    theme: "plain",
+    margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    headStyles: {
+      fillColor: COL_TABLE_HEAD_BG,
+      textColor: [51, 51, 51],
+      fontStyle: "bold",
+      lineColor: [51, 51, 51],
+      lineWidth: 0.3,
+    },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: {
+      fontSize: 9,
+      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 },
+      lineColor: [221, 221, 221],
+      lineWidth: 0.1,
+      textColor: [0, 0, 0],
+      valign: "top",
+    },
+    columnStyles: {
+      0: { cellWidth: 12 },
+      1: { cellWidth: "auto" },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 26 },
+      4: { halign: "right", cellWidth: 32 },
+    },
+  });
+
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+  const gesamtNetto = lieferungen.reduce((s, l) => s + nettoBetrag(l.positionen), 0);
+
+  const sumLabelX = 140;
+  const sumValueX = 196;
+  let sumY = sicherstellenPlatz(doc, finalY, 20, footerReserve) + 4;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(68);
+  doc.text("Anzahl Rechnungen:", sumLabelX, sumY, { align: "right" });
+  doc.setTextColor(...COL_TEXT);
+  doc.text(String(lieferungen.length), sumValueX, sumY, { align: "right" });
+  sumY += 6;
+
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.5);
+  doc.line(sumLabelX, sumY, sumValueX, sumY);
+  sumY += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Nettobetrag gesamt:", sumLabelX, sumY, { align: "right" });
+  doc.text(formatEuro(gesamtNetto), sumValueX, sumY, { align: "right" });
+
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Rechnungsübersicht ${uebersicht.titel ?? uebersicht.id} – Fortsetzung`,
+  });
+
+  return Buffer.from(doc.output("arraybuffer"));
+}
