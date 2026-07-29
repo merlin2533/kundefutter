@@ -66,6 +66,7 @@ model Kunde {
   anbauplaene      Anbauplan[]
   zertifizierungen Zertifizierung[]
   kampagnen        KampagneKunde[]
+  rechnungsuebersichten Rechnungsuebersicht[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -421,6 +422,7 @@ model Lieferung {
   reklamationen     Reklamation[]
   streckenLieferant Lieferant?        @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
   teilzahlungen     Teilzahlung[]
+  rechnungsuebersichtEintraege RechnungsuebersichtEintrag[]
 
   @@index([kundeId])
   @@index([status])
@@ -595,6 +597,39 @@ model Sammelrechnung {
 
   @@index([kundeId])
   @@index([rechnungDatum])
+}
+
+// ─── RECHNUNGSÜBERSICHT ───────────────────────────────────────────────────────
+// Reines Übersichtsdokument über bereits ausgestellte Einzelrechnungen (Lieferungen mit
+// gesetzter rechnungNr) eines Kunden — im Unterschied zur Sammelrechnung wird KEINE neue
+// Rechnungsnummer vergeben und die referenzierten Lieferungen bleiben unverändert
+// eigenständige Rechnungen. Dient nur als Gesamtsummen-Übersicht (z.B. Monatsüberblick für
+// einen Kunden). Deshalb M:N über RechnungsuebersichtEintrag statt der exklusiven
+// 1:N-Zuordnung wie bei Sammelrechnung.lieferungen — eine Rechnung darf in mehreren
+// Übersichten auftauchen.
+model Rechnungsuebersicht {
+  id        Int      @id @default(autoincrement())
+  kundeId   Int
+  titel     String?
+  notiz     String?
+  createdAt DateTime @default(now())
+
+  kunde     Kunde                        @relation(fields: [kundeId], references: [id])
+  eintraege RechnungsuebersichtEintrag[]
+
+  @@index([kundeId])
+}
+
+model RechnungsuebersichtEintrag {
+  id                    Int @id @default(autoincrement())
+  rechnungsuebersichtId Int
+  lieferungId           Int
+
+  rechnungsuebersicht Rechnungsuebersicht @relation(fields: [rechnungsuebersichtId], references: [id], onDelete: Cascade)
+  lieferung           Lieferung           @relation(fields: [lieferungId], references: [id])
+
+  @@unique([rechnungsuebersichtId, lieferungId])
+  @@index([lieferungId])
 }
 
 // ─── BESTELLLISTE (Lieferanten-Bestellungen) ─────────────────────────────────

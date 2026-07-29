@@ -102,6 +102,9 @@ Inventur            — Inventur-Kopf (datum, status: offen/abgeschlossen, bezei
 InventurPosition    — Positionen einer Inventur (artikel, gezaehlt, erwartet)
 Mengenrabatt        — Staffelrabatte
 Sammelrechnung      — Rechnungen mit zahlungsstatus
+Rechnungsuebersicht — Reines Übersichtsdokument über bereits ausgestellte Einzelrechnungen eines Kunden (Titel, Notiz);
+                      vergibt KEINE neue Rechnungsnummer, im Unterschied zu Sammelrechnung nicht-exklusiv (M:N)
+RechnungsuebersichtEintrag — M:N-Verknüpfung Rechnungsuebersicht↔Lieferung (eine Rechnung darf in mehreren Übersichten stehen)
 Gutschrift          — Gutschriften (nummer, status, positionen)
 GutschriftPosition
 Ausgabe             — Ausgabenbuch (datum, betrag, kategorie, belegpfad)
@@ -272,6 +275,10 @@ app/
 ├── sammelrechnungen/
 │   ├── page.tsx
 │   └── neu/page.tsx
+├── rechnungsuebersicht/        Übersichtsdokument über bereits ausgestellte Rechnungen (kein neues Rechnungsnr.)
+│   ├── page.tsx                Liste
+│   ├── neu/page.tsx            Kunde wählen + dessen bestehende Rechnungen auswählen
+│   └── [id]/page.tsx           Detail (Tabelle + Gesamtsumme, PDF-Download, Löschen)
 ├── mahnwesen/page.tsx          Mahnwesen (offene Rechnungen, Mahnstufen, PDF-Druck)
 ├── lager/
 │   ├── page.tsx
@@ -538,6 +545,8 @@ app/
 -- Finanzen --
 /api/sammelrechnungen           GET, POST
 /api/sammelrechnungen/[id]      GET, PUT, DELETE
+/api/rechnungsuebersicht        GET(?kundeId=), POST({kundeId,titel?,notiz?,lieferungIds[]}) — nur Lieferungen mit gesetzter rechnungNr
+/api/rechnungsuebersicht/[id]   GET, DELETE
 /api/gutschriften               GET, POST
 /api/gutschriften/[id]          GET, PUT, DELETE
 /api/ausgaben                   GET(?kategorie,?von,?bis), POST
@@ -553,6 +562,7 @@ app/
 /api/exporte/rechnung           GET?lieferungId= — Einzel-Rechnungs-PDF
 /api/exporte/rechnung/mail      POST — Rechnung per E-Mail versenden
 /api/exporte/sammelrechnung     GET?sammelrechnungId=
+/api/exporte/rechnungsuebersicht GET?id= — Übersichtstabelle (Rechnungsnr./Datum/Status/Nettobetrag) + Gesamtsumme
 /api/exporte/lieferschein       GET?lieferungId=
 /api/exporte/lieferschein/mail  POST — Lieferschein per E-Mail versenden
 /api/exporte/kundenmappe        GET?kundeId=
