@@ -503,6 +503,27 @@ export default function RechnungPrintPage() {
   // für colSpan der Betrags-/Notiz-/Zahlungsinfo-Zeilen unterhalb der Positionstabelle.
   const anzahlSpalten = 6 + (hatCharge ? 1 : 0) + (hatRabatt ? 1 : 0);
 
+  // Feste Spaltenbreiten (Summe immer exakt 100%) für die <colgroup> der Positionstabelle.
+  // table-layout: fixed + diese Breiten verhindern, dass nicht umbrechbarer Inhalt in den
+  // einspaltigen Kopf-/Fußzeilen (Adressblock, DokumentFooter) die Tabelle über die
+  // Positions-Spalten hinaus aufbläht und rechts aus dem Seitenrand herausläuft.
+  const SPALTE_POS = 6;
+  const SPALTE_CHARGE = 14;
+  const SPALTE_MENGE = 9;
+  const SPALTE_EINHEIT = 9;
+  const SPALTE_EINZELPREIS = 13;
+  const SPALTE_RABATT = 9;
+  const SPALTE_GESAMT = 13;
+  const spalteArtikel =
+    100 -
+    SPALTE_POS -
+    (hatCharge ? SPALTE_CHARGE : 0) -
+    SPALTE_MENGE -
+    SPALTE_EINHEIT -
+    SPALTE_EINZELPREIS -
+    (hatRabatt ? SPALTE_RABATT : 0) -
+    SPALTE_GESAMT;
+
   const nettobetrag = positionenMitNetto.reduce((s, p) => s + p.netto, 0);
 
   // MwSt grouping
@@ -752,7 +773,23 @@ export default function RechnungPrintPage() {
           position: "relative",
         }}
       >
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      {/* table-layout: fixed + explizite <colgroup>-Breiten: verhindert, dass nicht
+          umbrechbarer Inhalt in den einspaltigen Kopf-/Fußzeilen (Adressblock,
+          DokumentFooter) die Tabelle über die 8 schmalen Positions-Spalten hinaus
+          aufbläht und dadurch rechts aus dem Seitenrand herausläuft. Ohne fixed
+          layout bestimmt der Browser die Spaltenbreiten aus dem breitesten Inhalt
+          über ALLE Zeilen hinweg (inkl. der colSpan-Zeilen). */}
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+      <colgroup>
+        <col style={{ width: `${SPALTE_POS}%` }} />
+        <col style={{ width: `${spalteArtikel}%` }} />
+        {hatCharge && <col style={{ width: `${SPALTE_CHARGE}%` }} />}
+        <col style={{ width: `${SPALTE_MENGE}%` }} />
+        <col style={{ width: `${SPALTE_EINHEIT}%` }} />
+        <col style={{ width: `${SPALTE_EINZELPREIS}%` }} />
+        {hatRabatt && <col style={{ width: `${SPALTE_RABATT}%` }} />}
+        <col style={{ width: `${SPALTE_GESAMT}%` }} />
+      </colgroup>
       <thead>
       <tr>
       <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
