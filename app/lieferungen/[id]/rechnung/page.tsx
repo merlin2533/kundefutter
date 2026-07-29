@@ -499,6 +499,9 @@ export default function RechnungPrintPage() {
 
   const hatRabatt = positionenMitNetto.some((p) => (p.rabattProzent ?? 0) > 0);
   const hatCharge = positionenMitNetto.some((p) => p.chargeNr);
+  // Pos., Artikel, Menge, Einheit, Einzelpreis, Gesamt (+ Charge/Rabatt % falls vorhanden) —
+  // für colSpan der Betrags-/Notiz-/Zahlungsinfo-Zeilen unterhalb der Positionstabelle.
+  const anzahlSpalten = 6 + (hatCharge ? 1 : 0) + (hatRabatt ? 1 : 0);
 
   const nettobetrag = positionenMitNetto.reduce((s, p) => s + p.netto, 0);
 
@@ -752,7 +755,7 @@ export default function RechnungPrintPage() {
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
       <tr>
-      <td style={{ padding: 0, border: "none" }}>
+      <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
         {/* Storno-Hinweis */}
         {lieferung.rechnungStorniert && (
           <div
@@ -957,178 +960,186 @@ export default function RechnungPrintPage() {
       </tr>
       </thead>
       <tbody>
-      <tr>
-      <td style={{ padding: 0, border: "none" }}>
-        {/* Positionen */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px", fontSize: "10pt" }}>
-          <thead>
-            <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
-              {hatCharge && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
-              <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-              {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positionenMitNetto.map((p, idx) => (
-              <tr
-                key={p.id}
-                style={{
-                  borderBottom: "1px solid #ddd",
-                  backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
-                }}
-              >
-                <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{idx + 1}</td>
-                <td style={{ padding: "6px 8px", verticalAlign: "top" }}>
-                  {(p.artikel.kategorie || p.artikel.unterkategorie) && (
-                    <div style={{ fontSize: "8pt", color: "#888", marginBottom: "2px" }}>
-                      {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
-                    </div>
-                  )}
-                  <div>
-                    <Link href={`/artikel/${p.artikel.id}`} style={{ color: "inherit", textDecoration: "underline" }}>
-                      {p.artikel.name}
-                    </Link>
-                  </div>
-                  {p.notiz && p.notiz.trim().length > 0 && (
-                    <div style={{ fontSize: "9pt", color: "#555" }}>{p.notiz}</div>
-                  )}
-                  <div style={{ fontSize: "9pt", color: "#666" }}>
-                    MwSt {p.artikel.mwstSatz ?? 19} %
-                  </div>
-                </td>
-                {hatCharge && (
-                  <td style={{ padding: "6px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
-                    {p.chargeNr ?? "—"}
-                  </td>
-                )}
-                <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
-                  {formatMenge(p.menge)}
-                </td>
-                <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
-                <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
-                  {formatEuro(p.verkaufspreis)}
-                </td>
-                {hatRabatt && (
-                  <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
-                    {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : ""}
-                  </td>
-                )}
-                <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
-                  {formatEuro(p.netto)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Betragsblock */}
-        <div className="no-break-before no-break" style={{ display: "flex", justifyContent: "flex-end", marginBottom: "32px" }}>
-          <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "260px" }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: "4px 10px", color: "#444" }}>Nettobetrag:</td>
-                <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
-                  {formatEuro(nettobetrag)}
-                </td>
-              </tr>
-              {Object.entries(mwstGruppen)
-                .sort(([a], [b]) => Number(a) - Number(b))
-                .map(([satz, betrag]) => (
-                  <tr key={satz}>
-                    <td style={{ padding: "4px 10px", color: "#444" }}>
-                      MwSt {satz} %:
-                    </td>
-                    <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
-                      {formatEuro(betrag)}
-                    </td>
-                  </tr>
-                ))}
-              <tr style={{ borderTop: "2px solid #333" }}>
-                <td style={{ padding: "6px 10px", fontWeight: "bold", fontSize: "12pt" }}>
-                  Bruttobetrag:
-                </td>
-                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold", fontSize: "12pt" }}>
-                  {formatEuro(bruttobetrag)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Notiz zur Lieferung – über der Zahlungsbox, damit auch bei langen Rechnungen sichtbar */}
-        {lieferung.notiz && lieferung.notiz.trim().length > 0 && (
-          <div
-            style={{
-              marginBottom: "16px",
-              fontSize: "9pt",
-              color: "#555",
-              fontStyle: "italic",
-              whiteSpace: "pre-line",
-            }}
-          >
-            Hinweis: {lieferung.notiz}
-          </div>
-        )}
-
-        {/* Zahlungsinfo */}
-        <div
-          className="no-break"
+      {/* Spaltenkopf der Positionstabelle — bewusst eine normale Zeile DIESER (äußeren)
+          Tabelle statt einer verschachtelten <table><thead>: eine Rechnung mit vielen
+          Positionen ist länger als eine Seite, und ein <tr> darf beim Druck nur dann
+          sauber pro Zeile umbrechen, wenn es eine direkte Zeile der Tabelle ist, deren
+          Paginierung gerade läuft. Eine verschachtelte Tabelle innerhalb einer einzigen
+          äußeren Zeile wird als ein Block behandelt — der Browser bricht dann mitten in
+          einer Positionszeile um, statt ganze Zeilen auf die nächste Seite zu schieben. */}
+      <tr className="no-break" style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
+        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
+        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
+        {hatCharge && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
+        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
+        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
+        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
+        {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
+        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
+      </tr>
+      {positionenMitNetto.map((p, idx) => (
+        <tr
+          key={p.id}
           style={{
-            backgroundColor: "#f9f9f9",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            padding: "12px 16px",
-            marginBottom: "32px",
-            fontSize: "10pt",
-            display: "flex",
-            gap: "16px",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
+            borderBottom: "1px solid #ddd",
+            backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
           }}
         >
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
-            <div style={{ marginBottom: "4px" }}>
-              Bitte überweisen Sie den Betrag von{" "}
-              <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
-              <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
-              Rechnungsnummer <strong>{rechnungNr}</strong>.
+          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{idx + 1}</td>
+          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>
+            {(p.artikel.kategorie || p.artikel.unterkategorie) && (
+              <div style={{ fontSize: "8pt", color: "#888", marginBottom: "2px" }}>
+                {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
+              </div>
+            )}
+            <div>
+              <Link href={`/artikel/${p.artikel.id}`} style={{ color: "inherit", textDecoration: "underline" }}>
+                {p.artikel.name}
+              </Link>
             </div>
-            {(firmaIban || firmaBic || firmaBankname) && (
-              <div style={{ marginTop: "8px", color: "#333" }}>
-                {firmaBankname && <div>Bank: {firmaBankname}</div>}
-                <div style={{ marginTop: "4px" }}>
-                  {firmaIban && <span>IBAN: {firmaIban}</span>}
-                  {firmaBic && <span style={{ marginLeft: "16px" }}>BIC: {firmaBic}</span>}
+            {p.notiz && p.notiz.trim().length > 0 && (
+              <div style={{ fontSize: "9pt", color: "#555" }}>{p.notiz}</div>
+            )}
+            <div style={{ fontSize: "9pt", color: "#666" }}>
+              MwSt {p.artikel.mwstSatz ?? 19} %
+            </div>
+          </td>
+          {hatCharge && (
+            <td style={{ padding: "6px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
+              {p.chargeNr ?? "—"}
+            </td>
+          )}
+          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+            {formatMenge(p.menge)}
+          </td>
+          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
+          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+            {formatEuro(p.verkaufspreis)}
+          </td>
+          {hatRabatt && (
+            <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
+              {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : ""}
+            </td>
+          )}
+          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+            {formatEuro(p.netto)}
+          </td>
+        </tr>
+      ))}
+
+      {/* Betragsblock — eigene Zeile (colSpan über alle Spalten), damit sie beim Druck
+          als Ganzes auf die nächste Seite wandert statt mitten drin abzureißen. */}
+      <tr className="no-break-before no-break">
+        <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", marginBottom: "32px" }}>
+            <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "260px" }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "4px 10px", color: "#444" }}>Nettobetrag:</td>
+                  <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
+                    {formatEuro(nettobetrag)}
+                  </td>
+                </tr>
+                {Object.entries(mwstGruppen)
+                  .sort(([a], [b]) => Number(a) - Number(b))
+                  .map(([satz, betrag]) => (
+                    <tr key={satz}>
+                      <td style={{ padding: "4px 10px", color: "#444" }}>
+                        MwSt {satz} %:
+                      </td>
+                      <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
+                        {formatEuro(betrag)}
+                      </td>
+                    </tr>
+                  ))}
+                <tr style={{ borderTop: "2px solid #333" }}>
+                  <td style={{ padding: "6px 10px", fontWeight: "bold", fontSize: "12pt" }}>
+                    Bruttobetrag:
+                  </td>
+                  <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold", fontSize: "12pt" }}>
+                    {formatEuro(bruttobetrag)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      {/* Notiz zur Lieferung – über der Zahlungsbox, damit auch bei langen Rechnungen sichtbar */}
+      {lieferung.notiz && lieferung.notiz.trim().length > 0 && (
+        <tr className="no-break">
+          <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
+            <div
+              style={{
+                marginBottom: "16px",
+                fontSize: "9pt",
+                color: "#555",
+                fontStyle: "italic",
+                whiteSpace: "pre-line",
+              }}
+            >
+              Hinweis: {lieferung.notiz}
+            </div>
+          </td>
+        </tr>
+      )}
+
+      {/* Zahlungsinfo — eigene Zeile, wandert beim Druck als Ganzes auf die nächste Seite */}
+      <tr className="no-break">
+        <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
+          <div
+            style={{
+              backgroundColor: "#f9f9f9",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              padding: "12px 16px",
+              marginBottom: "32px",
+              fontSize: "10pt",
+              display: "flex",
+              gap: "16px",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
+              <div style={{ marginBottom: "4px" }}>
+                Bitte überweisen Sie den Betrag von{" "}
+                <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
+                <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
+                Rechnungsnummer <strong>{rechnungNr}</strong>.
+              </div>
+              {(firmaIban || firmaBic || firmaBankname) && (
+                <div style={{ marginTop: "8px", color: "#333" }}>
+                  {firmaBankname && <div>Bank: {firmaBankname}</div>}
+                  <div style={{ marginTop: "4px" }}>
+                    {firmaIban && <span>IBAN: {firmaIban}</span>}
+                    {firmaBic && <span style={{ marginLeft: "16px" }}>BIC: {firmaBic}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+            {giroCode && (
+              <div style={{ textAlign: "center", flexShrink: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={giroCode}
+                  alt="GiroCode – per Banking-App scannen"
+                  style={{ width: "110px", height: "110px", display: "block" }}
+                />
+                <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
+                  Scan &amp; Pay
                 </div>
               </div>
             )}
           </div>
-          {giroCode && (
-            <div style={{ textAlign: "center", flexShrink: 0 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={giroCode}
-                alt="GiroCode – per Banking-App scannen"
-                style={{ width: "110px", height: "110px", display: "block" }}
-              />
-              <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
-                Scan &amp; Pay
-              </div>
-            </div>
-          )}
-        </div>
-      </td>
+        </td>
       </tr>
       </tbody>
       <tfoot>
       <tr>
-      <td style={{ padding: 0, border: "none" }}>
+      <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
         {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
         <div
           style={{
