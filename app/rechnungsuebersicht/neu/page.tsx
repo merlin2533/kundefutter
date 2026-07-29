@@ -40,12 +40,27 @@ function NeueRechnungsuebersichtForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500")
-      .then((r) => r.json())
-      .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])))
-      .catch((err) => {
-        Sentry.captureException(err);
-      });
+    // Vollständig paginiert laden statt fixem Limit: bei mehr als 1000 Kunden würde ein
+    // einzelner Request sonst still einen Teil verschweigen — dann fehlten Kunden in der
+    // Auswahl/Suche, ohne dass ein Fehler sichtbar wird.
+    async function ladeAlleKunden() {
+      const alle: Kunde[] = [];
+      let page = 1;
+      const limit = 1000;
+      for (;;) {
+        const res = await fetch(`/api/kunden?page=${page}&limit=${limit}&kontakte=false`);
+        if (!res.ok) break;
+        const d = await res.json() as { data?: Kunde[]; total?: number };
+        const batch = Array.isArray(d.data) ? d.data : [];
+        alle.push(...batch);
+        if (batch.length < limit || alle.length >= (d.total ?? 0)) break;
+        page += 1;
+      }
+      setKunden(alle);
+    }
+    ladeAlleKunden().catch((err) => {
+      Sentry.captureException(err);
+    });
   }, []);
 
   useEffect(() => {
