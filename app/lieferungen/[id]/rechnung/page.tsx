@@ -346,18 +346,21 @@ export default function RechnungPrintPage() {
         if (!footerImgData) return;
         pdf.addImage(footerImgData, "PNG", RAND_MM, pageH - RAND_MM - footerHoeheMM, inhaltBreiteMM, footerHoeheMM);
       };
-      // Nutzbare Höhe je Seite für den Hauptinhalt: unten Platz für die gestempelte
-      // Fußzeile freihalten, damit sie nichts überdeckt.
-      const nutzbareHoeheMM = footerImgData ? Math.max(50, pageH - (footerHoeheMM + 4)) : pageH;
 
       // Echtes Zuschneiden statt bloßes Verschieben des Gesamtbilds: pxProMM ist der
       // Skalierungsfaktor des html2canvas-Bilds (Breite canvas.width entspricht exakt
-      // pageW mm). Jede Seite bekommt einen eigenen, nicht überlappenden Bildausschnitt
-      // von genau nutzbareHoeheMM Höhe – vorher wurde stattdessen dasselbe Gesamtbild nur
-      // um nutzbareHoeheMM verschoben und jedes Mal komplett auf eine volle pageH-Seite
-      // gezeichnet, wodurch sich aufeinanderfolgende Seiten um die freigehaltene
-      // Fußzeilenhöhe überlappten (derselbe Inhalt erschien doppelt).
-      const sliceHoehePx = Math.max(1, Math.round(nutzbareHoeheMM * pxProMM));
+      // pageW mm). Jede Seite bekommt einen eigenen, nicht überlappenden Bildausschnitt –
+      // vorher wurde stattdessen dasselbe Gesamtbild nur verschoben und jedes Mal komplett
+      // auf eine volle pageH-Seite gezeichnet, wodurch sich aufeinanderfolgende Seiten
+      // überlappten (derselbe Inhalt erschien doppelt).
+      //
+      // WICHTIG: zeichneFooter() setzt die Fußzeile bei pageH - RAND_MM - footerHoeheMM
+      // (sie sitzt innerhalb des unteren 20mm-Rands). Die reservierte Höhe muss deshalb
+      // RAND_MM MIT einschließen, nicht nur footerHoeheMM — sonst darf der Hauptinhalt
+      // bis knapp vor den unteren Papierrand reichen, während die Fußzeile schon 20mm
+      // weiter oben beginnt, und beide überlappen sich (sah aus wie eine mittendrin
+      // abgeschnittene Positionszeile).
+      const footerReserveMM = footerImgData ? RAND_MM + footerHoeheMM + 4 : RAND_MM;
 
       // Verschiebt eine gewünschte Schnittstelle nach vorne (auf den Anfang der
       // betroffenen Zeile), falls sie eine Zeile mittendrin durchtrennen würde.
@@ -375,8 +378,19 @@ export default function RechnungPrintPage() {
       }
 
       let quellY = 0;
-      let ersteSeite = true;
+      let seitenIndex = 0;
       while (quellY < canvas.height) {
+        const istErsteSeite = seitenIndex === 0;
+        // Seite 1 hat das 20mm-Padding von [data-print-area] bereits als echte, im
+        // Screenshot enthaltene Weißfläche am Anfang – dort braucht es keinen weiteren
+        // Rand. Auf Folgeseiten beginnt der zugeschnittene Bildausschnitt dagegen exakt an
+        // einer Zeilengrenze, ohne jeden Rand — Inhalt säße sonst direkt an der
+        // Papierkante. Deshalb wird dort ein synthetischer oberer Rand (RAND_MM)
+        // freigehalten und das Bild entsprechend tiefer eingefügt.
+        const obenMM = istErsteSeite ? 0 : RAND_MM;
+        const nutzbareHoeheMM = Math.max(50, pageH - footerReserveMM - obenMM);
+        const sliceHoehePx = Math.max(1, Math.round(nutzbareHoeheMM * pxProMM));
+
         const schnittY = schnittOhneZeilenbruch(quellY, Math.min(quellY + sliceHoehePx, canvas.height));
         const aktuelleHoehePx = schnittY - quellY;
         const sliceCanvas = document.createElement("canvas");
@@ -391,12 +405,12 @@ export default function RechnungPrintPage() {
         const sliceImgData = sliceCanvas.toDataURL("image/png");
         const sliceHoeheMM = aktuelleHoehePx / pxProMM;
 
-        if (!ersteSeite) pdf.addPage();
-        pdf.addImage(sliceImgData, "PNG", 0, 0, pageW, sliceHoeheMM);
+        if (!istErsteSeite) pdf.addPage();
+        pdf.addImage(sliceImgData, "PNG", 0, obenMM, pageW, sliceHoeheMM);
         zeichneFooter();
 
         quellY = schnittY;
-        ersteSeite = false;
+        seitenIndex++;
       }
       pdf.save(`Rechnung_${(lieferung?.rechnungNr ?? `LS-${id}`).replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`);
     } catch (err) {
@@ -689,12 +703,14 @@ export default function RechnungPrintPage() {
       {/* Screen-only controls – sticky so user always has a way out */}
       <div className="print-hidden sticky top-0 z-20 flex items-center flex-wrap gap-1.5 p-2.5 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm no-print">
         <button
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) router.back();
-            else router.push(`/lieferungen/${id}`);
-          }}
+          // Bewusst IMMER zur Lieferung selbst (nicht router.back()): direkt nach dem
+          // Anlegen einer Lieferung/Rechnung landet man hier über einen router.push() von
+          // /lieferungen/neu bzw. dem Lieferschein — history.back() würde dann auf das
+          // (jetzt leere) Neu-Formular zurückspringen statt auf die soeben erfasste
+          // Lieferung.
+          onClick={() => router.push(`/lieferungen/${id}`)}
           className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors"
-          title="Schließen – zurück zur vorherigen Seite"
+          title="Schließen – zur Lieferung"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
@@ -1089,14 +1105,14 @@ export default function RechnungPrintPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
       <thead>
       <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
-        <th style={{ width: `${SPALTE_POS}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
-        <th style={{ width: `${spalteArtikel}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
-        {hatCharge && <th style={{ width: `${SPALTE_CHARGE}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
-        <th style={{ width: `${SPALTE_MENGE}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
-        <th style={{ width: `${SPALTE_EINHEIT}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
-        <th style={{ width: `${SPALTE_EINZELPREIS}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-        {hatRabatt && <th style={{ width: `${SPALTE_RABATT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
-        <th style={{ width: `${SPALTE_GESAMT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
+        <th style={{ width: `${SPALTE_POS}%`, textAlign: "left", padding: "5px 8px", fontWeight: "600" }}>Pos.</th>
+        <th style={{ width: `${spalteArtikel}%`, textAlign: "left", padding: "5px 8px", fontWeight: "600" }}>Artikel</th>
+        {hatCharge && <th style={{ width: `${SPALTE_CHARGE}%`, textAlign: "left", padding: "5px 8px", fontWeight: "600" }}>Charge</th>}
+        <th style={{ width: `${SPALTE_MENGE}%`, textAlign: "right", padding: "5px 8px", fontWeight: "600" }}>Menge</th>
+        <th style={{ width: `${SPALTE_EINHEIT}%`, textAlign: "left", padding: "5px 8px", fontWeight: "600" }}>Einheit</th>
+        <th style={{ width: `${SPALTE_EINZELPREIS}%`, textAlign: "right", padding: "5px 8px", fontWeight: "600" }}>Einzelpreis</th>
+        {hatRabatt && <th style={{ width: `${SPALTE_RABATT}%`, textAlign: "right", padding: "5px 8px", fontWeight: "600" }}>Rabatt %</th>}
+        <th style={{ width: `${SPALTE_GESAMT}%`, textAlign: "right", padding: "5px 8px", fontWeight: "600" }}>Gesamt</th>
       </tr>
       </thead>
       <tbody>
@@ -1108,10 +1124,10 @@ export default function RechnungPrintPage() {
             backgroundColor: idx % 2 === 0 ? "#fff" : "#fafafa",
           }}
         >
-          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{idx + 1}</td>
-          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>
+          <td style={{ padding: "3px 8px", verticalAlign: "top" }}>{idx + 1}</td>
+          <td style={{ padding: "3px 8px", verticalAlign: "top" }}>
             {(p.artikel.kategorie || p.artikel.unterkategorie) && (
-              <div style={{ fontSize: "8pt", color: "#888", marginBottom: "2px" }}>
+              <div style={{ fontSize: "7.5pt", color: "#888", lineHeight: 1.3 }}>
                 {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
               </div>
             )}
@@ -1121,30 +1137,30 @@ export default function RechnungPrintPage() {
               </Link>
             </div>
             {p.notiz && p.notiz.trim().length > 0 && (
-              <div style={{ fontSize: "9pt", color: "#555" }}>{p.notiz}</div>
+              <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>{p.notiz}</div>
             )}
-            <div style={{ fontSize: "9pt", color: "#666" }}>
+            <div style={{ fontSize: "8pt", color: "#666", lineHeight: 1.3 }}>
               MwSt {p.artikel.mwstSatz ?? 19} %
             </div>
           </td>
           {hatCharge && (
-            <td style={{ padding: "6px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
+            <td style={{ padding: "3px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "8.5pt", color: "#555" }}>
               {p.chargeNr ?? "—"}
             </td>
           )}
-          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+          <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
             {formatMenge(p.menge)}
           </td>
-          <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
-          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+          <td style={{ padding: "3px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
+          <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
             {formatEuro(p.verkaufspreis)}
           </td>
           {hatRabatt && (
-            <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right" }}>
+            <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right" }}>
               {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : ""}
             </td>
           )}
-          <td style={{ padding: "6px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
+          <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
             {formatEuro(p.netto)}
           </td>
         </tr>

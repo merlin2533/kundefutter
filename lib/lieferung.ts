@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
 
@@ -225,4 +225,46 @@ export async function vergebeRechnungsnummerFuerLieferung(tx: Tx, lieferungId: n
   });
 
   return rechnungNr;
+}
+
+/**
+ * Setzt eine Lieferung mit Status "geplant" auf "geliefert": bucht den Lagerausgang
+ * (außer bei Streckengeschäft) und prüft die Chargennummer-Pflicht für Tierfutter.
+ * Macht nichts, wenn die Lieferung nicht (mehr) "geplant" ist (idempotent) — u.a. genutzt
+ * von der QR-Mobilerfassung UND automatisch beim Erstellen einer Rechnung, damit ein
+ * Auftrag nicht separat manuell als geliefert markiert werden muss, sobald dafür schon
+ * eine Rechnung existiert.
+ */
+export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId: number): Promise<void> {
+  const aktLieferung = await tx.lieferung.findUnique({
+    where: { id: lieferungId },
+    select: { status: true, istStreckengeschaeft: true, datum: true },
+  });
+  if (!aktLieferung || aktLieferung.status !== "geplant") return;
+
+  const positionen = await tx.lieferposition.findMany({ where: { lieferungId } });
+  const artikelIds = [...new Set(positionen.map((p) => p.artikelId))];
+  const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+  const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
+  for (const pos of positionen) {
+    const artikel = artikelMap.get(pos.artikelId);
+    if (artikel && istChargeNrPflichtFuerLieferschein(artikel.kategorie, aktLieferung.datum) && !pos.chargeNr) {
+      throw new Error(`Chargennummer ist bei Tierfutter-Positionen ab 2027 Pflicht (Artikel „${artikel.name}“)`);
+    }
+  }
+
+  if (!aktLieferung.istStreckengeschaeft) {
+    for (const pos of positionen) {
+      const artikel = artikelMap.get(pos.artikelId);
+      if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
+      const neuerBestand = artikel.aktuellerBestand - pos.menge;
+      await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
+      await tx.lagerbewegung.create({
+        data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId },
+      });
+    }
+  }
+
+  await tx.lieferung.update({ where: { id: lieferungId }, data: { status: "geliefert" } });
 }
