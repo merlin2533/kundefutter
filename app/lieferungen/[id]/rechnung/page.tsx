@@ -382,10 +382,21 @@ export default function RechnungPrintPage() {
       // abgeschnittene Positionszeile).
       const footerReserveMM = footerImgData ? RAND_MM + footerHoeheMM + 2 : RAND_MM;
 
+      // Echtes Inhaltsende statt canvas.height: [data-print-area] hat unten 20mm eigenes
+      // Padding, das nach dem Ausblenden der Fußzeile als reine Weißfläche am Ende des
+      // Screenshots übrig bleibt. Passte dieser Rest nicht mehr auf die letzte Seite
+      // (Rundungsfälle, knapper Umbruch), erzeugte die Schleife dafür eine komplett leere
+      // Extra-Seite. Die eigene Fußzeilen-Reserve (footerReserveMM) sorgt ohnehin schon
+      // für genug Abstand vor der gestempelten Fußzeile — das Padding selbst wird für die
+      // Seitenaufteilung ignoriert.
+      const inhaltEndeY = zeilenBereichePx.length
+        ? Math.min(canvas.height, Math.max(...zeilenBereichePx.map((z) => z.bottom)))
+        : canvas.height;
+
       // Verschiebt eine gewünschte Schnittstelle nach vorne (auf den Anfang der
       // betroffenen Zeile), falls sie eine Zeile mittendrin durchtrennen würde.
       function schnittOhneZeilenbruch(startY: number, wunschEndY: number): number {
-        if (wunschEndY >= canvas.height) return wunschEndY;
+        if (wunschEndY >= inhaltEndeY) return wunschEndY;
         let minTop = wunschEndY;
         for (const z of zeilenBereichePx) {
           if (z.top < wunschEndY && z.bottom > wunschEndY && z.top < minTop) {
@@ -399,7 +410,7 @@ export default function RechnungPrintPage() {
 
       let quellY = 0;
       let seitenIndex = 0;
-      while (quellY < canvas.height) {
+      while (quellY < inhaltEndeY) {
         const istErsteSeite = seitenIndex === 0;
         // Seite 1 hat das 20mm-Padding von [data-print-area] bereits als echte, im
         // Screenshot enthaltene Weißfläche am Anfang – dort braucht es keinen weiteren
@@ -411,7 +422,7 @@ export default function RechnungPrintPage() {
         const nutzbareHoeheMM = Math.max(50, pageH - footerReserveMM - obenMM);
         const sliceHoehePx = Math.max(1, Math.round(nutzbareHoeheMM * pxProMM));
 
-        const schnittY = schnittOhneZeilenbruch(quellY, Math.min(quellY + sliceHoehePx, canvas.height));
+        const schnittY = schnittOhneZeilenbruch(quellY, Math.min(quellY + sliceHoehePx, inhaltEndeY));
         const aktuelleHoehePx = schnittY - quellY;
         const sliceCanvas = document.createElement("canvas");
         sliceCanvas.width = canvas.width;
