@@ -287,22 +287,60 @@ export default function RechnungPrintPage() {
       const { default: html2canvas } = await import("html2canvas");
       const { jsPDF } = await import("jspdf");
       const element = document.querySelector<HTMLElement>("[data-print-area]");
+      const footerEl = document.querySelector<HTMLElement>("[data-doc-footer]");
       if (!element) return;
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
+      // Entspricht dem 20mm-Padding von [data-print-area] – die Fußzeile sitzt im
+      // Dokument innerhalb dieses Rands, also stempeln wir sie hier an derselben Stelle.
+      const RAND_MM = 20;
+      const inhaltBreiteMM = pageW - 2 * RAND_MM;
+
+      // Fußzeile getrennt vom Hauptinhalt erfassen, BEVOR der Hauptinhalt gescreenshottet
+      // wird: html2canvas macht dabei nur ein einziges durchgehendes Bild (keine echten
+      // "Seiten"), das anschließend blind in pageH-Schritten zerschnitten wird. Ein
+      // <tfoot>/thead-Wiederholungsmechanismus wie beim echten Browserdruck greift hier
+      // nicht. Damit die Fußzeile trotzdem auf JEDER erzeugten PDF-Seite erscheint (nicht
+      // nur zufällig auf der, in die sie im langen Screenshot hineinfällt), wird sie hier
+      // 1x separat als Bild erfasst, aus dem Hauptbild ausgeblendet (damit ihre Höhe nicht
+      // doppelt eingerechnet wird) und danach auf jede Seite einzeln aufgestempelt.
+      let footerImgData: string | null = null;
+      let footerHoeheMM = 0;
+      const vorherigesDisplay = footerEl?.style.display ?? "";
+      if (footerEl) {
+        const footerCanvas = await html2canvas(footerEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        footerImgData = footerCanvas.toDataURL("image/png");
+        footerHoeheMM = (footerCanvas.height * inhaltBreiteMM) / footerCanvas.width;
+        footerEl.style.display = "none";
+      }
+
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      if (footerEl) footerEl.style.display = vorherigesDisplay;
+
       const imgH = (canvas.height * pageW) / canvas.width;
       const imgData = canvas.toDataURL("image/png");
+
+      const zeichneFooter = () => {
+        if (!footerImgData) return;
+        pdf.addImage(footerImgData, "PNG", RAND_MM, pageH - RAND_MM - footerHoeheMM, inhaltBreiteMM, footerHoeheMM);
+      };
+      // Nutzbare Höhe je Seite für den Hauptinhalt: unten Platz für die gestempelte
+      // Fußzeile freihalten, damit sie nichts überdeckt.
+      const nutzbareHoehe = footerImgData ? pageH - (footerHoeheMM + 4) : pageH;
+
       let heightLeft = imgH;
       let position = 0;
       pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
-      heightLeft -= pageH;
+      zeichneFooter();
+      heightLeft -= nutzbareHoehe;
       while (heightLeft > 0) {
-        position -= pageH;
+        position -= nutzbareHoehe;
         pdf.addPage();
         pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
-        heightLeft -= pageH;
+        zeichneFooter();
+        heightLeft -= nutzbareHoehe;
       }
       pdf.save(`Rechnung_${(lieferung?.rechnungNr ?? `LS-${id}`).replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`);
     } catch (err) {
@@ -1187,21 +1225,26 @@ export default function RechnungPrintPage() {
           echte Wiederholung auf jeder Seite browserübergreifend zuverlässig leistet. */}
       <tr className="no-break">
         <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
-          {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
-          <div
-            style={{
-              paddingTop: "12px",
-              fontSize: "7.5pt",
-              color: "#666",
-              fontStyle: "italic",
-              whiteSpace: "pre-line",
-            }}
-          >
-            {eigentumsvorbehaltText}
-          </div>
+          {/* data-doc-footer: wird von downloadVorschauPdf() separat erfasst und dort
+              auf JEDEM erzeugten PDF-Seitenbild eingefügt (siehe Kommentar dort) – für
+              den normalen Bildschirm-/Druckdurchlauf ändert dieser Marker nichts. */}
+          <div data-doc-footer>
+            {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
+            <div
+              style={{
+                paddingTop: "12px",
+                fontSize: "7.5pt",
+                color: "#666",
+                fontStyle: "italic",
+                whiteSpace: "pre-line",
+              }}
+            >
+              {eigentumsvorbehaltText}
+            </div>
 
-          {/* Footer – 3 Spalten */}
-          <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
+            {/* Footer – 3 Spalten */}
+            <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
+          </div>
         </td>
       </tr>
       </tbody>
