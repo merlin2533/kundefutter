@@ -288,6 +288,7 @@ export default function RechnungPrintPage() {
       const { jsPDF } = await import("jspdf");
       const element = document.querySelector<HTMLElement>("[data-print-area]");
       const footerEl = document.querySelector<HTMLElement>("[data-doc-footer]");
+      const kopfMiniEl = document.querySelector<HTMLElement>("[data-doc-kopf-mini]");
       if (!element) return;
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -314,6 +315,19 @@ export default function RechnungPrintPage() {
         footerImgData = footerCanvas.toDataURL("image/png");
         footerHoeheMM = (footerCanvas.height * inhaltBreiteMM) / footerCanvas.width;
         footerEl.style.display = "none";
+      }
+
+      // Mini-Kopfzeile (Logo + Firmenname) für Seite 2+: per Default display:none (siehe
+      // JSX), daher kurz einblenden zum Erfassen, danach wieder ausblenden — sie soll NUR
+      // gestempelt erscheinen, nicht im normalen Bildschirm-Layout mitgerechnet werden.
+      let kopfImgData: string | null = null;
+      let kopfHoeheMM = 0;
+      if (kopfMiniEl) {
+        kopfMiniEl.style.display = "flex";
+        const kopfCanvas = await html2canvas(kopfMiniEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+        kopfImgData = kopfCanvas.toDataURL("image/png");
+        kopfHoeheMM = (kopfCanvas.height * inhaltBreiteMM) / kopfCanvas.width;
+        kopfMiniEl.style.display = "none";
       }
 
       // Zeilen-Grenzen VOR dem Screenshot ermitteln (während footerEl noch ausgeblendet
@@ -346,6 +360,12 @@ export default function RechnungPrintPage() {
         if (!footerImgData) return;
         pdf.addImage(footerImgData, "PNG", RAND_MM, pageH - RAND_MM - footerHoeheMM, inhaltBreiteMM, footerHoeheMM);
       };
+      // Mini-Kopfzeile nur auf Folgeseiten, innerhalb des oberen 20mm-Rands, mit etwas
+      // Abstand zum Inhalt darunter (der bei obenMM=RAND_MM beginnt).
+      const zeichneKopf = () => {
+        if (!kopfImgData) return;
+        pdf.addImage(kopfImgData, "PNG", RAND_MM, RAND_MM - 4 - kopfHoeheMM, inhaltBreiteMM, kopfHoeheMM);
+      };
 
       // Echtes Zuschneiden statt bloßes Verschieben des Gesamtbilds: pxProMM ist der
       // Skalierungsfaktor des html2canvas-Bilds (Breite canvas.width entspricht exakt
@@ -360,7 +380,7 @@ export default function RechnungPrintPage() {
       // bis knapp vor den unteren Papierrand reichen, während die Fußzeile schon 20mm
       // weiter oben beginnt, und beide überlappen sich (sah aus wie eine mittendrin
       // abgeschnittene Positionszeile).
-      const footerReserveMM = footerImgData ? RAND_MM + footerHoeheMM + 4 : RAND_MM;
+      const footerReserveMM = footerImgData ? RAND_MM + footerHoeheMM + 2 : RAND_MM;
 
       // Verschiebt eine gewünschte Schnittstelle nach vorne (auf den Anfang der
       // betroffenen Zeile), falls sie eine Zeile mittendrin durchtrennen würde.
@@ -408,6 +428,7 @@ export default function RechnungPrintPage() {
         if (!istErsteSeite) pdf.addPage();
         pdf.addImage(sliceImgData, "PNG", 0, obenMM, pageW, sliceHoeheMM);
         zeichneFooter();
+        if (!istErsteSeite) zeichneKopf();
 
         quellY = schnittY;
         seitenIndex++;
@@ -885,6 +906,22 @@ export default function RechnungPrintPage() {
           position: "relative",
         }}
       >
+      {/* Mini-Kopfzeile für Folgeseiten – NUR für den "PDF"-Button (downloadVorschauPdf):
+          per Default unsichtbar (display:none), wird dort kurz eingeblendet, separat
+          erfasst und danach oben auf jede Seite außer der ersten gestempelt (analog zur
+          Fußzeile). Der große Briefkopf unten bleibt bewusst einmalig auf Seite 1. */}
+      <div
+        data-doc-kopf-mini
+        style={{ display: "none", alignItems: "center", gap: "10px", fontSize: "9pt" }}
+      >
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt="Logo" style={{ height: "20px", display: "block" }} />
+        )}
+        {firmenname && <span style={{ fontWeight: "bold" }}>{firmenname}</span>}
+        <span style={{ marginLeft: "auto", color: "#666" }}>Rechnung {rechnungNr}</span>
+      </div>
+
       {/* Briefkopf (Storno/Logo/Anschriftfeld/Betreff) bewusst AUSSERHALB der Tabelle als
           normale <div>s: er gehört ohnehin nur auf Seite 1 (analog zum PDF-Export, ein
           DIN-5008-Fensterkuvert braucht die Adresse nur einmal) und entkoppelt diesen
@@ -1144,7 +1181,7 @@ export default function RechnungPrintPage() {
             </div>
           </td>
           {hatCharge && (
-            <td style={{ padding: "3px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "8.5pt", color: "#555" }}>
+            <td style={{ padding: "3px 8px", verticalAlign: "top", fontFamily: "monospace", fontSize: "8.5pt", color: "#555", wordBreak: "break-all" }}>
               {p.chargeNr ?? "—"}
             </td>
           )}
@@ -1173,7 +1210,7 @@ export default function RechnungPrintPage() {
           (wiederholten) Fußzeile statt darüber erscheinen. */}
       <tr className="no-break-before no-break">
         <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", marginBottom: "32px" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "10px", marginBottom: "16px" }}>
             <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "260px" }}>
               <tbody>
                 <tr>
@@ -1238,13 +1275,13 @@ export default function RechnungPrintPage() {
               backgroundColor: "#f9f9f9",
               border: "1px solid #ddd",
               borderRadius: "4px",
-              marginBottom: "32px",
+              marginBottom: "12px",
               fontSize: "10pt",
             }}
           >
             <tbody>
               <tr>
-                <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                <td style={{ padding: "10px 14px", verticalAlign: "top" }}>
                   <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
                   <div style={{ marginBottom: "4px" }}>
                     Bitte überweisen Sie den Betrag von{" "}
@@ -1263,12 +1300,12 @@ export default function RechnungPrintPage() {
                   )}
                 </td>
                 {giroCode && (
-                  <td style={{ width: "130px", padding: "12px 16px 12px 0", textAlign: "center", verticalAlign: "top" }}>
+                  <td style={{ width: "110px", padding: "10px 14px 10px 0", textAlign: "center", verticalAlign: "top" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={giroCode}
                       alt="GiroCode – per Banking-App scannen"
-                      style={{ width: "110px", height: "110px", display: "block", margin: "0 auto" }}
+                      style={{ width: "95px", height: "95px", display: "block", margin: "0 auto" }}
                     />
                     <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
                       Scan &amp; Pay
