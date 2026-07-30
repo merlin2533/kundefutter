@@ -754,8 +754,9 @@ export default function RechnungPrintPage() {
         />
       )}
 
-      {/* Rechnung document – als <table> aufgebaut, damit thead/tfoot beim Druck auf
-          JEDER Seite wiederholt werden (Kopf + Fuß bei mehrseitigen Rechnungen). */}
+      {/* Rechnung document: Briefkopf einmalig oben (normale <div>s), darunter die
+          Positionstabelle mit thead (Spaltenköpfe, wiederholen sich auf Folgeseiten)
+          und tfoot (Fußzeile, wiederholt sich auf JEDER Seite). */}
       <div
         data-print-area
         style={{
@@ -772,15 +773,12 @@ export default function RechnungPrintPage() {
           position: "relative",
         }}
       >
-      {/* table-layout: auto (bewusst KEIN "fixed" + <colgroup>): diese Kombination hat
-          sich beim Drucken/PDF-Export auf iOS/WebKit als unzuverlässig erwiesen — bis
-          hin zu kollabierenden Spalten in Kopf- und Datenzeilen. Breiten-Hinweise
-          stattdessen direkt an den <th>-Zellen der Kopfzeile (siehe unten); das ist die
-          am längsten browserübergreifend unterstützte Variante für Spaltenbreiten. */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-      <tr>
-      <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
+      {/* Briefkopf (Storno/Logo/Anschriftfeld/Betreff) bewusst AUSSERHALB der Tabelle als
+          normale <div>s: er gehört ohnehin nur auf Seite 1 (analog zum PDF-Export, ein
+          DIN-5008-Fensterkuvert braucht die Adresse nur einmal) und entkoppelt diesen
+          großen, layout-komplexen Block komplett von der Spaltenbreiten-Berechnung der
+          Positionstabelle darunter. */}
+      <div>
         {/* Storno-Hinweis */}
         {lieferung.rechnungStorniert && (
           <div
@@ -981,18 +979,20 @@ export default function RechnungPrintPage() {
         <div style={{ marginTop: "8px", marginBottom: "20px", fontSize: "11pt" }}>
           <strong>Betreff: Rechnung {rechnungNr}</strong>
         </div>
-      </td>
-      </tr>
-      </thead>
-      <tbody>
-      {/* Spaltenkopf der Positionstabelle — bewusst eine normale Zeile DIESER (äußeren)
-          Tabelle statt einer verschachtelten <table><thead>: eine Rechnung mit vielen
-          Positionen ist länger als eine Seite, und ein <tr> darf beim Druck nur dann
-          sauber pro Zeile umbrechen, wenn es eine direkte Zeile der Tabelle ist, deren
-          Paginierung gerade läuft. Eine verschachtelte Tabelle innerhalb einer einzigen
-          äußeren Zeile wird als ein Block behandelt — der Browser bricht dann mitten in
-          einer Positionszeile um, statt ganze Zeilen auf die nächste Seite zu schieben. */}
-      <tr className="no-break" style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
+      </div>
+
+      {/* Positionstabelle: eigenständige Tabelle mit echtem <thead> (Spaltenköpfe
+          wiederholen sich dadurch nativ auf Folgeseiten) und <tfoot> (Fußzeile
+          wiederholt sich auf jeder Seite). table-layout: fixed leitet die Spaltenbreiten
+          aus den width-Werten der <th>-Zellen ab (CSS2.1-Standardverhalten, keine
+          <colgroup> nötig) — das hält die Tabelle zuverlässig innerhalb des Seitenrands,
+          ohne die Kollaps-Probleme, die table-layout: fixed + <colgroup> beim Mischen mit
+          colSpan-Zeilen auf iOS/WebKit verursacht hat. Positionszeilen sind direkte Zeilen
+          dieser Tabelle (keine verschachtelte <table>), damit der Browser beim Druck jede
+          Zeile als Ganzes auf die nächste Seite schiebt statt mittendrin umzubrechen. */}
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+      <thead>
+      <tr style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
         <th style={{ width: `${SPALTE_POS}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
         <th style={{ width: `${spalteArtikel}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
         {hatCharge && <th style={{ width: `${SPALTE_CHARGE}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
@@ -1002,6 +1002,8 @@ export default function RechnungPrintPage() {
         {hatRabatt && <th style={{ width: `${SPALTE_RABATT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
         <th style={{ width: `${SPALTE_GESAMT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
       </tr>
+      </thead>
+      <tbody>
       {positionenMitNetto.map((p, idx) => (
         <tr
           key={p.id}
@@ -1052,8 +1054,11 @@ export default function RechnungPrintPage() {
         </tr>
       ))}
 
-      {/* Betragsblock — eigene Zeile (colSpan über alle Spalten), damit sie beim Druck
-          als Ganzes auf die nächste Seite wandert statt mitten drin abzureißen. */}
+      {/* Betragsblock/Notiz/Zahlungsinfo bleiben Zeilen DIESER Tabelle (nicht als <div>
+          nach </table> verschoben): <tfoot> wird vom Browser immer unten im
+          Tabellenbereich der jeweiligen Seite platziert, unabhängig von der
+          Dokumentreihenfolge — Inhalte nach </table> würden deshalb UNTER der
+          (wiederholten) Fußzeile statt darüber erscheinen. */}
       <tr className="no-break-before no-break">
         <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px", marginBottom: "32px" }}>
@@ -1111,9 +1116,7 @@ export default function RechnungPrintPage() {
       )}
 
       {/* Zahlungsinfo — eigene Zeile, wandert beim Druck als Ganzes auf die nächste Seite.
-          Bewusst eine <table> statt Flexbox für Text/QR-Code nebeneinander (siehe
-          Begründung bei DokumentFooter/der äußeren Tabelle: verschachtelte moderne
-          Layout-Module in einer <td> sind beim Druck auf iOS/WebKit unzuverlässig). */}
+          Bewusst eine <table> statt Flexbox für Text/QR-Code nebeneinander. */}
       <tr className="no-break">
         <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
           <table
