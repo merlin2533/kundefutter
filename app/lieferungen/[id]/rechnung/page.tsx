@@ -577,10 +577,12 @@ export default function RechnungPrintPage() {
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
-          /* Kopf (thead) und Fuß (tfoot) der Dokumenttabelle wiederholen sich automatisch
-             auf jeder gedruckten Seite – Kernmechanismus für saubere Mehrseiten-Rechnungen. */
+          /* Kopf (thead) wiederholt sich auf Folgeseiten in Chrome/Firefox (CSS2.1); in
+             WebKit (Safari/iOS) NICHT (bekannte Einschränkung, siehe Kommentar bei der
+             Fußzeile weiter unten) – dort erscheinen die Spaltenköpfe nur auf Seite 1. Die
+             Fußzeile ist bewusst kein <tfoot> mehr (siehe dort), daher keine
+             table-footer-group-Regel nötig. */
           thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
           .falzmarke { display: block !important; position: fixed; left: 0; width: 10mm; height: 0; border-top: 0.3pt solid #aaa; }
           .falzmarke-1 { top: 105mm; }
           .falzmarke-2 { top: 210mm; }
@@ -1168,28 +1170,41 @@ export default function RechnungPrintPage() {
           </table>
         </td>
       </tr>
-      </tbody>
-      <tfoot>
-      <tr>
-      <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
-        {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
-        <div
-          style={{
-            paddingTop: "12px",
-            fontSize: "7.5pt",
-            color: "#666",
-            fontStyle: "italic",
-            whiteSpace: "pre-line",
-          }}
-        >
-          {eigentumsvorbehaltText}
-        </div>
 
-        {/* Footer – 3 Spalten */}
-        <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
-      </td>
+      {/* Fußzeile (Eigentumsvorbehalt + DokumentFooter) bewusst als GANZ NORMALE letzte
+          <tbody>-Zeile, NICHT als <tfoot>: <tfoot>/thead-Wiederholung auf jeder gedruckten
+          Seite ist zwar CSS2.1-Standardverhalten, aber in WebKit (Safari/iOS – u.a. das
+          "Chrome" auf dem iPhone, das dort per Apple-Vorgabe ebenfalls WebKit nutzt) seit
+          Jahren nachweislich nicht implementiert (WebKit-Bugs #34218, #17205) – Safari
+          druckt den tfoot-Inhalt dort gar nicht oder nur auf einer beliebigen Seite, nie
+          zuverlässig auf allen. Damit die Fußzeile in JEDEM Browser mindestens einmal
+          zuverlässig erscheint, steht sie hier als normale Zeile am Ende der Tabelle: sie
+          wird exakt einmal gedruckt, direkt nach der Zahlungsinfo, auf welcher Seite auch
+          immer das ist – identisches Verhalten in Chrome, Firefox und Safari. Der Nachteil
+          (kein Abdruck auf JEDER Seite) ist bewusst in Kauf genommen, da position:fixed als
+          Alternative in Safari beim Drucken ebenfalls nicht funktioniert (Apple-Support
+          bestätigt das als bekannte Einschränkung) – es gibt also keine Variante, die eine
+          echte Wiederholung auf jeder Seite browserübergreifend zuverlässig leistet. */}
+      <tr className="no-break">
+        <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
+          {/* Eigentumsvorbehalt / rechtlicher Hinweis – klein gedruckt */}
+          <div
+            style={{
+              paddingTop: "12px",
+              fontSize: "7.5pt",
+              color: "#666",
+              fontStyle: "italic",
+              whiteSpace: "pre-line",
+            }}
+          >
+            {eigentumsvorbehaltText}
+          </div>
+
+          {/* Footer – 3 Spalten */}
+          <DokumentFooter firmaData={firmaData} footerConfig={footerData} marginTop="8px" />
+        </td>
       </tr>
-      </tfoot>
+      </tbody>
       </table>
       </div>
     </>
