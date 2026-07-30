@@ -296,8 +296,21 @@ function detectIsPdf(base64: string): boolean {
   return detectMediaType(base64) === "application/pdf";
 }
 
+// Mistral verpackt JSON-Antworten regelmäßig in einen Markdown-Codeblock
+// (```json … ```), obwohl der Prompt reines JSON verlangt. Diese Hülle wird
+// VOR dem ersten JSON.parse entfernt — sonst scheitert der Direktversuch
+// zwangsläufig ("Unexpected token '`'") und erzeugt bei jeder einzelnen
+// Dokumentanalyse ein GlitchTip-Issue, obwohl der Fallback unten sauber
+// greift (Issue AGRI-K, ausgelöst über POST /api/ki/analyze).
+export function stripMarkdownJsonFence(raw: string): string {
+  const trimmed = raw.trim();
+  const fence = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  return fence ? fence[1].trim() : trimmed;
+}
+
 export function parseJsonFromText(text: string): Record<string, unknown> {
-  try { return JSON.parse(text); } catch (e) { Sentry.captureException(e); /* fall */ }
+  const entfenced = stripMarkdownJsonFence(text);
+  try { return JSON.parse(entfenced); } catch (e) { Sentry.captureException(e); /* fall */ }
   const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (match) { try { return JSON.parse(match[1]); } catch (e) { Sentry.captureException(e); /* fall */ } }
   const braceMatch = text.match(/\{[\s\S]*\}/);
