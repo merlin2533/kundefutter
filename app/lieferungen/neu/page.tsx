@@ -36,13 +36,17 @@ interface Artikel {
   notiz?: string | null;
 }
 
-/** EK aus bevorzugtem Lieferanten, sonst einzigem Lieferanten, sonst 0 */
+/** EK aus bevorzugtem Lieferanten, sonst dem ersten hinterlegten Lieferanten, sonst 0.
+ *  Vorher fiel bei 2+ Lieferanten ohne "bevorzugt"-Flag auf `art.einkaufspreis` zurück —
+ *  ein Feld, das Artikel im Datenmodell gar nicht hat (EK lebt ausschließlich auf
+ *  ArtikelLieferant), lief also immer auf 0 hinaus. Betraf jeden Artikel mit mehreren
+ *  Lieferanten ohne eindeutige Präferenz. */
 function resolveEK(art: Artikel | undefined): number {
   if (!art) return 0;
   if (art.lieferanten?.length) {
     const bev = art.lieferanten.find((l) => l.bevorzugt);
     if (bev) return bev.einkaufspreis;
-    if (art.lieferanten.length === 1) return art.lieferanten[0].einkaufspreis;
+    return art.lieferanten[0].einkaufspreis;
   }
   return art.einkaufspreis ?? 0;
 }

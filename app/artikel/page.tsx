@@ -296,9 +296,13 @@ export default function ArtikelPage() {
   }
 
   function bevorzugterEK(a: Artikel): number | null {
+    // Bevorzugten Lieferanten nutzen, sonst irgendeinen vorhandenen (auch bei mehreren
+    // ohne "bevorzugt"-Flag) — nur wenn wirklich KEIN Lieferant hinterlegt ist, gibt es
+    // keinen EK anzuzeigen. Vorher wurde bei 2+ Lieferanten ohne Präferenz fälschlich
+    // "—" angezeigt, obwohl EK-Preise vorhanden waren.
     const bev = a.lieferanten.find((l) => l.bevorzugt);
     if (bev) return bev.einkaufspreis;
-    if (a.lieferanten.length === 1) return a.lieferanten[0].einkaufspreis;
+    if (a.lieferanten.length > 0) return a.lieferanten[0].einkaufspreis;
     return null;
   }
 
