@@ -288,7 +288,6 @@ export default function RechnungPrintPage() {
       const { jsPDF } = await import("jspdf");
       const element = document.querySelector<HTMLElement>("[data-print-area]");
       const footerEl = document.querySelector<HTMLElement>("[data-doc-footer]");
-      const kopfMiniEl = document.querySelector<HTMLElement>("[data-doc-kopf-mini]");
       if (!element) return;
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -315,19 +314,6 @@ export default function RechnungPrintPage() {
         footerImgData = footerCanvas.toDataURL("image/png");
         footerHoeheMM = (footerCanvas.height * inhaltBreiteMM) / footerCanvas.width;
         footerEl.style.display = "none";
-      }
-
-      // Mini-Kopfzeile (Logo + Firmenname) für Seite 2+: per Default display:none (siehe
-      // JSX), daher kurz einblenden zum Erfassen, danach wieder ausblenden — sie soll NUR
-      // gestempelt erscheinen, nicht im normalen Bildschirm-Layout mitgerechnet werden.
-      let kopfImgData: string | null = null;
-      let kopfHoeheMM = 0;
-      if (kopfMiniEl) {
-        kopfMiniEl.style.display = "flex";
-        const kopfCanvas = await html2canvas(kopfMiniEl, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
-        kopfImgData = kopfCanvas.toDataURL("image/png");
-        kopfHoeheMM = (kopfCanvas.height * inhaltBreiteMM) / kopfCanvas.width;
-        kopfMiniEl.style.display = "none";
       }
 
       // Zeilen-Grenzen VOR dem Screenshot ermitteln (während footerEl noch ausgeblendet
@@ -359,12 +345,6 @@ export default function RechnungPrintPage() {
       const zeichneFooter = () => {
         if (!footerImgData) return;
         pdf.addImage(footerImgData, "PNG", RAND_MM, pageH - RAND_MM - footerHoeheMM, inhaltBreiteMM, footerHoeheMM);
-      };
-      // Mini-Kopfzeile nur auf Folgeseiten, innerhalb des oberen 20mm-Rands, mit etwas
-      // Abstand zum Inhalt darunter (der bei obenMM=RAND_MM beginnt).
-      const zeichneKopf = () => {
-        if (!kopfImgData) return;
-        pdf.addImage(kopfImgData, "PNG", RAND_MM, RAND_MM - 4 - kopfHoeheMM, inhaltBreiteMM, kopfHoeheMM);
       };
 
       // Echtes Zuschneiden statt bloßes Verschieben des Gesamtbilds: pxProMM ist der
@@ -439,7 +419,6 @@ export default function RechnungPrintPage() {
         if (!istErsteSeite) pdf.addPage();
         pdf.addImage(sliceImgData, "PNG", 0, obenMM, pageW, sliceHoeheMM);
         zeichneFooter();
-        if (!istErsteSeite) zeichneKopf();
 
         quellY = schnittY;
         seitenIndex++;
@@ -917,22 +896,6 @@ export default function RechnungPrintPage() {
           position: "relative",
         }}
       >
-      {/* Mini-Kopfzeile für Folgeseiten – NUR für den "PDF"-Button (downloadVorschauPdf):
-          per Default unsichtbar (display:none), wird dort kurz eingeblendet, separat
-          erfasst und danach oben auf jede Seite außer der ersten gestempelt (analog zur
-          Fußzeile). Der große Briefkopf unten bleibt bewusst einmalig auf Seite 1. */}
-      <div
-        data-doc-kopf-mini
-        style={{ display: "none", alignItems: "center", gap: "10px", fontSize: "9pt" }}
-      >
-        {logo && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt="Logo" style={{ height: "20px", display: "block" }} />
-        )}
-        {firmenname && <span style={{ fontWeight: "bold" }}>{firmenname}</span>}
-        <span style={{ marginLeft: "auto", color: "#666" }}>Rechnung {rechnungNr}</span>
-      </div>
-
       {/* Briefkopf (Storno/Logo/Anschriftfeld/Betreff) bewusst AUSSERHALB der Tabelle als
           normale <div>s: er gehört ohnehin nur auf Seite 1 (analog zum PDF-Export, ein
           DIN-5008-Fensterkuvert braucht die Adresse nur einmal) und entkoppelt diesen
