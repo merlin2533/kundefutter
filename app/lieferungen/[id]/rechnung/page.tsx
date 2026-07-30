@@ -316,11 +316,31 @@ export default function RechnungPrintPage() {
         footerEl.style.display = "none";
       }
 
+      // Zeilen-Grenzen VOR dem Screenshot ermitteln (während footerEl noch ausgeblendet
+      // ist, damit die Koordinaten zum gleich danach erfassten canvas passen): so kann
+      // die Schnittstelle jeder Seite so weit nach vorne verschoben werden, dass keine
+      // <tr> (Positionszeile, Betragsblock, Notiz, Zahlungsinfo) mittendrin durchtrennt
+      // wird — sonst reißt html2canvas' reine Pixel-Rasterung Inhalte wie die
+      // Zahlungsinfo-Box unabhängig von jeder page-break-CSS-Regel einfach durch, weil
+      // diese nur in @media print gilt, hier aber im normalen Bildschirm-Layout
+      // geschossen wird.
+      const elementRectVorher = element.getBoundingClientRect();
+      const zeilenBereiche = Array.from(element.querySelectorAll("tr")).map((tr) => {
+        const r = tr.getBoundingClientRect();
+        return { top: r.top - elementRectVorher.top, bottom: r.bottom - elementRectVorher.top };
+      });
+
       const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
       if (footerEl) footerEl.style.display = vorherigesDisplay;
 
-      const imgH = (canvas.height * pageW) / canvas.width;
-      const imgData = canvas.toDataURL("image/png");
+      // WICHTIG: canvas.width/elementRectVorher.width (Canvas-Pixel je CSS-Pixel, hier
+      // ≈ 2 wegen scale:2) ist ein ANDERER Faktor als canvas.width/pageW (Canvas-Pixel
+      // je Millimeter, s.u. für die Seitenaufteilung) — getBoundingClientRect() liefert
+      // CSS-Pixel, keine Millimeter. Beide Faktoren zu verwechseln war der Grund, warum
+      // eine erste Version dieses Fixes die Zeilengrenzen nie richtig traf.
+      const canvasPxProCssPx = canvas.width / elementRectVorher.width;
+      const zeilenBereichePx = zeilenBereiche.map((z) => ({ top: z.top * canvasPxProCssPx, bottom: z.bottom * canvasPxProCssPx }));
+      const pxProMM = canvas.width / pageW;
 
       const zeichneFooter = () => {
         if (!footerImgData) return;
@@ -328,19 +348,55 @@ export default function RechnungPrintPage() {
       };
       // Nutzbare Höhe je Seite für den Hauptinhalt: unten Platz für die gestempelte
       // Fußzeile freihalten, damit sie nichts überdeckt.
-      const nutzbareHoehe = footerImgData ? pageH - (footerHoeheMM + 4) : pageH;
+      const nutzbareHoeheMM = footerImgData ? Math.max(50, pageH - (footerHoeheMM + 4)) : pageH;
 
-      let heightLeft = imgH;
-      let position = 0;
-      pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
-      zeichneFooter();
-      heightLeft -= nutzbareHoehe;
-      while (heightLeft > 0) {
-        position -= nutzbareHoehe;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, pageW, imgH);
+      // Echtes Zuschneiden statt bloßes Verschieben des Gesamtbilds: pxProMM ist der
+      // Skalierungsfaktor des html2canvas-Bilds (Breite canvas.width entspricht exakt
+      // pageW mm). Jede Seite bekommt einen eigenen, nicht überlappenden Bildausschnitt
+      // von genau nutzbareHoeheMM Höhe – vorher wurde stattdessen dasselbe Gesamtbild nur
+      // um nutzbareHoeheMM verschoben und jedes Mal komplett auf eine volle pageH-Seite
+      // gezeichnet, wodurch sich aufeinanderfolgende Seiten um die freigehaltene
+      // Fußzeilenhöhe überlappten (derselbe Inhalt erschien doppelt).
+      const sliceHoehePx = Math.max(1, Math.round(nutzbareHoeheMM * pxProMM));
+
+      // Verschiebt eine gewünschte Schnittstelle nach vorne (auf den Anfang der
+      // betroffenen Zeile), falls sie eine Zeile mittendrin durchtrennen würde.
+      function schnittOhneZeilenbruch(startY: number, wunschEndY: number): number {
+        if (wunschEndY >= canvas.height) return wunschEndY;
+        let minTop = wunschEndY;
+        for (const z of zeilenBereichePx) {
+          if (z.top < wunschEndY && z.bottom > wunschEndY && z.top < minTop) {
+            minTop = z.top;
+          }
+        }
+        // Sicherheitsnetz: keine Endlosschleife/leere Seite, falls eine einzelne Zeile
+        // höher als eine ganze Seite ist – dann lieber durchschneiden als hängen bleiben.
+        return minTop > startY ? minTop : wunschEndY;
+      }
+
+      let quellY = 0;
+      let ersteSeite = true;
+      while (quellY < canvas.height) {
+        const schnittY = schnittOhneZeilenbruch(quellY, Math.min(quellY + sliceHoehePx, canvas.height));
+        const aktuelleHoehePx = schnittY - quellY;
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = aktuelleHoehePx;
+        const ctx = sliceCanvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, quellY, canvas.width, aktuelleHoehePx, 0, 0, canvas.width, aktuelleHoehePx);
+        }
+        const sliceImgData = sliceCanvas.toDataURL("image/png");
+        const sliceHoeheMM = aktuelleHoehePx / pxProMM;
+
+        if (!ersteSeite) pdf.addPage();
+        pdf.addImage(sliceImgData, "PNG", 0, 0, pageW, sliceHoeheMM);
         zeichneFooter();
-        heightLeft -= nutzbareHoehe;
+
+        quellY = schnittY;
+        ersteSeite = false;
       }
       pdf.save(`Rechnung_${(lieferung?.rechnungNr ?? `LS-${id}`).replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`);
     } catch (err) {
