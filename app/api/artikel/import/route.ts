@@ -120,19 +120,34 @@ export async function POST(req: NextRequest) {
             await tx.artikel.update({ where: { id: vorhandener.id }, data: updateData });
           }
           if (lieferantId) {
-            await tx.artikelLieferant.upsert({
+            // Kein upsert() mit unbedingtem `update: { einkaufspreis }`: fehlt der EK in
+            // dieser Zeile (z.B. eine reine VK-Preisliste ohne EK-Spalte), würde ein
+            // bereits hinterlegter Einkaufspreis sonst auf 0 zurückgesetzt — spiegelbildlich
+            // zum VK-Schutz oben wird ein bestehender Link nur bei einkaufspreis > 0
+            // aktualisiert, bleibt sonst unangetastet.
+            const bestehenderLink = await tx.artikelLieferant.findUnique({
               where: { artikelId_lieferantId: { artikelId: vorhandener.id, lieferantId } },
-              update: { einkaufspreis: einkaufspreis ?? 0 },
-              create: {
-                artikelId: vorhandener.id,
-                lieferantId,
-                lieferantenArtNr: artikelnummer ?? null,
-                einkaufspreis: einkaufspreis ?? 0,
-                mindestbestellmenge,
-                lieferzeitTage: 7,
-                bevorzugt: true,
-              },
             });
+            if (bestehenderLink) {
+              if (einkaufspreis > 0) {
+                await tx.artikelLieferant.update({
+                  where: { id: bestehenderLink.id },
+                  data: { einkaufspreis },
+                });
+              }
+            } else {
+              await tx.artikelLieferant.create({
+                data: {
+                  artikelId: vorhandener.id,
+                  lieferantId,
+                  lieferantenArtNr: artikelnummer ?? null,
+                  einkaufspreis: einkaufspreis ?? 0,
+                  mindestbestellmenge,
+                  lieferzeitTage: 7,
+                  bevorzugt: true,
+                },
+              });
+            }
             lieferantenGesetzt++;
           }
           aktualisiert++;
