@@ -503,10 +503,9 @@ export default function RechnungPrintPage() {
   // für colSpan der Betrags-/Notiz-/Zahlungsinfo-Zeilen unterhalb der Positionstabelle.
   const anzahlSpalten = 6 + (hatCharge ? 1 : 0) + (hatRabatt ? 1 : 0);
 
-  // Feste Spaltenbreiten (Summe immer exakt 100%) für die <colgroup> der Positionstabelle.
-  // table-layout: fixed + diese Breiten verhindern, dass nicht umbrechbarer Inhalt in den
-  // einspaltigen Kopf-/Fußzeilen (Adressblock, DokumentFooter) die Tabelle über die
-  // Positions-Spalten hinaus aufbläht und rechts aus dem Seitenrand herausläuft.
+  // Feste Spaltenbreiten (Summe immer exakt 100%), direkt als width-Hinweis auf den
+  // <th>-Zellen der Positionstabelle (nicht via <colgroup> + table-layout: fixed — siehe
+  // Kommentar an der Tabelle weiter unten, warum das auf iOS/WebKit unzuverlässig war).
   const SPALTE_POS = 6;
   const SPALTE_CHARGE = 14;
   const SPALTE_MENGE = 9;
@@ -773,23 +772,12 @@ export default function RechnungPrintPage() {
           position: "relative",
         }}
       >
-      {/* table-layout: fixed + explizite <colgroup>-Breiten: verhindert, dass nicht
-          umbrechbarer Inhalt in den einspaltigen Kopf-/Fußzeilen (Adressblock,
-          DokumentFooter) die Tabelle über die 8 schmalen Positions-Spalten hinaus
-          aufbläht und dadurch rechts aus dem Seitenrand herausläuft. Ohne fixed
-          layout bestimmt der Browser die Spaltenbreiten aus dem breitesten Inhalt
-          über ALLE Zeilen hinweg (inkl. der colSpan-Zeilen). */}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-      <colgroup>
-        <col style={{ width: `${SPALTE_POS}%` }} />
-        <col style={{ width: `${spalteArtikel}%` }} />
-        {hatCharge && <col style={{ width: `${SPALTE_CHARGE}%` }} />}
-        <col style={{ width: `${SPALTE_MENGE}%` }} />
-        <col style={{ width: `${SPALTE_EINHEIT}%` }} />
-        <col style={{ width: `${SPALTE_EINZELPREIS}%` }} />
-        {hatRabatt && <col style={{ width: `${SPALTE_RABATT}%` }} />}
-        <col style={{ width: `${SPALTE_GESAMT}%` }} />
-      </colgroup>
+      {/* table-layout: auto (bewusst KEIN "fixed" + <colgroup>): diese Kombination hat
+          sich beim Drucken/PDF-Export auf iOS/WebKit als unzuverlässig erwiesen — bis
+          hin zu kollabierenden Spalten in Kopf- und Datenzeilen. Breiten-Hinweise
+          stattdessen direkt an den <th>-Zellen der Kopfzeile (siehe unten); das ist die
+          am längsten browserübergreifend unterstützte Variante für Spaltenbreiten. */}
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
       <tr>
       <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
@@ -1005,14 +993,14 @@ export default function RechnungPrintPage() {
           äußeren Zeile wird als ein Block behandelt — der Browser bricht dann mitten in
           einer Positionszeile um, statt ganze Zeilen auf die nächste Seite zu schieben. */}
       <tr className="no-break" style={{ borderBottom: "2px solid #333", backgroundColor: "#f5f5f5" }}>
-        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
-        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
-        {hatCharge && <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
-        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
-        <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
-        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-        {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
-        <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
+        <th style={{ width: `${SPALTE_POS}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Pos.</th>
+        <th style={{ width: `${spalteArtikel}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
+        {hatCharge && <th style={{ width: `${SPALTE_CHARGE}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Charge</th>}
+        <th style={{ width: `${SPALTE_MENGE}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
+        <th style={{ width: `${SPALTE_EINHEIT}%`, textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
+        <th style={{ width: `${SPALTE_EINZELPREIS}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
+        {hatRabatt && <th style={{ width: `${SPALTE_RABATT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt %</th>}
+        <th style={{ width: `${SPALTE_GESAMT}%`, textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
       </tr>
       {positionenMitNetto.map((p, idx) => (
         <tr
@@ -1122,55 +1110,59 @@ export default function RechnungPrintPage() {
         </tr>
       )}
 
-      {/* Zahlungsinfo — eigene Zeile, wandert beim Druck als Ganzes auf die nächste Seite */}
+      {/* Zahlungsinfo — eigene Zeile, wandert beim Druck als Ganzes auf die nächste Seite.
+          Bewusst eine <table> statt Flexbox für Text/QR-Code nebeneinander (siehe
+          Begründung bei DokumentFooter/der äußeren Tabelle: verschachtelte moderne
+          Layout-Module in einer <td> sind beim Druck auf iOS/WebKit unzuverlässig). */}
       <tr className="no-break">
         <td colSpan={anzahlSpalten} style={{ padding: 0, border: "none" }}>
-          <div
+          <table
             style={{
+              width: "100%",
+              borderCollapse: "collapse",
               backgroundColor: "#f9f9f9",
               border: "1px solid #ddd",
               borderRadius: "4px",
-              padding: "12px 16px",
               marginBottom: "32px",
               fontSize: "10pt",
-              display: "flex",
-              gap: "16px",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
             }}
           >
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
-              <div style={{ marginBottom: "4px" }}>
-                Bitte überweisen Sie den Betrag von{" "}
-                <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
-                <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
-                Rechnungsnummer <strong>{rechnungNr}</strong>.
-              </div>
-              {(firmaIban || firmaBic || firmaBankname) && (
-                <div style={{ marginTop: "8px", color: "#333" }}>
-                  {firmaBankname && <div>Bank: {firmaBankname}</div>}
-                  <div style={{ marginTop: "4px" }}>
-                    {firmaIban && <span>IBAN: {firmaIban}</span>}
-                    {firmaBic && <span style={{ marginLeft: "16px" }}>BIC: {firmaBic}</span>}
+            <tbody>
+              <tr>
+                <td style={{ padding: "12px 16px", verticalAlign: "top" }}>
+                  <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
+                  <div style={{ marginBottom: "4px" }}>
+                    Bitte überweisen Sie den Betrag von{" "}
+                    <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
+                    <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
+                    Rechnungsnummer <strong>{rechnungNr}</strong>.
                   </div>
-                </div>
-              )}
-            </div>
-            {giroCode && (
-              <div style={{ textAlign: "center", flexShrink: 0 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={giroCode}
-                  alt="GiroCode – per Banking-App scannen"
-                  style={{ width: "110px", height: "110px", display: "block" }}
-                />
-                <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
-                  Scan &amp; Pay
-                </div>
-              </div>
-            )}
-          </div>
+                  {(firmaIban || firmaBic || firmaBankname) && (
+                    <div style={{ marginTop: "8px", color: "#333" }}>
+                      {firmaBankname && <div>Bank: {firmaBankname}</div>}
+                      <div style={{ marginTop: "4px" }}>
+                        {firmaIban && <span>IBAN: {firmaIban}</span>}
+                        {firmaBic && <span style={{ marginLeft: "16px" }}>BIC: {firmaBic}</span>}
+                      </div>
+                    </div>
+                  )}
+                </td>
+                {giroCode && (
+                  <td style={{ width: "130px", padding: "12px 16px 12px 0", textAlign: "center", verticalAlign: "top" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={giroCode}
+                      alt="GiroCode – per Banking-App scannen"
+                      style={{ width: "110px", height: "110px", display: "block", margin: "0 auto" }}
+                    />
+                    <div style={{ fontSize: "8pt", color: "#666", marginTop: "2px" }}>
+                      Scan &amp; Pay
+                    </div>
+                  </td>
+                )}
+              </tr>
+            </tbody>
+          </table>
         </td>
       </tr>
       </tbody>

@@ -57,23 +57,34 @@ interface DokumentFooterProps {
 export default function DokumentFooter({ firmaData, footerConfig, marginTop = "auto" }: DokumentFooterProps) {
   const { links, mitte, rechts } = buildFooterColumns(firmaData, footerConfig);
 
+  // Bewusst eine <table> mit table-layout: auto + Breiten direkt auf den <td> (statt
+  // CSS Grid/Flexbox oder table-layout: fixed + <colgroup>): dieser Footer sitzt in
+  // allen Druckseiten (Rechnung/Angebot/Lieferschein/Auftragsbestätigung) selbst wieder
+  // in einer Tabellenzelle. Grid-/Flex-Container innerhalb einer <td>, deren eigene
+  // Breite erst während desselben Layout-Durchlaufs bestimmt wird, sowie
+  // table-layout: fixed in Kombination mit <colgroup> werden von manchen
+  // Druck-Renderern (u.a. WebKit/iOS) beim Paginieren nachweislich falsch berechnet —
+  // bis hin zu kollabierenden Spalten. Eine simple auto-layout-Tabelle mit
+  // Breiten-Attributen direkt an den Zellen ist die am längsten und verlässlichsten
+  // browserübergreifend unterstützte Variante.
   return (
     <>
       <hr style={{ borderTop: "1px solid #bbb", marginTop, marginBottom: "8px" }} />
-      <div
-        style={{
-          fontSize: "7.5pt",
-          color: "#666",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: "12px",
-          lineHeight: "1.6",
-        }}
-      >
-        <div style={{ whiteSpace: "pre-line" }}>{links}</div>
-        <div style={{ whiteSpace: "pre-line", textAlign: "center" }}>{mitte}</div>
-        <div style={{ whiteSpace: "pre-line", textAlign: "right" }}>{rechts}</div>
-      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "34%", fontSize: "7.5pt", color: "#666", lineHeight: "1.6", whiteSpace: "pre-line", verticalAlign: "top", padding: 0 }}>
+              {links}
+            </td>
+            <td style={{ width: "32%", fontSize: "7.5pt", color: "#666", lineHeight: "1.6", whiteSpace: "pre-line", textAlign: "center", verticalAlign: "top", padding: "0 6px" }}>
+              {mitte}
+            </td>
+            <td style={{ width: "34%", fontSize: "7.5pt", color: "#666", lineHeight: "1.6", whiteSpace: "pre-line", textAlign: "right", verticalAlign: "top", padding: 0 }}>
+              {rechts}
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </>
   );
 }
