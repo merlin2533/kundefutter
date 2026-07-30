@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
-import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
+import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 import { log } from "@/lib/logger";
 export const dynamic = "force-dynamic";
@@ -431,37 +431,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         return NextResponse.json({ error: "Status kann nicht geändert werden", currentStatus: lieferung.status }, { status: 400 });
       }
       const updated = await prisma.$transaction(async (tx) => {
-        const aktLieferung = await tx.lieferung.findUnique({
+        await markiereLieferungGeliefertFallsGeplant(tx, Number(id));
+        return tx.lieferung.findUniqueOrThrow({
           where: { id: Number(id) },
-          select: { istStreckengeschaeft: true, datum: true },
-        });
-        const positionen = await tx.lieferposition.findMany({ where: { lieferungId: Number(id) } });
-        const artikelIds = [...new Set(positionen.map((p) => p.artikelId))];
-        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
-
-        for (const pos of positionen) {
-          const artikel = artikelMap.get(pos.artikelId);
-          if (artikel && aktLieferung && istChargeNrPflichtFuerLieferschein(artikel.kategorie, aktLieferung.datum) && !pos.chargeNr) {
-            throw new Error(`Chargennummer ist bei Tierfutter-Positionen ab 2027 Pflicht (Artikel „${artikel.name}“)`);
-          }
-        }
-
-        if (!aktLieferung?.istStreckengeschaeft) {
-          for (const pos of positionen) {
-            const artikel = artikelMap.get(pos.artikelId);
-            if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
-            const neuerBestand = artikel.aktuellerBestand - pos.menge;
-            artikel.aktuellerBestand = neuerBestand;
-            await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
-            await tx.lagerbewegung.create({
-              data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId: Number(id) },
-            });
-          }
-        }
-        return tx.lieferung.update({
-          where: { id: Number(id) },
-          data: { status: "geliefert" },
           include: { kunde: { include: { kontakte: true } }, positionen: { include: { artikel: { select: artikelSafeSelect } } } },
         });
       });
@@ -500,6 +472,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     try {
       const lieferung = await prisma.$transaction(async (tx) => {
         await vergebeRechnungsnummerFuerLieferung(tx, Number(id));
+        // Eine Rechnung setzt voraus, dass geliefert wurde — Auftrag muss dafür nicht mehr
+        // separat manuell als "geliefert" markiert werden (bucht Lagerausgang mit).
+        await markiereLieferungGeliefertFallsGeplant(tx, Number(id));
         return tx.lieferung.findUniqueOrThrow({
           where: { id: Number(id) },
           include: {
