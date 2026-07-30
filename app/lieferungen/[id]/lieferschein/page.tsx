@@ -457,10 +457,12 @@ export default function LieferscheinPage() {
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
-          /* Kopf (thead) und Fuß (tfoot) der Dokumenttabelle wiederholen sich automatisch
-             auf jeder gedruckten Seite – Kernmechanismus für saubere Mehrseiten-Lieferscheine. */
+          /* Kopf (thead) wiederholt sich auf Folgeseiten in Chrome/Firefox (CSS2.1); in
+             WebKit (Safari/iOS) NICHT (bekannte Einschränkung, siehe Kommentar bei der
+             Fußzeile weiter unten) – dort erscheinen Firmenname/Logo nur auf Seite 1. Die
+             Fußzeile ist bewusst kein <tfoot> mehr (siehe dort), daher keine
+             table-footer-group-Regel nötig. */
           thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
           .falzmarke { display: block !important; position: fixed; left: 0; width: 10mm; height: 0; border-top: 0.3pt solid #aaa; }
           .falzmarke-1 { top: 105mm; }
           .falzmarke-2 { top: 210mm; }
@@ -931,15 +933,20 @@ export default function LieferscheinPage() {
         </div>
       </td>
       </tr>
-      </tbody>
-      <tfoot>
-      <tr>
+
+      {/* Fußzeile bewusst als normale letzte <tbody>-Zeile, NICHT als <tfoot>: die
+          Wiederholung von <tfoot> auf jeder gedruckten Seite ist in WebKit (Safari/iOS –
+          u.a. "Chrome" auf dem iPhone, das dort per Apple-Vorgabe ebenfalls WebKit nutzt)
+          seit Jahren nicht implementiert (WebKit-Bugs #34218, #17205); dort verschwand die
+          Fußzeile bisher ganz. Als normale Zeile erscheint sie dafür garantiert exakt
+          einmal, direkt nach dem letzten Inhalt – identisch in Chrome, Firefox und Safari. */}
+      <tr className="no-break">
       <td style={{ padding: 0, border: "none" }}>
         {/* Footer – 3 Spalten */}
         <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="64px" />
       </td>
       </tr>
-      </tfoot>
+      </tbody>
       </table>
       </div>
 
