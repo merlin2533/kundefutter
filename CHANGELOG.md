@@ -8,6 +8,14 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 ## [Unreleased]
 
 ### Behoben (GlitchTip-Sweep)
+- **Artikel-Umbenennung: Nextcloud-Ordner konnte dauerhaft nicht verschoben werden** (GlitchTip
+  AGRI-M/N/O, `PUT /api/artikel/[id]`) – der bestehende 3-fach-Retry in `verschiebeOrdner()`
+  (`lib/nextcloud.ts`) geht von einem nur kurzzeitig veralteten Nextcloud-Datei-Cache aus (Re-Scan
+  per PROPFIND auf den Elternordner liefert dabei normalerweise 207). In den drei gemeldeten Fällen
+  lieferte genau dieser Re-Scan-PROPFIND selbst 404 – das externe Storage-Mount war den gesamten
+  Retry-Zeitraum über kurzzeitig nicht erreichbar, nicht nur sein Cache. Wird das jetzt beobachtet,
+  legt `verschiebeOrdner()` den Elternordner defensiv/idempotent per `ensureOrdner()` neu an und
+  versucht die Verschiebung ein letztes Mal, statt sofort aufzugeben.
 - **Cron-Dispatcher scheiterte in jeder Standard-Installation dauerhaft mit 401** (GlitchTip
   AGRI-C) – `docker-compose.prod.yml` setzt kein `CRON_SECRET`, `isAuthorized()` in
   `app/api/cron/route.ts` lehnt aber ohne gesetztes Secret jeden Aufruf ab. Der eingebaute
