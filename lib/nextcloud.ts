@@ -226,9 +226,17 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
   const neuUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, neuRelPfad));
   // Elternordner (identisch für alten UND neuen Pfad, nur der letzte Namensteil
   // ändert sich) — wird bei Konflikten unten für einen erzwungenen Re-Scan genutzt.
-  const elternUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, altRelPfad).split("/").slice(0, -1).join("/"));
+  const elternRelPfad = altRelPfad.split("/").slice(0, -1).join("/");
+  const elternUrl = urlFuerAbsolutenPfad(cfg, absPfad(cfg, elternRelPfad));
 
   let res: Response | undefined;
+  // Beobachtet in Produktion (GlitchTip AGRI-M/N/O): der Re-Scan-PROPFIND auf den
+  // Elternordner liefert bei diesem Fehlerbild nicht wie sonst 207 (Cache war nur
+  // veraltet), sondern selbst 404 — das externe Storage-Mount war den gesamten
+  // Retry-Zeitraum über kurzzeitig nicht erreichbar, nicht nur sein Cache. Wird das
+  // beobachtet, versuchen wir unten den Elternordner defensiv neu anzulegen und die
+  // Verschiebung ein letztes Mal, statt sofort aufzugeben.
+  let elternKurzzeitigNichtErreichbar = false;
   for (let versuch = 1; versuch <= MAX_MOVE_KONFLIKT_VERSUCHE; versuch++) {
     res = await davFetch(altUrl, {
       method: "MOVE",
@@ -245,10 +253,14 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
     // Cache befragt) noch nicht sieht. Ein PROPFIND mit Depth 1 auf den Elternordner
     // stößt bei External Storage einen Re-Scan des Verzeichnisses an; kurz danach
     // erneut versuchen, bevor wir von einem echten, dauerhaften Konflikt ausgehen.
-    await davFetch(elternUrl, {
+    const elternRescan = await davFetch(elternUrl, {
       method: "PROPFIND",
       headers: { Authorization: authHeader(cfg), Depth: "1", "Content-Type": "application/xml" },
-    }).catch((e) => Sentry.captureException(e));
+    }).catch((e) => {
+      Sentry.captureException(e);
+      return null;
+    });
+    if (elternRescan?.status === 404) elternKurzzeitigNichtErreichbar = true;
     await new Promise((resolve) => setTimeout(resolve, versuch * 400));
   }
   // 412 (RFC-konform) bzw. 409 (in freier Wildbahn beobachtet, z.B. bei diesem
@@ -270,6 +282,22 @@ export async function verschiebeOrdner(altRelPfad: string, neuRelPfad: string): 
       return false;
     });
   if (zielExistiertBereits) return;
+
+  if (elternKurzzeitigNichtErreichbar) {
+    // Elternordner während der Retries mind. einmal per PROPFIND nicht auffindbar
+    // (siehe Kommentar oben) — statt endgültig aufzugeben, den Ordner defensiv
+    // (idempotent, MKCOL behandelt "existiert bereits" bereits als Erfolg) neu
+    // anlegen und die Verschiebung ein letztes Mal versuchen.
+    await ensureOrdner(elternRelPfad).catch((e) => Sentry.captureException(e));
+    const letzterVersuch = await davFetch(altUrl, {
+      method: "MOVE",
+      headers: { Authorization: authHeader(cfg), Destination: neuUrl, Overwrite: "F" },
+    });
+    if (letzterVersuch.status === 404) return; // Quellordner mittlerweile ebenfalls weg
+    if (letzterVersuch.status === 201 || letzterVersuch.status === 204) return;
+    res = letzterVersuch;
+  }
+
   // Wird vom Aufrufer selbst gemeldet — kein Doppel-Reporting.
   throw new Error(`Nextcloud: Ordner konnte nicht verschoben werden (${res!.status})`);
 }
