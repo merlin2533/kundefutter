@@ -268,3 +268,58 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
 
   await tx.lieferung.update({ where: { id: lieferungId }, data: { status: "geliefert" } });
 }
+
+const ALTE_FORDERUNG_ARTIKELNUMMER = "ALTE-FORDERUNG";
+
+/**
+ * Trägt alle offenen KundeForderung-Einträge (Restdifferenz aus einer Unterzahlung,
+ * z.B. aus dem Bankabgleich) des Kunden als zusätzliche Positionen in eine Rechnung ein
+ * und markiert sie als erledigt. Wird beim Erstellen einer Rechnung aufgerufen
+ * (aktion=rechnung_erstellen), damit eine noch offene Differenz automatisch auf der
+ * nächsten Rechnung dieses Kunden erscheint, statt manuell nachgetragen werden zu müssen.
+ *
+ * mwstSatz 0 %, weil eine Forderung aus einer bereits (auf der Ursprungsrechnung)
+ * versteuerten Lieferung stammt — sie hier erneut zu besteuern wäre eine Doppelbesteuerung,
+ * es handelt sich um den Ausgleich einer bestehenden Schuld, keinen neuen Umsatz.
+ */
+export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kundeId: number): Promise<void> {
+  const offeneForderungen = await tx.kundeForderung.findMany({
+    where: { kundeId, erledigt: false },
+    orderBy: { createdAt: "asc" },
+  });
+  if (offeneForderungen.length === 0) return;
+
+  let forderungArtikel = await tx.artikel.findUnique({
+    where: { artikelnummer: ALTE_FORDERUNG_ARTIKELNUMMER },
+  });
+  if (!forderungArtikel) {
+    forderungArtikel = await tx.artikel.create({
+      data: {
+        artikelnummer: ALTE_FORDERUNG_ARTIKELNUMMER,
+        name: "Alte Forderung",
+        kategorie: "Sonstiges",
+        einheit: "Pauschale",
+        standardpreis: 0,
+        mwstSatz: 0,
+        lagerTracking: false,
+      },
+    });
+  }
+
+  for (const forderung of offeneForderungen) {
+    await tx.lieferposition.create({
+      data: {
+        lieferungId,
+        artikelId: forderungArtikel.id,
+        menge: 1,
+        verkaufspreis: forderung.betrag,
+        einkaufspreis: 0,
+        notiz: forderung.grund,
+      },
+    });
+    await tx.kundeForderung.update({
+      where: { id: forderung.id },
+      data: { erledigt: true, erledigtBeiLieferungId: lieferungId },
+    });
+  }
+}

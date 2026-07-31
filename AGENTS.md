@@ -152,6 +152,7 @@ ChargenZertifikat   — Zertifikate je Charge (chargeNr, typ, datei)
 Benachrichtigung    — System-Alerts (typ, text, gelesen, faelligAm)
 KundePortalZugang   — Login-Daten fürs Kunden-Portal (username, passwortHash)
 Teilzahlung         — Teilzahlungen zu Lieferungen (betrag, datum, notiz)
+KundeForderung      — Alte Forderung eines Kunden (Restdifferenz z.B. aus Unterzahlung im Bankabgleich); auf Kunde statt Lieferung verankert, damit sie über die Ursprungslieferung hinaus bestehen bleibt; wird automatisch als Position ("Alte Forderung", Artikelnr. ALTE-FORDERUNG, mwstSatz 0) in die nächste Rechnung dieses Kunden übernommen und dabei als erledigt markiert (injiziereAlteForderungen() in lib/lieferung.ts, aufgerufen bei rechnung_erstellen)
 Umsatzziel          — Umsatzziele (monat/jahr, ziel, ist-Vergleich)
 MqttRegel           — MQTT-Automatisierungsregeln (topic, bedingung, aktion, ki-Verarbeitung)
 PegelstandCache     — Pegelstand-Daten (station, wert, einheit, zeitpunkt)
@@ -202,7 +203,7 @@ app/
 │   ├── karte/page.tsx          Karte (Geocoding, Cluster)
 │   └── [id]/page.tsx           Kundendetail
 │       DIREKT_TABS: Stammdaten | Lieferhistorie | CRM | Angebote | Aufgaben
-│       GRUPPEN-TABS: Vertrieb (Bedarfe, Sonderpreise, Statistik, Vorgangskette, Reklamationen)
+│       GRUPPEN-TABS: Vertrieb (Bedarfe, Sonderpreise, Statistik, Vorgangskette, Reklamationen, Forderungen)
 │                     Agrar (Schlagkartei, Düngebedarf, Albrecht, Tiere, Agrarantrag)
 │                     Mehr (Zertifizierungen, Sachkundenachweise, Dokumente, Erklärungen)
 │       Tiere-Tab: Tierbestand erfassen + "Ration berechnen" → /rationsberechnung
@@ -459,6 +460,7 @@ app/
 /api/kunden/[id]/notizen        GET, POST, DELETE?notizId= (thema: Wichtig/Info/Wettbewerber/…)
 /api/kunden/[id]/preise         GET, POST, DELETE (Sonderpreise, ehemals /sonderpreise)
 /api/kunden/[id]/bedarfe        GET, POST, DELETE
+/api/kunden/[id]/forderungen    GET(?offen=true), POST(betrag,grund,quelleLieferungId?), DELETE?forderungId= (nur solange nicht erledigt)
 /api/kunden/[id]/schlaegte      GET, POST, DELETE?schlagId=
 /api/kunden/aktivitaeten        GET(?kundeId,?typ,?faelligVon,?faelligBis,?offene), POST
 /api/kunden/adress-validierung  GET(stats), POST(batch)

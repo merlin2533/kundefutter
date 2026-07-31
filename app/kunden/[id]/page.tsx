@@ -14,6 +14,7 @@ const tabLoading = () => <p className="text-sm text-gray-400">Lade…</p>;
 const StammdatenTab = nextDynamic(() => import("./tabs/StammdatenTab"), { loading: tabLoading });
 const BedarfeTab = nextDynamic(() => import("./tabs/BedarfeTab"), { loading: tabLoading });
 const SonderpreiseTab = nextDynamic(() => import("./tabs/SonderpreiseTab"), { loading: tabLoading });
+const ForderungenTab = nextDynamic(() => import("./tabs/ForderungenTab"), { loading: tabLoading });
 const StatistikTab = nextDynamic(() => import("./tabs/StatistikTab"), { loading: tabLoading });
 const LieferhistorieTab = nextDynamic(() => import("./tabs/LieferhistorieTab"), { loading: tabLoading });
 const CrmTab = nextDynamic(() => import("./tabs/CrmTab"), { loading: tabLoading });
@@ -40,6 +41,7 @@ const TAB_ICONS: Record<Tab, string> = {
   Sonderpreise:   "💰",
   Statistik:      "📈",
   Reklamationen:  "⚠️",
+  Forderungen:    "🧾",
   Schlagkartei:   "🗺️",
   Düngebedarf:    "🌱",
   Albrecht:       "🔬",
@@ -472,6 +474,7 @@ export default function KundeDetailPage() {
         {activeTab === "Stammdaten" && <StammdatenTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Bedarfe" && <BedarfeTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "Sonderpreise" && <SonderpreiseTab kunde={kunde} onRefresh={fetchKunde} />}
+        {activeTab === "Forderungen" && <ForderungenTab kundeId={kunde.id} />}
         {activeTab === "Statistik" && <StatistikTab kunde={kunde} />}
         {activeTab === "Lieferhistorie" && <LieferhistorieTab kunde={kunde} onRefresh={fetchKunde} />}
         {activeTab === "CRM" && <CrmTab kundeId={kunde.id} autoOpen={crmAutoOpen} />}

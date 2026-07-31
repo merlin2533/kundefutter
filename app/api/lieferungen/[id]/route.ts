@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
-import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
+import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein, injiziereAlteForderungen } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 import { log } from "@/lib/logger";
 export const dynamic = "force-dynamic";
@@ -471,6 +471,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (aktion === "rechnung_erstellen") {
     try {
       const lieferung = await prisma.$transaction(async (tx) => {
+        const bestehende = await tx.lieferung.findUniqueOrThrow({ where: { id: Number(id) }, select: { kundeId: true } });
+        // Noch offene "alte Forderungen" (Restdifferenz aus Unterzahlung) dieses Kunden
+        // automatisch als Position mit aufnehmen, bevor die Rechnung nummeriert wird.
+        await injiziereAlteForderungen(tx, Number(id), bestehende.kundeId);
         await vergebeRechnungsnummerFuerLieferung(tx, Number(id));
         // Eine Rechnung setzt voraus, dass geliefert wurde — Auftrag muss dafür nicht mehr
         // separat manuell als "geliefert" markiert werden (bucht Lagerausgang mit).
