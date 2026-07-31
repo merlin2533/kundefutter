@@ -30,7 +30,8 @@ export function lagerStatus(
 
 // Kategorien, für die kein Lagerbestand geführt wird (Dienstleistungen)
 // Wird durch Einstellung "system.lager_no_tracking_kategorien" ergänzt.
-export const NICHT_LAGER_KATEGORIEN = ["Beratung", "Analysen"];
+// "Sonstiges" u.a. für die synthetische "Alte Forderung"-Position (lib/lieferung.ts).
+export const NICHT_LAGER_KATEGORIEN = ["Beratung", "Analysen", "Sonstiges"];
 
 /**
  * Prüft ob ein Artikel lagerrelevant ist.
