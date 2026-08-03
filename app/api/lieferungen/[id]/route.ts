@@ -14,6 +14,27 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
+// Fire-and-forget: Rechnungs-PDF generieren und in Nextcloud hochladen — genutzt von
+// rechnung_erstellen UND teilrechnung_erstellen (identische Nacharbeit, nur andere
+// lieferungId).
+function pdfNachNextcloudHochladen(lieferung: { id: number; kundeId: number; rechnungNr: string | null; kunde: { name: string } }) {
+  isNextcloudKonfiguriert()
+    .then(async (ok) => {
+      if (!ok) return;
+      const pdfBuffer = await generiereRechnungPdf(lieferung.id);
+      const fileName = `Rechnung-${lieferung.rechnungNr?.replace(/\//g, "-")}.pdf`;
+      await uploadPdfToKundeOrdner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen", fileName, pdfBuffer);
+      log.info("[nextcloud] Rechnung hochgeladen", {
+        rechnungNr: lieferung.rechnungNr,
+        kunde: lieferung.kunde.name,
+      });
+    })
+    .catch((e: unknown) => {
+      Sentry.captureException(e);
+      console.warn("[nextcloud] Rechnungs-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
+    });
+}
+
 export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   try {
@@ -487,24 +508,93 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           },
         });
       });
-      // Fire-and-forget: Rechnungs-PDF generieren und in Nextcloud hochladen
-      isNextcloudKonfiguriert()
-        .then(async (ok) => {
-          if (!ok) return;
-          const pdfBuffer = await generiereRechnungPdf(Number(id));
-          const fileName = `Rechnung-${lieferung.rechnungNr?.replace(/\//g, "-")}.pdf`;
-          await uploadPdfToKundeOrdner(lieferung.kundeId, lieferung.kunde.name, "Rechnungen", fileName, pdfBuffer);
-          log.info("[nextcloud] Rechnung hochgeladen", {
-            rechnungNr: lieferung.rechnungNr,
-            kunde: lieferung.kunde.name,
-          });
-        })
-        .catch((e: unknown) => {
-          Sentry.captureException(e);
-          console.warn("[nextcloud] Rechnungs-Upload fehlgeschlagen:", e instanceof Error ? e.message : e);
-        });
+      pdfNachNextcloudHochladen(lieferung);
 
       return NextResponse.json(lieferung);
+    } catch (err) {
+      Sentry.captureException(err);
+      console.error("Lieferung aktion error:", err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // Teilrechnung: nur ausgewählte Positionen in Rechnung stellen, der Rest bleibt in
+  // dieser (weiterhin offenen, unnummerierten) Lieferung. Die ausgewählten Positionen
+  // wandern dafür in eine neu angelegte Lieferung, die die Rechnungsnummer bekommt —
+  // Lieferung/Lieferposition kennt keine "teilweise abgerechnet"-Markierung auf
+  // Positionsebene, eine eigene Lieferung ist der einzige Weg, eine Teilmenge separat zu
+  // fakturieren.
+  if (aktion === "teilrechnung_erstellen") {
+    const positionIds: unknown = body.positionIds;
+    if (!Array.isArray(positionIds) || positionIds.length === 0 || !positionIds.every((p) => typeof p === "number")) {
+      return NextResponse.json({ error: "positionIds (nicht-leeres Array) ist erforderlich" }, { status: 400 });
+    }
+    try {
+      const neueLieferung = await prisma.$transaction(async (tx) => {
+        const original = await tx.lieferung.findUniqueOrThrow({
+          where: { id: Number(id) },
+          include: { positionen: true },
+        });
+        if (original.status === "storniert") {
+          throw new Error("Stornierte Lieferung kann nicht abgerechnet werden");
+        }
+        if (original.rechnungNr) {
+          throw new Error("Lieferung hat bereits eine Rechnungsnummer");
+        }
+        const auswahl = new Set(positionIds as number[]);
+        const vorhandeneIds = new Set(original.positionen.map((p) => p.id));
+        if (![...auswahl].every((pid) => vorhandeneIds.has(pid))) {
+          throw new Error("Mindestens eine ausgewählte Position gehört nicht zu dieser Lieferung");
+        }
+        if (auswahl.size >= original.positionen.length) {
+          throw new Error("Bei Auswahl aller Positionen bitte aktion=rechnung_erstellen verwenden");
+        }
+
+        // Neue Lieferung als Träger der ausgewählten Positionen anlegen — übernimmt Status
+        // 1:1 vom Original: war das Original bereits "geliefert" (Lagerausgang für ALLE
+        // Positionen inkl. der jetzt verschobenen bereits gebucht), darf hier NICHT erneut
+        // über markiereLieferungGeliefertFallsGeplant gebucht werden (Doppelbuchung).
+        const neue = await tx.lieferung.create({
+          data: {
+            kundeId: original.kundeId,
+            datum: original.datum,
+            lieferDatum: original.lieferDatum,
+            status: original.status,
+            zahlungsziel: original.zahlungsziel,
+            istStreckengeschaeft: original.istStreckengeschaeft,
+            streckenLieferantId: original.streckenLieferantId,
+            notiz: original.notiz,
+          },
+        });
+
+        const verschoben = await tx.lieferposition.updateMany({
+          where: { id: { in: [...auswahl] }, lieferungId: original.id },
+          data: { lieferungId: neue.id },
+        });
+        if (verschoben.count !== auswahl.size) {
+          throw new Error("Positionen konnten nicht vollständig verschoben werden");
+        }
+
+        await injiziereAlteForderungen(tx, neue.id, original.kundeId);
+        await vergebeRechnungsnummerFuerLieferung(tx, neue.id);
+        if (original.status === "geplant") {
+          await markiereLieferungGeliefertFallsGeplant(tx, neue.id);
+        }
+
+        return tx.lieferung.findUniqueOrThrow({
+          where: { id: neue.id },
+          include: {
+            kunde: { include: { kontakte: true } },
+            positionen: { include: { artikel: { select: artikelSafeSelect } } },
+          },
+        });
+      });
+
+      pdfNachNextcloudHochladen(neueLieferung);
+
+      return NextResponse.json(neueLieferung);
     } catch (err) {
       Sentry.captureException(err);
       console.error("Lieferung aktion error:", err);

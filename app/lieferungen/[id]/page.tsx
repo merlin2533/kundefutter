@@ -182,6 +182,18 @@ export default function LieferungDetailPage() {
   const [chargeEditValue, setChargeEditValue] = useState<string>("");
   const [chargeSavingId, setChargeSavingId] = useState<number | null>(null);
 
+  // Teilrechnung: welche Positionen von der nächsten Rechnung AUSGESCHLOSSEN werden sollen.
+  // Inverse Menge statt "ausgewählt" — neu hinzugefügte Positionen sind dadurch automatisch
+  // mit ausgewählt, ohne dass ein Reload die Auswahl des Nutzers zurücksetzen müsste.
+  const [deselectedPosIds, setDeselectedPosIds] = useState<Set<number>>(new Set());
+  function togglePosAuswahl(posId: number) {
+    setDeselectedPosIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(posId)) next.delete(posId); else next.add(posId);
+      return next;
+    });
+  }
+
   // E-Mail-Versand
   const [emailModalOffen, setEmailModalOffen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
@@ -607,7 +619,13 @@ export default function LieferungDetailPage() {
   }
 
   async function rechnungErstellen() {
-    const missingCharge = lieferung?.positionen.find((p) => {
+    if (!lieferung) return;
+    const ausgewaehltePositionen = lieferung.positionen.filter((p) => !deselectedPosIds.has(p.id));
+    if (ausgewaehltePositionen.length === 0) {
+      setError("Bitte mindestens eine Position für die Rechnung auswählen.");
+      return;
+    }
+    const missingCharge = ausgewaehltePositionen.find((p) => {
       const art = artikelListe.find((a) => a.id === p.artikel.id);
       return art?.chargePflicht && !p.chargeNr?.trim();
     });
@@ -616,15 +634,29 @@ export default function LieferungDetailPage() {
       setError(`Chargennummer für „${art?.name ?? missingCharge.artikel.name}" ist Pflichtfeld.`);
       return;
     }
+    // Alle Positionen ausgewählt → normale Rechnung über die gesamte Lieferung. Nur ein
+    // Teil ausgewählt → Teilrechnung: die ausgewählten Positionen wandern serverseitig in
+    // eine neue Lieferung, die die Rechnungsnummer bekommt; die abgewählten bleiben in
+    // dieser (weiterhin offenen) Lieferung zurück.
+    const istTeilrechnung = ausgewaehltePositionen.length < lieferung.positionen.length;
     setActionLoading(true);
     setError("");
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aktion: "rechnung_erstellen" }),
+        body: JSON.stringify(
+          istTeilrechnung
+            ? { aktion: "teilrechnung_erstellen", positionIds: ausgewaehltePositionen.map((p) => p.id) }
+            : { aktion: "rechnung_erstellen" },
+        ),
       });
       if (!res.ok) throw new Error("Fehler beim Erstellen der Rechnung");
+      if (istTeilrechnung) {
+        const neueLieferung = await res.json();
+        router.push(`/lieferungen/${neueLieferung.id}/rechnung`);
+        return;
+      }
       await load();
     } catch (err) {
       Sentry.captureException(err);
@@ -818,6 +850,10 @@ export default function LieferungDetailPage() {
 
   const preisAktualisierungen = ermittlePreisAktualisierungen(lieferung);
   const preisUpdateMap = new Map(preisAktualisierungen.map((u) => [u.posId, u]));
+
+  const ausgewaehlteAnzahl = lieferung.positionen.length - deselectedPosIds.size;
+  const istTeilauswahl = ausgewaehlteAnzahl > 0 && ausgewaehlteAnzahl < lieferung.positionen.length;
+  const rechnungLabel = istTeilauswahl ? `Teilrechnung erstellen (${ausgewaehlteAnzahl})` : "Rechnung erstellen";
 
   const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
   const gesamtEinkauf = lieferung.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
@@ -1366,7 +1402,7 @@ export default function LieferungDetailPage() {
                     onClick={rechnungErstellen}
                     disabled={actionLoading}
                     className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60"
-                    title="Rechnung erstellen"
+                    title={rechnungLabel}
                   >
                     {actionLoading ? <span className="w-5 h-5 flex items-center justify-center text-xs">…</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
                   </button>
@@ -1430,7 +1466,7 @@ export default function LieferungDetailPage() {
               disabled={actionLoading}
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium transition-colors disabled:opacity-60"
             >
-              Rechnung erstellen
+              {rechnungLabel}
             </button>
             <button
               onClick={() => setShowRechnungNachGeliefert(false)}
@@ -1490,7 +1526,7 @@ export default function LieferungDetailPage() {
               : lieferung.status === "geliefert" ? rechnungErstellen : undefined,
             title: lieferung.rechnungNr
               ? "Rechnung öffnen"
-              : lieferung.status === "geliefert" ? "Rechnung erstellen" : undefined,
+              : lieferung.status === "geliefert" ? rechnungLabel : undefined,
           },
           {
             label: "Bezahlt",
@@ -1523,11 +1559,44 @@ export default function LieferungDetailPage() {
         );
       })()}
 
+      {/* Teilrechnung: Auswahlzeile — nur solange die Lieferung noch keine Rechnungsnummer
+          hat und mehr als eine Position existiert (sonst gibt es nichts abzuwählen). */}
+      {canEditPos() && lieferung.positionen.length > 1 && (() => {
+        const ausgewaehlt = lieferung.positionen.length - deselectedPosIds.size;
+        return (
+          <div className="flex flex-wrap items-center gap-2 mb-2 text-xs text-gray-600 print:hidden">
+            <span>
+              {ausgewaehlt} von {lieferung.positionen.length} Positionen für die nächste Rechnung ausgewählt
+              {ausgewaehlt < lieferung.positionen.length && " — der Rest bleibt in dieser offenen Lieferung"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDeselectedPosIds(new Set())}
+              className="text-green-700 hover:underline disabled:text-gray-300 disabled:no-underline"
+              disabled={deselectedPosIds.size === 0}
+            >
+              Alle auswählen
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Positions table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto mb-6 print:hidden">
         <table className="w-full min-w-[700px] text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              {canEditPos() && lieferung.positionen.length > 1 && (
+                <th className="px-4 py-3 w-8">
+                  <input
+                    type="checkbox"
+                    checked={deselectedPosIds.size === 0}
+                    onChange={(e) => setDeselectedPosIds(e.target.checked ? new Set() : new Set(lieferung.positionen.map((p) => p.id)))}
+                    title="Alle für die Rechnung aus-/abwählen"
+                    className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                </th>
+              )}
               {["Artikel", "Charge", "Menge", "Einheit", "VK", "Rabatt", ...(canSeeEk ? ["EK"] : []), ...(canSeeMarge ? ["Marge €", "Marge %"] : []), "Notiz / Auftragsnr."].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                   {h}
@@ -1545,6 +1614,16 @@ export default function LieferungDetailPage() {
                   : 0;
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                  {canEditPos() && lieferung.positionen.length > 1 && (
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={!deselectedPosIds.has(pos.id)}
+                        onChange={() => togglePosAuswahl(pos.id)}
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-3 font-medium">
                     {pos.artikel.name}
                     <Link
@@ -1742,7 +1821,7 @@ export default function LieferungDetailPage() {
           </tbody>
           <tfoot className="bg-gray-50 border-t-2 border-gray-200">
             <tr>
-              <td colSpan={5} className="px-4 py-3 font-semibold text-gray-700">Gesamt</td>
+              <td colSpan={canEditPos() && lieferung.positionen.length > 1 ? 6 : 5} className="px-4 py-3 font-semibold text-gray-700">Gesamt</td>
               <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtUmsatz)}</td>
               {canSeeEk && <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtEinkauf)}</td>}
               {canSeeMarge && <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtMarge)}</td>}
