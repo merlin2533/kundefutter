@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseMahnwesenConfig } from "@/lib/mahnwesen-config";
+import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,12 @@ export async function GET() {
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
       include: {
         kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" }, select: { wert: true }, take: 1 } } },
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        positionen: {
+          select: {
+            menge: true, verkaufspreis: true, rabattProzent: true,
+            artikel: { select: { mwstSatz: true } },
+          },
+        },
       },
       orderBy: { datum: "asc" },
       take: 500,
@@ -44,7 +50,7 @@ export async function GET() {
       if (tageUeberfaellig < cfg.stufe1Tage) continue; // noch keine Mahnstufe fällig
       const stufe = mahnstufe(tageUeberfaellig);
 
-      const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      const betrag = berechneLieferungBrutto({ positionen: l.positionen });
 
       result.push({
         lieferung: { id: l.id, datum: l.datum, notiz: l.notiz },

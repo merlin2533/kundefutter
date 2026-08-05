@@ -3,6 +3,7 @@
 // Gemeinsame Typen, Konstanten und Helfer für die Kundendetailseite und ihre Tabs.
 
 import { useEffect, useState } from "react";
+import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,7 @@ export interface Artikel {
   artikelnummer: string;
   einheit: string;
   standardpreis: number;
+  mwstSatz?: number | null;
 }
 
 export interface KundeBedarf {
@@ -48,6 +50,7 @@ export interface Lieferposition {
   id: number;
   menge: number;
   verkaufspreis: number;
+  rabattProzent?: number;
   chargeNr?: string | null;
   artikel: Artikel;
 }
@@ -169,7 +172,14 @@ export function statusBadge(status: string) {
 }
 
 export function lieferungTotal(l: Lieferung) {
-  return l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+  return berechneLieferungBrutto({
+    positionen: l.positionen.map((p) => ({
+      menge: p.menge,
+      verkaufspreis: p.verkaufspreis,
+      rabattProzent: p.rabattProzent ?? 0,
+      artikel: { mwstSatz: p.artikel.mwstSatz ?? null },
+    })),
+  });
 }
 
 // ─── Shared components ───────────────────────────────────────────────────────
