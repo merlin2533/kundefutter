@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
-import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein, injiziereAlteForderungen } from "@/lib/lieferung";
+import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein, injiziereAlteForderungen, injiziereOffeneGutschriften } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 import { log } from "@/lib/logger";
 export const dynamic = "force-dynamic";
@@ -493,9 +493,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     try {
       const lieferung = await prisma.$transaction(async (tx) => {
         const bestehende = await tx.lieferung.findUniqueOrThrow({ where: { id: Number(id) }, select: { kundeId: true } });
-        // Noch offene "alte Forderungen" (Restdifferenz aus Unterzahlung) dieses Kunden
-        // automatisch als Position mit aufnehmen, bevor die Rechnung nummeriert wird.
+        // Noch offene "alte Forderungen" (Restdifferenz aus Unterzahlung) und offene
+        // Gutschriften (z.B. Überzahlung) dieses Kunden automatisch als Position mit
+        // aufnehmen, bevor die Rechnung nummeriert wird.
         await injiziereAlteForderungen(tx, Number(id), bestehende.kundeId);
+        await injiziereOffeneGutschriften(tx, Number(id), bestehende.kundeId);
         await vergebeRechnungsnummerFuerLieferung(tx, Number(id));
         // Eine Rechnung setzt voraus, dass geliefert wurde — Auftrag muss dafür nicht mehr
         // separat manuell als "geliefert" markiert werden (bucht Lagerausgang mit).
@@ -578,6 +580,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }
 
         await injiziereAlteForderungen(tx, neue.id, original.kundeId);
+        await injiziereOffeneGutschriften(tx, neue.id, original.kundeId);
         await vergebeRechnungsnummerFuerLieferung(tx, neue.id);
         if (original.status === "geplant") {
           await markiereLieferungGeliefertFallsGeplant(tx, neue.id);

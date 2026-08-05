@@ -19,6 +19,7 @@ interface Gutschrift {
   notiz?: string;
   kunde: { id: number; name: string; firma?: string };
   lieferung?: { id: number } | null;
+  verbuchtBeiLieferung?: { id: number; rechnungNr: string | null } | null;
   positionen: GutschriftPosition[];
 }
 
@@ -207,6 +208,14 @@ export default function GutschriftenPage() {
                   </td>
                   <td className="px-4 py-3">
                     <GutschriftStatusBadge status={gs.status} />
+                    {gs.verbuchtBeiLieferung && (
+                      <Link
+                        href={`/lieferungen/${gs.verbuchtBeiLieferung.id}/rechnung`}
+                        className="block text-xs text-gray-400 hover:text-green-700 hover:underline mt-0.5"
+                      >
+                        → {gs.verbuchtBeiLieferung.rechnungNr ?? `Rechnung ${gs.verbuchtBeiLieferung.id}`}
+                      </Link>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">

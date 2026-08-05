@@ -5,6 +5,7 @@ import nextDynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
+import OffenePostenUebersicht from "./OffenePostenUebersicht";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
 import * as Sentry from "@sentry/nextjs";
@@ -275,6 +276,8 @@ export default function KundeDetailPage() {
                 </div>
               ) : <p className="text-sm text-gray-400">Keine</p>}
             </div>
+            {/* Offene Gutschriften/Forderungen */}
+            <OffenePostenUebersicht kundeId={kunde.id} onOpenForderungen={() => setActiveTab("Forderungen")} />
             {/* Schnellaktionen */}
             <div className="col-span-2 sm:col-span-1 bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-2">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Schnellaktionen</p>

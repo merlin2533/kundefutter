@@ -38,9 +38,17 @@ export interface ZuordnungsVorschlagCardProps {
   amountDiff?: number;
   /** Datumsabweichung in Tagen zwischen Bankbuchung und Kandidat — nur bei Abweichungs-Treffern gesetzt. */
   dayDiff?: number;
-  onUebernehmen: (alsBezahltMarkieren: boolean) => void | Promise<void>;
+  /** Bankbetrag minus Kandidatbetrag: positiv = Überzahlung (Gutschrift möglich), negativ =
+   * Fehlbetrag (Forderung möglich). Nur bei typ lieferung/sammelrechnung sinnvoll — Gutschrift/
+   * Forderung sind Kunden-Konzepte. */
+  signedDiff?: number;
+  onUebernehmen: (alsBezahltMarkieren: boolean, differenzAktion?: "gutschrift" | "forderung") => void | Promise<void>;
   compact?: boolean;
 }
+
+/** Ab dieser Abweichung wird eine Differenzbuchung (Gutschrift/Forderung) angeboten — darunter
+ * vermutlich nur Rundung/Skonto, keine echte Fehlzahlung. */
+const DIFFERENZ_SCHWELLE = 0.5;
 
 /**
  * Gemeinsame Bestätigungskarte für Zuordnungsvorschläge (deterministisch & KI) — im Inline-Panel
@@ -59,19 +67,33 @@ export default function ZuordnungsVorschlagCard({
   wirdBezahltAm,
   amountDiff,
   dayDiff,
+  signedDiff,
   onUebernehmen,
   compact,
 }: ZuordnungsVorschlagCardProps) {
   const [alsBezahlt, setAlsBezahlt] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  async function handleUebernehmen() {
+  async function handleUebernehmen(differenzAktion?: "gutschrift" | "forderung") {
     setBusy(true);
     try {
-      await onUebernehmen(alsBezahlt);
+      await onUebernehmen(alsBezahlt, differenzAktion);
     } finally {
       setBusy(false);
     }
+  }
+
+  const kannDifferenz = (typ === "lieferung" || typ === "sammelrechnung") && signedDiff !== undefined;
+  const ueberzahlung = kannDifferenz && signedDiff! > DIFFERENZ_SCHWELLE;
+  const fehlbetrag = kannDifferenz && signedDiff! < -DIFFERENZ_SCHWELLE;
+
+  async function handleGutschrift() {
+    if (!confirm(`Gutschrift über ${formatEuro(signedDiff!)} erfassen? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.`)) return;
+    await handleUebernehmen("gutschrift");
+  }
+  async function handleForderung() {
+    if (!confirm(`Forderung über ${formatEuro(Math.abs(signedDiff!))} erfassen (Fehlbetrag)? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.`)) return;
+    await handleUebernehmen("forderung");
   }
 
   return (
@@ -118,12 +140,33 @@ export default function ZuordnungsVorschlagCard({
       </label>
 
       <button
-        onClick={handleUebernehmen}
+        onClick={() => handleUebernehmen()}
         disabled={busy}
         className="mt-2 w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
       >
-        {busy ? "Übernehme…" : "Übernehmen"}
+        {busy ? "Übernehme…" : "Übernehmen (ohne Differenzbuchung)"}
       </button>
+
+      {ueberzahlung && (
+        <button
+          onClick={handleGutschrift}
+          disabled={busy}
+          title="Kunde hat mehr überwiesen als die Rechnung beträgt — Differenz als Gutschrift für die nächste Rechnung erfassen"
+          className="mt-1.5 w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-800 border border-blue-200 rounded-lg font-medium"
+        >
+          + Gutschrift über {formatEuro(signedDiff!)} erfassen
+        </button>
+      )}
+      {fehlbetrag && (
+        <button
+          onClick={handleForderung}
+          disabled={busy}
+          title="Kunde hat weniger überwiesen als die Rechnung beträgt — Differenz als Forderung für die nächste Rechnung erfassen"
+          className="mt-1.5 w-full text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 text-amber-800 border border-amber-200 rounded-lg font-medium"
+        >
+          + Forderung über {formatEuro(Math.abs(signedDiff!))} erfassen
+        </button>
+      )}
     </div>
   );
 }

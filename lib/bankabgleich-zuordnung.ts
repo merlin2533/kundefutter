@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 
 export type ZielTyp = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
+type Client = Parameters<Parameters<typeof prisma.$transaction>[0]>[0] | typeof prisma;
 
 export const ZIEL_FELD: Record<ZielTyp, "lieferungId" | "sammelrechnungId" | "ausgabeId" | "eingangsRechnungId"> = {
   lieferung: "lieferungId",
@@ -16,20 +17,23 @@ export const ZIEL_FELD: Record<ZielTyp, "lieferungId" | "sammelrechnungId" | "au
   eingangsrechnung: "eingangsRechnungId",
 };
 
-/** Markiert das Zielobjekt als bezahlt (nur falls es noch nicht bezahlt/storniert ist). */
-export async function markiereAlsBezahlt(zielTyp: ZielTyp, zielId: number, datum: Date): Promise<void> {
+/** Markiert das Zielobjekt als bezahlt (nur falls es noch nicht bezahlt/storniert ist).
+ * Optionaler `client` erlaubt den Aufruf innerhalb einer bestehenden `$transaction` (z.B.
+ * wenn beim Zuordnen zusätzlich eine Gutschrift/Forderung erfasst wird — beides muss
+ * atomar zusammen gelten). */
+export async function markiereAlsBezahlt(zielTyp: ZielTyp, zielId: number, datum: Date, client: Client = prisma): Promise<void> {
   switch (zielTyp) {
     case "lieferung":
-      await prisma.lieferung.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
+      await client.lieferung.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
       break;
     case "sammelrechnung":
-      await prisma.sammelrechnung.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
+      await client.sammelrechnung.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
       break;
     case "ausgabe":
-      await prisma.ausgabe.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
+      await client.ausgabe.updateMany({ where: { id: zielId, bezahltAm: null }, data: { bezahltAm: datum } });
       break;
     case "eingangsrechnung":
-      await prisma.eingangsRechnung.updateMany({
+      await client.eingangsRechnung.updateMany({
         where: { id: zielId, status: "OFFEN" },
         data: { zahlungsDatum: datum, status: "BEZAHLT" },
       });
