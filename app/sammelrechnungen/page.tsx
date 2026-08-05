@@ -2,12 +2,14 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferposition {
   menge: number;
   verkaufspreis: number;
   rabattProzent: number;
+  artikel?: { mwstSatz: number | null } | null;
 }
 
 interface Lieferung {
@@ -29,10 +31,7 @@ interface Sammelrechnung {
 }
 
 function berechneBetrag(lieferungen: Lieferung[]) {
-  return lieferungen.reduce((sum, l) =>
-    sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0),
-    0
-  );
+  return berechneSammelrechnungBrutto({ lieferungen });
 }
 
 function getStatus(sr: Sammelrechnung): "bezahlt" | "ueberfaellig" | "offen" {

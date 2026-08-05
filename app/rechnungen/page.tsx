@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
 import * as Sentry from "@sentry/nextjs";
@@ -13,7 +14,7 @@ interface Lieferposition {
   verkaufspreis: number;
   rabattProzent: number;
   chargeNr: string | null;
-  artikel: { id: number; name: string; einheit: string };
+  artikel: { id: number; name: string; einheit: string; mwstSatz: number | null };
 }
 
 interface Rechnung {
@@ -33,10 +34,7 @@ interface Rechnung {
 type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt";
 
 function berechneBetrag(positionen: Lieferposition[]) {
-  return positionen.reduce(
-    (sum, p) => sum + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100),
-    0
-  );
+  return berechneLieferungBrutto({ positionen });
 }
 
 type RechnungStatus = "storniert" | "bezahlt" | "ueberfaellig" | "offen";
@@ -337,7 +335,7 @@ export default function RechnungenPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Datum</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Fällig am</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Kunde</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Betrag</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600" title="inkl. MwSt">Betrag (brutto)</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Aktionen</th>
               </tr>
@@ -513,10 +511,29 @@ export default function RechnungenPage() {
                                   </tr>
                                 );
                               })}
-                              <tr className="border-t-2 border-green-200 font-semibold">
-                                <td colSpan={4} className="py-1.5 pr-4 text-right text-gray-700">Netto gesamt:</td>
-                                <td className="py-1.5 text-right font-mono text-green-800">{formatEuro(betrag)}</td>
-                              </tr>
+                              {(() => {
+                                const nettoGesamt = r.positionen.reduce(
+                                  (s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100),
+                                  0
+                                );
+                                const mwstGesamt = betrag - nettoGesamt;
+                                return (
+                                  <>
+                                    <tr className="border-t-2 border-green-200">
+                                      <td colSpan={4} className="py-1 pr-4 text-right text-gray-500">Netto gesamt:</td>
+                                      <td className="py-1 text-right font-mono text-gray-700">{formatEuro(nettoGesamt)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td colSpan={4} className="py-1 pr-4 text-right text-gray-500">zzgl. MwSt:</td>
+                                      <td className="py-1 text-right font-mono text-gray-700">{formatEuro(mwstGesamt)}</td>
+                                    </tr>
+                                    <tr className="font-semibold">
+                                      <td colSpan={4} className="py-1.5 pr-4 text-right text-gray-700">Brutto gesamt:</td>
+                                      <td className="py-1.5 text-right font-mono text-green-800">{formatEuro(betrag)}</td>
+                                    </tr>
+                                  </>
+                                );
+                              })()}
                             </tbody>
                           </table></div>
                           {r.notiz && (

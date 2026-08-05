@@ -28,7 +28,12 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             datum: true,
-            positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
+            positionen: {
+              select: {
+                menge: true, verkaufspreis: true, rabattProzent: true,
+                artikel: { select: { mwstSatz: true } },
+              },
+            },
           },
         },
       },
@@ -111,7 +116,12 @@ export async function POST(req: NextRequest) {
             select: {
               id: true,
               datum: true,
-              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
+              positionen: {
+                select: {
+                  menge: true, verkaufspreis: true, rabattProzent: true,
+                  artikel: { select: { mwstSatz: true } },
+                },
+              },
             },
           },
         },

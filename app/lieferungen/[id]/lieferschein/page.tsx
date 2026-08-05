@@ -104,7 +104,6 @@ export default function LieferscheinPage() {
   const [origin, setOrigin] = useState("");
   const [canShare, setCanShare] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
-  const [rechnungLoading, setRechnungLoading] = useState(false);
   const [mailSending, setMailSending] = useState(false);
   const [mailMsg, setMailMsg] = useState("");
   const [mailModalOffen, setMailModalOffen] = useState(false);
@@ -287,31 +286,11 @@ export default function LieferscheinPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, lieferung]);
 
-  async function inRechnungUmwandeln() {
-    if (!lieferung) return;
-    if (!confirm("Diese Lieferung in eine Rechnung umwandeln?")) return;
-    setRechnungLoading(true);
-    try {
-      const res = await fetch(`/api/lieferungen/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aktion: "rechnung_erstellen" }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch((err) => {
-          Sentry.captureException(err);
-          return ({});
-        });
-        alert(d.error ?? "Fehler beim Erstellen der Rechnung");
-        return;
-      }
-      router.push(`/lieferungen/${id}/rechnung`);
-    } catch (err) {
-      Sentry.captureException(err);
-      alert("Netzwerkfehler beim Erstellen der Rechnung");
-    } finally {
-      setRechnungLoading(false);
-    }
+  function inRechnungUmwandeln() {
+    // Erstellt die Rechnung bewusst NICHT direkt hier: auf der Lieferung selbst
+    // kann per Häkchen ausgewählt werden, welche Positionen abgerechnet werden
+    // (alle vorausgewählt, Abwahl = Teilrechnung) – siehe rechnungErstellen() dort.
+    router.push(`/lieferungen/${id}`);
   }
 
   async function handleMailSenden(empfaenger: string, cc: string) {
@@ -522,13 +501,12 @@ export default function LieferscheinPage() {
         {!lieferung.rechnungNr && (
           <button
             onClick={inRechnungUmwandeln}
-            disabled={rechnungLoading}
-            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5"
-            title="Diese Lieferung in eine Rechnung umwandeln"
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5"
+            title="Zur Lieferung – dort Positionen für die Rechnung auswählen"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            <span className="hidden sm:inline">{rechnungLoading ? "Erstelle…" : "In Rechnung umwandeln"}</span>
-            <span className="sm:hidden">{rechnungLoading ? "…" : "Rechnung"}</span>
+            <span className="hidden sm:inline">In Rechnung umwandeln</span>
+            <span className="sm:hidden">Rechnung</span>
           </button>
         )}
         {lieferung.lieferscheinVersendetAm && (
