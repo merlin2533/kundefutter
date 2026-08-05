@@ -67,13 +67,20 @@ interface AutoMatchResponse {
 
 type Tab = "matched" | "deviations" | "bankOnly" | "candidateOnly";
 
-async function uebernehmen(paar: { bank: BankInfo; kandidat: KandidatInfo }, alsBezahltMarkieren: boolean, zuordnungsArt: "automatisch" | "ki", kiKonfidenz?: number) {
+async function uebernehmen(
+  paar: { bank: BankInfo; kandidat: KandidatInfo },
+  alsBezahltMarkieren: boolean,
+  zuordnungsArt: "automatisch" | "ki",
+  kiKonfidenz?: number,
+  differenzAktion?: "gutschrift" | "forderung"
+) {
   const body: Record<string, unknown> = {
     [ZIEL_FELD[paar.kandidat.typ]]: paar.kandidat.id,
     alsBezahltMarkieren,
     zuordnungsArt,
   };
   if (kiKonfidenz != null) body.kiKonfidenz = kiKonfidenz;
+  if (differenzAktion) body.differenzAktion = differenzAktion;
   const res = await fetch(`/api/bankabgleich/${paar.bank.umsatzId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -146,9 +153,9 @@ export default function AutomatischerAbgleich({
     });
   }
 
-  async function einzelUebernehmen(paar: AbgleichPaar, alsBezahltMarkieren: boolean) {
+  async function einzelUebernehmen(paar: AbgleichPaar, alsBezahltMarkieren: boolean, differenzAktion?: "gutschrift" | "forderung") {
     try {
-      await uebernehmen(paar, alsBezahltMarkieren, paar.konfidenz != null ? "ki" : "automatisch", paar.konfidenz);
+      await uebernehmen(paar, alsBezahltMarkieren, paar.konfidenz != null ? "ki" : "automatisch", paar.konfidenz, differenzAktion);
       entferneAusListe(paar.bank.umsatzId);
       onUebernommen();
     } catch (err) {
@@ -332,7 +339,8 @@ export default function AutomatischerAbgleich({
                       wirdBezahltAm={p.wirdBezahltAm}
                       amountDiff={p.amountDiff}
                       dayDiff={p.dayDiff}
-                      onUebernehmen={(bezahlt) => einzelUebernehmen(p, bezahlt)}
+                      signedDiff={p.bank.betrag - p.kandidat.betrag}
+                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                       compact
                     />
                   </div>
@@ -370,7 +378,8 @@ export default function AutomatischerAbgleich({
                       wirdBezahltAm={p.wirdBezahltAm}
                       amountDiff={p.amountDiff}
                       dayDiff={p.dayDiff}
-                      onUebernehmen={(bezahlt) => einzelUebernehmen(p, bezahlt)}
+                      signedDiff={p.bank.betrag - p.kandidat.betrag}
+                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                       compact
                     />
                   </div>

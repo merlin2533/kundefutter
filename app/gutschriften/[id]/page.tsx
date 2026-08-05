@@ -30,6 +30,7 @@ interface Gutschrift {
     datum: string;
     rechnungNr?: string | null;
   } | null;
+  verbuchtBeiLieferung?: { id: number; rechnungNr: string | null } | null;
   positionen: GutschriftPosition[];
 }
 
@@ -135,6 +136,14 @@ export default function GutschriftDetailPage() {
           <p className="text-sm text-gray-500 mt-1">
             Erstellt am {formatDatum(gutschrift.createdAt)}
           </p>
+          {gutschrift.verbuchtBeiLieferung && (
+            <p className="text-sm text-gray-500 mt-0.5">
+              Automatisch verrechnet mit{" "}
+              <Link href={`/lieferungen/${gutschrift.verbuchtBeiLieferung.id}/rechnung`} className="text-green-700 hover:underline">
+                {gutschrift.verbuchtBeiLieferung.rechnungNr ?? `Rechnung ${gutschrift.verbuchtBeiLieferung.id}`}
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <GutschriftStatusBadge status={gutschrift.status} />

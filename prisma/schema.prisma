@@ -418,7 +418,8 @@ model Lieferung {
   lagerbewegungen   Lagerbewegung[]
   sammelrechnung    Sammelrechnung?   @relation(fields: [sammelrechnungId], references: [id])
   sammelrechnungId  Int?
-  gutschriften      Gutschrift[]
+  gutschriften      Gutschrift[]      @relation("GutschriftQuelle")
+  gutschriftenVerbucht Gutschrift[]   @relation("GutschriftVerbucht")
   bestellpositionen Bestellposition[]
   reklamationen     Reklamation[]
   streckenLieferant Lieferant?        @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
@@ -832,20 +833,22 @@ model AngebotPosition {
 // ─── GUTSCHRIFTEN / RETOUREN ──────────────────────────────────────────────────
 
 model Gutschrift {
-  id          Int      @id @default(autoincrement())
-  nummer      String   @unique // GS-YYYY-NNNN
-  kundeId     Int
-  lieferungId Int? // optional reference to original delivery
-  datum       DateTime @default(now())
-  grund       String // Reklamation | Retoure | Preiskorrektur | Sonstiges
-  notiz       String?
-  status      String   @default("OFFEN") // OFFEN | VERBUCHT | STORNIERT
-  createdAt   DateTime @default(now())
+  id                  Int      @id @default(autoincrement())
+  nummer              String   @unique // GS-YYYY-NNNN
+  kundeId             Int
+  lieferungId         Int? // optional reference to original delivery
+  verbuchtBeiLieferungId Int? // Rechnung, in die diese Gutschrift automatisch eingerechnet wurde
+  datum               DateTime @default(now())
+  grund               String // Reklamation | Retoure | Preiskorrektur | Sonstiges
+  notiz               String?
+  status              String   @default("OFFEN") // OFFEN | VERBUCHT | STORNIERT
+  createdAt           DateTime @default(now())
 
-  kunde       Kunde                @relation(fields: [kundeId], references: [id])
-  lieferung   Lieferung?           @relation(fields: [lieferungId], references: [id])
-  positionen  GutschriftPosition[]
-  anlieferung Anlieferung?
+  kunde             Kunde                @relation(fields: [kundeId], references: [id])
+  lieferung         Lieferung?           @relation("GutschriftQuelle", fields: [lieferungId], references: [id])
+  verbuchtBeiLieferung Lieferung?        @relation("GutschriftVerbucht", fields: [verbuchtBeiLieferungId], references: [id], onDelete: SetNull)
+  positionen        GutschriftPosition[]
+  anlieferung       Anlieferung?
 
   @@index([kundeId])
   @@index([datum])

@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       include: {
         kunde: true,
         lieferung: true,
+        verbuchtBeiLieferung: { select: { id: true, rechnungNr: true } },
         positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
       orderBy: { datum: "desc" },

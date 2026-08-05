@@ -133,6 +133,34 @@ export function pairTextScore(bank: BankBuchung, candidate: ReconCandidate): num
   return Math.max(receipt, tokens);
 }
 
+export interface RankedCandidate {
+  candidate: ReconCandidate;
+  amountDiff: number;
+  dayDiff: number;
+  textScore: number;
+}
+
+/**
+ * Rankt ALLE gleichvorzeichigen Kandidaten für eine einzelne Bankbuchung — anders als
+ * runNormalMatch() (Bulk-Auto-Abgleich, hart nach amountTolerance gefiltert) wird hier keine
+ * Betragsabweichung verworfen, sondern nur niedriger gewichtet: ein Text-/Belegnummer-Treffer
+ * schlägt Betragsnähe, weil eine erkennbare Rechnungsnummer im Verwendungszweck ein stärkeres
+ * Signal ist als ein knapp passender Betrag. Für die manuelle Zuordnung im UI gedacht, bei der
+ * der Bankbetrag bewusst von der Rechnung abweichen kann (Fehlbetrag/Überzahlung) — nicht für
+ * den automatischen Massenabgleich.
+ */
+export function rankCandidatesForBank(bank: BankBuchung, candidates: ReconCandidate[], limit = 8): RankedCandidate[] {
+  const scored = candidates.map((candidate) => {
+    const amountDiff = Math.abs(candidate.amount - bank.amount);
+    const dayDiff = daysBetween(bank.date, candidate.date);
+    const textScore = pairTextScore(bank, candidate);
+    const score = textScore * 100 - Math.min(amountDiff, 10000) / 50 - Math.min(dayDiff, 60) / 6;
+    return { candidate, amountDiff, dayDiff, textScore, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(({ candidate, amountDiff, dayDiff, textScore }) => ({ candidate, amountDiff, dayDiff, textScore }));
+}
+
 function hintScore(bank: BankBuchung, candidate: ReconCandidate): number {
   const amountDiff = Math.abs(candidate.amount - bank.amount);
   const dayDiff = daysBetween(bank.date, candidate.date);

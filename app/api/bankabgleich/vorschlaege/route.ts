@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { runNormalMatch, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
+import { rankCandidatesForBank, daysBetween, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
 import { zuBankBuchung, ladeKandidatenFuerBetrag } from "@/lib/bankabgleich-kandidaten";
 import { Sentry } from "@/lib/sentry";
 
@@ -21,6 +21,32 @@ export interface Vorschlag {
 }
 
 const MAX_VORSCHLAEGE = 8;
+const MAX_SUCHTREFFER = 20;
+
+/** hoch = praktisch exakter Treffer; mittel = übliche Toleranz (Betrag ≤0,50€) ODER starker
+ * Text-/Belegnummer-Match trotz größerer Abweichung; alles andere niedrig — wird bewusst nicht
+ * mehr verworfen (siehe rankCandidatesForBank), damit echte Fehlbeträge/Überzahlungen einer
+ * tatsächlichen Rechnung nicht spurlos aus den Vorschlägen verschwinden. */
+function konfidenzFuer(amountDiff: number, dayDiff: number, textScore: number): "hoch" | "mittel" | "niedrig" {
+  if (amountDiff < 0.01 && dayDiff <= 5) return "hoch";
+  if (amountDiff <= 0.5 || textScore >= 0.5) return "mittel";
+  return "niedrig";
+}
+
+function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: number, dayDiff: number, textScore: number): Vorschlag {
+  return {
+    typ: c.kind,
+    id: c.id,
+    bezeichnung: c.receiptNumber || c.description,
+    gegenpartei: c.counterparty,
+    betrag: Math.abs(c.amount),
+    konfidenz: konfidenzFuer(amountDiff, dayDiff, textScore),
+    amountDiff,
+    dayDiff,
+    textScore,
+    wirdBezahltAm,
+  };
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -29,6 +55,7 @@ export async function GET(req: NextRequest) {
   if (isNaN(umsatzId)) {
     return NextResponse.json({ error: "Ungültige umsatzId" }, { status: 400 });
   }
+  const q = searchParams.get("q")?.trim().toLowerCase() ?? "";
 
   try {
     const umsatz = await prisma.kontoumsatz.findUnique({ where: { id: umsatzId } });
@@ -36,40 +63,27 @@ export async function GET(req: NextRequest) {
 
     const bank = zuBankBuchung(umsatz);
     const kandidaten = await ladeKandidatenFuerBetrag(umsatz.betrag);
-    const result = runNormalMatch([bank], kandidaten);
 
-    const vorschlaege: Vorschlag[] = [
-      ...result.matched.map((p) => ({
-        typ: p.candidate.kind,
-        id: p.candidate.id,
-        bezeichnung: p.candidate.receiptNumber || p.candidate.description,
-        gegenpartei: p.candidate.counterparty,
-        betrag: Math.abs(p.candidate.amount),
-        konfidenz: "hoch" as const,
-        amountDiff: p.amountDiff,
-        dayDiff: p.dayDiff,
-        textScore: p.textScore ?? 0,
-        wirdBezahltAm: bank.date,
-      })),
-      ...result.deviations.map((p) => ({
-        typ: p.candidate.kind,
-        id: p.candidate.id,
-        bezeichnung: p.candidate.receiptNumber || p.candidate.description,
-        gegenpartei: p.candidate.counterparty,
-        betrag: Math.abs(p.candidate.amount),
-        konfidenz: ((p.textScore ?? 0) >= 0.5 ? "mittel" : "niedrig") as "mittel" | "niedrig",
-        amountDiff: p.amountDiff,
-        dayDiff: p.dayDiff,
-        textScore: p.textScore ?? 0,
-        wirdBezahltAm: bank.date,
-      })),
-    ];
+    // Manuelle Suche: alle offenen Kandidaten gleichen Vorzeichens (Verkauf/Einkauf, wie der
+    // Bankbetrag) nach Rechnungsnr./Kunde/Text durchsuchen — unabhängig von Betrags-/
+    // Datumsnähe, für den Fall, dass die passende Rechnung nicht unter den Top-Vorschlägen ist.
+    if (q.length >= 2) {
+      const treffer = kandidaten.filter(
+        (c) =>
+          c.receiptNumber?.toLowerCase().includes(q) ||
+          c.counterparty.toLowerCase().includes(q) ||
+          c.description.toLowerCase().includes(q)
+      );
+      const vorschlaege = treffer
+        .slice(0, MAX_SUCHTREFFER)
+        .map((c) => zuVorschlag(c, bank.date, Math.abs(c.amount - bank.amount), daysBetween(bank.date, c.date), 0));
+      return NextResponse.json(vorschlaege);
+    }
 
-    // Beste zuerst: hoch > mittel > niedrig, innerhalb dessen geringste Betragsabweichung
-    const rang = { hoch: 0, mittel: 1, niedrig: 2 };
-    vorschlaege.sort((a, b) => rang[a.konfidenz] - rang[b.konfidenz] || a.amountDiff - b.amountDiff);
+    const ranked = rankCandidatesForBank(bank, kandidaten, MAX_VORSCHLAEGE);
+    const vorschlaege = ranked.map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore));
 
-    return NextResponse.json(vorschlaege.slice(0, MAX_VORSCHLAEGE));
+    return NextResponse.json(vorschlaege);
   } catch (err) {
     Sentry.captureException(err);
     console.error(err);

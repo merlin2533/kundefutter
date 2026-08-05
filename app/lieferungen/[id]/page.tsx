@@ -6,6 +6,7 @@ import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
@@ -1568,6 +1569,10 @@ export default function LieferungDetailPage() {
           </div>
         );
       })()}
+
+      {/* Hinweis auf offene Gutschriften/Forderungen, die automatisch mit in die nächste
+          Rechnung dieses Kunden übernommen werden. */}
+      {canEditPos() && <OffenePostenHinweis kundeId={lieferung.kunde.id} />}
 
       {/* Teilrechnung: Auswahlzeile — nur solange die Lieferung noch keine Rechnungsnummer
           hat und mehr als eine Position existiert (sonst gibt es nichts abzuwählen). */}

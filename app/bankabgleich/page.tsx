@@ -99,6 +99,9 @@ function BankabgleichContent() {
   const [vorschlaege, setVorschlaege] = useState<Vorschlag[]>([]);
   const [vorschlaegeLoading, setVorschlaegeLoading] = useState(false);
   const [zuordnungsFehler, setZuordnungsFehler] = useState<string | null>(null);
+  // Manuelle Suche nach einer anderen (nicht algorithmisch vorgeschlagenen) offenen Rechnung
+  const [suchtext, setSuchtext] = useState("");
+  const [sucheAktiv, setSucheAktiv] = useState(false);
 
   // Alle verfügbaren Konten / Import-Runden
   const [konten, setKonten] = useState<string[]>([]);
@@ -180,17 +183,12 @@ function BankabgleichContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersLoaded, von, bis, zugeordnetFilter, kontoFilter, rundeFilter]);
 
-  async function oeffneVorschlaege(umsatzId: number) {
-    if (offenePanelId === umsatzId) {
-      setOffenePanelId(null);
-      return;
-    }
-    setOffenePanelId(umsatzId);
-    setVorschlaege([]);
-    setZuordnungsFehler(null);
+  async function ladeVorschlaege(umsatzId: number, q?: string) {
     setVorschlaegeLoading(true);
     try {
-      const res = await fetch(`/api/bankabgleich/vorschlaege?umsatzId=${umsatzId}`);
+      const params = new URLSearchParams({ umsatzId: String(umsatzId) });
+      if (q) params.set("q", q);
+      const res = await fetch(`/api/bankabgleich/vorschlaege?${params}`);
       if (res.ok) {
         setVorschlaege(await res.json());
       }
@@ -199,12 +197,43 @@ function BankabgleichContent() {
     }
   }
 
-  async function zuordnen(umsatzId: number, vorschlag: Vorschlag, alsBezahltMarkieren: boolean) {
+  async function oeffneVorschlaege(umsatzId: number) {
+    if (offenePanelId === umsatzId) {
+      setOffenePanelId(null);
+      return;
+    }
+    setOffenePanelId(umsatzId);
+    setVorschlaege([]);
+    setZuordnungsFehler(null);
+    setSuchtext("");
+    setSucheAktiv(false);
+    await ladeVorschlaege(umsatzId);
+  }
+
+  async function andereRechnungSuchen(umsatzId: number) {
+    if (suchtext.trim().length < 2) return;
+    setSucheAktiv(true);
+    await ladeVorschlaege(umsatzId, suchtext.trim());
+  }
+
+  function sucheZuruecksetzen(umsatzId: number) {
+    setSuchtext("");
+    setSucheAktiv(false);
+    ladeVorschlaege(umsatzId);
+  }
+
+  async function zuordnen(
+    umsatzId: number,
+    vorschlag: Vorschlag,
+    alsBezahltMarkieren: boolean,
+    differenzAktion?: "gutschrift" | "forderung"
+  ) {
     setZuordnungsFehler(null);
     const body: Record<string, unknown> = {
       [ZIEL_FELD[vorschlag.typ]]: vorschlag.id,
       alsBezahltMarkieren,
       zuordnungsArt: "manuell",
+      ...(differenzAktion ? { differenzAktion } : {}),
     };
 
     const res = await fetch(`/api/bankabgleich/${umsatzId}`, {
@@ -519,19 +548,44 @@ function BankabgleichContent() {
                     <tr>
                       <td colSpan={6} className="px-4 pb-4 bg-gray-50 border-b">
                         <div className="pt-3">
-                          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                            Zuordnungsvorschläge für {formatEuro(u.betrag)} vom{" "}
-                            {formatDatum(u.buchungsdatum)}
-                          </h3>
+                          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                            <h3 className="text-sm font-semibold text-gray-700">
+                              {sucheAktiv ? "Suchergebnisse" : "Zuordnungsvorschläge"} für {formatEuro(u.betrag)} vom{" "}
+                              {formatDatum(u.buchungsdatum)}
+                            </h3>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                value={suchtext}
+                                onChange={(e) => setSuchtext(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && andereRechnungSuchen(u.id)}
+                                placeholder="Andere Rechnung suchen (Rechnung-Nr., Kunde)…"
+                                className="border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-green-600"
+                              />
+                              <button
+                                onClick={() => andereRechnungSuchen(u.id)}
+                                disabled={suchtext.trim().length < 2}
+                                className="text-xs px-2.5 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                              >
+                                Suchen
+                              </button>
+                              {sucheAktiv && (
+                                <button
+                                  onClick={() => sucheZuruecksetzen(u.id)}
+                                  className="text-xs text-gray-500 hover:text-gray-800 hover:underline"
+                                >
+                                  Zurück zu Vorschlägen
+                                </button>
+                              )}
+                            </div>
+                          </div>
                           {vorschlaegeLoading ? (
-                            <div className="text-sm text-gray-400">Suche Vorschläge…</div>
+                            <div className="text-sm text-gray-400">Suche…</div>
                           ) : vorschlaege.length === 0 ? (
                             <div className="text-sm text-gray-500">
-                              Keine automatischen Vorschläge gefunden.
-                              <br />
-                              <span className="text-xs text-gray-400">
-                                Manuelle Zuordnung über die Rechnungsansicht möglich.
-                              </span>
+                              {sucheAktiv
+                                ? "Keine Rechnung zu diesem Suchbegriff gefunden."
+                                : "Keine automatischen Vorschläge gefunden — oben nach einer anderen Rechnung suchen."}
                             </div>
                           ) : (
                             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -546,7 +600,8 @@ function BankabgleichContent() {
                                   wirdBezahltAm={v.wirdBezahltAm}
                                   amountDiff={v.amountDiff}
                                   dayDiff={v.dayDiff}
-                                  onUebernehmen={(alsBezahlt) => zuordnen(u.id, v, alsBezahlt)}
+                                  signedDiff={u.betrag - v.betrag}
+                                  onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
                                 />
                               ))}
                             </div>

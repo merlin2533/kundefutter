@@ -105,7 +105,7 @@ Sammelrechnung      — Rechnungen mit zahlungsstatus
 Rechnungsuebersicht — Reines Übersichtsdokument über bereits ausgestellte Einzelrechnungen eines Kunden (Titel, Notiz);
                       vergibt KEINE neue Rechnungsnummer, im Unterschied zu Sammelrechnung nicht-exklusiv (M:N)
 RechnungsuebersichtEintrag — M:N-Verknüpfung Rechnungsuebersicht↔Lieferung (eine Rechnung darf in mehreren Übersichten stehen)
-Gutschrift          — Gutschriften (nummer, status, positionen)
+Gutschrift          — Gutschriften (nummer, status: OFFEN/VERBUCHT/STORNIERT, positionen, verbuchtBeiLieferungId — Rechnung, in die eine offene Gutschrift automatisch eingerechnet wurde, analog KundeForderung.erledigtBeiLieferungId)
 GutschriftPosition
 Ausgabe             — Ausgabenbuch (datum, betrag, kategorie, belegpfad)
 Kontoumsatz         — Bankabgleich-Buchungen (buchungsdatum, betrag, verwendungszweck)
@@ -555,8 +555,8 @@ app/
 /api/ausgaben/[id]              GET, PUT, DELETE
 /api/ausgaben/[id]/beleg        POST (Beleg-Upload)
 /api/bankabgleich               GET(?status), POST (Kontoumsatz speichern)
-/api/bankabgleich/[id]          PUT, DELETE
-/api/bankabgleich/vorschlaege   GET — Zuordnungsvorschläge
+/api/bankabgleich/[id]          PUT({...,differenzAktion?:"gutschrift"|"forderung"} — bei Zuordnung zu lieferungId/sammelrechnungId erfasst serverseitig berechnete Differenz Bankbetrag↔Rechnungsbrutto als Gutschrift/KundeForderung, atomar in derselben Transaktion), DELETE
+/api/bankabgleich/vorschlaege   GET(?umsatzId,?q) — Zuordnungsvorschläge (Top 8, Betragsabweichungen werden NICHT verworfen sondern niedriger gerankt); ?q= durchsucht stattdessen alle offenen Kandidaten (manuelle Zuordnung zu einer anderen Rechnung)
 /api/mahnwesen                  GET(?kundeId,?mahnstufe,?uberfaellig)
 /api/mengenrabatte              GET(?artikelId=), POST, DELETE
 
@@ -830,6 +830,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Teilrechnung (`aktion: teilrechnung_erstellen`): Gefahr einer doppelten Lagerbuchung, wenn die Ursprungslieferung bereits Status "geliefert" war (Lagerausgang für ALLE Positionen inkl. der jetzt abgespaltenen bereits gebucht) | Die neue Lieferung, die die ausgewählten Positionen aufnimmt, würde bei erneutem Aufruf von `markiereLieferungGeliefertFallsGeplant()` den Lagerausgang für dieselben Positionen ein zweites Mal buchen | In `app/api/lieferungen/[id]/route.ts` übernimmt die neue Lieferung den Status 1:1 vom Original; `markiereLieferungGeliefertFallsGeplant()` wird nur aufgerufen, wenn das Original noch "geplant" war (dort ist es idempotent-sicher, da die Funktion selbst nur bei Status "geplant" bucht) |
 | Häkchen-Auswahl "welche Positionen in Rechnung stellen" (Teilrechnung) erschien nicht, wenn man über den Kunden eine Lieferung anlegt und direkt danach in Rechnung umwandelt | `app/lieferungen/[id]/lieferschein/page.tsx` (Landing-Page nach `/lieferungen/neu`) hatte einen eigenen "In Rechnung umwandeln"-Button, der `PATCH {aktion:"rechnung_erstellen"}` direkt aufrief statt über die Positions-Checkboxen auf der Lieferungs-Detailseite zu gehen | Button navigiert jetzt nur noch zu `/lieferungen/[id]` (`inRechnungUmwandeln()`); dort greift die bestehende Häkchen-Auswahl (alle vorausgewählt, Abwahl = Teilrechnung) aus `rechnungErstellen()` |
 | Rechnungen-/Sammelrechnungen-Liste, Mahnwesen und Kunde-Detail ("Offener Betrag", Lieferhistorie) zeigten den Rechnungsbetrag ohne MwSt (netto) statt des tatsächlich fälligen Brutto-Betrags | Lokale `berechneBetrag()`/`lieferungTotal()`-Funktionen summierten nur `menge × verkaufspreis × (1-Rabatt%)`, ohne `artikel.mwstSatz` einzurechnen; `lieferungTotal()` in `_shared.tsx` ließ zusätzlich den Rabatt komplett unter den Tisch fallen; der bereits vorhandene, für genau diesen Zweck gebaute Helper `lib/lieferung-brutto.ts` wurde dort schlicht nicht verwendet | `app/rechnungen/page.tsx`, `app/sammelrechnungen/page.tsx`, `app/api/mahnwesen/route.ts` und `lieferungTotal()` in `app/kunden/[id]/_shared.tsx` nutzen jetzt `berechneLieferungBrutto()`/`berechneSammelrechnungBrutto()` aus `lib/lieferung-brutto.ts`; dafür mussten die jeweiligen API-Selects um `artikel.mwstSatz` ergänzt werden (`/api/sammelrechnungen`, `/api/mahnwesen`, `/api/kunden/[id]`) |
+| Bankabgleich: Zuordnungsvorschläge (`/api/bankabgleich/vorschlaege`) zeigten bei echten Fehlbeträgen/Überzahlungen (Abweichung >0,50€) GAR KEINEN Vorschlag mehr an — Panel behauptete "Manuelle Zuordnung über die Rechnungsansicht möglich", obwohl es dort gar keine gab; Betragsabweichungen (Über-/Unterzahlung) wurden beim Zuordnen zudem nirgends erfasst, `alsBezahltMarkieren` setzte `bezahltAm` blind unabhängig davon, ob der Betrag überhaupt passte | `runNormalMatch()` (für den Bulk-Auto-Abgleich gedacht) verwirft Kandidaten hart außerhalb `amountTolerance` (Default 0,50€) — für eine einzelne manuelle Zuordnung ungeeignet, da genau die Fälle mit echter Abweichung am meisten Zuwendung brauchen | Neue `rankCandidatesForBank()` in `lib/bankabgleich-matching.ts` verwirft keine Betragsabweichung mehr, sondern gewichtet Text-/Belegnummer-Treffer stärker als Betragsnähe (für `/api/bankabgleich/vorschlaege`, NICHT für den Bulk-Matcher `auto-match`); `?q=`-Parameter dort ermöglicht zusätzlich freie Suche nach einer beliebigen anderen offenen Rechnung; `ZuordnungsVorschlagCard` bietet bei Abweichung >0,50€ zusätzliche Buttons "Gutschrift erfassen" (Überzahlung) / "Forderung erfassen" (Fehlbetrag) — beides fließt automatisch in die nächste Rechnung des Kunden ein (`injiziereOffeneGutschriften()`/`injiziereAlteForderungen()` in `lib/lieferung.ts`); `PUT /api/bankabgleich/[id]` wickelt Zuordnung + Bezahlt-Markierung + Differenzbuchung jetzt atomar in einer `$transaction` ab |
 
 ## Schemata: Wichtige Felder
 
@@ -1175,6 +1176,10 @@ Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
 | `scripts/sentry-store-report.cjs` | Abhängigkeitsfreier GlitchTip-Reporter für `geo-server.js` (PID 1, außerhalb des Next-Bundles) |
 | `lib/audit.ts` | `auditLog()` + `auditChanges()` — schreibt in `AuditLog`-Tabelle |
 | `lib/bankimport.ts` | Parser für CSV-Kontoauszüge (MT940-ähnlich, deutsche Formate) |
+| `lib/bankabgleich-matching.ts` | Deterministischer Matcher (`runNormalMatch`, Bulk-Auto-Abgleich mit harter Betragstoleranz) + `rankCandidatesForBank` (Einzel-Vorschläge für manuelle Zuordnung, verwirft keine Betragsabweichung, rankt nur niedriger) |
+| `lib/bankabgleich-kandidaten.ts` | Lädt offene Verkaufs-/Einkaufskandidaten (Lieferung/Sammelrechnung/Ausgabe/EingangsRechnung) für den Bankabgleich-Matcher, Beträge bereits brutto |
+| `lib/bankabgleich-zuordnung.ts` | `markiereAlsBezahlt()`/`macheBezahltRueckgaengig()` — setzt/entfernt `bezahltAm` je Zieltyp; `markiereAlsBezahlt()` nimmt optionalen `client`-Parameter für Aufruf innerhalb einer `$transaction` |
+| `lib/bankabgleich-differenz.ts` | Erfasst beim Bankabgleich eine Betragsdifferenz zwischen Kontoumsatz und zugeordneter Rechnung als Gutschrift (Überzahlung) oder KundeForderung (Fehlbetrag) — `erfasseBankabgleichDifferenz()`, aufgerufen aus `PUT /api/bankabgleich/[id]` |
 | `lib/email.ts` | E-Mail-Versand via SMTP (nodemailer) oder Resend, `loadEmailConfig()` |
 | `lib/email-templates.ts` | HTML-E-Mail-Templates (Rechnung, Mahnung, Angebot) |
 | `lib/firma.ts` | `loadFirmaDaten()` — lädt Firmen-Einstellungen aus DB (Interface `FirmaDaten`) |

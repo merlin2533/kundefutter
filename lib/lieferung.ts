@@ -3,7 +3,7 @@ import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant } from
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
 
-type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
 // Rückverfolgbarkeitspflicht Futtermittel: ab diesem Lieferdatum ist die Chargennummer
 // bei Tierfutter-Positionen im Lieferschein Pflichtfeld, davor bleibt sie ein Kannfeld.
@@ -270,6 +270,30 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
 }
 
 const ALTE_FORDERUNG_ARTIKELNUMMER = "ALTE-FORDERUNG";
+export const GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER = "GUTSCHRIFT-VERRECHNUNG";
+
+/**
+ * Findet (oder legt einmalig an) einen unsichtbaren Pauschal-Artikel für automatisch
+ * generierte Ausgleichspositionen (Alte Forderung, Gutschrift-Verrechnung) auf einer
+ * Rechnung. mwstSatz 0 %, weil diese Positionen den Ausgleich eines bereits (auf der
+ * Ursprungsrechnung) versteuerten Vorgangs darstellen, keinen neuen Umsatz — erneut zu
+ * besteuern wäre eine Doppelbesteuerung.
+ */
+export async function ladeOderErstelleAusgleichsArtikel(tx: Tx, artikelnummer: string, name: string) {
+  const bestehend = await tx.artikel.findUnique({ where: { artikelnummer } });
+  if (bestehend) return bestehend;
+  return tx.artikel.create({
+    data: {
+      artikelnummer,
+      name,
+      kategorie: "Sonstiges",
+      einheit: "Pauschale",
+      standardpreis: 0,
+      mwstSatz: 0,
+      lagerTracking: false,
+    },
+  });
+}
 
 /**
  * Trägt alle offenen KundeForderung-Einträge (Restdifferenz aus einer Unterzahlung,
@@ -277,10 +301,6 @@ const ALTE_FORDERUNG_ARTIKELNUMMER = "ALTE-FORDERUNG";
  * und markiert sie als erledigt. Wird beim Erstellen einer Rechnung aufgerufen
  * (aktion=rechnung_erstellen), damit eine noch offene Differenz automatisch auf der
  * nächsten Rechnung dieses Kunden erscheint, statt manuell nachgetragen werden zu müssen.
- *
- * mwstSatz 0 %, weil eine Forderung aus einer bereits (auf der Ursprungsrechnung)
- * versteuerten Lieferung stammt — sie hier erneut zu besteuern wäre eine Doppelbesteuerung,
- * es handelt sich um den Ausgleich einer bestehenden Schuld, keinen neuen Umsatz.
  */
 export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kundeId: number): Promise<void> {
   const offeneForderungen = await tx.kundeForderung.findMany({
@@ -289,22 +309,7 @@ export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kund
   });
   if (offeneForderungen.length === 0) return;
 
-  let forderungArtikel = await tx.artikel.findUnique({
-    where: { artikelnummer: ALTE_FORDERUNG_ARTIKELNUMMER },
-  });
-  if (!forderungArtikel) {
-    forderungArtikel = await tx.artikel.create({
-      data: {
-        artikelnummer: ALTE_FORDERUNG_ARTIKELNUMMER,
-        name: "Alte Forderung",
-        kategorie: "Sonstiges",
-        einheit: "Pauschale",
-        standardpreis: 0,
-        mwstSatz: 0,
-        lagerTracking: false,
-      },
-    });
-  }
+  const forderungArtikel = await ladeOderErstelleAusgleichsArtikel(tx, ALTE_FORDERUNG_ARTIKELNUMMER, "Alte Forderung");
 
   for (const forderung of offeneForderungen) {
     await tx.lieferposition.create({
@@ -320,6 +325,42 @@ export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kund
     await tx.kundeForderung.update({
       where: { id: forderung.id },
       data: { erledigt: true, erledigtBeiLieferungId: lieferungId },
+    });
+  }
+}
+
+/**
+ * Trägt alle offenen Gutschriften (status "OFFEN", z.B. aus einer Überzahlung im
+ * Bankabgleich) des Kunden als negative Ausgleichsposition in eine Rechnung ein und
+ * markiert sie als verbucht. Wird wie injiziereAlteForderungen() beim Erstellen einer
+ * Rechnung aufgerufen — Gegenstück für Überzahlungen statt Unterzahlungen.
+ */
+export async function injiziereOffeneGutschriften(tx: Tx, lieferungId: number, kundeId: number): Promise<void> {
+  const offeneGutschriften = await tx.gutschrift.findMany({
+    where: { kundeId, status: "OFFEN" },
+    include: { positionen: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (offeneGutschriften.length === 0) return;
+
+  const gutschriftArtikel = await ladeOderErstelleAusgleichsArtikel(tx, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, "Gutschrift-Verrechnung");
+
+  for (const gutschrift of offeneGutschriften) {
+    const betrag = gutschrift.positionen.reduce((s, p) => s + p.menge * p.preis, 0);
+    if (betrag <= 0) continue;
+    await tx.lieferposition.create({
+      data: {
+        lieferungId,
+        artikelId: gutschriftArtikel.id,
+        menge: 1,
+        verkaufspreis: -betrag,
+        einkaufspreis: 0,
+        notiz: `Gutschrift ${gutschrift.nummer}${gutschrift.grund ? `: ${gutschrift.grund}` : ""}`,
+      },
+    });
+    await tx.gutschrift.update({
+      where: { id: gutschrift.id },
+      data: { status: "VERBUCHT", verbuchtBeiLieferungId: lieferungId },
     });
   }
 }
