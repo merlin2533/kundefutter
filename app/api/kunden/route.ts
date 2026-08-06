@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
   const pageParam = searchParams.get("page");
   const limitParam = searchParams.get("limit");
   const usePagination = pageParam !== null;
-  const limit = limitParam !== null ? Math.min(1000, Math.max(1, parseInt(limitParam, 10) || 100)) : 100;
+  // Obergrenze bewusst hoch (nicht 1000): Kunden-Picker in vielen Formularen (Sammelrechnung,
+  // Düngebedarf, Bodenproben, Rationsberechnung, …) fragen ohne Pagination die komplette
+  // Kundenliste ab, damit die SearchableSelect-Suche clientseitig über ALLE Kunden filtern
+  // kann — bei mehr als 1000 Kunden fielen die alphabetisch hinteren sonst still unter den Tisch.
+  const limit = limitParam !== null ? Math.min(5000, Math.max(1, parseInt(limitParam, 10) || 100)) : 100;
   const page = pageParam !== null ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
   // Kontakte nur laden wenn explizit angefragt (vermeidet N+1 Join bei Listenansichten).
