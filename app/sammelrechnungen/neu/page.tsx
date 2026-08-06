@@ -40,9 +40,12 @@ function NeueSammelrechnungForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500")
+    fetch("/api/kunden?limit=2000")
       .then((r) => r.json())
-      .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])));
+      .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])))
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
     fetch("/api/einstellungen?prefix=firma.zahlungszielStandard")
       .then((r) => r.ok ? r.json() : {})
       .then((d: Record<string, string>) => {
