@@ -18,6 +18,8 @@ interface Vorgang {
   referenzId: number;
   referenzNr: string | null;
   chargeNr: string | null;
+  /** Rechnungsnummer der Lieferung, in der dieser Vorgang abgerechnet wurde (nur quelle "lieferung"). */
+  rechnungNr: string | null;
 }
 
 interface KundeGruppe {
@@ -30,6 +32,7 @@ interface KundeGruppe {
   letzteDatum: string;
   vorgaenge: Vorgang[];
   chargen: string[];
+  rechnungen: { nr: string; lieferungId: number }[];
 }
 
 const QUELLE_LABEL: Record<Quelle, string> = {
@@ -159,6 +162,7 @@ export default function ArtikelKundenUebersicht({
           letzteDatum: v.datum,
           vorgaenge: [],
           chargen: [],
+          rechnungen: [],
         };
         map.set(v.kundeId, g);
       }
@@ -170,6 +174,9 @@ export default function ArtikelKundenUebersicht({
       }
       if (v.datum > g.letzteDatum) g.letzteDatum = v.datum;
       if (v.chargeNr && !g.chargen.includes(v.chargeNr)) g.chargen.push(v.chargeNr);
+      if (v.rechnungNr && !g.rechnungen.some((r) => r.nr === v.rechnungNr)) {
+        g.rechnungen.push({ nr: v.rechnungNr, lieferungId: v.referenzId });
+      }
       g.vorgaenge.push(v);
     }
     return Array.from(map.values()).sort((a, b) => (a.letzteDatum < b.letzteDatum ? 1 : -1));
@@ -243,6 +250,7 @@ export default function ArtikelKundenUebersicht({
                 <th className="py-2 pr-3">Bereits geliefert</th>
                 <th className="py-2 pr-3">Noch offen</th>
                 <th className="py-2 pr-3 hidden md:table-cell">Charge(n)</th>
+                <th className="py-2 pr-3 hidden md:table-cell">Rechnung(en)</th>
                 <th className="py-2 pr-3 hidden sm:table-cell">Letzte Aktivität</th>
                 <th className="py-2 pr-3 w-8" />
               </tr>
@@ -259,6 +267,15 @@ export default function ArtikelKundenUebersicht({
                       {g.chargen.length > 0 && (
                         <div className="md:hidden text-xs text-blue-700 font-mono mt-0.5">
                           {g.chargen.join(", ")}
+                        </div>
+                      )}
+                      {g.rechnungen.length > 0 && (
+                        <div className="md:hidden text-xs mt-0.5 flex flex-wrap gap-1">
+                          {g.rechnungen.map((r) => (
+                            <Link key={r.nr} href={`/lieferungen/${r.lieferungId}/rechnung`} className="text-green-700 hover:underline font-mono">
+                              🧾 {r.nr}
+                            </Link>
+                          ))}
                         </div>
                       )}
                     </td>
@@ -294,6 +311,24 @@ export default function ArtikelKundenUebersicht({
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="py-2 pr-3 hidden md:table-cell">
+                      {g.rechnungen.length > 0 ? (
+                        <span className="inline-flex flex-wrap items-center gap-1">
+                          {g.rechnungen.map((r) => (
+                            <Link
+                              key={r.nr}
+                              href={`/lieferungen/${r.lieferungId}/rechnung`}
+                              className="font-mono text-xs text-green-700 bg-green-50 border border-green-100 rounded px-1.5 py-0.5 hover:bg-green-100"
+                              title="Rechnung öffnen"
+                            >
+                              🧾 {r.nr}
+                            </Link>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 hidden sm:table-cell text-gray-500 text-xs">
                       {new Date(g.letzteDatum).toLocaleDateString("de-DE")}
                     </td>
@@ -310,7 +345,7 @@ export default function ArtikelKundenUebersicht({
                   </tr>
                   {expanded.has(g.kundeId) && (
                     <tr className="bg-gray-50">
-                      <td colSpan={6} className="px-3 py-2">
+                      <td colSpan={7} className="px-3 py-2">
                         <ul className="space-y-1">
                           {g.vorgaenge
                             .slice()
@@ -331,6 +366,15 @@ export default function ArtikelKundenUebersicht({
                                 </span>
                                 {v.chargeNr && (
                                   <span className="font-mono text-blue-700">Charge: {v.chargeNr}</span>
+                                )}
+                                {v.rechnungNr && (
+                                  <Link
+                                    href={`/lieferungen/${v.referenzId}/rechnung`}
+                                    className="font-mono text-green-700 hover:underline"
+                                    title="Rechnung öffnen"
+                                  >
+                                    🧾 {v.rechnungNr}
+                                  </Link>
                                 )}
                                 <span className="text-gray-400">{new Date(v.datum).toLocaleDateString("de-DE")}</span>
                               </li>
