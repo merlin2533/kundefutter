@@ -20,6 +20,9 @@ export interface Vorgang {
   referenzId: number;
   referenzNr: string | null;
   chargeNr: string | null;
+  /** Rechnungsnummer der Lieferung, in der dieser Vorgang abgerechnet wurde — nur bei
+   * quelle "lieferung" und nur, wenn bereits eine Rechnung gestellt wurde. */
+  rechnungNr: string | null;
 }
 
 const isDev = process.env.NODE_ENV === "development";
@@ -51,6 +54,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
               datum: true,
               lieferDatum: true,
               status: true,
+              rechnungNr: true,
               kunde: { select: { id: true, name: true, ort: true } },
             },
           },
@@ -109,6 +113,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         referenzId: p.lieferung.id,
         referenzNr: null,
         chargeNr: p.chargeNr,
+        rechnungNr: p.lieferung.rechnungNr,
       })),
       ...vorbestellPositionen.map((p): Vorgang => ({
         quelle: "vorbestellung",
@@ -122,6 +127,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         referenzId: p.vorbestellung.id,
         referenzNr: p.vorbestellung.nummer,
         chargeNr: null,
+        rechnungNr: null,
       })),
       ...angebotPositionen.map((p): Vorgang => ({
         quelle: "angebot",
@@ -135,6 +141,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         referenzId: p.angebot.id,
         referenzNr: p.angebot.nummer,
         chargeNr: null,
+        rechnungNr: null,
       })),
     ].sort((a, b) => (a.datum < b.datum ? 1 : -1));
 
