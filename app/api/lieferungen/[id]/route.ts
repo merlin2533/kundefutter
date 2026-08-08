@@ -136,7 +136,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
 
       if (!alt.istStreckengeschaeft) {
+        const neuGebuchtIds: number[] = [];
         for (const pos of alt.positionen) {
+          // Bereits gebucht (z.B. nach dem Zurücksetzen einer Teilrechnungs-Restlieferung auf
+          // "geplant") — nicht erneut abbuchen, sonst würde derselbe Lagerausgang doppelt gezählt.
+          if (pos.lagerBereitsGebucht) continue;
           const artikel = artikelMap.get(pos.artikelId);
           if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
           const neuerBestand = artikel.aktuellerBestand - pos.menge;
@@ -154,6 +158,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
               lieferungId: Number(id),
             },
           });
+          neuGebuchtIds.push(pos.id);
+        }
+        if (neuGebuchtIds.length > 0) {
+          await tx.lieferposition.updateMany({ where: { id: { in: neuGebuchtIds } }, data: { lagerBereitsGebucht: true } });
         }
       }
     }
@@ -168,7 +176,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
         const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
         const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
 
+        const zurueckgebuchtIds: number[] = [];
         for (const pos of alt.positionen) {
+          // Nur zurückbuchen, was tatsächlich abgebucht wurde (siehe lagerBereitsGebucht) —
+          // sonst würde eine z.B. nachträglich hinzugefügte, nie abgebuchte Position beim
+          // Stornieren fälschlich Lagerbestand gutgeschrieben bekommen.
+          if (!pos.lagerBereitsGebucht) continue;
           const artikel = artikelMap.get(pos.artikelId);
           if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
           const neuerBestand = artikel.aktuellerBestand + pos.menge;
@@ -187,6 +200,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
               notiz: `Storno: ${data.stornoBegründung}`,
             },
           });
+          zurueckgebuchtIds.push(pos.id);
+        }
+        if (zurueckgebuchtIds.length > 0) {
+          await tx.lieferposition.updateMany({ where: { id: { in: zurueckgebuchtIds } }, data: { lagerBereitsGebucht: false } });
         }
       }
     }
@@ -554,6 +571,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           throw new Error("Bei Auswahl aller Positionen bitte aktion=rechnung_erstellen verwenden");
         }
 
+        // War das Original bereits "geliefert", wurde der Lagerausgang für ALLE seine
+        // Positionen bereits gebucht (auch für Lieferungen, die schon vor Einführung von
+        // lagerBereitsGebucht als geliefert markiert wurden — deshalb hier nachziehen statt
+        // nur bei markiereLieferungGeliefertFallsGeplant() zu setzen). Sonst würde das
+        // Zurücksetzen des Originals auf "geplant" weiter unten bei einer künftigen erneuten
+        // Lieferung-Markierung zu einer doppelten Lagerbuchung führen.
+        if (original.status === "geliefert") {
+          await tx.lieferposition.updateMany({
+            where: { lieferungId: original.id, lagerBereitsGebucht: false },
+            data: { lagerBereitsGebucht: true },
+          });
+        }
+
         // Neue Lieferung als Träger der ausgewählten Positionen anlegen — übernimmt Status
         // 1:1 vom Original: war das Original bereits "geliefert" (Lagerausgang für ALLE
         // Positionen inkl. der jetzt verschobenen bereits gebucht), darf hier NICHT erneut
@@ -584,6 +614,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         await vergebeRechnungsnummerFuerLieferung(tx, neue.id);
         if (original.status === "geplant") {
           await markiereLieferungGeliefertFallsGeplant(tx, neue.id);
+        } else {
+          // Original war bereits "geliefert" (Lagerausgang für ALLE Positionen inkl. der jetzt
+          // abgespaltenen bereits gebucht, siehe lagerBereitsGebucht) — die zurückbleibenden,
+          // noch nicht abgerechneten Positionen sind damit fachlich nicht "erledigt": sie
+          // erscheinen wieder als offen, ohne dass ihr Lagerausgang erneut gebucht wird (siehe
+          // markiereLieferungGeliefertFallsGeplant()).
+          await tx.lieferung.update({ where: { id: original.id }, data: { status: "geplant" } });
         }
 
         return tx.lieferung.findUniqueOrThrow({

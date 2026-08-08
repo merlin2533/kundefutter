@@ -255,7 +255,12 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
   }
 
   if (!aktLieferung.istStreckengeschaeft) {
+    const neuGebuchtIds: number[] = [];
     for (const pos of positionen) {
+      // Bereits gebucht (z.B. weil diese Lieferung vor dem Abspalten einer Teilrechnung schon
+      // einmal "geliefert" war und dabei Lagerausgang für ALLE Positionen gebucht wurde) —
+      // nicht erneut abbuchen, sonst würde derselbe Lagerausgang doppelt gezählt.
+      if (pos.lagerBereitsGebucht) continue;
       const artikel = artikelMap.get(pos.artikelId);
       if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
       const neuerBestand = artikel.aktuellerBestand - pos.menge;
@@ -263,6 +268,10 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
       await tx.lagerbewegung.create({
         data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId },
       });
+      neuGebuchtIds.push(pos.id);
+    }
+    if (neuGebuchtIds.length > 0) {
+      await tx.lieferposition.updateMany({ where: { id: { in: neuGebuchtIds } }, data: { lagerBereitsGebucht: true } });
     }
   }
 
