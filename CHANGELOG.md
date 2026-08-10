@@ -8,6 +8,17 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 ## [Unreleased]
 
 ### Behoben (GlitchTip-Sweep)
+- **`TypeError: Load failed` auf iOS Safari beim Hintergrund-Polling** (GlitchTip AGRI-R,
+  `/artikel`) – `NotificationCenter.tsx` und das Dashboard (`app/page.tsx`) pollten `/api/aufgaben`
+  bzw. `/api/dashboard` per `setInterval` alle 60 s, unabhängig davon, ob der Tab überhaupt
+  sichtbar war. Auf einem backgrounded/gesperrten iOS-Safari-Tab bricht der Browser einen
+  in-flight-`fetch` mit exakt diesem `TypeError` ab, sobald der Timer im Hintergrund feuert – reines,
+  unvermeidbares Mobile-Browser-Verhalten, aber vermeidbares Rauschen. Beide Polling-Intervalle
+  prüfen jetzt `document.visibilityState === "visible"` vor jedem Tick und laden zusätzlich sofort
+  neu, sobald der Tab wieder in den Vordergrund kommt (`visibilitychange`-Listener) – die
+  bestehende `Sentry.captureException`-Meldung im `catch` bleibt unverändert (siehe
+  "Fehler-Reporting ohne Filter" in AGENTS.md), da diese Änderung die Fehlerquelle selbst entschärft
+  statt das Reporting zu unterdrücken.
 - **Artikel-Umbenennung: Nextcloud-Ordner konnte dauerhaft nicht verschoben werden** (GlitchTip
   AGRI-M/N/O, `PUT /api/artikel/[id]`) – der bestehende 3-fach-Retry in `verschiebeOrdner()`
   (`lib/nextcloud.ts`) geht von einem nur kurzzeitig veralteten Nextcloud-Datei-Cache aus (Re-Scan

@@ -96,8 +96,20 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
+    // Nur laden, wenn der Tab sichtbar ist — ein im Hintergrund/gesperrten
+    // Zustand (v.a. mobile Safari/iOS) gefeuerter fetch wird vom Browser
+    // abgebrochen ("TypeError: Load failed") und erzeugt garantiertes
+    // Sentry-Rauschen ohne Nutzen. Beim Zurückkehren in den Vordergrund wird
+    // sofort neu geladen, damit die Daten nicht veraltet bleiben.
+    const tick = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    const interval = setInterval(tick, 60_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [load]);
 
   useEffect(() => {

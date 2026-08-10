@@ -1499,9 +1499,20 @@ export default function DashboardPage() {
         Sentry.captureException(err);
         return setOnboardingDone(true);
       }); // Don't show on error
-    const interval = setInterval(loadData, 60_000);
+    // Nur laden, wenn der Tab sichtbar ist — ein im Hintergrund gefeuerter
+    // fetch wird auf mobilen Browsern (v.a. iOS Safari) abgebrochen
+    // ("TypeError: Load failed") und erzeugt Sentry-Rauschen ohne Nutzen.
+    const tick = () => {
+      if (document.visibilityState === "visible") loadData();
+    };
+    const interval = setInterval(tick, 60_000);
+    document.addEventListener("visibilitychange", tick);
     const matifInterval = setInterval(loadMatif, 6 * 60 * 60_000); // 6h
-    return () => { clearInterval(interval); clearInterval(matifInterval); };
+    return () => {
+      clearInterval(interval);
+      clearInterval(matifInterval);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, []);
 
   if (!data) return (
