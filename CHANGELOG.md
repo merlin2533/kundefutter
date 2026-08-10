@@ -48,6 +48,13 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
   `SIGKILL` beim OOM-Killer war bisher nur als `code=null` sichtbar), und Proxy-Fehler
   (`ECONNREFUSED` u.ä.) werden während eines laufenden geordneten Shutdowns nicht mehr als Fehler
   gemeldet – außerhalb eines Shutdowns bleibt jeder Proxy-Fehler unverändert meldepflichtig.
+- **KI-Wareneingang: Absturz nach Foto-Erkennung eines Lieferscheins** (GlitchTip AGRI-Q,
+  `TypeError: null is not an object (evaluating 'e.name.toLowerCase')` auf `/ki/wareneingang`) –
+  Mistral setzt laut Prompt bewusst `name: null`, wenn eine Position auf dem Foto/PDF nicht lesbar
+  war; `matchArtikel()` (`lib/kiMatching.ts`) rief `kiPos.name.toLowerCase()` ohne Null-Guard auf,
+  obwohl der TypeScript-Typ `string` das zur Laufzeit nicht garantiert. Ein Null-Guard vor dem
+  Zugriff lässt die betroffene Position jetzt als "nicht gefunden" stehen (manuell zuordenbar)
+  statt die ganze Seite abstürzen zu lassen.
 
 ### Behoben (Nachzug zum GlitchTip-Reporting)
 - **Server lief nach `uncaughtException` kaputt weiter** – der neue Handler in
