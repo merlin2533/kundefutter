@@ -68,6 +68,10 @@ export function matchArtikel<T extends MatchableArtikel>(
     if (exact) return { artikel: exact, konfidenz: "hoch" };
   }
 
+  // KI-Antworten können ein Feld explizit auf null setzen, wenn es auf dem
+  // Beleg nicht lesbar war (siehe lib/ai.ts PROMPTS) — kiPos.name ist zur
+  // Laufzeit trotz des string-Typs nicht garantiert vorhanden.
+  if (!kiPos.name) return { artikel: null, konfidenz: "keine" };
   const nameLower = kiPos.name.toLowerCase();
 
   const nameContains = artikel.find(
