@@ -1143,7 +1143,7 @@ export default function RechnungPrintPage() {
               </div>
             )}
             <div>
-              <Link href={`/artikel/${p.artikel.id}`} style={{ color: "inherit", textDecoration: "underline" }}>
+              <Link href={`/artikel/${p.artikel.id}`} style={{ color: "inherit", textDecoration: "none" }}>
                 {p.artikel.name}
               </Link>
             </div>
