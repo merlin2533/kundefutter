@@ -134,7 +134,10 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
-    const bestehend = await prisma.kontoumsatz.findUnique({ where: { id } });
+    const bestehend = await prisma.kontoumsatz.findUnique({
+      where: { id },
+      include: { weitereZuordnungen: true },
+    });
     if (!bestehend) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
     // Bugfix: Aufheben der Zuordnung muss auch eine zuvor gesetzte Bezahlt-Markierung
@@ -149,6 +152,15 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     for (const [zielTyp, zielId] of ziele) {
       if (zielId) await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum);
     }
+    // Weitere Rechnungen (Kunde hat mehrere Rechnungen in dieser einen Überweisung beglichen)
+    // hängen an der Haupt-Zuordnung — beim Aufheben ebenfalls zurücknehmen, sonst blieben sie
+    // fälschlich als bezahlt stehen, während der Kontoumsatz selbst wieder offen ist.
+    for (const w of bestehend.weitereZuordnungen) {
+      const zielTyp: ZielTyp = w.lieferungId ? "lieferung" : "sammelrechnung";
+      const zielId = (w.lieferungId ?? w.sammelrechnungId) as number;
+      await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum);
+    }
+    await prisma.kontoumsatzWeitereZuordnung.deleteMany({ where: { kontoumsatzId: id } });
 
     const aktualisiert = await prisma.kontoumsatz.update({
       where: { id },

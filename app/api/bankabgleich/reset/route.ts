@@ -13,16 +13,17 @@ export const dynamic = "force-dynamic";
  * löscht keine Gutschriften/Forderungen — nur bereits verbuchte werden wieder auf offen gesetzt.
  */
 async function zaehleBetroffene() {
-  const [lieferung, sammelrechnung, kontoumsatz, gutschrift, forderung] = await Promise.all([
+  const [lieferung, sammelrechnung, kontoumsatz, weitereZuordnung, gutschrift, forderung] = await Promise.all([
     prisma.lieferung.count({ where: { bezahltAm: { not: null } } }),
     prisma.sammelrechnung.count({ where: { bezahltAm: { not: null } } }),
     prisma.kontoumsatz.count({
       where: { zugeordnet: true, OR: [{ lieferungId: { not: null } }, { sammelrechnungId: { not: null } }] },
     }),
+    prisma.kontoumsatzWeitereZuordnung.count(),
     prisma.gutschrift.count({ where: { status: "VERBUCHT", verbuchtBeiLieferungId: { not: null } } }),
     prisma.kundeForderung.count({ where: { erledigt: true, erledigtBeiLieferungId: { not: null } } }),
   ]);
-  return { lieferung, sammelrechnung, kontoumsatz, gutschrift, forderung };
+  return { lieferung, sammelrechnung, kontoumsatz, weitereZuordnung, gutschrift, forderung };
 }
 
 /** GET – Vorschau: wie viele Datensätze wären betroffen? */
@@ -64,6 +65,10 @@ export async function POST(req: NextRequest) {
         where: { erledigt: true, erledigtBeiLieferungId: { not: null } },
         data: { erledigt: false, erledigtBeiLieferungId: null },
       }),
+      // Weitere Rechnungen (Kunde zahlt mehrere Rechnungen in einer Überweisung) hängen an der
+      // Haupt-Zuordnung — beim kompletten Reset gibt es keine "Haupt"-Zuordnung mehr, an die sie
+      // andocken könnten, deshalb komplett leeren statt nur zu entkoppeln.
+      prisma.kontoumsatzWeitereZuordnung.deleteMany({}),
       prisma.kontoumsatz.updateMany({
         where: { zugeordnet: true, OR: [{ lieferungId: { not: null } }, { sammelrechnungId: { not: null } }] },
         data: { zugeordnet: false, lieferungId: null, sammelrechnungId: null, zuordnungsArt: null, kiKonfidenz: null },

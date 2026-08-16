@@ -5,6 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import ZuordnungsVorschlagCard from "@/components/bankabgleich/ZuordnungsVorschlagCard";
 import AutomatischerAbgleich from "@/components/bankabgleich/AutomatischerAbgleich";
+import WeitereRechnungenPanel, { type WeitereZuordnung } from "@/components/bankabgleich/WeitereRechnungenPanel";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kontoumsatz {
@@ -25,6 +26,9 @@ interface Kontoumsatz {
   kontoBezeichnung: string | null;
   importDatei: string | null;
   ignoriert: boolean;
+  primaryKundeId: number | null;
+  primaryKundeName: string | null;
+  weitereZuordnungen: WeitereZuordnung[];
 }
 
 interface ApiResponse {
@@ -106,6 +110,11 @@ function BankabgleichContent() {
   // Alle verfügbaren Konten / Import-Runden
   const [konten, setKonten] = useState<string[]>([]);
   const [runden, setRunden] = useState<string[]>([]);
+
+  // Weitere Rechnungen (Kunde begleicht mehrere offene Rechnungen in einer Überweisung) —
+  // eigenes Panel, unabhängig vom Zuordnungsvorschläge-Panel oben, da nur für bereits
+  // zugeordnete Umsätze relevant.
+  const [weiterePanelId, setWeiterePanelId] = useState<number | null>(null);
 
   async function laden() {
     setLoading(true);
@@ -499,6 +508,11 @@ function BankabgleichContent() {
                               Lieferantenrechnung
                             </Link>
                           )}
+                          {u.weitereZuordnungen.length > 0 && (
+                            <span className="ml-1" title={u.weitereZuordnungen.map((w) => w.rechnungNr).filter(Boolean).join(", ")}>
+                              + {u.weitereZuordnungen.length} weitere
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="inline-flex items-center bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded font-medium">
@@ -532,12 +546,22 @@ function BankabgleichContent() {
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => zuordnungAufheben(u.id)}
-                            className="text-xs text-gray-500 hover:text-red-600 hover:underline"
-                          >
-                            Aufheben
-                          </button>
+                          <>
+                            {(u.lieferungId || u.sammelrechnungId) && (
+                              <button
+                                onClick={() => setWeiterePanelId(weiterePanelId === u.id ? null : u.id)}
+                                className="text-xs text-green-700 hover:underline"
+                              >
+                                {weiterePanelId === u.id ? "Schließen" : "+ weitere Rechnung"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => zuordnungAufheben(u.id)}
+                              className="text-xs text-gray-500 hover:text-red-600 hover:underline"
+                            >
+                              Aufheben
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -607,6 +631,21 @@ function BankabgleichContent() {
                             </div>
                           )}
                         </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {/* Inline Panel: weitere Rechnungen zu dieser Zahlung hinzufügen */}
+                  {weiterePanelId === u.id && (
+                    <tr>
+                      <td colSpan={6} className="px-4 pb-4 bg-gray-50 border-b">
+                        <WeitereRechnungenPanel
+                          umsatzId={u.id}
+                          kundeId={u.primaryKundeId}
+                          verwendungszweck={u.verwendungszweck}
+                          weitereZuordnungen={u.weitereZuordnungen}
+                          onChange={laden}
+                        />
                       </td>
                     </tr>
                   )}
