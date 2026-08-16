@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatEuro, formatDatum, lagerStatus, istLagerrelevant } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, istLagerrelevant, resolveBevorzugtenLieferanten } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,6 +18,7 @@ interface LagerArtikel {
   lagerTracking: boolean;
   lieferanten: Array<{
     bevorzugt: boolean;
+    einkaufspreis: number;
     lieferant: { id: number; name: string };
   }>;
 }
@@ -350,7 +351,7 @@ export default function LagerPage() {
                 <tbody className="divide-y divide-gray-100">
                   {filteredArtikel.map((a) => {
                     const status = lagerStatus(a.aktuellerBestand, a.mindestbestand);
-                    const bev = a.lieferanten.find((l) => l.bevorzugt) ?? a.lieferanten[0];
+                    const bev = resolveBevorzugtenLieferanten(a.lieferanten);
                     return (
                       <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">

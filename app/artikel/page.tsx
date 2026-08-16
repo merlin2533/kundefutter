@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatPreis, lagerStatus } from "@/lib/utils";
+import { formatPreis, lagerStatus, resolveBevorzugtenEK, resolveBevorzugtenLieferanten } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 import {
   DEFAULT_ARTIKEL_KATEGORIEN,
@@ -291,25 +291,15 @@ export default function ArtikelPage() {
   }
 
   function bevorzugterLieferant(a: Artikel): string {
-    const bev = a.lieferanten.find((l) => l.bevorzugt) ?? a.lieferanten[0];
-    return bev?.lieferant.name ?? "–";
+    return resolveBevorzugtenLieferanten(a.lieferanten)?.lieferant.name ?? "–";
   }
 
+  // Siehe resolveBevorzugtenEK() in lib/utils.ts für die Begründung: bevorzugt nur wenn
+  // dort ein Preis gepflegt ist, sonst irgendeiner MIT Preis, statt eines ungeprüften
+  // `lieferanten[0]`-Fallbacks.
   function bevorzugterEK(a: Artikel): number | null {
-    // Bevorzugten Lieferanten nutzen (falls dort ein Preis hinterlegt ist), sonst
-    // irgendeinen Lieferanten MIT hinterlegtem Preis, sonst den bevorzugten/ersten auch
-    // ohne Preis — nur wenn wirklich KEIN Lieferant hinterlegt ist, gibt es keinen EK
-    // anzuzeigen. Ein reines `lieferanten[0]`-Fallback (ohne auf einen tatsächlich
-    // gepflegten Preis zu prüfen) zeigte bei mehreren Lieferanten ohne Präferenz je nach
-    // (nicht garantierter) DB-Rückgabereihenfolge fälschlich 0,00 € statt des
-    // tatsächlich gepflegten EK eines anderen Lieferanten.
-    const bev = a.lieferanten.find((l) => l.bevorzugt);
-    if (bev && bev.einkaufspreis > 0) return bev.einkaufspreis;
-    const mitPreis = a.lieferanten.find((l) => l.einkaufspreis > 0);
-    if (mitPreis) return mitPreis.einkaufspreis;
-    if (bev) return bev.einkaufspreis;
-    if (a.lieferanten.length > 0) return a.lieferanten[0].einkaufspreis;
-    return null;
+    if (a.lieferanten.length === 0) return null;
+    return resolveBevorzugtenEK(a.lieferanten);
   }
 
   return (

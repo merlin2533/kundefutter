@@ -2,6 +2,7 @@ import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getArtikelPreisFuerJahr } from "@/lib/jahrespreis";
+import { resolveBevorzugtenEK } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      select: { standardpreis: true, notiz: true, lieferanten: { take: 1, orderBy: { createdAt: "asc" } } },
+      select: { standardpreis: true, notiz: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       interpoliert = aufgeloest.interpoliert;
       quelleJahr = aufgeloest.quelleJahr;
     }
-    const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : (artikel.lieferanten[0]?.einkaufspreis ?? 0);
+    const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : resolveBevorzugtenEK(artikel.lieferanten);
     // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
     const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
 
