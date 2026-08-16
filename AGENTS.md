@@ -427,7 +427,7 @@ app/
 │   ├── portal/page.tsx         Kunden-Portal-Zugangsdaten
 │   ├── sicherheit/page.tsx     Passwort-Richtlinie
 │   ├── benachrichtigungen/page.tsx  System-Alert-Schwellwerte
-│   ├── loeschzentrum/page.tsx  Duplikate, Datenbereinigung, FTS-Rebuild
+│   ├── loeschzentrum/page.tsx  Duplikate, Datenbereinigung, FTS-Rebuild, Bankabgleich zurücksetzen
 │   ├── gdpr/page.tsx           DSGVO (Art. 15–17)
 │   ├── mqtt/page.tsx           MQTT-Automatisierungsregeln + KI
 │   ├── email-import/page.tsx   Eingehende E-Mails (Resend) + KI-Verarbeitung
@@ -557,6 +557,7 @@ app/
 /api/bankabgleich               GET(?status), POST (Kontoumsatz speichern)
 /api/bankabgleich/[id]          PUT({...,differenzAktion?:"gutschrift"|"forderung"} — bei Zuordnung zu lieferungId/sammelrechnungId erfasst serverseitig berechnete Differenz Bankbetrag↔Rechnungsbrutto als Gutschrift/KundeForderung, atomar in derselben Transaktion), DELETE
 /api/bankabgleich/vorschlaege   GET(?umsatzId,?q) — Zuordnungsvorschläge (Top 8, Betragsabweichungen werden NICHT verworfen sondern niedriger gerankt); ?q= durchsucht stattdessen alle offenen Kandidaten (manuelle Zuordnung zu einer anderen Rechnung)
+/api/bankabgleich/reset         GET — Vorschau (Anzahl betroffener Datensätze), POST{confirm:true} — setzt Bankabgleich für Verkaufsrechnungen komplett zurück (Lieferung/Sammelrechnung.bezahltAm, Kontoumsatz-Zuordnungen, dabei verbuchte Gutschriften/Forderungen); erfordert P.EINSTELLUNGEN_BEARBEITEN; betrifft NICHT Ausgaben/EingangsRechnungen; genutzt vom "Bankabgleich zurücksetzen"-Kachel in /einstellungen/loeschzentrum
 /api/mahnwesen                  GET(?kundeId,?mahnstufe,?uberfaellig)
 /api/mengenrabatte              GET(?artikelId=), POST, DELETE
 
