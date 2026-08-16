@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
-import { formatEuro, berechneMarge, lagerStatus } from "@/lib/utils";
+import { formatEuro, berechneMarge, lagerStatus, resolveBevorzugtenEK } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelOption {
@@ -151,10 +151,7 @@ export default function PreisauskunftPage() {
     ? sonderpreise.find((s) => s.artikelId === Number(selectedArtikel)) ?? null
     : null;
 
-  const einkaufspreis = artikel
-    ? (artikel.lieferanten.find((l) => l.bevorzugt)?.einkaufspreis ??
-        artikel.lieferanten[0]?.einkaufspreis ?? 0)
-    : 0;
+  const einkaufspreis = artikel ? resolveBevorzugtenEK(artikel.lieferanten) : 0;
 
   const marge = artikel
     ? berechneMarge(artikel.standardpreis, einkaufspreis)

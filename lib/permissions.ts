@@ -267,6 +267,12 @@ export function requirePermission(user: CurrentUser | null, key: string): NextRe
 
 /**
  * Entfernt sensible EK-Preis-Felder aus einem Artikel-Objekt wenn die Permission fehlt.
+ *
+ * Der Einkaufspreis lebt ausschließlich auf ArtikelLieferant.einkaufspreis (kleines "p") —
+ * Artikel selbst hat gar kein eigenes EK-Feld. Diese Funktion löschte lange Zeit
+ * `einkaufsPreis"/"einkaufsPreisNetto" (großes "P", nicht existierende Feldnamen) statt
+ * `einkaufspreis` — die Filterung war dadurch komplett wirkungslos: Nutzer ohne
+ * FELD_ARTIKEL_EINKAUFSPREIS sahen den EK trotzdem überall mit.
  */
 export function filterArtikelFelder(
   obj: Record<string, unknown>,
@@ -274,12 +280,10 @@ export function filterArtikelFelder(
 ): Record<string, unknown> {
   if (hasPermission(user, P.FELD_ARTIKEL_EINKAUFSPREIS)) return obj;
   const result: Record<string, unknown> = { ...obj };
-  delete result.einkaufsPreis;
-  delete result.einkaufsPreisNetto;
   if (Array.isArray(result.lieferanten)) {
     result.lieferanten = (result.lieferanten as Record<string, unknown>[]).map((l) => {
       const lCopy: Record<string, unknown> = { ...l };
-      delete lCopy.einkaufsPreis;
+      delete lCopy.einkaufspreis;
       return lCopy;
     });
   }

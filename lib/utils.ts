@@ -1,3 +1,32 @@
+/**
+ * Bevorzugten Lieferanten-Eintrag eines Artikels auflösen: der als "bevorzugt" markierte,
+ * falls dort ein Preis hinterlegt ist; sonst irgendeiner MIT gepflegtem Preis (> 0); sonst
+ * der bevorzugte auch ohne Preis; sonst der erste vorhandene. Nur bei komplett fehlenden
+ * Lieferanten null.
+ *
+ * Ein reines `lieferanten[0]`- oder `find(bevorzugt) ?? lieferanten[0]`-Fallback zeigte bei
+ * mehreren Lieferanten ohne eindeutige Präferenz je nach (nicht garantierter) DB-Rückgabe-
+ * reihenfolge fälschlich 0,00 € statt des tatsächlich gepflegten EK eines anderen
+ * Lieferanten — dieser Helper ist die einzige Quelle der Wahrheit dafür.
+ */
+export function resolveBevorzugtenLieferanten<T extends { einkaufspreis: number; bevorzugt?: boolean }>(
+  lieferanten: T[] | null | undefined
+): T | null {
+  if (!lieferanten || lieferanten.length === 0) return null;
+  const bev = lieferanten.find((l) => l.bevorzugt);
+  if (bev && bev.einkaufspreis > 0) return bev;
+  const mitPreis = lieferanten.find((l) => l.einkaufspreis > 0);
+  if (mitPreis) return mitPreis;
+  return bev ?? lieferanten[0];
+}
+
+/** Wie resolveBevorzugtenLieferanten(), liefert aber direkt den EK-Preis (0 wenn kein Lieferant). */
+export function resolveBevorzugtenEK<T extends { einkaufspreis: number; bevorzugt?: boolean }>(
+  lieferanten: T[] | null | undefined
+): number {
+  return resolveBevorzugtenLieferanten(lieferanten)?.einkaufspreis ?? 0;
+}
+
 export function berechneVerkaufspreis(
   artikel: { standardpreis: number },
   kundePreis?: { preis: number; rabatt: number } | null

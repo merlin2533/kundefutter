@@ -4,7 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { P } from "@/lib/permissions";
-import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal } from "@/lib/utils";
+import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
@@ -714,7 +714,7 @@ function ArtikelDetailContent() {
   // ── Derived ───────────────────────────────────────────────────────────────
   function getMarge(): number | null {
     if (!artikel) return null;
-    const bev = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
+    const bev = resolveBevorzugtenLieferanten(artikel.lieferanten);
     if (!bev || !artikel.standardpreis) return null;
     return ((artikel.standardpreis - bev.einkaufspreis) / artikel.standardpreis) * 100;
   }
@@ -730,7 +730,7 @@ function ArtikelDetailContent() {
   const istAnalyseProdukt = istAnalyseArtikel(artikel.kategorie);
   const status = lagerStatus(artikel.aktuellerBestand, artikel.mindestbestand);
   const marge = getMarge();
-  const bevorzugterLieferant = artikel.lieferanten.find((l) => l.bevorzugt) ?? artikel.lieferanten[0];
+  const bevorzugterLieferant = resolveBevorzugtenLieferanten(artikel.lieferanten);
 
   const TABS = [
     { key: "details", label: "Details" },

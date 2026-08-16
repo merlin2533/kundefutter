@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, resolveBevorzugtenEK } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
 
@@ -43,8 +43,7 @@ function ekFuerLieferant(art: Artikel | undefined, lieferantId: number | null): 
     const match = art.lieferanten.find((l) => l.lieferantId === lieferantId);
     if (match) return match.einkaufspreis;
   }
-  const bev = art.lieferanten.find((l) => l.bevorzugt);
-  return (bev ?? art.lieferanten[0]).einkaufspreis;
+  return resolveBevorzugtenEK(art.lieferanten);
 }
 
 function NeueRetoureForm() {

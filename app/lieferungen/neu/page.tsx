@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
-import { berechneVerkaufspreis } from "@/lib/utils";
+import { berechneVerkaufspreis, resolveBevorzugtenEK } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
@@ -37,23 +37,13 @@ interface Artikel {
   notiz?: string | null;
 }
 
-/** EK aus bevorzugtem Lieferanten (falls dort ein Preis hinterlegt ist), sonst irgendeinem
- *  Lieferanten mit hinterlegtem Preis, sonst dem bevorzugten/ersten auch ohne Preis, sonst 0.
- *  Vorher fiel bei 2+ Lieferanten ohne "bevorzugt"-Flag auf `art.einkaufspreis` zurück —
- *  ein Feld, das Artikel im Datenmodell gar nicht hat (EK lebt ausschließlich auf
- *  ArtikelLieferant), lief also immer auf 0 hinaus. Und selbst danach griff bei mehreren
- *  Lieferanten ohne Präferenz einfach `lieferanten[0]` — die DB-Rückgabereihenfolge ist
- *  nicht garantiert die des tatsächlich gepflegten Preises. Betraf jeden Artikel, bei dem
- *  ein Lieferant ohne EK (Default 0) zufällig vor einem mit gepflegtem EK stand. */
+/** EK aus bevorzugtem Lieferanten, sonst irgendeinem mit gepflegtem Preis — siehe
+ *  resolveBevorzugtenEK() in lib/utils.ts für die vollständige Begründung. Fällt nur auf
+ *  `art.einkaufspreis` zurück, falls der Artikel (untypisch) gar keine Lieferanten-Relation
+ *  mitbringt. */
 function resolveEK(art: Artikel | undefined): number {
   if (!art) return 0;
-  if (art.lieferanten?.length) {
-    const bev = art.lieferanten.find((l) => l.bevorzugt);
-    if (bev && bev.einkaufspreis > 0) return bev.einkaufspreis;
-    const mitPreis = art.lieferanten.find((l) => l.einkaufspreis > 0);
-    if (mitPreis) return mitPreis.einkaufspreis;
-    return bev ? bev.einkaufspreis : art.lieferanten[0].einkaufspreis;
-  }
+  if (art.lieferanten?.length) return resolveBevorzugtenEK(art.lieferanten);
   return art.einkaufspreis ?? 0;
 }
 
