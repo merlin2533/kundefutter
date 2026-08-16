@@ -106,6 +106,19 @@ export function formatPreis(n: number): string {
 }
 
 /**
+ * Extrahiert das kg-Gewicht aus einer freitextigen Liefergröße (z.B. "25 kg Sack",
+ * "Big Bag 600 kg" → 25 bzw. 600). Liefert null, wenn kein "<Zahl> kg"-Muster
+ * gefunden wird — die Liefergröße ist ein Freitextfeld ohne festes Format.
+ */
+export function parseGebindegroesseKg(liefergroesse: string | null | undefined): number | null {
+  if (!liefergroesse) return null;
+  const match = liefergroesse.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+  if (!match) return null;
+  const n = parseFloat(match[1].replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
  * Parst eine Dezimaleingabe tolerant für deutsche Eingaben.
  * Akzeptiert Komma als Dezimaltrennzeichen ("0,63" → 0.63) sowie Tausenderpunkte
  * bei gemischter Schreibweise. Leere/ungültige Eingaben → fallback (Standard 0).

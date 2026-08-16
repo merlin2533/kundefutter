@@ -96,8 +96,16 @@ export default function ChargeInput({
         </datalist>
       )}
       {unknown && (
-        <div className="text-[10px] text-amber-700 mt-0.5" title="Diese Charge ist nicht aus dem Wareneingang bekannt">
-          ⚠ Neue Charge (kein Wareneingang)
+        <div className="text-[10px] text-amber-700 mt-0.5 flex items-center gap-1.5 flex-wrap" title="Diese Charge ist nicht aus dem Wareneingang bekannt">
+          <span>⚠ Neue Charge (kein Wareneingang)</span>
+          <a
+            href={`/lager/wareneingang?artikelId=${artikelId}&chargeNr=${encodeURIComponent(value)}`}
+            target="_blank"
+            rel="noopener"
+            className="underline hover:text-amber-900 font-medium"
+          >
+            → Wareneingang jetzt erfassen
+          </a>
         </div>
       )}
       {matched && (
