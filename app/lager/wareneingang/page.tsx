@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, parseGebindegroesseKg } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
@@ -16,6 +16,7 @@ interface Artikel {
   name: string;
   einheit: string;
   chargePflicht: boolean;
+  liefergroesse?: string | null;
 }
 
 interface Bestellposition {
@@ -32,6 +33,7 @@ interface Bestellposition {
 type WEPosition = {
   artikelId: string;
   menge: number;
+  anzahlGebinde: number;
   einkaufspreis: number;
   chargeNr: string;
   bestellpositionId: string;
@@ -46,6 +48,7 @@ function WareneingangInner() {
   const artikelIdParam = searchParams.get("artikelId");
   const lieferantIdParam = searchParams.get("lieferantId");
   const bestellpositionIdParam = searchParams.get("bestellpositionId");
+  const chargeNrParam = searchParams.get("chargeNr");
 
   const [lieferantenList, setLieferantenList] = useState<Lieferant[]>([]);
   const [artikelList, setArtikelList] = useState<Artikel[]>([]);
@@ -55,7 +58,7 @@ function WareneingangInner() {
   const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<WEPosition[]>([
-    { artikelId: artikelIdParam ?? "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" },
+    { artikelId: artikelIdParam ?? "", menge: 0, anzahlGebinde: 0, einkaufspreis: 0, chargeNr: chargeNrParam ?? "", bestellpositionId: "" },
   ]);
   const [vorbefuelltHinweis, setVorbefuelltHinweis] = useState<string | null>(null);
 
@@ -72,12 +75,13 @@ function WareneingangInner() {
       const artikelData: Artikel[] = Array.isArray(artRes) ? artRes : [];
       setArtikelList(artikelData);
 
-      if (artikelIdParam || lieferantIdParam) {
+      if (artikelIdParam || lieferantIdParam || chargeNrParam) {
         const art = artikelData.find((a) => String(a.id) === artikelIdParam);
         const lief = Array.isArray(liefRes) ? (liefRes as Lieferant[]).find((l) => String(l.id) === lieferantIdParam) : null;
         const parts: string[] = [];
         if (art) parts.push(`Artikel: ${art.name}`);
         if (lief) parts.push(`Lieferant: ${lief.name}`);
+        if (chargeNrParam) parts.push(`Charge: ${chargeNrParam}`);
         if (parts.length > 0) setVorbefuelltHinweis(parts.join(" · "));
       }
     }
@@ -103,8 +107,9 @@ function WareneingangInner() {
             setPositionen([{
               artikelId: String(bp.artikel.id),
               menge: bp.menge,
+              anzahlGebinde: 0,
               einkaufspreis: bp.einkaufspreis,
-              chargeNr: "",
+              chargeNr: chargeNrParam ?? "",
               bestellpositionId: String(bp.id),
             }]);
           }
@@ -114,7 +119,7 @@ function WareneingangInner() {
   }, [lieferantId]);
 
   function addPosition() {
-    setPositionen([...positionen, { artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
+    setPositionen([...positionen, { artikelId: "", menge: 0, anzahlGebinde: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
   }
 
   function removePosition(idx: number) {
@@ -136,6 +141,7 @@ function WareneingangInner() {
     const newPos: WEPosition = {
       artikelId: String(bp.artikel.id),
       menge: bp.menge,
+      anzahlGebinde: 0,
       einkaufspreis: bp.einkaufspreis,
       chargeNr: "",
       bestellpositionId: String(bp.id),
@@ -201,7 +207,7 @@ function WareneingangInner() {
     setSaving(false);
     if (res.ok) {
       if (andNew) {
-        setPositionen([{ artikelId: "", menge: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
+        setPositionen([{ artikelId: "", menge: 0, anzahlGebinde: 0, einkaufspreis: 0, chargeNr: "", bestellpositionId: "" }]);
         setNotiz("");
         setError("");
         setVorbefuelltHinweis("✓ Wareneingang gespeichert – neuer Wareneingang bereit.");
@@ -363,12 +369,40 @@ function WareneingangInner() {
                       required
                     />
                   </div>
+                  {(() => {
+                    const gebindeKg = parseGebindegroesseKg(art?.liefergroesse);
+                    if (!gebindeKg) return null;
+                    return (
+                      <div className="w-full sm:w-32">
+                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                          Anzahl ({art?.liefergroesse})
+                        </label>
+                        <input
+                          key={`anzahl-${pos.bestellpositionId || idx}`}
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={pos.anzahlGebinde > 0 ? String(pos.anzahlGebinde).replace(".", ",") : ""}
+                          onBlur={(e) => {
+                            const num = parseFloat(e.target.value.replace(",", "."));
+                            const anzahl = isNaN(num) ? 0 : num;
+                            setPositionen(
+                              positionen.map((p, i) =>
+                                i === idx ? { ...p, anzahlGebinde: anzahl, menge: anzahl > 0 ? anzahl * gebindeKg : p.menge } : p
+                              )
+                            );
+                          }}
+                          placeholder="0"
+                          className={inputCls}
+                        />
+                      </div>
+                    );
+                  })()}
                   <div className="w-full sm:w-28">
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Menge{art?.einheit ? <span className="ml-1 text-gray-400">({art.einheit})</span> : ""}
                     </label>
                     <input
-                      key={`menge-${pos.bestellpositionId || idx}`}
+                      key={`menge-${pos.bestellpositionId || idx}-${pos.menge}`}
                       type="text"
                       inputMode="decimal"
                       defaultValue={pos.menge > 0 ? String(pos.menge).replace(".", ",") : ""}
