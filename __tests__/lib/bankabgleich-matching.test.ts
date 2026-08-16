@@ -22,6 +22,15 @@ describe("normalizeText / tokenSimilarity / receiptNumberHit", () => {
     expect(receiptNumberHit("Zahlung RE-2026-0001 danke", "RE-2026-0001")).toBe(1);
     expect(receiptNumberHit("Zahlung ohne Referenz", "RE-2026-0001")).toBe(0);
   });
+
+  it("erkennt auch die bloße laufende Nummer ohne Präfix/Jahr als Rechnungsnummer-Hinweis (Kunden geben im Verwendungszweck oft nur diese an)", () => {
+    expect(receiptNumberHit("Rechnung 361 danke", "RE-2026-0361")).toBeCloseTo(0.85, 5);
+    expect(receiptNumberHit("ReNr 0361", "RE-2026-0361")).toBeCloseTo(0.85, 5);
+  });
+
+  it("matcht die kurze Nummer nur als eigenständiges Token, nicht als Teilzeichenkette (kein Treffer in einer IBAN o.Ä.)", () => {
+    expect(receiptNumberHit("DE893610001234567890", "RE-2026-0361")).toBe(0);
+  });
 });
 
 describe("runNormalMatch — Näherungserkennung", () => {
@@ -84,6 +93,21 @@ describe("runNormalMatch — Näherungserkennung", () => {
     const result = runNormalMatch(bank, candidates);
     expect(result.matched).toHaveLength(1);
     expect(result.matched[0].candidate.kind).toBe("eingangsrechnung");
+  });
+
+  it("wählt bei zwei offenen Rechnungen mit identischem Betrag die per Rechnungsnummer im Verwendungszweck referenzierte statt der zeitlich näheren (Pass 2)", () => {
+    const bank: BankBuchung[] = [
+      { id: 30, date: "2026-07-30", amount: 500, purpose: "Zahlung Rechnung 361 danke", name: "Speckmann Detlef" },
+    ];
+    const candidates: ReconCandidate[] = [
+      // Die per Nummer referenzierte Rechnung liegt zeitlich WEITER weg als die andere —
+      // vorher gewann trotz Rechnungsnummer-Treffer die zeitlich nähere Rechnung 399.
+      { kind: "lieferung", id: 361, date: "2026-06-15", amount: 500, description: "Lieferung RE-2026-0361", counterparty: "Speckmann Detlef", receiptNumber: "RE-2026-0361" },
+      { kind: "lieferung", id: 399, date: "2026-07-01", amount: 500, description: "Lieferung RE-2026-0399", counterparty: "Speckmann Detlef", receiptNumber: "RE-2026-0399" },
+    ];
+    const result = runNormalMatch(bank, candidates);
+    expect(result.deviations).toHaveLength(1);
+    expect(result.deviations[0].candidate.id).toBe(361);
   });
 
   it("lässt unpassende Bankbuchungen und Kandidaten unverändert in bankOnly/candidateOnly", () => {

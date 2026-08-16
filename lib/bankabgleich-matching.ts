@@ -115,13 +115,32 @@ export function tokenSimilarity(a: string, b: string): number {
   return inter / Math.min(ta.size, tb.size);
 }
 
-/** Starkes Signal: die Rechnungs-/Belegnummer der Buchung taucht im Verwendungszweck/Namen auf. */
+/** Starkes Signal: die Rechnungs-/Belegnummer der Buchung taucht im Verwendungszweck/Namen auf.
+ *
+ * Prüft zuerst die vollständige, normalisierte Rechnungsnummer als Teilzeichenkette (z.B.
+ * "RE-2026-0361" → "re20260361"). Kunden geben im Verwendungszweck einer Überweisung aber sehr
+ * oft nur die laufende Nummer am Ende an ("Rechnung 361", "RG 0361") statt des vollen internen
+ * Formats mit Präfix/Jahr — das ließ den Abgleich bisher komplett ins Leere laufen, obwohl der
+ * Zahlende die Rechnungsnummer korrekt referenziert hatte. Fallback: die letzte Ziffernfolge der
+ * Rechnungsnummer (mit UND ohne führende Nullen) als eigenständiges Zahlen-Token im
+ * Verwendungszweck suchen — Token-Grenze statt roher Teilzeichenkette, damit z.B. "361" nicht
+ * zufällig in einer IBAN oder Telefonnummer "trifft". Etwas geringere Konfidenz als der
+ * Volltreffer, da die kurze Zahl allein prinzipiell mehrdeutiger ist. */
 export function receiptNumberHit(bankText: string, receiptNumber?: string): number {
   if (!receiptNumber) return 0;
   const needle = normalizeText(receiptNumber).replace(/\s+/g, "");
   if (needle.length < 3) return 0;
   const haystack = normalizeText(bankText).replace(/\s+/g, "");
-  return haystack.includes(needle) ? 1 : 0;
+  if (haystack.includes(needle)) return 1;
+
+  const trailingMatch = receiptNumber.match(/(\d+)\D*$/);
+  if (!trailingMatch) return 0;
+  const trailing = trailingMatch[1];
+  const trailingOhneNull = trailing.replace(/^0+/, "");
+  if (trailingOhneNull.length < 2) return 0;
+  const tokens = tokenize(normalizeText(bankText));
+  const hit = tokens.some((t) => t === trailing || t === trailingOhneNull);
+  return hit ? 0.85 : 0;
 }
 
 /** Kombinierte Textähnlichkeit (0..1): Belegnummer-Treffer ist nahezu sicher, sonst Token-Overlap. */
@@ -255,7 +274,14 @@ export function runNormalMatch(
       if (amountDiff > amountTol) continue;
       const dayDiff = daysBetween(mv.date, c.date);
       const textScore = pairTextScore(mv, c);
-      const score = amountDiff * 1000 + dayDiff - textScore * 10;
+      // textScore*10 ließ einen Rechnungsnummer-Treffer (0.85–1, "nahezu sicher" laut
+      // pairTextScore-Doku) faktisch wirkungslos verpuffen: ein Zahlungsziel von wenigen
+      // Wochen erzeugt leicht 20–40 Tage dayDiff, was den Text-Bonus von max. 10 Punkten
+      // deutlich übersteigt — bei zwei offenen Rechnungen mit identischem Betrag gewann so
+      // zuverlässig die zeitlich nähere statt der per Rechnungsnummer referenzierten. *500
+      // bringt den Text-/Belegnummer-Treffer in dieselbe Größenordnung wie amountDiff*1000
+      // innerhalb der (bereits per amountTol gedeckelten) Betragstoleranz.
+      const score = amountDiff * 1000 + dayDiff - textScore * 500;
       if (score < bestScore) {
         bestScore = score;
         best = ci;
