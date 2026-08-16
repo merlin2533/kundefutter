@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
+import { berechneVerkaufspreis } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
@@ -36,17 +37,22 @@ interface Artikel {
   notiz?: string | null;
 }
 
-/** EK aus bevorzugtem Lieferanten, sonst dem ersten hinterlegten Lieferanten, sonst 0.
+/** EK aus bevorzugtem Lieferanten (falls dort ein Preis hinterlegt ist), sonst irgendeinem
+ *  Lieferanten mit hinterlegtem Preis, sonst dem bevorzugten/ersten auch ohne Preis, sonst 0.
  *  Vorher fiel bei 2+ Lieferanten ohne "bevorzugt"-Flag auf `art.einkaufspreis` zurück —
  *  ein Feld, das Artikel im Datenmodell gar nicht hat (EK lebt ausschließlich auf
- *  ArtikelLieferant), lief also immer auf 0 hinaus. Betraf jeden Artikel mit mehreren
- *  Lieferanten ohne eindeutige Präferenz. */
+ *  ArtikelLieferant), lief also immer auf 0 hinaus. Und selbst danach griff bei mehreren
+ *  Lieferanten ohne Präferenz einfach `lieferanten[0]` — die DB-Rückgabereihenfolge ist
+ *  nicht garantiert die des tatsächlich gepflegten Preises. Betraf jeden Artikel, bei dem
+ *  ein Lieferant ohne EK (Default 0) zufällig vor einem mit gepflegtem EK stand. */
 function resolveEK(art: Artikel | undefined): number {
   if (!art) return 0;
   if (art.lieferanten?.length) {
     const bev = art.lieferanten.find((l) => l.bevorzugt);
-    if (bev) return bev.einkaufspreis;
-    return art.lieferanten[0].einkaufspreis;
+    if (bev && bev.einkaufspreis > 0) return bev.einkaufspreis;
+    const mitPreis = art.lieferanten.find((l) => l.einkaufspreis > 0);
+    if (mitPreis) return mitPreis.einkaufspreis;
+    return bev ? bev.einkaufspreis : art.lieferanten[0].einkaufspreis;
   }
   return art.einkaufspreis ?? 0;
 }
@@ -98,6 +104,12 @@ interface KundeKampagne {
   bis: string;
   rabattProzent: number | null;
   artikel: KampagneArtikelInfo[];
+}
+
+interface KundePreisInfo {
+  artikelId: number;
+  preis: number;
+  rabatt: number;
 }
 
 interface NewPosition {
@@ -169,6 +181,7 @@ function NeueLieferungInner() {
   const [erklaerungBestaetigt, setErklaerungBestaetigt] = useState(false);
   const [kampagnen, setKampagnen] = useState<KundeKampagne[]>([]);
   const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
+  const [kundePreise, setKundePreise] = useState<KundePreisInfo[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -255,6 +268,22 @@ function NeueLieferungInner() {
       });
   }, [kundeId]);
 
+  // Kundenspezifische Sonderpreise laden — sonst wird beim manuellen Anlegen einer
+  // Lieferung immer nur der allgemeine Artikel.standardpreis vorbelegt, auch wenn für
+  // diesen Kunden ein Sonderpreis (KundeArtikelPreis) hinterlegt ist.
+  useEffect(() => {
+    if (!kundeId) { setKundePreise([]); return; }
+    fetch(`/api/kunden/${kundeId}/preise`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((d: { artikelId: number; preis: number; rabatt: number }[]) =>
+        setKundePreise(Array.isArray(d) ? d.map((p) => ({ artikelId: p.artikelId, preis: p.preis, rabatt: p.rabatt })) : [])
+      )
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setKundePreise([]);
+      });
+  }, [kundeId]);
+
   // Wenn Kunde oder Positionen wechseln: prüfen ob Sprengstoffvorläufer betroffen
   // und ob für diesen Kunden eine gültige Jahreserklärung vorliegt.
   useEffect(() => {
@@ -290,7 +319,8 @@ function NeueLieferungInner() {
           next.artikelId = num === "" || isNaN(num as number) ? "" : (num as number);
           const art = artikel.find((a) => a.id === next.artikelId);
           if (art) {
-            next.verkaufspreis = String(art.standardpreis);
+            const kp = kundePreise.find((p) => p.artikelId === art.id);
+            next.verkaufspreis = String(berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null));
             next.einkaufspreis = String(resolveEK(art));
             // Artikel-Notiz durchschleifen (z.B. Abpackungshinweis)
             next.notiz = art.notiz ?? "";
@@ -694,6 +724,7 @@ function NeueLieferungInner() {
                     const ek = num(pos.einkaufspreis);
                     const margePct = vk > 0 ? ((vk - ek) / vk) * 100 : 0;
                     const selectedArtikel = artikel.find((a) => a.id === Number(pos.artikelId));
+                    const hatSonderpreis = selectedArtikel != null && kundePreise.some((p) => p.artikelId === selectedArtikel.id);
 
                     return (
                       <tr
@@ -784,6 +815,11 @@ function NeueLieferungInner() {
                           <div className="text-xs text-gray-400 text-right mt-0.5">
                             {formatEuro(num(pos.menge) * num(pos.verkaufspreis))}
                           </div>
+                          {hatSonderpreis && (
+                            <div className="text-[10px] text-green-700 text-right mt-0.5" title="Kundenspezifischer Sonderpreis wurde übernommen">
+                              ✓ Sonderpreis
+                            </div>
+                          )}
                         </td>
 
                         {/* Marge */}

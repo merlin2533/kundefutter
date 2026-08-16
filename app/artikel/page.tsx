@@ -296,11 +296,17 @@ export default function ArtikelPage() {
   }
 
   function bevorzugterEK(a: Artikel): number | null {
-    // Bevorzugten Lieferanten nutzen, sonst irgendeinen vorhandenen (auch bei mehreren
-    // ohne "bevorzugt"-Flag) — nur wenn wirklich KEIN Lieferant hinterlegt ist, gibt es
-    // keinen EK anzuzeigen. Vorher wurde bei 2+ Lieferanten ohne Präferenz fälschlich
-    // "—" angezeigt, obwohl EK-Preise vorhanden waren.
+    // Bevorzugten Lieferanten nutzen (falls dort ein Preis hinterlegt ist), sonst
+    // irgendeinen Lieferanten MIT hinterlegtem Preis, sonst den bevorzugten/ersten auch
+    // ohne Preis — nur wenn wirklich KEIN Lieferant hinterlegt ist, gibt es keinen EK
+    // anzuzeigen. Ein reines `lieferanten[0]`-Fallback (ohne auf einen tatsächlich
+    // gepflegten Preis zu prüfen) zeigte bei mehreren Lieferanten ohne Präferenz je nach
+    // (nicht garantierter) DB-Rückgabereihenfolge fälschlich 0,00 € statt des
+    // tatsächlich gepflegten EK eines anderen Lieferanten.
     const bev = a.lieferanten.find((l) => l.bevorzugt);
+    if (bev && bev.einkaufspreis > 0) return bev.einkaufspreis;
+    const mitPreis = a.lieferanten.find((l) => l.einkaufspreis > 0);
+    if (mitPreis) return mitPreis.einkaufspreis;
     if (bev) return bev.einkaufspreis;
     if (a.lieferanten.length > 0) return a.lieferanten[0].einkaufspreis;
     return null;
