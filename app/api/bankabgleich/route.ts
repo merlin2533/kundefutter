@@ -38,15 +38,62 @@ export async function GET(req: NextRequest) {
   if (importDatei) where.importDatei = importDatei;
 
   try {
-    const [umsaetze, gesamt, offen] = await Promise.all([
+    const [umsaetzeRaw, gesamt, offen] = await Promise.all([
       prisma.kontoumsatz.findMany({
         where,
+        include: { weitereZuordnungen: true },
         orderBy: { buchungsdatum: "desc" },
         take: limit,
       }),
       prisma.kontoumsatz.count({ where }),
       prisma.kontoumsatz.count({ where: { ...where, zugeordnet: false } }),
     ]);
+
+    // KontoumsatzWeitereZuordnung führt lieferungId/sammelrechnungId als "weiche" IDs ohne
+    // Prisma-Relation (analog zu Kontoumsatz.lieferungId/sammelrechnungId selbst) — Rechnungsnr.
+    // + Kundenname für die Anzeige daher in einem Rutsch nachladen statt pro Zeile einzeln.
+    // Die Haupt-Zuordnung (Kontoumsatz.lieferungId/sammelrechnungId) läuft über dieselben Maps mit,
+    // damit das Frontend beim Hinzufügen "weiterer Rechnungen" weiß, für welchen Kunden es andere
+    // offene Rechnungen suchen soll, ohne einen Extra-Request zu brauchen.
+    const lieferungIds = new Set<number>();
+    const sammelrechnungIds = new Set<number>();
+    for (const u of umsaetzeRaw) {
+      if (u.lieferungId) lieferungIds.add(u.lieferungId);
+      if (u.sammelrechnungId) sammelrechnungIds.add(u.sammelrechnungId);
+      for (const w of u.weitereZuordnungen) {
+        if (w.lieferungId) lieferungIds.add(w.lieferungId);
+        if (w.sammelrechnungId) sammelrechnungIds.add(w.sammelrechnungId);
+      }
+    }
+    const [lieferungen, sammelrechnungen] = await Promise.all([
+      lieferungIds.size
+        ? prisma.lieferung.findMany({ where: { id: { in: [...lieferungIds] } }, select: { id: true, rechnungNr: true, kundeId: true, kunde: { select: { name: true } } } })
+        : [],
+      sammelrechnungIds.size
+        ? prisma.sammelrechnung.findMany({ where: { id: { in: [...sammelrechnungIds] } }, select: { id: true, rechnungNr: true, kundeId: true, kunde: { select: { name: true } } } })
+        : [],
+    ]);
+    const lieferungMap = new Map(lieferungen.map((l) => [l.id, l]));
+    const sammelrechnungMap = new Map(sammelrechnungen.map((s) => [s.id, s]));
+
+    const umsaetze = umsaetzeRaw.map((u) => {
+      const primaryZiel = u.lieferungId ? lieferungMap.get(u.lieferungId) : u.sammelrechnungId ? sammelrechnungMap.get(u.sammelrechnungId) : undefined;
+      return {
+        ...u,
+        primaryKundeId: primaryZiel?.kundeId ?? null,
+        primaryKundeName: primaryZiel?.kunde.name ?? null,
+        weitereZuordnungen: u.weitereZuordnungen.map((w) => {
+          const ziel = w.lieferungId ? lieferungMap.get(w.lieferungId) : w.sammelrechnungId ? sammelrechnungMap.get(w.sammelrechnungId) : undefined;
+          return {
+            id: w.id,
+            lieferungId: w.lieferungId,
+            sammelrechnungId: w.sammelrechnungId,
+            rechnungNr: ziel?.rechnungNr ?? null,
+            kundeName: ziel?.kunde.name ?? null,
+          };
+        }),
+      };
+    });
 
     return NextResponse.json({ umsaetze, gesamt, offen });
   } catch (err) {

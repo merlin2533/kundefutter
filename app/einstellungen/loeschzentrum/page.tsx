@@ -21,6 +21,7 @@ interface BankabgleichResetPreview {
   lieferung: number;
   sammelrechnung: number;
   kontoumsatz: number;
+  weitereZuordnung: number;
   gutschrift: number;
   forderung: number;
 }
@@ -448,7 +449,7 @@ export default function LoeschzentrumPage() {
                   <p className="font-medium">Zurücksetzen abgeschlossen</p>
                   <p className="text-xs text-green-700 mt-0.5">
                     {bankResetResult.lieferung} Lieferung(en) · {bankResetResult.sammelrechnung} Sammelrechnung(en) auf offen gesetzt ·{" "}
-                    {bankResetResult.kontoumsatz} Kontoumsatz-Zuordnung(en) aufgehoben ·{" "}
+                    {bankResetResult.kontoumsatz} Kontoumsatz-Zuordnung(en) aufgehoben ({bankResetResult.weitereZuordnung} davon weitere Rechnungen) ·{" "}
                     {bankResetResult.gutschrift} Gutschrift(en) · {bankResetResult.forderung} Forderung(en) zurückgebucht
                   </p>
                 </div>
@@ -495,6 +496,9 @@ export default function LoeschzentrumPage() {
                       </span>
                       <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
                         {bankReset.kontoumsatz} Kontoumsatz-Zuordnung(en)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.weitereZuordnung} weitere Rechnung(en) je Zahlung
                       </span>
                       <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
                         {bankReset.gutschrift} Gutschrift(en)

@@ -985,10 +985,32 @@ model Kontoumsatz {
   importDatei        String? // Name der Importdatei (für Rückverfolgung)
   ignoriert          Boolean   @default(false) // manuell ausgeblendet (z.B. interne Umbuchung) — nicht zugeordnet, aber bewusst kein offener Posten
 
+  weitereZuordnungen KontoumsatzWeitereZuordnung[]
+
   @@index([buchungsdatum])
   @@index([zugeordnet])
   @@index([betrag])
   @@index([ignoriert])
+}
+
+// Zusätzliche Rechnungen, die per DERSELBEN Zahlung beglichen wurden (Kunde überweist mehrere
+// offene Rechnungen in einer Sammelüberweisung). Die "erste"/Haupt-Rechnung bleibt weiterhin
+// über Kontoumsatz.lieferungId/sammelrechnungId zugeordnet (unverändert für den 1:1-Regelfall,
+// keine bestehende Abfrage muss angepasst werden) — jede weitere landet hier. Keine feste
+// Prisma-Relation zu Lieferung/Sammelrechnung (analog zu Kontoumsatz.lieferungId/
+// sammelrechnungId selbst, die ebenfalls als "weiche" IDs ohne @relation geführt werden).
+model KontoumsatzWeitereZuordnung {
+  id               Int      @id @default(autoincrement())
+  kontoumsatzId    Int
+  lieferungId      Int?
+  sammelrechnungId Int?
+  createdAt        DateTime @default(now())
+
+  kontoumsatz Kontoumsatz @relation(fields: [kontoumsatzId], references: [id], onDelete: Cascade)
+
+  @@index([kontoumsatzId])
+  @@index([lieferungId])
+  @@index([sammelrechnungId])
 }
 
 // ─── KI-NUTZUNG (AI Usage Statistics) ────────────────────────────────────────
