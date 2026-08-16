@@ -17,6 +17,14 @@ interface DedupPreview {
   groups: DedupGroup[];
 }
 
+interface BankabgleichResetPreview {
+  lieferung: number;
+  sammelrechnung: number;
+  kontoumsatz: number;
+  gutschrift: number;
+  forderung: number;
+}
+
 export default function LoeschzentrumPage() {
   const [dedup, setDedup] = useState<DedupPreview | null>(null);
   const [dedupLoading, setDedupLoading] = useState(false);
@@ -27,6 +35,12 @@ export default function LoeschzentrumPage() {
 
   const [ftsLoading, setFtsLoading] = useState(false);
   const [ftsResult, setFtsResult] = useState<string | null>(null);
+
+  const [bankReset, setBankReset] = useState<BankabgleichResetPreview | null>(null);
+  const [bankResetLoading, setBankResetLoading] = useState(false);
+  const [bankResetResult, setBankResetResult] = useState<BankabgleichResetPreview | null>(null);
+  const [bankResetError, setBankResetError] = useState<string | null>(null);
+  const [bankResetConfirmVisible, setBankResetConfirmVisible] = useState(false);
 
   function toggleGroup(i: number) {
     setExpandedGroups((prev) => {
@@ -97,6 +111,53 @@ export default function LoeschzentrumPage() {
       setFtsResult("Fehler beim Aufbauen des Suchindex.");
     } finally {
       setFtsLoading(false);
+    }
+  }
+
+  async function loadBankResetPreview() {
+    setBankResetLoading(true);
+    setBankResetError(null);
+    setBankResetResult(null);
+    setBankResetConfirmVisible(false);
+    try {
+      const res = await fetch("/api/bankabgleich/reset");
+      if (!res.ok) throw new Error("Fehler beim Laden");
+      const data: BankabgleichResetPreview = await res.json();
+      setBankReset(data);
+    } catch (err) {
+      Sentry.captureException(err);
+      setBankResetError("Vorschau konnte nicht geladen werden.");
+    } finally {
+      setBankResetLoading(false);
+    }
+  }
+
+  async function runBankReset() {
+    if (!bankReset) return;
+    setBankResetLoading(true);
+    setBankResetError(null);
+    setBankResetConfirmVisible(false);
+    try {
+      const res = await fetch("/api/bankabgleich/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
+        throw new Error((d as { error?: string }).error ?? "Fehler");
+      }
+      const result = await res.json();
+      setBankResetResult(result);
+      setBankReset(null);
+    } catch (e) {
+      Sentry.captureException(e);
+      setBankResetError(e instanceof Error ? e.message : "Zurücksetzen fehlgeschlagen");
+    } finally {
+      setBankResetLoading(false);
     }
   }
 
@@ -365,6 +426,149 @@ export default function LoeschzentrumPage() {
                 "Index neu aufbauen"
               )}
             </button>
+          </div>
+        </div>
+
+        {/* ── Bankabgleich zurücksetzen ── */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-semibold text-gray-800">Bankabgleich zurücksetzen</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Setzt alle als bezahlt markierten Rechnungen (Lieferungen + Sammelrechnungen)
+              wieder auf offen, hebt die zugehörigen Kontoumsatz-Zuordnungen auf und macht dabei
+              automatisch verbuchte Gutschriften/Forderungen rückgängig — für einen kompletten
+              neuen Abgleichsdurchgang. Betrifft nicht Ausgaben oder Lieferantenrechnungen.
+            </p>
+          </div>
+          <div className="p-5">
+            {bankResetResult && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                <span className="text-base">✓</span>
+                <div>
+                  <p className="font-medium">Zurücksetzen abgeschlossen</p>
+                  <p className="text-xs text-green-700 mt-0.5">
+                    {bankResetResult.lieferung} Lieferung(en) · {bankResetResult.sammelrechnung} Sammelrechnung(en) auf offen gesetzt ·{" "}
+                    {bankResetResult.kontoumsatz} Kontoumsatz-Zuordnung(en) aufgehoben ·{" "}
+                    {bankResetResult.gutschrift} Gutschrift(en) · {bankResetResult.forderung} Forderung(en) zurückgebucht
+                  </p>
+                </div>
+              </div>
+            )}
+            {bankResetError && (
+              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {bankResetError}
+              </div>
+            )}
+
+            {!bankReset && (
+              <button
+                onClick={loadBankResetPreview}
+                disabled={bankResetLoading}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+              >
+                {bankResetLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Prüfe…
+                  </span>
+                ) : (
+                  "Betroffene Datensätze prüfen"
+                )}
+              </button>
+            )}
+
+            {bankReset && (
+              <div className="space-y-4">
+                {bankReset.lieferung === 0 && bankReset.sammelrechnung === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-green-700 font-medium py-1">
+                    <span>✓</span>
+                    <span>Keine als bezahlt markierten Rechnungen gefunden.</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.lieferung} Lieferung(en)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.sammelrechnung} Sammelrechnung(en)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.kontoumsatz} Kontoumsatz-Zuordnung(en)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.gutschrift} Gutschrift(en)
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {bankReset.forderung} Forderung(en)
+                      </span>
+                    </div>
+
+                    {!bankResetConfirmVisible ? (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => setBankResetConfirmVisible(true)}
+                          disabled={bankResetLoading}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                        >
+                          Zurücksetzen starten
+                        </button>
+                        <button
+                          onClick={() => { setBankReset(null); setBankResetConfirmVisible(false); }}
+                          className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border border-red-200 bg-red-50 rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-red-900">
+                            Bankabgleich wirklich zurücksetzen?
+                          </p>
+                          <p className="text-xs text-red-700 mt-1">
+                            {bankReset.lieferung + bankReset.sammelrechnung} Rechnung(en) werden wieder als offen
+                            markiert, {bankReset.kontoumsatz} Bankumsatz-Zuordnung(en) aufgehoben. Diese Aktion kann
+                            nicht rückgängig gemacht werden.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={runBankReset}
+                            disabled={bankResetLoading}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                          >
+                            {bankResetLoading ? (
+                              <span className="flex items-center gap-2">
+                                <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                Setze zurück…
+                              </span>
+                            ) : (
+                              "Ja, jetzt zurücksetzen"
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setBankResetConfirmVisible(false)}
+                            className="border border-red-300 bg-white hover:bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {bankReset.lieferung === 0 && bankReset.sammelrechnung === 0 && (
+                  <button
+                    onClick={loadBankResetPreview}
+                    className="text-sm text-gray-500 hover:text-gray-700 underline"
+                  >
+                    Erneut prüfen
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
