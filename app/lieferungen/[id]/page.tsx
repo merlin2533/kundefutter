@@ -864,12 +864,15 @@ export default function LieferungDetailPage() {
   const heute = new Date();
   heute.setHours(0, 0, 0, 0);
   const zahlungszielTage = lieferung.zahlungsziel ?? 30;
-  const basisDatum = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : new Date(lieferung.datum);
-  const faelligkeitsDatum = new Date(basisDatum.getTime() + zahlungszielTage * 24 * 60 * 60 * 1000);
+  // Fälligkeit zählt erst ab dem Rechnungsdatum, nicht ab dem Lieferdatum — ohne Rechnung
+  // gibt es noch keine Zahlungsfrist. Sonst zeigt eine noch nicht abgerechnete Lieferung
+  // fälschlich "Überfällig", sobald Lieferdatum + Zahlungsziel in der Vergangenheit liegen.
+  const basisDatum = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : null;
+  const faelligkeitsDatum = basisDatum ? new Date(basisDatum.getTime() + zahlungszielTage * 24 * 60 * 60 * 1000) : null;
   const istGeliefert = lieferung.status === "geliefert";
   const istBezahlt = !!lieferung.bezahltAm;
-  const istUeberfaellig = istGeliefert && !istBezahlt && heute > faelligkeitsDatum;
-  const faelligSeitTagen = istUeberfaellig
+  const istUeberfaellig = istGeliefert && !!lieferung.rechnungNr && !istBezahlt && !!faelligkeitsDatum && heute > faelligkeitsDatum;
+  const faelligSeitTagen = istUeberfaellig && faelligkeitsDatum
     ? Math.floor((heute.getTime() - faelligkeitsDatum.getTime()) / (24 * 60 * 60 * 1000))
     : 0;
 
@@ -897,7 +900,7 @@ export default function LieferungDetailPage() {
   const bruttobetrag = nettobetrag + mwstGesamt;
   const docNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
   const isRechnung = !!lieferung.rechnungNr;
-  const faelligStr = formatDatum(faelligkeitsDatum.toISOString());
+  const faelligStr = faelligkeitsDatum ? formatDatum(faelligkeitsDatum.toISOString()) : "—";
 
   return (
     <div>
@@ -1207,7 +1210,7 @@ export default function LieferungDetailPage() {
                     bezahlt am {formatDatum(lieferung.bezahltAm)}
                   </span>
                 )}
-                {!istBezahlt && (
+                {!istBezahlt && faelligkeitsDatum && (
                   <span className="text-xs text-gray-500">
                     Fällig: {formatDatum(faelligkeitsDatum.toISOString())}
                   </span>
