@@ -63,6 +63,7 @@ export default function ArtikelPage() {
   const [search, setSearch] = useState("");
   const [kategorie, setKategorie] = useState("alle");
   const [unterkategorie, setUnterkategorie] = useState("alle");
+  const [statusFilter, setStatusFilter] = useState<"aktiv" | "inaktiv" | "alle">("aktiv");
   const [lieferantId, setLieferantId] = useState("");
   const [preisVon, setPreisVon] = useState("");
   const [preisBis, setPreisBis] = useState("");
@@ -92,6 +93,7 @@ export default function ArtikelPage() {
     if (search) params.set("search", search);
     if (kategorie !== "alle") params.set("kategorie", kategorie);
     if (unterkategorie !== "alle") params.set("unterkategorie", unterkategorie);
+    if (statusFilter !== "aktiv") params.set("aktiv", statusFilter === "inaktiv" ? "false" : "alle");
     if (lieferantId) params.set("lieferantId", lieferantId);
     if (preisVon) params.set("preisVon", preisVon);
     if (preisBis) params.set("preisBis", preisBis);
@@ -128,6 +130,7 @@ export default function ArtikelPage() {
     if (f.search) setSearch(f.search);
     if (f.kategorie) setKategorie(f.kategorie);
     if (f.unterkategorie) setUnterkategorie(f.unterkategorie);
+    if (f.statusFilter === "inaktiv" || f.statusFilter === "alle") setStatusFilter(f.statusFilter);
     if (f.lieferantId) setLieferantId(f.lieferantId);
     if (f.preisVon) setPreisVon(f.preisVon);
     if (f.preisBis) setPreisBis(f.preisBis);
@@ -138,18 +141,18 @@ export default function ArtikelPage() {
   // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch (err) {
+    try { sessionStorage.setItem("artikel-filters", JSON.stringify({ search, kategorie, unterkategorie, statusFilter, lieferantId, preisVon, preisBis, nurSprengstoff: nurSprengstoff ? "1" : "0" })); } catch (err) {
       Sentry.captureException(err);
       /* ignore */
     }
-  }, [filtersLoaded, search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
+  }, [filtersLoaded, search, kategorie, unterkategorie, statusFilter, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
     if (!filtersLoaded) return;
     setPage(1);
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersLoaded, search, kategorie, unterkategorie, lieferantId, preisVon, preisBis, nurSprengstoff]);
+  }, [filtersLoaded, search, kategorie, unterkategorie, statusFilter, lieferantId, preisVon, preisBis, nurSprengstoff]);
 
   useEffect(() => {
     if (page > 1) load(page);
@@ -508,6 +511,16 @@ export default function ArtikelPage() {
             ))}
           </select>
         )}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "aktiv" | "inaktiv" | "alle")}
+          title="Gelöschte Artikel werden nur als inaktiv markiert (kein echtes Löschen) — hier wieder auffindbar"
+          className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 bg-white"
+        >
+          <option value="aktiv">Aktive Artikel</option>
+          <option value="inaktiv">Inaktive Artikel</option>
+          <option value="alle">Alle (aktiv + inaktiv)</option>
+        </select>
       </div>
 
       {/* Zusätzliche Filter: Lieferant, Preis, Sprengstoffvorläufer */}
@@ -656,6 +669,11 @@ export default function ArtikelPage() {
                     <td className="px-4 py-3 font-medium text-gray-900">
                       <span className="inline-flex items-center gap-1.5 flex-wrap">
                         {a.name}
+                        {!a.aktiv && (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200 shrink-0">
+                            Inaktiv
+                          </span>
+                        )}
                         {a.sprengstoffvorlaeufer && (
                           <span
                             title="Sprengstoffvorläufer (EU-VO 2019/1148)"
