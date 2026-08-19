@@ -82,6 +82,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     const aktualisiert = await prisma.$transaction(async (tx) => {
       const result = await tx.kontoumsatz.update({ where: { id }, data: updateData });
 
+      // Idempotenz: eine erneute Zuordnung desselben Umsatzes (z.B. Zielrechnung korrigiert)
+      // darf keine zweite Teilzahlung anhäufen — vorherige, von diesem Umsatz erzeugte
+      // Teilzahlung immer zuerst entfernen, danach je nach Fall neu anlegen oder nicht.
+      await tx.teilzahlung.deleteMany({ where: { kontoumsatzId: id } });
+
       // "Als bezahlt markieren" ist ein eigener, expliziter Schritt (Default an) — kein
       // impliziter Nebeneffekt der reinen Zuordnung. Bei false bleibt das Zielobjekt offen
       // (z.B. Teilzahlung/Anzahlung).
@@ -95,6 +100,21 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         for (const [zielTyp, zielId] of ziele) {
           if (zielId) await markiereAlsBezahlt(zielTyp, zielId, umsatz.buchungsdatum, tx);
         }
+      } else if (lieferungId || sammelrechnungId) {
+        // Kunde zahlt eine Rechnung in mehreren Teilbeträgen (z.B. zwei Überweisungen): die
+        // Rechnung bleibt offen (bezahltAm bleibt null, taucht also weiter als Kandidat für die
+        // nächste Teilzahlung auf), der erhaltene Betrag wird als Teilzahlung erfasst — sichtbar
+        // auf der Lieferung/Sammelrechnung und mindert dort den offenen Betrag.
+        await tx.teilzahlung.create({
+          data: {
+            lieferungId: lieferungId ?? null,
+            sammelrechnungId: sammelrechnungId ?? null,
+            betrag: umsatz.betrag,
+            datum: umsatz.buchungsdatum,
+            notiz: "Teilzahlung aus Bankabgleich",
+            kontoumsatzId: id,
+          },
+        });
       }
 
       if (differenzAktion) {
@@ -161,6 +181,10 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
       await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum);
     }
     await prisma.kontoumsatzWeitereZuordnung.deleteMany({ where: { kontoumsatzId: id } });
+    // Eine über "Teilzahlung erfassen" (alsBezahltMarkieren:false) angelegte Teilzahlung gehört
+    // ausschließlich zu dieser Zuordnung — beim vollständigen Aufheben ebenfalls entfernen, sonst
+    // bliebe ein bereits erhaltener Teilbetrag fälschlich auf der Rechnung stehen.
+    await prisma.teilzahlung.deleteMany({ where: { kontoumsatzId: id } });
 
     const aktualisiert = await prisma.kontoumsatz.update({
       where: { id },

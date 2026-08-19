@@ -106,6 +106,10 @@ function BankabgleichContent() {
   // Manuelle Suche nach einer anderen (nicht algorithmisch vorgeschlagenen) offenen Rechnung
   const [suchtext, setSuchtext] = useState("");
   const [sucheAktiv, setSucheAktiv] = useState(false);
+  // Mehrfachauswahl von Vorschlägen (z.B. eine Zahlung deckt mehrere Rechnungen desselben
+  // Kunden ab) — Key ist `${typ}:${id}`, geleert bei jedem Öffnen/Schließen/Neuladen des Panels.
+  const [ausgewaehlt, setAusgewaehlt] = useState<Set<string>>(new Set());
+  const [bulkZuordnenBusy, setBulkZuordnenBusy] = useState(false);
 
   // Alle verfügbaren Konten / Import-Runden
   const [konten, setKonten] = useState<string[]>([]);
@@ -216,18 +220,83 @@ function BankabgleichContent() {
     setZuordnungsFehler(null);
     setSuchtext("");
     setSucheAktiv(false);
+    setAusgewaehlt(new Set());
     await ladeVorschlaege(umsatzId);
   }
 
   async function andereRechnungSuchen(umsatzId: number) {
     if (suchtext.trim().length < 2) return;
     setSucheAktiv(true);
+    setAusgewaehlt(new Set());
     await ladeVorschlaege(umsatzId, suchtext.trim());
+  }
+
+  function toggleAuswahl(v: Vorschlag) {
+    const key = `${v.typ}:${v.id}`;
+    setAusgewaehlt((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  /** Mehrere ausgewählte Rechnungen auf einmal derselben Zahlung zuordnen — die erste wird über
+   * die normale Haupt-Zuordnung gesetzt, alle weiteren über /weitere (nur lieferung/sammelrechnung
+   * unterstützt, da eine Zahlung mehrere Rechnungen nur bei Kunden-Rechnungen decken kann). */
+  async function mehrereZuordnen(umsatzId: number) {
+    const auswahl = vorschlaege.filter((v) => ausgewaehlt.has(`${v.typ}:${v.id}`));
+    if (auswahl.length === 0) return;
+    setZuordnungsFehler(null);
+    setBulkZuordnenBusy(true);
+    try {
+      const [erste, ...rest] = auswahl;
+      const primaryBody: Record<string, unknown> = {
+        [ZIEL_FELD[erste.typ]]: erste.id,
+        alsBezahltMarkieren: true,
+        zuordnungsArt: "manuell",
+      };
+      const primaryRes = await fetch(`/api/bankabgleich/${umsatzId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(primaryBody),
+      });
+      if (!primaryRes.ok) {
+        const d = await primaryRes.json().catch((err) => { Sentry.captureException(err); return {}; });
+        setZuordnungsFehler((d as { error?: string }).error ?? "Fehler beim Zuordnen");
+        return;
+      }
+
+      const fehler: string[] = [];
+      for (const v of rest) {
+        if (v.typ !== "lieferung" && v.typ !== "sammelrechnung") continue;
+        const weitereRes = await fetch(`/api/bankabgleich/${umsatzId}/weitere`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(v.typ === "lieferung" ? { lieferungId: v.id } : { sammelrechnungId: v.id }),
+        });
+        if (!weitereRes.ok) {
+          const d = await weitereRes.json().catch((err) => { Sentry.captureException(err); return {}; });
+          fehler.push(`${v.bezeichnung}: ${(d as { error?: string }).error ?? "Fehler"}`);
+        }
+      }
+
+      if (fehler.length > 0) {
+        setZuordnungsFehler(`Teilweise zugeordnet — nicht übernommen: ${fehler.join("; ")}`);
+      } else {
+        setOffenePanelId(null);
+      }
+      setAusgewaehlt(new Set());
+      laden();
+    } finally {
+      setBulkZuordnenBusy(false);
+    }
   }
 
   function sucheZuruecksetzen(umsatzId: number) {
     setSuchtext("");
     setSucheAktiv(false);
+    setAusgewaehlt(new Set());
     ladeVorschlaege(umsatzId);
   }
 
@@ -612,23 +681,50 @@ function BankabgleichContent() {
                                 : "Keine automatischen Vorschläge gefunden — oben nach einer anderen Rechnung suchen."}
                             </div>
                           ) : (
-                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {vorschlaege.map((v, idx) => (
-                                <ZuordnungsVorschlagCard
-                                  key={idx}
-                                  typ={v.typ}
-                                  bezeichnung={v.bezeichnung}
-                                  gegenpartei={v.gegenpartei}
-                                  betrag={v.betrag}
-                                  konfidenz={v.konfidenz}
-                                  wirdBezahltAm={v.wirdBezahltAm}
-                                  amountDiff={v.amountDiff}
-                                  dayDiff={v.dayDiff}
-                                  signedDiff={u.betrag - v.betrag}
-                                  onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
-                                />
-                              ))}
-                            </div>
+                            <>
+                              {ausgewaehlt.size > 0 && (() => {
+                                const auswahl = vorschlaege.filter((v) => ausgewaehlt.has(`${v.typ}:${v.id}`));
+                                const summe = auswahl.reduce((s, v) => s + v.betrag, 0);
+                                const diff = u.betrag - summe;
+                                const passt = Math.abs(diff) < 0.01;
+                                return (
+                                  <div className={`flex items-center justify-between flex-wrap gap-2 mb-3 px-3 py-2 rounded-lg border text-sm ${passt ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                                    <span className={passt ? "text-green-800" : "text-amber-800"}>
+                                      {auswahl.length} Rechnung(en) ausgewählt · Summe: <strong>{formatEuro(summe)}</strong>
+                                      {!passt && <> · Differenz zur Zahlung: {formatEuro(diff)}</>}
+                                      {passt && <> · passt genau zur Zahlung ✓</>}
+                                    </span>
+                                    <button
+                                      onClick={() => mehrereZuordnen(u.id)}
+                                      disabled={bulkZuordnenBusy}
+                                      className="text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium whitespace-nowrap"
+                                    >
+                                      {bulkZuordnenBusy ? "Ordne zu…" : `${auswahl.length} Rechnungen zuordnen`}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {vorschlaege.map((v, idx) => (
+                                  <ZuordnungsVorschlagCard
+                                    key={idx}
+                                    typ={v.typ}
+                                    bezeichnung={v.bezeichnung}
+                                    gegenpartei={v.gegenpartei}
+                                    betrag={v.betrag}
+                                    konfidenz={v.konfidenz}
+                                    wirdBezahltAm={v.wirdBezahltAm}
+                                    amountDiff={v.amountDiff}
+                                    dayDiff={v.dayDiff}
+                                    signedDiff={u.betrag - v.betrag}
+                                    bankBetrag={u.betrag}
+                                    onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
+                                    selected={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? ausgewaehlt.has(`${v.typ}:${v.id}`) : undefined}
+                                    onToggleSelect={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? () => toggleAuswahl(v) : undefined}
+                                  />
+                                ))}
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>

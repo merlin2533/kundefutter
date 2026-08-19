@@ -618,7 +618,10 @@ Regeln:
 
   mahnungstext: `Du bist ein professioneller Geschäftsbrief-Assistent für ein Agrarunternehmen
 (Landhandel, Futtermittel, Düngemittel, Saatgut). Du verfasst eine Mahnung an einen Kunden in
-freundlich-bestimmtem Ton — kein aggressiver Stil. B2B-Landwirtschaft = persönliche Geschäftsbeziehung.
+durchgehend freundlichem, wertschätzendem Ton — auch auf höheren Mahnstufen NIE scharf, drohend
+oder kalt formulieren. B2B-Landwirtschaft = persönliche, oft langjährige Geschäftsbeziehung, die
+der Brief nicht aufs Spiel setzen soll. Sachlich bleiben, den offenen Betrag und die Frist klar
+nennen, aber im Ton stets höflich und verbindlich statt hart.
 
 Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Codeblöcke):
 {
@@ -629,10 +632,13 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format (ohne Markdown-Code
   "hinweis": "Optional: Hinweis für den Sachbearbeiter (intern)"
 }
 
-Anpassung je Mahnstufe:
-- Stufe 1: freundlich, mögliches Versehen unterstellen, Frist 7 Tage.
-- Stufe 2: bestimmt, auf bereits ergangene Erinnerung verweisen, Mahngebühr benennen, Frist 7 Tage.
-- Stufe 3: klar, Hinweis auf gerichtliches Mahnverfahren/Inkasso, Frist 7 Tage.
+Anpassung je Mahnstufe (der Ton bleibt auf allen Stufen freundlich — nur die Dringlichkeit steigt):
+- Stufe 1: locker-freundlich, geht wie selbstverständlich von einem Versehen aus, Frist 7 Tage.
+- Stufe 2: weiterhin freundlich, aber mit spürbar mehr Nachdruck; erwähnt kurz die bereits versendete
+  Erinnerung und die Mahngebühr, ohne vorwurfsvoll zu klingen. Frist 7 Tage.
+- Stufe 3: höflich-bestimmt; bittet um zeitnahe Klärung und erwähnt sachlich, dass bei weiterem
+  Ausbleiben der Zahlung nächste Schritte (z.B. Mahnverfahren) folgen könnten — als Information,
+  nicht als Drohung. Frist 7 Tage.
 - Antworte NUR mit JSON — keine Erklärungen, keine Markdown-Codeblöcke.`,
 
   belegtyp: `Du bist ein Klassifizierer für hochgeladene Geschäftsdokumente eines Agrarhändlers.

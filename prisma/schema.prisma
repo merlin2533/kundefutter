@@ -1297,6 +1297,7 @@ model Teilzahlung {
   betrag           Float
   datum            DateTime @default(now())
   notiz            String?
+  kontoumsatzId    Int? // gesetzt, wenn diese Teilzahlung aus einem Bankabgleich-Match stammt (Kontoumsatz.id) — weiche ID ohne @relation, analog zu Kontoumsatz.lieferungId/sammelrechnungId selbst; erlaubt das Zurücknehmen beim Aufheben der Zuordnung
   createdAt        DateTime @default(now())
 
   lieferung      Lieferung?      @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
@@ -1304,6 +1305,7 @@ model Teilzahlung {
 
   @@index([lieferungId])
   @@index([sammelrechnungId])
+  @@index([kontoumsatzId])
 }
 
 // ─── ALTE FORDERUNGEN (Restdifferenz aus Unterzahlung, auf Kunde statt Lieferung
