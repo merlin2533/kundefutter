@@ -42,8 +42,15 @@ export interface ZuordnungsVorschlagCardProps {
    * Fehlbetrag (Forderung möglich). Nur bei typ lieferung/sammelrechnung sinnvoll — Gutschrift/
    * Forderung sind Kunden-Konzepte. */
   signedDiff?: number;
+  /** Betrag der Bankbuchung selbst (nicht des Kandidaten) — wird bei abgewähltem "Als bezahlt
+   * markieren" als Teilzahlungsbetrag angezeigt. */
+  bankBetrag?: number;
   onUebernehmen: (alsBezahltMarkieren: boolean, differenzAktion?: "gutschrift" | "forderung") => void | Promise<void>;
   compact?: boolean;
+  /** Mehrfachauswahl (z.B. wenn eine Zahlung mehrere Rechnungen gleichzeitig deckt) — nur
+   * gerendert, wenn beide Props gesetzt sind. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 /** Ab dieser Abweichung wird eine Differenzbuchung (Gutschrift/Forderung) angeboten — darunter
@@ -68,8 +75,11 @@ export default function ZuordnungsVorschlagCard({
   amountDiff,
   dayDiff,
   signedDiff,
+  bankBetrag,
   onUebernehmen,
   compact,
+  selected,
+  onToggleSelect,
 }: ZuordnungsVorschlagCardProps) {
   const [alsBezahlt, setAlsBezahlt] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -97,9 +107,18 @@ export default function ZuordnungsVorschlagCard({
   }
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg ${compact ? "p-2.5" : "p-3"} hover:border-green-400 transition-colors`}>
+    <div className={`bg-white border rounded-lg ${compact ? "p-2.5" : "p-3"} transition-colors ${selected ? "border-green-500 ring-1 ring-green-500" : "border-gray-200 hover:border-green-400"}`}>
       <div className="flex items-start justify-between gap-2 mb-1">
-        <span className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
+        <span className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={onToggleSelect}
+              title="Zur Mehrfachauswahl hinzufügen (z.B. wenn eine Zahlung mehrere Rechnungen deckt)"
+              className="rounded border-gray-300"
+            />
+          )}
           {kiKonfidenz != null && <span title="KI-generierter Vorschlag">🤖</span>}
           {TYP_LABEL[typ] ?? typ}
         </span>
@@ -138,6 +157,11 @@ export default function ZuordnungsVorschlagCard({
         />
         Als bezahlt markieren (Datum: {formatDatum(wirdBezahltAm)})
       </label>
+      {!alsBezahlt && (typ === "lieferung" || typ === "sammelrechnung") && (
+        <p className="text-xs text-gray-400 mt-1">
+          Wird stattdessen als Teilzahlung über {formatEuro(bankBetrag ?? betrag)} erfasst — die Rechnung bleibt für den Restbetrag offen.
+        </p>
+      )}
 
       <button
         onClick={() => handleUebernehmen()}
