@@ -410,6 +410,7 @@ model Lieferung {
   skontoTage              Int? // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
   skontoGenutzt           Boolean   @default(false)
   quelle                  String? // Herkunft: null = manuell, "ki" = KI-Einzel-Scan, "ki-batch" = KI-Batch-Erkennung
+  manuelleMahnstufe       Int? // manueller Override der automatisch berechneten Mahnstufe (1|2|3); null = automatisch anhand Tage überfällig. Ermöglicht z.B. einen Brief ohne Mahngebühr, indem man auf Stufe 1 zurückstuft.
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 

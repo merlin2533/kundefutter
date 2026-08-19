@@ -221,10 +221,20 @@ export async function PUT(req: NextRequest, { params }: Params) {
       lieferscheinNr?: string | null;
       istStreckengeschaeft?: boolean; streckenLieferantId?: number | null;
       skontoProzent?: number | null; skontoTage?: number | null; skontoGenutzt?: boolean;
+      manuelleMahnstufe?: number | null;
     } = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notiz !== undefined) updateData.notiz = data.notiz;
     if (data.stornoBegründung !== undefined) updateData.stornoBegründung = data.stornoBegründung;
+    if (data.manuelleMahnstufe !== undefined) {
+      if (data.manuelleMahnstufe === null) {
+        updateData.manuelleMahnstufe = null;
+      } else {
+        const stufe = Number(data.manuelleMahnstufe);
+        if (![1, 2, 3].includes(stufe)) throw new Error("Ungültige Mahnstufe (1, 2 oder 3 erforderlich)");
+        updateData.manuelleMahnstufe = stufe;
+      }
+    }
     if (data.datum !== undefined) {
       const d = toValidDate(data.datum);
       if (!d) throw new Error("Ungültiges Datum");

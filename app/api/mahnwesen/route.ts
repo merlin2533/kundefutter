@@ -34,6 +34,9 @@ export async function GET() {
       take: 500,
     });
 
+    // manuelleMahnstufe ist im include oben nicht selektierbar eingeschränkt (voller Datensatz) —
+    // Prisma liefert das Feld automatisch mit, da kein explizites `select` verwendet wird.
+
     const result = [];
 
     for (const l of offene) {
@@ -47,8 +50,12 @@ export async function GET() {
       const tageUeberfaellig = Math.floor((heute.getTime() - faelligAm.getTime()) / (24 * 60 * 60 * 1000));
 
       // Mahnstufen-Fristen aus den Einstellungen (system.mahnwesen)
-      if (tageUeberfaellig < cfg.stufe1Tage) continue; // noch keine Mahnstufe fällig
-      const stufe = mahnstufe(tageUeberfaellig);
+      const automatischeStufe = mahnstufe(tageUeberfaellig);
+      // Manueller Override (z.B. um ohne Mahngebühr auf Stufe 1 zurückzustufen) hat Vorrang vor der
+      // automatischen Berechnung. Ist kein Override gesetzt UND die automatische Stufe noch nicht
+      // erreicht, taucht der Eintrag (wie bisher) gar nicht erst in der Liste auf.
+      if (l.manuelleMahnstufe === null && tageUeberfaellig < cfg.stufe1Tage) continue;
+      const stufe = (l.manuelleMahnstufe ?? automatischeStufe) as 1 | 2 | 3;
 
       const betrag = berechneLieferungBrutto({ positionen: l.positionen });
 
@@ -60,6 +67,8 @@ export async function GET() {
         betrag: Math.round(betrag * 100) / 100,
         tageUeberfaellig,
         mahnstufe: stufe,
+        automatischeMahnstufe: automatischeStufe,
+        mahnstufeManuell: l.manuelleMahnstufe !== null,
       });
     }
 

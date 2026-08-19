@@ -25,6 +25,8 @@ interface MahnwesenEintrag {
   betrag: number;
   tageUeberfaellig: number;
   mahnstufe: 1 | 2 | 3;
+  automatischeMahnstufe: 1 | 2 | 3;
+  mahnstufeManuell: boolean;
 }
 
 function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number): number {
@@ -64,8 +66,10 @@ export default function MahnwesenPage() {
   const [kiError, setKiError] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [stufeFilter, setStufeFilter] = useState<number | "alle">("alle");
+  const [suchtext, setSuchtext] = useState("");
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaFehler, setSepaFehler] = useState("");
+  const [mahnstufeLoading, setMahnstufeLoading] = useState<number | null>(null);
 
   // E-Mail-Versand via Modal
   const [emailModalEintrag, setEmailModalEintrag] = useState<MahnwesenEintrag | null>(null);
@@ -136,6 +140,24 @@ export default function MahnwesenPage() {
     }
   }
 
+  async function setzeMahnstufe(lieferungId: number, stufe: 1 | 2 | 3 | null) {
+    setMahnstufeLoading(lieferungId);
+    try {
+      const res = await fetch(`/api/lieferungen/${lieferungId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manuelleMahnstufe: stufe }),
+      });
+      if (!res.ok) throw new Error("Fehler");
+      await load();
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Anpassen der Mahnstufe.");
+    } finally {
+      setMahnstufeLoading(null);
+    }
+  }
+
   async function exportiereSepa() {
     setSepaLoading(true);
     setSepaFehler("");
@@ -176,10 +198,18 @@ export default function MahnwesenPage() {
     }
   }
 
-  const gefiltert =
-    stufeFilter === "alle"
-      ? eintraege
-      : eintraege.filter((e) => e.mahnstufe === stufeFilter);
+  const suchtextNormalisiert = suchtext.trim().toLowerCase();
+
+  const gefiltert = eintraege
+    .filter((e) => stufeFilter === "alle" || e.mahnstufe === stufeFilter)
+    .filter((e) => {
+      if (!suchtextNormalisiert) return true;
+      const haystack = [e.kunde.name, e.kunde.firma, e.rechnungNr]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(suchtextNormalisiert);
+    });
 
   const gesamtbetrag = gefiltert.reduce((s, e) => s + e.betrag, 0);
 
@@ -356,13 +386,24 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
             ))}
           </div>
 
+          {/* Suche: Kunde oder Rechnungsnummer */}
+          <div className="mb-4">
+            <input
+              type="text"
+              value={suchtext}
+              onChange={(e) => setSuchtext(e.target.value)}
+              placeholder="Suche nach Kunde oder Rechnungsnummer…"
+              className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm w-full sm:w-80 focus:outline-none focus:ring-2 focus:ring-green-700"
+            />
+          </div>
+
           {/* Gesamtsumme */}
           <div className="flex items-center justify-between mb-4 px-1">
             <span className="text-sm text-gray-600">
               {gefiltert.length} Einträge angezeigt
-              {stufeFilter !== "alle" && (
+              {(stufeFilter !== "alle" || suchtextNormalisiert) && (
                 <button
-                  onClick={() => setStufeFilter("alle")}
+                  onClick={() => { setStufeFilter("alle"); setSuchtext(""); }}
                   className="ml-2 text-xs text-green-700 hover:underline"
                 >
                   Filter zurücksetzen
@@ -392,6 +433,13 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
+                  {gefiltert.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-6 text-center text-sm text-gray-400">
+                        Keine Einträge für diese Filter/Suche gefunden.
+                      </td>
+                    </tr>
+                  )}
                   {gefiltert.map((e) => (
                     <Fragment key={e.lieferung.id}>
                     <tr
@@ -404,9 +452,33 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                       }`}
                     >
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STUFE_BADGE[e.mahnstufe]}`}>
-                          {STUFE_LABEL[e.mahnstufe]}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={e.mahnstufe}
+                            onChange={(ev) => setzeMahnstufe(e.lieferung.id, Number(ev.target.value) as 1 | 2 | 3)}
+                            disabled={mahnstufeLoading === e.lieferung.id}
+                            title={
+                              e.mahnstufeManuell
+                                ? `Manuell gesetzt (automatisch wäre ${STUFE_LABEL[e.automatischeMahnstufe]})`
+                                : "Automatisch berechnet — Stufe manuell wählbar, z.B. für einen Brief ohne Mahngebühr"
+                            }
+                            className={`text-xs font-semibold rounded-full pl-2 pr-6 py-0.5 border-0 focus:outline-none focus:ring-2 focus:ring-green-600 disabled:opacity-60 ${STUFE_BADGE[e.mahnstufe]}`}
+                          >
+                            {([1, 2, 3] as const).map((s) => (
+                              <option key={s} value={s}>{STUFE_LABEL[s]}</option>
+                            ))}
+                          </select>
+                          {e.mahnstufeManuell && (
+                            <button
+                              onClick={() => setzeMahnstufe(e.lieferung.id, null)}
+                              disabled={mahnstufeLoading === e.lieferung.id}
+                              title={`Manuell gesetzt — zurück auf automatisch (${STUFE_LABEL[e.automatischeMahnstufe]})`}
+                              className="text-xs text-gray-400 hover:text-gray-600"
+                            >
+                              ✎ ↺
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-700">{formatDatum(e.rechnungDatum)}</td>
                       <td className="px-4 py-3">
