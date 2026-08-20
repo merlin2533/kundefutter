@@ -281,14 +281,29 @@ export default function RechnungPrintPage() {
   // PDF exakt aus der Bildschirm-Vorschau erzeugen (entspricht 1:1 der Ansicht).
   // Mehrseitig, falls die Rechnung länger als eine A4-Seite ist.
   const [vorschauPdfLoading, setVorschauPdfLoading] = useState(false);
+  // A4-Inhaltsbreite in CSS-Pixeln (210mm bei 96dpi). [data-print-area] ist per
+  // maxWidth:210mm begrenzt, aber ohne festes width schrumpft es auf schmalen Bildschirmen
+  // (Handy, <794px Viewport) auf die tatsächliche Viewport-Breite — die Tabelle bricht dadurch
+  // viel stärker um als am Desktop, wodurch derselbe Screenshot deutlich höher wird und beim
+  // Zerschneiden in A4-Seiten in weit mehr PDF-Seiten resultiert als am Desktop. Während der
+  // html2canvas-Aufnahme wird die echte A4-Breite deshalb unabhängig vom Viewport erzwungen.
+  const A4_BREITE_PX = "793.7px";
   async function downloadVorschauPdf() {
     setVorschauPdfLoading(true);
+    let element: HTMLElement | null = null;
+    let vorherigeBreite = "";
+    let vorherigesMaxWidth = "";
     try {
       const { default: html2canvas } = await import("html2canvas");
       const { jsPDF } = await import("jspdf");
-      const element = document.querySelector<HTMLElement>("[data-print-area]");
+      element = document.querySelector<HTMLElement>("[data-print-area]");
       const footerEl = document.querySelector<HTMLElement>("[data-doc-footer]");
       if (!element) return;
+
+      vorherigeBreite = element.style.width;
+      vorherigesMaxWidth = element.style.maxWidth;
+      element.style.width = A4_BREITE_PX;
+      element.style.maxWidth = "none";
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
@@ -428,6 +443,10 @@ export default function RechnungPrintPage() {
       Sentry.captureException(err);
       setError("PDF konnte nicht erzeugt werden.");
     } finally {
+      if (element) {
+        element.style.width = vorherigeBreite;
+        element.style.maxWidth = vorherigesMaxWidth;
+      }
       setVorschauPdfLoading(false);
     }
   }
@@ -781,11 +800,18 @@ export default function RechnungPrintPage() {
             typ="rechnung"
             dateiName={`Rechnung_${lieferung.rechnungNr ?? `LS-${lieferung.id}`}.pdf`}
             getInhalt={async () => {
+              const element = document.querySelector<HTMLElement>("[data-print-area]");
+              if (!element) return null;
+              // Feste A4-Breite erzwingen (siehe A4_BREITE_PX oben) — sonst schrumpft das
+              // Element auf schmalen Bildschirmen auf Viewport-Breite und der Screenshot
+              // wird unverhältnismäßig hoch/schmal statt A4-proportioniert.
+              const vorherigeBreite = element.style.width;
+              const vorherigesMaxWidth = element.style.maxWidth;
+              element.style.width = A4_BREITE_PX;
+              element.style.maxWidth = "none";
               try {
                 const { default: html2canvas } = await import("html2canvas");
                 const { jsPDF } = await import("jspdf");
-                const element = document.querySelector<HTMLElement>("[data-print-area]");
-                if (!element) return null;
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true });
                 const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
                 const imgData = canvas.toDataURL("image/png");
@@ -796,6 +822,9 @@ export default function RechnungPrintPage() {
               } catch (err) {
                 Sentry.captureException(err);
                 return null;
+              } finally {
+                element.style.width = vorherigeBreite;
+                element.style.maxWidth = vorherigesMaxWidth;
               }
             }}
           />
