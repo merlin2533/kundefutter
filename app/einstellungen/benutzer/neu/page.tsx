@@ -10,6 +10,7 @@ export default function BenutzerNeuPage() {
   const [benutzername, setBenutzername] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobil, setMobil] = useState("");
   const [rolle, setRolle] = useState("benutzer");
   const [passwort, setPasswort] = useState("");
   const [passwort2, setPasswort2] = useState("");
@@ -33,7 +34,7 @@ export default function BenutzerNeuPage() {
       const res = await fetch("/api/benutzer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ benutzername, name, email, rolle, passwort }),
+        body: JSON.stringify({ benutzername, name, email, mobil, rolle, passwort }),
       });
       if (!res.ok) {
         const data = await res.json().catch((err) => {
@@ -114,6 +115,17 @@ export default function BenutzerNeuPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Mobil</label>
+          <input
+            type="tel"
+            value={mobil}
+            onChange={(e) => setMobil(e.target.value)}
+            placeholder="0151 12345678"
+            className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none"
+          />
+          <p className="text-xs text-gray-500 mt-1">Erscheint als "Ihr Ansprechpartner" auf Mahnungs-PDFs, die dieser Benutzer erzeugt.</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Rolle</label>

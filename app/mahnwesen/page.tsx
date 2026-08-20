@@ -2,7 +2,7 @@
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
+import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import * as Sentry from "@sentry/nextjs";
 
@@ -27,15 +27,6 @@ interface MahnwesenEintrag {
   mahnstufe: 1 | 2 | 3;
   automatischeMahnstufe: 1 | 2 | 3;
   mahnstufeManuell: boolean;
-}
-
-function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number): number {
-  if (tageUeberfaellig <= 0) return 0;
-  return (betrag * (satz / 100) / 365) * tageUeberfaellig;
-}
-
-function mahngebuehr(cfg: MahnwesenConfig, stufe: number): number {
-  return stufe === 3 ? cfg.mahngebuehr3 : stufe === 2 ? cfg.mahngebuehr2 : cfg.mahngebuehr1;
 }
 
 const STUFE_FARBEN: Record<number, string> = {
@@ -226,10 +217,17 @@ export default function MahnwesenPage() {
     const rDatum = formatDatum(eintrag.rechnungDatum);
     const stufe = eintrag.mahnstufe;
     const betreff =
-      stufe === 1 ? "Zahlungserinnerung" : stufe === 2 ? "1. Mahnung" : "2. Mahnung / Letzte Mahnung";
+      stufe === 1
+        ? `Freundliche Zahlungserinnerung – Rechnung ${eintrag.rechnungNr ?? `#${eintrag.lieferung.id}`}`
+        : stufe === 2
+        ? "1. Mahnung"
+        : "2. Mahnung / Letzte Mahnung";
+    const anrede = stufe === 1
+      ? (eintrag.kunde.firma ? `Sehr geehrtes Team von ${eintrag.kunde.firma}!` : "Sehr geehrte Damen und Herren,")
+      : "Sehr geehrte Damen und Herren,";
     const text =
       stufe === 1
-        ? `wir erlauben uns, Sie freundlich daran zu erinnern, dass die nachstehende Rechnung noch offen ist. Bitte veranlassen Sie baldmöglichst die Begleichung des ausstehenden Betrages.`
+        ? `Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung ${eintrag.rechnungNr ?? `#${eintrag.lieferung.id}`} vom ${rDatum} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.</p><p>Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.</p><p>Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.</p><p>Vielen Dank und weiterhin viel Erfolg auf dem Hof!`
         : stufe === 2
         ? `trotz unserer freundlichen Erinnerung haben wir bislang keinen Zahlungseingang feststellen können. Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen.`
         : `leider haben wir auch nach unserer 1. Mahnung keinen Zahlungseingang festgestellt. Wir fordern Sie hiermit letztmalig auf, den Betrag innerhalb von 5 Tagen zu überweisen. Andernfalls behalten wir uns rechtliche Schritte vor.`;
@@ -282,7 +280,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
 <p style="margin-bottom:2em;white-space:pre-line;">${kundenname}</p>
 <p style="text-align:right;">${heute}</p>
 <h2>${betreff}</h2>
-<p>Sehr geehrte Damen und Herren,</p>
+<p>${anrede}</p>
 <p>${text}</p>
 <table>
   <thead><tr><th>Rechnungsnr.</th><th>Rechnungsdatum</th><th>Tage überfällig</th><th>Betrag</th></tr></thead>
@@ -559,6 +557,14 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                           >
                             Drucken
                           </button>
+                          <a
+                            href={`/api/exporte/mahnung?lieferungId=${e.lieferung.id}&mahnstufe=${e.mahnstufe}`}
+                            download
+                            className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors border border-gray-200"
+                            title="Mahnung als PDF herunterladen"
+                          >
+                            PDF
+                          </a>
                           <button
                             onClick={() => { setEmailModalEintrag(e); setEmailModalFehler(""); }}
                             className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"

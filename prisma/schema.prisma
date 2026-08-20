@@ -1052,6 +1052,7 @@ model Benutzer {
   passwortHash   String
   name           String
   email          String?
+  mobil          String? // persönliche Mobilnummer — erscheint als "Ihr Ansprechpartner" auf Mahnungs-PDFs
   rolle          String    @default("benutzer") // legacy label + Fallback
   rolleId        Int?
   rolleRef       Rolle?    @relation(fields: [rolleId], references: [id])

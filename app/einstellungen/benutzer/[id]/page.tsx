@@ -18,6 +18,7 @@ type Benutzer = {
   benutzername: string;
   name: string;
   email: string | null;
+  mobil: string | null;
   rolle: string;
   rolleId: number | null;
   berechtigungen: string[];
@@ -36,6 +37,7 @@ export default function BenutzerBearbeitenPage() {
   const [rollen, setRollen] = useState<Rolle[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [mobil, setMobil] = useState("");
   const [aktiv, setAktiv] = useState(true);
   const [rolleId, setRolleId] = useState<number | null>(null);
   const [overrides, setOverrides] = useState<string[]>([]); // individuelle Zusatz-Permissions
@@ -68,6 +70,7 @@ export default function BenutzerBearbeitenPage() {
       setBenutzer(b);
       setName(b.name);
       setEmail(b.email ?? "");
+      setMobil(b.mobil ?? "");
       setAktiv(b.aktiv);
       setRolleId(b.rolleId);
       // berechtigungen aus JSON parsen falls noch String
@@ -114,6 +117,7 @@ export default function BenutzerBearbeitenPage() {
       const body: Record<string, unknown> = {
         name,
         email,
+        mobil,
         aktiv,
         rolleId,
         berechtigungen: overrides,
@@ -221,6 +225,12 @@ export default function BenutzerBearbeitenPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mobil</label>
+            <input type="tel" value={mobil} onChange={(e) => setMobil(e.target.value)} placeholder="0151 12345678"
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none" />
+            <p className="text-xs text-gray-500 mt-1">Erscheint als "Ihr Ansprechpartner" auf Mahnungs-PDFs, die dieser Benutzer erzeugt.</p>
           </div>
           <div>
             <label className="flex items-center gap-2 text-sm">
