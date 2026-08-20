@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       const bank = bankBuchungen[m.bankIndex];
       const kandidat = kandidaten.find((k) => k.kind === m.candidateKind && k.id === m.candidateId)!;
       return {
-        bank: { umsatzId: bank.id, datum: bank.date, betrag: bank.amount, verwendungszweck: bank.purpose },
+        bank: { umsatzId: bank.id, datum: bank.date, betrag: bank.amount, verwendungszweck: bank.purpose, gegenpartei: bank.name },
         kandidat: {
           typ: kandidat.kind,
           id: kandidat.id,
