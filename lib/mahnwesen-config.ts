@@ -64,8 +64,10 @@ export function mahngebuehr(cfg: MahnwesenConfig, stufe: number): number {
   return stufe === 3 ? cfg.mahngebuehr3 : stufe === 2 ? cfg.mahngebuehr2 : cfg.mahngebuehr1;
 }
 
-/** Verzugszinsen (§ 288 BGB) für den überfälligen Betrag, taggenau. */
-export function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number): number {
-  if (tageUeberfaellig <= 0) return 0;
+/** Verzugszinsen (§ 288 BGB) für den überfälligen Betrag, taggenau. Auf Mahnstufe 1
+ * (freundliche Zahlungserinnerung) werden bewusst keine Verzugszinsen berechnet/ausgewiesen —
+ * der Kunde befindet sich erst ab Stufe 2 nachweislich in Verzug. */
+export function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number, mahnstufe: number): number {
+  if (mahnstufe <= 1 || tageUeberfaellig <= 0) return 0;
   return (betrag * (satz / 100) / 365) * tageUeberfaellig;
 }
