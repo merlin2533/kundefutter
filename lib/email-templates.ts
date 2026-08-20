@@ -454,7 +454,7 @@ export function lieferscheinEmail(data: LieferscheinMailData): { subject: string
 // ─── Mahnung ──────────────────────────────────────────────────────────────────
 
 const MAHNSTUFEN_TEXT: Record<number, string> = {
-  1: "Zahlungserinnerung",
+  1: "Freundliche Zahlungserinnerung",
   2: "Erste Mahnung",
   3: "Zweite Mahnung",
   4: "Letzte Mahnung",
@@ -473,14 +473,16 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
     ? "Wir bitten Sie dringend, den ausstehenden Betrag unverzüglich zu begleichen, um weitere rechtliche Schritte zu vermeiden."
     : mahnstufe >= 2
     ? "Bitte begleichen Sie den offenen Betrag umgehend, um zusätzliche Mahngebühren zu vermeiden."
-    : "Möglicherweise handelt es sich um ein Versehen. Bitte begleichen Sie den offenen Betrag zeitnah.";
+    : "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Nachricht bitte als gegenstandslos.";
+  const introText =
+    mahnstufe === 1
+      ? "bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die folgende Rechnung noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern:"
+      : `wir müssen Sie erneut auf die folgende offene Rechnung hinweisen (${stufenText}):`;
 
   const text = [
     anrede,
     "",
-    mahnstufe === 1
-      ? "wir erlauben uns, Sie an die folgende offene Rechnung zu erinnern:"
-      : `wir müssen Sie erneut auf die folgende offene Rechnung hinweisen (${stufenText}):`,
+    introText,
     "",
     `Rechnungsnummer: ${rechnungNr}`,
     `Rechnungsdatum:  ${fmtDatum(rechnungDatum)}`,
@@ -540,7 +542,7 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
         <div style="display:inline-block;margin-bottom:16px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:${badgeColor};">${escapeHtml(stufenText)}</div>
         <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
         <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
-          ${mahnstufe === 1 ? "wir erlauben uns, Sie an die folgende offene Rechnung zu erinnern:" : `wir müssen Sie erneut auf die folgende offene Rechnung hinweisen:`}
+          ${escapeHtml(introText)}
         </p>
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px 0;border-collapse:collapse;font-size:14px;">
           ${zeile("Rechnungsnummer", rechnungNr)}

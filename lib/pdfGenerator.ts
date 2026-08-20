@@ -11,6 +11,8 @@ import { liefposArtikelSelect, artikelWithInhaltSelect } from "@/lib/artikel-sel
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
+import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
+import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen } from "@/lib/mahnwesen-config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -1612,6 +1614,293 @@ export async function generiereRechnungsuebersichtPdf(rechnungsuebersichtId: num
     footerSpalten,
     firmenname: FIRMA.name,
     fortsetzungsTitel: `Rechnungsübersicht ${uebersicht.titel ?? uebersicht.id} – Fortsetzung`,
+  });
+
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
+// ─── Mahnung ────────────────────────────────────────────────────────────────
+
+export interface MahnungAnsprechpartner {
+  name: string;
+  mobil?: string | null;
+  email?: string | null;
+}
+
+const MAHNUNG_BETREFF: Record<1 | 2 | 3, string> = {
+  1: "Freundliche Zahlungserinnerung",
+  2: "1. Mahnung",
+  3: "2. Mahnung / Letzte Mahnung",
+};
+
+/** Extrahiert den Ortsnamen aus einer "PLZ Ort"-Zeichenkette (z.B. "32549 Bad Oeynhausen" → "Bad Oeynhausen"). */
+function extrahiereOrt(plzOrt: string): string {
+  const match = /^\d{4,5}\s+(.+)$/.exec(plzOrt.trim());
+  return match ? match[1] : plzOrt.trim();
+}
+
+/**
+ * Generiert eine Mahnung/Zahlungserinnerung als PDF-Buffer — schlichter DIN-5008-Geschäftsbrief
+ * (Absenderzeile + Fensterkuvert-Anschrift wie bei generiereRechnungPdf), kein Positions-Raster.
+ * Stufe 1 nutzt bewusst einen freundlichen, unverbindlichen Ton ohne Mahngebühr-Erwähnung;
+ * Stufe 2/3 sind bestimmter und weisen auf Mahngebühr/Verzugszinsen hin. Das "Ihr
+ * Ansprechpartner"-Feld oben rechts ersetzt die sonst dort stehende Meta-Tabelle und zeigt den
+ * Sachbearbeiter, der die Mahnung erzeugt (Name/Mobil/Mail), statt der allgemeinen Firmenzentrale.
+ */
+export async function generiereMahnungPdf(
+  lieferungId: number,
+  mahnstufe: 1 | 2 | 3,
+  ansprechpartner?: MahnungAnsprechpartner,
+): Promise<Buffer> {
+  const lieferung = await prisma.lieferung.findUnique({
+    where: { id: lieferungId },
+    include: {
+      kunde: true,
+      positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, artikel: { select: { mwstSatz: true } } } },
+    },
+  });
+  if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
+  if (!lieferung.rechnungNr) throw new Error(`Lieferung ${lieferungId} hat noch keine Rechnungsnummer`);
+
+  const cfgSetting = await prisma.einstellung.findUnique({ where: { key: "system.mahnwesen" } });
+  const cfg = parseMahnwesenConfig(cfgSetting?.value);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+  zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+
+  const k = lieferung.kunde;
+  const rechnungDatum = lieferung.rechnungDatum ? new Date(lieferung.rechnungDatum) : new Date(lieferung.datum);
+  const zahlungsziel = lieferung.zahlungsziel ?? 30;
+  const faelligDatum = new Date(rechnungDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
+  const heute = new Date();
+  heute.setHours(0, 0, 0, 0);
+  const faelligOhneZeit = new Date(faelligDatum);
+  faelligOhneZeit.setHours(0, 0, 0, 0);
+  const tageUeberfaellig = Math.max(0, Math.floor((heute.getTime() - faelligOhneZeit.getTime()) / (24 * 60 * 60 * 1000)));
+
+  const betrag = berechneLieferungBrutto({ positionen: lieferung.positionen });
+  const gebuehr = mahngebuehr(cfg, mahnstufe);
+  const zinsen = berechneVerzugszinsen(betrag, tageUeberfaellig, cfg.verzugszinssatz);
+  const gesamtforderung = betrag + gebuehr + zinsen;
+
+  // ── Kopfbereich: Logo + Firmenname links, Titel + Ansprechpartner rechts ───────
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  }
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(MAHNUNG_BETREFF[mahnstufe], 196, 20, { align: "right" });
+
+  if (ansprechpartner) {
+    let apY = 27;
+    const apLabelX = 122;
+    const apValueX = 196;
+    const apMaxWidth = apValueX - apLabelX - 2; // Lücke zwischen Label- und Wertspalte
+    const drawAp = (label: string, value: string) => {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COL_MUTED);
+      doc.text(label, apLabelX, apY, { align: "right" });
+      // Lange Werte (v.a. E-Mail-Adressen) dürfen nicht über die Labelspalte hinaus nach links
+      // laufen — Schriftgröße schrittweise verkleinern, bis der Wert in die Spaltenbreite passt.
+      let valueFontSize = 9;
+      doc.setFontSize(valueFontSize);
+      while (valueFontSize > 6 && doc.getTextWidth(value) > apMaxWidth) {
+        valueFontSize -= 0.5;
+        doc.setFontSize(valueFontSize);
+      }
+      doc.setTextColor(...COL_TEXT);
+      doc.text(value, apValueX, apY, { align: "right" });
+      apY += 4.5;
+    };
+    drawAp("Ihr Ansprechpartner:", ansprechpartner.name);
+    if (ansprechpartner.mobil?.trim()) drawAp("Mobil:", ansprechpartner.mobil.trim());
+    if (ansprechpartner.email?.trim()) drawAp("Mail:", ansprechpartner.email.trim());
+  }
+
+  // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) — wie generiereRechnungPdf ──
+  const ADRESS_X = 20;
+  const absenderParts = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
+  if (absenderParts.length > 0) {
+    const absenderText = absenderParts.join(" · ");
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_LABEL);
+    doc.text(absenderText, ADRESS_X, 49, { maxWidth: 85 });
+    const lineWidth = Math.min(doc.getTextWidth(absenderText), 85);
+    doc.setDrawColor(...COL_LABEL);
+    doc.setLineWidth(0.25);
+    doc.line(ADRESS_X, 50.5, ADRESS_X + lineWidth, 50.5);
+  }
+
+  let ey = 57;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, ADRESS_X, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_TEXT);
+  if (k.firma) { doc.text(k.name, ADRESS_X, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, ADRESS_X, ey); ey += 5; }
+  if (k.plz || k.ort) {
+    doc.text([k.plz, k.ort].filter(Boolean).join(" "), ADRESS_X, ey);
+    ey += 5;
+  }
+
+  // ── Ort/Datum + Betreff (unterhalb des Anschriftfelds, ab 95 mm) ───────────────
+  ey = Math.max(ey + 8, 95);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_MUTED);
+  const ortZeile = `${extrahiereOrt(FIRMA.plzOrt)}, ${formatDatum(heute)}`.replace(/^, /, "");
+  doc.text(ortZeile, 196, ey, { align: "right" });
+  ey += 8;
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`${MAHNUNG_BETREFF[mahnstufe]} – Rechnung ${lieferung.rechnungNr}`, 14, ey);
+  ey += 8;
+
+  // ── Anrede + Brieftext ──────────────────────────────────────────────────────
+  const anrede = mahnstufe === 1
+    ? (k.firma ? `Sehr geehrtes Team von ${k.firma}!` : "Sehr geehrte Damen und Herren,")
+    : "Sehr geehrte Damen und Herren,";
+
+  const absaetze: string[] =
+    mahnstufe === 1
+      ? [
+          `Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.`,
+          "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.",
+          "Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.",
+          "Vielen Dank und weiterhin viel Erfolg auf dem Hof!",
+        ]
+      : mahnstufe === 2
+      ? [
+          `Trotz unserer freundlichen Erinnerung haben wir für die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} bislang keinen Zahlungseingang feststellen können.`,
+          "Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen. Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
+        ]
+      : [
+          `Leider haben wir auch nach unserer 1. Mahnung für die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} keinen Zahlungseingang feststellen können.`,
+          "Wir bitten Sie letztmalig, den Betrag innerhalb von 5 Tagen zu überweisen. Sollte die Zahlung weiterhin ausbleiben, müssen wir uns weitere Schritte vorbehalten.",
+        ];
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_TEXT);
+  ey = sicherstellenPlatz(doc, ey, 8, footerReserve);
+  doc.text(anrede, 14, ey);
+  ey += 8;
+
+  doc.setFontSize(10.5);
+  for (const absatz of absaetze) {
+    const zeilen = doc.splitTextToSize(absatz, 182) as string[];
+    ey = sicherstellenPlatz(doc, ey, zeilen.length * 5 + 4, footerReserve);
+    zeilen.forEach((zeile, i) => doc.text(zeile, 14, ey + i * 5));
+    ey += zeilen.length * 5 + 4;
+  }
+
+  // ── Rechnungsdaten-Tabelle ──────────────────────────────────────────────────
+  const head = [["Rechnungsnr.", "Rechnungsdatum", "Tage überfällig", "Betrag"]];
+  const body: string[][] = [[lieferung.rechnungNr, formatDatum(rechnungDatum), `${tageUeberfaellig} Tage`, formatEuro(betrag)]];
+  ey = sicherstellenPlatz(doc, ey, 4, footerReserve);
+  autoTable(doc, {
+    startY: ey,
+    head,
+    body,
+    theme: "plain",
+    margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    headStyles: { fillColor: [245, 245, 245], textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0] },
+    columnStyles: { 0: { cellWidth: 44 }, 1: { cellWidth: 44 }, 2: { cellWidth: 44 }, 3: { halign: "right", cellWidth: 50 } },
+  });
+  ey = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+
+  if (gebuehr > 0 || zinsen > 0) {
+    const sumLabelX = 140;
+    const sumValueX = 196;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(68);
+    if (gebuehr > 0) {
+      doc.text("Mahngebühr:", sumLabelX, ey, { align: "right" });
+      doc.setTextColor(...COL_TEXT);
+      doc.text(formatEuro(gebuehr), sumValueX, ey, { align: "right" });
+      ey += 5.5;
+      doc.setTextColor(68);
+    }
+    if (zinsen > 0) {
+      doc.text(`Verzugszinsen (${cfg.verzugszinssatz.toFixed(2)}% p.a.):`, sumLabelX, ey, { align: "right" });
+      doc.setTextColor(...COL_TEXT);
+      doc.text(formatEuro(zinsen), sumValueX, ey, { align: "right" });
+      ey += 5.5;
+    }
+    doc.setDrawColor(34, 34, 34);
+    doc.setLineWidth(0.4);
+    doc.line(sumLabelX, ey, sumValueX, ey);
+    ey += 5.5;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...COL_TEXT);
+    doc.text("Gesamtforderung:", sumLabelX, ey, { align: "right" });
+    doc.text(formatEuro(gesamtforderung), sumValueX, ey, { align: "right" });
+    ey += 8;
+  } else {
+    ey += 4;
+  }
+
+  // ── Zahlungsinformation ─────────────────────────────────────────────────────
+  ey = sicherstellenPlatz(doc, ey, 10, footerReserve);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_TEXT);
+  const kontoZeilen = FIRMA.iban
+    ? doc.splitTextToSize(
+        `Bitte überweisen Sie den Gesamtbetrag von ${formatEuro(gesamtforderung)} auf folgendes Konto: ${FIRMA.bank ? `${FIRMA.bank}, ` : ""}IBAN ${FIRMA.iban}${FIRMA.bic ? `, BIC ${FIRMA.bic}` : ""}.`,
+        182,
+      ) as string[]
+    : (doc.splitTextToSize(`Bitte überweisen Sie den Gesamtbetrag von ${formatEuro(gesamtforderung)} auf unser bekanntes Konto.`, 182) as string[]);
+  ey = sicherstellenPlatz(doc, ey, kontoZeilen.length * 5 + 2, footerReserve);
+  kontoZeilen.forEach((zeile, i) => doc.text(zeile, 14, ey + i * 5));
+  ey += kontoZeilen.length * 5 + 10;
+
+  // ── Signatur ────────────────────────────────────────────────────────────────
+  ey = sicherstellenPlatz(doc, ey, 14, footerReserve);
+  doc.setFontSize(10.5);
+  doc.setFont("helvetica", "normal");
+  doc.text("Mit freundlichen Grüßen", 14, ey);
+  ey += 6;
+  doc.setFont("helvetica", "bold");
+  doc.text(ansprechpartner?.name ?? FIRMA.name, 14, ey);
+
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `${MAHNUNG_BETREFF[mahnstufe]} ${lieferung.rechnungNr} – Fortsetzung`,
   });
 
   return Buffer.from(doc.output("arraybuffer"));

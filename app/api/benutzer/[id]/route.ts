@@ -14,6 +14,7 @@ const SELECT = {
   benutzername: true,
   name: true,
   email: true,
+  mobil: true,
   rolle: true,
   rolleId: true,
   berechtigungen: true,
@@ -87,6 +88,9 @@ export async function PUT(req: NextRequest, ctx: Params) {
   }
   if (body?.email !== undefined) {
     data.email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
+  }
+  if (body?.mobil !== undefined) {
+    data.mobil = typeof body.mobil === "string" && body.mobil.trim() ? body.mobil.trim() : null;
   }
   if (typeof body?.rolle === "string") {
     if (!body.rolle || body.rolle.length < 2) {

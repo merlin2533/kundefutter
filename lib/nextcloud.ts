@@ -484,7 +484,7 @@ export function buchhaltungsPfad(jahr: number, monat: number, unterordner: Buchh
 
 // ─── Hochwertige Wrapper (analog Kunden-/Artikel-Unterordner-Muster) ─────────
 
-export type KundeDokumentTyp = "Rechnungen" | "Lieferscheine" | "Angebote" | "Gutschriften" | "Nachweise";
+export type KundeDokumentTyp = "Rechnungen" | "Lieferscheine" | "Angebote" | "Gutschriften" | "Nachweise" | "Mahnungen";
 export type ArtikelDokumentTyp = "Dokumente" | "Chargenzertifikate";
 
 export async function uploadPdfToKundeOrdner(

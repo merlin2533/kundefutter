@@ -58,3 +58,14 @@ export function parseMahnwesenConfig(raw: string | null | undefined): MahnwesenC
     mahngebuehr3: num(parsed.mahngebuehr3, d.mahngebuehr3),
   };
 }
+
+/** Mahngebühr (€) für die angegebene Mahnstufe aus der Konfiguration. */
+export function mahngebuehr(cfg: MahnwesenConfig, stufe: number): number {
+  return stufe === 3 ? cfg.mahngebuehr3 : stufe === 2 ? cfg.mahngebuehr2 : cfg.mahngebuehr1;
+}
+
+/** Verzugszinsen (§ 288 BGB) für den überfälligen Betrag, taggenau. */
+export function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, satz: number): number {
+  if (tageUeberfaellig <= 0) return 0;
+  return (betrag * (satz / 100) / 365) * tageUeberfaellig;
+}

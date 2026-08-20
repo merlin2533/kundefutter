@@ -22,6 +22,7 @@ const SELECT = {
   benutzername: true,
   name: true,
   email: true,
+  mobil: true,
   rolle: true,
   rolleId: true,
   aktiv: true,
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
   const passwort = typeof body?.passwort === "string" ? body.passwort : "";
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const email = typeof body?.email === "string" && body.email.trim() ? body.email.trim() : null;
+  const mobil = typeof body?.mobil === "string" && body.mobil.trim() ? body.mobil.trim() : null;
   const rolle = typeof body?.rolle === "string" ? body.rolle : "benutzer";
 
   if (benutzername.length < 3) {
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
   try {
     const passwortHash = await hashPassword(passwort);
     const user = await prisma.benutzer.create({
-      data: { benutzername, passwortHash, name, email, rolle },
+      data: { benutzername, passwortHash, name, email, mobil, rolle },
       select: SELECT,
     });
     return NextResponse.json(user, { status: 201 });
