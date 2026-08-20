@@ -1688,7 +1688,7 @@ export async function generiereMahnungPdf(
 
   const betrag = berechneLieferungBrutto({ positionen: lieferung.positionen });
   const gebuehr = mahngebuehr(cfg, mahnstufe);
-  const zinsen = berechneVerzugszinsen(betrag, tageUeberfaellig, cfg.verzugszinssatz);
+  const zinsen = berechneVerzugszinsen(betrag, tageUeberfaellig, cfg.verzugszinssatz, mahnstufe);
   const gesamtforderung = betrag + gebuehr + zinsen;
 
   // ── Kopfbereich: Logo + Firmenname links, Titel + Ansprechpartner rechts ───────

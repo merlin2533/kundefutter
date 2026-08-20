@@ -233,7 +233,7 @@ export default function MahnwesenPage() {
         : `leider haben wir auch nach unserer 1. Mahnung keinen Zahlungseingang festgestellt. Wir fordern Sie hiermit letztmalig auf, den Betrag innerhalb von 5 Tagen zu überweisen. Andernfalls behalten wir uns rechtliche Schritte vor.`;
 
     const gebuehr = mahngebuehr(cfg, stufe);
-    const zinsen = berechneVerzugszinsen(eintrag.betrag, eintrag.tageUeberfaellig, cfg.verzugszinssatz);
+    const zinsen = berechneVerzugszinsen(eintrag.betrag, eintrag.tageUeberfaellig, cfg.verzugszinssatz, stufe);
     const gesamtForderung = eintrag.betrag + gebuehr + zinsen;
 
     const absenderzeile = [firma.adresse, `${firma.plz} ${firma.ort}`.trim()]
@@ -517,9 +517,9 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-sm hidden lg:table-cell">
-                        {e.tageUeberfaellig > 0 ? (
+                        {e.mahnstufe > 1 && e.tageUeberfaellig > 0 ? (
                           <span className="text-orange-700 font-semibold">
-                            {berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz).toLocaleString("de-DE", {
+                            {berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz, e.mahnstufe).toLocaleString("de-DE", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
@@ -608,7 +608,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         {gefiltert
                           .reduce(
                             (s, e) =>
-                              s + berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz),
+                              s + berechneVerzugszinsen(e.betrag, e.tageUeberfaellig, cfg.verzugszinssatz, e.mahnstufe),
                             0
                           )
                           .toLocaleString("de-DE", {
