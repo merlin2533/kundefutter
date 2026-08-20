@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { rankCandidatesForBank, daysBetween, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
-import { zuBankBuchung, ladeKandidatenFuerBetrag } from "@/lib/bankabgleich-kandidaten";
+import { zuBankBuchung, ladeKandidatenFuerBetrag, sucheKandidatenFuerBetrag } from "@/lib/bankabgleich-kandidaten";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -62,24 +62,21 @@ export async function GET(req: NextRequest) {
     if (!umsatz) return NextResponse.json({ error: "Umsatz nicht gefunden" }, { status: 404 });
 
     const bank = zuBankBuchung(umsatz);
-    const kandidaten = await ladeKandidatenFuerBetrag(umsatz.betrag);
 
-    // Manuelle Suche: alle offenen Kandidaten gleichen Vorzeichens (Verkauf/Einkauf, wie der
-    // Bankbetrag) nach Rechnungsnr./Kunde/Text durchsuchen — unabhängig von Betrags-/
-    // Datumsnähe, für den Fall, dass die passende Rechnung nicht unter den Top-Vorschlägen ist.
+    // Manuelle Suche: direkt gegen die DB nach Rechnungsnr./Kunde/Text suchen — unabhängig von
+    // Betrags-/Datumsnähe, für den Fall, dass die passende Rechnung nicht unter den Top-
+    // Vorschlägen ist. Bewusst NICHT auf dem nach Datum begrenzten "alle offenen Kandidaten"-Pool
+    // (ladeKandidatenFuerBetrag, max. 300) gefiltert: sonst fällt eine ältere, aber noch offene
+    // Rechnung aus der Suche heraus, sobald mehr als 300 neuere offene Rechnungen existieren.
     if (q.length >= 2) {
-      const treffer = kandidaten.filter(
-        (c) =>
-          c.receiptNumber?.toLowerCase().includes(q) ||
-          c.counterparty.toLowerCase().includes(q) ||
-          c.description.toLowerCase().includes(q)
-      );
+      const treffer = await sucheKandidatenFuerBetrag(umsatz.betrag, q);
       const vorschlaege = treffer
         .slice(0, MAX_SUCHTREFFER)
         .map((c) => zuVorschlag(c, bank.date, Math.abs(c.amount - bank.amount), daysBetween(bank.date, c.date), 0));
       return NextResponse.json(vorschlaege);
     }
 
+    const kandidaten = await ladeKandidatenFuerBetrag(umsatz.betrag);
     const ranked = rankCandidatesForBank(bank, kandidaten, MAX_VORSCHLAEGE);
     const vorschlaege = ranked.map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore));
 
