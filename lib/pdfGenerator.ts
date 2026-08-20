@@ -1707,24 +1707,22 @@ export async function generiereMahnungPdf(
   doc.setTextColor(...COL_TEXT);
   if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
 
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...COL_TEXT);
-  doc.text(MAHNUNG_BETREFF[mahnstufe], 196, 20, { align: "right" });
-
+  // Kein großer Titel mehr oben rechts (stand vorher hier, doppelte sich mit dem Betreff
+  // "${MAHNUNG_BETREFF[mahnstufe]} – Rechnung ..." weiter unten im Brieftext und wirkte neben
+  // dem Ansprechpartner-Block zu dominant) — nur noch der schlanke Ansprechpartner-Block.
   if (ansprechpartner) {
-    let apY = 27;
+    let apY = 20;
     const apLabelX = 122;
     const apValueX = 196;
     const apMaxWidth = apValueX - apLabelX - 2; // Lücke zwischen Label- und Wertspalte
     const drawAp = (label: string, value: string) => {
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...COL_MUTED);
       doc.text(label, apLabelX, apY, { align: "right" });
       // Lange Werte (v.a. E-Mail-Adressen) dürfen nicht über die Labelspalte hinaus nach links
       // laufen — Schriftgröße schrittweise verkleinern, bis der Wert in die Spaltenbreite passt.
-      let valueFontSize = 9;
+      let valueFontSize = 8.5;
       doc.setFontSize(valueFontSize);
       while (valueFontSize > 6 && doc.getTextWidth(value) > apMaxWidth) {
         valueFontSize -= 0.5;
@@ -1732,14 +1730,15 @@ export async function generiereMahnungPdf(
       }
       doc.setTextColor(...COL_TEXT);
       doc.text(value, apValueX, apY, { align: "right" });
-      apY += 4.5;
+      apY += 4;
     };
     drawAp("Ihr Ansprechpartner:", ansprechpartner.name);
     if (ansprechpartner.mobil?.trim()) drawAp("Mobil:", ansprechpartner.mobil.trim());
     if (ansprechpartner.email?.trim()) drawAp("Mail:", ansprechpartner.email.trim());
   }
 
-  // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) — wie generiereRechnungPdf ──
+  // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) — wie generiereRechnungPdf,
+  // aber etwas weiter unten angesetzt (mehr Abstand zum Kopfbereich) ──
   const ADRESS_X = 20;
   const absenderParts = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
   if (absenderParts.length > 0) {
@@ -1747,14 +1746,14 @@ export async function generiereMahnungPdf(
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...COL_LABEL);
-    doc.text(absenderText, ADRESS_X, 49, { maxWidth: 85 });
+    doc.text(absenderText, ADRESS_X, 55, { maxWidth: 85 });
     const lineWidth = Math.min(doc.getTextWidth(absenderText), 85);
     doc.setDrawColor(...COL_LABEL);
     doc.setLineWidth(0.25);
-    doc.line(ADRESS_X, 50.5, ADRESS_X + lineWidth, 50.5);
+    doc.line(ADRESS_X, 56.5, ADRESS_X + lineWidth, 56.5);
   }
 
-  let ey = 57;
+  let ey = 63;
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
