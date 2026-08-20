@@ -13,6 +13,7 @@ interface BankInfo {
   datum: string;
   betrag: number;
   verwendungszweck: string;
+  gegenpartei: string;
 }
 
 interface KandidatInfo {
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       datum: b.date,
       betrag: b.amount,
       verwendungszweck: b.purpose,
+      gegenpartei: b.name,
     });
     const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number }): AbgleichPaar => ({
       bank: toBankInfo(p.bank),

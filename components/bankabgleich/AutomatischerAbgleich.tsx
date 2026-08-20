@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import ZuordnungsVorschlagCard from "./ZuordnungsVorschlagCard";
+import AutoMatchKarte, { type Vorschlag } from "./AutoMatchKarte";
 import * as Sentry from "@sentry/nextjs";
 
 type Typ = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
@@ -25,6 +25,7 @@ interface BankInfo {
   datum: string;
   betrag: number;
   verwendungszweck: string;
+  gegenpartei: string;
 }
 interface KandidatInfo {
   typ: Typ;
@@ -150,6 +151,30 @@ export default function AutomatischerAbgleich({
         deviations: prev.deviations.filter((p) => p.bank.umsatzId !== umsatzId),
         bankOnly: prev.bankOnly.filter((b) => b.umsatzId !== umsatzId),
       };
+    });
+  }
+
+  /** Manuell aus der Suche gewählten Kandidaten anstelle des algorithmisch vorgeschlagenen
+   * übernehmen — z.B. wenn der Buchungstext eine andere Rechnungsnummer nennt als die, die der
+   * Abgleich (etwa wegen exakter Betragsübereinstimmung) automatisch ausgewählt hat. */
+  function kandidatWechseln(tab: "matched" | "deviations", umsatzId: number, neu: Vorschlag) {
+    setErgebnis((prev) => {
+      if (!prev) return prev;
+      const ersetze = (liste: AbgleichPaar[]) =>
+        liste.map((p) =>
+          p.bank.umsatzId === umsatzId
+            ? {
+                ...p,
+                kandidat: { typ: neu.typ, id: neu.id, bezeichnung: neu.bezeichnung, gegenpartei: neu.gegenpartei, betrag: neu.betrag },
+                amountDiff: neu.amountDiff,
+                dayDiff: neu.dayDiff,
+                textScore: neu.textScore,
+                konfidenz: undefined,
+                begruendung: undefined,
+              }
+            : p
+        );
+      return tab === "matched" ? { ...prev, matched: ersetze(prev.matched) } : { ...prev, deviations: ersetze(prev.deviations) };
     });
   }
 
@@ -326,24 +351,17 @@ export default function AutomatischerAbgleich({
               )}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ergebnis.matched.map((p) => (
-                  <div key={p.bank.umsatzId}>
-                    <div className="text-xs text-gray-500 mb-1">
-                      {formatDatum(p.bank.datum)} · {formatEuro(p.bank.betrag)} · {p.bank.verwendungszweck.slice(0, 40)}
-                    </div>
-                    <ZuordnungsVorschlagCard
-                      typ={p.kandidat.typ}
-                      bezeichnung={p.kandidat.bezeichnung}
-                      gegenpartei={p.kandidat.gegenpartei}
-                      betrag={p.kandidat.betrag}
-                      konfidenz="hoch"
-                      wirdBezahltAm={p.wirdBezahltAm}
-                      amountDiff={p.amountDiff}
-                      dayDiff={p.dayDiff}
-                      signedDiff={p.bank.betrag - p.kandidat.betrag}
-                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
-                      compact
-                    />
-                  </div>
+                  <AutoMatchKarte
+                    key={p.bank.umsatzId}
+                    bank={p.bank}
+                    kandidat={p.kandidat}
+                    konfidenz="hoch"
+                    wirdBezahltAm={p.wirdBezahltAm}
+                    amountDiff={p.amountDiff}
+                    dayDiff={p.dayDiff}
+                    onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                    onKandidatWechseln={(neu) => kandidatWechseln("matched", p.bank.umsatzId, neu)}
+                  />
                 ))}
               </div>
               {ergebnis.matched.length === 0 && <div className="text-sm text-gray-400">Keine sicheren Treffer.</div>}
@@ -363,26 +381,19 @@ export default function AutomatischerAbgleich({
               )}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ergebnis.deviations.map((p) => (
-                  <div key={`${p.bank.umsatzId}-${p.kandidat.typ}-${p.kandidat.id}`}>
-                    <div className="text-xs text-gray-500 mb-1">
-                      {formatDatum(p.bank.datum)} · {formatEuro(p.bank.betrag)} · {p.bank.verwendungszweck.slice(0, 40)}
-                    </div>
-                    <ZuordnungsVorschlagCard
-                      typ={p.kandidat.typ}
-                      bezeichnung={p.kandidat.bezeichnung}
-                      gegenpartei={p.kandidat.gegenpartei}
-                      betrag={p.kandidat.betrag}
-                      konfidenz={p.textScore >= 0.5 ? "mittel" : "niedrig"}
-                      kiKonfidenz={p.konfidenz}
-                      kiBegruendung={p.begruendung}
-                      wirdBezahltAm={p.wirdBezahltAm}
-                      amountDiff={p.amountDiff}
-                      dayDiff={p.dayDiff}
-                      signedDiff={p.bank.betrag - p.kandidat.betrag}
-                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
-                      compact
-                    />
-                  </div>
+                  <AutoMatchKarte
+                    key={`${p.bank.umsatzId}-${p.kandidat.typ}-${p.kandidat.id}`}
+                    bank={p.bank}
+                    kandidat={p.kandidat}
+                    konfidenz={p.textScore >= 0.5 ? "mittel" : "niedrig"}
+                    kiKonfidenz={p.konfidenz}
+                    kiBegruendung={p.begruendung}
+                    wirdBezahltAm={p.wirdBezahltAm}
+                    amountDiff={p.amountDiff}
+                    dayDiff={p.dayDiff}
+                    onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                    onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
+                  />
                 ))}
               </div>
               {ergebnis.deviations.length === 0 && <div className="text-sm text-gray-400">Keine Abweichungen.</div>}
