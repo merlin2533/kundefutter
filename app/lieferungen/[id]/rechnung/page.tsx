@@ -279,31 +279,18 @@ export default function RechnungPrintPage() {
   }
 
   // PDF exakt aus der Bildschirm-Vorschau erzeugen (entspricht 1:1 der Ansicht).
-  // Mehrseitig, falls die Rechnung länger als eine A4-Seite ist.
+  // Mehrseitig, falls die Rechnung länger als eine A4-Seite ist. [data-print-area] hat ein
+  // festes (nicht nur maximales) width:210mm, ist also unabhängig vom Viewport immer A4-breit
+  // — html2canvas erfasst dadurch auf dem Handy denselben Screenshot wie am Desktop.
   const [vorschauPdfLoading, setVorschauPdfLoading] = useState(false);
-  // A4-Inhaltsbreite in CSS-Pixeln (210mm bei 96dpi). [data-print-area] ist per
-  // maxWidth:210mm begrenzt, aber ohne festes width schrumpft es auf schmalen Bildschirmen
-  // (Handy, <794px Viewport) auf die tatsächliche Viewport-Breite — die Tabelle bricht dadurch
-  // viel stärker um als am Desktop, wodurch derselbe Screenshot deutlich höher wird und beim
-  // Zerschneiden in A4-Seiten in weit mehr PDF-Seiten resultiert als am Desktop. Während der
-  // html2canvas-Aufnahme wird die echte A4-Breite deshalb unabhängig vom Viewport erzwungen.
-  const A4_BREITE_PX = "793.7px";
   async function downloadVorschauPdf() {
     setVorschauPdfLoading(true);
-    let element: HTMLElement | null = null;
-    let vorherigeBreite = "";
-    let vorherigesMaxWidth = "";
     try {
       const { default: html2canvas } = await import("html2canvas");
       const { jsPDF } = await import("jspdf");
-      element = document.querySelector<HTMLElement>("[data-print-area]");
+      const element = document.querySelector<HTMLElement>("[data-print-area]");
       const footerEl = document.querySelector<HTMLElement>("[data-doc-footer]");
       if (!element) return;
-
-      vorherigeBreite = element.style.width;
-      vorherigesMaxWidth = element.style.maxWidth;
-      element.style.width = A4_BREITE_PX;
-      element.style.maxWidth = "none";
 
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
@@ -443,10 +430,6 @@ export default function RechnungPrintPage() {
       Sentry.captureException(err);
       setError("PDF konnte nicht erzeugt werden.");
     } finally {
-      if (element) {
-        element.style.width = vorherigeBreite;
-        element.style.maxWidth = vorherigesMaxWidth;
-      }
       setVorschauPdfLoading(false);
     }
   }
@@ -711,7 +694,8 @@ export default function RechnungPrintPage() {
           .print-hidden { display: none !important; }
           body { margin: 0 !important; padding: 0 !important; }
           main { padding: 0 !important; max-width: 100% !important; }
-          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+          .rechnung-scroll-wrapper { overflow: visible !important; }
+          [data-print-area] { min-height: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; }
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
@@ -800,18 +784,11 @@ export default function RechnungPrintPage() {
             typ="rechnung"
             dateiName={`Rechnung_${lieferung.rechnungNr ?? `LS-${lieferung.id}`}.pdf`}
             getInhalt={async () => {
-              const element = document.querySelector<HTMLElement>("[data-print-area]");
-              if (!element) return null;
-              // Feste A4-Breite erzwingen (siehe A4_BREITE_PX oben) — sonst schrumpft das
-              // Element auf schmalen Bildschirmen auf Viewport-Breite und der Screenshot
-              // wird unverhältnismäßig hoch/schmal statt A4-proportioniert.
-              const vorherigeBreite = element.style.width;
-              const vorherigesMaxWidth = element.style.maxWidth;
-              element.style.width = A4_BREITE_PX;
-              element.style.maxWidth = "none";
               try {
                 const { default: html2canvas } = await import("html2canvas");
                 const { jsPDF } = await import("jspdf");
+                const element = document.querySelector<HTMLElement>("[data-print-area]");
+                if (!element) return null;
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true });
                 const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
                 const imgData = canvas.toDataURL("image/png");
@@ -822,9 +799,6 @@ export default function RechnungPrintPage() {
               } catch (err) {
                 Sentry.captureException(err);
                 return null;
-              } finally {
-                element.style.width = vorherigeBreite;
-                element.style.maxWidth = vorherigesMaxWidth;
               }
             }}
           />
@@ -908,14 +882,21 @@ export default function RechnungPrintPage() {
 
       {/* Rechnung document: Briefkopf einmalig oben (normale <div>s), darunter die
           Positionstabelle mit thead (Spaltenköpfe, wiederholen sich auf Folgeseiten)
-          und tfoot (Fußzeile, wiederholt sich auf JEDER Seite). */}
+          und tfoot (Fußzeile, wiederholt sich auf JEDER Seite).
+          Fester (nicht nur maximaler) Wrapper um [data-print-area] mit eigenem
+          overflow-x:auto: das Dokument selbst behält IMMER seine volle A4-Breite (width statt
+          maxWidth, siehe unten) — auf dem Handy scrollt man es horizontal wie eine echte
+          A4-Seite, statt dass Kopfzeile/Positionstabelle auf Viewport-Breite zusammenschrumpfen
+          und sich dabei gegenseitig überlappen (die "25mm feste Höhe" des Briefkopfs reichte
+          dann nicht mehr für den auf mehrere Zeilen umgebrochenen Text). */}
+      <div className="rechnung-scroll-wrapper" style={{ overflowX: "auto" }}>
       <div
         data-print-area
         style={{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: "11pt",
           color: "#000",
-          maxWidth: "210mm",
+          width: "210mm",
           margin: "0 auto",
           // 20 mm rundum = DIN-Rand; identisch auf Bildschirm, im PDF (html2canvas)
           // und im Druck (dort via @page-Margin statt Padding), damit das Anschriftfeld
@@ -1361,6 +1342,7 @@ export default function RechnungPrintPage() {
       </tr>
       </tbody>
       </table>
+      </div>
       </div>
     </>
   );
