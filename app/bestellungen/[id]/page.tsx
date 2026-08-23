@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
+import EmailVersandModal from "@/components/EmailVersandModal";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 interface BestellPosition {
@@ -21,9 +23,16 @@ interface Bestellung {
   lieferdatum: string | null;
   status: string;
   notiz: string | null;
+  versendetAm: string | null;
+  versendetAn: string | null;
   lieferantId: number;
-  lieferant: { id: number; name: string; firma: string | null } | null;
+  lieferant: { id: number; name: string; firma: string | null; email: string | null } | null;
   positionen: BestellPosition[];
+}
+
+interface LieferantOption {
+  id: number;
+  name: string;
 }
 
 type Status = "OFFEN" | "BESTAETIGT" | "TEILGELIEFERT" | "ABGESCHLOSSEN" | "STORNIERT";
@@ -51,12 +60,26 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function BestellungDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { showToast } = useToast();
   const [id, setId] = useState<string | null>(null);
   const [data, setData] = useState<Bestellung | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [mengenGeliefert, setMengenGeliefert] = useState<Record<number, string>>({});
+  const [mailOpen, setMailOpen] = useState(false);
+  const [mailSending, setMailSending] = useState(false);
+  const [mailFehler, setMailFehler] = useState("");
+  const [umschluesselnPos, setUmschluesselnPos] = useState<number | null>(null);
+  const [umschluesseln, setUmschluesseln] = useState<number | null>(null); // positionId, während Anfrage läuft
+  const [lieferantenListe, setLieferantenListe] = useState<LieferantOption[]>([]);
+
+  useEffect(() => {
+    fetch("/api/lieferanten?limit=500")
+      .then((r) => r.json())
+      .then((d) => setLieferantenListe(Array.isArray(d) ? d.map((l: { id: number; name: string }) => ({ id: l.id, name: l.name })) : []))
+      .catch((err) => Sentry.captureException(err));
+  }, []);
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -138,6 +161,59 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  async function handleSendMail(empfaenger: string, cc: string) {
+    if (!id) return;
+    setMailSending(true);
+    setMailFehler("");
+    try {
+      const res = await fetch(`/api/bestellungen/${id}/mail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empfaenger, cc: cc || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setMailFehler(d.error ?? "E-Mail-Versand fehlgeschlagen.");
+        return;
+      }
+      setData(d.bestellung);
+      setMailOpen(false);
+      showToast(`Bestellung an ${d.empfaenger} gesendet.`, "success");
+    } catch (err) {
+      Sentry.captureException(err);
+      setMailFehler("Netzwerkfehler.");
+    } finally {
+      setMailSending(false);
+    }
+  }
+
+  async function handleUmschluesseln(positionId: number, neuLieferantId: number) {
+    if (!id) return;
+    setUmschluesseln(positionId);
+    try {
+      const res = await fetch(`/api/bestellungen/${id}/umschluesseln`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positionId, lieferantId: neuLieferantId }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        showToast(d.error ?? "Umschlüsseln fehlgeschlagen.", "error");
+        return;
+      }
+      showToast(`Position zu ${d.neueBestellung.nummer} umgeschlüsselt.`, "success");
+      // Position ist jetzt in einer anderen Bestellung — diese Ansicht neu laden.
+      const res2 = await fetch(`/api/bestellungen/${id}`);
+      if (res2.ok) setData(await res2.json());
+    } catch (err) {
+      Sentry.captureException(err);
+      showToast("Netzwerkfehler.", "error");
+    } finally {
+      setUmschluesseln(null);
+      setUmschluesselnPos(null);
+    }
+  }
+
   if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
   if (!data) return <div className="p-8 text-red-600">Bestellung nicht gefunden.</div>;
 
@@ -161,6 +237,16 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
             <span className="text-sm text-gray-500">
               {new Date(data.datum).toLocaleDateString("de-DE")}
             </span>
+            {data.versendetAm ? (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 font-medium">
+                ✓ Versendet am {new Date(data.versendetAm).toLocaleDateString("de-DE")}
+                {data.versendetAn ? ` an ${data.versendetAn}` : ""}
+              </span>
+            ) : (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                Noch nicht versendet
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -171,6 +257,14 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
             >
               → Wareneingang buchen
             </Link>
+          )}
+          {data.status !== "STORNIERT" && (
+            <button
+              onClick={() => setMailOpen(true)}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              {data.versendetAm ? "Erneut per E-Mail senden" : "Per E-Mail senden"}
+            </button>
           )}
           {canBestätigen && (
             <button
@@ -264,6 +358,9 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Bestellt</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Geliefert</th>
                 <th className="hidden sm:table-cell text-right px-4 py-3 font-medium text-gray-600">EK-Preis</th>
+                {data.status !== "ABGESCHLOSSEN" && data.status !== "STORNIERT" && (
+                  <th className="text-right px-4 py-3 font-medium text-gray-600" />
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -304,12 +401,53 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-700">
                     {pos.preis != null ? formatEuro(pos.preis) : "—"}
                   </td>
+                  {data.status !== "ABGESCHLOSSEN" && data.status !== "STORNIERT" && (
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {umschluesselnPos === pos.id ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <select
+                            autoFocus
+                            defaultValue=""
+                            disabled={umschluesseln === pos.id}
+                            onChange={(e) => e.target.value && handleUmschluesseln(pos.id, Number(e.target.value))}
+                            className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
+                          >
+                            <option value="" disabled>— anderer Lieferant —</option>
+                            {lieferantenListe.filter((l) => l.id !== data.lieferantId).map((l) => (
+                              <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                          </select>
+                          <button onClick={() => setUmschluesselnPos(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setUmschluesselnPos(pos.id)}
+                          className="text-xs text-amber-700 hover:text-amber-800 hover:underline"
+                          title="Falls dieser Lieferant den Artikel nicht liefern kann"
+                        >
+                          Nicht verfügbar → umschlüsseln
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      <EmailVersandModal
+        open={mailOpen}
+        onClose={() => { setMailOpen(false); setMailFehler(""); }}
+        title={`Bestellung ${data.nummer} senden`}
+        kundenname={data.lieferant?.name ?? ""}
+        emailKontakte={data.lieferant?.email ? [{ wert: data.lieferant.email }] : []}
+        docType="sonstige"
+        onSend={handleSendMail}
+        loading={mailSending}
+        fehler={mailFehler}
+      />
     </div>
   );
 }

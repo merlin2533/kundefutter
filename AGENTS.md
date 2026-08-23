@@ -114,7 +114,10 @@ KontoumsatzWeitereZuordnung — weitere Rechnungen (Lieferung/Sammelrechnung), d
                       offene Rechnungen in einer Sammelüberweisung); die Haupt-Rechnung bleibt weiterhin über
                       Kontoumsatz.lieferungId/sammelrechnungId zugeordnet, keine feste Prisma-Relation zu
                       Lieferung/Sammelrechnung (analog zu Kontoumsatz.lieferungId/sammelrechnungId selbst)
-Bestellliste        — Bestellpositionen (artikel, menge, lieferant, status)
+Bestellliste        — Bestellpositionen (artikel, menge, lieferant, status); kundeId/lieferungId/angebotId
+                      optional (gesetzt bei automatischer Entstehung durchs Annehmen eines Angebots, null
+                      beim manuellen/diktierten Erfassen über "+ Position hinzufügen"); bestellungId? — gesetzt,
+                      sobald die Position zu einer formellen Bestellung gebündelt wurde (siehe Bestellung unten)
 Besuchstermin       — Besuchsplanung (datum, kundeId, status, notiz)
 Benutzer            — Multi-User (benutzername, passwortHash, rolle, aktiv, mobil? — erscheint als
                       "Ihr Ansprechpartner" auf Mahnungs-PDFs, die dieser Benutzer erzeugt)
@@ -149,7 +152,7 @@ Zertifizierung      — Kundenzertifizierungen (typ z.B. AMA/BIO/QS, gueltigBis,
 BodenanalyseAlbrecht— Albrecht-Analysen je KundeSchlag
 Anbauplan           — Jahres-/Saisonplanung je Schlag (kultur, flaeche, saison, menge)
 EingangsRechnung    — Lieferantenrechnungen (nummer, datum, faelligAm, betrag, mwst, status OFFEN/BEZAHLT/STORNIERT, lieferantId)
-Bestellung          — Lieferantenbestellungen (nummer, datum, status OFFEN/BESTAETIGT/TEILGELIEFERT/ABGESCHLOSSEN/STORNIERT, lieferantId)
+Bestellung          — Lieferantenbestellungen (nummer, datum, status OFFEN/BESTAETIGT/TEILGELIEFERT/ABGESCHLOSSEN/STORNIERT, lieferantId, versendetAm?/versendetAn? — Nachweis, dass sie per E-Mail rausgeschickt wurde)
 BestellungPosition  — Positionen je Bestellung (artikel, menge, mengeGeliefert, preis)
 AngebotVorlage      — Wiederverwendbare Angebotsvorlagen (name, positionen)
 AngebotVorlagePosition
@@ -298,8 +301,10 @@ app/
 │   ├── page.tsx                Inventurliste
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx           Inventur-Detail (Positionen, Abschluss)
-├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant)
-├── bestellungen/               Lieferantenbestellungen (OFFEN→BESTAETIGT→TEILGELIEFERT→ABGESCHLOSSEN)
+├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant; manuelles/diktiert
+│                               vorbereitetes Erfassen, Lieferant-Umschlüsseln, Bündeln zu Bestellung)
+├── bestellungen/               Lieferantenbestellungen (OFFEN→BESTAETIGT→TEILGELIEFERT→ABGESCHLOSSEN;
+│                               E-Mail-Versand mit Nachweis, Umschlüsseln auf anderen Lieferanten)
 │   ├── page.tsx
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx           Detail + "→ Wareneingang buchen" Button
@@ -512,8 +517,11 @@ app/
 /api/inventur/[id]              GET, PUT, DELETE (inkl. Abschluss-Aktion)
 
 -- Bestellliste / Prognose --
-/api/bestellliste               GET, POST
-/api/bestellliste/[id]          PUT, DELETE
+/api/bestellliste               GET(?status,?lieferantId), POST({artikelId,menge,einheit?,lieferantId?,notiz?} — manuelles/diktiertes
+                                 Erfassen unabhängig von einem Kundenangebot; ohne lieferantId automatischer
+                                 Vorschlag via vorschlagLieferantFuerArtikel(), 422 wenn kein Lieferant zugeordnet)
+/api/bestellliste/[id]          PATCH({status?,notiz?,lieferantId?} — lieferantId nur solange die Position noch
+                                 nicht zu einer Bestellung gebündelt ist, sonst 409), DELETE
 /api/prognose                   GET(?kundeId,?artikelId,?monate)
 /api/prognose/bestellvorschlag  GET — automatischer Bestellvorschlag
 
@@ -644,8 +652,20 @@ app/
 /api/duev/bilanz                GET(?kundeId,?jahr) — Nährstoffbilanz
 
 -- Einkauf / Lieferantenbestellungen --
-/api/bestellungen               GET(?lieferantId,?status), POST (auto Nummer)
+/api/bestellungen               GET(?lieferantId,?status), POST (auto Nummer BES-YYYY-NNNN; entweder frei
+                                 {lieferantId,positionen[]} oder gebündelt aus der Bestellliste
+                                 {lieferantId,bestellpositionIds[]} — markiert die Quell-Bestellliste-Positionen
+                                 dabei als "bestellt" und verknüpft sie per bestellungId)
 /api/bestellungen/[id]          GET, PUT({aktion:"bestätigen"|"abschliessen"|"stornieren"}|{positionen[]}), DELETE
+/api/bestellungen/[id]/mail     POST({empfaenger?,cc?}) — sendet die Bestellung per E-Mail an den Lieferanten
+                                 (bestellungEmail()-Template in lib/email-templates.ts), setzt versendetAm/
+                                 versendetAn als Nachweis; Versand muss im Frontend über EmailVersandModal
+                                 bestätigt werden, kein automatischer Versand beim Bündeln
+/api/bestellungen/[id]/umschluesseln  POST({positionId,lieferantId}) — verlegt eine bereits gebündelte Position
+                                 auf einen anderen Lieferanten (z.B. weil der ursprüngliche Lieferant den Artikel
+                                 nicht liefern kann); legt dafür immer eine neue Bestellung an (statt eine
+                                 evtl. offene zusammenzuführen) und zieht einen verknüpften Bestellliste-Eintrag
+                                 mit um
 /api/eingangsrechnungen         GET(?lieferantId,?status), POST
 /api/eingangsrechnungen/[id]    GET, PUT, DELETE
 /api/eingangsrechnungen/[id]/beleg  POST (Beleg-Upload, spiegelt nach Nextcloud Buchhaltung/), DELETE
@@ -869,6 +889,7 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Mahnwesen: Stufe-1-Zahlungserinnerung (PDF, Druckansicht, Listenspalte in `/mahnwesen`) wies Verzugszinsen aus, obwohl Stufe 1 als unverbindliche, freundliche Erinnerung gedacht ist und keine rechtliche Verzugswirkung entfaltet | `berechneVerzugszinsen()` in `lib/mahnwesen-config.ts` berechnete taggenaue Zinsen rein aus Betrag/Tagen überfällig/Zinssatz — ohne Bezug zur Mahnstufe. Anders als `mahngebuehr()` (die schon immer je Stufe unterschiedliche Werte liefert, Stufe 1 defaultmäßig 0) kannte die Zinsfunktion `mahnstufe` gar nicht als Parameter | `berechneVerzugszinsen()` bekommt einen verpflichtenden 4. Parameter `mahnstufe` und liefert bei `mahnstufe<=1` immer `0`, unabhängig von Tagen überfällig; alle 4 Call-Sites (`lib/pdfGenerator.ts` `generiereMahnungPdf()`, `app/mahnwesen/page.tsx` `druckeZahlungserinnerung()`, Listenspalte, Fußzeilen-Summe) übergeben jetzt die jeweilige Mahnstufe. Die "Verzugszinsen"/"Gesamtforderung"-Zeilen in PDF und Druckansicht waren bereits auf `zinsen > 0` gegatet und verschwinden dadurch automatisch bei Stufe 1; KI-Brief (`/api/ki/mahnungstext`) bekam ohnehin nie Zinsdaten übergeben, nur `mahngebuehr` (dort schon länger auf `stufe > 1` begrenzt) — keine Änderung nötig |
 | Mahnung-PDF (`generiereMahnungPdf`): der große 18pt-Titel oben rechts ("Freundliche Zahlungserinnerung"/"1. Mahnung"/"2. Mahnung / Letzte Mahnung") wirkte neben dem darunter gestapelten "Ihr Ansprechpartner"-Block (Name/Mobil/Mail) zu dominant und war reine Dopplung — derselbe Text steht bereits als Betreffzeile im Brieftext (`${MAHNUNG_BETREFF[mahnstufe]} – Rechnung …`, für alle 3 Stufen gleichermaßen) | Titel und Ansprechpartner-Block waren beide auf den oberen ~40mm der Seite gestapelt (Titel bei y=20 fontSize 18, Ansprechpartner-Zeilen ab y=27 mit 4,5mm Abstand) — optisch der dominanteste Bereich der Seite, während das Anschriftfeld (Fensterkuvert-Position) direkt darunter bei y=49 begann, kaum Luft zum Kopfbereich | Titel-Zeile komplett entfernt; verbleibender Ansprechpartner-Block rutscht auf y=20 hoch (füllt die freigewordene Höhe), Schriftgröße 9→8,5pt und Zeilenabstand 4,5→4mm für ein kompakteres Erscheinungsbild; Anschriftfeld (Absenderzeile + Kundenadresse) um 6mm nach unten verschoben (y=49→55 bzw. Kundenname-Start 57→63) für mehr Abstand zum Kopfbereich. Betrifft nur `generiereMahnungPdf()` — die separate Browser-Druckansicht (`druckeZahlungserinnerung()` in `app/mahnwesen/page.tsx`) hatte diesen Titel/Ansprechpartner-Block nie und ist unverändert |
 | Rechnungs-Vorschau (`/lieferungen/[id]/rechnung`) auf dem Handy: Kopfzeilen-Meta-Tabelle (Rechnungsnr./-datum/…) überlappte die Absenderzeile, Tabellen-Spaltenköpfe liefen zu einem einzigen verschmolzenen Wort zusammen — UND der "PDF"-Button (`downloadVorschauPdf()`) erzeugte auf dem Handy deutlich mehr Seiten (Testfall: 15 statt 2) als bei identischem Aufruf am Desktop | `[data-print-area]` hatte nur `maxWidth: "210mm"`, kein festes `width` — auf Bildschirmen schmaler als ~794px (jedes Handy-Viewport) schrumpfte das Element dadurch auf Viewport-Breite statt A4-Breite. Der Briefkopf hat aber eine feste Höhe (`height: "25mm"`, `overflow` default `visible`) — bricht die schmaler gewordene Meta-Tabelle dadurch auf mehr Zeilen um als hineinpasst, ragt der überschüssige Text sichtbar in die darunterliegende Absenderzeile hinein. Dieselbe Verengung ließ auch die (bewusst NICHT `table-layout:fixed` gesetzte, siehe Zeile weiter oben zu iOS/WebKit-Spaltenbreiten) Positionstabelle so eng werden, dass Spaltenköpfe kaum noch sichtbaren Abstand hatten. Der ursprüngliche Fix (erste Version dieser Zeile) erzwang die A4-Breite nur clientseitig kurz vor jeder `html2canvas`-Aufnahme — behob zwar die PDF-Seitenzahl, ließ die eigentliche BILDSCHIRM-Vorschau auf dem Handy aber weiterhin überlappend/unlesbar | `[data-print-area]` bekommt jetzt dauerhaft `width: "210mm"` statt nur `maxWidth` — das Dokument ist dadurch IMMER A4-breit, unabhängig vom Viewport (kein Sonderfall mehr fürs PDF nötig, die zwischenzeitliche JS-`A4_BREITE_PX`-Zwangsbreite vor den `html2canvas`-Aufrufen wurde wieder entfernt). Da `html, body { overflow-x: hidden }` global gesetzt ist (`app/globals.css`, verhindert versehentliches horizontales Scrollen auf anderen Seiten), bekommt `[data-print-area]` einen neuen Wrapper `<div className="rechnung-scroll-wrapper" style={{overflowX:"auto"}}>` — auf dem Handy scrollt man die Rechnung dadurch horizontal wie eine echte A4-Seite an, statt dass sie zusammengequetscht wird; `.rechnung-scroll-wrapper { overflow: visible !important; }` in der `@media print`-Regel verhindert, dass echter Browserdruck nur den sichtbaren Scroll-Ausschnitt druckt. Per Playwright mit mobilem Viewport (390px) end-to-end verifiziert: Bildschirm-Screenshot zeigt keine Überlappung mehr (Kopfzeile UND Tabelle sauber lesbar, horizontal scrollbar), PDF-Export liefert 1 Seite auf Handy UND Desktop identisch. Betrifft nur `/lieferungen/[id]/rechnung`; derselbe `maxWidth:"210mm"`-ohne-`width`-Mustercode existiert auch in `app/angebote/[id]/druck/page.tsx`, `app/lieferungen/[id]/lieferschein/page.tsx` und `app/vorbestellungen/[id]/auftragsbestaetigung/page.tsx` (dort noch nicht behoben, da nicht gemeldet) |
+| Lieferantenbestellungen waren auf drei unverbundene Insellösungen verteilt (Bestellliste ausschließlich aus Angebot-Annahme, Bestellungen nur manuell ohne Versand, Bestellvorschlag-PDF ganz ohne Persistenz) — dadurch kein Überblick, was bereits bestellt wurde, keine Möglichkeit, Positionen ad-hoc/diktiert zu erfassen, kein Nachweis über den tatsächlichen Versand an den Lieferanten, kein Weg, eine Position umzuschlüsseln, wenn ein Lieferant absagt | Die drei Bausteine teilten sich zwar dieselben Modelle (`Bestellposition`/`Bestellung`), aber `Bestellposition` ließ sich nur automatisch (Angebot-Annahme) erzeugen, `Bestellung` hatte keinen Bezug zurück zur erzeugenden Bestellliste und keine Versand-Felder | `Bestellliste` (`app/bestellliste`) verbindet jetzt alle drei: `POST /api/bestellliste` erlaubt manuelles/diktiertes Erfassen unabhängig von einem Angebot (kundeId/lieferungId/angebotId bleiben null), mit automatischem Lieferantenvorschlag über `vorschlagLieferantFuerArtikel()` (rein datenbasiert: `ArtikelLieferant.bevorzugt`, sonst günstigster Preis) — frei überschreibbar per `PATCH .../lieferantId`, solange die Position noch nicht gebündelt ist. "N zu Bestellung bündeln" (`POST /api/bestellungen` mit `bestellpositionIds[]`) erzeugt eine formelle `Bestellung` und verknüpft die Quell-Positionen per neuem Feld `Bestellposition.bestellungId` (Traceability: Bestellliste zeigt seitdem `→ BES-2026-NNNN` statt nur einem Status). `POST /api/bestellungen/[id]/mail` sendet die Bestellung per E-Mail (neues Template `bestellungEmail()` in `lib/email-templates.ts`, inkl. `ArtikelLieferant.lieferantenArtNr` falls hinterlegt) und setzt `versendetAm`/`versendetAn` als Nachweis — bewusst KEIN Auto-Versand beim Bündeln, das Frontend zeigt vorher `EmailVersandModal` zur Bestätigung/Korrektur der Empfänger-Adresse. `POST /api/bestellungen/[id]/umschluesseln` verlegt eine bereits gebündelte Position auf einen anderen Lieferanten (legt dafür immer eine neue Bestellung an, um mehrdeutiges Zusammenführen zu vermeiden) und zieht einen verknüpften Bestellliste-Eintrag mit um. Diktieren (Spracherkennung) ist bewusst NICHT Teil dieser Änderung — als nächster Schritt geplant, würde auf der bereits vorhandenen `AudioRecorder.tsx`/`POST /api/ki/transcribe`-Infrastruktur aufbauen |
 
 ## Schemata: Wichtige Felder
 
@@ -1221,7 +1242,8 @@ Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
 | `lib/bankabgleich-zuordnung.ts` | `markiereAlsBezahlt()`/`macheBezahltRueckgaengig()` — setzt/entfernt `bezahltAm` je Zieltyp; `markiereAlsBezahlt()` nimmt optionalen `client`-Parameter für Aufruf innerhalb einer `$transaction` |
 | `lib/bankabgleich-differenz.ts` | Erfasst beim Bankabgleich eine Betragsdifferenz zwischen Kontoumsatz und zugeordneter Rechnung als Gutschrift (Überzahlung) oder KundeForderung (Fehlbetrag) — `erfasseBankabgleichDifferenz()`, aufgerufen aus `PUT /api/bankabgleich/[id]` |
 | `lib/email.ts` | E-Mail-Versand via SMTP (nodemailer) oder Resend, `loadEmailConfig()` |
-| `lib/email-templates.ts` | HTML-E-Mail-Templates (Rechnung, Mahnung, Angebot) |
+| `lib/email-templates.ts` | HTML-E-Mail-Templates (Rechnung, Mahnung, Angebot, Lieferantenbestellung) |
+| `lib/bestellvorschlag-lieferant.ts` | `vorschlagLieferantFuerArtikel()` — rein datenbasierter Lieferantenvorschlag für einen Artikel (zuerst `ArtikelLieferant.bevorzugt`, sonst günstigster Einkaufspreis, sonst irgendein zugeordneter) — keine KI nötig, dieselbe Quelle wie `bevorzugterLieferant` in `/api/prognose`, nur mit Fallback statt `null` |
 | `lib/firma.ts` | `loadFirmaDaten()` — lädt Firmen-Einstellungen aus DB (Interface `FirmaDaten`) |
 | `lib/girocode.ts` | EPC-QR-Code / GiroCode Generator (SEPA-Überweisungs-QR auf Rechnungen) |
 | `lib/nextcloud.ts` | Nextcloud-Dokumentenabgleich via WebDAV (Ordnerstruktur, Upload, Verbindungstest) |
@@ -1329,7 +1351,7 @@ Vor jedem Code-Schreiben:
 3. `await ctx.params` verwenden (nicht direkt destructuren)
 4. Keine Modals für Formulare — eigene Seite anlegen
 5. `npx prisma generate` nach Schema-Änderungen
-6. `npx prisma migrate dev --name beschreibung` für neue Migrationen
+6. `npx prisma migrate dev --name beschreibung` für neue Migrationen — schlägt aber in einer FRISCH geklonten/neu aufgesetzten Umgebung (`dev.db` existiert noch nicht) mit `SQLite database error: no such column: T.artikel_id` fehl, weil `migrate dev` alle Migrationen erst in einer temporären Shadow-DB von Null an durchspielt und dabei eine alte handgeschriebene FTS5-Trigger-Migration (`20260329120000_add_fts5_search`) nicht sauber durchläuft (latenter, nie vorher aufgefallener Fehler, da bisher immer ein bereits migriertes `dev.db` vorlag). Workaround: Migration von Hand als `prisma/migrations/<timestamp>_beschreibung/migration.sql` anlegen (Format wie bestehende Migrationen, z.B. `ALTER TABLE … ADD COLUMN …`) und mit `npx prisma migrate deploy` anwenden — das umgeht die Shadow-DB komplett, da es Migrationen nur ausführt statt zu diffen
 7. Responsive: `hidden sm:table-cell` für nicht-essentielle Tabellenspalten
 8. Sicherheit: Input validieren an API-Grenzen, keine Stack Traces exponieren
 9. Immer `take:` Limit setzen bei `findMany` ohne explizite Filterung
