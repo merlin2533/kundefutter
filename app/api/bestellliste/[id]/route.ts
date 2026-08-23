@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, ctx: Params) {
   }
 
   const VALID_STATUS = ["offen", "bestellt", "geliefert", "storniert"];
-  const { status, notiz } = body as { status?: string; notiz?: string };
+  const { status, notiz, lieferantId } = body as { status?: string; notiz?: string; lieferantId?: unknown };
 
   if (status && !VALID_STATUS.includes(status)) {
     return NextResponse.json({ error: `Ungültiger Status: ${status}` }, { status: 400 });
@@ -35,11 +35,34 @@ export async function PATCH(req: NextRequest, ctx: Params) {
     }
     if (notiz !== undefined) updateData.notiz = notiz || null;
 
+    // Umschlüsseln auf einen anderen Lieferanten, solange die Position noch nicht zu einer
+    // formellen Bestellung gebündelt wurde (bestellungId gesetzt) — danach läuft das Umschlüsseln
+    // über POST /api/bestellungen/[id]/umschluesseln, da die Position dann Teil einer bereits
+    // versendeten/bestätigten Bestellung sein kann.
+    if (lieferantId !== undefined) {
+      const neueLieferantId = parseInt(String(lieferantId), 10);
+      if (isNaN(neueLieferantId)) return NextResponse.json({ error: "Ungültige lieferantId" }, { status: 400 });
+      const bestehend = await prisma.bestellposition.findUnique({ where: { id: numId }, select: { bestellungId: true, artikelId: true } });
+      if (!bestehend) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+      if (bestehend.bestellungId) {
+        return NextResponse.json(
+          { error: "Position ist bereits Teil einer Bestellung — dort über 'Umschlüsseln' verschieben." },
+          { status: 409 }
+        );
+      }
+      updateData.lieferantId = neueLieferantId;
+      const zuordnung = await prisma.artikelLieferant.findUnique({
+        where: { artikelId_lieferantId: { artikelId: bestehend.artikelId, lieferantId: neueLieferantId } },
+        select: { einkaufspreis: true },
+      });
+      if (zuordnung) updateData.einkaufspreis = zuordnung.einkaufspreis;
+    }
+
     const pos = await prisma.bestellposition.update({
       where: { id: numId },
       data: updateData,
       include: {
-        lieferant: { select: { id: true, name: true } },
+        lieferant: { select: { id: true, name: true, email: true, telefon: true, frachtkosten: true, mindestbestellwert: true } },
         artikel: { select: { id: true, name: true } },
         kunde: { select: { id: true, name: true, firma: true } },
       },

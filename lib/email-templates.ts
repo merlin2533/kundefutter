@@ -37,6 +37,24 @@ export type MahnungMailData = {
   firma: FirmaDaten;
 };
 
+export type BestellungMailPosition = {
+  artikelName: string;
+  artikelnummer?: string | null;
+  lieferantenArtNr?: string | null;
+  menge: number;
+  einheit: string;
+};
+
+export type BestellungMailData = {
+  nummer: string;
+  datum: Date;
+  lieferdatum?: Date | null;
+  lieferantAnrede?: string | null;
+  notiz?: string | null;
+  positionen: BestellungMailPosition[];
+  firma: FirmaDaten;
+};
+
 export type BesuchserinnerungMailData = {
   datum: Date;
   uhrzeit?: string | null;
@@ -702,6 +720,108 @@ export function digestEmail(data: DigestData): { subject: string; text: string; 
   }
   if (gesamt === 0) textParts.push("\nHeute gibt es nichts Besonderes zu berichten.");
   const text = textParts.join("\n");
+
+  return { subject, text, html };
+}
+
+// ─── Lieferantenbestellung ─────────────────────────────────────────────────────
+
+export function bestellungEmail(data: BestellungMailData): { subject: string; text: string; html: string } {
+  const { nummer, datum, lieferdatum, lieferantAnrede, notiz, positionen, firma } = data;
+  const subject = `Bestellung ${nummer} – ${firma.name}`;
+  const anrede = lieferantAnrede?.trim()
+    ? `Sehr geehrte/r ${lieferantAnrede.trim()},`
+    : "Sehr geehrte Damen und Herren,";
+
+  const posZeileText = (p: BestellungMailPosition) =>
+    `  - ${p.menge} ${p.einheit}  ${p.artikelName}${p.lieferantenArtNr ? ` (Ihre Art-Nr.: ${p.lieferantenArtNr})` : p.artikelnummer ? ` (${p.artikelnummer})` : ""}`;
+
+  const text = [
+    anrede,
+    "",
+    "hiermit bestellen wir folgende Artikel bei Ihnen:",
+    "",
+    `Bestellnummer: ${nummer}`,
+    `Bestelldatum:  ${fmtDatum(datum)}`,
+    lieferdatum ? `Gewünschtes Lieferdatum: ${fmtDatum(lieferdatum)}` : "",
+    "",
+    ...positionen.map(posZeileText),
+    notiz ? `\nAnmerkung: ${notiz}` : "",
+    "",
+    "Über eine Bestätigung mit Liefertermin würden wir uns freuen. Sollte ein Artikel aktuell nicht verfügbar sein, geben Sie uns bitte kurz Bescheid.",
+    "",
+    "Mit freundlichen Grüßen",
+    firma.name,
+    "",
+    "─────────────────────────────────────────",
+    firma.name + (firma.zusatz ? ` · ${firma.zusatz}` : ""),
+    [firma.strasse, firma.plzOrt].filter(Boolean).join(", "),
+    firma.telefon ? `Tel: ${firma.telefon}` : "",
+    firma.email || "",
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+
+  const impressumParts = [
+    escapeHtml(firma.name) + (firma.zusatz ? ` · ${escapeHtml(firma.zusatz)}` : ""),
+    [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
+    firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
+    firma.email
+      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>`
+      : "",
+  ].filter(Boolean);
+
+  const posZeileHtml = (p: BestellungMailPosition) => `
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right;font-variant-numeric:tabular-nums;">${p.menge} ${escapeHtml(p.einheit)}</td>
+      <td style="padding:8px 12px;border:1px solid #e5e7eb;color:#1f2937;">${escapeHtml(p.artikelName)}${
+        p.lieferantenArtNr
+          ? ` <span style="color:#9ca3af;">(Ihre Art-Nr.: ${escapeHtml(p.lieferantenArtNr)})</span>`
+          : p.artikelnummer
+          ? ` <span style="color:#9ca3af;">(${escapeHtml(p.artikelnummer)})</span>`
+          : ""
+      }</td>
+    </tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};letter-spacing:-0.01em;">${escapeHtml(firma.name)}</div>
+        ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
+      </td></tr>
+      <tr><td style="padding:28px 32px 8px 32px;">
+        <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
+        <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
+          hiermit bestellen wir folgende Artikel bei Ihnen (Bestellnummer <b>${escapeHtml(nummer)}</b>${lieferdatum ? `, gewünschtes Lieferdatum <b>${fmtDatum(lieferdatum)}</b>` : ""}):
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
+          <tr>
+            <th style="padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;text-align:right;font-size:12px;color:#6b7280;">Menge</th>
+            <th style="padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;text-align:left;font-size:12px;color:#6b7280;">Artikel</th>
+          </tr>
+          ${positionen.map(posZeileHtml).join("")}
+        </table>
+        ${notiz ? `<div style="margin:0 0 20px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;"><b>Anmerkung</b><br>${escapeHtml(notiz)}</div>` : ""}
+        <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#374151;">
+          Über eine Bestätigung mit Liefertermin würden wir uns freuen. Sollte ein Artikel aktuell nicht verfügbar sein, geben Sie uns bitte kurz Bescheid.
+        </p>
+        <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
+      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
 
   return { subject, text, html };
 }

@@ -19,6 +19,7 @@ interface Bestellung {
   lieferdatum: string | null;
   status: string;
   notiz: string | null;
+  versendetAm: string | null;
   lieferantId: number;
   lieferant: { id: number; name: string; firma: string | null } | null;
   _count: { positionen: number };
@@ -155,6 +156,7 @@ function BestellungenListeInner() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Lieferant</th>
                   <th className="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600">Positionen</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="hidden lg:table-cell text-left px-4 py-3 font-medium text-gray-600">Versand</th>
                   <th className="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600">Lieferdatum</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Aktionen</th>
                 </tr>
@@ -177,6 +179,13 @@ function BestellungenListeInner() {
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
+                    </td>
+                    <td className="hidden lg:table-cell px-4 py-3">
+                      {item.versendetAm ? (
+                        <span className="text-xs text-teal-700">✓ {new Date(item.versendetAm).toLocaleDateString("de-DE")}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="hidden md:table-cell px-4 py-3 text-gray-600">
                       {item.lieferdatum ? new Date(item.lieferdatum).toLocaleDateString("de-DE") : "—"}

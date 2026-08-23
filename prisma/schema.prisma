@@ -62,12 +62,12 @@ model Kunde {
   // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
   vvvoNr String? // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
 
-  portalZugang     KundePortalZugang?
-  anbauplaene      Anbauplan[]
-  zertifizierungen Zertifizierung[]
-  kampagnen        KampagneKunde[]
+  portalZugang          KundePortalZugang?
+  anbauplaene           Anbauplan[]
+  zertifizierungen      Zertifizierung[]
+  kampagnen             KampagneKunde[]
   rechnungsuebersichten Rechnungsuebersicht[]
-  forderungen      KundeForderung[]
+  forderungen           KundeForderung[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -414,20 +414,20 @@ model Lieferung {
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
-  kunde             Kunde             @relation(fields: [kundeId], references: [id])
-  positionen        Lieferposition[]
-  lagerbewegungen   Lagerbewegung[]
-  sammelrechnung    Sammelrechnung?   @relation(fields: [sammelrechnungId], references: [id])
-  sammelrechnungId  Int?
-  gutschriften      Gutschrift[]      @relation("GutschriftQuelle")
-  gutschriftenVerbucht Gutschrift[]   @relation("GutschriftVerbucht")
-  bestellpositionen Bestellposition[]
-  reklamationen     Reklamation[]
-  streckenLieferant Lieferant?        @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
-  teilzahlungen     Teilzahlung[]
+  kunde                        Kunde                        @relation(fields: [kundeId], references: [id])
+  positionen                   Lieferposition[]
+  lagerbewegungen              Lagerbewegung[]
+  sammelrechnung               Sammelrechnung?              @relation(fields: [sammelrechnungId], references: [id])
+  sammelrechnungId             Int?
+  gutschriften                 Gutschrift[]                 @relation("GutschriftQuelle")
+  gutschriftenVerbucht         Gutschrift[]                 @relation("GutschriftVerbucht")
+  bestellpositionen            Bestellposition[]
+  reklamationen                Reklamation[]
+  streckenLieferant            Lieferant?                   @relation("StreckenLieferant", fields: [streckenLieferantId], references: [id])
+  teilzahlungen                Teilzahlung[]
   rechnungsuebersichtEintraege RechnungsuebersichtEintrag[]
-  forderungenAlsQuelle    KundeForderung[] @relation("ForderungQuelle")
-  forderungenAlsErledigt  KundeForderung[] @relation("ForderungErledigt")
+  forderungenAlsQuelle         KundeForderung[]             @relation("ForderungQuelle")
+  forderungenAlsErledigt       KundeForderung[]             @relation("ForderungErledigt")
 
   @@index([kundeId])
   @@index([status])
@@ -438,17 +438,17 @@ model Lieferung {
 }
 
 model Lieferposition {
-  id                Int     @id @default(autoincrement())
-  lieferungId       Int
-  artikelId         Int
-  menge             Float
-  verkaufspreis     Float
-  einkaufspreis     Float   @default(0)
-  chargeNr          String? // Chargen-/Losnummer (gesetzlich für Saatgut)
-  rabattProzent     Float   @default(0) // Mengenrabatt der angewendet wurde
-  notiz             String? // Auftragsnummer / interne Notiz zur Position
-  preisInterpoliert Boolean @default(false) // true = verkaufspreis wurde aus einem anderen Jahr übernommen (kein Jahrespreis fürs Lieferjahr erfasst)
-  preisQuelleJahr   Int? // Jahr, aus dem der Preis tatsächlich stammt, wenn preisInterpoliert=true
+  id                  Int     @id @default(autoincrement())
+  lieferungId         Int
+  artikelId           Int
+  menge               Float
+  verkaufspreis       Float
+  einkaufspreis       Float   @default(0)
+  chargeNr            String? // Chargen-/Losnummer (gesetzlich für Saatgut)
+  rabattProzent       Float   @default(0) // Mengenrabatt der angewendet wurde
+  notiz               String? // Auftragsnummer / interne Notiz zur Position
+  preisInterpoliert   Boolean @default(false) // true = verkaufspreis wurde aus einem anderen Jahr übernommen (kein Jahrespreis fürs Lieferjahr erfasst)
+  preisQuelleJahr     Int? // Jahr, aus dem der Preis tatsächlich stammt, wenn preisInterpoliert=true
   lagerBereitsGebucht Boolean @default(false) // true = Lagerausgang für diese Position wurde bereits gebucht (verhindert Doppelbuchung, wenn die Lieferung nach dem Liefern erneut auf "geplant" gesetzt wird, z.B. beim Abspalten einer Teilrechnung)
 
   lieferung Lieferung @relation(fields: [lieferungId], references: [id], onDelete: Cascade)
@@ -647,6 +647,7 @@ model Bestellposition {
   kundeId        Int? // Rückverfolgbarkeit: welcher Kunde
   lieferungId    Int? // Rückverfolgbarkeit: welche Lieferung
   angebotId      Int? // Rückverfolgbarkeit: welches Angebot
+  bestellungId   Int? // gesetzt, sobald die Position zu einer formellen Lieferantenbestellung gebündelt wurde
   menge          Float
   mengeGeliefert Float     @default(0) // Summe bereits gelieferter Mengen (Teillieferungen)
   einheit        String    @default("kg")
@@ -662,12 +663,14 @@ model Bestellposition {
   artikel          Artikel                 @relation(fields: [artikelId], references: [id])
   kunde            Kunde?                  @relation(fields: [kundeId], references: [id])
   lieferung        Lieferung?              @relation(fields: [lieferungId], references: [id])
+  bestellung       Bestellung?             @relation(fields: [bestellungId], references: [id])
   wareineingangPos WareineingangPosition[]
 
   @@index([lieferantId])
   @@index([artikelId])
   @@index([status])
   @@index([lieferungId])
+  @@index([bestellungId])
 }
 
 // ─── INVENTUR ────────────────────────────────────────────────────────────────
@@ -835,22 +838,22 @@ model AngebotPosition {
 // ─── GUTSCHRIFTEN / RETOUREN ──────────────────────────────────────────────────
 
 model Gutschrift {
-  id                  Int      @id @default(autoincrement())
-  nummer              String   @unique // GS-YYYY-NNNN
-  kundeId             Int
-  lieferungId         Int? // optional reference to original delivery
+  id                     Int      @id @default(autoincrement())
+  nummer                 String   @unique // GS-YYYY-NNNN
+  kundeId                Int
+  lieferungId            Int? // optional reference to original delivery
   verbuchtBeiLieferungId Int? // Rechnung, in die diese Gutschrift automatisch eingerechnet wurde
-  datum               DateTime @default(now())
-  grund               String // Reklamation | Retoure | Preiskorrektur | Sonstiges
-  notiz               String?
-  status              String   @default("OFFEN") // OFFEN | VERBUCHT | STORNIERT
-  createdAt           DateTime @default(now())
+  datum                  DateTime @default(now())
+  grund                  String // Reklamation | Retoure | Preiskorrektur | Sonstiges
+  notiz                  String?
+  status                 String   @default("OFFEN") // OFFEN | VERBUCHT | STORNIERT
+  createdAt              DateTime @default(now())
 
-  kunde             Kunde                @relation(fields: [kundeId], references: [id])
-  lieferung         Lieferung?           @relation("GutschriftQuelle", fields: [lieferungId], references: [id])
-  verbuchtBeiLieferung Lieferung?        @relation("GutschriftVerbucht", fields: [verbuchtBeiLieferungId], references: [id], onDelete: SetNull)
-  positionen        GutschriftPosition[]
-  anlieferung       Anlieferung?
+  kunde                Kunde                @relation(fields: [kundeId], references: [id])
+  lieferung            Lieferung?           @relation("GutschriftQuelle", fields: [lieferungId], references: [id])
+  verbuchtBeiLieferung Lieferung?           @relation("GutschriftVerbucht", fields: [verbuchtBeiLieferungId], references: [id], onDelete: SetNull)
+  positionen           GutschriftPosition[]
+  anlieferung          Anlieferung?
 
   @@index([kundeId])
   @@index([datum])
@@ -1101,11 +1104,14 @@ model Bestellung {
   lieferdatum DateTime?
   status      String    @default("OFFEN") // OFFEN|BESTAETIGT|TEILGELIEFERT|ABGESCHLOSSEN|STORNIERT
   notiz       String?
+  versendetAm DateTime? // Nachweis: wann die Bestellung per E-Mail an den Lieferanten rausgeschickt wurde
+  versendetAn String? // tatsächliche Empfänger-Adresse zum Versandzeitpunkt (Lieferant.email kann sich später ändern)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  lieferant  Lieferant            @relation(fields: [lieferantId], references: [id])
-  positionen BestellungPosition[]
+  lieferant             Lieferant            @relation(fields: [lieferantId], references: [id])
+  positionen            BestellungPosition[]
+  bestelllisteEintraege Bestellposition[]
 
   @@index([lieferantId])
   @@index([status])
@@ -1313,18 +1319,18 @@ model Teilzahlung {
 //     verankert, damit sie über die einzelne Lieferung hinaus bestehen bleibt) ────────
 
 model KundeForderung {
-  id                     Int       @id @default(autoincrement())
+  id                     Int      @id @default(autoincrement())
   kundeId                Int
   betrag                 Float // positiver Betrag, den der Kunde noch schuldet
   grund                  String // Freitext, z.B. "Unterzahlung Rechnung RE-2026-0123 vom 30.7.2026"
   quelleLieferungId      Int? // ursprüngliche (unterbezahlte) Lieferung, falls bekannt
-  erledigt               Boolean   @default(false) // true sobald auf einer neuen Rechnung mit aufgeführt
+  erledigt               Boolean  @default(false) // true sobald auf einer neuen Rechnung mit aufgeführt
   erledigtBeiLieferungId Int? // Lieferung, deren Rechnung die Forderung aufgenommen hat
-  createdAt              DateTime  @default(now())
+  createdAt              DateTime @default(now())
 
-  kunde                 Kunde     @relation(fields: [kundeId], references: [id], onDelete: Cascade)
-  quelleLieferung       Lieferung? @relation("ForderungQuelle", fields: [quelleLieferungId], references: [id], onDelete: SetNull)
-  erledigtBeiLieferung  Lieferung? @relation("ForderungErledigt", fields: [erledigtBeiLieferungId], references: [id], onDelete: SetNull)
+  kunde                Kunde      @relation(fields: [kundeId], references: [id], onDelete: Cascade)
+  quelleLieferung      Lieferung? @relation("ForderungQuelle", fields: [quelleLieferungId], references: [id], onDelete: SetNull)
+  erledigtBeiLieferung Lieferung? @relation("ForderungErledigt", fields: [erledigtBeiLieferungId], references: [id], onDelete: SetNull)
 
   @@index([kundeId])
   @@index([erledigt])
