@@ -67,6 +67,22 @@ interface Lieferung {
   positionen: Position[];
 }
 
+// Gekachelte, diagonale "STORNO"-Wasserzeichen-Textur als SVG-Datenurl. Wird als
+// background-image auf einer position:absolute-Ebene mit negativem z-index unter
+// [data-print-area] gelegt (dessen eigener Hintergrund malt zuerst, danach negative
+// z-index-Kinder, danach der normale Inhalt darüber — CSS-Malreihenfolge, kein
+// zusätzliches z-index auf Briefkopf/Tabelle nötig). Da die Kachel die volle Höhe des
+// (ggf. mehrseitigen) Dokuments abdeckt, erscheint sie automatisch auf jeder Seite —
+// sowohl beim echten Browserdruck als auch im html2canvas-Screenshot für den
+// "PDF"-Button (siehe downloadVorschauPdf), analog zu zeichneStornoWasserzeichen() im
+// serverseitigen PDF-Export (lib/pdfGenerator.ts).
+const STORNO_WASSERZEICHEN_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+  '<text x="120" y="120" transform="rotate(-40 120 120)" text-anchor="middle" ' +
+  'dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" ' +
+  'font-size="34" font-weight="bold" fill="#dc2626" fill-opacity="0.16">STORNO</text></svg>';
+const STORNO_WASSERZEICHEN_URL = `url("data:image/svg+xml,${encodeURIComponent(STORNO_WASSERZEICHEN_SVG)}")`;
+
 export default function RechnungPrintPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -904,8 +920,30 @@ export default function RechnungPrintPage() {
           padding: "20mm",
           background: "#fff",
           position: "relative",
+          // zIndex explizit setzen (nicht nur position:relative): erst das erzeugt einen
+          // eigenen Stacking-Context für dieses Element, in dem das Wasserzeichen mit
+          // negativem z-index korrekt "zwischen" diesem weißen Hintergrund und dem
+          // normalen Inhalt einsortiert wird. Ohne zIndex hier würde sich das negative
+          // z-index des Wasserzeichens auf den nächsten Stacking-Context weiter oben im
+          // Baum beziehen und dadurch komplett unsichtbar hinter der Seite verschwinden.
+          zIndex: 0,
         }}
       >
+      {lieferung.rechnungStorniert && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: -1,
+            backgroundImage: STORNO_WASSERZEICHEN_URL,
+            backgroundRepeat: "repeat",
+            backgroundSize: "60mm 60mm",
+            WebkitPrintColorAdjust: "exact",
+            printColorAdjust: "exact",
+          }}
+        />
+      )}
       {/* Briefkopf (Storno/Logo/Anschriftfeld/Betreff) bewusst AUSSERHALB der Tabelle als
           normale <div>s: er gehört ohnehin nur auf Seite 1 (analog zum PDF-Export, ein
           DIN-5008-Fensterkuvert braucht die Adresse nur einmal) und entkoppelt diesen
