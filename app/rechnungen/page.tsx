@@ -31,7 +31,7 @@ interface Rechnung {
   rechnungVersendetAm: string | null;
 }
 
-type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt";
+type FilterStatus = "alle" | "offen" | "ueberfaellig" | "bezahlt" | "storniert";
 
 function berechneBetrag(positionen: Lieferposition[]) {
   return berechneLieferungBrutto({ positionen });
@@ -202,7 +202,8 @@ export default function RechnungenPage() {
         filter === "alle" ||
         (filter === "offen" && st === "offen") ||
         (filter === "ueberfaellig" && st === "ueberfaellig") ||
-        (filter === "bezahlt" && st === "bezahlt");
+        (filter === "bezahlt" && st === "bezahlt") ||
+        (filter === "storniert" && st === "storniert");
       const q = search.toLowerCase();
       const matchSearch =
         !q ||
@@ -290,7 +291,7 @@ export default function RechnungenPage() {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-600"
         />
         <div className="flex gap-1 flex-wrap">
-          {(["alle", "offen", "ueberfaellig", "bezahlt"] as FilterStatus[]).map((f) => (
+          {(["alle", "offen", "ueberfaellig", "bezahlt", "storniert"] as FilterStatus[]).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -300,7 +301,7 @@ export default function RechnungenPage() {
                   : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}
             >
-              {f === "alle" ? "Alle" : f === "offen" ? "Offen" : f === "ueberfaellig" ? "Überfällig" : "Bezahlt"}
+              {f === "alle" ? "Alle" : f === "offen" ? "Offen" : f === "ueberfaellig" ? "Überfällig" : f === "bezahlt" ? "Bezahlt" : "Storniert"}
             </button>
           ))}
           <button
