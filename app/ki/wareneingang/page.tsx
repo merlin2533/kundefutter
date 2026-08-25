@@ -404,7 +404,7 @@ function KiWareneingangWizard() {
       einheit: createForm.einheit,
       standardpreis: parseFloat(createForm.standardpreis) || 0,
       mindestbestand: parseFloat(createForm.mindestbestand) || 0,
-      mwstSatz: parseFloat(createForm.mwstSatz) || 19,
+      mwstSatz: parseFloat(createForm.mwstSatz),
       beschreibung: createForm.beschreibung.trim() || undefined,
       lieferanten: lieferantenArr,
     };

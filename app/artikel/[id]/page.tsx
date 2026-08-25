@@ -436,7 +436,7 @@ function ArtikelDetailContent() {
         einheit: editForm.einheit,
         standardpreis: parseDezimal(preisRaw),
         preisStand: editForm.preisStand ? new Date(editForm.preisStand as string).toISOString() : null,
-        mwstSatz: Number(editForm.mwstSatz) || 19,
+        mwstSatz: Number(editForm.mwstSatz ?? 19),
         mindestbestand: parseDezimal(mindestRaw),
         beschreibung: editForm.beschreibung || null,
         notiz: editForm.notiz || null,
