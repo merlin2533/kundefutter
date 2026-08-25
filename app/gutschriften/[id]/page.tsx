@@ -93,7 +93,20 @@ export default function GutschriftDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Gutschrift wirklich löschen?")) return;
+    if (!gutschrift) return;
+    const hinweise: string[] = [];
+    if (gutschrift.verbuchtBeiLieferung) {
+      hinweise.push(
+        `Diese Gutschrift wurde bereits automatisch in ${
+          gutschrift.verbuchtBeiLieferung.rechnungNr ?? `Rechnung #${gutschrift.verbuchtBeiLieferung.id}`
+        } verrechnet — die Ausgleichsposition wird aus dieser Rechnung entfernt und der Rechnungsbetrag ändert sich.`
+      );
+    }
+    if (gutschrift.positionen.some((p) => p.ruecknahme)) {
+      hinweise.push("Bei der Erstellung zurückgebuchte Lagerware wird wieder aus dem Bestand entfernt.");
+    }
+    const confirmMsg = ["Gutschrift wirklich unwiderruflich löschen?", ...hinweise].join("\n\n");
+    if (!confirm(confirmMsg)) return;
     setSaving(true);
     const res = await fetch(`/api/gutschriften/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -176,15 +189,16 @@ export default function GutschriftDetailPage() {
               >
                 Stornieren
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={saving}
-                className="px-3 py-1.5 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
-              >
-                Löschen
-              </button>
             </>
           )}
+          <button
+            onClick={handleDelete}
+            disabled={saving}
+            title={gutschrift.verbuchtBeiLieferung ? "Entfernt auch die Ausgleichsposition aus der verrechneten Rechnung" : undefined}
+            className="px-3 py-1.5 border border-red-300 text-red-600 text-sm rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            Löschen
+          </button>
         </div>
       </div>
 

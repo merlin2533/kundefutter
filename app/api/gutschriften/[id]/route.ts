@@ -86,24 +86,71 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 }
 
+// Löscht eine Gutschrift unabhängig vom Status (OFFEN/VERBUCHT/STORNIERT) — anders als
+// PUT (nur OFFEN bearbeitbar), da eine versehentlich beim falschen Kunden angelegte
+// Gutschrift auch dann noch entfernbar sein muss, wenn sie inzwischen automatisch in
+// eine Rechnung verrechnet wurde (injiziereOffeneGutschriften() in lib/lieferung.ts,
+// status→VERBUCHT). Macht dabei alle Nebenwirkungen der Gutschrift rückgängig:
+//   • VERBUCHT: entfernt die dabei in der Ziel-Lieferung angelegte negative
+//     Ausgleichsposition (sonst bliebe der Rechnungsbetrag um die Gutschrift reduziert,
+//     obwohl der Datensatz selbst verschwindet)
+//   • Rücknahme-Positionen: bucht den bei Erstellung gutgeschriebenen Lagerzugang wieder
+//     zurück (sonst bliebe die Ware im Bestand, obwohl die Gutschrift gelöscht wird)
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
+  const gutschriftId = Number(id);
 
   try {
     const existing = await prisma.gutschrift.findUnique({
-      where: { id: Number(id) },
+      where: { id: gutschriftId },
+      include: { positionen: true },
     });
     if (!existing) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
-    if (existing.status !== "OFFEN") {
-      return NextResponse.json(
-        { error: "Nur Gutschriften mit Status OFFEN können gelöscht werden" },
-        { status: 400 }
-      );
-    }
 
-    await prisma.gutschrift.delete({ where: { id: Number(id) } });
+    await prisma.$transaction(async (tx) => {
+      if (existing.verbuchtBeiLieferungId) {
+        // Eindeutig identifizierbar über die Gutschriftnummer im notiz-Feld — so wurde die
+        // Position in injiziereOffeneGutschriften() angelegt, es gibt keine feste FK.
+        await tx.lieferposition.deleteMany({
+          where: {
+            lieferungId: existing.verbuchtBeiLieferungId,
+            notiz: { startsWith: `Gutschrift ${existing.nummer}` },
+          },
+        });
+      }
+
+      const ruecknahmePos = existing.positionen.filter((p) => p.ruecknahme);
+      if (ruecknahmePos.length > 0) {
+        const artikelIds = [...new Set(ruecknahmePos.map((p) => p.artikelId))];
+        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+        for (const pos of ruecknahmePos) {
+          const artikel = artikelMap.get(pos.artikelId);
+          if (!artikel) continue;
+          const neuerBestand = artikel.aktuellerBestand - pos.menge;
+          artikel.aktuellerBestand = neuerBestand;
+          await tx.artikel.update({
+            where: { id: pos.artikelId },
+            data: { aktuellerBestand: neuerBestand },
+          });
+          await tx.lagerbewegung.create({
+            data: {
+              artikelId: pos.artikelId,
+              typ: "ausgang",
+              menge: -pos.menge,
+              bestandNach: neuerBestand,
+              notiz: `Gutschrift ${existing.nummer} gelöscht – Retoure rückgängig gemacht`,
+            },
+          });
+        }
+      }
+
+      // GutschriftPosition hat onDelete: Cascade — wird automatisch mitgelöscht.
+      await tx.gutschrift.delete({ where: { id: gutschriftId } });
+    });
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     Sentry.captureException(err);

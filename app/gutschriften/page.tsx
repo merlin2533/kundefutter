@@ -8,6 +8,7 @@ import * as Sentry from "@sentry/nextjs";
 interface GutschriftPosition {
   menge: number;
   preis: number;
+  ruecknahme?: boolean;
 }
 
 interface Gutschrift {
@@ -96,8 +97,21 @@ export default function GutschriftenPage() {
     );
   });
 
-  async function handleDelete(id: number) {
-    if (!confirm("Gutschrift wirklich löschen?")) return;
+  async function handleDelete(gs: Gutschrift) {
+    const hinweise: string[] = [];
+    if (gs.verbuchtBeiLieferung) {
+      hinweise.push(
+        `Diese Gutschrift wurde bereits automatisch in ${
+          gs.verbuchtBeiLieferung.rechnungNr ?? `Rechnung #${gs.verbuchtBeiLieferung.id}`
+        } verrechnet — die Ausgleichsposition wird aus dieser Rechnung entfernt und der Rechnungsbetrag ändert sich.`
+      );
+    }
+    if (gs.positionen.some((p) => p.ruecknahme)) {
+      hinweise.push("Bei der Erstellung zurückgebuchte Lagerware wird wieder aus dem Bestand entfernt.");
+    }
+    const confirmMsg = ["Gutschrift wirklich unwiderruflich löschen?", ...hinweise].join("\n\n");
+    if (!confirm(confirmMsg)) return;
+    const id = gs.id;
     setDeleting(id);
     const res = await fetch(`/api/gutschriften/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -225,15 +239,14 @@ export default function GutschriftenPage() {
                       >
                         Details
                       </Link>
-                      {gs.status === "OFFEN" && (
-                        <button
-                          onClick={() => handleDelete(gs.id)}
-                          disabled={deleting === gs.id}
-                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
-                        >
-                          {deleting === gs.id ? "…" : "Löschen"}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleDelete(gs)}
+                        disabled={deleting === gs.id}
+                        title={gs.verbuchtBeiLieferung ? "Entfernt auch die Ausgleichsposition aus der verrechneten Rechnung" : undefined}
+                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deleting === gs.id ? "…" : "Löschen"}
+                      </button>
                     </div>
                   </td>
                 </tr>
