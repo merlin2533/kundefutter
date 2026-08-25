@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       const betrag = lief.positionen.reduce((sum, pos) => {
         const preis = pos.verkaufspreis ?? 0;
         const rabatt = pos.rabattProzent ?? 0;
-        const mwst = pos.artikel?.mwstSatz ?? 19;
+        const mwst = pos.mwstSatz ?? pos.artikel?.mwstSatz ?? 19;
         const netto = preis * (1 - rabatt / 100);
         return sum + pos.menge * netto * (1 + mwst / 100);
       }, 0);

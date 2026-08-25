@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     streckenLieferant: { select: { id: true, name: true } },
     positionen: {
       select: {
-        id: true, menge: true, verkaufspreis: true, einkaufspreis: true,
+        id: true, menge: true, verkaufspreis: true, einkaufspreis: true, mwstSatz: true,
         chargeNr: true, rabattProzent: true, notiz: true,
         artikel: { select: artikelSafeSelect },
       },

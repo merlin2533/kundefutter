@@ -333,7 +333,7 @@ export async function buildDatevCsv(
         rechnungNr: true,
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } } },
+        positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
       },
       orderBy: { datum: "asc" },
     }),
@@ -346,7 +346,7 @@ export async function buildDatevCsv(
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
         lieferungen: {
-          select: { positionen: { select: { menge: true, verkaufspreis: true, artikel: { select: { mwstSatz: true } } } } },
+          select: { positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } } },
         },
       },
       orderBy: { rechnungDatum: "asc" },
@@ -398,7 +398,7 @@ export async function buildDatevCsv(
     const konto = String(10000 + lief.kundeId);
     const byMwst = new Map<number, number>();
     for (const pos of lief.positionen) {
-      const satz = pos.artikel.mwstSatz ?? 19;
+      const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
       const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
       byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
     }
@@ -420,7 +420,7 @@ export async function buildDatevCsv(
     const byMwst = new Map<number, number>();
     for (const lief of sr.lieferungen) {
       for (const pos of lief.positionen) {
-        const satz = pos.artikel.mwstSatz ?? 19;
+        const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
         const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
         byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
       }

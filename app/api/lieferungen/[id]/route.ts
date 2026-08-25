@@ -716,11 +716,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     try {
       const alt = await prisma.lieferung.findUnique({
         where: { id: numId },
-        select: { rechnungNr: true },
+        select: { rechnungNr: true, rechnungVersendetAm: true },
       });
       if (!alt) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
       if (!alt.rechnungNr) {
         return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
+      }
+      // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnungsnummer darf
+      // nicht rückwirkend verschwinden (GoBD-Nachvollziehbarkeit) — das würde auch die neue
+      // Positions-Sperre (siehe /positionen-Routen) unterlaufen, da rechnungVersendetAm dabei
+      // auf null gesetzt würde. Korrektur einer bereits verschickten Rechnung läuft über Storno
+      // + neue, korrigierte Rechnung, nicht über das Verschwindenlassen der Nummer.
+      if (alt.rechnungVersendetAm) {
+        return NextResponse.json(
+          { error: "Diese Rechnung wurde bereits per E-Mail versendet und kann nicht mehr gelöscht werden. Bitte stattdessen stornieren und eine korrigierte Rechnung erstellen." },
+          { status: 400 },
+        );
       }
       const alteRechnungNr = alt.rechnungNr;
 

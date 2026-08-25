@@ -9,6 +9,7 @@ interface Lieferposition {
   menge: number;
   verkaufspreis: number;
   rabattProzent: number;
+  mwstSatz?: number | null;
   artikel?: { mwstSatz: number | null } | null;
 }
 

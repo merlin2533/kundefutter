@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
           menge: p.menge,
           einheit: p.artikel.einheit,
           einzelpreis: p.verkaufspreis,
-          mwstSatz: p.artikel.mwstSatz ?? 19,
+          mwstSatz: p.mwstSatz ?? p.artikel.mwstSatz ?? 19,
           rabattProzent: p.rabattProzent ?? 0,
         })),
       };
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
             menge: p.menge,
             einheit: p.artikel.einheit,
             einzelpreis: p.verkaufspreis,
-            mwstSatz: p.artikel.mwstSatz ?? 19,
+            mwstSatz: p.mwstSatz ?? p.artikel.mwstSatz ?? 19,
             rabattProzent: p.rabattProzent ?? 0,
           });
         }

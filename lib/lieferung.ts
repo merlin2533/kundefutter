@@ -105,6 +105,9 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         menge: pos.menge,
         verkaufspreis: rabattVerkaufspreis,
         einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
+        // Eingefroren bei Erstellung (analog verkaufspreis) — eine spätere Änderung
+        // von Artikel.mwstSatz darf diese Position nie mehr rückwirkend verändern.
+        mwstSatz: artikel.mwstSatz,
         chargeNr: pos.chargeNr ?? null,
         // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
         notiz: pos.notiz ?? artikel.notiz ?? null,
@@ -328,6 +331,7 @@ export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kund
         menge: 1,
         verkaufspreis: forderung.betrag,
         einkaufspreis: 0,
+        mwstSatz: forderungArtikel.mwstSatz,
         notiz: forderung.grund,
       },
     });
@@ -364,6 +368,7 @@ export async function injiziereOffeneGutschriften(tx: Tx, lieferungId: number, k
         menge: 1,
         verkaufspreis: -betrag,
         einkaufspreis: 0,
+        mwstSatz: gutschriftArtikel.mwstSatz,
         notiz: `Gutschrift ${gutschrift.nummer}${gutschrift.grund ? `: ${gutschrift.grund}` : ""}`,
       },
     });

@@ -25,7 +25,7 @@ export async function GET() {
         kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" }, select: { wert: true }, take: 1 } } },
         positionen: {
           select: {
-            menge: true, verkaufspreis: true, rabattProzent: true,
+            menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true,
             artikel: { select: { mwstSatz: true } },
           },
         },

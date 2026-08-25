@@ -14,6 +14,7 @@ interface Lieferposition {
   verkaufspreis: number;
   rabattProzent: number;
   chargeNr: string | null;
+  mwstSatz: number | null;
   artikel: { id: number; name: string; einheit: string; mwstSatz: number | null };
 }
 

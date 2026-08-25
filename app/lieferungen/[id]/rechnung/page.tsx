@@ -27,6 +27,7 @@ interface Position {
   rabattProzent?: number | null;
   chargeNr?: string | null;
   notiz?: string | null;
+  mwstSatz?: number | null;
   artikel: ArtikelInfo;
 }
 
@@ -540,7 +541,7 @@ export default function RechnungPrintPage() {
       0,
     );
     const mwst = lieferung.positionen.reduce(
-      (s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * ((p.artikel.mwstSatz ?? 19) / 100),
+      (s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * ((p.mwstSatz ?? p.artikel.mwstSatz ?? 19) / 100),
       0,
     );
     const brutto = rundeKaufmaennisch(netto + mwst, 2);
@@ -664,7 +665,7 @@ export default function RechnungPrintPage() {
 
   // MwSt grouping
   const mwstGruppen = positionenMitNetto.reduce<Record<number, number>>((acc, p) => {
-    const satz = p.artikel.mwstSatz ?? 19;
+    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
     acc[satz] = (acc[satz] ?? 0) + p.netto * (satz / 100);
     return acc;
   }, {});
@@ -841,7 +842,7 @@ export default function RechnungPrintPage() {
             <span className="hidden sm:inline">Storno aufheben</span>
           </button>
         )}
-        {istAdmin && lieferung?.rechnungNr && (
+        {istAdmin && lieferung?.rechnungNr && !lieferung.rechnungVersendetAm && (
           <button
             onClick={() => { setLoeschError(undefined); setLoeschModalOpen(true); }}
             className="flex items-center gap-1.5 px-3 py-2 border border-red-300 text-red-700 hover:bg-red-100 rounded-lg transition-colors text-sm"
@@ -1199,7 +1200,7 @@ export default function RechnungPrintPage() {
               <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>{p.notiz}</div>
             )}
             <div style={{ fontSize: "8pt", color: "#666", lineHeight: 1.3 }}>
-              MwSt {p.artikel.mwstSatz ?? 19} %
+              MwSt {p.mwstSatz ?? p.artikel.mwstSatz ?? 19} %
             </div>
           </td>
           {hatCharge && (

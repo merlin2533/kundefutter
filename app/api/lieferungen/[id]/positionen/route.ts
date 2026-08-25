@@ -35,16 +35,21 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const lieferung = await prisma.lieferung.findUnique({
       where: { id: lieferungId },
-      select: { status: true, datum: true },
+      select: { status: true, datum: true, rechnungVersendetAm: true },
     });
     if (!lieferung) return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
     if (lieferung.status !== "geplant") {
       return NextResponse.json({ error: "Positionen können nur bei geplanten Lieferungen bearbeitet werden" }, { status: 400 });
     }
+    // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnung darf sich
+    // nachträglich nicht mehr verändern (auch nicht durch neue Positionen).
+    if (lieferung.rechnungVersendetAm) {
+      return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet und darf nicht mehr geändert werden." }, { status: 400 });
+    }
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      select: { standardpreis: true, notiz: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
+      select: { standardpreis: true, notiz: true, mwstSatz: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
@@ -76,6 +81,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         menge: mengeNum,
         verkaufspreis: vk,
         einkaufspreis: ek,
+        // Eingefroren bei Erstellung (analog verkaufspreis) — siehe Lieferposition.mwstSatz
+        mwstSatz: artikel.mwstSatz,
         chargeNr: chargeNr ?? null,
         notiz: posNotiz,
         preisInterpoliert: interpoliert,

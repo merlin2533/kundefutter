@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     for (const p of positionen) {
       const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
       nettoGesamt += netto;
-      const satz = p.artikel.mwstSatz ?? 19;
+      const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
       mwstGesamt += netto * (satz / 100);
     }
     const offenerBetrag = nettoGesamt + mwstGesamt;

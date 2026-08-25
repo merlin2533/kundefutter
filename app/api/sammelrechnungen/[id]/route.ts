@@ -55,7 +55,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           select: {
             id: true,
             datum: true,
-            positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
+            positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
           },
         },
       },

@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       },
       select: {
         positionen: {
-          select: { menge: true, verkaufspreis: true, rabattProzent: true, artikel: { select: { mwstSatz: true } } },
+          select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } },
         },
       },
     });
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         lieferungen: {
           select: {
             positionen: {
-              select: { menge: true, verkaufspreis: true, rabattProzent: true, artikel: { select: { mwstSatz: true } } },
+              select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } },
             },
           },
         },
@@ -71,11 +71,11 @@ export async function GET(req: NextRequest) {
     let netto7 = 0;
     let nettoFrei = 0;
 
-    function addRevenue(positionen: { menge: number; verkaufspreis: number; rabattProzent?: number | null; artikel: { mwstSatz: number } }[]) {
+    function addRevenue(positionen: { menge: number; verkaufspreis: number; rabattProzent?: number | null; mwstSatz?: number | null; artikel: { mwstSatz: number } }[]) {
       for (const pos of positionen) {
         const rabatt = pos.rabattProzent ?? 0;
         const lineNetto = pos.menge * pos.verkaufspreis * (1 - rabatt / 100);
-        const satz = pos.artikel.mwstSatz ?? 19;
+        const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
         if (satz === 19) netto19 += lineNetto;
         else if (satz === 7) netto7 += lineNetto;
         else nettoFrei += lineNetto;

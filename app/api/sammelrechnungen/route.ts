@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
             datum: true,
             positionen: {
               select: {
-                menge: true, verkaufspreis: true, rabattProzent: true,
+                menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true,
                 artikel: { select: { mwstSatz: true } },
               },
             },
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
               datum: true,
               positionen: {
                 select: {
-                  menge: true, verkaufspreis: true, rabattProzent: true,
+                  menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true,
                   artikel: { select: { mwstSatz: true } },
                 },
               },
