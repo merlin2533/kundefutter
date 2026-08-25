@@ -414,11 +414,13 @@ export default function LieferungDetailPage() {
   }
 
   function canAddPos() {
-    // Positionen dürfen weiterhin ergänzt werden, solange die Rechnung noch nicht
+    // Positionen dürfen weiterhin ergänzt/gelöscht werden, solange die Rechnung noch nicht
     // versendet wurde — auch wenn schon eine Rechnungsnummer vergeben ist (Status dadurch
-    // bereits "geliefert"). Der Server bucht den Lagerausgang für die neue Position in
-    // diesem Fall direkt mit (POST /api/lieferungen/[id]/positionen). rechnungStorniert
-    // separat prüfen: ein Rechnungs-Storno setzt lieferung.status NICHT auf "storniert".
+    // bereits "geliefert"). Der Server bucht/storniert den Lagerausgang der betroffenen
+    // Position in diesem Fall direkt mit (POST/DELETE /api/lieferungen/[id]/positionen(/[posId])).
+    // rechnungStorniert separat prüfen: ein Rechnungs-Storno setzt lieferung.status NICHT auf
+    // "storniert". Auch für den Lösch-Button genutzt (kein separates canDeletePos() nötig,
+    // identische Bedingung).
     return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungVersendetAm && !lieferung.rechnungStorniert;
   }
 
@@ -1065,7 +1067,7 @@ export default function LieferungDetailPage() {
           <span>
             Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> gestellt —{" "}
             {canAddPos()
-              ? "Menge/Preis/Rabatt bestehender Positionen sind gesperrt, neue Positionen können noch ergänzt werden."
+              ? "Menge/Preis/Rabatt bestehender Positionen sind gesperrt, neue Positionen können noch ergänzt oder gelöscht werden."
               : "Positionen sind gesperrt."}
           </span>
           <Link href={`/gutschriften/neu?lieferungId=${id}`} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
@@ -1639,7 +1641,7 @@ export default function LieferungDetailPage() {
                   {h}
                 </th>
               ))}
-              {lieferung.status === "geplant" && <th className="px-2 py-3" />}
+              {canAddPos() && <th className="px-2 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -1841,7 +1843,7 @@ export default function LieferungDetailPage() {
                       </button>
                     )}
                   </td>
-                  {lieferung.status === "geplant" && (
+                  {canAddPos() && (
                     <td className="px-2 py-3">
                       <button
                         onClick={() => deletePos(pos.id)}
@@ -1864,7 +1866,7 @@ export default function LieferungDetailPage() {
               {canSeeMarge && <td className="px-4 py-3 font-mono font-semibold">{formatEuro(gesamtMarge)}</td>}
               {canSeeMarge && <td className="px-4 py-3"><MargeBadge pct={gesamtMargePct} /></td>}
               <td className="px-4 py-3" />
-              {lieferung.status === "geplant" && <td />}
+              {canAddPos() && <td />}
             </tr>
           </tfoot>
         </table>
