@@ -989,7 +989,7 @@ export default function RechnungPrintPage() {
 
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "16pt", fontWeight: "bold", marginBottom: "2px" }}>
-              Rechnung
+              {lieferung.rechnungStorniert ? "Stornorechnung" : "Rechnung"}
             </div>
             <table style={{ fontSize: "9pt", borderCollapse: "collapse", marginLeft: "auto", lineHeight: 1.15 }}>
               <tbody>

@@ -400,11 +400,14 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.setTextColor(...COL_TEXT);
   if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
 
-  // "Rechnung" Titel oben rechts
+  // "Rechnung" Titel oben rechts — bei stornierter Rechnung "Stornorechnung" statt
+  // "Rechnung" (zusätzlich zum diagonalen STORNO-Wasserzeichen weiter unten), damit auch
+  // eine schwarz-weiß gedruckte oder ohne Wasserzeichen-Transparenz dargestellte Kopie
+  // auf den ersten Blick eindeutig als Storno erkennbar ist.
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
-  doc.text("Rechnung", 196, 20, { align: "right" });
+  doc.text(lieferung.rechnungStorniert ? "Stornorechnung" : "Rechnung", 196, 20, { align: "right" });
 
   // Meta-Tabelle (Rechnungsnummer, Rechnungsdatum, Fällig am)
   // Start bei y=27 (nicht y=23!): der 20pt-fette "Rechnung"-Titel bei y=20 hat einen
