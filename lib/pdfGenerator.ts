@@ -1270,31 +1270,42 @@ export async function generiereGutschriftPdf(gutschriftId: number): Promise<Buff
   drawMetaG("Datum:", formatDatum(gutschriftDatum));
   drawMetaG("Grund:", gutschrift.grund);
 
-  const sepYG = Math.max(metaYG + 2, 44);
-  doc.setDrawColor(...COL_BORDER_STRONG);
-  doc.setLineWidth(0.6);
-  doc.line(14, sepYG, 196, sepYG);
+  // ── Anschriftfeld nach DIN 5008 / Binect (Fensterkuvert) — wie generiereRechnungPdf,
+  // feste mm-Positionen (Absenderzeile 45–55 mm, Empfängeranschrift ab 55 mm), damit
+  // Absender + Empfänger unabhängig von der Anzahl der Metazeilen (Gutschriftnummer/
+  // Rechnungsnummer/Datum/Grund) immer im Sichtfenster des Fensterkuverts liegen. Die
+  // vorherige, an sepYG=metaYG+2 gekoppelte Position rutschte je nach Metazeilen-Anzahl
+  // ins Fenster hinein oder die Betreffzeile begann zu weit oben — kein Absender, keine
+  // feste Fensterposition.
+  const ADRESS_X_G = 20;
+  const absenderPartsG = [FIRMA.name, FIRMA.strasse, FIRMA.plzOrt].filter(Boolean);
+  if (absenderPartsG.length > 0) {
+    const absenderTextG = absenderPartsG.join(" · ");
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_LABEL);
+    doc.text(absenderTextG, ADRESS_X_G, 49, { maxWidth: 85 });
+    const lineWidthG = Math.min(doc.getTextWidth(absenderTextG), 85);
+    doc.setDrawColor(...COL_LABEL);
+    doc.setLineWidth(0.25);
+    doc.line(ADRESS_X_G, 50.5, ADRESS_X_G + lineWidthG, 50.5);
+  }
 
-  let eyG = sepYG + 10;
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...COL_LABEL);
-  doc.text("EMPFÄNGER", 14, eyG);
-  eyG += 5;
-
+  let eyG = 57;
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
-  doc.text(k.firma ?? k.name, 14, eyG);
+  doc.text(k.firma ?? k.name, ADRESS_X_G, eyG);
   eyG += 5;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  if (k.firma) { doc.text(k.name, 14, eyG); eyG += 5; }
-  if (k.strasse) { doc.text(k.strasse, 14, eyG); eyG += 5; }
-  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, eyG); eyG += 5; }
+  if (k.firma) { doc.text(k.name, ADRESS_X_G, eyG); eyG += 5; }
+  if (k.strasse) { doc.text(k.strasse, ADRESS_X_G, eyG); eyG += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), ADRESS_X_G, eyG); eyG += 5; }
 
-  eyG += 8;
+  // ── Betreff (unterhalb des Anschriftfelds, ab 95 mm – außerhalb des Fensters) ─
+  eyG = Math.max(eyG + 8, 95);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
