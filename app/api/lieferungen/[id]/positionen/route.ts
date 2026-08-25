@@ -2,7 +2,8 @@ import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getArtikelPreisFuerJahr } from "@/lib/jahrespreis";
-import { resolveBevorzugtenEK } from "@/lib/utils";
+import { resolveBevorzugtenEK, istLagerrelevant } from "@/lib/utils";
+import { istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -35,21 +36,31 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const lieferung = await prisma.lieferung.findUnique({
       where: { id: lieferungId },
-      select: { status: true, datum: true, rechnungVersendetAm: true },
+      select: { status: true, datum: true, rechnungVersendetAm: true, rechnungStorniert: true, istStreckengeschaeft: true },
     });
     if (!lieferung) return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
-    if (lieferung.status !== "geplant") {
-      return NextResponse.json({ error: "Positionen können nur bei geplanten Lieferungen bearbeitet werden" }, { status: 400 });
+    if (lieferung.status === "storniert") {
+      return NextResponse.json({ error: "Positionen können bei stornierten Lieferungen nicht bearbeitet werden" }, { status: 400 });
+    }
+    // Ein Rechnungs-Storno setzt NICHT lieferung.status auf "storniert" (das bleibt
+    // "geliefert"), sondern nur rechnungStorniert — separat prüfen, sonst ließen sich einer
+    // stornierten Rechnung nachträglich noch Positionen hinzufügen.
+    if (lieferung.rechnungStorniert) {
+      return NextResponse.json({ error: "Diese Rechnung ist storniert — Positionen können nicht mehr ergänzt werden" }, { status: 400 });
     }
     // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnung darf sich
-    // nachträglich nicht mehr verändern (auch nicht durch neue Positionen).
+    // nachträglich nicht mehr verändern (auch nicht durch neue Positionen). Solange die
+    // Rechnung noch nicht versendet ist, dürfen aber auch nach Rechnungsstellung (Status
+    // bereits "geliefert") weiterhin Positionen ergänzt werden — siehe unten für die dabei
+    // nötige Lagerausgangsbuchung, da diese sonst (anders als bei "geplant") nicht mehr
+    // automatisch nachgeholt wird.
     if (lieferung.rechnungVersendetAm) {
       return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet und darf nicht mehr geändert werden." }, { status: 400 });
     }
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      select: { standardpreis: true, notiz: true, mwstSatz: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
+      select: { name: true, kategorie: true, standardpreis: true, notiz: true, mwstSatz: true, aktuellerBestand: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
@@ -73,22 +84,47 @@ export async function POST(req: NextRequest, { params }: Params) {
     const ek = einkaufspreis !== undefined ? Number(einkaufspreis) : resolveBevorzugtenEK(artikel.lieferanten);
     // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
     const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
+    const chargeNrTrim = typeof chargeNr === "string" ? chargeNr.trim() || null : null;
 
-    const pos = await prisma.lieferposition.create({
-      data: {
-        lieferungId,
-        artikelId,
-        menge: mengeNum,
-        verkaufspreis: vk,
-        einkaufspreis: ek,
-        // Eingefroren bei Erstellung (analog verkaufspreis) — siehe Lieferposition.mwstSatz
-        mwstSatz: artikel.mwstSatz,
-        chargeNr: chargeNr ?? null,
-        notiz: posNotiz,
-        preisInterpoliert: interpoliert,
-        preisQuelleJahr: quelleJahr,
-      },
-      include: { artikel: { select: liefposArtikelSelect } },
+    // War die Lieferung beim Hinzufügen dieser Position bereits "geliefert" (d.h. eine
+    // Rechnung existiert schon, ist aber noch nicht versendet), wurde der Lagerausgang für
+    // die übrigen Positionen bereits gebucht (markiereLieferungGeliefertFallsGeplant()) —
+    // das läuft für eine jetzt neu hinzugefügte Position nicht automatisch nach, muss also
+    // hier direkt mit erledigt werden, sonst bliebe der Bestand für diese Position unbebucht.
+    const bereitsGeliefert = lieferung.status === "geliefert";
+    if (bereitsGeliefert && istChargeNrPflichtFuerLieferschein(artikel.kategorie, lieferung.datum ?? new Date()) && !chargeNrTrim) {
+      return NextResponse.json({ error: `Chargennummer ist bei Tierfutter-Positionen ab 2027 Pflicht (Artikel „${artikel.name}“)` }, { status: 400 });
+    }
+
+    const pos = await prisma.$transaction(async (tx) => {
+      const neuePos = await tx.lieferposition.create({
+        data: {
+          lieferungId,
+          artikelId,
+          menge: mengeNum,
+          verkaufspreis: vk,
+          einkaufspreis: ek,
+          // Eingefroren bei Erstellung (analog verkaufspreis) — siehe Lieferposition.mwstSatz
+          mwstSatz: artikel.mwstSatz,
+          chargeNr: chargeNrTrim,
+          notiz: posNotiz,
+          preisInterpoliert: interpoliert,
+          preisQuelleJahr: quelleJahr,
+        },
+        include: { artikel: { select: liefposArtikelSelect } },
+      });
+
+      if (bereitsGeliefert && !lieferung.istStreckengeschaeft && istLagerrelevant(artikel.kategorie)) {
+        const neuerBestand = artikel.aktuellerBestand - mengeNum;
+        await tx.artikel.update({ where: { id: artikelId }, data: { aktuellerBestand: neuerBestand } });
+        await tx.lagerbewegung.create({
+          data: { artikelId, typ: "ausgang", menge: -mengeNum, bestandNach: neuerBestand, lieferungId },
+        });
+        await tx.lieferposition.update({ where: { id: neuePos.id }, data: { lagerBereitsGebucht: true } });
+        neuePos.lagerBereitsGebucht = true;
+      }
+
+      return neuePos;
     });
     return NextResponse.json(pos, { status: 201 });
   } catch (err) {

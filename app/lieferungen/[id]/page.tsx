@@ -413,6 +413,15 @@ export default function LieferungDetailPage() {
     return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungVersendetAm;
   }
 
+  function canAddPos() {
+    // Positionen dürfen weiterhin ergänzt werden, solange die Rechnung noch nicht
+    // versendet wurde — auch wenn schon eine Rechnungsnummer vergeben ist (Status dadurch
+    // bereits "geliefert"). Der Server bucht den Lagerausgang für die neue Position in
+    // diesem Fall direkt mit (POST /api/lieferungen/[id]/positionen). rechnungStorniert
+    // separat prüfen: ein Rechnungs-Storno setzt lieferung.status NICHT auf "storniert".
+    return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungVersendetAm && !lieferung.rechnungStorniert;
+  }
+
   async function speichereRechnungNr() {
     const neu = rechnungNrEdit.trim();
     if (!neu) { setRechnungNrError("Rechnungsnummer darf nicht leer sein."); return; }
@@ -1053,7 +1062,12 @@ export default function LieferungDetailPage() {
 
       {lieferung.rechnungNr && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-4 py-3 print:hidden">
-          <span>Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> gestellt — Positionen sind gesperrt.</span>
+          <span>
+            Rechnung <span className="font-mono font-medium">{lieferung.rechnungNr}</span> gestellt —{" "}
+            {canAddPos()
+              ? "Menge/Preis/Rabatt bestehender Positionen sind gesperrt, neue Positionen können noch ergänzt werden."
+              : "Positionen sind gesperrt."}
+          </span>
           <Link href={`/gutschriften/neu?lieferungId=${id}`} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors whitespace-nowrap">
             Gutschrift erstellen →
           </Link>
@@ -1855,8 +1869,8 @@ export default function LieferungDetailPage() {
           </tfoot>
         </table>
 
-        {/* Artikel hinzufügen (nur geplant) */}
-        {lieferung.status === "geplant" && (
+        {/* Artikel hinzufügen (solange noch nicht versendet, siehe canAddPos()) */}
+        {canAddPos() && (
           <div className="border-t border-gray-200 px-4 py-3">
             {!showAddPos ? (
               <button
