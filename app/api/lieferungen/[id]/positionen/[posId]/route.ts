@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { istLagerrelevant } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -16,25 +17,54 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
     const lieferung = await prisma.lieferung.findUnique({
       where: { id: lieferungId },
-      select: { status: true, rechnungVersendetAm: true },
+      select: { status: true, rechnungVersendetAm: true, rechnungStorniert: true, istStreckengeschaeft: true },
     });
     if (!lieferung) return NextResponse.json({ error: "Lieferung nicht gefunden" }, { status: 404 });
-    if (lieferung.status !== "geplant") {
-      return NextResponse.json({ error: "Positionen können nur bei geplanten Lieferungen gelöscht werden" }, { status: 400 });
+    if (lieferung.status === "storniert") {
+      return NextResponse.json({ error: "Positionen können bei stornierten Lieferungen nicht gelöscht werden" }, { status: 400 });
+    }
+    // Ein Rechnungs-Storno setzt NICHT lieferung.status auf "storniert" — separat prüfen
+    // (analog zur Sperre beim Hinzufügen neuer Positionen).
+    if (lieferung.rechnungStorniert) {
+      return NextResponse.json({ error: "Diese Rechnung ist storniert — Positionen können nicht mehr gelöscht werden" }, { status: 400 });
     }
     // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnung darf sich
-    // nachträglich nicht mehr verändern.
+    // nachträglich nicht mehr verändern. Solange die Rechnung noch nicht versendet ist,
+    // darf aber auch nach Rechnungsstellung (Status bereits "geliefert") weiterhin eine
+    // versehentlich falsch erfasste Position gelöscht werden — ein ggf. dafür bereits
+    // gebuchter Lagerausgang wird dabei zurückgebucht (siehe unten), analog zur
+    // Storno-Rückbuchung beim Statuswechsel geliefert→storniert.
     if (lieferung.rechnungVersendetAm) {
       return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet und darf nicht mehr geändert werden." }, { status: 400 });
     }
     const pos = await prisma.lieferposition.findUnique({
       where: { id: positionId },
-      select: { lieferungId: true },
+      select: { lieferungId: true, artikelId: true, menge: true, lagerBereitsGebucht: true },
     });
     if (!pos || pos.lieferungId !== lieferungId) {
       return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
     }
-    await prisma.lieferposition.delete({ where: { id: positionId } });
+
+    await prisma.$transaction(async (tx) => {
+      if (pos.lagerBereitsGebucht && !lieferung.istStreckengeschaeft) {
+        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        if (artikel && istLagerrelevant(artikel.kategorie)) {
+          const neuerBestand = artikel.aktuellerBestand + pos.menge;
+          await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
+          await tx.lagerbewegung.create({
+            data: {
+              artikelId: pos.artikelId,
+              typ: "eingang",
+              menge: pos.menge,
+              bestandNach: neuerBestand,
+              lieferungId,
+              notiz: "Position nachträglich gelöscht — Lagerausgang zurückgebucht",
+            },
+          });
+        }
+      }
+      await tx.lieferposition.delete({ where: { id: positionId } });
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     Sentry.captureException(err);
