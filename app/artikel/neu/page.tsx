@@ -127,7 +127,7 @@ export default function NeuerArtikelPage() {
       unterkategorie: form.unterkategorie.trim() || null,
       standardpreis: parseDezimal(form.standardpreis),
       mindestbestand: parseDezimal(form.mindestbestand),
-      mwstSatz: Number(form.mwstSatz) || 19,
+      mwstSatz: Number(form.mwstSatz),
       chargePflicht: chargenpflichtErzwungen || form.chargePflicht,
       inhaltsstoffe: inhaltsstoffePayload.length ? inhaltsstoffePayload : undefined,
     };
