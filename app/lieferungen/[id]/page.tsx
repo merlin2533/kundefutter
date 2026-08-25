@@ -21,6 +21,7 @@ interface Position {
   chargeNr?: string | null;
   rabattProzent?: number;
   notiz?: string | null;
+  mwstSatz?: number | null;
   artikel: { id: number; name: string; einheit: string; mwstSatz: number; standardpreis?: number; updatedAt?: string };
 }
 
@@ -51,6 +52,7 @@ interface Lieferung {
   rechnungNr?: string;
   rechnungDatum?: string | null;
   rechnungStorniert?: string | null;
+  rechnungVersendetAm?: string | null;
   bezahltAm?: string | null;
   zahlungsziel?: number | null;
   skontoProzent?: number | null;
@@ -346,9 +348,10 @@ export default function LieferungDetailPage() {
   }
 
   function startRabattEdit(pos: Position) {
-    // Rabatt darf auch nach Rechnungsstellung noch erfasst/angepasst werden –
-    // nur bei stornierten Lieferungen gesperrt.
-    if (lieferung && lieferung.status === "storniert") return;
+    // Rabatt darf auch nach Rechnungsstellung noch erfasst/angepasst werden – nur bei
+    // stornierten Lieferungen gesperrt, und (steuerrechtlich zwingend) nicht mehr, sobald
+    // die Rechnung bereits per E-Mail versendet wurde.
+    if (lieferung && (lieferung.status === "storniert" || lieferung.rechnungVersendetAm)) return;
     setRabattEditId(pos.id);
     setRabattEditValue(String(pos.rabattProzent ?? 0));
   }
@@ -405,7 +408,9 @@ export default function LieferungDetailPage() {
   }
 
   function canEditMenge() {
-    return lieferung && lieferung.status !== "storniert";
+    // Steuerrechtlich zwingend: sobald die Rechnung versendet wurde, darf sich die
+    // ausgewiesene Menge nicht mehr ändern (siehe auch canEditPos()/startRabattEdit()).
+    return lieferung && lieferung.status !== "storniert" && !lieferung.rechnungVersendetAm;
   }
 
   async function speichereRechnungNr() {
@@ -891,7 +896,7 @@ export default function LieferungDetailPage() {
   );
   // Group MwSt by rate
   const mwstGruppen = lieferung.positionen.reduce<Record<number, number>>((acc, p) => {
-    const satz = p.artikel.mwstSatz ?? 19;
+    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
     const netto = p.menge * p.verkaufspreis * (1 - ((p.rabattProzent ?? 0) / 100));
     acc[satz] = (acc[satz] ?? 0) + netto * (satz / 100);
     return acc;

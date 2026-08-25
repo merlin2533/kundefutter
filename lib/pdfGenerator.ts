@@ -502,9 +502,10 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   const body = positionen.map((p, i) => {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const posNotiz = typeof p.notiz === "string" ? p.notiz.trim() : "";
+    const posMwstSatz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
     const artikelZelle = posNotiz
-      ? `${p.artikel.name}\n${posNotiz}\nMwSt ${p.artikel.mwstSatz ?? 19} %`
-      : `${p.artikel.name}\nMwSt ${p.artikel.mwstSatz ?? 19} %`;
+      ? `${p.artikel.name}\n${posNotiz}\nMwSt ${posMwstSatz} %`
+      : `${p.artikel.name}\nMwSt ${posMwstSatz} %`;
     const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
     const base = [String(i + 1), artikelZelle];
     if (hatCharge) base.push(p.chargeNr ?? "—");
@@ -569,7 +570,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   for (const p of positionen) {
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     nettoGesamt += netto;
-    const satz = p.artikel.mwstSatz ?? 19;
+    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
     mwstGruppen.set(satz, (mwstGruppen.get(satz) ?? 0) + netto);
   }
   let mwstGesamt = 0;
@@ -1189,7 +1190,7 @@ export async function generiereRechnungPdfMitZugferd(lieferungId: number): Promi
       menge: p.menge,
       einheit: p.artikel.einheit,
       einzelpreis: p.verkaufspreis,
-      mwstSatz: p.artikel.mwstSatz ?? 19,
+      mwstSatz: p.mwstSatz ?? p.artikel.mwstSatz ?? 19,
       rabattProzent: p.rabattProzent ?? 0,
     })),
   };
@@ -1670,7 +1671,7 @@ export async function generiereMahnungPdf(
     where: { id: lieferungId },
     include: {
       kunde: true,
-      positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, artikel: { select: { mwstSatz: true } } } },
+      positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
     },
   });
   if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);

@@ -93,7 +93,7 @@ function OffenePostenInner() {
         const mwstGruppen: Record<number, number> = {};
         for (const p of positionen as Record<string, unknown>[]) {
           const art = p.artikel as Record<string, unknown> | null;
-          const satz = art ? Number(art.mwstSatz ?? 19) : 19;
+          const satz = p.mwstSatz != null ? Number(p.mwstSatz) : art ? Number(art.mwstSatz ?? 19) : 19;
           const lineNetto =
             Number(p.menge ?? 0) * Number(p.verkaufspreis ?? 0) * (1 - (Number(p.rabattProzent ?? 0) / 100));
           mwstGruppen[satz] = (mwstGruppen[satz] ?? 0) + lineNetto * (satz / 100);

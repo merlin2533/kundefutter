@@ -52,6 +52,7 @@ export interface Lieferposition {
   verkaufspreis: number;
   rabattProzent?: number;
   chargeNr?: string | null;
+  mwstSatz?: number | null;
   artikel: Artikel;
 }
 
@@ -177,6 +178,7 @@ export function lieferungTotal(l: Lieferung) {
       menge: p.menge,
       verkaufspreis: p.verkaufspreis,
       rabattProzent: p.rabattProzent ?? 0,
+      mwstSatz: p.mwstSatz,
       artikel: { mwstSatz: p.artikel.mwstSatz ?? null },
     })),
   });

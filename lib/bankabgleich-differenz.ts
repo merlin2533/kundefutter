@@ -26,7 +26,7 @@ export async function ladeZielFuerDifferenz(
   if (zielTyp === "lieferung") {
     const l = await tx.lieferung.findUnique({
       where: { id: zielId },
-      select: { kundeId: true, rechnungNr: true, positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, ...ZIEL_ARTIKEL_SELECT } } },
+      select: { kundeId: true, rechnungNr: true, positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, ...ZIEL_ARTIKEL_SELECT } } },
     });
     if (!l) return null;
     return { kundeId: l.kundeId, betrag: berechneLieferungBrutto(l), bezeichnung: l.rechnungNr ?? `Lieferung ${zielId}` };
@@ -36,7 +36,7 @@ export async function ladeZielFuerDifferenz(
     select: {
       kundeId: true,
       rechnungNr: true,
-      lieferungen: { select: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, ...ZIEL_ARTIKEL_SELECT } } } },
+      lieferungen: { select: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, ...ZIEL_ARTIKEL_SELECT } } } },
     },
   });
   if (!s) return null;

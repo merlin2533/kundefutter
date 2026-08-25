@@ -444,6 +444,7 @@ model Lieferposition {
   menge               Float
   verkaufspreis       Float
   einkaufspreis       Float   @default(0)
+  mwstSatz            Float   @default(19) // Eingefroren bei Positionserstellung (analog verkaufspreis) — eine spätere Änderung des MwSt-Satzes am Artikel-Stammdatensatz darf bereits erstellte Rechnungen/Lieferscheine nicht rückwirkend verändern (steuerrechtlich unzulässig, sobald die Rechnung verschickt wurde)
   chargeNr            String? // Chargen-/Losnummer (gesetzlich für Saatgut)
   rabattProzent       Float   @default(0) // Mengenrabatt der angewendet wurde
   notiz               String? // Auftragsnummer / interne Notiz zur Position
