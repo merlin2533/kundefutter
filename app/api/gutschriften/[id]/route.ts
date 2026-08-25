@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const gutschrift = await prisma.gutschrift.findUnique({
       where: { id: Number(id) },
       include: {
-        kunde: true,
+        kunde: { include: { kontakte: true } },
         lieferung: {
           include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
         },
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       where: { id: Number(id) },
       data: updateData,
       include: {
-        kunde: true,
+        kunde: { include: { kontakte: true } },
         lieferung: true,
         positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
