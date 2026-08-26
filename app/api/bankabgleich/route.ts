@@ -57,31 +57,42 @@ export async function GET(req: NextRequest) {
     // offene Rechnungen suchen soll, ohne einen Extra-Request zu brauchen.
     const lieferungIds = new Set<number>();
     const sammelrechnungIds = new Set<number>();
+    const gutschriftIds = new Set<number>();
     for (const u of umsaetzeRaw) {
       if (u.lieferungId) lieferungIds.add(u.lieferungId);
       if (u.sammelrechnungId) sammelrechnungIds.add(u.sammelrechnungId);
+      if (u.gutschriftId) gutschriftIds.add(u.gutschriftId);
       for (const w of u.weitereZuordnungen) {
         if (w.lieferungId) lieferungIds.add(w.lieferungId);
         if (w.sammelrechnungId) sammelrechnungIds.add(w.sammelrechnungId);
       }
     }
-    const [lieferungen, sammelrechnungen] = await Promise.all([
+    const [lieferungen, sammelrechnungen, gutschriften] = await Promise.all([
       lieferungIds.size
         ? prisma.lieferung.findMany({ where: { id: { in: [...lieferungIds] } }, select: { id: true, rechnungNr: true, kundeId: true, kunde: { select: { name: true } } } })
         : [],
       sammelrechnungIds.size
         ? prisma.sammelrechnung.findMany({ where: { id: { in: [...sammelrechnungIds] } }, select: { id: true, rechnungNr: true, kundeId: true, kunde: { select: { name: true } } } })
         : [],
+      // Über den Doppelzahlungs-Flow angelegte Gutschrift (Kontoumsatz.gutschriftId) — weiche ID
+      // ohne Prisma-Relation, analog lieferungId/sammelrechnungId, daher ebenfalls manuell
+      // nachgeladen statt per include.
+      gutschriftIds.size
+        ? prisma.gutschrift.findMany({ where: { id: { in: [...gutschriftIds] } }, select: { id: true, nummer: true, status: true, kundeId: true, kunde: { select: { name: true } } } })
+        : [],
     ]);
     const lieferungMap = new Map(lieferungen.map((l) => [l.id, l]));
     const sammelrechnungMap = new Map(sammelrechnungen.map((s) => [s.id, s]));
+    const gutschriftMap = new Map(gutschriften.map((g) => [g.id, g]));
 
     const umsaetze = umsaetzeRaw.map((u) => {
       const primaryZiel = u.lieferungId ? lieferungMap.get(u.lieferungId) : u.sammelrechnungId ? sammelrechnungMap.get(u.sammelrechnungId) : undefined;
+      const gutschrift = u.gutschriftId ? gutschriftMap.get(u.gutschriftId) : undefined;
       return {
         ...u,
-        primaryKundeId: primaryZiel?.kundeId ?? null,
-        primaryKundeName: primaryZiel?.kunde.name ?? null,
+        primaryKundeId: primaryZiel?.kundeId ?? gutschrift?.kundeId ?? null,
+        primaryKundeName: primaryZiel?.kunde.name ?? gutschrift?.kunde.name ?? null,
+        gutschriftInfo: gutschrift ? { nummer: gutschrift.nummer, status: gutschrift.status } : null,
         weitereZuordnungen: u.weitereZuordnungen.map((w) => {
           const ziel = w.lieferungId ? lieferungMap.get(w.lieferungId) : w.sammelrechnungId ? sammelrechnungMap.get(w.sammelrechnungId) : undefined;
           return {

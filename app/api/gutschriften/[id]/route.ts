@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +56,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
 
-    const ERLAUBTE_STATUS = ["OFFEN", "VERBUCHT", "STORNIERT"];
+    const ERLAUBTE_STATUS = ["OFFEN", "VERBUCHT", "STORNIERT", "ERSTATTET"];
     if (body.status && !ERLAUBTE_STATUS.includes(body.status)) {
       return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 });
     }
@@ -101,55 +102,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const gutschriftId = Number(id);
 
   try {
-    const existing = await prisma.gutschrift.findUnique({
-      where: { id: gutschriftId },
-      include: { positionen: true },
-    });
-    if (!existing) {
+    const geloescht = await prisma.$transaction((tx) => loescheGutschriftMitNebenwirkungen(tx, gutschriftId));
+    if (!geloescht) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
-
-    await prisma.$transaction(async (tx) => {
-      if (existing.verbuchtBeiLieferungId) {
-        // Eindeutig identifizierbar über die Gutschriftnummer im notiz-Feld — so wurde die
-        // Position in injiziereOffeneGutschriften() angelegt, es gibt keine feste FK.
-        await tx.lieferposition.deleteMany({
-          where: {
-            lieferungId: existing.verbuchtBeiLieferungId,
-            notiz: { startsWith: `Gutschrift ${existing.nummer}` },
-          },
-        });
-      }
-
-      const ruecknahmePos = existing.positionen.filter((p) => p.ruecknahme);
-      if (ruecknahmePos.length > 0) {
-        const artikelIds = [...new Set(ruecknahmePos.map((p) => p.artikelId))];
-        const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-        const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
-        for (const pos of ruecknahmePos) {
-          const artikel = artikelMap.get(pos.artikelId);
-          if (!artikel) continue;
-          const neuerBestand = artikel.aktuellerBestand - pos.menge;
-          artikel.aktuellerBestand = neuerBestand;
-          await tx.artikel.update({
-            where: { id: pos.artikelId },
-            data: { aktuellerBestand: neuerBestand },
-          });
-          await tx.lagerbewegung.create({
-            data: {
-              artikelId: pos.artikelId,
-              typ: "ausgang",
-              menge: -pos.menge,
-              bestandNach: neuerBestand,
-              notiz: `Gutschrift ${existing.nummer} gelöscht – Retoure rückgängig gemacht`,
-            },
-          });
-        }
-      }
-
-      // GutschriftPosition hat onDelete: Cascade — wird automatisch mitgelöscht.
-      await tx.gutschrift.delete({ where: { id: gutschriftId } });
-    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

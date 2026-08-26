@@ -984,6 +984,10 @@ model Kontoumsatz {
   sammelrechnungId   Int?
   ausgabeId          Int? // Zuordnung zu Betriebsausgabe
   eingangsRechnungId Int? // Zuordnung zu Lieferantenrechnung (Zahlungsausgang)
+  gutschriftId       Int? // Doppelzahlung: Kontoumsatz wurde in eine eigene Gutschrift des Kunden
+  // umgewandelt statt einer konkreten Rechnung zugeordnet (die ist bereits bezahlt) — weiche ID
+  // ohne @relation, analog zu lieferungId/sammelrechnungId; siehe erstelleDoppelzahlungsGutschrift()
+  // in lib/gutschrift.ts
   zuordnungsArt      String? // "manuell" | "automatisch" | "ki" — wie die Zuordnung zustande kam
   kiKonfidenz        Float? // 0..1, nur gesetzt wenn zuordnungsArt = "ki"
   importDatum        DateTime  @default(now())
@@ -996,6 +1000,7 @@ model Kontoumsatz {
   @@index([zugeordnet])
   @@index([betrag])
   @@index([ignoriert])
+  @@index([gutschriftId])
 }
 
 // Zusätzliche Rechnungen, die per DERSELBEN Zahlung beglichen wurden (Kunde überweist mehrere

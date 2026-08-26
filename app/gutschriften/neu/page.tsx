@@ -51,7 +51,7 @@ function NeueGutschriftForm() {
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [prefillInfo, setPrefillInfo] = useState<{ nr: string; id: number } | null>(null);
 
-  const FALLBACK_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
+  const FALLBACK_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Doppelzahlung", "Sonstiges"];
   const [gutschriftGruende, setGutschriftGruende] = useState<string[]>(FALLBACK_GRUENDE);
   const [kundeId, setKundeId] = useState(preselectedKundeId);
   const [lieferungId, setLieferungId] = useState("");

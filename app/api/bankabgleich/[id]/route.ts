@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
 import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
+import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -186,6 +187,13 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     // bliebe ein bereits erhaltener Teilbetrag fälschlich auf der Rechnung stehen.
     await prisma.teilzahlung.deleteMany({ where: { kontoumsatzId: id } });
 
+    // Über den Doppelzahlungs-Flow angelegte Gutschrift (siehe /doppelzahlung) mit allen
+    // Nebenwirkungen rückgängig machen — sonst bliebe sie als OFFEN/ERSTATTET stehen, obwohl
+    // der Kontoumsatz, der sie ausgelöst hat, gleich wieder als offen geführt wird.
+    if (bestehend.gutschriftId) {
+      await prisma.$transaction((tx) => loescheGutschriftMitNebenwirkungen(tx, bestehend.gutschriftId!));
+    }
+
     const aktualisiert = await prisma.kontoumsatz.update({
       where: { id },
       data: {
@@ -194,6 +202,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
         sammelrechnungId: null,
         ausgabeId: null,
         eingangsRechnungId: null,
+        gutschriftId: null,
         zuordnungsArt: null,
         kiKonfidenz: null,
       },
