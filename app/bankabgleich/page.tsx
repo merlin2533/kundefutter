@@ -6,6 +6,7 @@ import { formatEuro, formatDatum } from "@/lib/utils";
 import ZuordnungsVorschlagCard from "@/components/bankabgleich/ZuordnungsVorschlagCard";
 import AutomatischerAbgleich from "@/components/bankabgleich/AutomatischerAbgleich";
 import WeitereRechnungenPanel, { type WeitereZuordnung } from "@/components/bankabgleich/WeitereRechnungenPanel";
+import DoppelzahlungPanel from "@/components/bankabgleich/DoppelzahlungPanel";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kontoumsatz {
@@ -23,6 +24,8 @@ interface Kontoumsatz {
   sammelrechnungId: number | null;
   ausgabeId: number | null;
   eingangsRechnungId: number | null;
+  gutschriftId: number | null;
+  gutschriftInfo: { nummer: string; status: string } | null;
   kontoBezeichnung: string | null;
   importDatei: string | null;
   ignoriert: boolean;
@@ -109,6 +112,9 @@ function BankabgleichContent() {
   // Mehrfachauswahl von Vorschlägen (z.B. eine Zahlung deckt mehrere Rechnungen desselben
   // Kunden ab) — Key ist `${typ}:${id}`, geleert bei jedem Öffnen/Schließen/Neuladen des Panels.
   const [ausgewaehlt, setAusgewaehlt] = useState<Set<string>>(new Set());
+  // Doppelzahlung-Sonderfall (Kunde hat dieselbe, bereits bezahlte Rechnung nochmal überwiesen) —
+  // eigenes Unter-Panel innerhalb der Zuordnungsvorschläge, siehe DoppelzahlungPanel.
+  const [doppelzahlungOffen, setDoppelzahlungOffen] = useState(false);
   const [bulkZuordnenBusy, setBulkZuordnenBusy] = useState(false);
 
   // Alle verfügbaren Konten / Import-Runden
@@ -221,6 +227,7 @@ function BankabgleichContent() {
     setSuchtext("");
     setSucheAktiv(false);
     setAusgewaehlt(new Set());
+    setDoppelzahlungOffen(false);
     await ladeVorschlaege(umsatzId);
   }
 
@@ -577,6 +584,12 @@ function BankabgleichContent() {
                               Lieferantenrechnung
                             </Link>
                           )}
+                          {u.gutschriftId && (
+                            <Link href={`/gutschriften/${u.gutschriftId}`} className="underline ml-1">
+                              Gutschrift {u.gutschriftInfo?.nummer ?? ""}
+                              {u.gutschriftInfo?.status === "ERSTATTET" && " (Erstattet)"}
+                            </Link>
+                          )}
                           {u.weitereZuordnungen.length > 0 && (
                             <span className="ml-1" title={u.weitereZuordnungen.map((w) => w.rechnungNr).filter(Boolean).join(", ")}>
                               + {u.weitereZuordnungen.length} weitere
@@ -725,6 +738,23 @@ function BankabgleichContent() {
                                 ))}
                               </div>
                             </>
+                          )}
+                          {u.betrag > 0 && (
+                            <div className="mt-3">
+                              <button
+                                onClick={() => setDoppelzahlungOffen((v) => !v)}
+                                className="text-xs text-gray-500 hover:text-blue-700 hover:underline"
+                              >
+                                {doppelzahlungOffen ? "▾" : "▸"} Kunde hat diese Zahlung doppelt überwiesen?
+                              </button>
+                              {doppelzahlungOffen && (
+                                <DoppelzahlungPanel
+                                  umsatzId={u.id}
+                                  bankBetrag={u.betrag}
+                                  onErledigt={() => { setOffenePanelId(null); setDoppelzahlungOffen(false); laden(); }}
+                                />
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>

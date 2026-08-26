@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
+  const GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Doppelzahlung", "Sonstiges"];
   if (!GRUENDE.includes(grund)) {
     return NextResponse.json({ error: "Ungültiger Grund" }, { status: 400 });
   }

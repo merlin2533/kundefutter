@@ -154,6 +154,7 @@ export default function GutschriftenPage() {
           <option value="alle">Alle Status</option>
           <option value="OFFEN">Offen</option>
           <option value="VERBUCHT">Verbucht</option>
+          <option value="ERSTATTET">Erstattet</option>
           <option value="STORNIERT">Storniert</option>
         </select>
         <input
