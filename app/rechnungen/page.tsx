@@ -307,7 +307,7 @@ export default function RechnungenPage() {
           ))}
           <button
             onClick={() => setNurNichtVersendet((v) => !v)}
-            title="Nur Rechnungen anzeigen, die noch nicht per E-Mail versendet wurden"
+            title="Nur Rechnungen anzeigen, die noch nicht versendet wurden (E-Mail oder Post)"
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               nurNichtVersendet
                 ? "bg-amber-600 text-white"
@@ -372,7 +372,7 @@ export default function RechnungenPage() {
                           {r.rechnungNr}
                         </Link>
                         {!r.rechnungVersendetAm && st !== "storniert" && (
-                          <span title="Noch nicht per E-Mail versendet" className="ml-1 text-amber-600 text-xs">✉</span>
+                          <span title="Noch nicht versendet (E-Mail oder Post)" className="ml-1 text-amber-600 text-xs">✉</span>
                         )}
                         <div className="sm:hidden text-xs text-gray-500 font-normal mt-0.5">
                           {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}

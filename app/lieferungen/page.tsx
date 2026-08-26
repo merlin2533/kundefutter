@@ -517,7 +517,7 @@ export default function LieferungenPage() {
                                   >
                                     ✓ Rechnung
                                     {!l.rechnungVersendetAm && (
-                                      <span title="Noch nicht per E-Mail versendet" className="text-amber-600">✉</span>
+                                      <span title="Noch nicht versendet (E-Mail oder Post)" className="text-amber-600">✉</span>
                                     )}
                                   </Link>
                                 ) : (

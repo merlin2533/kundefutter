@@ -397,7 +397,8 @@ model Lieferung {
   rechnungDatum           DateTime?
   lieferscheinNr          String? // manuell anpassbare Lieferschein-Nummer (Default: Lieferungs-ID/Auftrag)
   rechnungStorniert       DateTime? // gesetzt wenn die Rechnung storniert wurde – verschwindet aus der Rechnungsliste
-  rechnungVersendetAm     DateTime? // gesetzt wenn die Rechnung per E-Mail verschickt wurde
+  rechnungVersendetAm     DateTime? // gesetzt wenn die Rechnung das Haus verlassen hat (E-Mail ODER manuell "Als per Post versendet markieren") — löst denselben Positions-Sperr-Mechanismus aus, unabhängig vom Kanal
+  rechnungVersandKanal    String?   // "email" | "post" — nur Anzeige/Auskunft, welcher Kanal rechnungVersendetAm gesetzt hat; alte Datensätze vor Einführung des Postversands bleiben null und werden weiterhin als "E-Mail" angezeigt
   lieferscheinVersendetAm DateTime? // gesetzt wenn der Lieferschein per E-Mail verschickt wurde
   bezahltAm               DateTime?
   zahlungsziel            Int?      @default(30) // Tage
