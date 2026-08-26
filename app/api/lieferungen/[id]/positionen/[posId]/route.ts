@@ -28,14 +28,14 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     if (lieferung.rechnungStorniert) {
       return NextResponse.json({ error: "Diese Rechnung ist storniert — Positionen können nicht mehr gelöscht werden" }, { status: 400 });
     }
-    // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnung darf sich
+    // Steuerrechtlich unzulässig: eine bereits versendete Rechnung (E-Mail ODER Post) darf sich
     // nachträglich nicht mehr verändern. Solange die Rechnung noch nicht versendet ist,
     // darf aber auch nach Rechnungsstellung (Status bereits "geliefert") weiterhin eine
     // versehentlich falsch erfasste Position gelöscht werden — ein ggf. dafür bereits
     // gebuchter Lagerausgang wird dabei zurückgebucht (siehe unten), analog zur
     // Storno-Rückbuchung beim Statuswechsel geliefert→storniert.
     if (lieferung.rechnungVersendetAm) {
-      return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet und darf nicht mehr geändert werden." }, { status: 400 });
+      return NextResponse.json({ error: "Diese Rechnung wurde bereits versendet und darf nicht mehr geändert werden." }, { status: 400 });
     }
     const pos = await prisma.lieferposition.findUnique({
       where: { id: positionId },
@@ -141,14 +141,14 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (!pos || pos.lieferungId !== lieferungId) {
       return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
     }
-    // Steuerrechtlich unzulässig: die auf einer bereits per E-Mail versendeten Rechnung
+    // Steuerrechtlich unzulässig: die auf einer bereits versendeten Rechnung (E-Mail ODER Post)
     // ausgewiesenen Beträge dürfen sich nachträglich nicht mehr verändern. chargeNr/notiz
     // bleiben davon bewusst ausgenommen (reine Dokumentation/Rückverfolgung, siehe Kommentar
     // weiter unten — Charge ist oft erst nach Rechnungsstellung bekannt).
     const betragsrelevant = updateData.verkaufspreis !== undefined || updateData.einkaufspreis !== undefined
       || updateData.menge !== undefined || updateData.rabattProzent !== undefined;
     if (betragsrelevant && pos.lieferung.rechnungVersendetAm) {
-      return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet — Menge, Preis und Rabatt dürfen nicht mehr geändert werden." }, { status: 400 });
+      return NextResponse.json({ error: "Diese Rechnung wurde bereits versendet — Menge, Preis und Rabatt dürfen nicht mehr geändert werden." }, { status: 400 });
     }
     const updated = await prisma.lieferposition.update({
       where: { id: positionId },

@@ -60,6 +60,7 @@ interface Lieferung {
   lieferscheinNr?: string | null;
   rechnungStorniert?: string | null;
   rechnungVersendetAm?: string | null;
+  rechnungVersandKanal?: string | null;
   zahlungsziel?: number | null;
   bezahltAm?: string | null;
   notiz?: string | null;
@@ -102,6 +103,7 @@ export default function RechnungPrintPage() {
   const [mailModalOffen, setMailModalOffen] = useState(false);
   const [mailFehler, setMailFehler] = useState("");
   const [stornoLoading, setStornoLoading] = useState(false);
+  const [postversandLoading, setPostversandLoading] = useState(false);
   const [istAdmin, setIstAdmin] = useState(false);
   const [loeschModalOpen, setLoeschModalOpen] = useState(false);
   const [loeschLoading, setLoeschLoading] = useState(false);
@@ -228,6 +230,33 @@ export default function RechnungPrintPage() {
       setError("Netzwerkfehler beim Storno.");
     } finally {
       setStornoLoading(false);
+    }
+  }
+
+  async function handlePostversandMarkieren() {
+    if (!lieferung?.rechnungNr) return;
+    if (!confirm(`Rechnung ${lieferung.rechnungNr} als per Post versendet markieren?\nMenge/Preis der Positionen können danach nicht mehr geändert werden.`)) return;
+    setPostversandLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "rechnung_postversand_markieren" }),
+      });
+      if (res.ok) {
+        setLieferung(await res.json());
+      } else {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
+        setError((d as { error?: string }).error ?? "Markieren fehlgeschlagen.");
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Netzwerkfehler beim Markieren.");
+    } finally {
+      setPostversandLoading(false);
     }
   }
 
@@ -591,7 +620,7 @@ export default function RechnungPrintPage() {
       if (data.ok) {
         setMailMsg(`Rechnung an ${data.empfaenger ?? empfaenger} gesendet.`);
         setMailModalOffen(false);
-        setLieferung((prev) => (prev ? { ...prev, rechnungVersendetAm: new Date().toISOString() } : prev));
+        setLieferung((prev) => (prev ? { ...prev, rechnungVersendetAm: new Date().toISOString(), rechnungVersandKanal: "email" } : prev));
       } else {
         setMailFehler(data.error ?? "Fehler beim Versand.");
       }
@@ -795,6 +824,17 @@ export default function RechnungPrintPage() {
             }
           </button>
         )}
+        {lieferung?.rechnungNr && !lieferung.rechnungVersendetAm && (
+          <button
+            onClick={handlePostversandMarkieren}
+            disabled={postversandLoading}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 rounded-lg transition-colors text-sm"
+            title="Rechnung wurde auf Papier/per Post verschickt — sperrt Menge/Preis der Positionen wie beim E-Mail-Versand"
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 5 6-5M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" /></svg>
+            <span className="hidden sm:inline">{postversandLoading ? "Markiere…" : "Als per Post versendet markieren"}</span>
+          </button>
+        )}
         {lieferung && (
           <NextcloudUploadButton
             kundeId={lieferung.kunde ? (lieferung as unknown as { kundeId: number }).kundeId ?? 0 : 0}
@@ -852,15 +892,19 @@ export default function RechnungPrintPage() {
             <span className="hidden sm:inline">Löschen</span>
           </button>
         )}
-        {lieferung?.rechnungVersendetAm && (
-          <span
-            className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
-            title={`Rechnung wurde per E-Mail versendet am ${formatDatum(lieferung.rechnungVersendetAm)}`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-            Per E-Mail versendet ({formatDatum(lieferung.rechnungVersendetAm)})
-          </span>
-        )}
+        {lieferung?.rechnungVersendetAm && (() => {
+          const perPost = lieferung.rechnungVersandKanal === "post";
+          const label = perPost ? "Per Post versendet" : "Per E-Mail versendet";
+          return (
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
+              title={`Rechnung wurde ${perPost ? "auf Papier per Post" : "per E-Mail"} versendet am ${formatDatum(lieferung.rechnungVersendetAm)}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              {label} ({formatDatum(lieferung.rechnungVersendetAm)})
+            </span>
+          );
+        })()}
         {shareMsg && (
           <span className="text-xs text-green-700 font-medium ml-1">{shareMsg}</span>
         )}

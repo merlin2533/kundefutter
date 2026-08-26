@@ -697,6 +697,52 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
+  // Rechnung wurde nicht per E-Mail, sondern auf Papier/per Post verschickt — es gibt dafür
+  // keinen automatischen Auslöser wie beim E-Mail-Versand, deshalb hier manuell markierbar.
+  // Setzt bewusst dasselbe rechnungVersendetAm wie der E-Mail-Versand, damit derselbe
+  // Positions-Sperr-Mechanismus greift (siehe /positionen-Routen) — rechnungVersandKanal
+  // unterscheidet nur für die Anzeige zwischen den beiden Versandwegen.
+  if (aktion === "rechnung_postversand_markieren") {
+    const numId = parseInt(id, 10);
+    if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+    try {
+      const alt = await prisma.lieferung.findUnique({
+        where: { id: numId },
+        select: { rechnungNr: true, rechnungVersendetAm: true },
+      });
+      if (!alt) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+      if (!alt.rechnungNr) {
+        return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
+      }
+      if (alt.rechnungVersendetAm) {
+        return NextResponse.json({ error: "Diese Rechnung wurde bereits als versendet markiert" }, { status: 400 });
+      }
+      const updated = await prisma.lieferung.update({
+        where: { id: numId },
+        data: { rechnungVersendetAm: new Date(), rechnungVersandKanal: "post" },
+        include: {
+          kunde: { include: { kontakte: true } },
+          positionen: { include: { artikel: { select: artikelSafeSelect } } },
+        },
+      });
+      void auditLog({
+        entitaet: "Lieferung",
+        entitaetId: numId,
+        aktion: "geaendert",
+        feld: "rechnungVersendetAm",
+        alterWert: null,
+        neuerWert: "per Post versendet",
+        beschreibung: `Rechnung ${alt.rechnungNr} als per Post versendet markiert`,
+      });
+      return NextResponse.json(updated);
+    } catch (err) {
+      Sentry.captureException(err);
+      const isDev = process.env.NODE_ENV === "development";
+      const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
   // Rechnung endgültig aus der Datenbank löschen (kein Storno) – nur Admins, Begründung Pflicht
   if (aktion === "rechnung_loeschen") {
     const numId = parseInt(id, 10);
@@ -722,14 +768,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (!alt.rechnungNr) {
         return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
       }
-      // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnungsnummer darf
-      // nicht rückwirkend verschwinden (GoBD-Nachvollziehbarkeit) — das würde auch die neue
+      // Steuerrechtlich unzulässig: eine bereits versendete (E-Mail oder Post) Rechnungsnummer
+      // darf nicht rückwirkend verschwinden (GoBD-Nachvollziehbarkeit) — das würde auch die neue
       // Positions-Sperre (siehe /positionen-Routen) unterlaufen, da rechnungVersendetAm dabei
       // auf null gesetzt würde. Korrektur einer bereits verschickten Rechnung läuft über Storno
       // + neue, korrigierte Rechnung, nicht über das Verschwindenlassen der Nummer.
       if (alt.rechnungVersendetAm) {
         return NextResponse.json(
-          { error: "Diese Rechnung wurde bereits per E-Mail versendet und kann nicht mehr gelöscht werden. Bitte stattdessen stornieren und eine korrigierte Rechnung erstellen." },
+          { error: "Diese Rechnung wurde bereits versendet und kann nicht mehr gelöscht werden. Bitte stattdessen stornieren und eine korrigierte Rechnung erstellen." },
           { status: 400 },
         );
       }

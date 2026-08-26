@@ -350,7 +350,7 @@ export default function LieferungDetailPage() {
   function startRabattEdit(pos: Position) {
     // Rabatt darf auch nach Rechnungsstellung noch erfasst/angepasst werden – nur bei
     // stornierten Lieferungen gesperrt, und (steuerrechtlich zwingend) nicht mehr, sobald
-    // die Rechnung bereits per E-Mail versendet wurde.
+    // die Rechnung bereits versendet wurde (E-Mail oder Post).
     if (lieferung && (lieferung.status === "storniert" || lieferung.rechnungVersendetAm)) return;
     setRabattEditId(pos.id);
     setRabattEditValue(String(pos.rabattProzent ?? 0));

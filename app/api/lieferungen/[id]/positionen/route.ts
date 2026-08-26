@@ -48,14 +48,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (lieferung.rechnungStorniert) {
       return NextResponse.json({ error: "Diese Rechnung ist storniert — Positionen können nicht mehr ergänzt werden" }, { status: 400 });
     }
-    // Steuerrechtlich unzulässig: eine bereits per E-Mail versendete Rechnung darf sich
-    // nachträglich nicht mehr verändern (auch nicht durch neue Positionen). Solange die
-    // Rechnung noch nicht versendet ist, dürfen aber auch nach Rechnungsstellung (Status
-    // bereits "geliefert") weiterhin Positionen ergänzt werden — siehe unten für die dabei
-    // nötige Lagerausgangsbuchung, da diese sonst (anders als bei "geplant") nicht mehr
-    // automatisch nachgeholt wird.
+    // Steuerrechtlich unzulässig: eine bereits versendete Rechnung (E-Mail ODER manuell "Als per
+    // Post versendet markieren") darf sich nachträglich nicht mehr verändern (auch nicht durch
+    // neue Positionen). Solange die Rechnung noch nicht versendet ist, dürfen aber auch nach
+    // Rechnungsstellung (Status bereits "geliefert") weiterhin Positionen ergänzt werden — siehe
+    // unten für die dabei nötige Lagerausgangsbuchung, da diese sonst (anders als bei "geplant")
+    // nicht mehr automatisch nachgeholt wird.
     if (lieferung.rechnungVersendetAm) {
-      return NextResponse.json({ error: "Diese Rechnung wurde bereits per E-Mail versendet und darf nicht mehr geändert werden." }, { status: 400 });
+      return NextResponse.json({ error: "Diese Rechnung wurde bereits versendet und darf nicht mehr geändert werden." }, { status: 400 });
     }
 
     const artikel = await prisma.artikel.findUnique({
