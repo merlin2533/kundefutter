@@ -105,16 +105,57 @@ export async function PUT(req: NextRequest, { params }: Params) {
         });
       }
 
+      // Lieferanten NICHT per deleteMany+create komplett ersetzen: das hätte jedes Mal alle
+      // ArtikelLieferant-Zeilen (auch unveränderte) mit neuer ID neu angelegt und dadurch per
+      // Cascade sämtliche Jahrespreise/Preisverlauf-Einträge ALLER Lieferanten dieses Artikels
+      // gelöscht — reproduzierbar bei jedem "Lieferant hinzufügen"/EK-Inline-Edit/Bevorzugt-Toggle,
+      // da das Frontend dafür immer die volle Lieferantenliste sendet. Stattdessen: vorhandene
+      // Zuordnungen (per lieferantId gematcht) per update in-place ändern (ID bleibt erhalten),
+      // neue anlegen, entfallene entfernen.
+      if (lieferanten !== undefined) {
+        type LieferantInput = {
+          lieferantId: number;
+          lieferantenArtNr?: string | null;
+          einkaufspreis?: number;
+          mindestbestellmenge?: number | null;
+          lieferzeitTage?: number | null;
+          bevorzugt?: boolean;
+        };
+        const eingehend = lieferanten as LieferantInput[];
+        const bestehende = await tx.artikelLieferant.findMany({
+          where: { artikelId: Number(id) },
+          select: { id: true, lieferantId: true },
+        });
+        const bestehendeByLieferant = new Map(bestehende.map((b) => [b.lieferantId, b.id]));
+        const eingehendeLieferantIds = new Set(eingehend.map((l) => Number(l.lieferantId)));
+
+        for (const l of eingehend) {
+          const lieferantId = Number(l.lieferantId);
+          const werte = {
+            lieferantenArtNr: l.lieferantenArtNr ?? null,
+            einkaufspreis: l.einkaufspreis ?? 0,
+            mindestbestellmenge: l.mindestbestellmenge ?? 0,
+            lieferzeitTage: l.lieferzeitTage ?? 3,
+            bevorzugt: l.bevorzugt ?? false,
+          };
+          const bestehendeId = bestehendeByLieferant.get(lieferantId);
+          if (bestehendeId !== undefined) {
+            await tx.artikelLieferant.update({ where: { id: bestehendeId }, data: werte });
+          } else {
+            await tx.artikelLieferant.create({ data: { artikelId: Number(id), lieferantId, ...werte } });
+          }
+        }
+        for (const b of bestehende) {
+          if (!eingehendeLieferantIds.has(b.lieferantId)) {
+            await tx.artikelLieferant.delete({ where: { id: b.id } });
+          }
+        }
+      }
+
       return tx.artikel.update({
         where: { id: Number(id) },
         data: {
           ...data,
-          ...(lieferanten !== undefined && {
-            lieferanten: {
-              deleteMany: {},
-              create: lieferanten,
-            },
-          }),
           ...(inhaltsstoffe !== undefined && {
             inhaltsstoffe: {
               deleteMany: {},

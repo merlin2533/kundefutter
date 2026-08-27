@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
 import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
+import EinkaufspreisVerlaufManager, { EinkaufspreisEintrag } from "@/components/EinkaufspreisVerlaufManager";
 import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -211,6 +212,9 @@ function ArtikelDetailContent() {
   const [liefJahrespreise, setLiefJahrespreise] = useState<Record<number, JahrespreisEintrag[]>>({});
   const [loadingLiefJahrespreise, setLoadingLiefJahrespreise] = useState<number | null>(null);
 
+  // Preisverlauf je Lieferant (datumsgenauer Einkaufspreis) — lazy geladen im selben Aufklapp-Zug
+  const [liefPreisverlauf, setLiefPreisverlauf] = useState<Record<number, EinkaufspreisEintrag[]>>({});
+
   // Lieferanten modal
   const [showLiefModal, setShowLiefModal] = useState(false);
   const [editingLiefId, setEditingLiefId] = useState<number | null>(null);
@@ -364,19 +368,24 @@ function ArtikelDetailContent() {
     return true;
   }
 
-  // ── Jahrespreise je Lieferant (Einkaufspreis) ─────────────────────────────
+  // ── Jahrespreise + Preisverlauf je Lieferant (Einkaufspreis) ──────────────
   async function toggleLiefJahrespreise(l: ArtikelLieferant) {
     if (expandedLiefId === l.id) { setExpandedLiefId(null); return; }
     setExpandedLiefId(l.id);
     if (!(l.lieferantId in liefJahrespreise)) {
       setLoadingLiefJahrespreise(l.id);
       try {
-        const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/jahrespreise`);
-        const d = res.ok ? await res.json() : [];
+        const [jahresRes, verlaufRes] = await Promise.all([
+          fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/jahrespreise`),
+          fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/einkaufspreise`),
+        ]);
+        const d = jahresRes.ok ? await jahresRes.json() : [];
         const liste: JahrespreisEintrag[] = Array.isArray(d)
           ? d.map((e: { jahr: number; einkaufspreis: number; notiz: string | null }) => ({ jahr: e.jahr, preis: e.einkaufspreis, notiz: e.notiz }))
           : [];
         setLiefJahrespreise((prev) => ({ ...prev, [l.lieferantId]: liste }));
+        const v = verlaufRes.ok ? await verlaufRes.json() : [];
+        setLiefPreisverlauf((prev) => ({ ...prev, [l.lieferantId]: Array.isArray(v) ? v : [] }));
       } finally {
         setLoadingLiefJahrespreise(null);
       }
@@ -415,6 +424,68 @@ function ArtikelDetailContent() {
     setLiefJahrespreise((prev) => ({
       ...prev,
       [l.lieferantId]: (prev[l.lieferantId] ?? []).filter((e) => e.jahr !== jahr),
+    }));
+    fetchArtikel();
+    return true;
+  }
+
+  // ── Preisverlauf je Lieferant (datumsgenauer Einkaufspreis) ───────────────
+  async function saveLiefPreisverlauf(
+    l: ArtikelLieferant,
+    eintrag: { datum: string; einkaufspreis: number; notiz: string | null },
+  ): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/einkaufspreise`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(eintrag),
+    });
+    if (!res.ok) return false;
+    const raw = await res.json();
+    setLiefPreisverlauf((prev) => ({ ...prev, [l.lieferantId]: [...(prev[l.lieferantId] ?? []), raw] }));
+    fetchArtikel();
+    return true;
+  }
+
+  async function updateLiefPreisverlauf(
+    l: ArtikelLieferant,
+    preisId: number,
+    eintrag: { datum: string; einkaufspreis: number; notiz: string | null },
+  ): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/einkaufspreise/${preisId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(eintrag),
+    });
+    if (!res.ok) return false;
+    const raw = await res.json();
+    setLiefPreisverlauf((prev) => ({
+      ...prev,
+      [l.lieferantId]: (prev[l.lieferantId] ?? []).map((e) => (e.id === preisId ? raw : e)),
+    }));
+    fetchArtikel();
+    return true;
+  }
+
+  async function deleteLiefPreisverlauf(l: ArtikelLieferant, preisId: number): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/einkaufspreise/${preisId}`, { method: "DELETE" });
+    if (!res.ok) return false;
+    setLiefPreisverlauf((prev) => ({
+      ...prev,
+      [l.lieferantId]: (prev[l.lieferantId] ?? []).filter((e) => e.id !== preisId),
+    }));
+    return true;
+  }
+
+  async function aktiviereLiefPreisverlauf(l: ArtikelLieferant, preisId: number): Promise<boolean> {
+    const res = await fetch(`/api/artikel/${id}/lieferanten/${l.lieferantId}/einkaufspreise/${preisId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aktion: "aktivieren" }),
+    });
+    if (!res.ok) return false;
+    setLiefPreisverlauf((prev) => ({
+      ...prev,
+      [l.lieferantId]: (prev[l.lieferantId] ?? []).map((e) => ({ ...e, aktiv: e.id === preisId })),
     }));
     fetchArtikel();
     return true;
@@ -1514,10 +1585,10 @@ function ArtikelDetailContent() {
                           {canSeeEk && (
                             <button
                               onClick={() => toggleLiefJahrespreise(l)}
-                              title="Jahrespreise"
+                              title="Preisverlauf und Jahrespreise"
                               className={`text-xs px-1 ${expandedLiefId === l.id ? "text-green-700 font-semibold" : "text-gray-400 hover:text-green-700"}`}
                             >
-                              Jahre
+                              Preise
                             </button>
                           )}
                           <button
@@ -1544,16 +1615,27 @@ function ArtikelDetailContent() {
                     </tr>
                     {canSeeEk && expandedLiefId === l.id && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                        <td colSpan={7} className="px-4 py-3 bg-gray-50 border-t border-gray-100 space-y-4">
                           {loadingLiefJahrespreise === l.id ? (
-                            <p className="text-xs text-gray-400">Lade Jahrespreise…</p>
+                            <p className="text-xs text-gray-400">Lade Preisdetails…</p>
                           ) : (
-                            <JahrespreiseManager
-                              eintraege={liefJahrespreise[l.lieferantId] ?? []}
-                              preisLabel="Einkaufspreis"
-                              onSave={(eintrag) => saveLiefJahrespreis(l, eintrag)}
-                              onDelete={(jahr) => deleteLiefJahrespreis(l, jahr)}
-                            />
+                            <>
+                              <EinkaufspreisVerlaufManager
+                                eintraege={liefPreisverlauf[l.lieferantId] ?? []}
+                                onSave={(eintrag) => saveLiefPreisverlauf(l, eintrag)}
+                                onUpdate={(preisId, eintrag) => updateLiefPreisverlauf(l, preisId, eintrag)}
+                                onDelete={(preisId) => deleteLiefPreisverlauf(l, preisId)}
+                                onAktivieren={(preisId) => aktiviereLiefPreisverlauf(l, preisId)}
+                              />
+                              <div className="border-t border-gray-200 pt-3">
+                                <JahrespreiseManager
+                                  eintraege={liefJahrespreise[l.lieferantId] ?? []}
+                                  preisLabel="Einkaufspreis"
+                                  onSave={(eintrag) => saveLiefJahrespreis(l, eintrag)}
+                                  onDelete={(jahr) => deleteLiefJahrespreis(l, jahr)}
+                                />
+                              </div>
+                            </>
                           )}
                         </td>
                       </tr>

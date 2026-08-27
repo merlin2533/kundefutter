@@ -272,9 +272,33 @@ model ArtikelLieferant {
   artikel      Artikel                       @relation(fields: [artikelId], references: [id], onDelete: Cascade)
   lieferant    Lieferant                     @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
   jahrespreise ArtikelLieferantJahrespreis[]
+  preisVerlauf ArtikelLieferantPreis[]
 
   @@unique([artikelId, lieferantId])
   @@index([lieferantId])
+}
+
+// Datumsgenaue Einkaufspreis-Historie je Lieferant — im Unterschied zu
+// ArtikelLieferantJahrespreis (grobe Jahresgültigkeit mit automatischer
+// Nächstjahr-Interpolation) beliebig viele, frei datierte Preisänderungen
+// innerhalb eines Jahres (z.B. Saisonpreise). Der Nutzer markiert per "aktiv"
+// explizit EINEN Eintrag als aktuell gültig — keine automatische Auflösung.
+// Setzen von aktiv=true synct sofort ArtikelLieferant.einkaufspreis (siehe
+// lib/einkaufspreisverlauf.ts).
+model ArtikelLieferantPreis {
+  id                 Int      @id @default(autoincrement())
+  artikelLieferantId Int
+  datum              DateTime
+  einkaufspreis      Float
+  aktiv              Boolean  @default(false)
+  notiz              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  artikelLieferant ArtikelLieferant @relation(fields: [artikelLieferantId], references: [id], onDelete: Cascade)
+
+  @@index([artikelLieferantId])
+  @@index([artikelLieferantId, datum])
 }
 
 // Preishistorie: jede Änderung am Standardpreis wird versioniert

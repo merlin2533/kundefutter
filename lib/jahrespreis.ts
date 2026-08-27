@@ -13,6 +13,7 @@
 // keine Jahres-Historie, das ist kein "abweichendes Jahr").
 
 import { prisma } from "@/lib/prisma";
+import { hatAktivenEinkaufspreis } from "@/lib/einkaufspreisverlauf";
 
 export interface Jahreseintrag {
   jahr: number;
@@ -144,6 +145,10 @@ export async function getEinkaufspreisFuerJahr(artikelLieferantId: number, jahr:
 export async function syncEinkaufspreis(artikelLieferantId: number): Promise<void> {
   const al = await prisma.artikelLieferant.findUnique({ where: { id: artikelLieferantId }, select: { einkaufspreis: true } });
   if (!al) return;
+  // Ein per Preisverlauf (ArtikelLieferantPreis) explizit als aktiv markierter Preis hat Vorrang
+  // vor der automatischen Jahresgültigkeits-Auflösung — sonst würde z.B. das Löschen eines
+  // Jahrespreises den zuletzt bewusst gewählten Preisverlauf-Preis überschreiben.
+  if (await hatAktivenEinkaufspreis(artikelLieferantId)) return;
   const jahrespreise = await prisma.artikelLieferantJahrespreis.findMany({
     where: { artikelLieferantId },
     select: { jahr: true, einkaufspreis: true },
