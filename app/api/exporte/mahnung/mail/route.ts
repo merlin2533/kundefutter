@@ -4,6 +4,8 @@ import { sendEmail } from "@/lib/email";
 import { mahnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
+import { getCurrentUser } from "@/lib/auth";
+import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen } from "@/lib/mahnwesen-config";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const mahnstufe = typeof body.mahnstufe === "number" && body.mahnstufe > 0 ? body.mahnstufe : 1;
+    const mahnstufeRaw = body.mahnstufe;
+    const mahnstufe = ([1, 2, 3] as const).includes(mahnstufeRaw as 1 | 2 | 3) ? (mahnstufeRaw as 1 | 2 | 3) : 1;
     const firma = await ladeFirmaDaten();
 
     // Offenen Betrag berechnen
@@ -68,13 +71,24 @@ export async function POST(req: NextRequest) {
     const zahlungsziel = lieferung.zahlungsziel ?? 30;
     const faelligAm = new Date(rechnungDatum.getTime() + zahlungsziel * 24 * 60 * 60 * 1000);
 
-    const kontaktMitName = lieferung.kunde.kontakte.find(
-      (k: { vorname?: string | null; nachname?: string | null }) =>
-        (k.vorname && k.vorname.trim()) || (k.nachname && k.nachname.trim()),
-    );
-    const kundenAnrede = kontaktMitName
-      ? [kontaktMitName.vorname, kontaktMitName.nachname].filter(Boolean).join(" ").trim()
-      : lieferung.kunde.firma ?? lieferung.kunde.name;
+    // Tage überfällig + Mahngebühr/Verzugszinsen exakt wie generiereMahnungPdf() berechnen,
+    // damit E-Mail und PDF dieselbe Gesamtforderung ausweisen.
+    const heute = new Date();
+    heute.setHours(0, 0, 0, 0);
+    const faelligOhneZeit = new Date(faelligAm);
+    faelligOhneZeit.setHours(0, 0, 0, 0);
+    const tageUeberfaellig = Math.max(0, Math.floor((heute.getTime() - faelligOhneZeit.getTime()) / (24 * 60 * 60 * 1000)));
+    const cfgSetting = await prisma.einstellung.findUnique({ where: { key: "system.mahnwesen" } });
+    const cfg = parseMahnwesenConfig(cfgSetting?.value);
+    const gebuehr = mahngebuehr(cfg, mahnstufe);
+    const zinsen = berechneVerzugszinsen(offenerBetrag, tageUeberfaellig, cfg.verzugszinssatz, mahnstufe);
+
+    // Ansprechpartner = aktuell angemeldeter Benutzer (analog GET /api/exporte/mahnung, das
+    // dieselbe Signatur auf der PDF zeigt) statt der allgemeinen Firmenzentrale.
+    const me = await getCurrentUser();
+    const ansprechpartner = me
+      ? await prisma.benutzer.findUnique({ where: { id: me.id }, select: { name: true } })
+      : null;
 
     const { subject, text, html } = mahnungEmail({
       rechnungNr: lieferung.rechnungNr,
@@ -82,7 +96,11 @@ export async function POST(req: NextRequest) {
       faelligAm,
       offenerBetrag,
       mahnstufe,
-      kundenAnrede,
+      tageUeberfaellig,
+      mahngebuehr: gebuehr,
+      verzugszinsen: zinsen,
+      kundeFirma: lieferung.kunde.firma,
+      ansprechpartnerName: ansprechpartner?.name,
       firma,
     });
 
