@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { umlautSchreibweisen } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -173,12 +174,15 @@ export async function GET(req: NextRequest) {
       prisma.artikel.findMany({
         where: {
           aktiv: true,
-          OR: [
-            { name: { contains: q } },
-            { artikelnummer: { contains: q } },
-            { kategorie: { contains: q } },
-            { inhaltsstoffe: { some: { name: { contains: q } } } },
-          ],
+          // Umlaut-Schreibweisen abdecken (siehe umlautSchreibweisen()) — dieser Fallback-Pfad
+          // greift nur, wenn die FTS5-Abfrage oben scheitert, hat aber denselben SQLite-LIKE-
+          // Umlaut-Bug wie /api/artikel.
+          OR: umlautSchreibweisen(q).flatMap((s) => [
+            { name: { contains: s } },
+            { artikelnummer: { contains: s } },
+            { kategorie: { contains: s } },
+            { inhaltsstoffe: { some: { name: { contains: s } } } },
+          ]),
         },
         select: { id: true, name: true, artikelnummer: true, kategorie: true },
         take,
