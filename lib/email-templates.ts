@@ -1,4 +1,9 @@
 import type { FirmaDaten } from "@/lib/firma";
+import { MAHNUNG_BETREFF, mahnungTextBausteine } from "@/lib/mahnwesen-config";
+// Nur für mahnungEmail(): dieselbe Datumsformatierung wie generiereMahnungPdf() in
+// lib/pdfGenerator.ts (formatDatum aus lib/utils.ts, z.B. "5.1.2026" statt "05.01.2026") — die
+// übrigen E-Mail-Vorlagen in dieser Datei nutzen weiterhin ihr eigenes, gepaddetes fmtDatum().
+import { formatDatum as formatDatumWiePdf } from "@/lib/utils";
 
 export type AngebotMailData = {
   angebotNr: string;
@@ -32,8 +37,16 @@ export type MahnungMailData = {
   rechnungDatum: Date;
   faelligAm: Date;
   offenerBetrag: number;
-  mahnstufe: number;
-  kundenAnrede?: string | null;
+  mahnstufe: 1 | 2 | 3;
+  tageUeberfaellig: number;
+  /** Mahngebühr/Verzugszinsen (€) — 0, wenn nicht zutreffend (siehe lib/mahnwesen-config.ts) */
+  mahngebuehr: number;
+  verzugszinsen: number;
+  /** Steuert nur die Anrede auf Stufe 1 ("Sehr geehrtes Team von X!"), analog generiereMahnungPdf */
+  kundeFirma?: string | null;
+  /** Sachbearbeiter, der die Mahnung verschickt — ersetzt sonst firma.name in der Signatur,
+   * analog zum "Ihr Ansprechpartner"-Feld auf der Mahnungs-PDF. */
+  ansprechpartnerName?: string | null;
   firma: FirmaDaten;
 };
 
@@ -470,52 +483,38 @@ export function lieferscheinEmail(data: LieferscheinMailData): { subject: string
 }
 
 // ─── Mahnung ──────────────────────────────────────────────────────────────────
-
-const MAHNSTUFEN_TEXT: Record<number, string> = {
-  1: "Freundliche Zahlungserinnerung",
-  2: "Erste Mahnung",
-  3: "Zweite Mahnung",
-  4: "Letzte Mahnung",
-};
+// Brieftext (Anrede + Absätze) UND Betreff kommen aus lib/mahnwesen-config.ts
+// (mahnungTextBausteine()/MAHNUNG_BETREFF) — derselben Quelle wie generiereMahnungPdf() in
+// lib/pdfGenerator.ts, damit E-Mail und PDF garantiert denselben Text zeigen.
 
 export function mahnungEmail(data: MahnungMailData): { subject: string; text: string; html: string } {
-  const { rechnungNr, rechnungDatum, faelligAm, offenerBetrag, mahnstufe, kundenAnrede, firma } = data;
-  const stufenText = MAHNSTUFEN_TEXT[mahnstufe] ?? `Mahnung (Stufe ${mahnstufe})`;
+  const { rechnungNr, rechnungDatum, faelligAm, offenerBetrag, mahnstufe, tageUeberfaellig, mahngebuehr, verzugszinsen, kundeFirma, ansprechpartnerName, firma } = data;
+  const stufenText = MAHNUNG_BETREFF[mahnstufe];
   const subject = `${stufenText}: Rechnung ${rechnungNr} – ${firma.name}`;
-  const anrede = kundenAnrede?.trim()
-    ? `Sehr geehrte/r ${kundenAnrede.trim()},`
-    : "Sehr geehrte Damen und Herren,";
-
-  const istLetzte = mahnstufe >= 4;
-  const hinweis = istLetzte
-    ? "Wir bitten Sie dringend, den ausstehenden Betrag unverzüglich zu begleichen, um weitere rechtliche Schritte zu vermeiden."
-    : mahnstufe >= 2
-    ? "Bitte begleichen Sie den offenen Betrag umgehend, um zusätzliche Mahngebühren zu vermeiden."
-    : "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Nachricht bitte als gegenstandslos.";
-  const introText =
-    mahnstufe === 1
-      ? "bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die folgende Rechnung noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern:"
-      : `wir müssen Sie erneut auf die folgende offene Rechnung hinweisen (${stufenText}):`;
+  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, rechnungNr, formatDatumWiePdf(rechnungDatum), kundeFirma);
+  const gesamtforderung = offenerBetrag + mahngebuehr + verzugszinsen;
+  const zeigtZusatzkosten = mahngebuehr > 0 || verzugszinsen > 0;
+  const unterschriftName = ansprechpartnerName?.trim() || firma.name;
 
   const text = [
     anrede,
     "",
-    introText,
+    ...absaetze.flatMap((a) => [a, ""]),
+    `Rechnungsnummer:    ${rechnungNr}`,
+    `Rechnungsdatum:     ${formatDatumWiePdf(rechnungDatum)}`,
+    `Fällig am:          ${formatDatumWiePdf(faelligAm)}`,
+    `Tage überfällig:    ${tageUeberfaellig}`,
+    `Betrag:             ${fmtEuro(offenerBetrag)}`,
+    ...(mahngebuehr > 0 ? [`Mahngebühr:         ${fmtEuro(mahngebuehr)}`] : []),
+    ...(verzugszinsen > 0 ? [`Verzugszinsen:      ${fmtEuro(verzugszinsen)}`] : []),
+    ...(zeigtZusatzkosten ? [`Gesamtforderung:    ${fmtEuro(gesamtforderung)}`] : []),
     "",
-    `Rechnungsnummer: ${rechnungNr}`,
-    `Rechnungsdatum:  ${fmtDatum(rechnungDatum)}`,
-    `Fällig am:       ${fmtDatum(faelligAm)}`,
-    `Offener Betrag:  ${fmtEuro(offenerBetrag)}`,
-    "",
-    hinweis,
-    ...(firma.iban
-      ? ["", `Bitte überweisen Sie den Betrag auf folgendes Konto:`, `${firma.bank ? `Bank: ${firma.bank}` : ""}`, `IBAN: ${firma.iban}${firma.bic ? `  BIC: ${firma.bic}` : ""}`, `Verwendungszweck: Rechnung ${rechnungNr}`]
-      : []),
-    "",
-    "Falls Sie bereits bezahlt haben, bitten wir Sie, diese Nachricht zu ignorieren.",
+    firma.iban
+      ? `Bitte überweisen Sie den Gesamtbetrag von ${fmtEuro(gesamtforderung)} auf folgendes Konto: ${firma.bank ? `${firma.bank}, ` : ""}IBAN ${firma.iban}${firma.bic ? `, BIC ${firma.bic}` : ""}.`
+      : `Bitte überweisen Sie den Gesamtbetrag von ${fmtEuro(gesamtforderung)} auf unser bekanntes Konto.`,
     "",
     "Mit freundlichen Grüßen",
-    firma.name,
+    unterschriftName,
   ]
     .filter((l) => l !== "")
     .join("\n");
@@ -536,14 +535,9 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
   const headerColor = mahnstufe >= 3 ? "#991b1b" : mahnstufe >= 2 ? "#b45309" : firma.primaryColor;
   const badgeColor = mahnstufe >= 3 ? "#fef2f2;color:#991b1b;border:1px solid #fecaca" : mahnstufe >= 2 ? "#fffbeb;color:#b45309;border:1px solid #fde68a" : `${firma.primaryLight};color:${firma.primaryColor};border:1px solid #bbf7d0`;
 
-  const bankHtml = firma.iban
-    ? `<div style="margin:16px 0;padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;line-height:1.8;">
-        <b>Bitte überweisen Sie auf folgendes Konto:</b><br>
-        ${firma.bank ? `${escapeHtml(firma.bank)}<br>` : ""}
-        IBAN: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-family:monospace;">${escapeHtml(firma.iban)}</code>${firma.bic ? ` &nbsp;·&nbsp; BIC: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-family:monospace;">${escapeHtml(firma.bic)}</code>` : ""}<br>
-        Verwendungszweck: <b>${escapeHtml(`Rechnung ${rechnungNr}`)}</b>
-       </div>`
-    : "";
+  const zahlungssatz = firma.iban
+    ? `Bitte überweisen Sie den Gesamtbetrag von ${fmtEuro(gesamtforderung)} auf folgendes Konto: ${firma.bank ? `${firma.bank}, ` : ""}IBAN ${firma.iban}${firma.bic ? `, BIC ${firma.bic}` : ""}.`
+    : `Bitte überweisen Sie den Gesamtbetrag von ${fmtEuro(gesamtforderung)} auf unser bekanntes Konto.`;
 
   const html = `<!DOCTYPE html>
 <html lang="de">
@@ -559,19 +553,19 @@ export function mahnungEmail(data: MahnungMailData): { subject: string; text: st
       <tr><td style="padding:28px 32px 8px 32px;">
         <div style="display:inline-block;margin-bottom:16px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:${badgeColor};">${escapeHtml(stufenText)}</div>
         <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
-        <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
-          ${escapeHtml(introText)}
-        </p>
+        ${absaetze.map((a) => `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">${escapeHtml(a)}</p>`).join("\n        ")}
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 16px 0;border-collapse:collapse;font-size:14px;">
           ${zeile("Rechnungsnummer", rechnungNr)}
-          ${zeile("Rechnungsdatum", fmtDatum(rechnungDatum))}
-          ${zeile("Fällig am", fmtDatum(faelligAm))}
-          ${zeile("Offener Betrag", fmtEuro(offenerBetrag), true)}
+          ${zeile("Rechnungsdatum", formatDatumWiePdf(rechnungDatum))}
+          ${zeile("Fällig am", formatDatumWiePdf(faelligAm))}
+          ${zeile("Tage überfällig", String(tageUeberfaellig))}
+          ${zeile("Betrag", fmtEuro(offenerBetrag), !zeigtZusatzkosten)}
+          ${mahngebuehr > 0 ? zeile("Mahngebühr", fmtEuro(mahngebuehr)) : ""}
+          ${verzugszinsen > 0 ? zeile("Verzugszinsen", fmtEuro(verzugszinsen)) : ""}
+          ${zeigtZusatzkosten ? zeile("Gesamtforderung", fmtEuro(gesamtforderung), true) : ""}
         </table>
-        <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;">${escapeHtml(hinweis)}</p>
-        ${bankHtml}
-        <p style="margin:16px 0 0 0;font-size:13px;color:#6b7280;font-style:italic;">Falls Sie bereits bezahlt haben, bitten wir Sie, diese Nachricht zu ignorieren.</p>
-        <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
+        <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#374151;">${escapeHtml(zahlungssatz)}</p>
+        <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(unterschriftName)}</b></p>
       </td></tr>
       ${emailFooterRow(impressumParts, firma)}
     </table>

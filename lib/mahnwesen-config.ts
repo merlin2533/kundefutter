@@ -71,3 +71,56 @@ export function berechneVerzugszinsen(betrag: number, tageUeberfaellig: number, 
   if (mahnstufe <= 1 || tageUeberfaellig <= 0) return 0;
   return (betrag * (satz / 100) / 365) * tageUeberfaellig;
 }
+
+/** Betreffzeile je Mahnstufe — einzige Quelle der Wahrheit für PDF (generiereMahnungPdf) UND
+ * E-Mail (mahnungEmail), damit beide Kanäle denselben Betreff zeigen. */
+export const MAHNUNG_BETREFF: Record<1 | 2 | 3, string> = {
+  1: "Freundliche Zahlungserinnerung",
+  2: "1. Mahnung",
+  3: "2. Mahnung / Letzte Mahnung",
+};
+
+export interface MahnungTextBausteine {
+  anrede: string;
+  absaetze: string[];
+}
+
+/**
+ * Zentrale Quelle für den Brieftext einer Mahnung/Zahlungserinnerung — von PDF
+ * (generiereMahnungPdf in lib/pdfGenerator.ts) UND E-Mail (mahnungEmail in
+ * lib/email-templates.ts) genutzt, damit beide Kanäle exakt denselben Text zeigen statt
+ * unabhängig voneinander zu driften. `kundeFirma` steuert nur die Anrede auf Stufe 1
+ * ("Sehr geehrtes Team von X!"), `rechnungDatumFormatiert` wird bereits fertig formatiert
+ * übergeben (z.B. via formatDatum), damit dieses client-sichere Modul kein Datums-Format-Modul
+ * importieren muss.
+ */
+export function mahnungTextBausteine(
+  mahnstufe: 1 | 2 | 3,
+  rechnungNr: string,
+  rechnungDatumFormatiert: string,
+  kundeFirma?: string | null,
+): MahnungTextBausteine {
+  const anrede = mahnstufe === 1
+    ? (kundeFirma ? `Sehr geehrtes Team von ${kundeFirma}!` : "Sehr geehrte Damen und Herren,")
+    : "Sehr geehrte Damen und Herren,";
+
+  const absaetze: string[] =
+    mahnstufe === 1
+      ? [
+          `Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.`,
+          "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.",
+          "Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.",
+          "Vielen Dank und weiterhin viel Erfolg auf dem Hof!",
+        ]
+      : mahnstufe === 2
+      ? [
+          `Trotz unserer freundlichen Erinnerung haben wir für die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} bislang keinen Zahlungseingang feststellen können.`,
+          "Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen. Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
+        ]
+      : [
+          `Leider haben wir auch nach unserer 1. Mahnung für die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} keinen Zahlungseingang feststellen können.`,
+          "Wir bitten Sie letztmalig, den Betrag innerhalb von 5 Tagen zu überweisen. Sollte die Zahlung weiterhin ausbleiben, müssen wir uns weitere Schritte vorbehalten.",
+        ];
+
+  return { anrede, absaetze };
+}

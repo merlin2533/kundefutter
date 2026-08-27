@@ -12,7 +12,7 @@ import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
-import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen } from "@/lib/mahnwesen-config";
+import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_BETREFF, mahnungTextBausteine } from "@/lib/mahnwesen-config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -1642,12 +1642,6 @@ export interface MahnungAnsprechpartner {
   email?: string | null;
 }
 
-const MAHNUNG_BETREFF: Record<1 | 2 | 3, string> = {
-  1: "Freundliche Zahlungserinnerung",
-  2: "1. Mahnung",
-  3: "2. Mahnung / Letzte Mahnung",
-};
-
 /** Extrahiert den Ortsnamen aus einer "PLZ Ort"-Zeichenkette (z.B. "32549 Bad Oeynhausen" → "Bad Oeynhausen"). */
 function extrahiereOrt(plzOrt: string): string {
   const match = /^\d{4,5}\s+(.+)$/.exec(plzOrt.trim());
@@ -1800,28 +1794,8 @@ export async function generiereMahnungPdf(
   doc.text(`${MAHNUNG_BETREFF[mahnstufe]} – Rechnung ${lieferung.rechnungNr}`, 14, ey);
   ey += 8;
 
-  // ── Anrede + Brieftext ──────────────────────────────────────────────────────
-  const anrede = mahnstufe === 1
-    ? (k.firma ? `Sehr geehrtes Team von ${k.firma}!` : "Sehr geehrte Damen und Herren,")
-    : "Sehr geehrte Damen und Herren,";
-
-  const absaetze: string[] =
-    mahnstufe === 1
-      ? [
-          `Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.`,
-          "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.",
-          "Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.",
-          "Vielen Dank und weiterhin viel Erfolg auf dem Hof!",
-        ]
-      : mahnstufe === 2
-      ? [
-          `Trotz unserer freundlichen Erinnerung haben wir für die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} bislang keinen Zahlungseingang feststellen können.`,
-          "Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen. Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
-        ]
-      : [
-          `Leider haben wir auch nach unserer 1. Mahnung für die Rechnung ${lieferung.rechnungNr} vom ${formatDatum(rechnungDatum)} keinen Zahlungseingang feststellen können.`,
-          "Wir bitten Sie letztmalig, den Betrag innerhalb von 5 Tagen zu überweisen. Sollte die Zahlung weiterhin ausbleiben, müssen wir uns weitere Schritte vorbehalten.",
-        ];
+  // ── Anrede + Brieftext (zentral aus lib/mahnwesen-config.ts, identisch zur E-Mail) ─────────
+  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, lieferung.rechnungNr, formatDatum(rechnungDatum), k.firma);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
