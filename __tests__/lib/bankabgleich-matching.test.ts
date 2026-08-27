@@ -4,6 +4,7 @@ import {
   tokenSimilarity,
   receiptNumberHit,
   normalizeText,
+  extractRechnungsnummerKandidaten,
   type BankBuchung,
   type ReconCandidate,
 } from "@/lib/bankabgleich-matching";
@@ -30,6 +31,22 @@ describe("normalizeText / tokenSimilarity / receiptNumberHit", () => {
 
   it("matcht die kurze Nummer nur als eigenständiges Token, nicht als Teilzeichenkette (kein Treffer in einer IBAN o.Ä.)", () => {
     expect(receiptNumberHit("DE893610001234567890", "RE-2026-0361")).toBe(0);
+  });
+});
+
+describe("extractRechnungsnummerKandidaten", () => {
+  it("extrahiert alle per '+' getrennten Rechnungsnummern einer Sammelüberweisung", () => {
+    expect(extractRechnungsnummerKandidaten("Rechnungen 0497+0583+0584+0553")).toEqual(
+      expect.arrayContaining(["0497", "0583", "0584", "0553"])
+    );
+  });
+
+  it("ignoriert eine bloße Jahreszahl (zu unspezifisch)", () => {
+    expect(extractRechnungsnummerKandidaten("Rechnung RE-2026-0497")).toEqual(["0497"]);
+  });
+
+  it("liefert eine leere Liste ohne erkennbare Zahlen-Tokens", () => {
+    expect(extractRechnungsnummerKandidaten("Vielen Dank für Ihre Zahlung")).toEqual([]);
   });
 });
 

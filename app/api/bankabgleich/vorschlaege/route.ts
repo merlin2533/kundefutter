@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { rankCandidatesForBank, daysBetween, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
+import { rankCandidatesForBank, daysBetween, pairTextScore, extractRechnungsnummerKandidaten, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
 import { zuBankBuchung, ladeKandidatenFuerBetrag, sucheKandidatenFuerBetrag } from "@/lib/bankabgleich-kandidaten";
 import { Sentry } from "@/lib/sentry";
 
@@ -78,7 +78,30 @@ export async function GET(req: NextRequest) {
 
     const kandidaten = await ladeKandidatenFuerBetrag(umsatz.betrag);
     const ranked = rankCandidatesForBank(bank, kandidaten, MAX_VORSCHLAEGE);
-    const vorschlaege = ranked.map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore));
+
+    // Im Verwendungszweck referenzierte Rechnungsnummern (z.B. "Rechnungen 0497+0583+0584+0553"
+    // bei einer Sammelüberweisung) zusätzlich per direkter, uncapped DB-Suche nachladen — sonst
+    // fällt eine ältere, aber explizit referenzierte offene Rechnung durch den 300er-Deckel von
+    // ladeKandidatenFuerBetrag() lautlos aus den automatischen Vorschlägen (bisher nur für die
+    // manuelle q=-Suche gefixt, siehe Kommentar oben). Ergänzt die Top-8-Rangliste, ersetzt sie nicht.
+    const referenzierteNummern = extractRechnungsnummerKandidaten(umsatz.verwendungszweck);
+    const bereitsVorhanden = new Set(ranked.map((r) => `${r.candidate.kind}:${r.candidate.id}`));
+    const nummerTrefferRoh = referenzierteNummern.length
+      ? (await Promise.all(referenzierteNummern.map((n) => sucheKandidatenFuerBetrag(umsatz.betrag, n)))).flat()
+      : [];
+    const nummerTreffer = new Map<string, ReconCandidate>();
+    for (const c of nummerTrefferRoh) {
+      const key = `${c.kind}:${c.id}`;
+      if (!bereitsVorhanden.has(key)) nummerTreffer.set(key, c);
+    }
+    const zusaetzlich = [...nummerTreffer.values()].map((c) => ({
+      candidate: c,
+      amountDiff: Math.abs(c.amount - bank.amount),
+      dayDiff: daysBetween(bank.date, c.date),
+      textScore: pairTextScore(bank, c),
+    }));
+
+    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore));
 
     return NextResponse.json(vorschlaege);
   } catch (err) {
