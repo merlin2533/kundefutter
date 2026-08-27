@@ -143,6 +143,24 @@ export function receiptNumberHit(bankText: string, receiptNumber?: string): numb
   return hit ? 0.85 : 0;
 }
 
+/** Umkehrung von receiptNumberHit(): extrahiert aus einem Verwendungszweck alle Zahlen-Tokens,
+ * die wie eine referenzierte Rechnungsnummer aussehen (z.B. "Rechnungen 0497+0583+0584+0553" →
+ * ["0497","0583","0584","0553"]) — für die gezielte, uncapped DB-Suche nach diesen Nummern, damit
+ * eine ältere referenzierte Rechnung nicht durch den 300er-Deckel des Kandidaten-Pools aus den
+ * automatischen Vorschlägen fällt (siehe Kommentar in app/api/bankabgleich/vorschlaege/route.ts).
+ * Bare Jahreszahlen (20xx) werden ausgeschlossen — zu unspezifisch, würde zu viele Treffer liefern. */
+export function extractRechnungsnummerKandidaten(text: string): string[] {
+  const tokens = tokenize(normalizeText(text));
+  const kandidaten = new Set<string>();
+  for (const t of tokens) {
+    if (!/^\d+$/.test(t)) continue;
+    if (t.length < 3 || t.length > 8) continue;
+    if (/^20\d{2}$/.test(t)) continue;
+    kandidaten.add(t);
+  }
+  return [...kandidaten];
+}
+
 /** Kombinierte Textähnlichkeit (0..1): Belegnummer-Treffer ist nahezu sicher, sonst Token-Overlap. */
 export function pairTextScore(bank: BankBuchung, candidate: ReconCandidate): number {
   const bankText = `${bank.purpose} ${bank.name}`;
