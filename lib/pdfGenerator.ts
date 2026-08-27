@@ -627,9 +627,51 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   }
 
   // ── Zahlungsinformationen Box ───────────────────────────────────────────────
+  // GiroCode-Bilddaten + alle Textzeilen VOR dem Zeichnen des Rahmens ermitteln,
+  // damit die Box mit dem Inhalt mitwächst (fixe Höhe hätte bei zusätzlichem
+  // Skonto-Hinweis überlaufen können) statt einer festen Höhe.
   const boxX = 14;
   const boxW = 182;
-  const boxH = 32;
+
+  let giroCode: string | null = null;
+  if (FIRMA.iban && FIRMA.name) {
+    giroCode = await erzeugeGiroCodeDataUrl({
+      empfaenger: FIRMA.name,
+      iban: FIRMA.iban,
+      bic: FIRMA.bic,
+      betrag: brutto,
+      verwendungszweck: `Rechnung ${lieferung.rechnungNr ?? ""}`.trim(),
+    });
+  }
+  const textMaxWidth = giroCode ? boxW - 40 : boxW - 8;
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const zahlText =
+    `Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} bis zum ${formatDatum(faelligDatum)} ` +
+    `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}.`;
+  const zahlLines = doc.splitTextToSize(zahlText, textMaxWidth) as string[];
+
+  // Skonto nur wenn Prozent UND Frist gepflegt sind — Basisdatum/-berechnung identisch
+  // zum Skonto-Abschnitt der Lieferungs-Detailseite (app/lieferungen/[id]/page.tsx).
+  let skontoLines: string[] = [];
+  if (lieferung.skontoProzent != null && lieferung.skontoTage != null) {
+    const skontoFaellig = new Date(rechnungDatum.getTime() + lieferung.skontoTage * 24 * 60 * 60 * 1000);
+    const skontobetrag = brutto * (lieferung.skontoProzent / 100);
+    const skontoText =
+      `Bei Zahlung bis zum ${formatDatum(skontoFaellig)} gewähren wir ${lieferung.skontoProzent}% Skonto ` +
+      `(${formatEuro(skontobetrag)}).`;
+    skontoLines = doc.splitTextToSize(skontoText, textMaxWidth) as string[];
+  }
+
+  const bankZeile1 = FIRMA.bank ? `Bank: ${FIRMA.bank}` : "";
+  const bankZeile2 = [
+    FIRMA.iban ? `IBAN: ${FIRMA.iban}` : "",
+    FIRMA.bic ? `BIC: ${FIRMA.bic}` : "",
+  ].filter(Boolean).join("    ");
+  const bankLinesCount = (bankZeile1 ? 1 : 0) + (bankZeile2 ? 1 : 0);
+
+  const boxH = 12 + (zahlLines.length + skontoLines.length) * 4 + (bankLinesCount > 0 ? bankLinesCount * 4 + 2 : 0);
   sumY = sicherstellenPlatz(doc, sumY, boxH + 4, footerReserve);
   const boxY = sumY + 4;
 
@@ -640,34 +682,22 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.roundedRect(boxX, boxY, boxW, boxH, 1.5, 1.5, "FD");
 
   // GiroCode optional rechts in der Box
-  let giroCodeRendered = false;
-  if (FIRMA.iban && FIRMA.name) {
-    const giroCode = await erzeugeGiroCodeDataUrl({
-      empfaenger: FIRMA.name,
-      iban: FIRMA.iban,
-      bic: FIRMA.bic,
-      betrag: brutto,
-      verwendungszweck: `Rechnung ${lieferung.rechnungNr ?? ""}`.trim(),
-    });
-    if (giroCode) {
-      try {
-        const qrSize = 26;
-        const qrX = boxX + boxW - qrSize - 4;
-        const qrY = boxY + 3;
-        doc.addImage(giroCode, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
-        doc.setFontSize(6.5);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(120);
-        doc.text("Scan & Pay", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
-        giroCodeRendered = true;
-      } catch (e) {
-        Sentry.captureException(e); // Bild-Einbettung fehlgeschlagen – ignorieren
-      }
+  if (giroCode) {
+    try {
+      const qrSize = 26;
+      const qrX = boxX + boxW - qrSize - 4;
+      const qrY = boxY + 3;
+      doc.addImage(giroCode, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(120);
+      doc.text("Scan & Pay", qrX + qrSize / 2, qrY + qrSize + 3, { align: "center" });
+    } catch (e) {
+      Sentry.captureException(e); // Bild-Einbettung fehlgeschlagen – ignorieren
     }
   }
 
   // Text in der Box links
-  const textMaxWidth = giroCodeRendered ? boxW - 40 : boxW - 8;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...COL_TEXT);
@@ -676,23 +706,15 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(51);
-  const zahlText =
-    `Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} bis zum ${formatDatum(faelligDatum)} ` +
-    `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}.`;
-  const zahlLines = doc.splitTextToSize(zahlText, textMaxWidth) as string[];
-  zahlLines.forEach((line, i) => doc.text(line, boxX + 4, boxY + 12 + i * 4));
+  let zeileY = boxY + 12;
+  zahlLines.forEach((line) => { doc.text(line, boxX + 4, zeileY); zeileY += 4; });
+  skontoLines.forEach((line) => { doc.text(line, boxX + 4, zeileY); zeileY += 4; });
 
-  const bankZeile1 = FIRMA.bank ? `Bank: ${FIRMA.bank}` : "";
-  const bankZeile2 = [
-    FIRMA.iban ? `IBAN: ${FIRMA.iban}` : "",
-    FIRMA.bic ? `BIC: ${FIRMA.bic}` : "",
-  ].filter(Boolean).join("    ");
-  const bankStartY = boxY + 12 + zahlLines.length * 4 + 2;
   if (bankZeile1) {
-    doc.text(bankZeile1, boxX + 4, bankStartY);
+    doc.text(bankZeile1, boxX + 4, zeileY + 2);
   }
   if (bankZeile2) {
-    doc.text(bankZeile2, boxX + 4, bankStartY + (bankZeile1 ? 4 : 0));
+    doc.text(bankZeile2, boxX + 4, zeileY + 2 + (bankZeile1 ? 4 : 0));
   }
 
   // ── Dokument-Footer (3-spaltig) + Fortsetzungskopf auf JEDER Seite; STORNO-Wasserzeichen

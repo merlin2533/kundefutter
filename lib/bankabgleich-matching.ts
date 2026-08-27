@@ -26,6 +26,11 @@ export interface ReconCandidate {
   description: string;
   counterparty: string;
   receiptNumber?: string;
+  /** Nur bei kind lieferung/sammelrechnung mit hinterlegtem Skonto: Betrag nach Abzug des
+   * Skonto-Prozentsatzes (Lieferung.skontoProzent/Sammelrechnung.skontoProzent). Ein Kunde, der
+   * das Skonto nutzt, überweist absichtlich weniger als den vollen Rechnungsbetrag — ohne diesen
+   * zweiten möglichen Betrag sähe eine korrekte Skonto-Zahlung wie ein Fehlbetrag aus. */
+  skontoAmount?: number;
 }
 
 export interface MatchedPair {
@@ -38,6 +43,8 @@ export interface MatchedPair {
   aiReason?: string;
   confidence?: number;
   textScore?: number;
+  /** true = der Bankbetrag entspricht dem Skonto-reduzierten statt dem vollen Rechnungsbetrag. */
+  skontoMatch?: boolean;
 }
 
 export interface AggregatedGroup {
@@ -170,11 +177,35 @@ export function pairTextScore(bank: BankBuchung, candidate: ReconCandidate): num
   return Math.max(receipt, tokens);
 }
 
+/** Toleranz (€), ab der eine Näherung an den Skonto-Betrag tatsächlich als "das ist Skonto"
+ * gilt statt bloß "zufällig ein bisschen näher als der volle Betrag" — sonst würde z.B. eine
+ * winzige Teilzahlung, die weit von beiden Beträgen entfernt liegt, aber marginal näher am
+ * Skonto-Betrag als am vollen Betrag ist, fälschlich als erkannte Skonto-Zahlung markiert. */
+const SKONTO_ERKENNUNGS_TOLERANZ = 1;
+
+/** Betragsabweichung eines Kandidaten zu einer Bankbuchung — berücksichtigt bei Kandidaten mit
+ * hinterlegtem Skonto (skontoAmount) automatisch auch den Skonto-reduzierten Betrag, damit eine
+ * legitime Skonto-Zahlung (Kunde überweist absichtlich weniger) nicht wie ein Fehlbetrag aussieht.
+ * Liefert den jeweils näher liegenden Betrag (für Ranking/Toleranz-Checks) + ob dieser Betrag
+ * PLAUSIBEL dem Skonto-Betrag entspricht (innerhalb SKONTO_ERKENNUNGS_TOLERANZ) — nicht schon,
+ * weil er nur geringfügig näher liegt als der volle Betrag. */
+export function bestimmeBetragsabweichung(candidate: ReconCandidate, bankAmount: number): { amountDiff: number; skontoMatch: boolean } {
+  const diffVoll = Math.abs(candidate.amount - bankAmount);
+  if (candidate.skontoAmount == null) return { amountDiff: diffVoll, skontoMatch: false };
+  const diffSkonto = Math.abs(candidate.skontoAmount - bankAmount);
+  if (diffSkonto < diffVoll) {
+    return { amountDiff: diffSkonto, skontoMatch: diffSkonto <= SKONTO_ERKENNUNGS_TOLERANZ };
+  }
+  return { amountDiff: diffVoll, skontoMatch: false };
+}
+
 export interface RankedCandidate {
   candidate: ReconCandidate;
   amountDiff: number;
   dayDiff: number;
   textScore: number;
+  /** true = amountDiff wurde gegen den Skonto-reduzierten Betrag berechnet (näher als der volle Betrag). */
+  skontoMatch: boolean;
 }
 
 /**
@@ -188,18 +219,18 @@ export interface RankedCandidate {
  */
 export function rankCandidatesForBank(bank: BankBuchung, candidates: ReconCandidate[], limit = 8): RankedCandidate[] {
   const scored = candidates.map((candidate) => {
-    const amountDiff = Math.abs(candidate.amount - bank.amount);
+    const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(candidate, bank.amount);
     const dayDiff = daysBetween(bank.date, candidate.date);
     const textScore = pairTextScore(bank, candidate);
     const score = textScore * 100 - Math.min(amountDiff, 10000) / 50 - Math.min(dayDiff, 60) / 6;
-    return { candidate, amountDiff, dayDiff, textScore, score };
+    return { candidate, amountDiff, dayDiff, textScore, skontoMatch, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map(({ candidate, amountDiff, dayDiff, textScore }) => ({ candidate, amountDiff, dayDiff, textScore }));
+  return scored.slice(0, limit).map(({ candidate, amountDiff, dayDiff, textScore, skontoMatch }) => ({ candidate, amountDiff, dayDiff, textScore, skontoMatch }));
 }
 
 function hintScore(bank: BankBuchung, candidate: ReconCandidate): number {
-  const amountDiff = Math.abs(candidate.amount - bank.amount);
+  const { amountDiff } = bestimmeBetragsabweichung(candidate, bank.amount);
   const dayDiff = daysBetween(bank.date, candidate.date);
   const text = pairTextScore(bank, candidate);
   return text * 2 - amountDiff - Math.min(dayDiff, 30) / 60;
@@ -241,15 +272,18 @@ export function runNormalMatch(
   const usedCandidate = new Set<number>();
   const matchedBank = new Set<number>();
 
-  // Pass 1: exakte Treffer
+  // Pass 1: exakte Treffer — inkl. Skonto-reduziertem Betrag (bestimmeBetragsabweichung), sonst
+  // sähe eine bewusst geringer überwiesene, korrekte Skonto-Zahlung wie ein Fehlbetrag aus.
   for (let bi = 0; bi < bank.length; bi++) {
     const mv = bank[bi];
     let best = -1;
     let bestDayDiff = Infinity;
     let bestTextScore = -1;
+    let bestSkontoMatch = false;
     for (let ci = 0; ci < candidates.length; ci++) {
       if (usedCandidate.has(ci)) continue;
-      if (Math.abs(candidates[ci].amount - mv.amount) > AMOUNT_EXACT) continue;
+      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(candidates[ci], mv.amount);
+      if (amountDiff > AMOUNT_EXACT) continue;
       const dayDiff = daysBetween(mv.date, candidates[ci].date);
       if (dayDiff > dateTol) continue;
       const textScore = pairTextScore(mv, candidates[ci]);
@@ -257,6 +291,7 @@ export function runNormalMatch(
         bestTextScore = textScore;
         bestDayDiff = dayDiff;
         best = ci;
+        bestSkontoMatch = skontoMatch;
       }
     }
     if (best >= 0) {
@@ -265,11 +300,12 @@ export function runNormalMatch(
       matched.push({
         bank: mv,
         candidate: candidates[best],
-        amountDiff: Math.abs(candidates[best].amount - mv.amount),
+        amountDiff: bestimmeBetragsabweichung(candidates[best], mv.amount).amountDiff,
         dayDiff: bestDayDiff,
         category: "matched",
         source: "auto",
         textScore: bestTextScore,
+        skontoMatch: bestSkontoMatch,
       });
     }
   }
@@ -284,11 +320,12 @@ export function runNormalMatch(
     let bestAmountDiff = 0;
     let bestDayDiff = 0;
     let bestTextScore = 0;
+    let bestSkontoMatch = false;
 
     for (let ci = 0; ci < candidates.length; ci++) {
       if (usedCandidate.has(ci)) continue;
       const c = candidates[ci];
-      const amountDiff = Math.abs(c.amount - mv.amount);
+      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, mv.amount);
       if (amountDiff > amountTol) continue;
       const dayDiff = daysBetween(mv.date, c.date);
       const textScore = pairTextScore(mv, c);
@@ -306,6 +343,7 @@ export function runNormalMatch(
         bestAmountDiff = amountDiff;
         bestDayDiff = dayDiff;
         bestTextScore = textScore;
+        bestSkontoMatch = skontoMatch;
       }
     }
 
@@ -319,6 +357,7 @@ export function runNormalMatch(
         category: "deviation",
         source: "auto",
         textScore: bestTextScore,
+        skontoMatch: bestSkontoMatch,
       });
     } else {
       pending.push(mv);
@@ -397,7 +436,7 @@ function computeBankHints(bankOnly: BankBuchung[], candidateOnly: ReconCandidate
       if (score > bestScore) { bestScore = score; nearest = c; }
     }
     return nearest
-      ? { ...mv, nearestCandidate: nearest, nearestDiff: Math.abs(nearest.amount - mv.amount), nearestScore: bestScore }
+      ? { ...mv, nearestCandidate: nearest, nearestDiff: bestimmeBetragsabweichung(nearest, mv.amount).amountDiff, nearestScore: bestScore }
       : { ...mv };
   });
 }
@@ -411,7 +450,7 @@ function computeCandidateHints(candidateOnly: ReconCandidate[], bankOnly: BankBu
       if (score > bestScore) { bestScore = score; nearest = mv; }
     }
     return nearest
-      ? { ...c, nearestBank: nearest, nearestDiff: Math.abs(nearest.amount - c.amount), nearestScore: bestScore }
+      ? { ...c, nearestBank: nearest, nearestDiff: bestimmeBetragsabweichung(c, nearest.amount).amountDiff, nearestScore: bestScore }
       : { ...c };
   });
 }
@@ -448,13 +487,15 @@ export function mergeAiMatches(base: ReconciliationResult, aiMatches: AiMatch[])
 
     consumedBank.add(m.bankIndex);
     consumedCandidate.add(key);
+    const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, mv.amount);
     deviations.push({
       bank: mv,
       candidate: c,
-      amountDiff: Math.abs(c.amount - mv.amount),
+      amountDiff,
       dayDiff: daysBetween(mv.date, c.date),
       category: "deviation",
       source: "ai",
+      skontoMatch,
       aiReason: m.reason,
       confidence: m.confidence,
       textScore: pairTextScore(mv, c),

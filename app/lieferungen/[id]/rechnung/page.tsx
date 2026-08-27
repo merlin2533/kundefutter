@@ -62,6 +62,8 @@ interface Lieferung {
   rechnungVersendetAm?: string | null;
   rechnungVersandKanal?: string | null;
   zahlungsziel?: number | null;
+  skontoProzent?: number | null;
+  skontoTage?: number | null;
   bezahltAm?: string | null;
   notiz?: string | null;
   kundeId: number;
@@ -701,6 +703,13 @@ export default function RechnungPrintPage() {
 
   const mwstGesamt = Object.values(mwstGruppen).reduce((s, v) => s + v, 0);
   const bruttobetrag = rundeKaufmaennisch(nettobetrag + mwstGesamt, 2);
+
+  // Skonto — nur wenn Prozent UND Frist gepflegt sind. Basisdatum/-berechnung identisch
+  // zum Skonto-Abschnitt der Lieferungs-Detailseite (app/lieferungen/[id]/page.tsx).
+  const skontoText =
+    lieferung.skontoProzent != null && lieferung.skontoTage != null
+      ? `Bei Zahlung bis zum ${formatDatum(addTage(basisDatum, lieferung.skontoTage))} gewähren wir ${lieferung.skontoProzent}% Skonto (${formatEuro(bruttobetrag * (lieferung.skontoProzent / 100))}).`
+      : null;
 
   const rechnungNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
   const rechnungsDatumStr = lieferung.rechnungDatum
@@ -1356,6 +1365,9 @@ export default function RechnungPrintPage() {
                     <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
                     Rechnungsnummer <strong>{rechnungNr}</strong>.
                   </div>
+                  {skontoText && (
+                    <div style={{ marginBottom: "4px" }}>{skontoText}</div>
+                  )}
                   {(firmaIban || firmaBic || firmaBankname) && (
                     <div style={{ marginTop: "8px", color: "#333" }}>
                       {firmaBankname && <div>Bank: {firmaBankname}</div>}

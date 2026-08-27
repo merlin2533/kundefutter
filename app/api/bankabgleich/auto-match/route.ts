@@ -32,6 +32,8 @@ interface AbgleichPaar {
   textScore: number;
   /** Datum (ISO), das bei Annahme als "bezahlt" auf dem Zielobjekt gesetzt würde. */
   wirdBezahltAm: string;
+  /** true = amountDiff wurde gegen den Skonto-reduzierten statt den vollen Rechnungsbetrag berechnet. */
+  skontoMatch: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -81,13 +83,14 @@ export async function POST(req: NextRequest) {
       verwendungszweck: b.purpose,
       gegenpartei: b.name,
     });
-    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number }): AbgleichPaar => ({
+    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number; skontoMatch?: boolean }): AbgleichPaar => ({
       bank: toBankInfo(p.bank),
       kandidat: toKandidatInfo(p.candidate),
       amountDiff: p.amountDiff,
       dayDiff: p.dayDiff,
       textScore: p.textScore ?? 0,
       wirdBezahltAm: p.bank.date,
+      skontoMatch: p.skontoMatch ?? false,
     });
 
     return NextResponse.json({

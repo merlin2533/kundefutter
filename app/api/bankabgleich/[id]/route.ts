@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
-import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
+import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, markiereSkontoGenutztFallsPassend, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
 import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 
@@ -101,6 +101,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         for (const [zielTyp, zielId] of ziele) {
           if (zielId) await markiereAlsBezahlt(zielTyp, zielId, umsatz.buchungsdatum, tx);
         }
+        // Skonto erkennen: entspricht der zugeordnete Bankbetrag dem Skonto-reduzierten statt dem
+        // vollen Rechnungsbetrag, "Skonto genutzt" automatisch setzen (unabhängig davon, ob
+        // zusätzlich eine Differenzbuchung angefordert wurde).
+        if (lieferungId) await markiereSkontoGenutztFallsPassend(tx, "lieferung", lieferungId, umsatz.betrag);
+        if (sammelrechnungId) await markiereSkontoGenutztFallsPassend(tx, "sammelrechnung", sammelrechnungId, umsatz.betrag);
       } else if (lieferungId || sammelrechnungId) {
         // Kunde zahlt eine Rechnung in mehreren Teilbeträgen (z.B. zwei Überweisungen): die
         // Rechnung bleibt offen (bezahltAm bleibt null, taucht also weiter als Kandidat für die
@@ -129,6 +134,8 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
           kundeId: ziel.kundeId,
           diff: umsatz.betrag - ziel.betrag,
           zielBezeichnung: ziel.bezeichnung,
+          zielBrutto: ziel.betrag,
+          skontoProzent: ziel.skontoProzent,
           bankDatum: umsatz.buchungsdatum,
           art: differenzAktion,
         });
