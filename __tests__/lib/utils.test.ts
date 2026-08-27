@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -46,5 +46,27 @@ describe("formatMenge", () => {
   it("zeigt Mengen mit bis zu drei Nachkommastellen", () => {
     expect(formatMenge(0.12)).toBe("0,12");
     expect(formatMenge(12.3456)).toBe("12,346");
+  });
+});
+
+describe("umlautSchreibweisen", () => {
+  it("liefert nur den Suchbegriff selbst zurück, wenn keine Umlaute enthalten sind", () => {
+    expect(umlautSchreibweisen("rettich")).toEqual(["rettich"]);
+  });
+
+  it("erzeugt beide Schreibweisen bei einem Umlaut", () => {
+    expect(umlautSchreibweisen("ölrettich").sort()).toEqual(["Ölrettich", "ölrettich"].sort());
+  });
+
+  it("erzeugt alle 4 Kombinationen bei zwei Umlauten im Suchbegriff", () => {
+    const varianten = umlautSchreibweisen("örtükei");
+    expect(varianten.sort()).toEqual(["örtükei", "örtÜkei", "Örtükei", "ÖrtÜkei"].sort());
+  });
+
+  it("behält die Groß-/Kleinschreibung der übrigen (nicht-Umlaut) Buchstaben bei", () => {
+    const varianten = umlautSchreibweisen("Öl");
+    expect(varianten).toContain("Öl");
+    expect(varianten).toContain("öl");
+    expect(varianten.every((v) => v.endsWith("l"))).toBe(true);
   });
 });

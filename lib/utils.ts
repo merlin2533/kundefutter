@@ -282,3 +282,45 @@ export function parseBisYearMonth(ym: string | null | undefined, fallback?: Date
   }
   return fallback ?? new Date();
 }
+
+const UMLAUT_PAARE: [string, string][] = [
+  ["ä", "Ä"],
+  ["ö", "Ö"],
+  ["ü", "Ü"],
+];
+
+/**
+ * SQLites LIKE-Operator (Basis von Prisma `contains` auf SQLite) faltet Groß-/Kleinschreibung
+ * nur für ASCII-Buchstaben — deutsche Umlaute (ä/ö/ü) bleiben case-sensitiv. Eine Suche nach
+ * "ölrettich" findet den gespeicherten Artikel "Ölrettich" dadurch NICHT, obwohl der Rest des
+ * Wortes (ASCII) bereits case-insensitiv gefunden würde.
+ *
+ * Erzeugt alle Groß-/Klein-Kombinationen der im Suchbegriff enthaltenen Umlaute, damit sie als
+ * `contains`-OR-Filter alle Schreibweisen abdecken (Aufrufer: `where.OR = umlautSchreibweisen(q)
+ * .flatMap(v => [...])`). Ohne Umlaute im Suchbegriff liefert die Funktion einfach `[suchbegriff]`
+ * zurück (kein zusätzlicher Overhead). Bei mehr als 6 Umlauten im Suchbegriff wird begrenzt, um
+ * eine kombinatorische Explosion zu vermeiden — in der Praxis unrealistisch lang.
+ */
+export function umlautSchreibweisen(suchbegriff: string): string[] {
+  const positionen: number[] = [];
+  for (let i = 0; i < suchbegriff.length; i++) {
+    if (UMLAUT_PAARE.some(([klein, gross]) => suchbegriff[i] === klein || suchbegriff[i] === gross)) {
+      positionen.push(i);
+    }
+  }
+  if (positionen.length === 0) return [suchbegriff];
+
+  const begrenzt = positionen.slice(0, 6);
+  const chars = suchbegriff.split("");
+  const varianten = new Set<string>();
+  for (let mask = 0; mask < 1 << begrenzt.length; mask++) {
+    const kopie = [...chars];
+    begrenzt.forEach((pos, idx) => {
+      const paar = UMLAUT_PAARE.find(([klein, gross]) => kopie[pos] === klein || kopie[pos] === gross);
+      if (!paar) return;
+      kopie[pos] = mask & (1 << idx) ? paar[1] : paar[0];
+    });
+    varianten.add(kopie.join(""));
+  }
+  return [...varianten];
+}

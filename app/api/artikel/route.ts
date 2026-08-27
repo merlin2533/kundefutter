@@ -6,6 +6,7 @@ import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loeseArtikelPreiseFuerJahr } from "@/lib/jahrespreis";
+import { umlautSchreibweisen } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,13 @@ export async function GET(req: NextRequest) {
   }
   if (nurSprengstoff === "1") where.sprengstoffvorlaeufer = true;
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { artikelnummer: { contains: search } },
-      { inhaltsstoffe: { some: { name: { contains: search } } } },
-    ];
+    // Deckt alle Groß-/Klein-Schreibweisen von Umlauten im Suchbegriff ab — SQLites LIKE
+    // (Prisma contains) faltet Groß-/Kleinschreibung nur für ASCII (siehe umlautSchreibweisen()).
+    where.OR = umlautSchreibweisen(search).flatMap((s) => [
+      { name: { contains: s } },
+      { artikelnummer: { contains: s } },
+      { inhaltsstoffe: { some: { name: { contains: s } } } },
+    ]);
   }
 
   // Paginierung + optionale Relations (spart Joins bei Listenansichten)
