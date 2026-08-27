@@ -22,7 +22,7 @@ export async function GET() {
     const offene = await prisma.lieferung.findMany({
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
       include: {
-        kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" }, select: { wert: true }, take: 1 } } },
+        kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" } } } },
         positionen: {
           select: {
             menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true,
