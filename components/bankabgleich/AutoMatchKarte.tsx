@@ -26,6 +26,7 @@ export interface Vorschlag extends KandidatInfo {
   dayDiff: number;
   textScore: number;
   wirdBezahltAm: string;
+  skontoMatch: boolean;
 }
 
 export interface AutoMatchKarteProps {
@@ -37,6 +38,7 @@ export interface AutoMatchKarteProps {
   konfidenz: "hoch" | "mittel" | "niedrig";
   kiKonfidenz?: number;
   kiBegruendung?: string;
+  skontoMatch?: boolean;
   onUebernehmen: (alsBezahlt: boolean, differenzAktion?: "gutschrift" | "forderung") => void | Promise<void>;
   onKandidatWechseln: (neu: Vorschlag) => void;
 }
@@ -57,6 +59,7 @@ export default function AutoMatchKarte({
   konfidenz,
   kiKonfidenz,
   kiBegruendung,
+  skontoMatch,
   onUebernehmen,
   onKandidatWechseln,
 }: AutoMatchKarteProps) {
@@ -103,6 +106,7 @@ export default function AutoMatchKarte({
         dayDiff={dayDiff}
         signedDiff={bank.betrag - kandidat.betrag}
         bankBetrag={bank.betrag}
+        skontoMatch={skontoMatch}
         onUebernehmen={onUebernehmen}
         compact
       />

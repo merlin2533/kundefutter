@@ -73,6 +73,7 @@ interface Vorschlag {
   amountDiff: number;
   dayDiff: number;
   wirdBezahltAm: string;
+  skontoMatch: boolean;
 }
 
 function BankabgleichContent() {
@@ -731,6 +732,7 @@ function BankabgleichContent() {
                                     dayDiff={v.dayDiff}
                                     signedDiff={u.betrag - v.betrag}
                                     bankBetrag={u.betrag}
+                                    skontoMatch={v.skontoMatch}
                                     onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
                                     selected={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? ausgewaehlt.has(`${v.typ}:${v.id}`) : undefined}
                                     onToggleSelect={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? () => toggleAuswahl(v) : undefined}

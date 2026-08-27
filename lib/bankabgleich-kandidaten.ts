@@ -46,6 +46,14 @@ const SAMMELRECHNUNG_INCLUDE = {
   lieferungen: { include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } } },
 } satisfies Prisma.SammelrechnungInclude;
 
+/** Betrag nach Abzug des hinterlegten Skonto-Prozentsatzes — undefined wenn kein Skonto gepflegt
+ * ist. Skonto-Tage/-Frist spielen hier bewusst keine Rolle: der Bankabgleich soll die Zahlung
+ * einer Rechnung erkennen, nicht die Fristeinhaltung durchsetzen (das bleibt Sache des manuellen
+ * "Skonto wurde genutzt"-Häkchens auf der Lieferungs-Detailseite). */
+function skontoBetrag(brutto: number, skontoProzent: number | null): number | undefined {
+  return skontoProzent != null ? brutto * (1 - skontoProzent / 100) : undefined;
+}
+
 async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: number): Promise<ReconCandidate[]> {
   const lieferungen = await prisma.lieferung.findMany({
     where,
@@ -53,15 +61,19 @@ async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: 
     take,
     orderBy: { rechnungDatum: "desc" },
   });
-  return lieferungen.map((l) => ({
-    kind: "lieferung",
-    id: l.id,
-    date: toIso(l.rechnungDatum ?? l.datum),
-    amount: berechneLieferungBrutto(l),
-    description: `Lieferung ${l.rechnungNr ?? ""}`.trim(),
-    counterparty: l.kunde.name,
-    receiptNumber: l.rechnungNr ?? undefined,
-  }));
+  return lieferungen.map((l) => {
+    const amount = berechneLieferungBrutto(l);
+    return {
+      kind: "lieferung",
+      id: l.id,
+      date: toIso(l.rechnungDatum ?? l.datum),
+      amount,
+      description: `Lieferung ${l.rechnungNr ?? ""}`.trim(),
+      counterparty: l.kunde.name,
+      receiptNumber: l.rechnungNr ?? undefined,
+      skontoAmount: skontoBetrag(amount, l.skontoProzent),
+    };
+  });
 }
 
 async function ladeSammelrechnungKandidaten(where: Prisma.SammelrechnungWhereInput, take: number): Promise<ReconCandidate[]> {
@@ -71,15 +83,19 @@ async function ladeSammelrechnungKandidaten(where: Prisma.SammelrechnungWhereInp
     take,
     orderBy: { rechnungDatum: "desc" },
   });
-  return sammelrechnungen.map((s) => ({
-    kind: "sammelrechnung",
-    id: s.id,
-    date: toIso(s.rechnungDatum ?? s.createdAt),
-    amount: berechneSammelrechnungBrutto(s),
-    description: `Sammelrechnung ${s.rechnungNr ?? ""}`.trim(),
-    counterparty: s.kunde.name,
-    receiptNumber: s.rechnungNr ?? undefined,
-  }));
+  return sammelrechnungen.map((s) => {
+    const amount = berechneSammelrechnungBrutto(s);
+    return {
+      kind: "sammelrechnung",
+      id: s.id,
+      date: toIso(s.rechnungDatum ?? s.createdAt),
+      amount,
+      description: `Sammelrechnung ${s.rechnungNr ?? ""}`.trim(),
+      counterparty: s.kunde.name,
+      receiptNumber: s.rechnungNr ?? undefined,
+      skontoAmount: skontoBetrag(amount, s.skontoProzent),
+    };
+  });
 }
 
 async function ladeAusgabeKandidaten(where: Prisma.AusgabeWhereInput, take: number): Promise<ReconCandidate[]> {

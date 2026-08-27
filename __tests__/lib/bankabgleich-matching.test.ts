@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   runNormalMatch,
+  rankCandidatesForBank,
+  bestimmeBetragsabweichung,
   tokenSimilarity,
   receiptNumberHit,
   normalizeText,
@@ -136,5 +138,64 @@ describe("runNormalMatch — Näherungserkennung", () => {
     expect(result.bankOnly).toHaveLength(1);
     expect(result.candidateOnly).toHaveLength(1);
     expect(result.bankOnly[0].nearestCandidate?.id).toBe(999);
+  });
+});
+
+describe("Skonto-Erkennung — bestimmeBetragsabweichung / runNormalMatch / rankCandidatesForBank", () => {
+  it("bestimmeBetragsabweichung nimmt den Skonto-Betrag, wenn er näher an der Bankbuchung liegt", () => {
+    const candidate: ReconCandidate = { kind: "lieferung", id: 1, date: "2026-07-01", amount: 1000, skontoAmount: 980, description: "", counterparty: "" };
+    expect(bestimmeBetragsabweichung(candidate, 980)).toEqual({ amountDiff: 0, skontoMatch: true });
+    expect(bestimmeBetragsabweichung(candidate, 1000)).toEqual({ amountDiff: 0, skontoMatch: false });
+  });
+
+  it("bestimmeBetragsabweichung ignoriert skontoAmount, wenn nicht gesetzt", () => {
+    const candidate: ReconCandidate = { kind: "lieferung", id: 1, date: "2026-07-01", amount: 1000, description: "", counterparty: "" };
+    expect(bestimmeBetragsabweichung(candidate, 980)).toEqual({ amountDiff: 20, skontoMatch: false });
+  });
+
+  it("bestimmeBetragsabweichung markiert skontoMatch NICHT, wenn der Skonto-Betrag nur marginal näher liegt als der volle Betrag (keine echte Skonto-Zahlung, z.B. eine winzige Teilzahlung)", () => {
+    const candidate: ReconCandidate = { kind: "lieferung", id: 1, date: "2026-07-01", amount: 1190, skontoAmount: 1166.2, description: "", counterparty: "" };
+    const r = bestimmeBetragsabweichung(candidate, 100);
+    expect(r.skontoMatch).toBe(false);
+    expect(r.amountDiff).toBeCloseTo(1066.2, 2);
+  });
+
+  it("runNormalMatch erkennt eine exakte Skonto-Zahlung (2%) als sicheren Treffer (Pass 1), nicht als Abweichung", () => {
+    const bank: BankBuchung[] = [
+      { id: 1, date: "2026-07-05", amount: 980, purpose: "Zahlung RE-2026-0100 mit Skonto", name: "Testhof Müller" },
+    ];
+    const candidates: ReconCandidate[] = [
+      { kind: "lieferung", id: 1, date: "2026-07-01", amount: 1000, skontoAmount: 980, description: "Lieferung", counterparty: "Testhof Müller", receiptNumber: "RE-2026-0100" },
+    ];
+    const result = runNormalMatch(bank, candidates);
+    expect(result.matched).toHaveLength(1);
+    expect(result.deviations).toHaveLength(0);
+    expect(result.matched[0].skontoMatch).toBe(true);
+    expect(result.matched[0].amountDiff).toBeCloseTo(0, 5);
+  });
+
+  it("runNormalMatch erkennt eine Skonto-Zahlung mit kleiner Rundungsabweichung noch als Treffer innerhalb der Standardtoleranz (Pass 2)", () => {
+    const bank: BankBuchung[] = [
+      { id: 2, date: "2026-07-05", amount: 979.8, purpose: "Zahlung mit Skonto", name: "Testhof Müller" },
+    ];
+    const candidates: ReconCandidate[] = [
+      { kind: "lieferung", id: 2, date: "2026-07-01", amount: 1000, skontoAmount: 980, description: "Lieferung", counterparty: "Testhof Müller" },
+    ];
+    const result = runNormalMatch(bank, candidates);
+    expect(result.deviations).toHaveLength(1);
+    expect(result.deviations[0].skontoMatch).toBe(true);
+    expect(result.deviations[0].amountDiff).toBeCloseTo(0.2, 2);
+  });
+
+  it("rankCandidatesForBank rankt einen Skonto-Treffer vor einem betraglich näheren, aber unpassenden Kandidaten", () => {
+    const bank: BankBuchung = { id: 1, date: "2026-07-05", amount: 980, purpose: "Zahlung RE-2026-0100", name: "Testhof Müller" };
+    const candidates: ReconCandidate[] = [
+      { kind: "lieferung", id: 1, date: "2026-07-01", amount: 1000, skontoAmount: 980, description: "Lieferung", counterparty: "Testhof Müller", receiptNumber: "RE-2026-0100" },
+      { kind: "lieferung", id: 2, date: "2026-07-01", amount: 985, description: "Andere Lieferung", counterparty: "Anderer Kunde" },
+    ];
+    const ranked = rankCandidatesForBank(bank, candidates);
+    expect(ranked[0].candidate.id).toBe(1);
+    expect(ranked[0].skontoMatch).toBe(true);
+    expect(ranked[0].amountDiff).toBeCloseTo(0, 5);
   });
 });

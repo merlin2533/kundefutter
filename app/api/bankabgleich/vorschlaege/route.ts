@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { rankCandidatesForBank, daysBetween, pairTextScore, extractRechnungsnummerKandidaten, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
+import { rankCandidatesForBank, daysBetween, pairTextScore, bestimmeBetragsabweichung, extractRechnungsnummerKandidaten, type ReconCandidate, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
 import { zuBankBuchung, ladeKandidatenFuerBetrag, sucheKandidatenFuerBetrag } from "@/lib/bankabgleich-kandidaten";
 import { Sentry } from "@/lib/sentry";
 
@@ -18,6 +18,9 @@ export interface Vorschlag {
   textScore: number;
   /** Datum (ISO), das bei Annahme als "bezahlt" auf dem Zielobjekt gesetzt würde. */
   wirdBezahltAm: string;
+  /** true = amountDiff wurde gegen den Skonto-reduzierten statt den vollen Rechnungsbetrag
+   * berechnet — die Abweichung ist damit vermutlich kein Fehlbetrag, sondern genutztes Skonto. */
+  skontoMatch: boolean;
 }
 
 const MAX_VORSCHLAEGE = 8;
@@ -33,7 +36,7 @@ function konfidenzFuer(amountDiff: number, dayDiff: number, textScore: number): 
   return "niedrig";
 }
 
-function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: number, dayDiff: number, textScore: number): Vorschlag {
+function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: number, dayDiff: number, textScore: number, skontoMatch = false): Vorschlag {
   return {
     typ: c.kind,
     id: c.id,
@@ -45,6 +48,7 @@ function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: numbe
     dayDiff,
     textScore,
     wirdBezahltAm,
+    skontoMatch,
   };
 }
 
@@ -70,9 +74,10 @@ export async function GET(req: NextRequest) {
     // Rechnung aus der Suche heraus, sobald mehr als 300 neuere offene Rechnungen existieren.
     if (q.length >= 2) {
       const treffer = await sucheKandidatenFuerBetrag(umsatz.betrag, q);
-      const vorschlaege = treffer
-        .slice(0, MAX_SUCHTREFFER)
-        .map((c) => zuVorschlag(c, bank.date, Math.abs(c.amount - bank.amount), daysBetween(bank.date, c.date), 0));
+      const vorschlaege = treffer.slice(0, MAX_SUCHTREFFER).map((c) => {
+        const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, bank.amount);
+        return zuVorschlag(c, bank.date, amountDiff, daysBetween(bank.date, c.date), 0, skontoMatch);
+      });
       return NextResponse.json(vorschlaege);
     }
 
@@ -94,14 +99,12 @@ export async function GET(req: NextRequest) {
       const key = `${c.kind}:${c.id}`;
       if (!bereitsVorhanden.has(key)) nummerTreffer.set(key, c);
     }
-    const zusaetzlich = [...nummerTreffer.values()].map((c) => ({
-      candidate: c,
-      amountDiff: Math.abs(c.amount - bank.amount),
-      dayDiff: daysBetween(bank.date, c.date),
-      textScore: pairTextScore(bank, c),
-    }));
+    const zusaetzlich = [...nummerTreffer.values()].map((c) => {
+      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, bank.amount);
+      return { candidate: c, amountDiff, dayDiff: daysBetween(bank.date, c.date), textScore: pairTextScore(bank, c), skontoMatch };
+    });
 
-    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore));
+    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore, r.skontoMatch));
 
     return NextResponse.json(vorschlaege);
   } catch (err) {

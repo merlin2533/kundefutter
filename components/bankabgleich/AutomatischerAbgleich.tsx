@@ -43,6 +43,7 @@ interface AbgleichPaar {
   wirdBezahltAm: string;
   konfidenz?: number; // nur bei KI-Treffern
   begruendung?: string;
+  skontoMatch: boolean;
 }
 interface BankOnlyItem extends BankInfo {
   naechsterKandidat: KandidatInfo | null;
@@ -169,6 +170,7 @@ export default function AutomatischerAbgleich({
                 amountDiff: neu.amountDiff,
                 dayDiff: neu.dayDiff,
                 textScore: neu.textScore,
+                skontoMatch: neu.skontoMatch,
                 konfidenz: undefined,
                 begruendung: undefined,
               }
@@ -359,6 +361,7 @@ export default function AutomatischerAbgleich({
                     wirdBezahltAm={p.wirdBezahltAm}
                     amountDiff={p.amountDiff}
                     dayDiff={p.dayDiff}
+                    skontoMatch={p.skontoMatch}
                     onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                     onKandidatWechseln={(neu) => kandidatWechseln("matched", p.bank.umsatzId, neu)}
                   />
@@ -391,6 +394,7 @@ export default function AutomatischerAbgleich({
                     wirdBezahltAm={p.wirdBezahltAm}
                     amountDiff={p.amountDiff}
                     dayDiff={p.dayDiff}
+                    skontoMatch={p.skontoMatch}
                     onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                     onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                   />
