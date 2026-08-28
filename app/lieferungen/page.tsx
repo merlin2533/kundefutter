@@ -463,7 +463,14 @@ export default function LieferungenPage() {
                             )}
                           </div>
                         </td>
-                        <td className="hidden md:table-cell px-4 py-3 text-center">{l.positionen.length}</td>
+                        <td className="hidden md:table-cell px-4 py-3 max-w-[220px]">
+                          <div
+                            className="text-xs text-gray-700 truncate"
+                            title={l.positionen.map((p) => p.artikel.name).join(", ")}
+                          >
+                            {l.positionen.map((p) => p.artikel.name).join(", ")}
+                          </div>
+                        </td>
                         <td className="hidden sm:table-cell px-4 py-3 font-mono whitespace-nowrap">{formatEuro(umsatz)}</td>
                         <td className="hidden lg:table-cell px-4 py-3">
                           <MargeBadge pct={margePct} />
