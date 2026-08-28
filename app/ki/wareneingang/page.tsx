@@ -9,7 +9,7 @@ import {
   matchArtikel as matchArtikelGelernt,
   normalisiereSuchtext,
   normalisiereArtikelnummer,
-  tokenSimilarity,
+  istGleicherName,
   fetchAlleSeiten,
 } from "@/lib/kiMatching";
 import * as Sentry from "@sentry/nextjs";
@@ -73,6 +73,11 @@ interface MatchedPosition {
    * verhindert, dass eine später eintreffende automatische Zuordnung (z.B. nachträglich
    * geladene Lieferanten-Artikelnummern) eine bewusste Nutzerentscheidung überschreibt. */
   manuallyEdited?: boolean;
+  /** True, wenn "exakt" ausschließlich durch die automatische Lieferanten-Artikelnummer-Hochstufung
+   * gesetzt wurde (nicht durch den Nutzer/eine Neuanlage) — wird zurückgesetzt und neu bewertet,
+   * wenn der Lieferant wechselt, damit die Position nicht dauerhaft auf dem FALSCHEN (vorherigen)
+   * Lieferanten hängen bleibt, nur weil "exakt" sonst nie wieder angefasst würde. */
+  autoLieferantUpgrade?: boolean;
 }
 
 // ---- Vollständiges Laden (kein Limit) --------------------------------------
@@ -382,8 +387,20 @@ function KiWareneingangWizard() {
   }, [imageBase64, vorLieferantId, lieferanten, artikel]);
 
   // Lieferanten-Artikelnummern nachladen, sobald der Lieferant bekannt ist/wechselt — sowohl bei
-  // Vorauswahl in Schritt 1 als auch bei späterer Wahl/Änderung in Schritt 3.
+  // Vorauswahl in Schritt 1 als auch bei späterer Wahl/Änderung in Schritt 3. Zuvor: Positionen,
+  // die NUR durch die automatische Lieferanten-Artikelnummer-Hochstufung (nicht durch den Nutzer)
+  // auf "exakt" gesetzt wurden, zurücksetzen — sonst blieben sie beim Wechsel auf einen anderen
+  // Lieferanten für immer auf dem FALSCHEN (vorherigen) Lieferanten hängen, weil "exakt" die
+  // nachfolgende Hochstufung sonst dauerhaft überspringt.
   useEffect(() => {
+    setPositionen((prev) =>
+      prev.map((p) => {
+        if (!p.autoLieferantUpgrade) return p;
+        const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(p.ki, artikel, gelerntArtikelMap);
+        return { ...p, artikelId, vorschlagArtikelId, konfidenz, autoLieferantUpgrade: false };
+      })
+    );
+
     if (!lieferantId) {
       setLieferantenArtNrMap(new Map());
       return;
@@ -402,16 +419,18 @@ function KiWareneingangWizard() {
   }, [lieferantId]);
 
   // Sobald die Lieferanten-Artikelnummern verfügbar sind, noch unsichere Positionen (nicht
-  // manuell bestätigt, noch nicht "gelernt"/"exakt") nachträglich hochstufen — Upgrade-only: eine
-  // bereits vom Nutzer getroffene oder bereits sichere Zuordnung wird nie überschrieben.
+  // manuell bestätigt, noch nicht "gelernt" oder anderweitig — nicht nur durch diese Hochstufung
+  // selbst — bereits "exakt") nachträglich hochstufen. Upgrade-only: eine bereits vom Nutzer
+  // getroffene oder bereits sichere Zuordnung wird nie überschrieben.
   useEffect(() => {
     if (lieferantenArtNrMap.size === 0) return;
     setPositionen((prev) =>
       prev.map((p) => {
-        if (p.manuallyEdited || p.konfidenz === "gelernt" || p.konfidenz === "exakt") return p;
+        if (p.manuallyEdited || p.konfidenz === "gelernt") return p;
+        if (p.konfidenz === "exakt" && !p.autoLieferantUpgrade) return p;
         const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(p.ki, artikel, gelerntArtikelMap, lieferantenArtNrMap);
         if (konfidenz !== "exakt" || !artikelId) return p;
-        return { ...p, artikelId, vorschlagArtikelId, konfidenz };
+        return { ...p, artikelId, vorschlagArtikelId, konfidenz, autoLieferantUpgrade: true };
       })
     );
   }, [lieferantenArtNrMap, gelerntArtikelMap, artikel]);
@@ -445,6 +464,7 @@ function KiWareneingangWizard() {
               ...p,
               artikelId: neueArtikelId,
               manuallyEdited: true,
+              autoLieferantUpgrade: false,
               konfidenz: neueArtikelId
                 ? ((neueArtikelId === pos.artikelId ? pos.konfidenz : "teilweise") as Konfidenz)
                 : ("keine" as Konfidenz),
@@ -456,7 +476,12 @@ function KiWareneingangWizard() {
       const neueIdNum = parseInt(neueArtikelId, 10);
       if (!Number.isFinite(neueIdNum)) return next;
 
-      if (neueIdNum !== pos.vorschlagArtikelId) {
+      const suchtextKey = normalisiereSuchtext(pos.ki.name);
+      // Meldet IMMER, wenn der neue Wert vom bereits Gelernten abweicht — nicht nur, wenn er vom
+      // ursprünglichen KI-Vorschlag abweicht. Ein Vergleich nur gegen vorschlagArtikelId würde eine
+      // versehentlich falsch gelernte Zuordnung dauerhaft bestehen lassen, sobald der Nutzer wieder
+      // auf den (zufällig mit dem KI-Vorschlag identischen) richtigen Artikel zurückwechselt.
+      if (gelerntArtikelMap.get(suchtextKey) !== neueIdNum) {
         fetch("/api/ki/lernen", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -465,17 +490,21 @@ function KiWareneingangWizard() {
           Sentry.captureException(err);
         });
       }
-      const suchtextKey = normalisiereSuchtext(pos.ki.name);
       setGelerntArtikelMap((m) => new Map(m).set(suchtextKey, neueIdNum));
 
-      // Andere, noch nicht manuell bestätigte Positionen mit identischem/sehr ähnlichem KI-Namen
-      // sofort auf denselben Artikel setzen.
+      // Andere, noch nicht manuell bestätigte UND noch nicht bereits sicher zugeordnete ("exakt",
+      // z.B. per Lieferanten-Artikelnummer oder Neuanlage) Positionen mit identischem/sehr
+      // ähnlichem KI-Namen sofort auf denselben Artikel setzen.
       return next.map((p, i) => {
-        if (i === idx || p.manuallyEdited || !p.ki.name) return p;
-        const gleich =
-          normalisiereSuchtext(p.ki.name) === suchtextKey || tokenSimilarity(p.ki.name, pos.ki.name) >= 0.9;
-        if (!gleich) return p;
-        return { ...p, artikelId: neueArtikelId, vorschlagArtikelId: neueIdNum, konfidenz: "gelernt" as Konfidenz };
+        if (i === idx || p.manuallyEdited || p.konfidenz === "exakt" || !p.ki.name) return p;
+        if (!istGleicherName(p.ki.name, pos.ki.name)) return p;
+        return {
+          ...p,
+          artikelId: neueArtikelId,
+          vorschlagArtikelId: neueIdNum,
+          konfidenz: "gelernt" as Konfidenz,
+          autoLieferantUpgrade: false,
+        };
       });
     });
   };

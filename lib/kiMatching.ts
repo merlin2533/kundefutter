@@ -2,29 +2,74 @@
 // (Kunde/Artikel-Zuordnung), genutzt sowohl vom Einzel-Scan (app/ki/lieferung,
 // app/ki/wareneingang) als auch vom Batch-Modus (app/ki/lieferung/batch).
 
-// Wiederverwendung der bereits vorhandenen, abhängigkeitsfreien Textähnlichkeits-Funktionen aus
-// dem Bankabgleich-Matcher statt einer eigenen (dritten) Implementierung oder einer neuen
+// Wiederverwendung der bereits vorhandenen, abhängigkeitsfreien Textnormalisierung aus dem
+// Bankabgleich-Matcher statt einer eigenen (dritten) Implementierung oder einer neuen
 // npm-Abhängigkeit — bankabgleich-matching.ts hat selbst keine Imports und ist damit bundle-sicher
 // auch für diese ausschließlich clientseitig genutzte Datei. Re-exportiert, damit Aufrufer sie bei
 // Bedarf direkt aus @/lib/kiMatching beziehen können.
-import { normalizeText, tokenSimilarity } from "./bankabgleich-matching";
-export { normalizeText, tokenSimilarity };
+//
+// WICHTIG: die dortige tokenSimilarity() (Overlap-Koeffizient |A∩B|/min(|A|,|B|)) wird hier
+// bewusst NICHT für Namens-Ähnlichkeit verwendet — sie ist für den Bankabgleich richtig (ein
+// kurzer Buchungstext soll auch dann treffen, wenn er komplett in einem langen Verwendungszweck
+// steckt), würde bei Artikelnamen aber dazu führen, dass ein kurzer gelernter Name wie "Weizen"
+// JEDEN Artikelnamen träfe, der dieses eine Wort enthält (z.B. "Weizen Saatgut Premium") — und
+// das auf der höchsten Vertrauensstufe ("gelernt"). Stattdessen: eigene, Jaccard-basierte
+// Ähnlichkeit (siehe jaccard()), die einen großen Größenunterschied der Wortmengen bestraft.
+import { normalizeText } from "./bankabgleich-matching";
+export { normalizeText };
 
 export type Konfidenz = "hoch" | "mittel" | "niedrig" | "keine" | "gelernt";
 
+/** Eigene, von der Bankabgleich-Tokenisierung unabhängige Tokenisierung für Artikelnamen: reine
+ * Zahlen-Token (Gebindegrößen wie "25", Prozentangaben) werden entfernt, da sie sonst zwei völlig
+ * unterschiedliche Artikel allein über eine gemeinsame Zahl (z.B. "25 kg") als ähnlich erscheinen
+ * lassen — sinnvoll wird das nur, wenn tatsächlich auch der Wortstamm übereinstimmt. */
+function tokenizeName(text: string): string[] {
+  return normalizeText(text)
+    .split(" ")
+    .filter((t) => t.length >= 2 && !/^\d+$/.test(t));
+}
+
+/** Jaccard-Ähnlichkeit (|A∩B| / |A∪B|) zweier Wortmengen. */
+function jaccard(a: string[], b: string[]): number {
+  if (a.length === 0 || b.length === 0) return 0;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let inter = 0;
+  for (const t of setA) if (setB.has(t)) inter++;
+  return inter / (setA.size + setB.size - inter);
+}
+
 // Schwellwerte für das Best-Pick-Namens-Scoring und den Fuzzy-Fallback auf gelernte Zuordnungen —
 // an einer Stelle gesammelt, damit sie sich leicht nachjustieren lassen.
-/** Ab diesem tokenSimilarity-Wert gilt ein KI-erkannter Name als "im Grunde derselbe Text" wie
- * ein bereits gelernter Suchtext (toleriert OCR-Rauschen: Leerzeichen, Wortstellung, Umlaute). */
-const GELERNT_FUZZY_MIN_SCORE = 0.9;
+/** Ab dieser Jaccard-Ähnlichkeit gelten zwei erkannte Namen als "dasselbe Produkt" — genutzt für
+ * den Fuzzy-Fallback auf gelernte Zuordnungen UND für die sofortige Weitergabe einer Korrektur an
+ * andere Positionen mit ähnlichem KI-Namen (istGleicherName). Bewusst strenger als die Schwellen
+ * des Best-Pick-Namens-Scorings unten, da beide Fälle automatisch die höchste Vertrauensstufe
+ * ("gelernt") vergeben. */
+const AEHNLICHER_NAME_MIN_SCORE = 0.65;
 /** Best-Pick-Namens-Score ab dieser Schwelle → Konfidenz "mittel". */
-const NAME_SCORE_MITTEL = 0.8;
+const NAME_SCORE_MITTEL = 0.5;
 /** Best-Pick-Namens-Score ab dieser Schwelle (aber unter NAME_SCORE_MITTEL) → "niedrig". */
-const NAME_SCORE_NIEDRIG = 0.5;
-/** Score-Untergrenze, wenn ein normalisierter Name den anderen vollständig enthält (z.B. "Mais"
- * vs. "Mais Gelb Körnermais 25kg") — Substring-Enthaltung ist ein starkes Signal, auch wenn der
- * reine Token-Overlap-Wert wegen der unterschiedlichen Länge niedriger ausfallen würde. */
+const NAME_SCORE_NIEDRIG = 0.3;
+/** Score-Untergrenze, wenn alle Wort-Token des kürzeren Namens vollständig im längeren stecken
+ * (z.B. "Mais" in "Mais Gelb Körnermais 25kg") — Enthaltung ist ein starkes Signal, auch wenn der
+ * reine Jaccard-Wert wegen der unterschiedlichen Länge niedriger ausfallen würde. Bewusst
+ * TOKEN-basiert statt eines rohen Teilstring-Vergleichs auf dem normalisierten Text: sonst würde
+ * z.B. "Weizen" fälschlich als in "Sommerweizen" enthalten gelten, nur weil die Buchstabenfolge
+ * zufällig Teil eines längeren, anderen Wortes ist — und "Öl" träfe jeden Artikel, dessen Name
+ * diese Buchstabenfolge irgendwo enthält (z.B. "Ölrettich"). */
 const NAME_CONTAINS_BONUS = 0.85;
+
+/** Gilt `a` und `b` als derselbe erkannte Produktbezeichnung? Für die sofortige Übernahme einer
+ * Artikel-Korrektur auf andere Positionen mit identischem/sehr ähnlichem KI-Namen im selben
+ * Beleg (bzw. batch-weit) — exportiert, damit alle drei KI-Erkennungsseiten (wareneingang,
+ * lieferung, lieferung/batch) dieselbe Logik statt eigener, unabhängig gepflegter Kopien nutzen. */
+export function istGleicherName(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (normalisiereSuchtext(a) === normalisiereSuchtext(b)) return true;
+  return jaccard(tokenizeName(a), tokenizeName(b)) >= AEHNLICHER_NAME_MIN_SCORE;
+}
 
 /**
  * Lädt eine paginierte Liste-API vollständig durch (alle Seiten), statt sich
@@ -70,16 +115,26 @@ export function normalisiereArtikelnummer(nr: string): string {
   return nr.trim().replace(/[\s-]+/g, "").toUpperCase();
 }
 
-/** Bewertet, wie gut ein KI-erkannter Name zu einem Artikelnamen passt (0..1) — exakter
- * normalisierter Treffer zählt als 1, sonst Token-Overlap (tokenSimilarity), angehoben auf
- * mindestens NAME_CONTAINS_BONUS wenn einer der beiden Namen den anderen vollständig enthält. */
-function nameScore(kiName: string, artikelName: string): number {
-  const a = normalizeText(kiName);
-  const b = normalizeText(artikelName);
-  if (!a || !b) return 0;
-  if (a === b) return 1;
-  const score = tokenSimilarity(kiName, artikelName);
-  if (a.includes(b) || b.includes(a)) return Math.max(score, NAME_CONTAINS_BONUS);
+/** Bewertet, wie gut ein KI-erkannter Name (bereits vornormalisiert/-tokenisiert übergeben, damit
+ * das bei einem Best-Pick-Durchlauf über N Kandidaten nicht pro Kandidat wiederholt werden muss)
+ * zu einem Artikelnamen passt (0..1) — exakter normalisierter Treffer zählt als 1 (schlägt damit
+ * garantiert jeden bloßen Teilmengen-Treffer), sonst Jaccard-Wortüberlappung, angehoben auf
+ * mindestens NAME_CONTAINS_BONUS wenn alle Wort-Token des kürzeren Namens vollständig im
+ * Token-Set des längeren stecken. */
+function nameScore(kiNormalized: string, kiTokens: string[], artikelName: string): number {
+  const artikelNormalized = normalizeText(artikelName);
+  if (!kiNormalized || !artikelNormalized) return 0;
+  if (kiNormalized === artikelNormalized) return 1;
+
+  const artikelTokens = tokenizeName(artikelName);
+  const score = jaccard(kiTokens, artikelTokens);
+
+  const [kurzTokens, langTokens] =
+    kiTokens.length <= artikelTokens.length ? [kiTokens, artikelTokens] : [artikelTokens, kiTokens];
+  if (kurzTokens.length > 0) {
+    const langSet = new Set(langTokens);
+    if (kurzTokens.every((t) => langSet.has(t))) return Math.max(score, NAME_CONTAINS_BONUS);
+  }
   return score;
 }
 
@@ -138,22 +193,18 @@ export function matchArtikel<T extends MatchableArtikel>(
   if (!kiPos.name) return { artikel: null, konfidenz: "keine" };
 
   if (gelernt && gelernt.size > 0) {
-    let bester: { zielId: number; score: number } | null = null;
     for (const [suchtext, zielId] of gelernt) {
-      const score = tokenSimilarity(kiPos.name, suchtext);
-      if (score >= GELERNT_FUZZY_MIN_SCORE && (!bester || score > bester.score)) {
-        bester = { zielId, score };
-      }
-    }
-    if (bester) {
-      const treffer = artikel.find((a) => a.id === bester!.zielId);
+      if (!istGleicherName(kiPos.name, suchtext)) continue;
+      const treffer = artikel.find((a) => a.id === zielId);
       if (treffer) return { artikel: treffer, konfidenz: "gelernt" };
     }
   }
 
+  const kiNormalized = normalizeText(kiPos.name);
+  const kiTokens = tokenizeName(kiPos.name);
   let bester: { artikel: T; score: number } | null = null;
   for (const a of artikel) {
-    const score = nameScore(kiPos.name, a.name);
+    const score = nameScore(kiNormalized, kiTokens, a.name);
     if (!bester || score > bester.score) bester = { artikel: a, score };
   }
   if (bester && bester.score >= NAME_SCORE_MITTEL) return { artikel: bester.artikel, konfidenz: "mittel" };

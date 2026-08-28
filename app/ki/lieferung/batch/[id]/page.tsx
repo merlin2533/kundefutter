@@ -14,7 +14,7 @@ import {
   matchKunde,
   berechneFehlendeFelder,
   normalisiereSuchtext,
-  tokenSimilarity,
+  istGleicherName,
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
@@ -410,14 +410,20 @@ export default function KiLieferungBatchDetailPage() {
       if (!prev) return prev;
       const quellItem = prev.items.find((it) => it.id === itemId);
       const quellPos = quellItem?.positionen[idx];
-      if (!quellItem || !quellPos) return prev;
+      if (!quellItem || !quellPos || quellItem.status !== "analysiert") return prev;
 
       const found = foundOverride ?? artikel.find((a) => String(a.id) === String(val));
       const aid = found ? found.id : null;
       const suchtextKey = aid != null && quellPos.kiPosition.name ? normalisiereSuchtext(quellPos.kiPosition.name) : null;
 
       if (suchtextKey && aid != null) {
-        meldeLernkorrektur("artikel", quellPos.kiPosition.name, aid);
+        // Meldet IMMER, wenn der neue Wert vom bereits Gelernten abweicht — nicht nur, wenn er vom
+        // ursprünglichen KI-Vorschlag abweicht. Ein Vergleich nur gegen vorschlagArtikelId würde
+        // eine versehentlich falsch gelernte Zuordnung dauerhaft bestehen lassen, sobald der
+        // Nutzer wieder auf den richtigen Artikel zurückwechselt.
+        if (gelerntArtikel.get(suchtextKey) !== aid) {
+          meldeLernkorrektur("artikel", quellPos.kiPosition.name, aid);
+        }
         setGelerntArtikel((m) => new Map(m).set(suchtextKey, aid));
       }
 
@@ -425,6 +431,7 @@ export default function KiLieferungBatchDetailPage() {
 
       const items = prev.items.map((it) => {
         let itemChanged = false;
+        let fremdItemGeaendert = false;
         const positionen = it.positionen.map((p, i) => {
           const istQuelle = it.id === itemId && i === idx;
           if (istQuelle) {
@@ -438,19 +445,43 @@ export default function KiLieferungBatchDetailPage() {
               manuallyEdited: true,
             };
           }
-          if (suchtextKey && aid != null && !p.manuallyEdited && p.kiPosition.name) {
-            const gleich =
-              normalisiereSuchtext(p.kiPosition.name) === suchtextKey ||
-              tokenSimilarity(p.kiPosition.name, quellPos.kiPosition.name) >= 0.9;
-            if (gleich) {
-              itemChanged = true;
-              return { ...p, artikelId: String(aid), vorschlagArtikelId: aid, konfidenz: "gelernt" as Konfidenz };
-            }
+          // Weitergabe nur an noch offene ("analysiert") Belege — ein bereits übernommener (echte
+          // Lieferung schon gebucht) oder verworfener Beleg darf durch eine Korrektur an einem
+          // ANDEREN Beleg nicht mehr nachträglich verändert werden. Positionen, die bereits sicher
+          // zugeordnet sind ("hoch", z.B. per eigener Artikelnummer), werden ebenfalls nicht
+          // überschrieben.
+          if (
+            it.status === "analysiert" &&
+            suchtextKey &&
+            aid != null &&
+            !p.manuallyEdited &&
+            p.konfidenz !== "hoch" &&
+            p.kiPosition.name &&
+            istGleicherName(p.kiPosition.name, quellPos.kiPosition.name)
+          ) {
+            itemChanged = true;
+            fremdItemGeaendert = true;
+            return {
+              ...p,
+              artikelId: String(aid),
+              vorschlagArtikelId: aid,
+              konfidenz: "gelernt" as Konfidenz,
+              // Einen bereits eingetragenen Preis (vom Beleg übernommen oder vom Nutzer selbst
+              // eingegeben) nicht überschreiben — nur befüllen, wenn dort noch gar keiner steht.
+              verkaufspreis: p.verkaufspreis > 0 ? p.verkaufspreis : found ? found.standardpreis : p.verkaufspreis,
+            };
           }
           return p;
         });
         if (!itemChanged) return it;
-        const neuItem = { ...it, positionen };
+        const neuItem = {
+          ...it,
+          positionen,
+          // Eine bereits getroffene "Passt"-Entscheidung eines ANDEREN Belegs muss nach einer
+          // Weitergabe erneut geprüft werden — sonst könnte ein bereits abgehakter Beleg mit einer
+          // inzwischen geänderten Artikel-Zuordnung unbeaufsichtigt abgeschlossen werden.
+          entscheidung: fremdItemGeaendert ? null : it.entscheidung,
+        };
         const mitFehlenden = { ...neuItem, fehlendeFelder: neuBerechneFehlendeFelder(neuItem) };
         geaendert.add(it.id);
         return mitFehlenden;

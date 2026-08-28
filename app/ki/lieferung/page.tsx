@@ -16,7 +16,7 @@ import {
   matchArtikel,
   matchKunde,
   normalisiereSuchtext,
-  tokenSimilarity,
+  istGleicherName,
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
@@ -393,7 +393,12 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
 
       if (aid == null || !pos.kiPosition.name) return next;
 
-      if (aid !== pos.vorschlagArtikelId) {
+      const suchtextKey = normalisiereSuchtext(pos.kiPosition.name);
+      // Meldet IMMER, wenn der neue Wert vom bereits Gelernten abweicht — nicht nur, wenn er vom
+      // ursprünglichen KI-Vorschlag abweicht. Ein Vergleich nur gegen vorschlagArtikelId würde eine
+      // versehentlich falsch gelernte Zuordnung dauerhaft bestehen lassen, sobald der Nutzer wieder
+      // auf den (zufällig mit dem KI-Vorschlag identischen) richtigen Artikel zurückwechselt.
+      if (gelerntArtikelMap.get(suchtextKey) !== aid) {
         fetch("/api/ki/lernen", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -402,24 +407,23 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
           Sentry.captureException(err);
         });
       }
-      const suchtextKey = normalisiereSuchtext(pos.kiPosition.name);
       setGelerntArtikelMap((m) => new Map(m).set(suchtextKey, aid));
 
-      // Andere, noch nicht manuell bestätigte Positionen mit identischem/sehr ähnlichem KI-Namen
-      // sofort auf denselben Artikel setzen.
+      // Andere, noch nicht manuell bestätigte UND noch nicht bereits sicher zugeordnete ("hoch",
+      // z.B. per eigener Artikelnummer) Positionen mit identischem/sehr ähnlichem KI-Namen sofort
+      // auf denselben Artikel setzen.
       return next.map((p, i) => {
-        if (i === idx || p.manuallyEdited || !p.kiPosition.name) return p;
-        const gleich =
-          normalisiereSuchtext(p.kiPosition.name) === suchtextKey ||
-          tokenSimilarity(p.kiPosition.name, pos.kiPosition.name) >= 0.9;
-        if (!gleich) return p;
+        if (i === idx || p.manuallyEdited || p.konfidenz === "hoch" || !p.kiPosition.name) return p;
+        if (!istGleicherName(p.kiPosition.name, pos.kiPosition.name)) return p;
         const sp = kundenSonderpreise[aid];
         return {
           ...p,
           artikelId: String(aid),
           vorschlagArtikelId: aid,
           konfidenz: "gelernt" as Konfidenz,
-          verkaufspreis: sp != null ? sp : found ? found.standardpreis : p.verkaufspreis,
+          // Einen bereits eingetragenen Preis (z.B. vom Beleg übernommen oder vom Nutzer selbst
+          // getippt) nicht überschreiben — nur befüllen, wenn dort noch gar kein Preis steht.
+          verkaufspreis: p.verkaufspreis > 0 ? p.verkaufspreis : sp != null ? sp : found ? found.standardpreis : p.verkaufspreis,
         };
       });
     });
