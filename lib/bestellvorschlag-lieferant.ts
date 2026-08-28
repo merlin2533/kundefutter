@@ -26,7 +26,9 @@ export async function vorschlagLieferantFuerArtikel(artikelId: number): Promise<
 
   const bevorzugt = aktive.find((z) => z.bevorzugt);
   const guenstigste = [...aktive.filter((z) => z.einkaufspreis > 0)].sort((a, b) => a.einkaufspreis - b.einkaufspreis)[0];
-  const gewaehlt = bevorzugt ?? guenstigste ?? aktive[0];
+  // "bevorzugt" gewinnt NUR, wenn dort auch ein Preis gepflegt ist — sonst würde ein bevorzugter
+  // Lieferant ohne EK einen anderen, tatsächlich gepflegten (und günstigsten) Preis verdecken.
+  const gewaehlt = bevorzugt && bevorzugt.einkaufspreis > 0 ? bevorzugt : guenstigste ?? bevorzugt ?? aktive[0];
 
   return {
     lieferantId: gewaehlt.lieferantId,

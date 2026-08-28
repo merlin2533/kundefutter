@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -68,5 +68,49 @@ describe("umlautSchreibweisen", () => {
     expect(varianten).toContain("Öl");
     expect(varianten).toContain("öl");
     expect(varianten.every((v) => v.endsWith("l"))).toBe(true);
+  });
+});
+
+describe("resolveBevorzugtenLieferanten / resolveBevorzugtenEK", () => {
+  it("wählt den bevorzugten Lieferanten, wenn dieser einen Preis hat", () => {
+    const lieferanten = [
+      { id: 1, einkaufspreis: 10, bevorzugt: true },
+      { id: 2, einkaufspreis: 8, bevorzugt: false },
+    ];
+    expect(resolveBevorzugtenLieferanten(lieferanten)?.id).toBe(1);
+    expect(resolveBevorzugtenEK(lieferanten)).toBe(10);
+  });
+
+  it("weicht auf einen Lieferanten MIT gepflegtem Preis aus, wenn der bevorzugte keinen hat (Kernfall des Bugs)", () => {
+    const lieferanten = [
+      { id: 1, einkaufspreis: 0, bevorzugt: true },
+      { id: 2, einkaufspreis: 8, bevorzugt: false },
+    ];
+    expect(resolveBevorzugtenLieferanten(lieferanten)?.id).toBe(2);
+    expect(resolveBevorzugtenEK(lieferanten)).toBe(8);
+  });
+
+  it("fällt auf den bevorzugten (auch ohne Preis) zurück, wenn NIEMAND einen Preis gepflegt hat", () => {
+    const lieferanten = [
+      { id: 1, einkaufspreis: 0, bevorzugt: false },
+      { id: 2, einkaufspreis: 0, bevorzugt: true },
+    ];
+    expect(resolveBevorzugtenLieferanten(lieferanten)?.id).toBe(2);
+    expect(resolveBevorzugtenEK(lieferanten)).toBe(0);
+  });
+
+  it("fällt auf den ersten Lieferanten zurück, wenn niemand bevorzugt ist und niemand einen Preis hat", () => {
+    const lieferanten = [
+      { id: 1, einkaufspreis: 0, bevorzugt: false },
+      { id: 2, einkaufspreis: 0, bevorzugt: false },
+    ];
+    expect(resolveBevorzugtenLieferanten(lieferanten)?.id).toBe(1);
+  });
+
+  it("liefert null / 0 bei leerer oder fehlender Lieferantenliste", () => {
+    expect(resolveBevorzugtenLieferanten([])).toBeNull();
+    expect(resolveBevorzugtenLieferanten(null)).toBeNull();
+    expect(resolveBevorzugtenLieferanten(undefined)).toBeNull();
+    expect(resolveBevorzugtenEK([])).toBe(0);
   });
 });

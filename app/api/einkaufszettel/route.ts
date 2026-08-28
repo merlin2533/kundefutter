@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveBevorzugtenLieferanten } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -131,25 +132,33 @@ export async function GET() {
       if (am) q.bestelltAm = am.toISOString();
     }
 
-    // Bevorzugten Lieferanten je Artikel auflösen
+    // Bevorzugten Lieferanten je Artikel auflösen — bevorzugt NUR wenn dort auch ein Preis
+    // gepflegt ist, sonst irgendeiner MIT Preis, sonst bevorzugt/erster auch ohne Preis
+    // (resolveBevorzugtenLieferanten(), siehe lib/utils.ts). Reine `bevorzugt desc, id asc`-
+    // Sortierung + erster Treffer verdeckte sonst einen anderen, tatsächlich gepflegten EK.
     const artikelIds = Array.from(new Set(quellPositionen.map((q) => q.artikelId)));
     const zuordnungen = await prisma.artikelLieferant.findMany({
       where: { artikelId: { in: artikelIds } },
       include: { lieferant: { select: { id: true, name: true, email: true, telefon: true } } },
-      orderBy: [{ bevorzugt: "desc" }, { id: "asc" }],
     });
+    const zuordnungenNachArtikel = new Map<number, typeof zuordnungen>();
+    for (const z of zuordnungen) {
+      if (!zuordnungenNachArtikel.has(z.artikelId)) zuordnungenNachArtikel.set(z.artikelId, []);
+      zuordnungenNachArtikel.get(z.artikelId)!.push(z);
+    }
     const lieferantFuerArtikel = new Map<
       number,
       { id: number; name: string; email: string | null; telefon: string | null; einkaufspreis: number }
     >();
-    for (const z of zuordnungen) {
-      if (!lieferantFuerArtikel.has(z.artikelId)) {
-        lieferantFuerArtikel.set(z.artikelId, {
-          id: z.lieferant.id,
-          name: z.lieferant.name,
-          email: z.lieferant.email,
-          telefon: z.lieferant.telefon,
-          einkaufspreis: z.einkaufspreis,
+    for (const [artikelId, liste] of zuordnungenNachArtikel) {
+      const gewaehlt = resolveBevorzugtenLieferanten(liste);
+      if (gewaehlt) {
+        lieferantFuerArtikel.set(artikelId, {
+          id: gewaehlt.lieferant.id,
+          name: gewaehlt.lieferant.name,
+          email: gewaehlt.lieferant.email,
+          telefon: gewaehlt.lieferant.telefon,
+          einkaufspreis: gewaehlt.einkaufspreis,
         });
       }
     }

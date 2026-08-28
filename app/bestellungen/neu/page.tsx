@@ -76,19 +76,21 @@ function BestellungNeuInner() {
     sub: [a.artikelnummer, a.einheit].filter(Boolean).join(" · "),
   }));
 
+  function ekFuerLieferant(art: Artikel | undefined, liefId: string): string {
+    const liefEk = art?.lieferanten?.find((l) => String(l.lieferantId) === String(liefId))?.einkaufspreis;
+    return liefEk != null && liefEk > 0 ? String(liefEk) : "";
+  }
+
   function updatePosition(index: number, field: keyof Position, value: string) {
     setPositionen((prev) => {
       const updated = [...prev];
       if (field === "artikelId") {
         const art = artikel.find((a) => String(a.id) === value);
-        const liefEk = art?.lieferanten?.find(
-          (l) => String(l.lieferantId) === String(lieferantId)
-        )?.einkaufspreis;
         updated[index] = {
           ...updated[index],
           artikelId: value,
           einheit: art?.einheit ?? updated[index].einheit,
-          preis: liefEk != null ? String(liefEk) : "",
+          preis: ekFuerLieferant(art, lieferantId),
         };
       } else {
         updated[index] = { ...updated[index], [field]: value };
@@ -96,6 +98,20 @@ function BestellungNeuInner() {
       return updated;
     });
   }
+
+  // Lieferant wird oft erst NACH dem Zusammenstellen der Positionen gewählt/geändert — der EK
+  // bereits gesetzter Positionen wurde dadurch nie nachträglich befüllt. Bei jedem Lieferanten-
+  // wechsel den Preis aller Positionen mit bereits gewähltem Artikel neu auflösen.
+  useEffect(() => {
+    if (!lieferantId) return;
+    setPositionen((prev) =>
+      prev.map((p) => {
+        if (!p.artikelId) return p;
+        const art = artikel.find((a) => String(a.id) === p.artikelId);
+        return { ...p, preis: ekFuerLieferant(art, lieferantId) };
+      })
+    );
+  }, [lieferantId, artikel]);
 
   function addPosition() {
     setPositionen((prev) => [...prev, { artikelId: "", menge: "", einheit: "kg", preis: "" }]);
