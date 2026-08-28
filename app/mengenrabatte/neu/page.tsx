@@ -10,6 +10,7 @@ interface Artikel {
   name: string;
   artikelnummer: string;
   kategorie: string;
+  standardpreis: number;
 }
 
 interface Kunde {
@@ -32,9 +33,11 @@ export default function NeuerMengenrabattPage() {
   const [formKategorie, setFormKategorie] = useState(FALLBACK_KATEGORIEN[0]);
   const [formKundeId, setFormKundeId] = useState("");
   const [formVonMenge, setFormVonMenge] = useState("");
-  const [formRabattProzent, setFormRabattProzent] = useState("");
+  const [formPreis, setFormPreis] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  const gewaehlterArtikel = artikel.find((a) => String(a.id) === formArtikelId);
 
   useEffect(() => {
     fetch("/api/artikel?aktiv=true")
@@ -69,8 +72,8 @@ export default function NeuerMengenrabattPage() {
     e.preventDefault();
     setFormError("");
 
-    if (!formVonMenge || !formRabattProzent) {
-      setFormError("Bitte Ab-Menge und Rabatt % angeben.");
+    if (!formVonMenge || !formPreis) {
+      setFormError("Bitte Ab-Menge und Preis angeben.");
       return;
     }
     if (formMode === "artikel" && !formArtikelId) {
@@ -82,7 +85,7 @@ export default function NeuerMengenrabattPage() {
     try {
       const body: Record<string, unknown> = {
         vonMenge: Number(formVonMenge),
-        rabattProzent: Number(formRabattProzent),
+        preis: Number(formPreis),
       };
       if (formKundeId) body.kundeId = Number(formKundeId);
       if (formMode === "artikel") {
@@ -121,7 +124,7 @@ export default function NeuerMengenrabattPage() {
         &larr; Zurück zu Mengenrabatte
       </Link>
 
-      <h1 className="text-2xl font-bold mb-6">Neuen Mengenrabatt anlegen</h1>
+      <h1 className="text-2xl font-bold mb-6">Neue Mengenstaffel anlegen</h1>
 
       <form
         onSubmit={handleSubmit}
@@ -241,19 +244,23 @@ export default function NeuerMengenrabattPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Rabatt % <span className="text-red-500">*</span>
+              Preis (€) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
-              step="0.1"
+              step="0.01"
               min="0"
-              max="100"
-              value={formRabattProzent}
-              onChange={(e) => setFormRabattProzent(e.target.value)}
-              placeholder="z.B. 5"
+              value={formPreis}
+              onChange={(e) => setFormPreis(e.target.value)}
+              placeholder="z.B. 18,00"
               required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
             />
+            {formMode === "artikel" && gewaehlterArtikel && (
+              <p className="text-xs text-gray-400 mt-1">
+                Standardpreis: {gewaehlterArtikel.standardpreis.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}
+              </p>
+            )}
           </div>
         </div>
 
@@ -269,7 +276,7 @@ export default function NeuerMengenrabattPage() {
             disabled={saving}
             className="px-4 py-2 text-sm bg-green-800 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-60"
           >
-            {saving ? "Speichern…" : "Rabatt anlegen"}
+            {saving ? "Speichern…" : "Staffelpreis anlegen"}
           </button>
         </div>
       </form>

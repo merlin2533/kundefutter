@@ -142,14 +142,14 @@ export async function POST(req: NextRequest) {
   if (streckenLieferantId !== null && isNaN(streckenLieferantId)) {
     return NextResponse.json({ error: "Ungültige streckenLieferantId" }, { status: 400 });
   }
-  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; einkaufspreis?: unknown; chargeNr?: unknown; notiz?: unknown }[] = body.positionen;
+  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; rabattProzent?: unknown; einkaufspreis?: unknown; chargeNr?: unknown; notiz?: unknown }[] = body.positionen;
 
   if (!kundeId || isNaN(kundeId) || !Array.isArray(positionenRaw) || positionenRaw.length === 0) {
     return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
   }
 
   // Numerische Felder robust parsen (Frontend kann Strings senden)
-  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string }[] = [];
+  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; rabattProzent?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string }[] = [];
   for (const p of positionenRaw) {
     const artikelId = Number(p.artikelId);
     const menge = Number(p.menge);
@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
       artikelId,
       menge,
       verkaufspreis: p.verkaufspreis !== undefined && p.verkaufspreis !== null && p.verkaufspreis !== "" ? Number(p.verkaufspreis) : undefined,
+      rabattProzent: p.rabattProzent !== undefined && p.rabattProzent !== null && p.rabattProzent !== "" ? Number(p.rabattProzent) : undefined,
       einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
       chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
       notiz: typeof p.notiz === "string" && p.notiz.trim() ? p.notiz.trim() : undefined,

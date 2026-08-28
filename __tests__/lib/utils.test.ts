@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -112,5 +112,92 @@ describe("resolveBevorzugtenLieferanten / resolveBevorzugtenEK", () => {
     expect(resolveBevorzugtenLieferanten(null)).toBeNull();
     expect(resolveBevorzugtenLieferanten(undefined)).toBeNull();
     expect(resolveBevorzugtenEK([])).toBe(0);
+  });
+});
+
+describe("bestMengenstaffel / wendeMengenstaffelAn / effektiverMengenstaffelRabatt", () => {
+  const artikelSpezifisch: MengenrabattEintrag = {
+    kundeId: null,
+    artikelId: 1,
+    kategorie: null,
+    vonMenge: 50,
+    preis: 18,
+    rabattProzent: 0,
+    aktiv: true,
+  };
+
+  it("liefert null, wenn keine Staffel erreicht ist", () => {
+    expect(bestMengenstaffel(1, "Duenger", 49, null, [artikelSpezifisch])).toBeNull();
+    expect(wendeMengenstaffelAn(20, null)).toBe(20);
+  });
+
+  it("greift ab exakt der hinterlegten Menge und liefert den absoluten Staffelpreis", () => {
+    expect(bestMengenstaffel(1, "Duenger", 50, null, [artikelSpezifisch])?.preis).toBe(18);
+    expect(wendeMengenstaffelAn(20, bestMengenstaffel(1, "Duenger", 60, null, [artikelSpezifisch]))).toBe(18);
+  });
+
+  it("wählt bei mehreren erreichten Staffeln die höchste Mengenschwelle, nicht den größten Rabatt", () => {
+    const rabatte: MengenrabattEintrag[] = [
+      artikelSpezifisch,
+      { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 100, preis: 16, rabattProzent: 0, aktiv: true },
+    ];
+    expect(bestMengenstaffel(1, "Duenger", 100, null, rabatte)?.vonMenge).toBe(100);
+    expect(wendeMengenstaffelAn(20, bestMengenstaffel(1, "Duenger", 100, null, rabatte))).toBe(16);
+    expect(bestMengenstaffel(1, "Duenger", 75, null, rabatte)?.vonMenge).toBe(50);
+    expect(wendeMengenstaffelAn(20, bestMengenstaffel(1, "Duenger", 75, null, rabatte))).toBe(18);
+  });
+
+  it("ignoriert inaktive Staffeln", () => {
+    const rabatt: MengenrabattEintrag = { ...artikelSpezifisch, aktiv: false };
+    expect(bestMengenstaffel(1, "Duenger", 60, null, [rabatt])).toBeNull();
+  });
+
+  it("wendet eine kundenspezifische Staffel nur auf diesen Kunden an", () => {
+    const rabatt: MengenrabattEintrag = { ...artikelSpezifisch, kundeId: 42 };
+    expect(bestMengenstaffel(1, "Duenger", 60, 42, [rabatt])?.preis).toBe(18);
+    expect(bestMengenstaffel(1, "Duenger", 60, 7, [rabatt])).toBeNull();
+    expect(bestMengenstaffel(1, "Duenger", 60, null, [rabatt])).toBeNull();
+  });
+
+  it("bei gleicher Mengenschwelle gewinnt die kundenspezifische Staffel vor der allgemeinen", () => {
+    const allgemein: MengenrabattEintrag = { ...artikelSpezifisch, preis: 18 };
+    const kundenspezifisch: MengenrabattEintrag = { ...artikelSpezifisch, kundeId: 42, preis: 15 };
+    expect(wendeMengenstaffelAn(20, bestMengenstaffel(1, "Duenger", 60, 42, [allgemein, kundenspezifisch]))).toBe(15);
+  });
+
+  it("wendet eine kategorieweite Staffel auf alle Artikel dieser Kategorie an", () => {
+    const rabatt: MengenrabattEintrag = { kundeId: null, artikelId: null, kategorie: "Duenger", vonMenge: 20, preis: 19, rabattProzent: 0, aktiv: true };
+    expect(bestMengenstaffel(99, "Duenger", 25, null, [rabatt])?.preis).toBe(19);
+    expect(bestMengenstaffel(99, "Saatgut", 25, null, [rabatt])).toBeNull();
+  });
+
+  it("liefert null bei Menge 0 oder negativ", () => {
+    expect(bestMengenstaffel(1, "Duenger", 0, null, [artikelSpezifisch])).toBeNull();
+    expect(bestMengenstaffel(1, "Duenger", -5, null, [artikelSpezifisch])).toBeNull();
+  });
+
+  it("wendet bei Legacy-Einträgen (preis null) weiterhin den Rabattprozentsatz an", () => {
+    const legacy: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: null, rabattProzent: 10, aktiv: true };
+    expect(wendeMengenstaffelAn(20, bestMengenstaffel(1, "Duenger", 60, null, [legacy]))).toBe(18);
+  });
+
+  describe("effektiverMengenstaffelRabatt", () => {
+    it("berechnet den effektiven Rabattprozentsatz aus Basis- und Staffelpreis", () => {
+      expect(effektiverMengenstaffelRabatt(20, artikelSpezifisch)).toBe(10);
+    });
+
+    it("kappt bei einem Staffelpreis über dem Basispreis auf 0 (kein Aufschlag)", () => {
+      const teurereStaffel: MengenrabattEintrag = { ...artikelSpezifisch, preis: 25 };
+      expect(effektiverMengenstaffelRabatt(20, teurereStaffel)).toBe(0);
+    });
+
+    it("liefert 0 ohne Staffel", () => {
+      expect(effektiverMengenstaffelRabatt(20, null)).toBe(0);
+    });
+
+    it("liefert bei Legacy-Einträgen direkt den hinterlegten Rabattprozentsatz", () => {
+      const legacy: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: null, rabattProzent: 10, aktiv: true };
+      expect(effektiverMengenstaffelRabatt(20, legacy)).toBe(10);
+    });
   });
 });

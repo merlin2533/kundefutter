@@ -30,12 +30,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kundeId, artikelId, kategorie, vonMenge, rabattProzent, aktiv } = body;
+  const { kundeId, artikelId, kategorie, vonMenge, preis, rabattProzent, aktiv } = body;
 
-  if (vonMenge === undefined || vonMenge === null || rabattProzent === undefined || rabattProzent === null) {
-    return NextResponse.json({ error: "vonMenge und rabattProzent sind erforderlich" }, { status: 400 });
+  if (vonMenge === undefined || vonMenge === null) {
+    return NextResponse.json({ error: "vonMenge ist erforderlich" }, { status: 400 });
   }
-  if (Number(rabattProzent) < 0 || Number(rabattProzent) > 100) {
+  const hatPreis = preis !== undefined && preis !== null && preis !== "";
+  const hatRabattProzent = rabattProzent !== undefined && rabattProzent !== null && rabattProzent !== "";
+  if (!hatPreis && !hatRabattProzent) {
+    return NextResponse.json({ error: "preis ist erforderlich" }, { status: 400 });
+  }
+  if (hatPreis && Number(preis) < 0) {
+    return NextResponse.json({ error: "preis darf nicht negativ sein" }, { status: 400 });
+  }
+  if (hatRabattProzent && (Number(rabattProzent) < 0 || Number(rabattProzent) > 100)) {
     return NextResponse.json({ error: "rabattProzent muss zwischen 0 und 100 liegen" }, { status: 400 });
   }
   if (!artikelId && !kategorie) {
@@ -49,7 +57,10 @@ export async function POST(req: NextRequest) {
         artikelId: artikelId ? Number(artikelId) : null,
         kategorie: artikelId ? null : kategorie,
         vonMenge: Number(vonMenge),
-        rabattProzent: Number(rabattProzent),
+        // preis ist die primäre, neue Eingabeart — rabattProzent bleibt nur für per API/Skript
+        // direkt gesetzte Legacy-Staffeln nutzbar, das UI (/mengenrabatte/neu) sendet nur preis.
+        preis: hatPreis ? Number(preis) : null,
+        rabattProzent: hatPreis ? 0 : Number(rabattProzent),
         aktiv: aktiv !== undefined ? Boolean(aktiv) : true,
       },
       include: {

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
-import { berechneVerkaufspreis, resolveBevorzugtenEK } from "@/lib/utils";
+import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, type MengenrabattEintrag } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
@@ -26,6 +26,7 @@ interface ArtikelLieferantInfo {
 interface Artikel {
   id: number;
   name: string;
+  kategorie: string;
   einheit: string;
   standardpreis: number;
   einkaufspreis?: number;
@@ -35,6 +36,19 @@ interface Artikel {
   sprengstoffvorlaeufer?: boolean;
   chargePflicht?: boolean;
   notiz?: string | null;
+}
+
+/** Dünner Adapter um die geteilte bestMengenstaffel() (lib/utils.ts) — dieselbe Auswahllogik
+ *  wie im serverseitigen Preisberechnungs-Fallback in lib/lieferung.ts, damit der hier live
+ *  vorausberechnete Preis exakt dem entspricht, der beim Speichern übernommen wird. */
+function findeMengenstaffel(
+  art: Artikel | undefined,
+  menge: number,
+  kundeId: number | "",
+  rabatte: MengenrabattEintrag[]
+): MengenrabattEintrag | null {
+  if (!art) return null;
+  return bestMengenstaffel(art.id, art.kategorie, menge, kundeId === "" ? null : Number(kundeId), rabatte);
 }
 
 /** EK aus bevorzugtem Lieferanten, sonst irgendeinem mit gepflegtem Preis — siehe
@@ -109,6 +123,10 @@ interface NewPosition {
   einkaufspreis: string;
   chargeNr: string;
   notiz: string;
+  /** true = VK-Preis wurde zuletzt automatisch berechnet (Sonderpreis/Mengenrabatt) und darf bei
+   *  einer Mengenänderung neu berechnet werden; false = Nutzer hat den Preis manuell überschrieben,
+   *  eine Mengenänderung fasst ihn dann nicht mehr an. */
+  vkAuto: boolean;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -120,6 +138,7 @@ const emptyPosition = (): NewPosition => ({
   einkaufspreis: "",
   chargeNr: "",
   notiz: "",
+  vkAuto: true,
 });
 
 function formatEuro(n: number) {
@@ -172,20 +191,23 @@ function NeueLieferungInner() {
   const [kampagnen, setKampagnen] = useState<KundeKampagne[]>([]);
   const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
   const [kundePreise, setKundePreise] = useState<KundePreisInfo[]>([]);
+  const [mengenrabatte, setMengenrabatte] = useState<MengenrabattEintrag[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
         // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
         // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
-        const [kr, ar, lr] = await Promise.all([
+        const [kr, ar, lr, mr] = await Promise.all([
           fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
           fetch("/api/artikel?limit=2000&relations=false").then((r) => r.ok ? r.json() : []),
           fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
+          fetch("/api/mengenrabatte").then((r) => r.ok ? r.json() : []),
         ]);
         let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
         const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
         setLieferanten(Array.isArray(lr) ? lr : []);
+        setMengenrabatte(Array.isArray(mr) ? mr : []);
 
         // Wenn ein bestimmter Kunde vorausgewählt werden soll, sicherstellen
         // dass er in der Liste ist (auch wenn inaktiv oder außerhalb des Limits).
@@ -227,6 +249,9 @@ function NeueLieferungInner() {
                     einkaufspreis: String(resolveEK(art)),
                     chargeNr: "",
                     notiz: art?.notiz ?? "",
+                    // Preis kommt aus dem verbindlichen Angebot — eine spätere Mengenänderung
+                    // soll ihn nicht mit einer frischen Mengenstaffel-Berechnung überschreiben.
+                    vkAuto: false,
                   };
                 }));
               }
@@ -310,16 +335,34 @@ function NeueLieferungInner() {
           const art = artikel.find((a) => a.id === next.artikelId);
           if (art) {
             const kp = kundePreise.find((p) => p.artikelId === art.id);
-            next.verkaufspreis = String(berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null));
+            const basis = berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null);
+            const staffel = findeMengenstaffel(art, Number(next.menge) || 0, kundeId, mengenrabatte);
+            next.verkaufspreis = String(wendeMengenstaffelAn(basis, staffel));
             next.einkaufspreis = String(resolveEK(art));
             // Artikel-Notiz durchschleifen (z.B. Abpackungshinweis)
             next.notiz = art.notiz ?? "";
+            next.vkAuto = true;
           } else {
             next.verkaufspreis = "";
             next.einkaufspreis = "";
             next.notiz = "";
+            next.vkAuto = true;
+          }
+        } else if (field === "menge") {
+          next.menge = String(value);
+          // Mengenstaffel neu ziehen, solange der VK-Preis noch nicht manuell überschrieben
+          // wurde — siehe vkAuto-Kommentar an der Interface-Definition.
+          if (p.vkAuto) {
+            const art = artikel.find((a) => a.id === Number(p.artikelId));
+            if (art) {
+              const kp = kundePreise.find((kpr) => kpr.artikelId === art.id);
+              const basis = berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null);
+              const staffel = findeMengenstaffel(art, Number(value) || 0, kundeId, mengenrabatte);
+              next.verkaufspreis = String(wendeMengenstaffelAn(basis, staffel));
+            }
           }
         } else {
+          if (field === "verkaufspreis") next.vkAuto = false;
           (next as unknown as Record<string, string>)[field] = String(value);
         }
         return next;
@@ -406,14 +449,25 @@ function NeueLieferungInner() {
           notiz: notiz || undefined,
           istStreckengeschaeft,
           streckenLieferantId: istStreckengeschaeft && streckenLieferantId ? Number(streckenLieferantId) : undefined,
-          positionen: positionen.map((p) => ({
-            artikelId: Number(p.artikelId),
-            menge: parseFloat(p.menge) || 0,
-            verkaufspreis: parseFloat(p.verkaufspreis) || 0,
-            einkaufspreis: parseFloat(p.einkaufspreis) || 0,
-            chargeNr: p.chargeNr || undefined,
-            notiz: p.notiz.trim() || undefined,
-          })),
+          positionen: positionen.map((p) => {
+            const menge = parseFloat(p.menge) || 0;
+            const art = artikel.find((a) => a.id === Number(p.artikelId));
+            const kp = art ? kundePreise.find((kpr) => kpr.artikelId === art.id) : undefined;
+            const basis = art ? berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null) : 0;
+            const staffel = findeMengenstaffel(art, menge, kundeId, mengenrabatte);
+            return {
+              artikelId: Number(p.artikelId),
+              menge,
+              verkaufspreis: parseFloat(p.verkaufspreis) || 0,
+              // Für die Rabatt-Spalte auf Lieferschein/Rechnung — der VK-Preis oben ist bereits
+              // rabattiert, der Server wendet den Mengenrabatt bei explizit übergebenem
+              // verkaufspreis NICHT nochmal an (siehe LieferungPositionInput in lib/lieferung.ts).
+              rabattProzent: effektiverMengenstaffelRabatt(basis, staffel) || undefined,
+              einkaufspreis: parseFloat(p.einkaufspreis) || 0,
+              chargeNr: p.chargeNr || undefined,
+              notiz: p.notiz.trim() || undefined,
+            };
+          }),
         }),
       });
       if (!res.ok) {
@@ -620,6 +674,7 @@ function NeueLieferungInner() {
                                           einkaufspreis: String(ek),
                                           chargeNr: "",
                                           notiz: artikel.find((a) => a.id === ka.artikelId)?.notiz ?? "",
+                                          vkAuto: true,
                                         };
                                         if (last && last.artikelId === "") {
                                           return [...prev.slice(0, -1), newPos];
@@ -715,6 +770,7 @@ function NeueLieferungInner() {
                     const margePct = vk > 0 ? ((vk - ek) / vk) * 100 : 0;
                     const selectedArtikel = artikel.find((a) => a.id === Number(pos.artikelId));
                     const hatSonderpreis = selectedArtikel != null && kundePreise.some((p) => p.artikelId === selectedArtikel.id);
+                    const aktiveMengenstaffel = findeMengenstaffel(selectedArtikel, num(pos.menge), kundeId, mengenrabatte);
 
                     return (
                       <tr
@@ -808,6 +864,11 @@ function NeueLieferungInner() {
                           {hatSonderpreis && (
                             <div className="text-[10px] text-green-700 text-right mt-0.5" title="Kundenspezifischer Sonderpreis wurde übernommen">
                               ✓ Sonderpreis
+                            </div>
+                          )}
+                          {aktiveMengenstaffel && (
+                            <div className="text-[10px] text-blue-700 text-right mt-0.5" title="Mengenstaffel für diese Menge wurde automatisch übernommen">
+                              ✓ Mengenstaffel ab {aktiveMengenstaffel.vonMenge}
                             </div>
                           )}
                         </td>
