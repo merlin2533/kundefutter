@@ -462,6 +462,9 @@ export default function LieferungenPage() {
                               </span>
                             )}
                           </div>
+                          <div className="md:hidden text-xs text-gray-500 font-normal mt-0.5 truncate max-w-[220px]">
+                            {l.positionen.map((p) => p.artikel.name).join(", ")}
+                          </div>
                         </td>
                         <td className="hidden md:table-cell px-4 py-3 max-w-[220px]">
                           <div
