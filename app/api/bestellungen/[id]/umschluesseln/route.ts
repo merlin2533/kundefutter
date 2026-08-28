@@ -50,6 +50,11 @@ export async function POST(req: NextRequest, ctx: Params) {
         where: { artikelId_lieferantId: { artikelId: position.artikelId, lieferantId: neueLieferantId } },
         select: { einkaufspreis: true },
       });
+      // `??` fängt nur null/undefined ab, nicht 0 — ArtikelLieferant.einkaufspreis ist aber ein
+      // nicht-nullable Float mit @default(0). Existiert eine Zuordnung zum neuen Lieferanten OHNE
+      // gepflegten Preis, lieferte `zuordnung?.einkaufspreis ?? position.preis` dadurch fälschlich
+      // 0 statt des alten, bekannten Preises der verschobenen Position.
+      const neuerEk = zuordnung && zuordnung.einkaufspreis > 0 ? zuordnung.einkaufspreis : null;
 
       const jahr = new Date().getFullYear();
       const key = "letzte_bestellungsnummer";
@@ -68,7 +73,7 @@ export async function POST(req: NextRequest, ctx: Params) {
               artikelId: position.artikelId,
               menge: position.menge,
               einheit: position.einheit,
-              preis: zuordnung?.einkaufspreis ?? position.preis,
+              preis: neuerEk ?? position.preis,
             },
           },
         },
@@ -84,7 +89,13 @@ export async function POST(req: NextRequest, ctx: Params) {
       // /bestellliste weiterhin den korrekten (neuen) Lieferanten zeigt.
       await tx.bestellposition.updateMany({
         where: { bestellungId: nId, artikelId: position.artikelId },
-        data: { lieferantId: neueLieferantId, bestellungId: neueBestellung.id, einkaufspreis: zuordnung?.einkaufspreis ?? undefined },
+        data: {
+          lieferantId: neueLieferantId,
+          bestellungId: neueBestellung.id,
+          // undefined = Feld unangetastet lassen (Prisma ignoriert es) statt mit 0 zu überschreiben,
+          // wenn der neue Lieferant keinen gepflegten Preis hat.
+          ...(neuerEk != null ? { einkaufspreis: neuerEk } : {}),
+        },
       });
 
       return neueBestellung;

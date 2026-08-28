@@ -55,7 +55,10 @@ export async function PATCH(req: NextRequest, ctx: Params) {
         where: { artikelId_lieferantId: { artikelId: bestehend.artikelId, lieferantId: neueLieferantId } },
         select: { einkaufspreis: true },
       });
-      if (zuordnung) updateData.einkaufspreis = zuordnung.einkaufspreis;
+      // Nur überschreiben, wenn beim neuen Lieferanten tatsächlich ein Preis gepflegt ist — sonst
+      // hätte das Umschlüsseln auf einen Lieferanten ohne EK einen zuvor korrekt angezeigten Preis
+      // stillschweigend auf 0,00 € zurückgesetzt.
+      if (zuordnung && zuordnung.einkaufspreis > 0) updateData.einkaufspreis = zuordnung.einkaufspreis;
     }
 
     const pos = await prisma.bestellposition.update({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveBevorzugtenLieferanten } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,11 @@ export async function GET(req: NextRequest) {
       where: { aktiv: true },
       take: 500,
       include: {
-        lieferanten: { include: { lieferant: true }, where: { bevorzugt: true } },
+        // Alle Lieferanten laden (nicht nur bevorzugt) — resolveBevorzugtenLieferanten() wählt
+        // unten den bevorzugten NUR wenn dort auch ein Preis gepflegt ist, sonst einen mit Preis,
+        // sonst bevorzugt/erster auch ohne Preis. Ein reiner where:{bevorzugt:true}-Filter hätte
+        // einen tatsächlich gepflegten EK eines anderen (nicht bevorzugten) Lieferanten verdeckt.
+        lieferanten: { include: { lieferant: true } },
         lieferpositionen: {
           where: {
             lieferung: {
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest) {
         )
       : 0;
 
-    const bevorzugterLieferant = a.lieferanten[0] ?? null;
+    const bevorzugterLieferant = resolveBevorzugtenLieferanten(a.lieferanten);
 
     return {
       artikelId: a.id,
