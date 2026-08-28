@@ -1238,7 +1238,7 @@ export default function RechnungPrintPage() {
           }}
         >
           <td style={{ padding: "3px 8px", verticalAlign: "top" }}>{idx + 1}</td>
-          <td style={{ padding: "3px 8px", verticalAlign: "top" }}>
+          <td style={{ padding: "3px 8px", verticalAlign: "top", overflowWrap: "anywhere" }}>
             {(p.artikel.kategorie || p.artikel.unterkategorie) && (
               <div style={{ fontSize: "7.5pt", color: "#888", lineHeight: 1.3 }}>
                 {[p.artikel.kategorie === "Duenger" ? "Dünger" : p.artikel.kategorie, p.artikel.unterkategorie].filter(Boolean).join(" / ")}
@@ -1264,7 +1264,7 @@ export default function RechnungPrintPage() {
           <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
             {formatMenge(p.menge)}
           </td>
-          <td style={{ padding: "3px 8px", verticalAlign: "top" }}>{p.artikel.einheit}</td>
+          <td style={{ padding: "3px 8px", verticalAlign: "top", overflowWrap: "anywhere" }}>{p.artikel.einheit}</td>
           <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>
             {formatEuro(p.verkaufspreis)}
           </td>
