@@ -14,6 +14,7 @@ import {
   matchKunde,
   berechneFehlendeFelder,
   normalisiereSuchtext,
+  tokenSimilarity,
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
@@ -67,6 +68,10 @@ interface BatchPosition {
   konfidenz: Konfidenz;
   showNeuForm?: boolean;
   chargeNr: string;
+  /** True sobald der Nutzer die Artikel-Zuordnung dieser Position selbst gesetzt/geändert hat —
+   * verhindert, dass eine sofortige Weitergabe einer Korrektur (auch aus einem ANDEREN Item des
+   * Batches) eine bereits bewusst getroffene Zuordnung überschreibt. */
+  manuallyEdited?: boolean;
 }
 
 interface BatchItem {
@@ -154,6 +159,21 @@ export default function KiLieferungBatchDetailPage() {
   const [lieferanten, setLieferanten] = useState<LieferantRaw[]>([]);
   const [gelerntKunde, setGelerntKunde] = useState<Map<string, number>>(new Map());
   const [gelerntArtikel, setGelerntArtikel] = useState<Map<string, number>>(new Map());
+
+  // Refs, die immer den AKTUELLEN Stand von gelerntKunde/gelerntArtikel spiegeln — die
+  // sequenzielle Analyse-Schleife (siehe useEffect weiter unten) startet einmalig und ruft
+  // verarbeiteAnalyseErgebnis() über mehrere await-Punkte hinweg auf; eine direkte Verwendung der
+  // State-Variablen würde den Stand vom Start der Schleife einfrieren (stale closure) — eine
+  // Korrektur an Item 1 käme dadurch nie bei der Analyse von Item 3 im selben Lauf an. Über
+  // `.current` gelesen sehen spätere Schleifendurchläufe immer den neuesten Stand.
+  const gelerntKundeRef = useRef(gelerntKunde);
+  const gelerntArtikelRef = useRef(gelerntArtikel);
+  useEffect(() => {
+    gelerntKundeRef.current = gelerntKunde;
+  }, [gelerntKunde]);
+  useEffect(() => {
+    gelerntArtikelRef.current = gelerntArtikel;
+  }, [gelerntArtikel]);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzedCount, setAnalyzedCount] = useState(0);
@@ -261,9 +281,9 @@ export default function KiLieferungBatchDetailPage() {
 
     const ergebnis: KiErgebnis = JSON.parse(raw.kiErgebnisJson);
 
-    const { kunde: matchedKunde, konfidenz: kk } = matchKunde(ergebnis.kunde, kunden, gelerntKunde);
+    const { kunde: matchedKunde, konfidenz: kk } = matchKunde(ergebnis.kunde, kunden, gelerntKundeRef.current);
     const positionen: BatchPosition[] = (ergebnis.positionen ?? []).map((pos) => {
-      const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikel, gelerntArtikel);
+      const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikel, gelerntArtikelRef.current);
       return {
         kiPosition: pos,
         artikelId: matchedArtikel ? String(matchedArtikel.id) : "",
@@ -368,23 +388,80 @@ export default function KiLieferungBatchDetailPage() {
   }
 
   function setPositionFeld(item: BatchItem, idx: number, feld: "artikelId" | "menge" | "verkaufspreis" | "chargeNr", wert: string | number) {
+    if (feld === "artikelId") {
+      handleArtikelIdChangeBatch(item.id, idx, String(wert));
+      return;
+    }
     updateItem(item.id, (it) => ({
       ...it,
-      positionen: it.positionen.map((p, i) => {
-        if (i !== idx) return p;
-        const updated: BatchPosition = { ...p, [feld]: wert };
-        if (feld === "artikelId") {
-          const found = artikel.find((a) => String(a.id) === String(wert));
-          updated.verkaufspreis = found ? found.standardpreis : 0;
-          updated.konfidenz = found ? "hoch" : "keine";
-          updated.showNeuForm = false;
-          if (found && p.kiPosition.name) {
-            meldeLernkorrektur("artikel", p.kiPosition.name, found.id);
-          }
-        }
-        return updated;
-      }),
+      positionen: it.positionen.map((p, i) => (i === idx ? { ...p, [feld]: wert } : p)),
     }));
+  }
+
+  /** Setzt/korrigiert die Artikel-Zuordnung einer Position und gibt die Korrektur sofort an ALLE
+   * anderen, noch nicht manuell bestätigten Positionen mit identischem/sehr ähnlichem KI-Namen
+   * weiter — über den GESAMTEN Batch hinweg, nicht nur innerhalb desselben Belegs. Meldet die
+   * Korrektur außerdem sofort an KiLernZuordnung UND aktualisiert die lokale gelerntArtikel-Map,
+   * damit spätere Analysen in derselben Sitzung (via gelerntArtikelRef) sofort davon profitieren.
+   * `foundOverride` wird von onArtikelAngelegt übergeben, da der frisch angelegte Artikel zum
+   * Zeitpunkt des Aufrufs noch nicht im `artikel`-State steckt. */
+  function handleArtikelIdChangeBatch(itemId: number, idx: number, val: string, foundOverride?: ArtikelRaw) {
+    setBatch((prev) => {
+      if (!prev) return prev;
+      const quellItem = prev.items.find((it) => it.id === itemId);
+      const quellPos = quellItem?.positionen[idx];
+      if (!quellItem || !quellPos) return prev;
+
+      const found = foundOverride ?? artikel.find((a) => String(a.id) === String(val));
+      const aid = found ? found.id : null;
+      const suchtextKey = aid != null && quellPos.kiPosition.name ? normalisiereSuchtext(quellPos.kiPosition.name) : null;
+
+      if (suchtextKey && aid != null) {
+        meldeLernkorrektur("artikel", quellPos.kiPosition.name, aid);
+        setGelerntArtikel((m) => new Map(m).set(suchtextKey, aid));
+      }
+
+      const geaendert = new Set<number>();
+
+      const items = prev.items.map((it) => {
+        let itemChanged = false;
+        const positionen = it.positionen.map((p, i) => {
+          const istQuelle = it.id === itemId && i === idx;
+          if (istQuelle) {
+            itemChanged = true;
+            return {
+              ...p,
+              artikelId: val,
+              verkaufspreis: found ? found.standardpreis : 0,
+              konfidenz: (found ? "hoch" : "keine") as Konfidenz,
+              showNeuForm: false,
+              manuallyEdited: true,
+            };
+          }
+          if (suchtextKey && aid != null && !p.manuallyEdited && p.kiPosition.name) {
+            const gleich =
+              normalisiereSuchtext(p.kiPosition.name) === suchtextKey ||
+              tokenSimilarity(p.kiPosition.name, quellPos.kiPosition.name) >= 0.9;
+            if (gleich) {
+              itemChanged = true;
+              return { ...p, artikelId: String(aid), vorschlagArtikelId: aid, konfidenz: "gelernt" as Konfidenz };
+            }
+          }
+          return p;
+        });
+        if (!itemChanged) return it;
+        const neuItem = { ...it, positionen };
+        const mitFehlenden = { ...neuItem, fehlendeFelder: neuBerechneFehlendeFelder(neuItem) };
+        geaendert.add(it.id);
+        return mitFehlenden;
+      });
+
+      for (const it of items) {
+        if (geaendert.has(it.id)) speichereItem(it);
+      }
+
+      return { ...prev, items };
+    });
   }
 
   function toggleNeuForm(item: BatchItem, idx: number, show: boolean) {
@@ -396,12 +473,9 @@ export default function KiLieferungBatchDetailPage() {
 
   function onArtikelAngelegt(item: BatchItem, idx: number, neu: NeuArtikelErgebnis) {
     setArtikel((prev) => [...prev, neu]);
-    updateItem(item.id, (it) => ({
-      ...it,
-      positionen: it.positionen.map((p, i) =>
-        i === idx ? { ...p, artikelId: String(neu.id), verkaufspreis: neu.standardpreis, konfidenz: "hoch", showNeuForm: false } : p
-      ),
-    }));
+    // Über handleArtikelIdChangeBatch (statt direktem updateItem), damit derselbe
+    // Sofort-Lern-/Weitergabe-Pfad wie bei einer manuellen Dropdown-Auswahl greift.
+    handleArtikelIdChangeBatch(item.id, idx, String(neu.id), neu);
   }
 
   function onKundeAngelegt(item: BatchItem, neu: NeuKundeErgebnis) {

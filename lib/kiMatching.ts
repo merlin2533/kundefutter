@@ -2,7 +2,29 @@
 // (Kunde/Artikel-Zuordnung), genutzt sowohl vom Einzel-Scan (app/ki/lieferung,
 // app/ki/wareneingang) als auch vom Batch-Modus (app/ki/lieferung/batch).
 
+// Wiederverwendung der bereits vorhandenen, abhängigkeitsfreien Textähnlichkeits-Funktionen aus
+// dem Bankabgleich-Matcher statt einer eigenen (dritten) Implementierung oder einer neuen
+// npm-Abhängigkeit — bankabgleich-matching.ts hat selbst keine Imports und ist damit bundle-sicher
+// auch für diese ausschließlich clientseitig genutzte Datei. Re-exportiert, damit Aufrufer sie bei
+// Bedarf direkt aus @/lib/kiMatching beziehen können.
+import { normalizeText, tokenSimilarity } from "./bankabgleich-matching";
+export { normalizeText, tokenSimilarity };
+
 export type Konfidenz = "hoch" | "mittel" | "niedrig" | "keine" | "gelernt";
+
+// Schwellwerte für das Best-Pick-Namens-Scoring und den Fuzzy-Fallback auf gelernte Zuordnungen —
+// an einer Stelle gesammelt, damit sie sich leicht nachjustieren lassen.
+/** Ab diesem tokenSimilarity-Wert gilt ein KI-erkannter Name als "im Grunde derselbe Text" wie
+ * ein bereits gelernter Suchtext (toleriert OCR-Rauschen: Leerzeichen, Wortstellung, Umlaute). */
+const GELERNT_FUZZY_MIN_SCORE = 0.9;
+/** Best-Pick-Namens-Score ab dieser Schwelle → Konfidenz "mittel". */
+const NAME_SCORE_MITTEL = 0.8;
+/** Best-Pick-Namens-Score ab dieser Schwelle (aber unter NAME_SCORE_MITTEL) → "niedrig". */
+const NAME_SCORE_NIEDRIG = 0.5;
+/** Score-Untergrenze, wenn ein normalisierter Name den anderen vollständig enthält (z.B. "Mais"
+ * vs. "Mais Gelb Körnermais 25kg") — Substring-Enthaltung ist ein starkes Signal, auch wenn der
+ * reine Token-Overlap-Wert wegen der unterschiedlichen Länge niedriger ausfallen würde. */
+const NAME_CONTAINS_BONUS = 0.85;
 
 /**
  * Lädt eine paginierte Liste-API vollständig durch (alle Seiten), statt sich
@@ -41,15 +63,48 @@ export interface MatchableArtikel {
   artikelnummer: string;
 }
 
+/** Normalisiert eine Lieferanten-/Artikelnummer für den Vergleich: Leerzeichen und Bindestriche
+ * entfernen, Groß-/Kleinschreibung vereinheitlichen — Lieferanten drucken dieselbe Nummer auf
+ * Belegen oft mit leicht abweichender Formatierung (z.B. "12 345" vs. "12345", "AB-100" vs. "ab100"). */
+export function normalisiereArtikelnummer(nr: string): string {
+  return nr.trim().replace(/[\s-]+/g, "").toUpperCase();
+}
+
+/** Bewertet, wie gut ein KI-erkannter Name zu einem Artikelnamen passt (0..1) — exakter
+ * normalisierter Treffer zählt als 1, sonst Token-Overlap (tokenSimilarity), angehoben auf
+ * mindestens NAME_CONTAINS_BONUS wenn einer der beiden Namen den anderen vollständig enthält. */
+function nameScore(kiName: string, artikelName: string): number {
+  const a = normalizeText(kiName);
+  const b = normalizeText(artikelName);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const score = tokenSimilarity(kiName, artikelName);
+  if (a.includes(b) || b.includes(a)) return Math.max(score, NAME_CONTAINS_BONUS);
+  return score;
+}
+
 /**
- * Ordnet eine KI-erkannte Position einem bestehenden Artikel zu. Prüft zuerst
- * gelernte Korrekturen (KiLernZuordnung), dann exakte Artikelnummer, dann
- * Namens-Teilstring, dann Wort-Teiltreffer.
+ * Ordnet eine KI-erkannte Position einem bestehenden Artikel zu — nach dem Best-Pick-Prinzip:
+ * bewertet bei der Namens-Zuordnung ALLE Kandidaten und nimmt den bestbewerteten statt (wie
+ * früher) den ersten Teilstring-/Wort-Treffer im Array.
+ *
+ * Reihenfolge:
+ * 1. Gelernt exakt (KiLernZuordnung) — eine direkt vom Nutzer bestätigte Korrektur für genau
+ *    diesen Text ist die vertrauenswürdigste und günstigste Quelle.
+ * 2. Lieferanten-Artikelnummer exakt (`lieferantenArtNrMap`, nur wenn übergeben) — die vom Beleg
+ *    gelesene "artikelnummer" ist praktisch immer die Nummer DES LIEFERANTEN, nicht unsere
+ *    interne SKU, daher vor dem internen Artikelnummer-Abgleich geprüft.
+ * 3. Eigene `Artikel.artikelnummer` exakt — Fallback für den seltenen Fall, dass die gelesene
+ *    Nummer zufällig unserer internen SKU entspricht.
+ * 4. Gelernt, näherungsweise — toleriert OCR-Rauschen (Leerzeichen, Wortstellung, Umlaute)
+ *    zwischen dem beim Lernen gespeicherten Text und dem aktuell erkannten.
+ * 5. Best-Pick Namens-Scoring über alle Kandidaten.
  */
 export function matchArtikel<T extends MatchableArtikel>(
   kiPos: MatchArtikelInput,
   artikel: T[],
-  gelernt?: Map<string, number>
+  gelernt?: Map<string, number>,
+  lieferantenArtNrMap?: Map<string, number>
 ): { artikel: T | null; konfidenz: Konfidenz } {
   if (!artikel.length) return { artikel: null, konfidenz: "keine" };
 
@@ -58,6 +113,15 @@ export function matchArtikel<T extends MatchableArtikel>(
     if (gelerntId != null) {
       const treffer = artikel.find((a) => a.id === gelerntId);
       if (treffer) return { artikel: treffer, konfidenz: "gelernt" };
+    }
+  }
+
+  if (kiPos.artikelnummer && lieferantenArtNrMap && lieferantenArtNrMap.size > 0) {
+    const gesucht = normalisiereArtikelnummer(kiPos.artikelnummer);
+    const artikelId = gesucht ? lieferantenArtNrMap.get(gesucht) : undefined;
+    if (artikelId != null) {
+      const treffer = artikel.find((a) => a.id === artikelId);
+      if (treffer) return { artikel: treffer, konfidenz: "hoch" };
     }
   }
 
@@ -72,18 +136,28 @@ export function matchArtikel<T extends MatchableArtikel>(
   // Beleg nicht lesbar war (siehe lib/ai.ts PROMPTS) — kiPos.name ist zur
   // Laufzeit trotz des string-Typs nicht garantiert vorhanden.
   if (!kiPos.name) return { artikel: null, konfidenz: "keine" };
-  const nameLower = kiPos.name.toLowerCase();
 
-  const nameContains = artikel.find(
-    (a) => a.name.toLowerCase().includes(nameLower) || nameLower.includes(a.name.toLowerCase())
-  );
-  if (nameContains) return { artikel: nameContains, konfidenz: "mittel" };
-
-  const words = nameLower.split(/\s+/).filter((w) => w.length > 2);
-  for (const word of words) {
-    const partial = artikel.find((a) => a.name.toLowerCase().includes(word));
-    if (partial) return { artikel: partial, konfidenz: "niedrig" };
+  if (gelernt && gelernt.size > 0) {
+    let bester: { zielId: number; score: number } | null = null;
+    for (const [suchtext, zielId] of gelernt) {
+      const score = tokenSimilarity(kiPos.name, suchtext);
+      if (score >= GELERNT_FUZZY_MIN_SCORE && (!bester || score > bester.score)) {
+        bester = { zielId, score };
+      }
+    }
+    if (bester) {
+      const treffer = artikel.find((a) => a.id === bester!.zielId);
+      if (treffer) return { artikel: treffer, konfidenz: "gelernt" };
+    }
   }
+
+  let bester: { artikel: T; score: number } | null = null;
+  for (const a of artikel) {
+    const score = nameScore(kiPos.name, a.name);
+    if (!bester || score > bester.score) bester = { artikel: a, score };
+  }
+  if (bester && bester.score >= NAME_SCORE_MITTEL) return { artikel: bester.artikel, konfidenz: "mittel" };
+  if (bester && bester.score >= NAME_SCORE_NIEDRIG) return { artikel: bester.artikel, konfidenz: "niedrig" };
 
   return { artikel: null, konfidenz: "keine" };
 }

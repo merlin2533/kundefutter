@@ -12,7 +12,14 @@ import DezimalInput from "@/components/DezimalInput";
 import NeuArtikelInline from "@/components/NeuArtikelInline";
 import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
 import { lagerStatus } from "@/lib/utils";
-import { matchArtikel, matchKunde, normalisiereSuchtext, fetchAlleSeiten, type Konfidenz } from "@/lib/kiMatching";
+import {
+  matchArtikel,
+  matchKunde,
+  normalisiereSuchtext,
+  tokenSimilarity,
+  fetchAlleSeiten,
+  type Konfidenz,
+} from "@/lib/kiMatching";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -69,6 +76,10 @@ interface ZuordnungsPosition {
   showNeuForm?: boolean;
   preisUebernommen?: "global" | "individuell";
   chargeNr: string;
+  /** True sobald der Nutzer die Artikel-Zuordnung dieser Position selbst gesetzt/geändert hat —
+   * verhindert, dass eine sofortige Weitergabe einer Korrektur einer ANDEREN Position eine bereits
+   * bewusst getroffene Zuordnung überschreibt. */
+  manuallyEdited?: boolean;
 }
 
 // ─── Vollständiges Laden (kein Limit) ────────────────────────────────────────
@@ -207,6 +218,11 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
   const [kundenSonderpreise, setKundenSonderpreise] = useState<Record<number, number>>({});
   const [savingPreisIdx, setSavingPreisIdx] = useState<number | null>(null);
 
+  // Gelernte Artikel-Zuordnungen (KiLernZuordnung) — als State statt lokaler Konstante in
+  // runAnalysis(), damit eine Korrektur sofort (nicht erst beim finalen Speichern) für andere
+  // Positionen mit demselben/ähnlichem KI-Namen in derselben Sitzung zur Verfügung steht.
+  const [gelerntArtikelMap, setGelerntArtikelMap] = useState<Map<string, number>>(new Map());
+
   // Step 4
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -286,9 +302,10 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
       const gelerntKundeMap = new Map<string, number>(
         (gelerntKundeData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
       );
-      const gelerntArtikelMap = new Map<string, number>(
+      const gelerntArtikelMapLoaded = new Map<string, number>(
         (gelerntArtikelData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
       );
+      setGelerntArtikelMap(gelerntArtikelMapLoaded);
 
       const ergebnis: KiErgebnis = analyzeData.ergebnis;
       setKiErgebnis(ergebnis);
@@ -301,7 +318,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
       setKundKonfidenz(matchedKunde ? kk : "keine");
 
       const zugeordnet: ZuordnungsPosition[] = ergebnis.positionen.map((pos) => {
-        const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList, gelerntArtikelMap);
+        const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList, gelerntArtikelMapLoaded);
         return {
           kiPosition: pos,
           artikelId: matchedArtikel ? String(matchedArtikel.id) : "",
@@ -339,22 +356,73 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
     field: "artikelId" | "menge" | "verkaufspreis" | "chargeNr",
     val: string | number
   ) {
-    setPositionen((prev) =>
-      prev.map((p, i) => {
-        if (i !== idx) return p;
-        const updated = { ...p, [field]: val };
-        if (field === "artikelId") {
-          const found = artikel.find((a) => String(a.id) === String(val));
-          const aid = found ? found.id : null;
-          const sonderpreis = aid != null ? kundenSonderpreise[aid] : undefined;
-          updated.verkaufspreis =
-            sonderpreis != null ? sonderpreis : found ? found.standardpreis : 0;
-          updated.konfidenz = found ? "hoch" : "keine";
-          updated.showNeuForm = false;
-        }
-        return updated;
-      })
-    );
+    if (field === "artikelId") {
+      handleArtikelIdChange(idx, String(val));
+      return;
+    }
+    setPositionen((prev) => prev.map((p, i) => (i === idx ? { ...p, [field]: val } : p)));
+  }
+
+  /** Setzt/korrigiert die Artikel-Zuordnung einer Position und meldet die Korrektur SOFORT (statt
+   * erst beim finalen Speichern) — dadurch profitieren andere Positionen mit identischem oder sehr
+   * ähnlichem KI-Namen im selben Beleg unmittelbar, statt dass dasselbe Produkt im selben Beleg
+   * mehrfach manuell zugeordnet werden muss. `foundOverride` wird von `onArtikelCreated` übergeben,
+   * da der frisch angelegte Artikel zum Zeitpunkt des Aufrufs noch nicht im `artikel`-State steckt
+   * (asynchrones `setArtikel` ist zu diesem Zeitpunkt noch nicht committet). */
+  function handleArtikelIdChange(idx: number, val: string, foundOverride?: ArtikelRaw) {
+    setPositionen((prev) => {
+      const pos = prev[idx];
+      if (!pos) return prev;
+
+      const found = foundOverride ?? artikel.find((a) => String(a.id) === String(val));
+      const aid = found ? found.id : null;
+      const sonderpreis = aid != null ? kundenSonderpreise[aid] : undefined;
+
+      const next = prev.map((p, i) =>
+        i === idx
+          ? {
+              ...p,
+              artikelId: val,
+              verkaufspreis: sonderpreis != null ? sonderpreis : found ? found.standardpreis : 0,
+              konfidenz: (found ? "hoch" : "keine") as Konfidenz,
+              showNeuForm: false,
+              manuallyEdited: true,
+            }
+          : p
+      );
+
+      if (aid == null || !pos.kiPosition.name) return next;
+
+      if (aid !== pos.vorschlagArtikelId) {
+        fetch("/api/ki/lernen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ typ: "artikel", suchtext: pos.kiPosition.name, zielId: aid }),
+        }).catch((err) => {
+          Sentry.captureException(err);
+        });
+      }
+      const suchtextKey = normalisiereSuchtext(pos.kiPosition.name);
+      setGelerntArtikelMap((m) => new Map(m).set(suchtextKey, aid));
+
+      // Andere, noch nicht manuell bestätigte Positionen mit identischem/sehr ähnlichem KI-Namen
+      // sofort auf denselben Artikel setzen.
+      return next.map((p, i) => {
+        if (i === idx || p.manuallyEdited || !p.kiPosition.name) return p;
+        const gleich =
+          normalisiereSuchtext(p.kiPosition.name) === suchtextKey ||
+          tokenSimilarity(p.kiPosition.name, pos.kiPosition.name) >= 0.9;
+        if (!gleich) return p;
+        const sp = kundenSonderpreise[aid];
+        return {
+          ...p,
+          artikelId: String(aid),
+          vorschlagArtikelId: aid,
+          konfidenz: "gelernt" as Konfidenz,
+          verkaufspreis: sp != null ? sp : found ? found.standardpreis : p.verkaufspreis,
+        };
+      });
+    });
   }
 
   // Preis aus KI-Erkennung, der in den Artikel-Stammdaten (noch) nicht hinterlegt ist,
@@ -421,19 +489,9 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
 
   function onArtikelCreated(idx: number, neu: ArtikelRaw) {
     setArtikel((prev) => [...prev, neu]);
-    setPositionen((prev) =>
-      prev.map((p, i) => {
-        if (i !== idx) return p;
-        const sonderpreis = kundenSonderpreise[neu.id];
-        return {
-          ...p,
-          artikelId: String(neu.id),
-          verkaufspreis: sonderpreis != null ? sonderpreis : neu.standardpreis,
-          konfidenz: "hoch",
-          showNeuForm: false,
-        };
-      })
-    );
+    // Über handleArtikelIdChange (statt direktem setPositionen), damit dieselbe
+    // Sofort-Lern-/Weitergabe-Logik greift wie bei einer manuellen Dropdown-Auswahl.
+    handleArtikelIdChange(idx, String(neu.id), neu);
   }
 
   function onKundeCreated(neu: NeuKundeErgebnis) {
@@ -470,7 +528,8 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
     for (const pos of positionen) {
       if (!pos.kiPosition.name || !pos.artikelId) continue;
       const finalId = parseInt(pos.artikelId, 10);
-      if (pos.vorschlagArtikelId !== finalId) {
+      const bereitsGelernt = gelerntArtikelMap.get(normalisiereSuchtext(pos.kiPosition.name)) === finalId;
+      if (!bereitsGelernt && pos.vorschlagArtikelId !== finalId) {
         sendeAlias("artikel", pos.kiPosition.name, finalId);
       }
     }
