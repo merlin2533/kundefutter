@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
 
@@ -27,6 +27,13 @@ export interface LieferungPositionInput {
   artikelId: number;
   menge: number;
   verkaufspreis?: number;
+  /** Nur zu Dokumentationszwecken (Rabatt-Spalte auf Lieferschein/Rechnung) — wird NUR
+   *  übernommen, wenn `verkaufspreis` ebenfalls explizit gesetzt ist (siehe
+   *  erstelleLieferungTransaktion(): dort wird ein Mengenrabatt nur dann automatisch
+   *  berechnet UND auf den Preis angewendet, wenn der Aufrufer keinen verkaufspreis
+   *  vorgibt — sonst würde ein clientseitig bereits rabattierter Preis serverseitig ein
+   *  zweites Mal rabattiert). */
+  rabattProzent?: number;
   einkaufspreis?: number;
   chargeNr?: string;
   notiz?: string;
@@ -80,30 +87,28 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
       const kundePreis = kundePreisMap.get(pos.artikelId) ?? null;
       const bevorzugterLieferant = bevorzugterLieferantMap.get(pos.artikelId);
 
-      const basisVerkaufspreis = pos.verkaufspreis ?? berechneVerkaufspreis(artikel, kundePreis);
-
-      // Mengenrabatt: filter in JS (vonMenge per position, then artikel/kategorie match)
-      const passende = alleMengenrabatte.filter((r) => {
-        if (r.vonMenge > pos.menge) return false;
-        if (r.artikelId !== null) return r.artikelId === pos.artikelId;
-        if (r.kategorie !== null) return r.kategorie === artikel.kategorie;
-        return false;
-      });
-
-      // Wähle den höchsten Rabatt
-      let bestRabatt = 0;
-      for (const r of passende) {
-        if (r.rabattProzent > bestRabatt) bestRabatt = r.rabattProzent;
+      // Ein vom Aufrufer explizit übergebener Preis gilt als bereits final (z.B. die manuelle
+      // Lieferungserfassung berechnet Sonderpreis + Mengenrabatt schon clientseitig für die
+      // Live-Vorschau) — der Mengenrabatt wird dann NICHT nochmal serverseitig angewendet,
+      // sonst würde derselbe Rabatt doppelt abgezogen. Nur wenn kein Preis mitgegeben wird
+      // (z.B. KI-Batch-Erkennung ohne erkannten VK), berechnet der Server ihn inkl. Mengenrabatt
+      // selbst.
+      let verkaufspreis: number;
+      let bestRabatt: number;
+      if (pos.verkaufspreis !== undefined) {
+        verkaufspreis = pos.verkaufspreis;
+        bestRabatt = pos.rabattProzent ?? 0;
+      } else {
+        const basisVerkaufspreis = berechneVerkaufspreis(artikel, kundePreis);
+        const staffel = bestMengenstaffel(pos.artikelId, artikel.kategorie, pos.menge, kundeId, alleMengenrabatte);
+        verkaufspreis = wendeMengenstaffelAn(basisVerkaufspreis, staffel);
+        bestRabatt = effektiverMengenstaffelRabatt(basisVerkaufspreis, staffel);
       }
-
-      const rabattVerkaufspreis = bestRabatt > 0
-        ? Math.round(basisVerkaufspreis * (1 - bestRabatt / 100) * 100) / 100
-        : basisVerkaufspreis;
 
       return {
         artikelId: pos.artikelId,
         menge: pos.menge,
-        verkaufspreis: rabattVerkaufspreis,
+        verkaufspreis,
         einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
         // Eingefroren bei Erstellung (analog verkaufspreis) — eine spätere Änderung
         // von Artikel.mwstSatz darf diese Position nie mehr rückwirkend verändern.

@@ -38,6 +38,84 @@ export function berechneVerkaufspreis(
   return artikel.standardpreis;
 }
 
+export interface MengenrabattEintrag {
+  kundeId: number | null;
+  artikelId: number | null;
+  kategorie: string | null;
+  vonMenge: number;
+  /** Absoluter Verkaufspreis ab `vonMenge` — primäre, neue Eingabeart. */
+  preis: number | null;
+  /** Legacy: Rabatt in % — wird nur genutzt, wenn `preis` null ist (alte, vor der
+   *  Umstellung auf absolute Staffelpreise angelegte Einträge). */
+  rabattProzent: number;
+  aktiv: boolean;
+}
+
+/**
+ * Ermittelt die geltende Mengenstaffel (höchste erreichte vonMenge-Schwelle) für einen
+ * Artikel/eine Menge/einen Kunden. Einzige Quelle der Wahrheit für diese Auswahllogik —
+ * von der Live-Vorschau im Lieferungs-Erfassungsformular (app/lieferungen/neu/page.tsx) UND
+ * vom serverseitigen Preisberechnungs-Fallback (erstelleLieferungTransaktion() in
+ * lib/lieferung.ts) genutzt, damit der dort vorausberechnete Preis garantiert dem entspricht,
+ * der beim Speichern tatsächlich übernommen wird. Bei mehreren erreichten Schwellen gewinnt
+ * die höchste (nicht der größte Rabatt — Staffeln sind absolute Preise, "größer" ist dabei
+ * nicht gleich "besser"); bei gleicher Schwelle gewinnt ein kundenspezifischer Eintrag vor
+ * einem allgemeingültigen.
+ */
+export function bestMengenstaffel(
+  artikelId: number,
+  artikelKategorie: string,
+  menge: number,
+  kundeId: number | null,
+  rabatte: MengenrabattEintrag[]
+): MengenrabattEintrag | null {
+  if (menge <= 0) return null;
+  let best: MengenrabattEintrag | null = null;
+  for (const r of rabatte) {
+    if (!r.aktiv) continue;
+    if (r.vonMenge > menge) continue;
+    if (r.kundeId !== null && r.kundeId !== kundeId) continue;
+    if (r.artikelId !== null) {
+      if (r.artikelId !== artikelId) continue;
+    } else if (r.kategorie !== null) {
+      if (r.kategorie !== artikelKategorie) continue;
+    } else {
+      continue;
+    }
+    if (
+      !best ||
+      r.vonMenge > best.vonMenge ||
+      (r.vonMenge === best.vonMenge && r.kundeId !== null && best.kundeId === null)
+    ) {
+      best = r;
+    }
+  }
+  return best;
+}
+
+/** Wendet eine per bestMengenstaffel() ermittelte Staffel auf einen Basispreis an — absoluter
+ *  Staffelpreis, falls gesetzt, sonst der Legacy-Rabattprozentsatz, sonst unverändert. */
+export function wendeMengenstaffelAn(basisPreis: number, staffel: MengenrabattEintrag | null): number {
+  if (!staffel) return basisPreis;
+  if (staffel.preis !== null) return Math.round(staffel.preis * 100) / 100;
+  return staffel.rabattProzent > 0
+    ? Math.round(basisPreis * (1 - staffel.rabattProzent / 100) * 100) / 100
+    : basisPreis;
+}
+
+/** Effektiver Rabatt-Prozentsatz einer Mengenstaffel gegenüber einem Basispreis — für die
+ *  "Rabatt %"-Spalte auf Lieferschein/Rechnung, unabhängig davon ob die Staffel über einen
+ *  absoluten Preis oder (Legacy) direkt über einen Prozentsatz definiert ist. Negative Werte
+ *  (Staffelpreis liegt über dem Basispreis) werden auf 0 gekappt — die Spalte zeigt nur echte
+ *  Rabatte, keine Aufschläge. */
+export function effektiverMengenstaffelRabatt(basisPreis: number, staffel: MengenrabattEintrag | null): number {
+  if (!staffel) return 0;
+  if (staffel.preis === null) return staffel.rabattProzent;
+  if (basisPreis <= 0) return 0;
+  const pct = ((basisPreis - staffel.preis) / basisPreis) * 100;
+  return pct > 0 ? Math.round(pct * 10) / 10 : 0;
+}
+
 export function berechneMarge(verkaufspreis: number, einkaufspreis: number) {
   const margeEuro = verkaufspreis - einkaufspreis;
   const margeProzent =
