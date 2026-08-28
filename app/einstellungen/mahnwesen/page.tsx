@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, type MahnwesenConfig } from "@/lib/mahnwesen-config";
+import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, DEFAULT_MAHNUNG_TEXTE, MAHNUNG_TEXT_EINSTELLUNG_KEY, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 import * as Sentry from "@sentry/nextjs";
+
+const STUFEN = [1, 2, 3] as const;
 
 export default function MahnwesenEinstellungenPage() {
   const [cfg, setCfg] = useState<MahnwesenConfig>(DEFAULT_MAHNWESEN_CONFIG);
+  const [texte, setTexte] = useState<Record<1 | 2 | 3, string>>({ 1: "", 2: "", 3: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -18,6 +21,11 @@ export default function MahnwesenEinstellungenPage() {
       if (!res.ok) throw new Error();
       const data: Record<string, string> = await res.json();
       setCfg(parseMahnwesenConfig(data["system.mahnwesen"]));
+      setTexte({
+        1: data[MAHNUNG_TEXT_EINSTELLUNG_KEY[1]] ?? "",
+        2: data[MAHNUNG_TEXT_EINSTELLUNG_KEY[2]] ?? "",
+        3: data[MAHNUNG_TEXT_EINSTELLUNG_KEY[3]] ?? "",
+      });
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
@@ -50,6 +58,16 @@ export default function MahnwesenEinstellungenPage() {
         body: JSON.stringify({ key: "system.mahnwesen", value: JSON.stringify(cfg) }),
       });
       if (!res.ok) throw new Error();
+      const textResults = await Promise.all(
+        STUFEN.map((stufe) =>
+          fetch("/api/einstellungen", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: MAHNUNG_TEXT_EINSTELLUNG_KEY[stufe], value: texte[stufe] }),
+          })
+        )
+      );
+      if (textResults.some((r) => !r.ok)) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -174,6 +192,44 @@ export default function MahnwesenEinstellungenPage() {
               />
               <span className="text-sm text-gray-500">% p.a.</span>
             </div>
+          </div>
+        </div>
+
+        {/* Brieftext */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <h2 className="text-sm font-semibold text-gray-700">Brieftext je Mahnstufe</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Absätze durch eine Leerzeile trennen. Platzhalter: <code>{"{rechnungNr}"}</code>,{" "}
+              <code>{"{rechnungDatum}"}</code>, <code>{"{fristTage}"}</code> (Tage zwischen Stufe 2 und
+              Stufe 3 gemäß den Fristen oben). Leer = Standardtext wird verwendet. Wird identisch in PDF
+              und E-Mail verwendet.
+            </p>
+          </div>
+          <div className="p-5 space-y-5">
+            {STUFEN.map((stufe) => (
+              <div key={stufe}>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-medium text-gray-600">
+                    {stufe === 1 ? "Stufe 1 – Zahlungserinnerung" : stufe === 2 ? "Stufe 2 – 1. Mahnung" : "Stufe 3 – letzte Mahnung"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setTexte((prev) => ({ ...prev, [stufe]: "" }))}
+                    className="text-xs text-gray-400 hover:text-green-700"
+                  >
+                    Zurücksetzen
+                  </button>
+                </div>
+                <textarea
+                  rows={4}
+                  value={texte[stufe]}
+                  onChange={(e) => setTexte((prev) => ({ ...prev, [stufe]: e.target.value }))}
+                  placeholder={DEFAULT_MAHNUNG_TEXTE[stufe]}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                />
+              </div>
+            ))}
           </div>
         </div>
 

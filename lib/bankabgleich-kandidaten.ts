@@ -8,9 +8,29 @@ import type { Prisma } from "@prisma/client";
 import { berechneLieferungBrutto, berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
 import type { BankBuchung, ReconCandidate } from "@/lib/bankabgleich-matching";
 
-const MAX_KANDIDATEN = 300;
+/** Default-Obergrenze des Kandidaten-Pools, falls kein Wert unter dem Einstellung-Key
+ * KANDIDATEN_LIMIT_KEY hinterlegt ist. Als reine Konstante ("worked for the customer we tested
+ * with") ließ ein fester Wert von 300 bei Kunden mit vielen offenen Belegen ältere Rechnungen
+ * beim automatischen Bankabgleich unter den Tisch fallen — jetzt je Deployment über
+ * /einstellungen/bankkonten anpassbar. */
+const DEFAULT_KANDIDATEN_LIMIT = 1000;
+/** Obergrenze für den konfigurierbaren Wert selbst — verhindert, dass ein versehentlich zu groß
+ * eingegebener Wert (Zahlenfeld auf /einstellungen/bankkonten hat keine Max-Validierung) jede
+ * Bankabgleich-Ansicht mit einem riesigen `findMany` (inkl. verschachtelter Lieferungen→
+ * Positionen→Artikel) lahmlegt. */
+const MAX_KANDIDATEN_LIMIT = 5000;
+const KANDIDATEN_LIMIT_KEY = "bankabgleich.kandidatenLimit";
 /** Treffer-Limit je Beleg-Typ für die gezielte Text-/Rechnungsnummer-Suche (sucheKandidatenFuerBetrag). */
 const SEARCH_LIMIT = 20;
+
+/** Liest die konfigurierte Kandidaten-Obergrenze (ein einzelner, günstiger Primärschlüssel-Lookup —
+ * kein N+1, da ladeVerkaufsKandidaten/ladeEinkaufsKandidaten je Aufruf ohnehin nur 2 Queries parallel ausführen). */
+async function ladeKandidatenLimit(): Promise<number> {
+  const row = await prisma.einstellung.findUnique({ where: { key: KANDIDATEN_LIMIT_KEY } });
+  const n = row ? parseInt(row.value, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_KANDIDATEN_LIMIT;
+  return Math.min(n, MAX_KANDIDATEN_LIMIT);
+}
 
 function toIso(d: Date | null | undefined): string {
   if (!d) return "";
@@ -137,18 +157,20 @@ async function ladeEingangsrechnungKandidaten(where: Prisma.EingangsRechnungWher
 
 /** Offene Kandidaten auf der Verkaufsseite (Zahlungseingänge): Lieferungen + Sammelrechnungen. */
 export async function ladeVerkaufsKandidaten(): Promise<ReconCandidate[]> {
+  const limit = await ladeKandidatenLimit();
   const [lieferungKandidaten, sammelKandidaten] = await Promise.all([
-    ladeLieferungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, MAX_KANDIDATEN),
-    ladeSammelrechnungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, MAX_KANDIDATEN),
+    ladeLieferungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, limit),
+    ladeSammelrechnungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, limit),
   ]);
   return [...lieferungKandidaten, ...sammelKandidaten];
 }
 
 /** Offene Kandidaten auf der Einkaufsseite (Zahlungsausgänge): Ausgaben + Lieferantenrechnungen. */
 export async function ladeEinkaufsKandidaten(): Promise<ReconCandidate[]> {
+  const limit = await ladeKandidatenLimit();
   const [ausgabeKandidaten, eingangKandidaten] = await Promise.all([
-    ladeAusgabeKandidaten({ bezahltAm: null }, MAX_KANDIDATEN),
-    ladeEingangsrechnungKandidaten({ status: "OFFEN" }, MAX_KANDIDATEN),
+    ladeAusgabeKandidaten({ bezahltAm: null }, limit),
+    ladeEingangsrechnungKandidaten({ status: "OFFEN" }, limit),
   ]);
   return [...ausgabeKandidaten, ...eingangKandidaten];
 }
@@ -157,7 +179,8 @@ export async function ladeEinkaufsKandidaten(): Promise<ReconCandidate[]> {
  * Gezielte Text-/Rechnungsnummer-Suche direkt gegen die Datenbank (statt gegen den nach Datum
  * begrenzten "alle offenen Kandidaten"-Pool von ladeVerkaufsKandidaten/ladeEinkaufsKandidaten).
  * Ohne diesen eigenen DB-Query fiel eine ältere, aber noch offene Rechnung aus der Suche heraus,
- * sobald mehr als MAX_KANDIDATEN (300) neuere offene Rechnungen/Sammelrechnungen existierten —
+ * sobald mehr als das konfigurierte Kandidatenlimit (Default 1000, Einstellung
+ * "bankabgleich.kandidatenLimit") neuere offene Rechnungen/Sammelrechnungen existierten —
  * exakt das gleiche Muster wie der frühere Kunden-Picker-Bug (siehe AGENTS.md).
  */
 export async function sucheVerkaufsKandidaten(q: string): Promise<ReconCandidate[]> {

@@ -12,7 +12,7 @@ import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
-import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_BETREFF, mahnungTextBausteine } from "@/lib/mahnwesen-config";
+import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_BETREFF, mahnungTextBausteine, MAHNUNG_TEXT_EINSTELLUNG_KEY } from "@/lib/mahnwesen-config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -1695,6 +1695,7 @@ export async function generiereMahnungPdf(
 
   const cfgSetting = await prisma.einstellung.findUnique({ where: { key: "system.mahnwesen" } });
   const cfg = parseMahnwesenConfig(cfgSetting?.value);
+  const textSetting = await prisma.einstellung.findUnique({ where: { key: MAHNUNG_TEXT_EINSTELLUNG_KEY[mahnstufe] } });
 
   const FIRMA = await ladeFirmaDaten();
   const footerSpalten = await ladeFooterSpalten(FIRMA);
@@ -1817,7 +1818,7 @@ export async function generiereMahnungPdf(
   ey += 8;
 
   // ── Anrede + Brieftext (zentral aus lib/mahnwesen-config.ts, identisch zur E-Mail) ─────────
-  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, lieferung.rechnungNr, formatDatum(rechnungDatum), k.firma);
+  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, lieferung.rechnungNr, formatDatum(rechnungDatum), k.firma, { cfg, textUeberschreibung: textSetting?.value });
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");

@@ -161,16 +161,34 @@ export function istLagerrelevant(
 function naechsteNummer(prefix: string, letzte: string | null): string {
   const jahr = new Date().getFullYear();
   if (!letzte) return `${prefix}-${jahr}-0001`;
+
   const parts = letzte.split("-");
-  const letzteJahr = parts.length >= 3 ? parseInt(parts[1], 10) : 0;
-  if (letzteJahr !== jahr) return `${prefix}-${jahr}-0001`;
-  const num = parseInt(parts[parts.length - 1] || "0", 10) + 1;
-  return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
+  // Erkennt das gültige Format "PRÄFIX-JJJJ-NNNN" (Teil[1] = 4-stellige Jahreszahl). Alles andere
+  // ist ein Legacy-Zählerstand (nackter Integer wie "452", wie er z.B. vor Einführung dieses
+  // Helpers für "letzte_bestellungsnummer" gespeichert wurde) — den fälschlich als "Jahr 0"
+  // zu behandeln würde ihn sofort auf 0001 zurücksetzen und mit bereits vergebenen Nummern
+  // desselben Jahres kollidieren.
+  const istFormatiert = parts.length >= 3 && /^\d{4}$/.test(parts[1]);
+  if (istFormatiert) {
+    const letzteJahr = parseInt(parts[1], 10);
+    if (letzteJahr !== jahr) return `${prefix}-${jahr}-0001`;
+    const num = parseInt(parts[parts.length - 1] || "0", 10) + 1;
+    return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
+  }
+
+  // Legacy-Kompatibilität: die alte, jahrlose Zählung EINMALIG fortsetzen statt auf 0001
+  // zurückzuspringen. Ab dem nächsten Aufruf liegt der Zähler bereits im neuen Format vor
+  // und der reguläre Jahreswechsel-Reset oben greift wieder normal.
+  const legacyNum = parseInt(letzte, 10);
+  const next = Number.isFinite(legacyNum) && legacyNum > 0 ? legacyNum + 1 : 1;
+  return `${prefix}-${jahr}-${String(next).padStart(4, "0")}`;
 }
 
 export const naechsteRechnungsnummer = (letzte: string | null, prefix = "RE") => naechsteNummer(prefix.trim() || "RE", letzte);
 export const naechsteGutschriftsnummer = (letzte: string | null) => naechsteNummer("GS", letzte);
 export const naechsteRetourennummer = (letzte: string | null) => naechsteNummer("RET", letzte);
+export const naechsteBestellungsnummer = (letzte: string | null) => naechsteNummer("BES", letzte);
+export const naechsteAngebotsnummer = (letzte: string | null, prefix = "AN") => naechsteNummer(prefix.trim() || "AN", letzte);
 
 export function addTage(datum: Date, tage: number): Date {
   const d = new Date(datum);

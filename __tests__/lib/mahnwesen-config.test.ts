@@ -46,6 +46,30 @@ describe("mahnungTextBausteine — zentrale Textquelle für PDF (generiereMahnun
     }
   });
 
+  it("zeigt bei Standard-Fristen (14/28/42 Tage) dieselbe Zahlungsfrist wie vor der Konfigurierbarkeit (7 Tage Stufe 2, 5 Tage Stufe 3) — keine stille Verlängerung der letzten Mahnung", () => {
+    const stufe2 = mahnungTextBausteine(2, "RE-2026-0001", "1.1.2026", null, { cfg: DEFAULT_MAHNWESEN_CONFIG });
+    const stufe3 = mahnungTextBausteine(3, "RE-2026-0001", "1.1.2026", null, { cfg: DEFAULT_MAHNWESEN_CONFIG });
+    expect(stufe2.absaetze.join(" ")).toContain("innerhalb von 7 Tagen");
+    expect(stufe3.absaetze.join(" ")).toContain("innerhalb von 5 Tagen");
+  });
+
+  it("verkürzt die Frist, wenn der Abstand zwischen Stufe 2 und Stufe 3 enger konfiguriert ist", () => {
+    const cfg = { ...DEFAULT_MAHNWESEN_CONFIG, stufe2Tage: 28, stufe3Tage: 31 };
+    expect(mahnungTextBausteine(2, "RE-2026-0001", "1.1.2026", null, { cfg }).absaetze.join(" ")).toContain("innerhalb von 3 Tagen");
+    expect(mahnungTextBausteine(3, "RE-2026-0001", "1.1.2026", null, { cfg }).absaetze.join(" ")).toContain("innerhalb von 3 Tagen");
+  });
+
+  it("deckelt die Frist auf die bisherigen Standardwerte, auch wenn ein großzügigerer Abstand konfiguriert ist", () => {
+    const cfg = { ...DEFAULT_MAHNWESEN_CONFIG, stufe2Tage: 28, stufe3Tage: 90 };
+    expect(mahnungTextBausteine(2, "RE-2026-0001", "1.1.2026", null, { cfg }).absaetze.join(" ")).toContain("innerhalb von 7 Tagen");
+    expect(mahnungTextBausteine(3, "RE-2026-0001", "1.1.2026", null, { cfg }).absaetze.join(" ")).toContain("innerhalb von 5 Tagen");
+  });
+
+  it("nutzt bei nicht gesetzter cfg (Aufrufer ohne opts) weiterhin die Standard-Fristen", () => {
+    const stufe2 = mahnungTextBausteine(2, "RE-2026-0001", "1.1.2026");
+    expect(stufe2.absaetze.join(" ")).toContain("innerhalb von 7 Tagen");
+  });
+
   it("MAHNUNG_BETREFF deckt alle drei Mahnstufen ab", () => {
     expect(MAHNUNG_BETREFF[1]).toBe("Freundliche Zahlungserinnerung");
     expect(MAHNUNG_BETREFF[2]).toBe("1. Mahnung");

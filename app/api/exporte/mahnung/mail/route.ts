@@ -5,7 +5,7 @@ import { mahnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
-import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen } from "@/lib/mahnwesen-config";
+import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_TEXT_EINSTELLUNG_KEY } from "@/lib/mahnwesen-config";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
     const tageUeberfaellig = Math.max(0, Math.floor((heute.getTime() - faelligOhneZeit.getTime()) / (24 * 60 * 60 * 1000)));
     const cfgSetting = await prisma.einstellung.findUnique({ where: { key: "system.mahnwesen" } });
     const cfg = parseMahnwesenConfig(cfgSetting?.value);
+    const textSetting = await prisma.einstellung.findUnique({ where: { key: MAHNUNG_TEXT_EINSTELLUNG_KEY[mahnstufe] } });
     const gebuehr = mahngebuehr(cfg, mahnstufe);
     const zinsen = berechneVerzugszinsen(offenerBetrag, tageUeberfaellig, cfg.verzugszinssatz, mahnstufe);
 
@@ -101,6 +102,8 @@ export async function POST(req: NextRequest) {
       verzugszinsen: zinsen,
       kundeFirma: lieferung.kunde.firma,
       ansprechpartnerName: ansprechpartner?.name,
+      cfg,
+      textUeberschreibung: textSetting?.value,
       firma,
     });
 

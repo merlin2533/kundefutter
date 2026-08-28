@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { naechsteAngebotsnummer } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
-
-function naechsteAngebotsnummer(letzte: string | null, prefix = "AN"): string {
-  const jahr = new Date().getFullYear();
-  if (!letzte) return `${prefix}-${jahr}-0001`;
-  const parts = letzte.split("-");
-  const letzteJahr = parts.length >= 3 ? parseInt(parts[1], 10) : 0;
-  if (letzteJahr !== jahr) return `${prefix}-${jahr}-0001`;
-  const num = parseInt(parts[parts.length - 1] || "0", 10) + 1;
-  return `${prefix}-${jahr}-${String(num).padStart(4, "0")}`;
-}
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params;

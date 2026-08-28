@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoGeocodeKunde } from "@/lib/geocoding";
+import { umlautSchreibweisen } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,13 @@ export async function GET(req: NextRequest) {
     where.lng = { not: null };
   }
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { firma: { contains: search } },
-      { ort: { contains: search } },
-      { plz: { contains: search } },
-    ];
+    // Deckt alle Groß-/Klein-Schreibweisen von Umlauten im Suchbegriff ab (siehe artikel/route.ts).
+    where.OR = umlautSchreibweisen(search).flatMap((s) => [
+      { name: { contains: s } },
+      { firma: { contains: s } },
+      { ort: { contains: s } },
+      { plz: { contains: s } },
+    ]);
   }
   if (tag) {
     // Sanitise: remove quotes and backslashes that could corrupt JSON matching

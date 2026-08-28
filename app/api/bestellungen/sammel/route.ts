@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { naechsteBestellungsnummer } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -83,17 +84,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const bestellung = await prisma.$transaction(async (tx) => {
-      // Nummer vergabe with Race-Condition protection
-      const jahr = new Date().getFullYear();
+      // Nummer vergabe with Race-Condition protection (Jahreswechsel-Reset via naechsteBestellungsnummer)
       const key = "letzte_bestellungsnummer";
       const existing = await tx.einstellung.findUnique({ where: { key } });
-      const nr = (existing ? parseInt(existing.value, 10) : 0) + 1;
+      const nummer = naechsteBestellungsnummer(existing?.value ?? null);
       await tx.einstellung.upsert({
         where: { key },
-        update: { value: String(nr) },
-        create: { key, value: String(nr) },
+        update: { value: nummer },
+        create: { key, value: nummer },
       });
-      const nummer = `BES-${jahr}-${String(nr).padStart(4, "0")}`;
 
       // Get article info for einheit
       const artikel = await tx.artikel.findUnique({
