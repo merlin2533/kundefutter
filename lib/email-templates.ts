@@ -1,5 +1,5 @@
 import type { FirmaDaten } from "@/lib/firma";
-import { MAHNUNG_BETREFF, mahnungTextBausteine } from "@/lib/mahnwesen-config";
+import { MAHNUNG_BETREFF, mahnungTextBausteine, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 // Nur für mahnungEmail(): dieselbe Datumsformatierung wie generiereMahnungPdf() in
 // lib/pdfGenerator.ts (formatDatum aus lib/utils.ts, z.B. "5.1.2026" statt "05.01.2026") — die
 // übrigen E-Mail-Vorlagen in dieser Datei nutzen weiterhin ihr eigenes, gepaddetes fmtDatum().
@@ -47,6 +47,10 @@ export type MahnungMailData = {
   /** Sachbearbeiter, der die Mahnung verschickt — ersetzt sonst firma.name in der Signatur,
    * analog zum "Ihr Ansprechpartner"-Feld auf der Mahnungs-PDF. */
   ansprechpartnerName?: string | null;
+  /** Für die Ableitung der Frist-Angabe im Brieftext (siehe mahnungTextBausteine) sowie einen
+   * evtl. hinterlegten Brieftext-Override, analog zu generiereMahnungPdf. */
+  cfg?: MahnwesenConfig;
+  textUeberschreibung?: string | null;
   firma: FirmaDaten;
 };
 
@@ -488,10 +492,10 @@ export function lieferscheinEmail(data: LieferscheinMailData): { subject: string
 // lib/pdfGenerator.ts, damit E-Mail und PDF garantiert denselben Text zeigen.
 
 export function mahnungEmail(data: MahnungMailData): { subject: string; text: string; html: string } {
-  const { rechnungNr, rechnungDatum, faelligAm, offenerBetrag, mahnstufe, tageUeberfaellig, mahngebuehr, verzugszinsen, kundeFirma, ansprechpartnerName, firma } = data;
+  const { rechnungNr, rechnungDatum, faelligAm, offenerBetrag, mahnstufe, tageUeberfaellig, mahngebuehr, verzugszinsen, kundeFirma, ansprechpartnerName, cfg, textUeberschreibung, firma } = data;
   const stufenText = MAHNUNG_BETREFF[mahnstufe];
   const subject = `${stufenText}: Rechnung ${rechnungNr} – ${firma.name}`;
-  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, rechnungNr, formatDatumWiePdf(rechnungDatum), kundeFirma);
+  const { anrede, absaetze } = mahnungTextBausteine(mahnstufe, rechnungNr, formatDatumWiePdf(rechnungDatum), kundeFirma, { cfg, textUeberschreibung });
   const gesamtforderung = offenerBetrag + mahngebuehr + verzugszinsen;
   const zeigtZusatzkosten = mahngebuehr > 0 || verzugszinsen > 0;
   const unterschriftName = ansprechpartnerName?.trim() || firma.name;

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { DEFAULT_AMOUNT_TOLERANZ } from "@/lib/bankabgleich-matching";
 
 const TYP_LABEL: Record<string, string> = {
   lieferung: "Lieferung",
@@ -58,8 +59,9 @@ export interface ZuordnungsVorschlagCardProps {
 }
 
 /** Ab dieser Abweichung wird eine Differenzbuchung (Gutschrift/Forderung) angeboten — darunter
- * vermutlich nur Rundung/Skonto, keine echte Fehlzahlung. */
-const DIFFERENZ_SCHWELLE = 0.5;
+ * vermutlich nur Rundung/Skonto, keine echte Fehlzahlung. Dieselbe Schwelle wie
+ * lib/bankabgleich-matching.ts (Matching) und lib/bankabgleich-differenz.ts (Skonto-Erkennung). */
+const DIFFERENZ_SCHWELLE = DEFAULT_AMOUNT_TOLERANZ;
 
 /**
  * Gemeinsame Bestätigungskarte für Zuordnungsvorschläge (deterministisch & KI) — im Inline-Panel

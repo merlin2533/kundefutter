@@ -85,6 +85,42 @@ export interface MahnungTextBausteine {
   absaetze: string[];
 }
 
+/** Einstellung-Keys für den je Mahnstufe überschreibbaren Brieftext (leer/nicht gesetzt →
+ * DEFAULT_MAHNUNG_TEXTE), nach demselben Muster wie `ki.prompt.<feature>`. */
+export const MAHNUNG_TEXT_EINSTELLUNG_KEY: Record<1 | 2 | 3, string> = {
+  1: "system.mahnwesen.text.stufe1",
+  2: "system.mahnwesen.text.stufe2",
+  3: "system.mahnwesen.text.stufe3",
+};
+
+/**
+ * Standard-Brieftext je Mahnstufe — Absätze getrennt durch eine Leerzeile, Platzhalter
+ * `{rechnungNr}` `{rechnungDatum}` `{fristTage}`. Dies ist bewusst nur der DEFAULT: jeder Betrieb
+ * kann den Text unter /einstellungen/mahnwesen auf die eigene Tonalität anpassen (siehe
+ * MAHNUNG_TEXT_EINSTELLUNG_KEY) statt an einen einzelnen, hier hartcodierten Wortlaut gebunden
+ * zu sein.
+ */
+export const DEFAULT_MAHNUNG_TEXTE: Record<1 | 2 | 3, string> = {
+  1: [
+    "Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung {rechnungNr} vom {rechnungDatum} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.",
+    "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.",
+    "Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.",
+    "Vielen Dank und weiterhin viel Erfolg auf dem Hof!",
+  ].join("\n\n"),
+  2: [
+    "Trotz unserer freundlichen Erinnerung haben wir für die Rechnung {rechnungNr} vom {rechnungDatum} bislang keinen Zahlungseingang feststellen können.",
+    "Wir bitten Sie dringend, den offenen Betrag innerhalb von {fristTage} Tagen zu begleichen. Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
+  ].join("\n\n"),
+  3: [
+    "Leider haben wir auch nach unserer 1. Mahnung für die Rechnung {rechnungNr} vom {rechnungDatum} keinen Zahlungseingang feststellen können.",
+    "Wir bitten Sie letztmalig, den Betrag innerhalb von {fristTage} Tagen zu überweisen. Sollte die Zahlung weiterhin ausbleiben, müssen wir uns weitere Schritte vorbehalten.",
+  ].join("\n\n"),
+};
+
+function renderMahnungPlatzhalter(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? vars[key] : match));
+}
+
 /**
  * Zentrale Quelle für den Brieftext einer Mahnung/Zahlungserinnerung — von PDF
  * (generiereMahnungPdf in lib/pdfGenerator.ts) UND E-Mail (mahnungEmail in
@@ -93,34 +129,36 @@ export interface MahnungTextBausteine {
  * ("Sehr geehrtes Team von X!"), `rechnungDatumFormatiert` wird bereits fertig formatiert
  * übergeben (z.B. via formatDatum), damit dieses client-sichere Modul kein Datums-Format-Modul
  * importieren muss.
+ *
+ * `opts.textUeberschreibung` (aus MAHNUNG_TEXT_EINSTELLUNG_KEY) ersetzt bei nicht-leerem Wert den
+ * Standardtext dieser Stufe; die Frist-Angabe ("innerhalb von X Tagen") wird aus der tatsächlich
+ * konfigurierten Mahnwesen-Konfiguration (`opts.cfg`) abgeleitet, statt eine fixe Zahl zu zeigen,
+ * die sich unabhängig von den unter /einstellungen/mahnwesen eingestellten Fristen nie ändert —
+ * gedeckelt auf die bisherigen Standardwerte (7 Tage Stufe 2, 5 Tage Stufe 3 — die letzte Mahnung
+ * bleibt dadurch immer die dringlichste), damit ein großzügig konfigurierter Abstand zwischen
+ * Stufe 2 und 3 nicht versehentlich die Zahlungsfrist der LETZTEN Mahnung verlängert.
  */
 export function mahnungTextBausteine(
   mahnstufe: 1 | 2 | 3,
   rechnungNr: string,
   rechnungDatumFormatiert: string,
   kundeFirma?: string | null,
+  opts?: { cfg?: MahnwesenConfig; textUeberschreibung?: string | null },
 ): MahnungTextBausteine {
   const anrede = mahnstufe === 1
     ? (kundeFirma ? `Sehr geehrtes Team von ${kundeFirma}!` : "Sehr geehrte Damen und Herren,")
     : "Sehr geehrte Damen und Herren,";
 
-  const absaetze: string[] =
-    mahnstufe === 1
-      ? [
-          `Bei der Durchsicht unserer offenen Posten ist uns aufgefallen, dass die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} noch nicht bei uns eingegangen ist. Vermutlich ist dies nur ein kleines Versehen – daher möchten wir Sie freundlich daran erinnern.`,
-          "Wir wären Ihnen dankbar, wenn Sie den offenen Betrag in den nächsten Tagen ausgleichen könnten. Sollten Sie die Zahlung bereits veranlasst haben, betrachten Sie diese Erinnerung bitte als gegenstandslos.",
-          "Bei Fragen zur Rechnung oder falls es Unstimmigkeiten gibt, melden Sie sich jederzeit bei uns – wir klären das unkompliziert mit Ihnen.",
-          "Vielen Dank und weiterhin viel Erfolg auf dem Hof!",
-        ]
-      : mahnstufe === 2
-      ? [
-          `Trotz unserer freundlichen Erinnerung haben wir für die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} bislang keinen Zahlungseingang feststellen können.`,
-          "Wir bitten Sie dringend, den offenen Betrag innerhalb von 7 Tagen zu begleichen. Sollten Sie bereits gezahlt haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.",
-        ]
-      : [
-          `Leider haben wir auch nach unserer 1. Mahnung für die Rechnung ${rechnungNr} vom ${rechnungDatumFormatiert} keinen Zahlungseingang feststellen können.`,
-          "Wir bitten Sie letztmalig, den Betrag innerhalb von 5 Tagen zu überweisen. Sollte die Zahlung weiterhin ausbleiben, müssen wir uns weitere Schritte vorbehalten.",
-        ];
+  const cfg = opts?.cfg ?? DEFAULT_MAHNWESEN_CONFIG;
+  const konfiguriertesFenster = Math.max(1, cfg.stufe3Tage - cfg.stufe2Tage);
+  const fristTage = mahnstufe === 3 ? Math.min(5, konfiguriertesFenster) : Math.min(7, konfiguriertesFenster);
+  const vars: Record<string, string> = { rechnungNr, rechnungDatum: rechnungDatumFormatiert, fristTage: String(fristTage) };
+
+  const template = opts?.textUeberschreibung?.trim() || DEFAULT_MAHNUNG_TEXTE[mahnstufe];
+  const absaetze = template
+    .split(/\n{2,}/)
+    .map((absatz) => renderMahnungPlatzhalter(absatz.trim(), vars))
+    .filter(Boolean);
 
   return { anrede, absaetze };
 }

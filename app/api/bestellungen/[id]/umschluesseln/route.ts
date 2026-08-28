@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { naechsteBestellungsnummer } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -56,12 +57,10 @@ export async function POST(req: NextRequest, ctx: Params) {
       // 0 statt des alten, bekannten Preises der verschobenen Position.
       const neuerEk = zuordnung && zuordnung.einkaufspreis > 0 ? zuordnung.einkaufspreis : null;
 
-      const jahr = new Date().getFullYear();
       const key = "letzte_bestellungsnummer";
       const existing = await tx.einstellung.findUnique({ where: { key } });
-      const nr = (existing ? parseInt(existing.value, 10) : 0) + 1;
-      await tx.einstellung.upsert({ where: { key }, update: { value: String(nr) }, create: { key, value: String(nr) } });
-      const nummer = `BES-${jahr}-${String(nr).padStart(4, "0")}`;
+      const nummer = naechsteBestellungsnummer(existing?.value ?? null);
+      await tx.einstellung.upsert({ where: { key }, update: { value: nummer }, create: { key, value: nummer } });
 
       const neueBestellung = await tx.bestellung.create({
         data: {

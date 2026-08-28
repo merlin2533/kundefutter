@@ -3,6 +3,12 @@
 // (feuerwehr-gerate-meister-kartei-1: src/utils/bankReconciliation.ts) — dort bereits reine,
 // framework-agnostische TypeScript-Logik. Reine Funktionen ohne DB-/Next.js-Abhängigkeit.
 
+/** Einzige Quelle der Betrags-Toleranz (€) für Matching hier, die Skonto-Erkennung
+ * (lib/bankabgleich-differenz.ts) und die UI-Abweichungsschwelle
+ * (components/bankabgleich/ZuordnungsVorschlagCard.tsx) — bewusst nicht mehr an 3 Stellen
+ * unabhängig voneinander dupliziert. */
+export const DEFAULT_AMOUNT_TOLERANZ = 0.5;
+
 export interface BankBuchung {
   /** Kontoumsatz.id */
   id: number;
@@ -264,7 +270,7 @@ export function runNormalMatch(
   opts: MatchOptions = {}
 ): ReconciliationResult {
   const dateTol = opts.dateToleranceDays ?? 5;
-  const amountTol = opts.amountTolerance ?? 0.5;
+  const amountTol = opts.amountTolerance ?? DEFAULT_AMOUNT_TOLERANZ;
   const maxParts = Math.max(2, Math.min(opts.aggregationMaxParts ?? 3, 6));
 
   const matched: MatchedPair[] = [];

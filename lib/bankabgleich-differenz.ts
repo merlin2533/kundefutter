@@ -7,6 +7,7 @@
 import { naechsteGutschriftsnummer } from "@/lib/utils";
 import { ladeOderErstelleAusgleichsArtikel, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, type Tx } from "@/lib/lieferung";
 import { berechneLieferungBrutto, berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
+import { DEFAULT_AMOUNT_TOLERANZ } from "@/lib/bankabgleich-matching";
 
 export type BankabgleichZielTyp = "lieferung" | "sammelrechnung";
 export type DifferenzArt = "gutschrift" | "forderung";
@@ -47,8 +48,9 @@ export async function ladeZielFuerDifferenz(
 
 /** Toleranz (€) für den Vergleich Bankbetrag ↔ Skonto-reduzierter Rechnungsbetrag — deckt
  * Rundungsdifferenzen ab, ohne einen echten (größeren) Fehlbetrag fälschlich als Skonto
- * durchgehen zu lassen. Gleiche Schwelle wie DIFFERENZ_SCHWELLE in ZuordnungsVorschlagCard.tsx. */
-const SKONTO_TOLERANZ = 0.5;
+ * durchgehen zu lassen. Gleiche Schwelle wie DIFFERENZ_SCHWELLE in ZuordnungsVorschlagCard.tsx —
+ * beide beziehen sich jetzt auf dieselbe DEFAULT_AMOUNT_TOLERANZ statt sie unabhängig zu duplizieren. */
+const SKONTO_TOLERANZ = DEFAULT_AMOUNT_TOLERANZ;
 
 /** Entspricht der gezahlte Betrag dem Skonto-reduzierten statt dem vollen Rechnungsbetrag? */
 export function istSkontoBetrag(bankBetrag: number, zielBrutto: number, skontoProzent: number | null): boolean {

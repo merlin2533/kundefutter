@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -112,6 +112,36 @@ describe("resolveBevorzugtenLieferanten / resolveBevorzugtenEK", () => {
     expect(resolveBevorzugtenLieferanten(null)).toBeNull();
     expect(resolveBevorzugtenLieferanten(undefined)).toBeNull();
     expect(resolveBevorzugtenEK([])).toBe(0);
+  });
+});
+
+describe("naechsteRechnungsnummer / naechsteBestellungsnummer (naechsteNummer)", () => {
+  const jahr = new Date().getFullYear();
+
+  it("beginnt bei 0001, wenn noch keine Nummer vergeben wurde", () => {
+    expect(naechsteRechnungsnummer(null)).toBe(`RE-${jahr}-0001`);
+    expect(naechsteBestellungsnummer(null)).toBe(`BES-${jahr}-0001`);
+  });
+
+  it("erhöht die laufende Nummer innerhalb desselben Jahres", () => {
+    expect(naechsteRechnungsnummer(`RE-${jahr}-0041`)).toBe(`RE-${jahr}-0042`);
+    expect(naechsteBestellungsnummer(`BES-${jahr}-0009`)).toBe(`BES-${jahr}-0010`);
+  });
+
+  it("setzt bei einer formatierten Nummer aus einem Vorjahr auf 0001 zurück", () => {
+    expect(naechsteRechnungsnummer(`RE-${jahr - 1}-0452`)).toBe(`RE-${jahr}-0001`);
+    expect(naechsteBestellungsnummer(`BES-${jahr - 1}-0452`)).toBe(`BES-${jahr}-0001`);
+  });
+
+  it("Legacy-Kompatibilität: setzt einen nackten Integer-Zählerstand NICHT auf 0001 zurück (würde mit bereits vergebenen Nummern desselben Jahres kollidieren), sondern zählt einmalig weiter und wechselt danach ins neue Format", () => {
+    // "letzte_bestellungsnummer" wurde vor diesem Fix als roher Integer geführt (kein Jahresbezug).
+    expect(naechsteBestellungsnummer("452")).toBe(`BES-${jahr}-0453`);
+    // Ab dem nächsten Aufruf liegt der Wert bereits im neuen Format vor -> normaler Reset greift.
+    expect(naechsteBestellungsnummer(`BES-${jahr}-0453`)).toBe(`BES-${jahr}-0454`);
+  });
+
+  it("behandelt einen unlesbaren/kaputten Wert wie 'keine Nummer vergeben' (Start bei 0001, kein Crash)", () => {
+    expect(naechsteBestellungsnummer("garbage")).toBe(`BES-${jahr}-0001`);
   });
 });
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { umlautSchreibweisen } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 
 export async function GET(req: NextRequest) {
@@ -9,10 +10,10 @@ export async function GET(req: NextRequest) {
 
   const where: Record<string, unknown> = { aktiv: true };
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { ort: { contains: search } },
-    ];
+    where.OR = umlautSchreibweisen(search).flatMap((s) => [
+      { name: { contains: s } },
+      { ort: { contains: s } },
+    ]);
   }
 
   // Paginierung nur wenn explizit angefragt (?page=) — hält bestehende Aufrufer,

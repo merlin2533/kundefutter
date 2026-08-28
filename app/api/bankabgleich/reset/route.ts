@@ -28,6 +28,10 @@ async function zaehleBetroffene() {
 
 /** GET – Vorschau: wie viele Datensätze wären betroffen? */
 export async function GET() {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (deny) return deny;
+
   try {
     const counts = await zaehleBetroffene();
     return NextResponse.json(counts);

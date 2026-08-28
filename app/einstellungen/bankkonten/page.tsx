@@ -11,9 +11,15 @@ interface Bankkonto {
 }
 
 const EMPTY_KONTO: Bankkonto = { name: "", iban: "", bic: "" };
+const DEFAULT_KANDIDATEN_LIMIT = 1000;
+// Muss mit MAX_KANDIDATEN_LIMIT in lib/bankabgleich-kandidaten.ts übereinstimmen — dort greift die
+// eigentliche Deckelung serverseitig, hier nur damit das Eingabefeld keinen unsinnig hohen Wert
+// suggeriert, der ohnehin abgeschnitten würde.
+const MAX_KANDIDATEN_LIMIT = 5000;
 
 export default function BankkontenPage() {
   const [konten, setKonten] = useState<Bankkonto[]>([]);
+  const [kandidatenLimit, setKandidatenLimit] = useState<number>(DEFAULT_KANDIDATEN_LIMIT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -33,6 +39,8 @@ export default function BankkontenPage() {
           // keep empty
         }
       }
+      const limit = parseInt(data["bankabgleich.kandidatenLimit"], 10);
+      if (Number.isFinite(limit) && limit > 0) setKandidatenLimit(limit);
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
@@ -83,6 +91,15 @@ export default function BankkontenPage() {
         body: JSON.stringify({ key: "bankabgleich.konten", value: JSON.stringify(konten) }),
       });
       if (!res.ok) throw new Error();
+      const resLimit = await fetch("/api/einstellungen", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "bankabgleich.kandidatenLimit",
+          value: String(kandidatenLimit > 0 ? Math.min(kandidatenLimit, MAX_KANDIDATEN_LIMIT) : DEFAULT_KANDIDATEN_LIMIT),
+        }),
+      });
+      if (!resLimit.ok) throw new Error();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -195,6 +212,24 @@ export default function BankkontenPage() {
           >
             + Konto hinzufügen
           </button>
+
+          <div className="border border-gray-200 rounded-xl p-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Max. Kandidaten je Suche (Bankabgleich)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={MAX_KANDIDATEN_LIMIT}
+              value={kandidatenLimit}
+              onChange={(e) => setKandidatenLimit(parseInt(e.target.value, 10) || 0)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Erhöhen, wenn bei vielen offenen Rechnungen ältere Belege im automatischen Bankabgleich
+              nicht mehr vorgeschlagen werden. Standard: {DEFAULT_KANDIDATEN_LIMIT}, maximal {MAX_KANDIDATEN_LIMIT}.
+            </p>
+          </div>
 
           <div className="flex justify-end pt-2">
             <button
