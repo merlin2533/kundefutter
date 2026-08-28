@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
 import { lagerStatus } from "@/lib/utils";
-import { matchArtikel as matchArtikelGelernt, normalisiereSuchtext, fetchAlleSeiten } from "@/lib/kiMatching";
+import {
+  matchArtikel as matchArtikelGelernt,
+  normalisiereSuchtext,
+  normalisiereArtikelnummer,
+  istGleicherName,
+  fetchAlleSeiten,
+} from "@/lib/kiMatching";
 import * as Sentry from "@sentry/nextjs";
 
 // ---- Types ----------------------------------------------------------------
@@ -63,6 +69,15 @@ interface MatchedPosition {
   einkaufspreis: number;
   chargeNr: string;
   konfidenz: Konfidenz;
+  /** True sobald der Nutzer die Artikel-Zuordnung dieser Position selbst gesetzt/geändert hat —
+   * verhindert, dass eine später eintreffende automatische Zuordnung (z.B. nachträglich
+   * geladene Lieferanten-Artikelnummern) eine bewusste Nutzerentscheidung überschreibt. */
+  manuallyEdited?: boolean;
+  /** True, wenn "exakt" ausschließlich durch die automatische Lieferanten-Artikelnummer-Hochstufung
+   * gesetzt wurde (nicht durch den Nutzer/eine Neuanlage) — wird zurückgesetzt und neu bewertet,
+   * wenn der Lieferant wechselt, damit die Position nicht dauerhaft auf dem FALSCHEN (vorherigen)
+   * Lieferanten hängen bleibt, nur weil "exakt" sonst nie wieder angefasst würde. */
+  autoLieferantUpgrade?: boolean;
 }
 
 // ---- Vollständiges Laden (kein Limit) --------------------------------------
@@ -87,6 +102,31 @@ async function ladeAlleLieferanten(): Promise<Lieferant[]> {
     const json = await res.json();
     return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
   });
+}
+
+/** Baut eine Map von normalisierter Lieferanten-Artikelnummer → Artikel.id für genau einen
+ * Lieferanten — nutzt die bereits vorhandene GET /api/lieferanten/{id} (liefert schon
+ * `artikelZuordnungen` inkl. `lieferantenArtNr`), keine neue API-Route nötig. Die vom Beleg
+ * gelesene "Artikelnummer" ist praktisch immer die Nummer DES LIEFERANTEN, nicht unsere interne
+ * SKU — genau dieser Abgleich ist der zuverlässigste verfügbare Zuordnungsweg. */
+async function ladeLieferantenArtNrMap(lieferantIdStr: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const id = parseInt(lieferantIdStr, 10);
+  if (!Number.isFinite(id) || id <= 0) return map;
+  const res = await fetch(`/api/lieferanten/${id}`);
+  if (!res.ok) return map;
+  const data = await res.json();
+  const zuordnungen: { lieferantenArtNr?: string | null; artikelId: number }[] = Array.isArray(
+    data.artikelZuordnungen
+  )
+    ? data.artikelZuordnungen
+    : [];
+  for (const z of zuordnungen) {
+    if (!z.lieferantenArtNr) continue;
+    const key = normalisiereArtikelnummer(z.lieferantenArtNr);
+    if (key) map.set(key, z.artikelId);
+  }
+  return map;
 }
 
 // ---- Helper ---------------------------------------------------------------
@@ -143,9 +183,10 @@ function konfidenzBadge(k: Konfidenz) {
 function matchArtikel(
   ki: KiPosition,
   alle: Artikel[],
-  gelernt?: Map<string, number>
+  gelernt?: Map<string, number>,
+  lieferantenArtNrMap?: Map<string, number>
 ): { artikelId: string; vorschlagArtikelId: number | null; konfidenz: Konfidenz } {
-  const { artikel, konfidenz } = matchArtikelGelernt(ki, alle, gelernt);
+  const { artikel, konfidenz } = matchArtikelGelernt(ki, alle, gelernt, lieferantenArtNrMap);
   if (!artikel) return { artikelId: "", vorschlagArtikelId: null, konfidenz: "keine" };
   const mapped: Konfidenz =
     konfidenz === "gelernt" ? "gelernt" : konfidenz === "hoch" ? "exakt" : konfidenz === "keine" ? "keine" : "teilweise";
@@ -249,6 +290,13 @@ function KiWareneingangWizard() {
   const [notiz, setNotiz] = useState<string>("");
   const [positionen, setPositionen] = useState<MatchedPosition[]>([]);
 
+  // Gelernte Zuordnungen (KiLernZuordnung) + Lieferanten-Artikelnummern des aktuell gewählten
+  // Lieferanten — als State statt lokaler Konstanten, damit sie sowohl beim ersten Matching-Lauf
+  // als auch bei späteren Korrekturen/Lieferanten-Wechseln innerhalb derselben Sitzung sofort
+  // wiederverwendet werden können.
+  const [gelerntArtikelMap, setGelerntArtikelMap] = useState<Map<string, number>>(new Map());
+  const [lieferantenArtNrMap, setLieferantenArtNrMap] = useState<Map<string, number>>(new Map());
+
   // Step 4
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string>("");
@@ -313,6 +361,7 @@ function KiWareneingangWizard() {
       const gelerntMap = new Map<string, number>(
         (gelerntData.eintraege ?? []).map((e: { suchtext: string; zielId: number }) => [normalisiereSuchtext(e.suchtext), e.zielId])
       );
+      setGelerntArtikelMap(gelerntMap);
 
       const matched: MatchedPosition[] = (ergebnis.positionen ?? []).map((ki) => {
         const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(ki, artikel, gelerntMap);
@@ -337,6 +386,55 @@ function KiWareneingangWizard() {
     }
   }, [imageBase64, vorLieferantId, lieferanten, artikel]);
 
+  // Lieferanten-Artikelnummern nachladen, sobald der Lieferant bekannt ist/wechselt — sowohl bei
+  // Vorauswahl in Schritt 1 als auch bei späterer Wahl/Änderung in Schritt 3. Zuvor: Positionen,
+  // die NUR durch die automatische Lieferanten-Artikelnummer-Hochstufung (nicht durch den Nutzer)
+  // auf "exakt" gesetzt wurden, zurücksetzen — sonst blieben sie beim Wechsel auf einen anderen
+  // Lieferanten für immer auf dem FALSCHEN (vorherigen) Lieferanten hängen, weil "exakt" die
+  // nachfolgende Hochstufung sonst dauerhaft überspringt.
+  useEffect(() => {
+    setPositionen((prev) =>
+      prev.map((p) => {
+        if (!p.autoLieferantUpgrade) return p;
+        const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(p.ki, artikel, gelerntArtikelMap);
+        return { ...p, artikelId, vorschlagArtikelId, konfidenz, autoLieferantUpgrade: false };
+      })
+    );
+
+    if (!lieferantId) {
+      setLieferantenArtNrMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    ladeLieferantenArtNrMap(lieferantId)
+      .then((map) => {
+        if (!cancelled) setLieferantenArtNrMap(map);
+      })
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lieferantId]);
+
+  // Sobald die Lieferanten-Artikelnummern verfügbar sind, noch unsichere Positionen (nicht
+  // manuell bestätigt, noch nicht "gelernt" oder anderweitig — nicht nur durch diese Hochstufung
+  // selbst — bereits "exakt") nachträglich hochstufen. Upgrade-only: eine bereits vom Nutzer
+  // getroffene oder bereits sichere Zuordnung wird nie überschrieben.
+  useEffect(() => {
+    if (lieferantenArtNrMap.size === 0) return;
+    setPositionen((prev) =>
+      prev.map((p) => {
+        if (p.manuallyEdited || p.konfidenz === "gelernt") return p;
+        if (p.konfidenz === "exakt" && !p.autoLieferantUpgrade) return p;
+        const { artikelId, vorschlagArtikelId, konfidenz } = matchArtikel(p.ki, artikel, gelerntArtikelMap, lieferantenArtNrMap);
+        if (konfidenz !== "exakt" || !artikelId) return p;
+        return { ...p, artikelId, vorschlagArtikelId, konfidenz, autoLieferantUpgrade: true };
+      })
+    );
+  }, [lieferantenArtNrMap, gelerntArtikelMap, artikel]);
+
   // Trigger analyse directly (no useEffect race condition)
   const goToAnalyse = () => {
     setKiErgebnis(null);
@@ -348,6 +446,67 @@ function KiWareneingangWizard() {
 
   const updatePosition = (idx: number, patch: Partial<MatchedPosition>) => {
     setPositionen((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  };
+
+  /** Wird bei jeder manuellen Artikel-Auswahl/-Korrektur aufgerufen (Dropdown-Änderung oder neu
+   * angelegter Artikel). Anders als früher wird die Korrektur SOFORT gemeldet statt erst beim
+   * finalen Speichern (`handleBook`) — dadurch profitieren weitere Positionen mit identischem
+   * oder sehr ähnlichem KI-Namen im SELBEN Beleg unmittelbar von der Korrektur, statt dass der
+   * Nutzer dasselbe Produkt mehrfach im selben Lieferschein zuordnen muss. */
+  const handleArtikelChange = (idx: number, neueArtikelId: string) => {
+    setPositionen((prev) => {
+      const pos = prev[idx];
+      if (!pos) return prev;
+
+      const next = prev.map((p, i) =>
+        i === idx
+          ? {
+              ...p,
+              artikelId: neueArtikelId,
+              manuallyEdited: true,
+              autoLieferantUpgrade: false,
+              konfidenz: neueArtikelId
+                ? ((neueArtikelId === pos.artikelId ? pos.konfidenz : "teilweise") as Konfidenz)
+                : ("keine" as Konfidenz),
+            }
+          : p
+      );
+
+      if (!neueArtikelId || !pos.ki.name) return next;
+      const neueIdNum = parseInt(neueArtikelId, 10);
+      if (!Number.isFinite(neueIdNum)) return next;
+
+      const suchtextKey = normalisiereSuchtext(pos.ki.name);
+      // Meldet IMMER, wenn der neue Wert vom bereits Gelernten abweicht — nicht nur, wenn er vom
+      // ursprünglichen KI-Vorschlag abweicht. Ein Vergleich nur gegen vorschlagArtikelId würde eine
+      // versehentlich falsch gelernte Zuordnung dauerhaft bestehen lassen, sobald der Nutzer wieder
+      // auf den (zufällig mit dem KI-Vorschlag identischen) richtigen Artikel zurückwechselt.
+      if (gelerntArtikelMap.get(suchtextKey) !== neueIdNum) {
+        fetch("/api/ki/lernen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ typ: "artikel", suchtext: pos.ki.name, zielId: neueIdNum }),
+        }).catch((err) => {
+          Sentry.captureException(err);
+        });
+      }
+      setGelerntArtikelMap((m) => new Map(m).set(suchtextKey, neueIdNum));
+
+      // Andere, noch nicht manuell bestätigte UND noch nicht bereits sicher zugeordnete ("exakt",
+      // z.B. per Lieferanten-Artikelnummer oder Neuanlage) Positionen mit identischem/sehr
+      // ähnlichem KI-Namen sofort auf denselben Artikel setzen.
+      return next.map((p, i) => {
+        if (i === idx || p.manuallyEdited || p.konfidenz === "exakt" || !p.ki.name) return p;
+        if (!istGleicherName(p.ki.name, pos.ki.name)) return p;
+        return {
+          ...p,
+          artikelId: neueArtikelId,
+          vorschlagArtikelId: neueIdNum,
+          konfidenz: "gelernt" as Konfidenz,
+          autoLieferantUpgrade: false,
+        };
+      });
+    });
   };
 
   const openCreateArtikel = (idx: number) => {
@@ -438,11 +597,11 @@ function KiWareneingangWizard() {
       };
       setArtikel((prev) => [...prev, neuArtikel]);
       const finalEk = Number.isFinite(ekPreis) ? ekPreis : 0;
-      updatePosition(createForIdx, {
-        artikelId: String(neu.id),
-        konfidenz: "exakt",
-        einkaufspreis: finalEk,
-      });
+      // Über handleArtikelChange (statt direktem updatePosition), damit dieselbe
+      // Sofort-Lern-/Weitergabe-Logik greift wie bei einer manuellen Dropdown-Auswahl — andere
+      // Positionen mit demselben Produktnamen übernehmen den neuen Artikel automatisch mit.
+      handleArtikelChange(createForIdx, String(neu.id));
+      updatePosition(createForIdx, { konfidenz: "exakt", einkaufspreis: finalEk });
       setCreateForIdx(null);
       setCreateForm(null);
     } catch (err: unknown) {
@@ -493,11 +652,13 @@ function KiWareneingangWizard() {
         });
         throw new Error(err.error ?? `Fehler ${res.status}`);
       }
-      // Lernkorrekturen melden (nur wo die finale Zuordnung vom KI-Vorschlag abweicht)
+      // Lernkorrekturen melden (nur wo die finale Zuordnung vom KI-Vorschlag abweicht und noch
+      // nicht durch handleArtikelChange sofort gemeldet wurde — Sicherheitsnetz, kein Doppel-Melden).
       for (const pos of positionen) {
         if (!pos.ki.name || !pos.artikelId) continue;
         const finalId = parseInt(pos.artikelId, 10);
-        if (pos.vorschlagArtikelId !== finalId) {
+        const bereitsGelernt = gelerntArtikelMap.get(normalisiereSuchtext(pos.ki.name)) === finalId;
+        if (!bereitsGelernt && pos.vorschlagArtikelId !== finalId) {
           fetch("/api/ki/lernen", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -802,16 +963,7 @@ function KiWareneingangWizard() {
                           <SearchableSelect
                             options={artikelOptions}
                             value={pos.artikelId}
-                            onChange={(v) =>
-                              updatePosition(idx, {
-                                artikelId: v,
-                                konfidenz: v
-                                  ? v === pos.artikelId
-                                    ? pos.konfidenz
-                                    : "teilweise"
-                                  : "keine",
-                              })
-                            }
+                            onChange={(v) => handleArtikelChange(idx, v)}
                             placeholder="— Artikel wählen —"
                             allowClear
                           />
