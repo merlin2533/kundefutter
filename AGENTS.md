@@ -1385,7 +1385,14 @@ erweitert auf Schwein, Geflügel, Schaf, Ziege.
 ## Deployment
 
 - Docker Image: `merlin2539/kundefutter:latest` (Docker Hub)
-- CI: `.github/workflows/docker.yml` — baut auf Push zu `main` und `claude/**`
+- CI: `.github/workflows/docker-build-reusable.yml` enthält die eigentlichen Jobs (Qualitäts-Gate +
+  Docker Build & Push), aufgerufen von zwei schlanken Trigger-Workflows:
+  - `.github/workflows/docker.yml` — Standardweg auf dem **Self-Hosted-Runner**; automatisch bei
+    Push auf `main`/Versions-Tag `v*.*.*`, jederzeit zusätzlich manuell über `workflow_dispatch`
+  - `.github/workflows/docker-cloud.yml` — Ausweichlösung auf einem **GitHub-gehosteten
+    Cloud-Runner** (`ubuntu-latest`), ausschließlich manuell über `workflow_dispatch` (z.B. wenn der
+    Self-Hosted-Runner nicht verfügbar ist und nach einem PR-Merge in `main` trotzdem sofort gebaut
+    werden muss)
 - Watchtower: zieht automatisch neue Images und startet Container neu
 - Entrypoint: `./docker-entrypoint.sh` → `prisma migrate deploy` → `node server.js`
 - Daten-Volume: `kundefutter_data:/data` (SQLite-Datei)
