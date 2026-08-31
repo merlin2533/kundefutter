@@ -19,6 +19,13 @@ on:
 
 jobs:
   build:
+    # Permissions müssen hier am aufrufenden Job gesetzt werden: der Reusable-
+    # Workflow darf nie mehr anfordern, als der Caller erlaubt. Ohne dieses
+    # Feld greift sonst der Repo-Default (nur "packages: read"), wodurch der
+    # "packages: write"-Job im Reusable-Workflow (ghcr.io-Push) abgelehnt wird.
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/docker-build-reusable.yml
     with:
       runner: self-hosted
