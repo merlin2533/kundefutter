@@ -1,0 +1,21 @@
+name: Build & Push Docker Image (Cloud Fallback)
+
+# Ausweichlösung, falls der Self-Hosted-Runner (docker.yml) nicht verfügbar
+# ist oder der Build z.B. nach einem PR-Merge in main sofort auf einem
+# GitHub-gehosteten Cloud-Runner laufen soll. Bewusst KEIN automatischer
+# Trigger — läuft nur, wenn jemand ihn explizit über "Run workflow" startet.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grund:
+        description: "Warum wird der Cloud-Runner statt des Self-Hosted-Runners genutzt?"
+        required: false
+        default: "Self-hosted Runner nicht verfügbar"
+
+jobs:
+  build:
+    uses: ./.github/workflows/docker-build-reusable.yml
+    with:
+      runner: ubuntu-latest
+    secrets: inherit
