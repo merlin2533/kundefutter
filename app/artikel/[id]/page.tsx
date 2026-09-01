@@ -9,6 +9,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
 import JahrespreiseManager, { JahrespreisEintrag } from "@/components/JahrespreiseManager";
+import MengenstaffelnManager, { MengenstaffelEintrag } from "@/components/MengenstaffelnManager";
 import EinkaufspreisVerlaufManager, { EinkaufspreisEintrag } from "@/components/EinkaufspreisVerlaufManager";
 import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
@@ -163,7 +164,7 @@ function PreisChart({ data, formatEuroFn, formatDatumFn }: {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const ARTIKEL_TABS = ["details", "inhaltsstoffe", "lieferanten", "preishistorie", "jahrespreise", "dokumente", "bedarfe", "kunden"] as const;
+const ARTIKEL_TABS = ["details", "inhaltsstoffe", "lieferanten", "preishistorie", "jahrespreise", "mengenstaffeln", "dokumente", "bedarfe", "kunden"] as const;
 type ArtikelTab = (typeof ARTIKEL_TABS)[number];
 
 function ArtikelDetailContent() {
@@ -206,6 +207,12 @@ function ArtikelDetailContent() {
   const [jahrespreise, setJahrespreise] = useState<JahrespreisEintrag[]>([]);
   const [jahrespreiseLoaded, setJahrespreiseLoaded] = useState(false);
   const [loadingJahrespreise, setLoadingJahrespreise] = useState(false);
+
+  // Mengenstaffeln (absoluter Staffelpreis ab einer Menge, optional je Kunde)
+  const [mengenstaffeln, setMengenstaffeln] = useState<MengenstaffelEintrag[]>([]);
+  const [mengenstaffelnLoaded, setMengenstaffelnLoaded] = useState(false);
+  const [loadingMengenstaffeln, setLoadingMengenstaffeln] = useState(false);
+  const [mengenstaffelnKunden, setMengenstaffelnKunden] = useState<{ id: number; name: string; firma?: string | null }[]>([]);
 
   // Jahrespreise je Lieferant (Einkaufspreis) — lazy geladen beim Aufklappen einer Zeile
   const [expandedLiefId, setExpandedLiefId] = useState<number | null>(null);
@@ -335,6 +342,21 @@ function ArtikelDetailContent() {
         })
         .finally(() => { setLoadingJahrespreise(false); setJahrespreiseLoaded(true); });
     }
+    if (tab === "mengenstaffeln" && !mengenstaffelnLoaded) {
+      setLoadingMengenstaffeln(true);
+      Promise.all([
+        fetch(`/api/mengenrabatte?artikelId=${id}`).then((r) => r.ok ? r.json() : []),
+        fetch("/api/kunden?limit=2000").then((r) => r.ok ? r.json() : []),
+      ])
+        .then(([rabatte, kunden]) => {
+          setMengenstaffeln(Array.isArray(rabatte) ? rabatte : []);
+          setMengenstaffelnKunden(Array.isArray(kunden) ? kunden : []);
+        })
+        .catch((err) => {
+          Sentry.captureException(err);
+        })
+        .finally(() => { setLoadingMengenstaffeln(false); setMengenstaffelnLoaded(true); });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -365,6 +387,26 @@ function ArtikelDetailContent() {
     if (!res.ok) return false;
     setJahrespreise((prev) => prev.filter((e) => e.jahr !== jahr));
     fetchArtikel();
+    return true;
+  }
+
+  // ── Mengenstaffeln (absoluter Staffelpreis ab einer Menge) ────────────────
+  async function saveMengenstaffel(eintrag: { vonMenge: number; preis: number; kundeId: number | null }): Promise<boolean> {
+    const res = await fetch("/api/mengenrabatte", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...eintrag, artikelId: Number(id) }),
+    });
+    if (!res.ok) return false;
+    const neu = await res.json();
+    setMengenstaffeln((prev) => [neu, ...prev]);
+    return true;
+  }
+
+  async function deleteMengenstaffel(staffelId: number): Promise<boolean> {
+    const res = await fetch(`/api/mengenrabatte?id=${staffelId}`, { method: "DELETE" });
+    if (!res.ok) return false;
+    setMengenstaffeln((prev) => prev.filter((e) => e.id !== staffelId));
     return true;
   }
 
@@ -809,6 +851,7 @@ function ArtikelDetailContent() {
     { key: "lieferanten", label: "Lieferanten" },
     { key: "preishistorie", label: "Preishistorie" },
     { key: "jahrespreise", label: "Jahrespreise" },
+    { key: "mengenstaffeln", label: "Mengenstaffeln" },
     { key: "dokumente", label: "Dokumente" },
     { key: "bedarfe", label: "Bedarfe" },
     { key: "kunden", label: "Kunden" },
@@ -1852,6 +1895,29 @@ function ArtikelDetailContent() {
               preisLabel="Verkaufspreis"
               onSave={saveArtikelJahrespreis}
               onDelete={deleteArtikelJahrespreis}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Mengenstaffeln ──────────────────────────────────────────────── */}
+      {tab === "mengenstaffeln" && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-6 max-w-2xl">
+          <p className="text-xs text-gray-500 mb-4">
+            Absoluter Verkaufspreis ab einer bestimmten Menge — wird bei der Lieferungserfassung
+            automatisch gezogen, sobald die Menge die Staffel erreicht. Optional auf einen
+            bestimmten Kunden einschränkbar (leer = gilt für alle Kunden). Verwaltbar auch über die
+            globale Übersicht unter „Mengenstaffeln” im Menü.
+          </p>
+          {loadingMengenstaffeln ? (
+            <p className="text-gray-400 text-sm">Lade Mengenstaffeln…</p>
+          ) : (
+            <MengenstaffelnManager
+              eintraege={mengenstaffeln}
+              einheit={artikel.einheit}
+              kunden={mengenstaffelnKunden}
+              onSave={saveMengenstaffel}
+              onDelete={deleteMengenstaffel}
             />
           )}
         </div>

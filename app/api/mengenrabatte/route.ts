@@ -4,15 +4,25 @@ import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
-export async function GET() {
+// GET /api/mengenrabatte?artikelId= — ohne Parameter alle (max. 200, für die globale Übersicht
+// /mengenrabatte); mit artikelId nur die Staffeln dieses Artikels (für den "Mengenstaffeln"-Tab
+// auf der Artikel-Detailseite), ungedeckelt.
+export async function GET(req: NextRequest) {
   try {
+    const artikelIdParam = req.nextUrl.searchParams.get("artikelId");
+    const artikelId = artikelIdParam ? parseInt(artikelIdParam, 10) : null;
+    if (artikelIdParam && (artikelId === null || isNaN(artikelId))) {
+      return NextResponse.json({ error: "Ungültige artikelId" }, { status: 400 });
+    }
+
     const rabatte = await prisma.mengenrabatt.findMany({
+      where: artikelId !== null ? { artikelId } : undefined,
       include: {
         artikel: { select: { id: true, name: true, artikelnummer: true, kategorie: true } },
         kunde: { select: { id: true, name: true, firma: true } },
       },
       orderBy: { id: "desc" },
-      take: 200,
+      take: artikelId !== null ? undefined : 200,
     });
     return NextResponse.json(rabatte);
   } catch (err) {
