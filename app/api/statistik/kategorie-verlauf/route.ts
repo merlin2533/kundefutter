@@ -3,20 +3,21 @@ import { ladeKategorieVerlauf } from "@/lib/kategorie-verlauf";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
-// GET /api/statistik/kategorie-verlauf?kategorie=Saatgut&unterkategorie=Getreide&jahrVon=2023&jahrBis=2026&kundeSuche=
-// Zeigt je Kunde, welche Artikel einer Kategorie/Unterkategorie in welchem Jahr geliefert wurden
-// (Fruchtfolge-Nachvollziehbarkeit: welcher Kunde hatte welche Zwischenfrucht/welches Getreide).
+// GET /api/statistik/kategorie-verlauf?kategorie=Saatgut&unterkategorie=Getreide&von=2024-01-01&bis=2026-08-28&kundeSuche=
+// Zeigt je Kunde, welche Artikel einer Kategorie/Unterkategorie im Zeitraum geliefert wurden
+// oder bereits bestellt (aber noch nicht geliefert) sind — Fruchtfolge-Nachvollziehbarkeit:
+// welcher Kunde hatte/bestellte welche Zwischenfrucht/welches Getreide.
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre } = await ladeKategorieVerlauf({
+    const { kunden, jahre, von, bis } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorie: searchParams.get("unterkategorie"),
-      jahrVon: parseInt(searchParams.get("jahrVon") ?? "", 10),
-      jahrBis: parseInt(searchParams.get("jahrBis") ?? "", 10),
+      von: searchParams.get("von"),
+      bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
     });
-    return NextResponse.json({ kunden, jahre });
+    return NextResponse.json({ kunden, jahre, von, bis });
   } catch (err) {
     Sentry.captureException(err);
     console.error("Statistik/Kategorie-Verlauf API Fehler:", err);

@@ -6,16 +6,16 @@ import { ladeKategorieVerlauf } from "@/lib/kategorie-verlauf";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
-// GET /api/statistik/kategorie-verlauf/pdf?kategorie=...&unterkategorie=...&jahrVon=...&jahrBis=...&kundeSuche=...
+// GET /api/statistik/kategorie-verlauf/pdf?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...
 // PDF-Export der gefilterten "Kategorie-Verlauf je Kunde"-Liste (Kunde × Jahr-Pivot).
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorie } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorie, von, bis } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorie: searchParams.get("unterkategorie"),
-      jahrVon: parseInt(searchParams.get("jahrVon") ?? "", 10),
-      jahrBis: parseInt(searchParams.get("jahrBis") ?? "", 10),
+      von: searchParams.get("von"),
+      bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
     });
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     doc.setTextColor(100, 100, 100);
     const kategorieLabel = `${kategorie}${unterkategorie !== "alle" ? ` / ${unterkategorie}` : ""}`;
     doc.text(
-      `Kategorie: ${kategorieLabel}   ·   Zeitraum: ${jahre[jahre.length - 1] ?? ""}–${jahre[0] ?? ""}   ·   Erstellt: ${heute}`,
+      `Kategorie: ${kategorieLabel}   ·   Zeitraum: ${formatDatum(von)}–${formatDatum(bis)}   ·   Erstellt: ${heute}`,
       14,
       25
     );
@@ -41,7 +41,12 @@ export async function GET(req: NextRequest) {
       const jahresZellen = jahre.map((j) =>
         k.eintraege
           .filter((e) => e.jahr === j)
-          .map((e) => `${e.artikelName} (${e.menge.toLocaleString("de-DE")} ${e.einheit ?? ""})`.trim())
+          .map((e) => {
+            const teile: string[] = [];
+            if (e.mengeGeliefert > 0) teile.push(`${e.artikelName} (${e.mengeGeliefert.toLocaleString("de-DE")} ${e.einheit ?? ""}) geliefert`.trim());
+            if (e.mengeOffen > 0) teile.push(`${e.artikelName} (${e.mengeOffen.toLocaleString("de-DE")} ${e.einheit ?? ""}) offen`.trim());
+            return teile.join("\n");
+          })
           .join("\n")
       );
       return [k.kundeName, k.kundeOrt ?? "", ...jahresZellen];

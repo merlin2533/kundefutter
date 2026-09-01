@@ -4,7 +4,7 @@ import { ladeKategorieVerlauf } from "@/lib/kategorie-verlauf";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
-// GET /api/statistik/kategorie-verlauf/export?kategorie=...&unterkategorie=...&jahrVon=...&jahrBis=...&kundeSuche=...
+// GET /api/statistik/kategorie-verlauf/export?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...
 // Excel-Export der gefilterten "Kategorie-Verlauf je Kunde"-Liste (Kunde × Jahr-Pivot).
 export async function GET(req: NextRequest) {
   try {
@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
     const { kunden, jahre, kategorie, unterkategorie } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorie: searchParams.get("unterkategorie"),
-      jahrVon: parseInt(searchParams.get("jahrVon") ?? "", 10),
-      jahrBis: parseInt(searchParams.get("jahrBis") ?? "", 10),
+      von: searchParams.get("von"),
+      bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
     });
 
@@ -22,7 +22,12 @@ export async function GET(req: NextRequest) {
       const jahresZellen = jahre.map((j) => {
         const eintraege = k.eintraege.filter((e) => e.jahr === j);
         return eintraege
-          .map((e) => `${e.artikelName} (${e.menge.toLocaleString("de-DE")} ${e.einheit ?? ""})`.trim())
+          .map((e) => {
+            const teile: string[] = [];
+            if (e.mengeGeliefert > 0) teile.push(`${e.artikelName} (${e.mengeGeliefert.toLocaleString("de-DE")} ${e.einheit ?? ""}) geliefert`.trim());
+            if (e.mengeOffen > 0) teile.push(`${e.artikelName} (${e.mengeOffen.toLocaleString("de-DE")} ${e.einheit ?? ""}) offen`.trim());
+            return teile.join(" / ");
+          })
           .join("; ");
       });
       return [k.kundeName, k.kundeOrt ?? "", ...jahresZellen];
