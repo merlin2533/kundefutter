@@ -4,14 +4,20 @@
 
 import { prisma } from "@/lib/prisma";
 
-const MAX_JAHRE_SPANNE = 10;
+const MAX_TAGE_SPANNE = 366 * 10; // ~10 Jahre
+
+const ISO_DATUM = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface KategorieVerlaufEintrag {
   jahr: number;
   artikelId: number;
   artikelName: string;
   unterkategorie: string | null;
-  menge: number;
+  /** Bereits ausgeliefert (Lieferung.status "geliefert"). */
+  mengeGeliefert: number;
+  /** Bestellt, aber noch nicht ausgeliefert (Lieferung.status "geplant") — zeigt an, welcher
+   *  Kunde für die Kategorie bereits einen offenen Auftrag hat. */
+  mengeOffen: number;
   einheit: string | null;
 }
 
@@ -25,8 +31,10 @@ export interface KategorieVerlaufKunde {
 export interface KategorieVerlaufParams {
   kategorie?: string | null;
   unterkategorie?: string | null;
-  jahrVon?: number | null;
-  jahrBis?: number | null;
+  /** ISO-Datum (YYYY-MM-DD), inklusive. */
+  von?: string | null;
+  /** ISO-Datum (YYYY-MM-DD), inklusive. */
+  bis?: string | null;
   kundeSuche?: string | null;
 }
 
@@ -35,6 +43,8 @@ export interface KategorieVerlaufResult {
   jahre: number[];
   kategorie: string;
   unterkategorie: string;
+  von: string;
+  bis: string;
 }
 
 export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Promise<KategorieVerlaufResult> {
@@ -42,13 +52,21 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
   const unterkategorie = params.unterkategorie && params.unterkategorie.trim() ? params.unterkategorie : "alle";
 
   const now = new Date();
-  const jahrBis = params.jahrBis && !isNaN(params.jahrBis) ? params.jahrBis : now.getFullYear();
-  let jahrVon = params.jahrVon && !isNaN(params.jahrVon) ? params.jahrVon : jahrBis - 2;
-  if (jahrVon > jahrBis) jahrVon = jahrBis;
-  if (jahrBis - jahrVon > MAX_JAHRE_SPANNE) jahrVon = jahrBis - MAX_JAHRE_SPANNE;
+  const heuteIso = now.toISOString().slice(0, 10);
+  const defaultVonIso = new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1)).toISOString().slice(0, 10);
 
-  const vonDate = new Date(Date.UTC(jahrVon, 0, 1));
-  const bisDateExklusiv = new Date(Date.UTC(jahrBis + 1, 0, 1));
+  const bisIso = params.bis && ISO_DATUM.test(params.bis) ? params.bis : heuteIso;
+  let vonIso = params.von && ISO_DATUM.test(params.von) ? params.von : defaultVonIso;
+  if (vonIso > bisIso) vonIso = bisIso;
+
+  const vonDate = new Date(`${vonIso}T00:00:00.000Z`);
+  const bisDateExklusiv = new Date(`${bisIso}T00:00:00.000Z`);
+  bisDateExklusiv.setUTCDate(bisDateExklusiv.getUTCDate() + 1); // bis-Datum inklusive
+
+  const spanneTage = (bisDateExklusiv.getTime() - vonDate.getTime()) / 86_400_000;
+  const vonDateEffektiv = spanneTage > MAX_TAGE_SPANNE
+    ? new Date(bisDateExklusiv.getTime() - MAX_TAGE_SPANNE * 86_400_000)
+    : vonDate;
 
   const positionen = await prisma.lieferposition.findMany({
     where: {
@@ -57,8 +75,11 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
         ...(unterkategorie !== "alle" ? { unterkategorie } : {}),
       },
       lieferung: {
-        status: "geliefert",
-        datum: { gte: vonDate, lt: bisDateExklusiv },
+        // "geplant" (noch nicht ausgelieferte Aufträge) mit erfassen, damit nachvollziehbar
+        // ist, welcher Kunde für diese Kategorie bereits bestellt hat, auch ohne dass schon
+        // geliefert wurde. Stornierte Aufträge bewusst ausgeschlossen.
+        status: { in: ["geliefert", "geplant"] },
+        datum: { gte: vonDateEffektiv, lt: bisDateExklusiv },
       },
     },
     select: {
@@ -67,6 +88,7 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
       lieferung: {
         select: {
           datum: true,
+          status: true,
           kunde: { select: { id: true, name: true, ort: true } },
         },
       },
@@ -81,6 +103,7 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
 
   for (const p of positionen) {
     const jahr = p.lieferung.datum.getUTCFullYear();
+    const istGeliefert = p.lieferung.status === "geliefert";
     const k = p.lieferung.kunde;
     let kg = kundenMap.get(k.id);
     if (!kg) {
@@ -90,14 +113,16 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     const key = `${jahr}-${p.artikel.id}`;
     const bestehend = kg.eintraege.get(key);
     if (bestehend) {
-      bestehend.menge += p.menge;
+      if (istGeliefert) bestehend.mengeGeliefert += p.menge;
+      else bestehend.mengeOffen += p.menge;
     } else {
       kg.eintraege.set(key, {
         jahr,
         artikelId: p.artikel.id,
         artikelName: p.artikel.name,
         unterkategorie: p.artikel.unterkategorie,
-        menge: p.menge,
+        mengeGeliefert: istGeliefert ? p.menge : 0,
+        mengeOffen: istGeliefert ? 0 : p.menge,
         einheit: p.artikel.einheit,
       });
     }
@@ -117,8 +142,10 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     }))
     .sort((a, b) => a.kundeName.localeCompare(b.kundeName, "de"));
 
+  const jahrVonEffektiv = vonDateEffektiv.getUTCFullYear();
+  const jahrBisEffektiv = new Date(bisDateExklusiv.getTime() - 1).getUTCFullYear();
   const jahre: number[] = [];
-  for (let j = jahrBis; j >= jahrVon; j--) jahre.push(j);
+  for (let j = jahrBisEffektiv; j >= jahrVonEffektiv; j--) jahre.push(j);
 
-  return { kunden, jahre, kategorie, unterkategorie };
+  return { kunden, jahre, kategorie, unterkategorie, von: vonDateEffektiv.toISOString().slice(0, 10), bis: bisIso };
 }

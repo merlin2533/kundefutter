@@ -15,7 +15,8 @@ interface Eintrag {
   artikelId: number;
   artikelName: string;
   unterkategorie: string | null;
-  menge: number;
+  mengeGeliefert: number;
+  mengeOffen: number;
   einheit: string | null;
 }
 
@@ -31,12 +32,14 @@ interface Data {
   jahre: number[];
 }
 
+const isoHeute = (d: Date) => d.toISOString().slice(0, 10);
+
 export default function KategorieVerlaufPage() {
   const now = new Date();
   const [kategorie, setKategorie] = useState("Saatgut");
   const [unterkategorie, setUnterkategorie] = useState("alle");
-  const [jahrVon, setJahrVon] = useState(String(now.getFullYear() - 2));
-  const [jahrBis, setJahrBis] = useState(String(now.getFullYear()));
+  const [von, setVon] = useState(isoHeute(new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1))));
+  const [bis, setBis] = useState(isoHeute(now));
   const [kundeSuche, setKundeSuche] = useState("");
 
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
@@ -78,7 +81,7 @@ export default function KategorieVerlaufPage() {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ kategorie, unterkategorie, jahrVon, jahrBis });
+      const params = new URLSearchParams({ kategorie, unterkategorie, von, bis });
       const res = await fetch(`/api/statistik/kategorie-verlauf?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
@@ -88,12 +91,9 @@ export default function KategorieVerlaufPage() {
     } finally {
       setLoading(false);
     }
-  }, [kategorie, unterkategorie, jahrVon, jahrBis]);
+  }, [kategorie, unterkategorie, von, bis]);
 
   useEffect(() => { laden(); }, [laden]);
-
-  const jahrOptionen: number[] = [];
-  for (let j = now.getFullYear() + 1; j >= now.getFullYear() - 8; j--) jahrOptionen.push(j);
 
   const suche = kundeSuche.trim().toLowerCase();
   const kunden = (data?.kunden ?? []).filter((k) =>
@@ -101,7 +101,7 @@ export default function KategorieVerlaufPage() {
   );
   const jahre = data?.jahre ?? [];
 
-  const exportParams = new URLSearchParams({ kategorie, unterkategorie, jahrVon, jahrBis });
+  const exportParams = new URLSearchParams({ kategorie, unterkategorie, von, bis });
   if (kundeSuche.trim()) exportParams.set("kundeSuche", kundeSuche.trim());
 
   return (
@@ -115,8 +115,8 @@ export default function KategorieVerlaufPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Kategorie-Verlauf je Kunde</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Welcher Kunde hat in welchem Jahr welchen Artikel einer Kategorie erhalten — z.&nbsp;B. für die
-            Fruchtfolgeplanung (Zwischenfrucht, Getreide, …) im nächsten Jahr.
+            Welcher Kunde hat in welchem Jahr welchen Artikel einer Kategorie erhalten oder bereits bestellt — z.&nbsp;B. für die
+            Fruchtfolgeplanung (Zwischenfrucht, Getreide, …) im nächsten Jahr, oder um zu sehen wer schon bestellt hat.
           </p>
         </div>
         {kunden.length > 0 && (
@@ -164,24 +164,24 @@ export default function KategorieVerlaufPage() {
           </div>
         )}
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Von Jahr</label>
-          <select
-            value={jahrVon}
-            onChange={(e) => setJahrVon(e.target.value)}
+          <label className="block text-xs font-medium text-gray-600 mb-1">Von</label>
+          <input
+            type="date"
+            value={von}
+            max={bis}
+            onChange={(e) => setVon(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            {jahrOptionen.map((j) => <option key={j} value={j}>{j}</option>)}
-          </select>
+          />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Bis Jahr</label>
-          <select
-            value={jahrBis}
-            onChange={(e) => setJahrBis(e.target.value)}
+          <label className="block text-xs font-medium text-gray-600 mb-1">Bis</label>
+          <input
+            type="date"
+            value={bis}
+            min={von}
+            onChange={(e) => setBis(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            {jahrOptionen.map((j) => <option key={j} value={j}>{j}</option>)}
-          </select>
+          />
         </div>
         <div className="flex-1 min-w-[180px]">
           <label className="block text-xs font-medium text-gray-600 mb-1">Kunde suchen</label>
@@ -238,14 +238,29 @@ export default function KategorieVerlaufPage() {
                           ) : (
                             <div className="flex flex-wrap gap-1">
                               {einträgeJahr.map((e) => (
-                                <span
-                                  key={e.artikelId}
-                                  className="inline-block text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200 whitespace-nowrap"
-                                >
-                                  {e.artikelName}
-                                  <span className="text-green-600">
-                                    {" · "}{e.menge.toLocaleString("de-DE")} {e.einheit ?? ""}
-                                  </span>
+                                <span key={e.artikelId} className="inline-flex flex-col gap-0.5">
+                                  {e.mengeGeliefert > 0 && (
+                                    <span
+                                      className="inline-block text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-800 border border-green-200 whitespace-nowrap"
+                                      title="Bereits ausgeliefert"
+                                    >
+                                      {e.artikelName}
+                                      <span className="text-green-600">
+                                        {" · "}{e.mengeGeliefert.toLocaleString("de-DE")} {e.einheit ?? ""}
+                                      </span>
+                                    </span>
+                                  )}
+                                  {e.mengeOffen > 0 && (
+                                    <span
+                                      className="inline-block text-xs px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap"
+                                      title="Bestellt, noch nicht ausgeliefert"
+                                    >
+                                      {e.artikelName}
+                                      <span className="text-amber-600">
+                                        {" · "}{e.mengeOffen.toLocaleString("de-DE")} {e.einheit ?? ""} · offen
+                                      </span>
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </div>
