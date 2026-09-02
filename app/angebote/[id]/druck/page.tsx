@@ -156,7 +156,8 @@ export default function AngebotDruckPage() {
           .print-hidden { display: none !important; }
           body { margin: 0 !important; padding: 0 !important; font-family: Arial, sans-serif; }
           main { padding: 0 !important; max-width: 100% !important; }
-          [data-print-area] { min-height: 0 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
+          .angebot-scroll-wrapper { overflow: visible !important; }
+          [data-print-area] { min-height: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; margin: 0 !important; }
           tr { page-break-inside: avoid; break-inside: avoid; }
           .no-break { page-break-inside: avoid; break-inside: avoid; }
           .no-break-before { page-break-before: avoid; break-before: avoid; }
@@ -233,13 +234,19 @@ export default function AngebotDruckPage() {
         />
       </div>
 
+      {/* Fester (nicht nur maximaler) Wrapper um [data-print-area] mit eigenem overflow-x:auto:
+          das Dokument behält IMMER seine volle A4-Breite (width statt maxWidth, siehe unten) —
+          auf dem Handy scrollt man es horizontal wie eine echte A4-Seite, statt dass Kopfzeile
+          und Inhalt auf die schmale Viewport-Breite gequetscht werden und sich überlappen
+          (gleicher Fix wie bei /lieferungen/[id]/rechnung). */}
+      <div className="angebot-scroll-wrapper" style={{ overflowX: "auto" }}>
       <div
         data-print-area
         style={{
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSize: "11pt",
           color: "#000",
-          maxWidth: "210mm",
+          width: "210mm",
           margin: "0 auto",
           padding: "1.5cm 1cm",
           background: "#fff",
@@ -426,6 +433,7 @@ export default function AngebotDruckPage() {
 
         {/* Footer – 3 Spalten */}
         <DokumentFooter firmaData={firma} footerConfig={footerData} marginTop="16px" />
+      </div>
       </div>
     </>
   );
