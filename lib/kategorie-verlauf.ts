@@ -30,7 +30,8 @@ export interface KategorieVerlaufKunde {
 
 export interface KategorieVerlaufParams {
   kategorie?: string | null;
-  unterkategorie?: string | null;
+  /** Mehrfachauswahl — leer/undefined = alle Unterkategorien (kein Filter). */
+  unterkategorien?: string[] | null;
   /** ISO-Datum (YYYY-MM-DD), inklusive. */
   von?: string | null;
   /** ISO-Datum (YYYY-MM-DD), inklusive. */
@@ -42,14 +43,14 @@ export interface KategorieVerlaufResult {
   kunden: KategorieVerlaufKunde[];
   jahre: number[];
   kategorie: string;
-  unterkategorie: string;
+  unterkategorien: string[];
   von: string;
   bis: string;
 }
 
 export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Promise<KategorieVerlaufResult> {
   const kategorie = params.kategorie && params.kategorie.trim() ? params.kategorie : "alle";
-  const unterkategorie = params.unterkategorie && params.unterkategorie.trim() ? params.unterkategorie : "alle";
+  const unterkategorien = (params.unterkategorien ?? []).map((u) => u.trim()).filter(Boolean);
 
   const now = new Date();
   const heuteIso = now.toISOString().slice(0, 10);
@@ -72,7 +73,7 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     where: {
       artikel: {
         ...(kategorie !== "alle" ? { kategorie } : {}),
-        ...(unterkategorie !== "alle" ? { unterkategorie } : {}),
+        ...(unterkategorien.length > 0 ? { unterkategorie: { in: unterkategorien } } : {}),
       },
       lieferung: {
         // "geplant" (noch nicht ausgelieferte Aufträge) mit erfassen, damit nachvollziehbar
@@ -147,5 +148,5 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
   const jahre: number[] = [];
   for (let j = jahrBisEffektiv; j >= jahrVonEffektiv; j--) jahre.push(j);
 
-  return { kunden, jahre, kategorie, unterkategorie, von: vonDateEffektiv.toISOString().slice(0, 10), bis: bisIso };
+  return { kunden, jahre, kategorie, unterkategorien, von: vonDateEffektiv.toISOString().slice(0, 10), bis: bisIso };
 }

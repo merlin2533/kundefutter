@@ -9,6 +9,7 @@ import {
   getUnterkategorienKey,
   parseListSetting,
 } from "@/lib/auswahllisten";
+import MultiSelectDropdown from "@/components/MultiSelectDropdown";
 
 interface Eintrag {
   jahr: number;
@@ -37,7 +38,7 @@ const isoHeute = (d: Date) => d.toISOString().slice(0, 10);
 export default function KategorieVerlaufPage() {
   const now = new Date();
   const [kategorie, setKategorie] = useState("Saatgut");
-  const [unterkategorie, setUnterkategorie] = useState("alle");
+  const [unterkategorien, setUnterkategorien] = useState<string[]>([]);
   const [von, setVon] = useState(isoHeute(new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1))));
   const [bis, setBis] = useState(isoHeute(now));
   const [kundeSuche, setKundeSuche] = useState("");
@@ -68,20 +69,34 @@ export default function KategorieVerlaufPage() {
       });
   }, []);
 
+  // Unterkategorien kommen aus zwei Quellen: den unter /einstellungen/stammdaten konfigurierten
+  // Werten UND den tatsächlich auf Artikeln verwendeten Werten (GET /api/artikel/kategorien) —
+  // ein Artikel kann eine Unterkategorie tragen, die (noch) nicht in den Stammdaten registriert
+  // ist (z.B. Alt-Import, Tippfehler wie "Einzelkomponenten" statt "Einzelkomponente"). Solche
+  // nicht registrierten Werte werden im Dropdown zusätzlich mit einem Hinweis markiert, statt sie
+  // von unregistrierten Duplikaten ununterscheidbar in die Liste zu mischen.
   const aktuelleUnterkategorien = (() => {
     if (kategorie === "alle") return [];
     const fromSettings = systemSettings !== null
       ? parseListSetting(systemSettings, getUnterkategorienKey(kategorie), DEFAULT_UNTERKATEGORIEN[kategorie] ?? [])
       : DEFAULT_UNTERKATEGORIEN[kategorie] ?? [];
     const fromDb = kategorienMap[kategorie] ?? [];
-    return [...new Set([...fromSettings, ...fromDb])].sort();
+    const fromSettingsSet = new Set(fromSettings);
+    return [...new Set([...fromSettings, ...fromDb])]
+      .sort()
+      .map((u) => ({
+        value: u,
+        label: u,
+        hint: fromSettingsSet.has(u) ? undefined : "· nicht in Stammdaten registriert",
+      }));
   })();
 
   const laden = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ kategorie, unterkategorie, von, bis });
+      const params = new URLSearchParams({ kategorie, von, bis });
+      for (const u of unterkategorien) params.append("unterkategorie", u);
       const res = await fetch(`/api/statistik/kategorie-verlauf?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
@@ -91,7 +106,7 @@ export default function KategorieVerlaufPage() {
     } finally {
       setLoading(false);
     }
-  }, [kategorie, unterkategorie, von, bis]);
+  }, [kategorie, unterkategorien, von, bis]);
 
   useEffect(() => { laden(); }, [laden]);
 
@@ -101,7 +116,8 @@ export default function KategorieVerlaufPage() {
   );
   const jahre = data?.jahre ?? [];
 
-  const exportParams = new URLSearchParams({ kategorie, unterkategorie, von, bis });
+  const exportParams = new URLSearchParams({ kategorie, von, bis });
+  for (const u of unterkategorien) exportParams.append("unterkategorie", u);
   if (kundeSuche.trim()) exportParams.set("kundeSuche", kundeSuche.trim());
 
   return (
@@ -143,7 +159,7 @@ export default function KategorieVerlaufPage() {
           <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
           <select
             value={kategorie}
-            onChange={(e) => { setKategorie(e.target.value); setUnterkategorie("alle"); }}
+            onChange={(e) => { setKategorie(e.target.value); setUnterkategorien([]); }}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           >
             <option value="alle">Alle</option>
@@ -153,14 +169,13 @@ export default function KategorieVerlaufPage() {
         {aktuelleUnterkategorien.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Unterkategorie</label>
-            <select
-              value={unterkategorie}
-              onChange={(e) => setUnterkategorie(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="alle">Alle</option>
-              {aktuelleUnterkategorien.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+            <MultiSelectDropdown
+              options={aktuelleUnterkategorien}
+              values={unterkategorien}
+              onChange={setUnterkategorien}
+              allLabel="Alle"
+              className="min-w-[200px]"
+            />
           </div>
         )}
         <div>
