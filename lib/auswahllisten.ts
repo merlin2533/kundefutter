@@ -95,7 +95,16 @@ function normKategorieWert(s: string): string {
  *  "Futter", Unterkategorie "— keine —") und würden diesen beim nächsten Speichern der Seite ohne
  *  Rückfrage über den eigentlichen Wert schreiben.
  *  `kategorien` = gültige Top-Level-Kategorien, `unterkategorienByKat` = deren konfigurierte
- *  Unterkategorien (aus `system.unterkategorien_<Kategorie>` bzw. `system.saatgut_kulturen`). */
+ *  Unterkategorien (aus `system.unterkategorien_<Kategorie>` bzw. `system.saatgut_kulturen`).
+ *
+ *  WICHTIG: Ein Wert, der weder als Top-Level-Kategorie noch als bekannte Unterkategorie
+ *  erkannt wird, wird UNVERÄNDERT übernommen — NICHT auf "Futter" erzwungen. Erste Version
+ *  dieser Funktion tat genau das ("unbekannt → Futter") und sortierte dadurch echte, in der
+ *  Praxis längst genutzte Kategorien wie "Pflanzenhilfsmittel" oder "Stallzubehör" fälschlich
+ *  nach Futter um — `DEFAULT_ARTIKEL_KATEGORIEN`/`system.artikelkategorien` ist eine Vorschlags-
+ *  liste für neue Artikel, keine abschließende Enum-Definition; ein Kunde kann jederzeit weitere
+ *  Kategorien direkt beim Import/Anlegen einführen, ohne sie vorher unter Einstellungen →
+ *  Artikelkategorien zu registrieren. */
 export function resolveKategorie(
   kategorieRaw: string,
   unterkategorieRaw: string | null,
@@ -114,8 +123,9 @@ export function resolveKategorie(
     if (unterTreffer) return { kategorie: kat, unterkategorie: unterTreffer };
   }
 
-  const fallback = kategorien.find((k) => k === "Futter") ?? kategorien[0] ?? "Futter";
-  return { kategorie: fallback, unterkategorie: unterkategorieRaw };
+  // Weder Top-Level-Treffer noch Unterkategorie-Treffer — vermutlich eine eigene, (noch) nicht
+  // registrierte, aber durchaus gewollte Kategorie. Unverändert lassen statt zu erzwingen.
+  return { kategorie: kategorieRaw.trim(), unterkategorie: unterkategorieRaw };
 }
 
 export const DEFAULT_LAGERORTE: string[] = [];

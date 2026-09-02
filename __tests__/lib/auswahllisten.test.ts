@@ -28,9 +28,20 @@ describe("resolveKategorie", () => {
     });
   });
 
-  it("fällt bei völlig unbekanntem Wert auf Futter zurück, ohne die (ebenfalls unbekannte) Unterkategorie zu erfinden", () => {
+  it("lässt einen völlig unbekannten Wert unverändert, statt ihn auf Futter zu erzwingen (Bugreport: Pflanzenhilfsmittel/Stallzubehör wurden fälschlich nach Futter verschoben)", () => {
+    // DEFAULT_ARTIKEL_KATEGORIEN/system.artikelkategorien ist eine Vorschlagsliste, keine
+    // abschließende Enum-Definition — ein Kunde kann jederzeit weitere, eigene Kategorien
+    // (z.B. "Pflanzenhilfsmittel", "Stallzubehör") direkt beim Import/Anlegen einführen.
     expect(resolveKategorie("Zubehör", null, KATEGORIEN, UNTERKATEGORIEN)).toEqual({
-      kategorie: "Futter",
+      kategorie: "Zubehör",
+      unterkategorie: null,
+    });
+    expect(resolveKategorie("Pflanzenhilfsmittel", null, KATEGORIEN, UNTERKATEGORIEN)).toEqual({
+      kategorie: "Pflanzenhilfsmittel",
+      unterkategorie: null,
+    });
+    expect(resolveKategorie("Stallzubehör", null, KATEGORIEN, UNTERKATEGORIEN)).toEqual({
+      kategorie: "Stallzubehör",
       unterkategorie: null,
     });
   });
