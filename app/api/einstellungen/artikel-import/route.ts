@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STAMMDATEN_GRUPPEN, ALLE_STAMMDATEN_ARTIKEL } from "@/lib/artikel-stammdaten";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { resolveKategorie } from "@/lib/auswahllisten";
+import { loadKategorieTaxonomie, type KategorieTaxonomie } from "@/lib/artikel-kategorie";
 import * as XLSX from "xlsx";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
@@ -190,6 +192,7 @@ async function lieferantIdFuerName(name: string): Promise<number> {
 // ── Hilfsfunktion: Zeile importieren ─────────────────────────────────────────
 async function importZeile(
   row: Record<string, unknown>,
+  taxonomie: KategorieTaxonomie,
 ): Promise<"importiert" | "uebersprungen" | "fehler"> {
   const name = pickCol(row, ...ARTIKEL_ALIAS.name);
   if (!name) return "fehler";
@@ -210,8 +213,11 @@ async function importZeile(
   const mwstRaw = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mwst));
   const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
   const mindestbestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestand));
-  const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Sonstiges";
-  const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
+  const kategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Futter";
+  const unterkategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
+  const { kategorie, unterkategorie } = resolveKategorie(
+    kategorieRaw, unterkategorieRaw, taxonomie.kategorien, taxonomie.unterkategorienByKat,
+  );
   const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "Stück";
   const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
   const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;
@@ -300,8 +306,9 @@ export async function POST(req: NextRequest) {
       let uebersprungen = 0;
       let fehler = 0;
 
+      const taxonomie = await loadKategorieTaxonomie();
       for (const row of rows) {
-        const result = await importZeile(row);
+        const result = await importZeile(row, taxonomie);
         if (result === "importiert") importiert++;
         else if (result === "uebersprungen") uebersprungen++;
         else fehler++;

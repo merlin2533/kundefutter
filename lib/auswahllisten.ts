@@ -75,6 +75,38 @@ export function getUnterkategorienKey(kategorie: string): string {
   return kategorie === "Saatgut" ? "system.saatgut_kulturen" : `system.unterkategorien_${kategorie}`;
 }
 
+/** Löst eine aus einer Importdatei gelesene Kategorie/Unterkategorie-Kombination gegen die
+ *  tatsächlich konfigurierte Taxonomie auf. Import-Quelldateien liefern in der "Kategorie"-Spalte
+ *  oft eine Fruchtart/Kultur (z.B. "Getreide") statt einer der festen Top-Level-Kategorien —
+ *  ungeprüft übernommen legt das einen Artikel mit einem nirgends konfigurierten Kategorie-Wert an.
+ *  Die Kategorie-/Unterkategorie-<select>-Felder der Artikel-Detailseite kennen dafür keine
+ *  passende <option>, zeigen also stillschweigend den jeweils ERSTEN Listeneintrag an (Kategorie
+ *  "Futter", Unterkategorie "— keine —") und würden diesen beim nächsten Speichern der Seite ohne
+ *  Rückfrage über den eigentlichen Wert schreiben.
+ *  `kategorien` = gültige Top-Level-Kategorien, `unterkategorienByKat` = deren konfigurierte
+ *  Unterkategorien (aus `system.unterkategorien_<Kategorie>` bzw. `system.saatgut_kulturen`). */
+export function resolveKategorie(
+  kategorieRaw: string,
+  unterkategorieRaw: string | null,
+  kategorien: string[],
+  unterkategorienByKat: Record<string, string[]>,
+): { kategorie: string; unterkategorie: string | null } {
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  const kategorieTreffer = kategorien.find((k) => norm(k) === norm(kategorieRaw));
+  if (kategorieTreffer) return { kategorie: kategorieTreffer, unterkategorie: unterkategorieRaw };
+
+  // Kein Treffer als Top-Level-Kategorie — evtl. ist der Wert eigentlich eine Unterkategorie
+  // (Fruchtart/Kultur), die versehentlich in die falsche Spalte gerutscht ist.
+  for (const kat of kategorien) {
+    const unterTreffer = (unterkategorienByKat[kat] ?? []).find((u) => norm(u) === norm(kategorieRaw));
+    if (unterTreffer) return { kategorie: kat, unterkategorie: unterTreffer };
+  }
+
+  const fallback = kategorien.find((k) => k === "Futter") ?? kategorien[0] ?? "Futter";
+  return { kategorie: fallback, unterkategorie: unterkategorieRaw };
+}
+
 export const DEFAULT_LAGERORTE: string[] = [];
 
 export const DEFAULT_FRUCHTARTEN = [

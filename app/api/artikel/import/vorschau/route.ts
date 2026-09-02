@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { resolveKategorie } from "@/lib/auswahllisten";
+import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
 
   const artikelNamenSet = new Set(alleArtikel.map((a) => a.name.toLowerCase()));
   const lieferantenNamenSet = new Set(alleLieferanten.map((l) => l.name.toLowerCase()));
+  const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
 
   const plan: VorschauZeile[] = [];
   const neueLieferantenNamen = new Set<string>();
@@ -80,10 +83,18 @@ export async function POST(req: NextRequest) {
     const einkaufspreis = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.einkaufspreis));
     const mindestbestellmenge = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestellmenge));
     const lieferantName = pickCol(row, ...ARTIKEL_ALIAS.lieferant);
-    const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie);
+    const kategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.kategorie);
+    const unterkategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
     const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit);
 
-    if (kategorie) details.push(`Kategorie: ${kategorie}`);
+    if (kategorieRaw) {
+      const resolved = resolveKategorie(kategorieRaw, unterkategorieRaw, gueltigeKategorien, unterkategorienByKat);
+      details.push(
+        resolved.kategorie === kategorieRaw
+          ? `Kategorie: ${resolved.kategorie}${resolved.unterkategorie ? ` · ${resolved.unterkategorie}` : ""}`
+          : `Kategorie: ${resolved.kategorie} · ${resolved.unterkategorie} (erkannt aus Spaltenwert "${kategorieRaw}")`
+      );
+    }
     if (einheit) details.push(`Einheit: ${einheit}`);
     if (standardpreis > 0) details.push(`VK: ${standardpreis.toFixed(2)} €`);
     if (einkaufspreis > 0) details.push(`EK: ${einkaufspreis.toFixed(2)} €`);
