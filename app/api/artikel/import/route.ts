@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
-import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
+import { istChargenpflichtKategorie, resolveKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
+import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
 
   const chargenpflichtKats = await getChargenpflichtKategorien();
+  const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -66,8 +68,9 @@ export async function POST(req: NextRequest) {
     const mindestbestand = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mindestbestand));
     const mwstRaw = parseNumber(pickCol(row, ...ARTIKEL_ALIAS.mwst));
     const mwstSatz = [0, 7, 19].includes(mwstRaw) ? mwstRaw : 19;
-    const kategorie = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Futter";
-    const unterkategorie = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
+    const kategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.kategorie) || "Futter";
+    const unterkategorieRaw = pickCol(row, ...ARTIKEL_ALIAS.unterkategorie) || null;
+    const { kategorie, unterkategorie } = resolveKategorie(kategorieRaw, unterkategorieRaw, gueltigeKategorien, unterkategorienByKat);
     const einheit = pickCol(row, ...ARTIKEL_ALIAS.einheit) || "kg";
     const liefergroesse = pickCol(row, ...ARTIKEL_ALIAS.liefergroesse) || null;
     const beschreibung = pickCol(row, ...ARTIKEL_ALIAS.beschreibung) || null;

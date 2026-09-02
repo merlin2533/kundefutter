@@ -1048,6 +1048,13 @@ function ArtikelDetailContent() {
                     }}
                     className={inputCls}
                   >
+                    {/* Ein gespeicherter, nicht in `kategorien` konfigurierter Wert (z.B. aus
+                        einem älteren Import ohne Kategorie-Validierung) bekommt hier eine eigene
+                        Option, statt lautlos auf die erste Option der Liste zu springen — sonst
+                        würde ein Speichern ohne Berühren dieses Felds den Wert überschreiben. */}
+                    {editForm.kategorie && !kategorien.includes(editForm.kategorie) && (
+                      <option value={editForm.kategorie}>{editForm.kategorie} ⚠️ (nicht in Liste — bitte korrigieren)</option>
+                    )}
                     {kategorien.map((k) => (
                       <option key={k} value={k}>{k === "Duenger" ? "Dünger" : k}</option>
                     ))}
@@ -1081,6 +1088,11 @@ function ArtikelDetailContent() {
                       className={inputCls}
                     >
                       <option value="">&mdash; keine &mdash;</option>
+                      {/* Analog zur Kategorie oben: ein gespeicherter, nicht konfigurierter Wert
+                          bekommt eine eigene Option statt lautlos auf "— keine —" zu springen. */}
+                      {editForm.unterkategorie && !unterkats.includes(editForm.unterkategorie as string) && (
+                        <option value={editForm.unterkategorie as string}>{editForm.unterkategorie as string} ⚠️ (nicht in Liste — bitte korrigieren)</option>
+                      )}
                       {unterkats.map((u) => (
                         <option key={u} value={u}>{u}</option>
                       ))}

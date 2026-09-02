@@ -396,7 +396,13 @@ export async function POST(req: NextRequest) {
           data: {
             artikelnummer,
             name,
-            kategorie: "Sonstiges",
+            // "Sonstiges" ist keine der festen Artikel-Kategorien (Futter/Duenger/Saatgut/…) —
+            // legte bisher einen Artikel mit einem nirgends konfigurierten Kategorie-Wert an, der
+            // in den Kategorie-<select>-Feldern der Artikel-Detailseite mangels passender <option>
+            // gar nicht darstellbar war und beim nächsten Speichern stillschweigend überschrieben
+            // worden wäre (siehe resolveKategorie() in lib/auswahllisten.ts für den Import-Pfad
+            // mit echter Kategorie-Spalte).
+            kategorie: "Futter",
             einheit: "Stück",
             standardpreis: 0,
             mwstSatz: 19,

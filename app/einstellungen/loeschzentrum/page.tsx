@@ -17,6 +17,14 @@ interface DedupPreview {
   groups: DedupGroup[];
 }
 
+interface Kategorienkorrektur {
+  id: number;
+  name: string;
+  artikelnummer: string;
+  alt: { kategorie: string; unterkategorie: string | null };
+  neu: { kategorie: string; unterkategorie: string | null };
+}
+
 interface BankabgleichResetPreview {
   lieferung: number;
   sammelrechnung: number;
@@ -36,6 +44,13 @@ export default function LoeschzentrumPage() {
 
   const [ftsLoading, setFtsLoading] = useState(false);
   const [ftsResult, setFtsResult] = useState<string | null>(null);
+
+  const [kategorien, setKategorien] = useState<Kategorienkorrektur[] | null>(null);
+  const [kategorienAnzahl, setKategorienAnzahl] = useState(0);
+  const [kategorienLoading, setKategorienLoading] = useState(false);
+  const [kategorienResult, setKategorienResult] = useState<number | null>(null);
+  const [kategorienError, setKategorienError] = useState<string | null>(null);
+  const [kategorienConfirmVisible, setKategorienConfirmVisible] = useState(false);
 
   const [bankReset, setBankReset] = useState<BankabgleichResetPreview | null>(null);
   const [bankResetLoading, setBankResetLoading] = useState(false);
@@ -112,6 +127,54 @@ export default function LoeschzentrumPage() {
       setFtsResult("Fehler beim Aufbauen des Suchindex.");
     } finally {
       setFtsLoading(false);
+    }
+  }
+
+  async function loadKategorienPreview() {
+    setKategorienLoading(true);
+    setKategorienError(null);
+    setKategorienResult(null);
+    setKategorienConfirmVisible(false);
+    try {
+      const res = await fetch("/api/artikel/kategorien-bereinigen");
+      if (!res.ok) throw new Error("Fehler beim Laden");
+      const data: { korrekturen: Kategorienkorrektur[]; anzahl: number } = await res.json();
+      setKategorien(data.korrekturen);
+      setKategorienAnzahl(data.anzahl);
+    } catch (err) {
+      Sentry.captureException(err);
+      setKategorienError("Vorschau konnte nicht geladen werden.");
+    } finally {
+      setKategorienLoading(false);
+    }
+  }
+
+  async function runKategorienFix() {
+    if (!kategorien || kategorienAnzahl === 0) return;
+    setKategorienLoading(true);
+    setKategorienError(null);
+    setKategorienConfirmVisible(false);
+    try {
+      const res = await fetch("/api/artikel/kategorien-bereinigen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
+        throw new Error((d as { error?: string }).error ?? "Fehler");
+      }
+      const result: { korrigiert: number } = await res.json();
+      setKategorienResult(result.korrigiert);
+      setKategorien(null);
+    } catch (e) {
+      Sentry.captureException(e);
+      setKategorienError(e instanceof Error ? e.message : "Bereinigung fehlgeschlagen");
+    } finally {
+      setKategorienLoading(false);
     }
   }
 
@@ -427,6 +490,156 @@ export default function LoeschzentrumPage() {
                 "Index neu aufbauen"
               )}
             </button>
+          </div>
+        </div>
+
+        {/* ── Artikel-Kategorien bereinigen ── */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-semibold text-gray-800">Artikel-Kategorien bereinigen</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Findet Artikel, deren Kategorie nicht zur konfigurierten Liste gehört (z.B. durch
+              einen Import, der eine Fruchtart wie „Getreide” statt einer gültigen Kategorie in die
+              Kategorie-Spalte übernommen hat) und ordnet sie korrekt als Kategorie + Unterkategorie
+              ein. Betroffene Artikel zeigen den Wert sonst nicht in der Auswahlliste an und
+              verlieren ihn beim nächsten Speichern.
+            </p>
+          </div>
+          <div className="p-5">
+            {kategorienResult !== null && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                <span className="text-base">✓</span>
+                <div>
+                  <p className="font-medium">Bereinigung abgeschlossen</p>
+                  <p className="text-xs text-green-700 mt-0.5">{kategorienResult} Artikel korrigiert</p>
+                </div>
+              </div>
+            )}
+            {kategorienError && (
+              <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {kategorienError}
+              </div>
+            )}
+
+            {!kategorien && (
+              <button
+                onClick={loadKategorienPreview}
+                disabled={kategorienLoading}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+              >
+                {kategorienLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    Prüfe Kategorien…
+                  </span>
+                ) : (
+                  "Kategorien prüfen"
+                )}
+              </button>
+            )}
+
+            {kategorien && (
+              <div className="space-y-4">
+                {kategorienAnzahl === 0 ? (
+                  <div className="flex items-center gap-2 text-sm text-green-700 font-medium py-1">
+                    <span>✓</span>
+                    <span>Keine ungültigen Kategorien gefunden.</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full">
+                        {kategorienAnzahl} zu korrigierende Artikel
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {kategorienAnzahl > kategorien.length ? `nur die ersten ${kategorien.length} angezeigt` : ""}
+                      </span>
+                    </div>
+
+                    <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                      {kategorien.map((k) => (
+                        <div key={k.id} className="px-4 py-2.5 text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-xs text-gray-400 shrink-0">{k.artikelnummer}</span>
+                            <span className="font-medium text-gray-800 truncate">{k.name}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 text-xs">
+                            <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 font-mono px-2 py-0.5 rounded-md">
+                              {k.alt.kategorie}{k.alt.unterkategorie ? ` · ${k.alt.unterkategorie}` : ""}
+                            </span>
+                            <span className="text-gray-400">→</span>
+                            <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 font-mono px-2 py-0.5 rounded-md">
+                              {k.neu.kategorie}{k.neu.unterkategorie ? ` · ${k.neu.unterkategorie}` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!kategorienConfirmVisible ? (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => setKategorienConfirmVisible(true)}
+                          disabled={kategorienLoading}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
+                        >
+                          {kategorienAnzahl} Artikel korrigieren
+                        </button>
+                        <button
+                          onClick={() => { setKategorien(null); setKategorienConfirmVisible(false); }}
+                          className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border border-red-200 bg-red-50 rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-sm font-semibold text-red-900">
+                            Kategorien wirklich korrigieren?
+                          </p>
+                          <p className="text-xs text-red-700 mt-1">
+                            {kategorienAnzahl} Artikel werden auf die oben gezeigte neue Kategorie +
+                            Unterkategorie gesetzt. Diese Aktion kann nicht rückgängig gemacht werden.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={runKategorienFix}
+                            disabled={kategorienLoading}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                          >
+                            {kategorienLoading ? (
+                              <span className="flex items-center gap-2">
+                                <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                Korrigiere…
+                              </span>
+                            ) : (
+                              "Ja, jetzt korrigieren"
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setKategorienConfirmVisible(false)}
+                            className="border border-red-300 bg-white hover:bg-red-50 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {kategorienAnzahl === 0 && (
+                  <button
+                    onClick={loadKategorienPreview}
+                    className="text-sm text-gray-500 hover:text-gray-700 underline"
+                  >
+                    Erneut prüfen
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
