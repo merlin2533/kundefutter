@@ -41,4 +41,11 @@ describe("resolveKategorie", () => {
       unterkategorie: "irgendwas",
     });
   });
+
+  it("erkennt \"Dünger\" (natürliche deutsche Schreibweise mit Umlaut) als die intern ASCII-gespeicherte Kategorie \"Duenger\" (Bugreport: Schwefellinsen etc. fielen sonst systematisch auf Futter zurück)", () => {
+    expect(resolveKategorie("Dünger", "Schwefel", KATEGORIEN, UNTERKATEGORIEN)).toEqual({
+      kategorie: "Duenger",
+      unterkategorie: "Schwefel",
+    });
+  });
 });

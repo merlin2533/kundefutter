@@ -75,6 +75,17 @@ export function getUnterkategorienKey(kategorie: string): string {
   return kategorie === "Saatgut" ? "system.saatgut_kulturen" : `system.unterkategorien_${kategorie}`;
 }
 
+/** Umlaut-tolerantes Normalisieren für den Kategorie-Abgleich in resolveKategorie() — dieselbe
+ *  ä/ö/ü/ß-Faltung wie normalizeText() in lib/bankabgleich-matching.ts, hier lokal statt importiert
+ *  (lib/auswahllisten.ts bleibt bewusst frei von Cross-Modul-Importen). Ohne diese Faltung matchte
+ *  ein Importwert "Dünger" (natürliche deutsche Schreibweise) NIE die intern ASCII-gespeicherte
+ *  Kategorie "Duenger" — jede Dünger-Zeile fiel dadurch auf den "Futter"-Fallback zurück, weil
+ *  reines toLowerCase() Umlaute nicht angleicht. */
+function normKategorieWert(s: string): string {
+  return s.trim().toLowerCase()
+    .replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss");
+}
+
 /** Löst eine aus einer Importdatei gelesene Kategorie/Unterkategorie-Kombination gegen die
  *  tatsächlich konfigurierte Taxonomie auf. Import-Quelldateien liefern in der "Kategorie"-Spalte
  *  oft eine Fruchtart/Kultur (z.B. "Getreide") statt einer der festen Top-Level-Kategorien —
@@ -91,7 +102,7 @@ export function resolveKategorie(
   kategorien: string[],
   unterkategorienByKat: Record<string, string[]>,
 ): { kategorie: string; unterkategorie: string | null } {
-  const norm = (s: string) => s.trim().toLowerCase();
+  const norm = normKategorieWert;
 
   const kategorieTreffer = kategorien.find((k) => norm(k) === norm(kategorieRaw));
   if (kategorieTreffer) return { kategorie: kategorieTreffer, unterkategorie: unterkategorieRaw };
