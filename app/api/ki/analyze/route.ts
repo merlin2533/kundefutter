@@ -5,7 +5,7 @@ import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
-const VALID_FEATURES = ["wareneingang", "lieferung", "crm"] as const;
+const VALID_FEATURES = ["wareneingang", "lieferung", "crm", "bestellliste"] as const;
 type Feature = (typeof VALID_FEATURES)[number];
 
 export async function POST(req: NextRequest) {

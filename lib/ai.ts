@@ -444,6 +444,30 @@ verfälschten Begriffen gehört in "betriebsnummer", nicht in eine Artikelpositi
 
 Mengenangabe "Anzahl x Gebindegröße": Steht die Menge als Multiplikation da (z.B. "18 x 25 kg", "20 Sack à 25 kg", "10 × 1000 kg"), ist das die Anzahl der Gebinde multipliziert mit dem Gewicht/Inhalt je Gebinde. Setze "menge" auf das Produkt aus beiden Zahlen (18 × 25 = 450), niemals nur eine der beiden Zahlen.`,
 
+  bestellliste: `Du bist ein Assistent für die Erfassung von Bestellliste-Positionen (Einkauf beim
+Lieferanten) in der Agrarbranche. Der Input ist ein diktierter Text (Spracheingabe), der eine oder
+mehrere zu bestellende Artikel-Positionen beschreibt.
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
+{
+  "positionen": [
+    {
+      "name": "Artikelbezeichnung",
+      "menge": 50,
+      "einheit": "kg|t|Sack|Liter|Stück",
+      "lieferant": "Lieferantenname falls genannt, sonst null",
+      "notiz": "Zusätzliche Anmerkung falls genannt, sonst null"
+    }
+  ]
+}
+
+Zahlwörter und mündliche Mengenangaben (z.B. "zwei Tonnen", "fünfzig Kilo", "drei Sack") korrekt in
+"menge" + "einheit" übersetzen. Mengenangabe "Anzahl x Gebindegröße" (z.B. "18 x 25 kg", "20 Sack à
+25 kg"): "menge" auf das Produkt aus beiden Zahlen setzen (18 × 25 = 450), niemals nur eine Zahl.
+Werden mehrere unterschiedliche Artikel genannt (z.B. "50 Kilo Rindermais und 3 Sack
+Mineralfutter"), erzeuge für jeden Artikel eine eigene Position im Array. Wenn ein Feld nicht
+erkennbar ist, setze null.`,
+
   crm: `Du bist ein CRM-Assistent für ein Agrarunternehmen.
 Analysiere den Input (Bild oder Text/Spracheingabe) und extrahiere Kundeninformationen und relevante Notizen.
 Optimiere den Text für eine professionelle CRM-Aktivität.
