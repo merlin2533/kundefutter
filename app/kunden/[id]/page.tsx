@@ -196,13 +196,13 @@ export default function KundeDetailPage() {
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             {/* Kontakt */}
-            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
+            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1 min-w-0">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kontakt</p>
               {phone ? (
-                <a href={`tel:${phone.wert}`} className="text-sm text-green-700 hover:underline font-medium truncate">📞 {phone.wert}</a>
+                <a href={`tel:${phone.wert}`} className="text-sm text-green-700 hover:underline font-medium">📞 {phone.wert}</a>
               ) : <p className="text-sm text-gray-400">—</p>}
               {email ? (
-                <a href={`mailto:${email.wert}`} className="text-xs text-blue-600 hover:underline truncate">✉ {email.wert}</a>
+                <a href={`mailto:${email.wert}`} className="text-xs text-blue-600 hover:underline break-all">✉ {email.wert}</a>
               ) : null}
             </div>
             {/* Adresse */}
@@ -247,8 +247,8 @@ export default function KundeDetailPage() {
               return <div className={cardClass}>{inner}</div>;
             })()}
             {/* Letzte Lieferungen */}
-            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
+            <div className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col gap-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Letzte Lieferungen</p>
                 <Link
                   href={`/lieferungen?kundeId=${kunde.id}&offen=1`}
