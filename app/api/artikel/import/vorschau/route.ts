@@ -89,10 +89,11 @@ export async function POST(req: NextRequest) {
 
     if (kategorieRaw) {
       const resolved = resolveKategorie(kategorieRaw, unterkategorieRaw, gueltigeKategorien, unterkategorienByKat);
+      const unterkategorieAnzeige = resolved.unterkategorie ? ` · ${resolved.unterkategorie}` : "";
       details.push(
         resolved.kategorie === kategorieRaw
-          ? `Kategorie: ${resolved.kategorie}${resolved.unterkategorie ? ` · ${resolved.unterkategorie}` : ""}`
-          : `Kategorie: ${resolved.kategorie} · ${resolved.unterkategorie} (erkannt aus Spaltenwert "${kategorieRaw}")`
+          ? `Kategorie: ${resolved.kategorie}${unterkategorieAnzeige}`
+          : `Kategorie: ${resolved.kategorie}${unterkategorieAnzeige} (erkannt aus Spaltenwert "${kategorieRaw}")`
       );
     }
     if (einheit) details.push(`Einheit: ${einheit}`);
