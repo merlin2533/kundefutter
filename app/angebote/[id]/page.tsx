@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import EmailVersandModal from "@/components/EmailVersandModal";
+import { DEFAULT_EINHEITEN, parseListSetting } from "@/lib/auswahllisten";
 import * as Sentry from "@sentry/nextjs";
 
 interface ArtikelInfo {
@@ -83,13 +84,23 @@ export default function AngebotDetailPage() {
   interface EditPos { artikelId: string; artikelName: string; einheit: string; menge: string; preis: string; rabatt: string; notiz: string }
   const [editMode, setEditMode] = useState(false);
   const [editPositionen, setEditPositionen] = useState<EditPos[]>([]);
-  const [artikelListe, setArtikelListe] = useState<{ id: number; name: string; standardpreis: number; einheit: string }[]>([]);
+  const [artikelListe, setArtikelListe] = useState<{ id: number; name: string; standardpreis: number; einheit: string; aktiv: boolean }[]>([]);
+  const [einheiten, setEinheiten] = useState<string[]>(DEFAULT_EINHEITEN);
   const [posSaving, setPosSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/artikel?limit=2000&relations=false")
+    // aktiv=alle: eine bestehende Position kann auf einen inzwischen deaktivierten Artikel
+    // zeigen — ohne inaktive Artikel mitzuladen fände die SearchableSelect dafür keine
+    // passende Option und würde die gespeicherte Auswahl lautlos leer anzeigen.
+    fetch("/api/artikel?limit=2000&relations=false&aktiv=alle")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => { if (Array.isArray(d)) setArtikelListe(d); })
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: Record<string, string>) => setEinheiten(parseListSetting(d, "system.einheiten", DEFAULT_EINHEITEN)))
       .catch((err) => {
         Sentry.captureException(err);
       });
@@ -571,7 +582,7 @@ export default function AngebotDetailPage() {
                       <tr key={idx} className="border-t border-gray-100">
                         <td className="px-2 py-2 align-top">
                           <SearchableSelect
-                            options={artikelListe.map((a) => ({ value: String(a.id), label: a.name, sub: a.einheit }))}
+                            options={artikelListe.map((a) => ({ value: String(a.id), label: a.name, sub: [a.einheit, !a.aktiv ? "inaktiv" : null].filter(Boolean).join(" · ") }))}
                             value={p.artikelId}
                             onChange={(v) => updateEditPos(idx, "artikelId", v)}
                             placeholder="— Artikel wählen —"
@@ -587,7 +598,14 @@ export default function AngebotDetailPage() {
                         <td className="px-2 py-2 align-top">
                           <input type="number" min={0} step="any" value={p.menge} onChange={(e) => updateEditPos(idx, "menge", e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
-                          <div className="text-xs text-gray-400 text-right mt-0.5">{p.einheit}</div>
+                          <select
+                            value={p.einheit}
+                            onChange={(e) => updateEditPos(idx, "einheit", e.target.value)}
+                            className="w-full mt-1 border border-gray-200 rounded px-1 py-0.5 text-xs text-gray-600 text-right focus:outline-none focus:ring-1 focus:ring-green-600"
+                          >
+                            {!einheiten.includes(p.einheit) && <option value={p.einheit}>{p.einheit}</option>}
+                            {einheiten.map((e) => <option key={e} value={e}>{e}</option>)}
+                          </select>
                         </td>
                         <td className="px-2 py-2 align-top">
                           <input type="number" min={0} step="any" value={p.preis} onChange={(e) => updateEditPos(idx, "preis", e.target.value)}
