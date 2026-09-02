@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorie, von, bis } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorien, von, bis } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
-      unterkategorie: searchParams.get("unterkategorie"),
+      unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    const kategorieLabel = `${kategorie}${unterkategorie !== "alle" ? ` / ${unterkategorie}` : ""}`;
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}`;
     doc.text(
       `Kategorie: ${kategorieLabel}   ·   Zeitraum: ${formatDatum(von)}–${formatDatum(bis)}   ·   Erstellt: ${heute}`,
       14,
