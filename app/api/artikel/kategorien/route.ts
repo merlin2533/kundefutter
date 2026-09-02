@@ -44,7 +44,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST {aktion:"umbenennen", von, zu} → updateMany für alle Artikel
+// POST {aktion:"umbenennen", von, zu} → updateMany für alle Artikel (Kategorie)
+// POST {aktion:"unterkategorie_umbenennen", kategorie, von, zu} → updateMany für alle Artikel
+//   dieser Kategorie (Unterkategorie) — genutzt vom "Zusammenführen"-Werkzeug in den Stammdaten,
+//   um einen nicht registrierten Unterkategorie-Wert (z.B. "Einzelkomponenten") manuell/explizit
+//   in einen bereits konfigurierten Wert (z.B. "Einzelkomponente") zu überführen.
 export async function POST(req: NextRequest) {
   let body;
   try {
@@ -55,6 +59,29 @@ export async function POST(req: NextRequest) {
   }
 
   const aktion = String(body?.aktion ?? "");
+
+  if (aktion === "unterkategorie_umbenennen") {
+    const kategorie = String(body?.kategorie ?? "").trim();
+    const von = String(body?.von ?? "").trim();
+    const zu = String(body?.zu ?? "").trim();
+    if (!kategorie || !von || !zu) {
+      return NextResponse.json({ error: "kategorie, von und zu erforderlich" }, { status: 400 });
+    }
+    if (von === zu) {
+      return NextResponse.json({ ok: true, aktualisiert: 0 });
+    }
+    try {
+      const result = await prisma.artikel.updateMany({
+        where: { kategorie, unterkategorie: von },
+        data: { unterkategorie: zu },
+      });
+      return NextResponse.json({ ok: true, aktualisiert: result.count });
+    } catch (err) {
+      Sentry.captureException(err);
+      return NextResponse.json({ error: "Fehler beim Zusammenführen" }, { status: 500 });
+    }
+  }
+
   if (aktion !== "umbenennen") {
     return NextResponse.json({ error: "Unbekannte Aktion" }, { status: 400 });
   }
