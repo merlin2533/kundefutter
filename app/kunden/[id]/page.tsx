@@ -179,6 +179,13 @@ export default function KundeDetailPage() {
           >
             🖨 Kundenmappe drucken
           </Link>
+          <a
+            href={`/api/kunden/${kunde.id}/vcard`}
+            className="text-xs px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors font-medium"
+            title="Name, Adresse, Telefon und E-Mail als Kontakt aufs Handy speichern"
+          >
+            📇 Kontakt speichern
+          </a>
         </div>
       </div>
 

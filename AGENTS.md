@@ -482,6 +482,10 @@ app/
 -- Kunden --
 /api/kunden                     GET(filter+limit+page+aktiv+tag), POST
 /api/kunden/[id]                GET, PUT, DELETE
+/api/kunden/[id]/vcard          GET — Stammdaten (Name, Firma, Telefon(e), E-Mail(s), Adresse) als vCard
+                                 (.vcf) zum Download; iOS/Android bieten beim Öffnen automatisch "Zu
+                                 Kontakten hinzufügen" an. Genutzt vom "📇 Kontakt speichern"-Button auf
+                                 /kunden/[id]
 /api/kunden/[id]/kontakte       GET, POST, DELETE
 /api/kunden/[id]/notizen        GET, POST, DELETE?notizId= (thema: Wichtig/Info/Wettbewerber/…)
 /api/kunden/[id]/preise         GET, POST, DELETE (Sonderpreise, ehemals /sonderpreise)
