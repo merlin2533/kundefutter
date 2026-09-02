@@ -177,6 +177,151 @@ function SubkategorienSection() {
   );
 }
 
+interface UnregistrierterEintrag {
+  wert: string;
+  anzahl: number;
+}
+
+/** Zeigt je Kategorie Unterkategorie-Werte, die auf Artikeln tatsächlich verwendet werden, aber
+ *  nicht in der Liste oben registriert sind (z.B. "Einzelkomponenten" statt "Einzelkomponente" —
+ *  meist aus einem Import, der die Unterkategorie ungeprüft übernimmt). Bewusst KEIN
+ *  automatisches Zusammenführen ähnlicher Werte (Singular/Plural o.ä. ist bei deutschen Wörtern
+ *  nicht zuverlässig automatisierbar, siehe resolveKategorie()) — der Nutzer wählt das Ziel
+ *  bewusst selbst aus. */
+function UnregistrierteUnterkategorien() {
+  const [daten, setDaten] = useState<Record<string, UnregistrierterEintrag[]>>({});
+  const [registriert, setRegistriert] = useState<Record<string, string[]>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [ziel, setZiel] = useState<Record<string, string>>({}); // key: `${kategorie}|${wert}` -> Zielwert
+  const [saving, setSaving] = useState<string | null>(null);
+  const [meldung, setMeldung] = useState<{ text: string; kind: "ok" | "err" } | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/artikel/unterkategorien-unregistriert").then((r) => (r.ok ? r.json() : {})),
+      fetch("/api/einstellungen?prefix=system.").then((r) => (r.ok ? r.json() : {})),
+    ])
+      .then(([unreg, settings]: [Record<string, UnregistrierterEintrag[]>, Record<string, string>]) => {
+        setDaten(unreg);
+        const kategorien = parseListSetting(settings, "system.artikelkategorien", DEFAULT_ARTIKEL_KATEGORIEN);
+        const reg: Record<string, string[]> = {};
+        for (const k of kategorien) {
+          reg[k] = parseListSetting(settings, getUnterkategorienKey(k), DEFAULT_UNTERKATEGORIEN[k] ?? []);
+        }
+        setRegistriert(reg);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        Sentry.captureException(err);
+        setLoaded(true);
+      });
+  }, []);
+
+  async function zusammenfuehren(kategorie: string, von: string) {
+    const key = `${kategorie}|${von}`;
+    const zu = ziel[key];
+    if (!zu) return;
+    if (!confirm(`„${von}" in „${zu}" zusammenführen? Betroffene Artikel werden auf „${zu}" umgestellt.`)) return;
+    setSaving(key);
+    setMeldung(null);
+    try {
+      const res = await fetch("/api/artikel/kategorien", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "unterkategorie_umbenennen", kategorie, von, zu }),
+      });
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      if (!res.ok) {
+        setMeldung({ text: d.error ?? "Fehler beim Zusammenführen", kind: "err" });
+        return;
+      }
+      setMeldung({ text: `„${von}" → „${zu}" (${d.aktualisiert} Artikel aktualisiert)`, kind: "ok" });
+      setDaten((prev) => ({ ...prev, [kategorie]: (prev[kategorie] ?? []).filter((e) => e.wert !== von) }));
+    } catch (err) {
+      Sentry.captureException(err);
+      setMeldung({ text: "Netzwerkfehler", kind: "err" });
+    } finally {
+      setSaving(null);
+      setTimeout(() => setMeldung(null), 4000);
+    }
+  }
+
+  if (!loaded) return null;
+  const kategorienMitEintraegen = Object.keys(daten).filter((k) => daten[k]?.length > 0);
+  // Erst ausblenden, wenn wirklich nichts mehr übrig ist UND keine frische Erfolgsmeldung mehr
+  // angezeigt wird — sonst verschwindet beim Zusammenführen des letzten Eintrags einer Kategorie
+  // die gesamte Karte inkl. Bestätigung sofort, bevor der Nutzer sie lesen konnte.
+  if (kategorienMitEintraegen.length === 0 && !meldung) return null;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 className="text-lg font-semibold mb-1">Nicht registrierte Unterkategorien</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        Diese Werte werden auf Artikeln verwendet, stehen aber nicht in den Unterkategorien-Listen
+        oben — meist aus einem Import, der die Unterkategorie ungeprüft übernimmt. Handelt es sich
+        um denselben Wert wie ein bereits registrierter (z.B. „Einzelkomponenten“ statt
+        „Einzelkomponente“), führen Sie ihn hier zusammen. Ist der Wert eigenständig korrekt,
+        lassen Sie ihn unverändert oder tragen Sie ihn oben in die passende Liste ein.
+      </p>
+      {meldung && (
+        <p className={`text-sm mb-3 ${meldung.kind === "ok" ? "text-green-700" : "text-red-600"}`}>
+          {meldung.kind === "ok" ? "✓ " : "⚠ "}{meldung.text}
+        </p>
+      )}
+      <div className="flex flex-col gap-4">
+        {kategorienMitEintraegen.map((kat) => (
+          <div key={kat}>
+            <p className="text-sm font-semibold text-gray-700 mb-2">{kat === "Duenger" ? "Dünger" : kat}</p>
+            <div className="space-y-2">
+              {daten[kat].map((e) => {
+                const key = `${kat}|${e.wert}`;
+                const optionen = registriert[kat] ?? [];
+                return (
+                  <div key={key} className="flex flex-wrap items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
+                    <span className="text-sm font-medium text-gray-900">{e.wert}</span>
+                    <span className="text-xs text-gray-400">
+                      {e.anzahl} Artikel
+                    </span>
+                    {optionen.length > 0 ? (
+                      <>
+                        <span className="text-gray-300">→</span>
+                        <select
+                          value={ziel[key] ?? ""}
+                          onChange={(ev) => setZiel((prev) => ({ ...prev, [key]: ev.target.value }))}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                          <option value="">— Ziel wählen —</option>
+                          {optionen.map((o) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => zusammenfuehren(kat, e.wert)}
+                          disabled={!ziel[key] || saving === key}
+                          className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-40 transition-colors"
+                        >
+                          {saving === key ? "…" : "Zusammenführen"}
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">
+                        (noch keine Unterkategorien für „{kat === "Duenger" ? "Dünger" : kat}“ registriert)
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function StammdatenPage() {
   return (
     <div className="max-w-2xl">
@@ -239,6 +384,8 @@ export default function StammdatenPage() {
           </p>
           <SubkategorienSection />
         </div>
+
+        <UnregistrierteUnterkategorien />
 
         <EditableList
           title="Notiz-Themen"
