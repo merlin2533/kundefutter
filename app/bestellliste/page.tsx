@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
 import { useToast } from "@/components/ToastProvider";
+import AudioRecorder from "@/components/AudioRecorder";
+import KonfidenzBadge from "@/components/KonfidenzBadge";
+import { matchArtikel, normalisiereSuchtext, type Konfidenz } from "@/lib/kiMatching";
 import * as Sentry from "@sentry/nextjs";
 
 const LAGER_KATEGORIEN_OHNE = ["Beratung", "Analysen"];
@@ -35,6 +38,26 @@ interface ArtikelTreffer {
 interface LieferantOption {
   id: number;
   name: string;
+}
+
+interface DiktatKiPosition {
+  name: string;
+  menge: number;
+  einheit?: string | null;
+  lieferant?: string | null;
+  notiz?: string | null;
+}
+
+interface DiktatPosition {
+  ki: DiktatKiPosition;
+  kandidaten: ArtikelTreffer[];
+  artikelId: string;
+  menge: string;
+  einheit: string;
+  notiz: string;
+  lieferantId: string;
+  konfidenz: Konfidenz;
+  fehler?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -69,6 +92,14 @@ export default function BestelllistePage() {
   const [addFehler, setAddFehler] = useState("");
   const [adding, setAdding] = useState(false);
   const suchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Diktieren — mehrere Positionen per Spracheingabe erfassen (Alternative zum manuellen
+  // "+ Position hinzufügen"-Formular)
+  const [diktatOffen, setDiktatOffen] = useState(false);
+  const [diktatAnalysing, setDiktatAnalysing] = useState(false);
+  const [diktatFehler, setDiktatFehler] = useState("");
+  const [diktatPositionen, setDiktatPositionen] = useState<DiktatPosition[]>([]);
+  const [diktatSubmitting, setDiktatSubmitting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -184,6 +215,137 @@ export default function BestelllistePage() {
     }
   }
 
+  // ── Diktieren: mehrere Positionen per Spracheingabe erfassen ──────────────
+
+  function matchLieferantName(name: string | null | undefined): string {
+    if (!name) return "";
+    const norm = normalisiereSuchtext(name);
+    const treffer =
+      lieferantenListe.find((l) => normalisiereSuchtext(l.name) === norm) ??
+      lieferantenListe.find(
+        (l) => normalisiereSuchtext(l.name).includes(norm) || norm.includes(normalisiereSuchtext(l.name))
+      );
+    return treffer ? String(treffer.id) : "";
+  }
+
+  async function handleDiktatTranscript(text: string) {
+    setDiktatAnalysing(true);
+    setDiktatFehler("");
+    setDiktatPositionen([]);
+    try {
+      const res = await fetch("/api/ki/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, feature: "bestellliste" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "KI-Analyse fehlgeschlagen");
+      const kiPositionen: DiktatKiPosition[] = Array.isArray(data.ergebnis?.positionen) ? data.ergebnis.positionen : [];
+      if (kiPositionen.length === 0) {
+        setDiktatFehler("Keine Artikel-Position erkannt. Bitte erneut versuchen.");
+        return;
+      }
+
+      const zeilen: DiktatPosition[] = await Promise.all(
+        kiPositionen.map(async (ki) => {
+          let kandidaten: ArtikelTreffer[] = [];
+          if (ki.name) {
+            try {
+              const r = await fetch(`/api/artikel?search=${encodeURIComponent(ki.name)}&limit=5&relations=false`);
+              if (r.ok) kandidaten = await r.json();
+            } catch (err) {
+              Sentry.captureException(err);
+            }
+          }
+          const { artikel: match, konfidenz } = matchArtikel(
+            { name: ki.name },
+            kandidaten.map((k) => ({ ...k, artikelnummer: k.artikelnummer ?? "" }))
+          );
+          return {
+            ki,
+            kandidaten,
+            artikelId: match ? String(match.id) : "",
+            menge: ki.menge != null ? String(ki.menge) : "",
+            einheit: ki.einheit || match?.einheit || "",
+            notiz: ki.notiz ?? "",
+            lieferantId: matchLieferantName(ki.lieferant),
+            konfidenz: match ? konfidenz : "keine",
+          };
+        })
+      );
+      setDiktatPositionen(zeilen);
+    } catch (err) {
+      Sentry.captureException(err);
+      setDiktatFehler(err instanceof Error ? err.message : "Fehler bei der Spracherkennung.");
+    } finally {
+      setDiktatAnalysing(false);
+    }
+  }
+
+  function updateDiktatPosition(idx: number, patch: Partial<DiktatPosition>) {
+    setDiktatPositionen((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch, fehler: undefined } : p)));
+  }
+
+  function removeDiktatPosition(idx: number) {
+    setDiktatPositionen((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleDiktatSubmit() {
+    const kandidatenZeilen = diktatPositionen
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p }) => p.artikelId && parseFloat(p.menge) > 0);
+    if (kandidatenZeilen.length === 0) return;
+
+    setDiktatSubmitting(true);
+    const erledigtIdx = new Set<number>();
+    let hinzugefuegt = 0;
+    for (const { p, idx } of kandidatenZeilen) {
+      try {
+        const res = await fetch("/api/bestellliste", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            artikelId: parseInt(p.artikelId, 10),
+            menge: parseFloat(p.menge),
+            einheit: p.einheit || undefined,
+            notiz: p.notiz || undefined,
+            lieferantId: p.lieferantId || undefined,
+          }),
+        });
+        if (res.status === 422) {
+          setDiktatPositionen((prev) =>
+            prev.map((row, i) => (i === idx ? { ...row, fehler: "Kein Lieferant hinterlegt — bitte auswählen." } : row))
+          );
+          continue;
+        }
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          setDiktatPositionen((prev) =>
+            prev.map((row, i) => (i === idx ? { ...row, fehler: d.error ?? "Fehler beim Hinzufügen." } : row))
+          );
+          continue;
+        }
+        erledigtIdx.add(idx);
+        hinzugefuegt++;
+      } catch (err) {
+        Sentry.captureException(err);
+        setDiktatPositionen((prev) =>
+          prev.map((row, i) => (i === idx ? { ...row, fehler: "Netzwerkfehler." } : row))
+        );
+      }
+    }
+    setDiktatSubmitting(false);
+    if (hinzugefuegt > 0) {
+      showToast(`${hinzugefuegt} Position${hinzugefuegt === 1 ? "" : "en"} zur Bestellliste hinzugefügt.`, "success");
+      load();
+    }
+    setDiktatPositionen((prev) => {
+      const rest = prev.filter((_, i) => !erledigtIdx.has(i));
+      if (rest.length === 0) setDiktatOffen(false);
+      return rest;
+    });
+  }
+
   async function updateStatus(id: number, status: string) {
     setUpdating(id);
     await fetch(`/api/bestellliste/${id}`, {
@@ -275,10 +437,19 @@ export default function BestelllistePage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setFormOffen((v) => !v)}
+            onClick={() => { setFormOffen((v) => !v); setDiktatOffen(false); }}
             className="px-3 py-1.5 text-sm rounded-lg bg-green-700 hover:bg-green-800 text-white font-medium transition-colors"
           >
             {formOffen ? "Abbrechen" : "+ Position hinzufügen"}
+          </button>
+          <button
+            onClick={() => { setDiktatOffen((v) => !v); setFormOffen(false); }}
+            className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z" />
+            </svg>
+            {diktatOffen ? "Abbrechen" : "Diktieren"}
           </button>
           <div className="flex gap-1">
             {(["offen", "bestellt", "alle"] as const).map((f) => (
@@ -379,6 +550,130 @@ export default function BestelllistePage() {
               {adding ? "Fügt hinzu…" : "Hinzufügen"}
             </button>
           </div>
+        </div>
+      )}
+
+      {diktatOffen && (
+        <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-sm font-semibold text-gray-700 mb-1">Position(en) diktieren</p>
+          <p className="text-xs text-gray-500 mb-3">
+            Sprich Artikel, Menge und optional Lieferant ein — z.&nbsp;B. „50 Kilo Rindermais bei
+            Lieferant Müller, dazu 3 Sack Mineralfutter&quot;. Mehrere Artikel in einem Satz werden
+            als eigene Positionen erkannt.
+          </p>
+
+          {diktatPositionen.length === 0 && (
+            <>
+              <AudioRecorder
+                onTranscript={handleDiktatTranscript}
+                feature="bestellliste"
+                maxDurationSec={90}
+                placeholder="Aufnahme starten (max. 90 Sek.)"
+              />
+              {diktatAnalysing && (
+                <div className="flex items-center gap-2 mt-3 text-sm text-blue-700">
+                  <div className="w-4 h-4 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+                  KI erkennt Positionen…
+                </div>
+              )}
+              {diktatFehler && <p className="text-xs text-red-600 mt-2">{diktatFehler}</p>}
+            </>
+          )}
+
+          {diktatPositionen.length > 0 && (
+            <div className="space-y-3">
+              {diktatPositionen.map((pos, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{pos.ki.name}</p>
+                      <KonfidenzBadge k={pos.konfidenz} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeDiktatPosition(idx)}
+                      className="text-gray-300 hover:text-red-500 transition-colors shrink-0 ml-2"
+                      title="Position entfernen"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-1">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Artikel</label>
+                      <select
+                        value={pos.artikelId}
+                        onChange={(e) => updateDiktatPosition(idx, { artikelId: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                      >
+                        <option value="">— Artikel wählen —</option>
+                        {pos.kandidaten.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}{a.artikelnummer ? ` (${a.artikelnummer})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Menge</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={pos.menge}
+                          onChange={(e) => updateDiktatPosition(idx, { menge: e.target.value })}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                        <input
+                          type="text"
+                          value={pos.einheit}
+                          onChange={(e) => updateDiktatPosition(idx, { einheit: e.target.value })}
+                          placeholder="Einheit"
+                          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Lieferant (optional)</label>
+                      <select
+                        value={pos.lieferantId}
+                        onChange={(e) => updateDiktatPosition(idx, { lieferantId: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-green-600"
+                      >
+                        <option value="">— automatisch —</option>
+                        {lieferantenListe.map((l) => (
+                          <option key={l.id} value={l.id}>{l.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {pos.fehler && <p className="text-xs text-red-600 mt-2">{pos.fehler}</p>}
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDiktatPositionen([])}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Verwerfen, neu aufnehmen
+                </button>
+                <button
+                  onClick={handleDiktatSubmit}
+                  disabled={diktatSubmitting || diktatPositionen.every((p) => !p.artikelId)}
+                  className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+                >
+                  {diktatSubmitting
+                    ? "Fügt hinzu…"
+                    : `${diktatPositionen.filter((p) => p.artikelId).length} Position${diktatPositionen.filter((p) => p.artikelId).length === 1 ? "" : "en"} hinzufügen`}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -66,6 +66,7 @@ const FEATURE_LABELS: Record<string, string> = {
 const PROMPT_FEATURES = [
   { key: "wareneingang",       label: "Wareneingang",           desc: "Analyse von Lieferschein-Bildern" },
   { key: "lieferung",          label: "Lieferung",              desc: "Analyse von Bestellungen/Aufträgen" },
+  { key: "bestellliste",       label: "Bestellliste",           desc: "Bestellliste-Positionen aus Diktat" },
   { key: "crm",                label: "CRM Notiz",              desc: "CRM-Aktivitäten aus Text/Bild" },
   { key: "beleg",               label: "Beleg-OCR",              desc: "Eingangsrechnungen / Kassenbelege" },
   { key: "bodenprobe",          label: "Bodenprobe",             desc: "Laborberichte Bodenuntersuchung" },

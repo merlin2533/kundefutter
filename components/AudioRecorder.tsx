@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 
 interface AudioRecorderProps {
   onTranscript: (text: string) => void;
-  feature: "crm" | "sprachmemo" | "lieferung";
+  feature: "crm" | "sprachmemo" | "lieferung" | "bestellliste";
   maxDurationSec?: number;
   placeholder?: string;
   className?: string;
