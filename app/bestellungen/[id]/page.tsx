@@ -266,6 +266,13 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
               {data.versendetAm ? "Erneut per E-Mail senden" : "Per E-Mail senden"}
             </button>
           )}
+          <a
+            href={`/api/exporte/bestellung?bestellungId=${data.id}`}
+            download={`Bestellung_${data.nummer}.pdf`}
+            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 text-sm font-medium rounded-lg transition-colors"
+          >
+            PDF
+          </a>
           {canBestätigen && (
             <button
               onClick={() => handleStatusChange("bestätigen")}

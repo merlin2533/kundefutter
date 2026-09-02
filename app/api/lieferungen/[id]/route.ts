@@ -45,6 +45,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
         positionen: { include: { artikel: artikelWithInhaltSelect } },
         teilzahlungen: { orderBy: { datum: "asc" as const } },
         streckenLieferant: { select: { id: true, name: true } },
+        bestellpositionen: {
+          select: { id: true, bestellung: { select: { id: true, nummer: true, status: true } } },
+          take: 20,
+        },
       },
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });

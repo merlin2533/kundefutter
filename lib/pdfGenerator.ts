@@ -1156,6 +1156,215 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
 }
 
 /**
+ * Bestellung (Lieferantenbestellung) als PDF, nach demselben Aufbau wie generiereAngebotPdf.
+ * Empfänger ist der Lieferant statt eines Kunden; bei einem Streckengeschäft (alle
+ * Bestellliste-Einträge dieser Bestellung eindeutig demselben Kunden zugeordnet) wird zusätzlich
+ * ein hervorgehobener Versandhinweis mit der Endkunden-Adresse eingeblendet (analog zum
+ * "Versand direkt an Endkunde"-Block in bestellungEmail(), lib/email-templates.ts).
+ */
+export async function generiereBestellungPdf(bestellungId: number): Promise<Buffer> {
+  const bestellung = await prisma.bestellung.findUnique({
+    where: { id: bestellungId },
+    include: {
+      lieferant: true,
+      positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+    },
+  });
+  if (!bestellung) throw new Error(`Bestellung ${bestellungId} nicht gefunden`);
+
+  const artikelIds = bestellung.positionen.map((p) => p.artikelId);
+  const zuordnungen = await prisma.artikelLieferant.findMany({
+    where: { artikelId: { in: artikelIds }, lieferantId: bestellung.lieferantId },
+    select: { artikelId: true, lieferantenArtNr: true },
+  });
+  const lieferantenArtNrMap = new Map(zuordnungen.map((z) => [z.artikelId, z.lieferantenArtNr]));
+
+  const bestellliste = await prisma.bestellposition.findMany({
+    where: { bestellungId },
+    select: { kundeId: true },
+  });
+  const eindeutigeKundenIds = [...new Set(bestellliste.map((b) => b.kundeId))];
+  let versandKunde: { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null } | null = null;
+  if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
+    versandKunde = await prisma.kunde.findUnique({
+      where: { id: eindeutigeKundenIds[0] },
+      select: { name: true, firma: true, strasse: true, plz: true, ort: true },
+    });
+  }
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+  zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+
+  const l = bestellung.lieferant;
+  const bestellDatum = new Date(bestellung.datum);
+  const lieferdatum = bestellung.lieferdatum ? new Date(bestellung.lieferdatum) : null;
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Bestellung", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  let metaY = 27;
+  const metaLabelX = 155;
+  const metaValueX = 196;
+  const drawMetaBestellung = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelX, metaY, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueX, metaY, { align: "right" });
+    metaY += 5;
+  };
+  drawMetaBestellung("Bestellnummer:", bestellung.nummer, true);
+  drawMetaBestellung("Datum:", formatDatum(bestellDatum));
+  if (lieferdatum) drawMetaBestellung("Gew. Lieferdatum:", formatDatum(lieferdatum), true);
+
+  const sepY = Math.max(metaY + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  let ey = sepY + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_LABEL);
+  doc.text("LIEFERANT", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(l.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (l.ansprechpartner) { doc.text(`z.Hd. ${l.ansprechpartner}`, 14, ey); ey += 5; }
+  if (l.strasse) { doc.text(l.strasse, 14, ey); ey += 5; }
+  if (l.plz || l.ort) { doc.text([l.plz, l.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+
+  ey += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Bestellung ${bestellung.nummer}`, 14, ey);
+  ey += 6;
+
+  if (versandKunde) {
+    ey = sicherstellenPlatz(doc, ey, 20, footerReserve);
+    const kastenX = 14;
+    const kastenBreite = 182;
+    const versandZeilen = [
+      "Bitte Ware direkt an unseren Kunden versenden (Streckengeschäft):",
+      versandKunde.firma ?? versandKunde.name,
+      ...(versandKunde.firma ? [versandKunde.name] : []),
+      ...(versandKunde.strasse ? [versandKunde.strasse] : []),
+      [versandKunde.plz, versandKunde.ort].filter(Boolean).join(" "),
+    ].filter((z) => z);
+    const kastenHoehe = 3 + versandZeilen.length * 4.5 + 3;
+    doc.setDrawColor(...COL_BORDER_STRONG);
+    doc.setLineWidth(0.4);
+    doc.rect(kastenX, ey, kastenBreite, kastenHoehe);
+    let vy = ey + 6;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(versandZeilen[0], kastenX + 4, vy);
+    vy += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    for (const zeile of versandZeilen.slice(1)) {
+      doc.text(zeile, kastenX + 4, vy);
+      vy += 4.5;
+    }
+    ey += kastenHoehe + 6;
+  }
+
+  const positionen = bestellung.positionen;
+  const bestellHead = [["Pos.", "Artikel", "Menge", "Einheit", ...(positionen.some((p) => p.preis != null) ? ["EK-Preis"] : [])]];
+  const bestellBody = positionen.map((p, i) => {
+    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+    const artNr = lieferantenArtNrMap.get(p.artikelId) ?? p.artikel?.artikelnummer;
+    const artikelName = `${p.artikel?.name ?? "—"}${artNr ? ` (${artNr})` : ""}`;
+    const base = [String(i + 1), artikelName, mengeStr, p.einheit];
+    if (positionen.some((pp) => pp.preis != null)) base.push(p.preis != null ? formatEuro(p.preis) : "");
+    return base;
+  });
+
+  autoTable(doc, {
+    startY: ey + 2,
+    head: bestellHead,
+    body: bestellBody,
+    theme: "plain",
+    margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    rowPageBreak: "avoid",
+    headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
+    columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 24 }, 3: { cellWidth: 22 }, 4: { halign: "right", cellWidth: 28 } },
+  });
+
+  let sumY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
+
+  if (bestellung.notiz?.trim()) {
+    sumY = sicherstellenPlatz(doc, sumY, 10, footerReserve);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Anmerkung: ${bestellung.notiz.trim()}`, 182) as string[];
+    notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
+    sumY += notizLines.length * 4 + 2;
+  }
+
+  sumY = sicherstellenPlatz(doc, sumY, 8, footerReserve);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...COL_MUTED);
+  doc.text(
+    "Über eine Bestätigung mit Liefertermin würden wir uns freuen. Sollte ein Artikel aktuell nicht verfügbar sein, geben Sie uns bitte kurz Bescheid.",
+    14,
+    sumY
+  );
+
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Bestellung ${bestellung.nummer} – Fortsetzung`,
+  });
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
+/**
  * Wie generiereRechnungPdf, aber mit eingebettetem ZUGFeRD / Factur-X XML (PDF/A-3b).
  * Gibt ein einzelnes PDF zurück, das die strukturierte E-Rechnung enthält.
  */
