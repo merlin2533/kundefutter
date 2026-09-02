@@ -58,6 +58,24 @@ export async function POST(req: NextRequest, ctx: Params) {
     });
     const lieferantenArtNrMap = new Map(zuordnungen.map((z) => [z.artikelId, z.lieferantenArtNr]));
 
+    // Streckengeschäft: Kunden-Versandadresse nur einblenden, wenn sich ALLE Bestellliste-
+    // Einträge dieser Bestellung eindeutig auf genau einen Kunden zurückführen lassen — bei einer
+    // manuell aus mehreren Kunden gebündelten Bestellung bliebe sonst unklar, wessen Adresse gemeint
+    // ist, und es dürfte keine angezeigt werden.
+    const bestellliste = await prisma.bestellposition.findMany({
+      where: { bestellungId: nId },
+      select: { kundeId: true },
+    });
+    const eindeutigeKundenIds = [...new Set(bestellliste.map((b) => b.kundeId))];
+    let versandKunde = null;
+    if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
+      const kunde = await prisma.kunde.findUnique({
+        where: { id: eindeutigeKundenIds[0] },
+        select: { name: true, firma: true, strasse: true, plz: true, ort: true },
+      });
+      if (kunde) versandKunde = kunde;
+    }
+
     const firma = await ladeFirmaDaten();
     const { subject, text, html } = bestellungEmail({
       nummer: bestellung.nummer,
@@ -72,6 +90,7 @@ export async function POST(req: NextRequest, ctx: Params) {
         menge: p.menge,
         einheit: p.einheit,
       })),
+      versandKunde,
       firma,
     });
 

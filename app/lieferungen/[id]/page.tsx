@@ -61,6 +61,7 @@ interface Lieferung {
   istStreckengeschaeft?: boolean;
   streckenLieferantId?: number | null;
   streckenLieferant?: { id: number; name: string } | null;
+  bestellpositionen?: { id: number; bestellung: { id: number; nummer: string; status: string } | null }[];
   kunde: { id: number; name: string; firma?: string; kontakte?: { typ: string; wert: string; label?: string | null; vorname?: string | null; nachname?: string | null; rechnungsEmail?: boolean; lieferscheinEmail?: boolean }[] };
   positionen: Position[];
   createdAt: string;
@@ -155,6 +156,8 @@ export default function LieferungDetailPage() {
   const [streckeSaving, setStreckeSaving] = useState(false);
   const [streckeSaved, setStreckeSaved] = useState(false);
   const [streckeError, setStreckeError] = useState("");
+  const [streckenBestellungLoading, setStreckenBestellungLoading] = useState(false);
+  const [streckenBestellungError, setStreckenBestellungError] = useState("");
 
   // Teilzahlungen
   const [teilzahlungen, setTeilzahlungen] = useState<Teilzahlung[]>([]);
@@ -802,6 +805,32 @@ export default function LieferungDetailPage() {
     }
   }
 
+  async function streckenbestellungAnlegen() {
+    setStreckenBestellungLoading(true);
+    setStreckenBestellungError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/streckenbestellung`, { method: "POST" });
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      if (!res.ok) {
+        const data = d as { error?: string; bestellungId?: number };
+        if (res.status === 409 && data.bestellungId) {
+          router.push(`/bestellungen/${data.bestellungId}`);
+          return;
+        }
+        throw new Error(data.error || "Bestellung konnte nicht angelegt werden");
+      }
+      const data = d as { bestellungId: number };
+      router.push(`/bestellungen/${data.bestellungId}`);
+    } catch (e) {
+      Sentry.captureException(e);
+      setStreckenBestellungError(e instanceof Error ? e.message : "Fehler beim Anlegen der Bestellung.");
+      setStreckenBestellungLoading(false);
+    }
+  }
+
   async function preisAktualisierungUebernehmen(posId: number, neuerPreis: number) {
     setActionLoading(true);
     try {
@@ -1332,6 +1361,32 @@ export default function LieferungDetailPage() {
                 Direktlieferung über <span className="font-medium">{lieferung.streckenLieferant?.name ?? "—"}</span>
               </div>
             )}
+            {lieferung.istStreckengeschaeft && lieferung.streckenLieferantId && (() => {
+              const bestehende = lieferung.bestellpositionen?.find((p) => p.bestellung);
+              return (
+                <div className="mt-2 flex items-center flex-wrap gap-2 text-sm">
+                  {bestehende?.bestellung ? (
+                    <Link
+                      href={`/bestellungen/${bestehende.bestellung.id}`}
+                      className="px-2 py-0.5 text-xs bg-green-50 hover:bg-green-100 border border-green-300 text-green-800 rounded transition-colors"
+                    >
+                      → Bestellung {bestehende.bestellung.nummer} beim Lieferanten ansehen
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={streckenbestellungAnlegen}
+                      disabled={streckenBestellungLoading}
+                      className="px-2 py-0.5 text-xs bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-800 rounded transition-colors disabled:opacity-60"
+                    >
+                      {streckenBestellungLoading ? "Wird angelegt…" : "→ Bestellung beim Lieferanten anlegen"}
+                    </button>
+                  )}
+                  {streckenBestellungError && (
+                    <span className="text-xs text-red-600">{streckenBestellungError}</span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Action buttons */}
