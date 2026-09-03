@@ -210,7 +210,8 @@ export default function RechnungenPage() {
         !q ||
         r.rechnungNr.toLowerCase().includes(q) ||
         r.kunde.name.toLowerCase().includes(q) ||
-        (r.kunde.firma ?? "").toLowerCase().includes(q);
+        (r.kunde.firma ?? "").toLowerCase().includes(q) ||
+        r.positionen.some((p) => p.artikel.name.toLowerCase().includes(q));
       const matchVersand = !nurNichtVersendet || !r.rechnungVersendetAm;
       return matchFilter && matchSearch && matchVersand;
     })
@@ -286,7 +287,7 @@ export default function RechnungenPage() {
       <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
-          placeholder="Suche nach Rechnung-Nr oder Kunde…"
+          placeholder="Suche nach Rechnung-Nr, Kunde oder Artikel…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -337,6 +338,7 @@ export default function RechnungenPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Datum</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Fällig am</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Kunde</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Artikel</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600" title="inkl. MwSt">Betrag (brutto)</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Aktionen</th>
@@ -377,6 +379,9 @@ export default function RechnungenPage() {
                         <div className="sm:hidden text-xs text-gray-500 font-normal mt-0.5">
                           {r.kunde.firma ?? r.kunde.name} · {formatDatum(r.rechnungDatum ?? r.datum)}
                         </div>
+                        <div className="lg:hidden text-xs text-gray-500 font-normal mt-0.5 truncate max-w-[220px]">
+                          {r.positionen.map((p) => p.artikel.name).join(", ")}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-700 hidden sm:table-cell">{formatDatum(r.rechnungDatum ?? r.datum)}</td>
                       <td className={`px-4 py-3 hidden md:table-cell ${st === "ueberfaellig" ? "text-red-600 font-medium" : "text-gray-700"}`}>
@@ -393,6 +398,14 @@ export default function RechnungenPage() {
                         {r.kunde.firma && (
                           <span className="text-xs text-gray-400 block">{r.kunde.name}</span>
                         )}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell max-w-[220px]">
+                        <div
+                          className="text-xs text-gray-700 truncate"
+                          title={r.positionen.map((p) => p.artikel.name).join(", ")}
+                        >
+                          {r.positionen.map((p) => p.artikel.name).join(", ")}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">{formatEuro(betrag)}</td>
                       <td className="px-4 py-3">
@@ -482,7 +495,7 @@ export default function RechnungenPage() {
                     {/* Positionen-Zeile */}
                     {isExpanded && (
                       <tr key={`${r.id}-pos`} className="bg-green-50 border-b border-green-100">
-                        <td colSpan={8} className="px-6 py-3">
+                        <td colSpan={9} className="px-6 py-3">
                           <div className="overflow-x-auto"><table className="w-full min-w-[380px] text-xs">
                             <thead>
                               <tr className="text-gray-500">
@@ -550,7 +563,7 @@ export default function RechnungenPage() {
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t-2 border-gray-200">
-                <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-gray-700">
+                <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-700">
                   {gefiltert.length} Rechnung{gefiltert.length !== 1 ? "en" : ""}
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
