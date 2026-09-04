@@ -73,6 +73,9 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
   const [umschluesselnPos, setUmschluesselnPos] = useState<number | null>(null);
   const [umschluesseln, setUmschluesseln] = useState<number | null>(null); // positionId, während Anfrage läuft
   const [lieferantenListe, setLieferantenListe] = useState<LieferantOption[]>([]);
+  const [notizEdit, setNotizEdit] = useState("");
+  const [notizSaving, setNotizSaving] = useState(false);
+  const [notizSaved, setNotizSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
@@ -99,6 +102,7 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
           mg[p.id] = p.mengeGeliefert != null ? String(p.mengeGeliefert) : "";
         });
         setMengenGeliefert(mg);
+        setNotizEdit(d.notiz ?? "");
         setLoading(false);
       })
       .catch((err) => {
@@ -158,6 +162,33 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
       setError("Fehler beim Speichern.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveNotiz() {
+    if (!id) return;
+    setNotizSaving(true);
+    setNotizSaved(false);
+    setError("");
+    try {
+      const res = await fetch(`/api/bestellungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notiz: notizEdit.trim() || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? "Fehler beim Speichern der Notiz.");
+        return;
+      }
+      const updated: Bestellung = await res.json();
+      setData(updated);
+      setNotizSaved(true);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern der Notiz.");
+    } finally {
+      setNotizSaving(false);
     }
   }
 
@@ -335,12 +366,31 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
             </div>
           </div>
         </div>
-        {data.notiz && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notiz</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.notiz}</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Notiz für den Lieferanten
+          </p>
+          <p className="text-xs text-gray-400 mb-2">
+            z.B. gewünschte Verpackungsgröße (Säcke, BigBags …) — erscheint in PDF und E-Mail an den Lieferanten
+          </p>
+          <textarea
+            value={notizEdit}
+            onChange={(e) => { setNotizEdit(e.target.value); setNotizSaved(false); }}
+            rows={3}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-y"
+            placeholder="z.B. bitte in BigBags à 500 kg liefern"
+          />
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              onClick={handleSaveNotiz}
+              disabled={notizSaving || notizEdit.trim() === (data.notiz ?? "").trim()}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              {notizSaving ? "Speichern…" : "Speichern"}
+            </button>
+            {notizSaved && <span className="text-xs text-green-700">✓ gespeichert</span>}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Positionen */}
