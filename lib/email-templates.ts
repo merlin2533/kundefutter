@@ -68,6 +68,7 @@ export type BestellungVersandKunde = {
   strasse?: string | null;
   plz?: string | null;
   ort?: string | null;
+  telefon?: string | null;
 };
 
 export type BestellungMailData = {
@@ -753,6 +754,7 @@ export function bestellungEmail(data: BestellungMailData): { subject: string; te
         versandKunde.firma ? versandKunde.name : "",
         versandKunde.strasse || "",
         [versandKunde.plz, versandKunde.ort].filter(Boolean).join(" "),
+        versandKunde.telefon ? `Tel.: ${versandKunde.telefon}` : "",
       ].filter((l) => l !== "")
     : [];
 
@@ -824,7 +826,7 @@ export function bestellungEmail(data: BestellungMailData): { subject: string; te
         <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
           hiermit bestellen wir folgende Artikel bei Ihnen (Bestellnummer <b>${escapeHtml(nummer)}</b>${lieferdatum ? `, gewünschtes Lieferdatum <b>${fmtDatum(lieferdatum)}</b>` : ""}):
         </p>
-        ${versandKunde ? `<div style="margin:0 0 20px 0;padding:12px 16px;background:${firma.primaryLight};border:2px solid ${firma.primaryColor};border-radius:4px;font-size:14px;color:${firma.primaryColor};line-height:1.6;"><b>Bitte Ware direkt an unseren Kunden versenden (Streckengeschäft):</b><br>${[escapeHtml(versandKunde.firma || versandKunde.name), versandKunde.firma ? escapeHtml(versandKunde.name) : "", versandKunde.strasse ? escapeHtml(versandKunde.strasse) : "", [versandKunde.plz, versandKunde.ort].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" ")].filter(Boolean).join("<br>")}</div>` : ""}
+        ${versandKunde ? `<div style="margin:0 0 20px 0;padding:12px 16px;background:${firma.primaryLight};border:2px solid ${firma.primaryColor};border-radius:4px;font-size:14px;color:${firma.primaryColor};line-height:1.6;"><b>Bitte Ware direkt an unseren Kunden versenden (Streckengeschäft):</b><br>${[escapeHtml(versandKunde.firma || versandKunde.name), versandKunde.firma ? escapeHtml(versandKunde.name) : "", versandKunde.strasse ? escapeHtml(versandKunde.strasse) : "", [versandKunde.plz, versandKunde.ort].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" "), versandKunde.telefon ? `Tel.: ${escapeHtml(versandKunde.telefon)}` : ""].filter(Boolean).join("<br>")}</div>` : ""}
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
           <tr>
             <th style="padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;text-align:right;font-size:12px;color:#6b7280;">Menge</th>

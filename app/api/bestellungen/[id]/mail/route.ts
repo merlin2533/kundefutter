@@ -67,13 +67,23 @@ export async function POST(req: NextRequest, ctx: Params) {
       select: { kundeId: true },
     });
     const eindeutigeKundenIds = [...new Set(bestellliste.map((b) => b.kundeId))];
-    let versandKunde = null;
+    let versandKunde: { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null; telefon: string | null } | null = null;
     if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
       const kunde = await prisma.kunde.findUnique({
         where: { id: eindeutigeKundenIds[0] },
-        select: { name: true, firma: true, strasse: true, plz: true, ort: true },
+        select: {
+          name: true,
+          firma: true,
+          strasse: true,
+          plz: true,
+          ort: true,
+          kontakte: { where: { typ: { in: ["telefon", "mobil"] } }, select: { typ: true, wert: true } },
+        },
       });
-      if (kunde) versandKunde = kunde;
+      if (kunde) {
+        const { kontakte, ...rest } = kunde;
+        versandKunde = { ...rest, telefon: kontakte.find((c) => c.typ === "telefon" || c.typ === "mobil")?.wert ?? null };
+      }
     }
 
     const firma = await ladeFirmaDaten();

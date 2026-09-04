@@ -1184,11 +1184,20 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
     select: { kundeId: true },
   });
   const eindeutigeKundenIds = [...new Set(bestellliste.map((b) => b.kundeId))];
-  let versandKunde: { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null } | null = null;
+  let versandKunde:
+    | { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null; kontakte: { typ: string; wert: string }[] }
+    | null = null;
   if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
     versandKunde = await prisma.kunde.findUnique({
       where: { id: eindeutigeKundenIds[0] },
-      select: { name: true, firma: true, strasse: true, plz: true, ort: true },
+      select: {
+        name: true,
+        firma: true,
+        strasse: true,
+        plz: true,
+        ort: true,
+        kontakte: { where: { typ: { in: ["telefon", "mobil"] } }, select: { typ: true, wert: true } },
+      },
     });
   }
 
@@ -1284,12 +1293,14 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
     ey = sicherstellenPlatz(doc, ey, 20, footerReserve);
     const kastenX = 14;
     const kastenBreite = 182;
+    const versandTelefon = versandKunde.kontakte.find((c) => c.typ === "telefon" || c.typ === "mobil")?.wert;
     const versandZeilen = [
       "Bitte Ware direkt an unseren Kunden versenden (Streckengeschäft):",
       versandKunde.firma ?? versandKunde.name,
       ...(versandKunde.firma ? [versandKunde.name] : []),
       ...(versandKunde.strasse ? [versandKunde.strasse] : []),
       [versandKunde.plz, versandKunde.ort].filter(Boolean).join(" "),
+      ...(versandTelefon ? [`Tel.: ${versandTelefon}`] : []),
     ].filter((z) => z);
     const kastenHoehe = 3 + versandZeilen.length * 4.5 + 3;
     doc.setDrawColor(...COL_BORDER_STRONG);
@@ -1346,15 +1357,15 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
     sumY += notizLines.length * 4 + 2;
   }
 
-  sumY = sicherstellenPlatz(doc, sumY, 8, footerReserve);
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(...COL_MUTED);
-  doc.text(
+  const hinweisLines = doc.splitTextToSize(
     "Über eine Bestätigung mit Liefertermin würden wir uns freuen. Sollte ein Artikel aktuell nicht verfügbar sein, geben Sie uns bitte kurz Bescheid.",
-    14,
-    sumY
-  );
+    182
+  ) as string[];
+  sumY = sicherstellenPlatz(doc, sumY, hinweisLines.length * 4, footerReserve);
+  hinweisLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
 
   vervollstaendigeMehrseitigesDokument(doc, {
     footerSpalten,
