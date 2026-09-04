@@ -17,7 +17,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const record = await prisma.bestellung.findUnique({
       where: { id: nId },
       include: {
-        lieferant: { select: { id: true, name: true, email: true, telefon: true } },
+        lieferant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            telefon: true,
+            kontakte: { where: { typ: "email" }, orderBy: { id: "asc" } },
+          },
+        },
         positionen: {
           include: {
             artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true } },
@@ -98,7 +106,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
         where: { id: nId },
         data,
         include: {
-          lieferant: { select: { id: true, name: true } },
+          lieferant: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              telefon: true,
+              kontakte: { where: { typ: "email" }, orderBy: { id: "asc" } },
+            },
+          },
           positionen: {
             include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } },
           },

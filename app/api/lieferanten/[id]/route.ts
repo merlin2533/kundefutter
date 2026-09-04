@@ -16,6 +16,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
           orderBy: { datum: "desc" },
           take: 20,
         },
+        kontakte: true,
       },
     });
     if (!lieferant) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -37,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert, iban, bic, kontoinhaber } = body;
+    const { name, ansprechpartner, email, telefon, strasse, plz, ort, notizen, aktiv, frachtkosten, mindestbestellwert, iban, bic, kontoinhaber, kontakte } = body;
     const lieferant = await prisma.lieferant.update({
       where: { id: Number(id) },
       data: {
@@ -55,7 +56,22 @@ export async function PUT(req: NextRequest, { params }: Params) {
         ...(iban !== undefined && { iban: iban || null }),
         ...(bic !== undefined && { bic: bic || null }),
         ...(kontoinhaber !== undefined && { kontoinhaber: kontoinhaber || null }),
+        ...(kontakte !== undefined && {
+          kontakte: {
+            deleteMany: {},
+            create: Array.isArray(kontakte)
+              ? kontakte.map((k: { typ: string; wert: string; label?: string; vorname?: string; nachname?: string }) => ({
+                  typ: k.typ,
+                  wert: k.wert,
+                  label: k.label || null,
+                  vorname: k.vorname || null,
+                  nachname: k.nachname || null,
+                }))
+              : [],
+          },
+        }),
       },
+      include: { kontakte: true },
     });
     return NextResponse.json(lieferant);
   } catch (e) {

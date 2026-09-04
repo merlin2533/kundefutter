@@ -26,7 +26,13 @@ interface Bestellung {
   versendetAm: string | null;
   versendetAn: string | null;
   lieferantId: number;
-  lieferant: { id: number; name: string; firma: string | null; email: string | null } | null;
+  lieferant: {
+    id: number;
+    name: string;
+    firma: string | null;
+    email: string | null;
+    kontakte?: { id: number; typ: string; wert: string; label: string | null; vorname: string | null; nachname: string | null }[];
+  } | null;
   positionen: BestellPosition[];
 }
 
@@ -499,7 +505,13 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
         onClose={() => { setMailOpen(false); setMailFehler(""); }}
         title={`Bestellung ${data.nummer} senden`}
         kundenname={data.lieferant?.name ?? ""}
-        emailKontakte={data.lieferant?.email ? [{ wert: data.lieferant.email }] : []}
+        emailKontakte={
+          data.lieferant?.kontakte && data.lieferant.kontakte.length > 0
+            ? data.lieferant.kontakte.map((k) => ({ wert: k.wert, label: k.label, vorname: k.vorname, nachname: k.nachname }))
+            : data.lieferant?.email
+            ? [{ wert: data.lieferant.email }]
+            : []
+        }
         docType="sonstige"
         onSend={handleSendMail}
         loading={mailSending}

@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import LieferantKontakteManager, { LieferantKontakt } from "@/components/LieferantKontakteManager";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ interface Lieferant {
   mindestbestellwert: number;
   artikelZuordnungen: ArtikelZuordnung[];
   wareneingaenge: Wareneingang[];
+  kontakte: LieferantKontakt[];
 }
 
 interface LieferantOption {
@@ -794,6 +796,14 @@ export default function LieferantDetailPage() {
                 )}
               </dl>
             )}
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mt-6">
+            <LieferantKontakteManager
+              lieferantId={lieferant.id}
+              kontakte={lieferant.kontakte}
+              onRefresh={fetchLieferant}
+            />
           </div>
         </div>
 

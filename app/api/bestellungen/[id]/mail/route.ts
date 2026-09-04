@@ -121,7 +121,15 @@ export async function POST(req: NextRequest, ctx: Params) {
       where: { id: nId },
       data: { versendetAm: new Date(), versendetAn: empfaenger },
       include: {
-        lieferant: { select: { id: true, name: true } },
+        lieferant: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            telefon: true,
+            kontakte: { where: { typ: "email" }, orderBy: { id: "asc" } },
+          },
+        },
         positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
       },
     });
