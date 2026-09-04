@@ -168,6 +168,21 @@ model Lieferant {
   eingangsRechnungen  EingangsRechnung[]
   streckenLieferungen Lieferung[]        @relation("StreckenLieferant")
   retouren            Retoure[]
+  kontakte            LieferantKontakt[]
+}
+
+// Weitere Ansprechpartner je Lieferant (unterschiedliche Personen/Abteilungen je nach
+// Zuständigkeit, z.B. für Bestellungen vs. Buchhaltung) — analog KundeKontakt.
+model LieferantKontakt {
+  id           Int     @id @default(autoincrement())
+  lieferantId  Int
+  typ          String // telefon | mobil | email | fax
+  wert         String
+  label        String? // z.B. "Verkauf", "Buchhaltung"
+  vorname      String?
+  nachname     String?
+
+  lieferant Lieferant @relation(fields: [lieferantId], references: [id], onDelete: Cascade)
 }
 
 // ─── ARTIKEL ──────────────────────────────────────────────────────────────────
