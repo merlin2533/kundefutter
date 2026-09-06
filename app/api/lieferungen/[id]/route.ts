@@ -49,9 +49,24 @@ export async function GET(_req: NextRequest, { params }: Params) {
           select: { id: true, bestellung: { select: { id: true, nummer: true, status: true } } },
           take: 20,
         },
+        // Gutschriften/Forderungen, die manuell gegen diese Rechnung verrechnet wurden (siehe
+        // POST /api/lieferungen/[id]/restdifferenz) — für die Aufschlüsselung in der
+        // Teilzahlungen-Karte auf der Detailseite.
+        gutschriftenVerbucht: { include: { positionen: true }, orderBy: { createdAt: "asc" as const } },
+        forderungenAlsQuelle: {
+          include: { erledigtBeiLieferung: { select: { id: true, rechnungNr: true } } },
+          orderBy: { createdAt: "asc" as const },
+        },
       },
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+
+    const gutschriftenVerbucht = lieferung.gutschriftenVerbucht.map((g) => ({
+      id: g.id,
+      nummer: g.nummer,
+      grund: g.grund,
+      betrag: g.positionen.reduce((s, p) => s + p.menge * p.preis, 0),
+    }));
 
     // Compute offenerBetrag = gesamtBetrag - SUM(teilzahlungen)
     const gesamtBrutto = lieferung.positionen.reduce((sum, pos) => {
@@ -76,7 +91,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
       }
     }
 
-    return NextResponse.json({ ...lieferung, gesamtBetrag: rundeKaufmaennisch(gesamtBrutto, 2), offenerBetrag, sonderpreise });
+    return NextResponse.json({
+      ...lieferung,
+      gutschriftenVerbucht,
+      gesamtBetrag: rundeKaufmaennisch(gesamtBrutto, 2),
+      offenerBetrag,
+      sonderpreise,
+    });
   } catch (e) {
     Sentry.captureException(e);
     console.error("Lieferung GET error:", e);

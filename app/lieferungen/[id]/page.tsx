@@ -66,6 +66,8 @@ interface Lieferung {
   positionen: Position[];
   createdAt: string;
   sonderpreise?: Sonderpreis[];
+  gutschriftenVerbucht?: GutschriftVerbucht[];
+  forderungenAlsQuelle?: ForderungAlsQuelle[];
 }
 
 interface LieferantOption {
@@ -78,6 +80,28 @@ interface Teilzahlung {
   betrag: number;
   datum: string;
   notiz?: string | null;
+}
+
+interface GutschriftVerbucht {
+  id: number;
+  nummer: string;
+  grund: string;
+  betrag: number;
+}
+
+interface ForderungAlsQuelle {
+  id: number;
+  betrag: number;
+  grund: string;
+  erledigt: boolean;
+  erledigtBeiLieferung?: { id: number; rechnungNr: string | null } | null;
+}
+
+interface OffeneGutschrift {
+  id: number;
+  nummer: string;
+  grund: string;
+  betrag: number;
 }
 
 interface PreisAktualisierung {
@@ -168,6 +192,14 @@ export default function LieferungDetailPage() {
   const [tzNotiz, setTzNotiz] = useState("");
   const [tzSaving, setTzSaving] = useState(false);
   const [tzError, setTzError] = useState("");
+
+  // Restdifferenz klären (z.B. Kunde hat eine Gutschrift falsch abgezogen und zu wenig überwiesen)
+  const [showRestdiff, setShowRestdiff] = useState(false);
+  const [offeneGutschriften, setOffeneGutschriften] = useState<OffeneGutschrift[]>([]);
+  const [offeneGutschriftenLoading, setOffeneGutschriftenLoading] = useState(false);
+  const [restdiffGutschriftId, setRestdiffGutschriftId] = useState<string>("");
+  const [restdiffSaving, setRestdiffSaving] = useState(false);
+  const [restdiffError, setRestdiffError] = useState("");
 
   const [rabattEditId, setRabattEditId] = useState<number | null>(null);
   const [rabattEditValue, setRabattEditValue] = useState<string>("");
@@ -347,6 +379,60 @@ export default function LieferungDetailPage() {
     } catch (err) {
       Sentry.captureException(err);
       /* ignore */
+    }
+  }
+
+  async function openRestdiff() {
+    setShowRestdiff(true);
+    setRestdiffError("");
+    if (!lieferung) return;
+    setOffeneGutschriftenLoading(true);
+    try {
+      const res = await fetch(`/api/gutschriften?kundeId=${lieferung.kunde.id}&status=OFFEN`);
+      if (res.ok) {
+        const data: { id: number; nummer: string; grund: string; positionen: { menge: number; preis: number }[] }[] = await res.json();
+        setOffeneGutschriften(
+          (Array.isArray(data) ? data : []).map((g) => ({
+            id: g.id,
+            nummer: g.nummer,
+            grund: g.grund,
+            betrag: g.positionen.reduce((s, p) => s + p.menge * p.preis, 0),
+          }))
+        );
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      /* ignore */
+    } finally {
+      setOffeneGutschriftenLoading(false);
+    }
+  }
+
+  async function handleRestdifferenz() {
+    setRestdiffSaving(true);
+    setRestdiffError("");
+    try {
+      const res = await fetch(`/api/lieferungen/${id}/restdifferenz`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gutschriftId: restdiffGutschriftId ? Number(restdiffGutschriftId) : null }),
+      });
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      if (!res.ok) {
+        setRestdiffError((d as { error?: string }).error ?? "Fehler beim Verrechnen.");
+        return;
+      }
+      setShowRestdiff(false);
+      setRestdiffGutschriftId("");
+      await load();
+    } catch (err) {
+      Sentry.captureException(err);
+      setRestdiffError("Fehler beim Verrechnen.");
+    } finally {
+      setRestdiffSaving(false);
     }
   }
 
@@ -943,6 +1029,12 @@ export default function LieferungDetailPage() {
   }, {});
   const mwstGesamt = Object.values(mwstGruppen).reduce((s, v) => s + v, 0);
   const bruttobetrag = nettobetrag + mwstGesamt;
+  // Gutschriften/Forderungen, die manuell gegen diese Rechnung verrechnet wurden (siehe
+  // "Restbetrag klären" unten) — reduzieren den offenen Betrag zusätzlich zu den Teilzahlungen.
+  const gutschriftenVerbuchtSumme = (lieferung.gutschriftenVerbucht ?? []).reduce((s, g) => s + g.betrag, 0);
+  const forderungenAusLieferungSumme = (lieferung.forderungenAlsQuelle ?? []).reduce((s, f) => s + f.betrag, 0);
+  const teilzahlungenSumme = teilzahlungen.reduce((s, tz) => s + tz.betrag, 0);
+  const offenNachAusgleich = Math.max(0, bruttobetrag - teilzahlungenSumme - gutschriftenVerbuchtSumme - forderungenAusLieferungSumme);
   const docNr = lieferung.rechnungNr ?? `LS-${lieferung.id}`;
   const isRechnung = !!lieferung.rechnungNr;
   const faelligStr = faelligkeitsDatum ? formatDatum(faelligkeitsDatum.toISOString()) : "—";
@@ -2139,16 +2231,102 @@ export default function LieferungDetailPage() {
                 </div>
               ))}
               <div className="pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-sm">
-                {(() => {
-                  const summe = teilzahlungen.reduce((s, tz) => s + tz.betrag, 0);
-                  const offen = bruttobetrag - summe;
-                  return (
-                    <>
-                      <span>Gesamt gezahlt: <span className="font-mono font-medium text-green-700">{formatEuro(summe)}</span></span>
-                      <span>Offen: <span className={`font-mono font-medium ${offen > 0 ? "text-amber-600" : "text-green-700"}`}>{formatEuro(Math.max(0, offen))}</span></span>
-                    </>
-                  );
-                })()}
+                <span>Gesamt gezahlt: <span className="font-mono font-medium text-green-700">{formatEuro(teilzahlungenSumme)}</span></span>
+                <span>Offen: <span className={`font-mono font-medium ${offenNachAusgleich > 0.01 ? "text-amber-600" : "text-green-700"}`}>{formatEuro(offenNachAusgleich)}</span></span>
+              </div>
+            </div>
+          )}
+
+          {(gutschriftenVerbuchtSumme > 0 || forderungenAusLieferungSumme > 0) && (
+            <div className="space-y-1 mb-4 text-sm">
+              {(lieferung.gutschriftenVerbucht ?? []).map((g) => (
+                <div key={`gs-${g.id}`} className="flex items-center gap-2 text-gray-600">
+                  <span className="text-green-600">✓</span>
+                  <span>Gutschrift <Link href={`/gutschriften/${g.id}`} className="text-green-700 hover:underline font-mono">{g.nummer}</Link> verrechnet: <span className="font-mono font-medium">{formatEuro(g.betrag)}</span></span>
+                </div>
+              ))}
+              {(lieferung.forderungenAlsQuelle ?? []).map((f) => (
+                <div key={`fo-${f.id}`} className="flex items-start gap-2 text-gray-600">
+                  <span>{f.erledigt ? "✓" : "→"}</span>
+                  <span>
+                    Restforderung <span className="font-mono font-medium">{formatEuro(f.betrag)}</span>{" "}
+                    {f.erledigt && f.erledigtBeiLieferung
+                      ? <>bereits mit Rechnung <span className="font-mono">{f.erledigtBeiLieferung.rechnungNr ?? `#${f.erledigtBeiLieferung.id}`}</span> verrechnet</>
+                      : "wird automatisch mit der nächsten Rechnung dieses Kunden verrechnet"}
+                    <span className="block text-xs text-gray-400">{f.grund}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {offenNachAusgleich > 0.01 && !showRestdiff && (
+            <div className="mb-4">
+              <button
+                onClick={openRestdiff}
+                className="text-sm text-amber-700 hover:text-amber-900 font-medium flex items-center gap-1"
+              >
+                <span className="text-lg leading-none">+</span> Restbetrag klären (z.B. falsch abgezogene Gutschrift)
+              </button>
+            </div>
+          )}
+
+          {showRestdiff && (
+            <div className="border border-amber-200 rounded-lg p-4 bg-amber-50 space-y-3 mb-4">
+              <p className="text-sm text-gray-700">
+                Noch offen: <span className="font-mono font-medium text-amber-700">{formatEuro(offenNachAusgleich)}</span>.
+                Falls der Kunde dabei eine Gutschrift verrechnet hat, kann sie hier gegengebucht werden — der danach
+                verbleibende Restbetrag wird als offene Forderung angelegt und automatisch mit der nächsten Rechnung
+                dieses Kunden verrechnet.
+              </p>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Gutschrift verrechnen (optional)</label>
+                {offeneGutschriftenLoading ? (
+                  <p className="text-sm text-gray-400">Lade offene Gutschriften…</p>
+                ) : (
+                  <select
+                    value={restdiffGutschriftId}
+                    onChange={(e) => setRestdiffGutschriftId(e.target.value)}
+                    className="w-full sm:w-96 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+                  >
+                    <option value="">— keine —</option>
+                    {offeneGutschriften.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.nummer} — {formatEuro(g.betrag)} ({g.grund})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!offeneGutschriftenLoading && offeneGutschriften.length === 0 && (
+                  <p className="text-xs text-gray-400 mt-1">Keine offenen Gutschriften für diesen Kunden.</p>
+                )}
+              </div>
+              {(() => {
+                const gsBetrag = offeneGutschriften.find((g) => String(g.id) === restdiffGutschriftId)?.betrag ?? 0;
+                const restbetrag = Math.max(0, offenNachAusgleich - gsBetrag);
+                return restbetrag > 0.01 ? (
+                  <p className="text-sm text-gray-700">
+                    Restbetrag nach Verrechnung: <span className="font-mono font-medium">{formatEuro(restbetrag)}</span> — wird als Forderung auf die nächste Rechnung übernommen.
+                  </p>
+                ) : (
+                  <p className="text-sm text-green-700">Damit ist die Differenz vollständig ausgeglichen.</p>
+                );
+              })()}
+              {restdiffError && <p className="text-xs text-red-600">{restdiffError}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleRestdifferenz}
+                  disabled={restdiffSaving}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm font-medium disabled:opacity-60"
+                >
+                  {restdiffSaving ? "Verrechnen…" : "Bestätigen"}
+                </button>
+                <button
+                  onClick={() => { setShowRestdiff(false); setRestdiffError(""); setRestdiffGutschriftId(""); }}
+                  className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50"
+                >
+                  Abbrechen
+                </button>
               </div>
             </div>
           )}
