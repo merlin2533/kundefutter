@@ -22,6 +22,17 @@ describe("rundeKaufmaennisch", () => {
   it("lässt 0 unverändert", () => {
     expect(rundeKaufmaennisch(0)).toBe(0);
   });
+
+  it("rundet winzige Float-Restwerte (< 1e-6) auf 0, statt NaN zu liefern", () => {
+    // Reproduziert einen Bug: Number(`${Math.abs(n)}e2`) für n < 1e-6 ergab eine bereits in
+    // Exponentialschreibweise stringifyte Zahl ("1.1e-13"), wodurch "e2" einen zweiten,
+    // ungültigen Exponenten anhängte ("1.1e-13e2") — Number(...) davon ist NaN. Trat real auf,
+    // wenn eine Rechnung durch Teilzahlung + verrechnete Gutschrift + Forderung bis auf einen
+    // Float-Rundungsrest von ~1e-13 exakt ausgeglichen war (Restdifferenz-Verrechnung).
+    expect(rundeKaufmaennisch(1.1368683772161603e-13, 2)).toBe(0);
+    expect(rundeKaufmaennisch(-1.1368683772161603e-13, 2)).toBe(0);
+    expect(rundeKaufmaennisch(1e-13, 3)).toBe(0);
+  });
 });
 
 describe("formatEuro", () => {

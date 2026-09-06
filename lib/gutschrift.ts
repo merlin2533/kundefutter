@@ -125,3 +125,34 @@ export async function loescheGutschriftMitNebenwirkungen(tx: Tx, gutschriftId: n
   await tx.gutschrift.delete({ where: { id: gutschriftId } });
   return true;
 }
+
+/**
+ * Öffnet eine VERBUCHTE Gutschrift wieder (Status zurück auf OFFEN) — Gegenstück zum manuellen
+ * "Als verbucht markieren"-Button auf /gutschriften/[id], der versehentlich geklickt werden kann
+ * und bisher keinen Weg zurück bot außer dem vollständigen Löschen der Gutschrift. Wurde sie dabei
+ * bereits automatisch als Ausgleichsposition in eine Rechnung eingerechnet
+ * (verbuchtBeiLieferungId gesetzt, z.B. durch injiziereOffeneGutschriften()), wird diese Position
+ * entfernt, damit die Gutschrift nicht doppelt wirksam wird — identische Logik wie beim Löschen
+ * einer verbuchten Gutschrift in loescheGutschriftMitNebenwirkungen(), nur ohne den Datensatz
+ * selbst zu löschen. Gibt false zurück, wenn keine Gutschrift mit dieser ID existiert oder sie
+ * nicht VERBUCHT ist (kein Fehler — Aufrufer meldet das gezielt als 400).
+ */
+export async function oeffneGutschriftErneut(tx: Tx, gutschriftId: number): Promise<boolean> {
+  const existing = await tx.gutschrift.findUnique({ where: { id: gutschriftId } });
+  if (!existing || existing.status !== "VERBUCHT") return false;
+
+  if (existing.verbuchtBeiLieferungId) {
+    await tx.lieferposition.deleteMany({
+      where: {
+        lieferungId: existing.verbuchtBeiLieferungId,
+        notiz: { startsWith: `Gutschrift ${existing.nummer}` },
+      },
+    });
+  }
+
+  await tx.gutschrift.update({
+    where: { id: gutschriftId },
+    data: { status: "OFFEN", verbuchtBeiLieferungId: null },
+  });
+  return true;
+}

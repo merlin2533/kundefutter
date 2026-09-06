@@ -92,6 +92,33 @@ export default function GutschriftDetailPage() {
     }
   }
 
+  async function handleReopen() {
+    if (!gutschrift) return;
+    const hinweis = gutschrift.verbuchtBeiLieferung
+      ? `Diese Gutschrift wurde bereits in ${
+          gutschrift.verbuchtBeiLieferung.rechnungNr ?? `Rechnung #${gutschrift.verbuchtBeiLieferung.id}`
+        } verrechnet — die dortige Ausgleichsposition wird entfernt und der Rechnungsbetrag ändert sich.`
+      : "";
+    if (!confirm(["Gutschrift wieder als offen markieren?", hinweis].filter(Boolean).join("\n\n"))) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/gutschriften/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "wieder_oeffnen" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler");
+      setGutschrift(data);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDelete() {
     if (!gutschrift) return;
     const hinweise: string[] = [];
@@ -190,6 +217,16 @@ export default function GutschriftDetailPage() {
                 Stornieren
               </button>
             </>
+          )}
+          {gutschrift.status === "VERBUCHT" && (
+            <button
+              onClick={handleReopen}
+              disabled={saving}
+              title="Setzt den Status zurück auf Offen — z.B. wenn versehentlich manuell als verbucht markiert"
+              className="px-3 py-1.5 border border-amber-300 text-amber-700 text-sm rounded-lg hover:bg-amber-50 disabled:opacity-50 transition-colors"
+            >
+              Wieder öffnen
+            </button>
           )}
           <button
             onClick={handleDelete}

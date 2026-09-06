@@ -210,7 +210,14 @@ export function formatDatum(d: Date | string): string {
 export function rundeKaufmaennisch(n: number, stellen = 2): number {
   if (!Number.isFinite(n)) return n;
   const vorzeichen = n < 0 ? -1 : 1;
-  const verschoben = Number(`${Math.abs(n)}e${stellen}`);
+  const abs = Math.abs(n);
+  // Winzige Restwerte aus mehrfacher Float-Subtraktion (z.B. eine Rechnung, die durch
+  // Teilzahlung + verrechnete Gutschrift + Forderung rechnerisch exakt auf 0 aufgeht, real aber
+  // ~1e-13 übrig lässt) stringifyen unterhalb von 1e-6 in Exponentialschreibweise
+  // ("1.1e-13") — das "e${stellen}" darunter würde daraus einen zweiten, ungültigen Exponenten
+  // machen ("1.1e-13e2") und Number(...) zu NaN. Solche Werte runden ohnehin auf 0.
+  if (abs < 0.5 * 10 ** -stellen) return 0;
+  const verschoben = Number(`${abs}e${stellen}`);
   const gerundet = Math.round(verschoben);
   return vorzeichen * Number(`${gerundet}e-${stellen}`);
 }

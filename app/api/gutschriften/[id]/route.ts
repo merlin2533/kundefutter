@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
-import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
+import { loescheGutschriftMitNebenwirkungen, oeffneGutschriftErneut } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +49,30 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (!existing) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
+
+    // Sonderfall: eine manuell (oder automatisch) auf VERBUCHT gesetzte Gutschrift wieder
+    // öffnen — einziger Weg zurück außer dem vollständigen Löschen. Bewusst VOR dem
+    // allgemeinen "nur OFFEN bearbeitbar"-Guard geprüft, da dieser sonst genau diese Aktion
+    // blockieren würde.
+    if (body.aktion === "wieder_oeffnen") {
+      if (existing.status !== "VERBUCHT") {
+        return NextResponse.json(
+          { error: "Nur verbuchte Gutschriften können wieder geöffnet werden" },
+          { status: 400 }
+        );
+      }
+      await prisma.$transaction((tx) => oeffneGutschriftErneut(tx, Number(id)));
+      const reopened = await prisma.gutschrift.findUnique({
+        where: { id: Number(id) },
+        include: {
+          kunde: { include: { kontakte: true } },
+          lieferung: true,
+          positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+        },
+      });
+      return NextResponse.json(reopened);
+    }
+
     if (existing.status !== "OFFEN") {
       return NextResponse.json(
         { error: "Nur Gutschriften mit Status OFFEN können bearbeitet werden" },
