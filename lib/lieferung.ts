@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
+import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 
 export type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -382,4 +383,97 @@ export async function injiziereOffeneGutschriften(tx: Tx, lieferungId: number, k
       data: { status: "VERBUCHT", verbuchtBeiLieferungId: lieferungId },
     });
   }
+}
+
+/** Signalisiert einen Eingabefehler (z.B. Gutschrift übersteigt den offenen Betrag) statt
+ *  eines echten Serverfehlers — Aufrufer können damit gezielt 400 statt 500 zurückgeben. */
+export class RestdifferenzValidierungsFehler extends Error {}
+
+export interface RestdifferenzErgebnis {
+  offenVorAktion: number;
+  gutschrift: { id: number; nummer: string; betrag: number } | null;
+  forderung: { id: number; betrag: number } | null;
+  restbetrag: number;
+}
+
+/**
+ * Verrechnet den noch offenen Betrag einer bereits gestellten Rechnung (Lieferung) — z.B.
+ * wenn ein Kunde beim Überweisen eine Gutschrift falsch abgezogen hat und dadurch zu wenig
+ * zahlt. Optional wird eine bestehende OFFENE Gutschrift des Kunden gegen die Differenz
+ * verbucht — OHNE neue Lieferposition, anders als injiziereOffeneGutschriften(): diese
+ * Rechnung ist ja bereits gestellt (ggf. sogar schon versendet und damit in ihren
+ * Positionen gesperrt, siehe rechnungVersendetAm). Ein danach verbleibender Restbetrag wird
+ * als KundeForderung angelegt und automatisch mit der nächsten Rechnung dieses Kunden
+ * verrechnet (siehe injiziereAlteForderungen() oben).
+ */
+export async function verrechneOffeneRestdifferenz(
+  tx: Tx,
+  lieferungId: number,
+  opts: { gutschriftId?: number | null } = {}
+): Promise<RestdifferenzErgebnis> {
+  const lieferung = await tx.lieferung.findUnique({
+    where: { id: lieferungId },
+    include: {
+      positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
+      teilzahlungen: true,
+      gutschriftenVerbucht: { include: { positionen: true } },
+      forderungenAlsQuelle: true,
+    },
+  });
+  if (!lieferung) throw new RestdifferenzValidierungsFehler("Lieferung nicht gefunden");
+  if (!lieferung.rechnungNr) throw new RestdifferenzValidierungsFehler("Für diese Lieferung wurde noch keine Rechnung gestellt");
+
+  const bruttobetrag = berechneLieferungBrutto(lieferung);
+  const teilzahlungenSumme = lieferung.teilzahlungen.reduce((s, t) => s + t.betrag, 0);
+  const gutschriftenSumme = lieferung.gutschriftenVerbucht.reduce(
+    (s, g) => s + g.positionen.reduce((s2, p) => s2 + p.menge * p.preis, 0),
+    0
+  );
+  const forderungenSumme = lieferung.forderungenAlsQuelle.reduce((s, f) => s + f.betrag, 0);
+  const offenVorAktion = rundeKaufmaennisch(bruttobetrag - teilzahlungenSumme - gutschriftenSumme - forderungenSumme, 2);
+
+  if (offenVorAktion <= 0.01) {
+    throw new RestdifferenzValidierungsFehler("Diese Rechnung ist bereits vollständig beglichen bzw. verrechnet.");
+  }
+
+  let gutschriftInfo: { id: number; nummer: string; betrag: number } | null = null;
+  let restbetrag = offenVorAktion;
+
+  if (opts.gutschriftId) {
+    const gs = await tx.gutschrift.findUnique({ where: { id: opts.gutschriftId }, include: { positionen: true } });
+    if (!gs || gs.kundeId !== lieferung.kundeId) {
+      throw new RestdifferenzValidierungsFehler("Gutschrift nicht gefunden");
+    }
+    if (gs.status !== "OFFEN") {
+      throw new RestdifferenzValidierungsFehler("Diese Gutschrift ist nicht mehr offen");
+    }
+    const gsBetrag = rundeKaufmaennisch(gs.positionen.reduce((s, p) => s + p.menge * p.preis, 0), 2);
+    if (gsBetrag <= 0) {
+      throw new RestdifferenzValidierungsFehler("Gutschrift hat keinen positiven Betrag");
+    }
+    if (gsBetrag - offenVorAktion > 0.01) {
+      throw new RestdifferenzValidierungsFehler(
+        `Die Gutschrift (${formatEuro(gsBetrag)}) übersteigt den offenen Betrag (${formatEuro(offenVorAktion)}) dieser Rechnung.`
+      );
+    }
+    await tx.gutschrift.update({
+      where: { id: gs.id },
+      data: { status: "VERBUCHT", verbuchtBeiLieferungId: lieferungId },
+    });
+    gutschriftInfo = { id: gs.id, nummer: gs.nummer, betrag: gsBetrag };
+    restbetrag = Math.max(0, rundeKaufmaennisch(offenVorAktion - gsBetrag, 2));
+  }
+
+  let forderung: { id: number; betrag: number } | null = null;
+  if (restbetrag > 0.01) {
+    const teile = [`Offener Betrag ${formatEuro(offenVorAktion)}`];
+    if (gutschriftInfo) teile.push(`./. Gutschrift ${gutschriftInfo.nummer} (${formatEuro(gutschriftInfo.betrag)})`);
+    const grund = `Restdifferenz Rechnung ${lieferung.rechnungNr}: ${teile.join(" ")} = ${formatEuro(restbetrag)} offen — auf nächste Rechnung übernommen.`;
+    const erstellt = await tx.kundeForderung.create({
+      data: { kundeId: lieferung.kundeId, betrag: restbetrag, grund, quelleLieferungId: lieferungId },
+    });
+    forderung = { id: erstellt.id, betrag: restbetrag };
+  }
+
+  return { offenVorAktion, gutschrift: gutschriftInfo, forderung, restbetrag };
 }
