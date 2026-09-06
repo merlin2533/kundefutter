@@ -321,6 +321,7 @@ export default function GutschriftDetailPage() {
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">Positionen</h2>
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -374,6 +375,7 @@ export default function GutschriftDetailPage() {
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
 
       <div className="flex justify-end">
