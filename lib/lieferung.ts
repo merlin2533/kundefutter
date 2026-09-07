@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
+import { ALTE_FORDERUNG_ARTIKELNUMMER, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, RESTDIFFERENZ_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
 import { Sentry } from "@/lib/sentry";
+
+export { GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
 
 export type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
@@ -287,9 +290,6 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
   await tx.lieferung.update({ where: { id: lieferungId }, data: { status: "geliefert" } });
 }
 
-const ALTE_FORDERUNG_ARTIKELNUMMER = "ALTE-FORDERUNG";
-export const GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER = "GUTSCHRIFT-VERRECHNUNG";
-
 /**
  * Findet (oder legt einmalig an) einen unsichtbaren Pauschal-Artikel für automatisch
  * generierte Ausgleichspositionen (Alte Forderung, Gutschrift-Verrechnung) auf einer
@@ -396,8 +396,6 @@ export interface RestdifferenzErgebnis {
   neueRechnung: { id: number; rechnungNr: string } | null;
   restbetrag: number;
 }
-
-const RESTDIFFERENZ_ARTIKELNUMMER = "RESTDIFFERENZ";
 
 /**
  * Verrechnet den noch offenen Betrag einer bereits gestellten Rechnung (Lieferung) — z.B.

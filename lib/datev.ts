@@ -133,6 +133,14 @@ export function erloeseKonto(
   return "8000";
 }
 
+/**
+ * Vorschlagswert für das Verrechnungskonto von Ausgleichspositionen (Alte Forderung,
+ * Gutschrift-Verrechnung, Restdifferenz — siehe lib/ausgleichsartikel.ts). 1590 ist in
+ * SKR03 als "Verrechnungskonto" benannt; muss vor dem ersten echten Export mit dem
+ * Steuerberater abgestimmt werden (Feld unter /einstellungen/datev editierbar).
+ */
+export const DEFAULT_VERRECHNUNGSKONTO_AUSGLEICH = "1590";
+
 /** Kreditorenkonto für Lieferanten (70000 + lieferantId) */
 export function kreditorenKonto(lieferantId: number | null | undefined): string {
   return String(70000 + (lieferantId ?? 0));
@@ -308,17 +316,25 @@ export async function buildDatevCsv(
 ): Promise<{ csv: string; filename: string }> {
   const { prisma } = await import("@/lib/prisma");
   const { getAppName } = await import("@/lib/appinfo");
+  const { istAusgleichsArtikelnummer } = await import("@/lib/ausgleichsartikel");
 
   const appName = await getAppName();
 
   const einstellungen = await prisma.einstellung.findMany({
-    where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn"] } },
+    where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn", "datev.verrechnungskonto"] } },
   });
   const settMap = Object.fromEntries(einstellungen.map((e) => [e.key, e.value]));
   const beraternummer = settMap["datev.beraternummer"] ?? "0";
   const mandantennummer = settMap["datev.mandantennummer"] ?? "1";
   const kontenrahmen = settMap["datev.sachkontenrahmen"] ?? "SKR03";
   const wjBeginnMonat = parseInt(settMap["datev.wirtschaftsjahrBeginn"] ?? "1", 10);
+  // Ausgleichspositionen (Alte Forderung/Gutschrift-Verrechnung/Restdifferenz, mwstSatz 0)
+  // stellen keinen neuen Umsatz dar, sondern den Ausgleich eines bereits versteuerten
+  // Vorgangs — sie werden deshalb NICHT auf ein Erlöskonto, sondern auf dieses neutrale
+  // Verrechnungskonto gebucht. Leer = Steuerberater hat es noch nicht bestätigt; dann
+  // bleibt es beim alten Verhalten (Buchung wie normaler 0%-Umsatz), statt einen
+  // ungeprüften Kontenrahmen-spezifischen Wert zu erzwingen.
+  const verrechnungskontoAusgleich = settMap["datev.verrechnungskonto"]?.trim() || null;
 
   const wjJahr = von.getFullYear();
   const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
@@ -333,7 +349,7 @@ export async function buildDatevCsv(
         rechnungNr: true,
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
+        positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } },
       },
       orderBy: { datum: "asc" },
     }),
@@ -346,7 +362,7 @@ export async function buildDatevCsv(
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
         lieferungen: {
-          select: { positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } } },
+          select: { positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } } },
         },
       },
       orderBy: { rechnungDatum: "asc" },
@@ -359,7 +375,7 @@ export async function buildDatevCsv(
         nummer: true,
         datum: true,
         kunde: { select: { name: true, firma: true } },
-        positionen: { select: { menge: true, preis: true, artikel: { select: { mwstSatz: true } } } },
+        positionen: { select: { menge: true, preis: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } },
       },
       orderBy: { datum: "asc" },
     }),
@@ -397,10 +413,15 @@ export async function buildDatevCsv(
     const kundeName = lief.kunde.firma ? `${lief.kunde.firma} ${lief.kunde.name}` : lief.kunde.name;
     const konto = String(10000 + lief.kundeId);
     const byMwst = new Map<number, number>();
+    let ausgleichSumme = 0;
     for (const pos of lief.positionen) {
       const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
       const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
-      byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel.artikelnummer)) {
+        ausgleichSumme += brutto;
+      } else {
+        byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      }
     }
     for (const [satz, brutto] of byMwst.entries()) {
       rows.push({
@@ -411,6 +432,16 @@ export async function buildDatevCsv(
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
       });
     }
+    if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
+      rows.push({
+        umsatz: Math.round(Math.abs(ausgleichSumme) * 100) / 100,
+        sollHaben: ausgleichSumme >= 0 ? "S" : "H", wkz: "EUR", konto,
+        gegenkonto: verrechnungskontoAusgleich, buSchluessel: "",
+        belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: lief.rechnungNr ?? "",
+        buchungstext: kundeName.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: "0", kostenstelle: "",
+      });
+    }
   }
 
   for (const sr of sammelrechnungen) {
@@ -418,11 +449,16 @@ export async function buildDatevCsv(
     const kundeName = sr.kunde.firma ? `${sr.kunde.firma} ${sr.kunde.name}` : sr.kunde.name;
     const konto = String(10000 + sr.kundeId);
     const byMwst = new Map<number, number>();
+    let ausgleichSumme = 0;
     for (const lief of sr.lieferungen) {
       for (const pos of lief.positionen) {
         const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
         const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
-        byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+        if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel.artikelnummer)) {
+          ausgleichSumme += brutto;
+        } else {
+          byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+        }
       }
     }
     for (const [satz, brutto] of byMwst.entries()) {
@@ -434,6 +470,16 @@ export async function buildDatevCsv(
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
       });
     }
+    if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
+      rows.push({
+        umsatz: Math.round(Math.abs(ausgleichSumme) * 100) / 100,
+        sollHaben: ausgleichSumme >= 0 ? "S" : "H", wkz: "EUR", konto,
+        gegenkonto: verrechnungskontoAusgleich, buSchluessel: "",
+        belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: sr.rechnungNr ?? "",
+        buchungstext: kundeName.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: "0", kostenstelle: "",
+      });
+    }
   }
 
   for (const gs of gutschriften) {
@@ -441,10 +487,15 @@ export async function buildDatevCsv(
     const kundeName = gs.kunde.firma ? `${gs.kunde.firma} ${gs.kunde.name}` : gs.kunde.name;
     const konto = String(10000 + gs.kundeId);
     const byMwst = new Map<number, number>();
+    let ausgleichSumme = 0;
     for (const pos of gs.positionen) {
       const satz = pos.artikel?.mwstSatz ?? 19;
       const brutto = pos.menge * pos.preis * (1 + satz / 100);
-      byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel?.artikelnummer)) {
+        ausgleichSumme += brutto;
+      } else {
+        byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
+      }
     }
     for (const [satz, brutto] of byMwst.entries()) {
       rows.push({
@@ -453,6 +504,16 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
         buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(datum), steuersatz: String(satz), kostenstelle: "",
+      });
+    }
+    if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
+      rows.push({
+        umsatz: Math.round(Math.abs(ausgleichSumme) * 100) / 100,
+        sollHaben: ausgleichSumme >= 0 ? "H" : "S", wkz: "EUR", konto,
+        gegenkonto: verrechnungskontoAusgleich, buSchluessel: "",
+        belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
+        buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
+        leistungsdatum: datevLeistungsdatum(datum), steuersatz: "0", kostenstelle: "",
       });
     }
   }
