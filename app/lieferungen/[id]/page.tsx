@@ -200,6 +200,7 @@ export default function LieferungDetailPage() {
   const [restdiffGutschriftId, setRestdiffGutschriftId] = useState<string>("");
   const [restdiffSaving, setRestdiffSaving] = useState(false);
   const [restdiffError, setRestdiffError] = useState("");
+  const [restdiffUndoKey, setRestdiffUndoKey] = useState<string | null>(null);
 
   const [rabattEditId, setRabattEditId] = useState<number | null>(null);
   const [rabattEditValue, setRabattEditValue] = useState<string>("");
@@ -441,6 +442,62 @@ export default function LieferungDetailPage() {
       setRestdiffError("Fehler beim Verrechnen.");
     } finally {
       setRestdiffSaving(false);
+    }
+  }
+
+  // Rückgängig machen einer "Restbetrag klären"-Verrechnung direkt von dieser Seite aus —
+  // ohne dafür erst zur Gutschrift-Detailseite ("Wieder öffnen") bzw. zum Forderungen-Tab
+  // des Kunden (Löschen) navigieren zu müssen. Nutzt exakt dieselben Endpunkte wie diese
+  // beiden Stellen, damit z.B. eine mit dem alten Netto-statt-Brutto-Fehler falsch berechnete
+  // Verrechnung korrigiert und neu erfasst werden kann.
+  async function handleGutschriftReopen(gutschriftId: number) {
+    if (!confirm("Diese Gutschrift wieder öffnen? Sie steht danach erneut zur Auswahl bei „Restbetrag klären“.")) return;
+    setRestdiffUndoKey(`gs-${gutschriftId}`);
+    try {
+      const res = await fetch(`/api/gutschriften/${gutschriftId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "wieder_oeffnen" }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return {};
+        });
+        alert((d as { error?: string }).error ?? "Wieder öffnen fehlgeschlagen.");
+        return;
+      }
+      await load();
+    } catch (err) {
+      Sentry.captureException(err);
+      alert("Wieder öffnen fehlgeschlagen.");
+    } finally {
+      setRestdiffUndoKey(null);
+    }
+  }
+
+  async function handleForderungLoeschen(forderungId: number) {
+    if (!lieferung) return;
+    if (!confirm("Diese Restforderung wirklich löschen?")) return;
+    setRestdiffUndoKey(`fo-${forderungId}`);
+    try {
+      const res = await fetch(`/api/kunden/${lieferung.kunde.id}/forderungen?forderungId=${forderungId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return {};
+        });
+        alert((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
+        return;
+      }
+      await load();
+    } catch (err) {
+      Sentry.captureException(err);
+      alert("Löschen fehlgeschlagen.");
+    } finally {
+      setRestdiffUndoKey(null);
     }
   }
 
@@ -2251,6 +2308,14 @@ export default function LieferungDetailPage() {
                 <div key={`gs-${g.id}`} className="flex items-center gap-2 text-gray-600">
                   <span className="text-green-600">✓</span>
                   <span>Gutschrift <Link href={`/gutschriften/${g.id}`} className="text-green-700 hover:underline font-mono">{g.nummer}</Link> verrechnet: <span className="font-mono font-medium">{formatEuro(g.betrag)}</span></span>
+                  <button
+                    onClick={() => handleGutschriftReopen(g.id)}
+                    disabled={restdiffUndoKey === `gs-${g.id}`}
+                    title="Verrechnung rückgängig machen — Gutschrift steht danach wieder zur Auswahl"
+                    className="text-xs text-amber-700 hover:text-amber-900 underline disabled:opacity-50"
+                  >
+                    {restdiffUndoKey === `gs-${g.id}` ? "…" : "Rückgängig"}
+                  </button>
                 </div>
               ))}
               {(lieferung.forderungenAlsQuelle ?? []).map((f) => (
@@ -2261,6 +2326,16 @@ export default function LieferungDetailPage() {
                     {f.erledigt && f.erledigtBeiLieferung
                       ? <>bereits mit Rechnung <span className="font-mono">{f.erledigtBeiLieferung.rechnungNr ?? `#${f.erledigtBeiLieferung.id}`}</span> verrechnet</>
                       : "wird automatisch mit der nächsten Rechnung dieses Kunden verrechnet"}
+                    {!f.erledigt && (
+                      <button
+                        onClick={() => handleForderungLoeschen(f.id)}
+                        disabled={restdiffUndoKey === `fo-${f.id}`}
+                        title="Restforderung löschen"
+                        className="ml-2 text-xs text-red-600 hover:text-red-800 underline disabled:opacity-50"
+                      >
+                        {restdiffUndoKey === `fo-${f.id}` ? "…" : "Löschen"}
+                      </button>
+                    )}
                     <span className="block text-xs text-gray-400">{f.grund}</span>
                   </span>
                 </div>
