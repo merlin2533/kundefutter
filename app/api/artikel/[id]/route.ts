@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { auditChanges } from "@/lib/audit";
+import { auditChanges, auditLog } from "@/lib/audit";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
@@ -235,11 +235,26 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     const referenziert = lieferposCount + wareneingangCount + bewegungCount + bedarfCount + inventurCount + angebotPosCount + rabattCount + kundePreisCount > 0;
     if (referenziert) {
       // Soft-delete: nur deaktivieren, damit historische Daten erhalten bleiben
-      await prisma.artikel.update({ where: { id: artikelId }, data: { aktiv: false } });
+      const artikel = await prisma.artikel.update({ where: { id: artikelId }, data: { aktiv: false } });
+      void auditLog({
+        entitaet: "Artikel",
+        entitaetId: artikelId,
+        aktion: "geaendert",
+        feld: "aktiv",
+        alterWert: "true",
+        neuerWert: "false",
+        beschreibung: `"${artikel.name}" über Löschen-Button deaktiviert (referenziert in Lieferungen/Belegen)`,
+      });
       return NextResponse.json({ ok: true, soft: true });
     }
     // Hard-delete: keine Referenzen vorhanden, Artikel kann komplett entfernt werden
-    await prisma.artikel.delete({ where: { id: artikelId } });
+    const geloescht = await prisma.artikel.delete({ where: { id: artikelId } });
+    void auditLog({
+      entitaet: "Artikel",
+      entitaetId: artikelId,
+      aktion: "geloescht",
+      beschreibung: `"${geloescht.name}" (${geloescht.artikelnummer}) endgültig gelöscht — keine Referenzen vorhanden`,
+    });
     return NextResponse.json({ ok: true, soft: false });
   } catch (err) {
     Sentry.captureException(err);
