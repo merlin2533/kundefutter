@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
-import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
+import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 
 export type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
@@ -416,7 +416,7 @@ export async function verrechneOffeneRestdifferenz(
     include: {
       positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
       teilzahlungen: true,
-      gutschriftenVerbucht: { include: { positionen: true } },
+      gutschriftenVerbucht: { include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } } },
       forderungenAlsQuelle: true,
     },
   });
@@ -425,8 +425,11 @@ export async function verrechneOffeneRestdifferenz(
 
   const bruttobetrag = berechneLieferungBrutto(lieferung);
   const teilzahlungenSumme = lieferung.teilzahlungen.reduce((s, t) => s + t.betrag, 0);
+  // Die Rechnung ist brutto ausgewiesen (bruttobetrag oben) — eine dagegen verrechnete
+  // Gutschrift muss deshalb ebenfalls brutto (inkl. MwSt) angesetzt werden, sonst fehlt der
+  // Restdifferenz genau der MwSt-Anteil der Gutschrift (GutschriftPosition.preis ist netto).
   const gutschriftenSumme = lieferung.gutschriftenVerbucht.reduce(
-    (s, g) => s + g.positionen.reduce((s2, p) => s2 + p.menge * p.preis, 0),
+    (s, g) => s + berechneGutschriftBrutto(g.positionen),
     0
   );
   const forderungenSumme = lieferung.forderungenAlsQuelle.reduce((s, f) => s + f.betrag, 0);
@@ -440,14 +443,18 @@ export async function verrechneOffeneRestdifferenz(
   let restbetrag = offenVorAktion;
 
   if (opts.gutschriftId) {
-    const gs = await tx.gutschrift.findUnique({ where: { id: opts.gutschriftId }, include: { positionen: true } });
+    const gs = await tx.gutschrift.findUnique({
+      where: { id: opts.gutschriftId },
+      include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } },
+    });
     if (!gs || gs.kundeId !== lieferung.kundeId) {
       throw new RestdifferenzValidierungsFehler("Gutschrift nicht gefunden");
     }
     if (gs.status !== "OFFEN") {
       throw new RestdifferenzValidierungsFehler("Diese Gutschrift ist nicht mehr offen");
     }
-    const gsBetrag = rundeKaufmaennisch(gs.positionen.reduce((s, p) => s + p.menge * p.preis, 0), 2);
+    // Brutto (inkl. MwSt) — siehe Kommentar zu gutschriftenSumme oben.
+    const gsBetrag = rundeKaufmaennisch(berechneGutschriftBrutto(gs.positionen), 2);
     if (gsBetrag <= 0) {
       throw new RestdifferenzValidierungsFehler("Gutschrift hat keinen positiven Betrag");
     }

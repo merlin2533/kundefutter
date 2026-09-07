@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
+import { berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { auditLog } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
@@ -52,7 +53,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
         // Gutschriften/Forderungen, die manuell gegen diese Rechnung verrechnet wurden (siehe
         // POST /api/lieferungen/[id]/restdifferenz) — für die Aufschlüsselung in der
         // Teilzahlungen-Karte auf der Detailseite.
-        gutschriftenVerbucht: { include: { positionen: true }, orderBy: { createdAt: "asc" as const } },
+        gutschriftenVerbucht: {
+          include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } },
+          orderBy: { createdAt: "asc" as const },
+        },
         forderungenAlsQuelle: {
           include: { erledigtBeiLieferung: { select: { id: true, rechnungNr: true } } },
           orderBy: { createdAt: "asc" as const },
@@ -61,11 +65,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
     });
     if (!lieferung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
+    // Brutto (inkl. MwSt) — die Rechnung ist brutto ausgewiesen, eine dagegen verrechnete
+    // Gutschrift muss für die Aufschlüsselung ebenfalls brutto angezeigt werden (analog
+    // verrechneOffeneRestdifferenz() in lib/lieferung.ts).
     const gutschriftenVerbucht = lieferung.gutschriftenVerbucht.map((g) => ({
       id: g.id,
       nummer: g.nummer,
       grund: g.grund,
-      betrag: g.positionen.reduce((s, p) => s + p.menge * p.preis, 0),
+      betrag: rundeKaufmaennisch(berechneGutschriftBrutto(g.positionen), 2),
     }));
 
     // Compute offenerBetrag = gesamtBetrag - SUM(teilzahlungen)
