@@ -303,17 +303,46 @@ export function lohnGegenkonto(kontenrahmen: "SKR03" | "SKR04"): string {
 
 // ─── Vollständiger DATEV-Buchungsstapel-Export ───────────────────────────────
 
+export interface DatevRow {
+  umsatz: number;
+  sollHaben: string;
+  wkz: string;
+  konto: string;
+  gegenkonto: string;
+  buSchluessel: string;
+  belegdatum: string;
+  belegfeld1: string;
+  buchungstext: string;
+  beleglink: string;
+  leistungsdatum: string;
+  steuersatz: string;
+  kostenstelle: string;
+  /** Für die Buchungsvorschau (nicht Teil der CSV): echtes Datum + Herkunft des Belegs */
+  datum: Date;
+  herkunft: "Lieferung" | "Sammelrechnung" | "Gutschrift" | "Ausgabe";
+}
+
+export interface DatevBuchungen {
+  rows: DatevRow[];
+  kontenrahmen: "SKR03" | "SKR04";
+  beraternummer: string;
+  mandantennummer: string;
+  wjBeginnMonat: number;
+  appName: string;
+}
+
 /**
- * Baut den kompletten DATEV-Buchungsstapel (Lieferungen, Sammelrechnungen,
- * Gutschriften, Ausgaben) für den Zeitraum [von, bis] als CSV-String.
- * Wird sowohl vom Direkt-Download (`/api/exporte/datev`) als auch von der
- * Nextcloud-Archivierung (`/api/exporte/datev/archivieren`) verwendet.
+ * Sammelt alle DATEV-Buchungszeilen (Lieferungen, Sammelrechnungen, Gutschriften,
+ * Ausgaben) für den Zeitraum [von, bis] — die zentrale, einzige Quelle der
+ * Kontierungslogik. Wird sowohl von `buildDatevCsv()` (Download/Archivierung) als
+ * auch von der Buchungsvorschau (`GET /api/exporte/datev/vorschau`) verwendet, damit
+ * die Vorschau exakt zeigt, was später exportiert würde.
  */
-export async function buildDatevCsv(
+export async function sammleDatevBuchungen(
   von: Date,
   bis: Date,
   baseUrl: string
-): Promise<{ csv: string; filename: string }> {
+): Promise<DatevBuchungen> {
   const { prisma } = await import("@/lib/prisma");
   const { getAppName } = await import("@/lib/appinfo");
   const { istAusgleichsArtikelnummer } = await import("@/lib/ausgleichsartikel");
@@ -335,9 +364,6 @@ export async function buildDatevCsv(
   // bleibt es beim alten Verhalten (Buchung wie normaler 0%-Umsatz), statt einen
   // ungeprüften Kontenrahmen-spezifischen Wert zu erzwingen.
   const verrechnungskontoAusgleich = settMap["datev.verrechnungskonto"]?.trim() || null;
-
-  const wjJahr = von.getFullYear();
-  const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
 
   const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
     prisma.lieferung.findMany({
@@ -390,22 +416,6 @@ export async function buildDatevCsv(
     }),
   ]);
 
-  interface DatevRow {
-    umsatz: number;
-    sollHaben: string;
-    wkz: string;
-    konto: string;
-    gegenkonto: string;
-    buSchluessel: string;
-    belegdatum: string;
-    belegfeld1: string;
-    buchungstext: string;
-    beleglink: string;
-    leistungsdatum: string;
-    steuersatz: string;
-    kostenstelle: string;
-  }
-
   const rows: DatevRow[] = [];
 
   for (const lief of lieferungen) {
@@ -430,6 +440,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: lief.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
+        datum: rechnungDatum, herkunft: "Lieferung",
       });
     }
     if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
@@ -440,6 +451,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: lief.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: "0", kostenstelle: "",
+        datum: rechnungDatum, herkunft: "Lieferung",
       });
     }
   }
@@ -468,6 +480,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: sr.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: String(satz), kostenstelle: "",
+        datum: rechnungDatum, herkunft: "Sammelrechnung",
       });
     }
     if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
@@ -478,6 +491,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(rechnungDatum), belegfeld1: sr.rechnungNr ?? "",
         buchungstext: kundeName.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(rechnungDatum), steuersatz: "0", kostenstelle: "",
+        datum: rechnungDatum, herkunft: "Sammelrechnung",
       });
     }
   }
@@ -504,6 +518,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
         buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(datum), steuersatz: String(satz), kostenstelle: "",
+        datum, herkunft: "Gutschrift",
       });
     }
     if (verrechnungskontoAusgleich && Math.abs(ausgleichSumme) > 0.004) {
@@ -514,6 +529,7 @@ export async function buildDatevCsv(
         belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
         buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(datum), steuersatz: "0", kostenstelle: "",
+        datum, herkunft: "Gutschrift",
       });
     }
   }
@@ -539,8 +555,30 @@ export async function buildDatevCsv(
       belegfeld1: (ausg.belegNr ?? "").substring(0, 36), buchungstext, beleglink,
       leistungsdatum: datevLeistungsdatum(ausg.datum), steuersatz: String(mwst),
       kostenstelle: ausg.kostenstelle ?? "",
+      datum: ausg.datum, herkunft: "Ausgabe",
     });
   }
+
+  return { rows, kontenrahmen: kontenrahmen as "SKR03" | "SKR04", beraternummer, mandantennummer, wjBeginnMonat, appName };
+}
+
+/**
+ * Baut den kompletten DATEV-Buchungsstapel (Lieferungen, Sammelrechnungen,
+ * Gutschriften, Ausgaben) für den Zeitraum [von, bis] als CSV-String.
+ * Wird sowohl vom Direkt-Download (`/api/exporte/datev`) als auch von der
+ * Nextcloud-Archivierung (`/api/exporte/datev/archivieren`) verwendet. Nutzt
+ * dieselbe Kontierung wie `sammleDatevBuchungen()` (Buchungsvorschau).
+ */
+export async function buildDatevCsv(
+  von: Date,
+  bis: Date,
+  baseUrl: string
+): Promise<{ csv: string; filename: string }> {
+  const { rows, kontenrahmen, beraternummer, mandantennummer, wjBeginnMonat, appName } =
+    await sammleDatevBuchungen(von, bis, baseUrl);
+
+  const wjJahr = von.getFullYear();
+  const wjStart = new Date(wjJahr, wjBeginnMonat - 1, 1);
 
   const vonDatum = von.toISOString().slice(0, 10).replace(/-/g, "");
   const bisDatum = bis.toISOString().slice(0, 10).replace(/-/g, "");
