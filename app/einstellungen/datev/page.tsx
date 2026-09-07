@@ -11,6 +11,7 @@ interface DatevSettings {
   "datev.wirtschaftsjahrBeginn": string;
   "datev.kilometerpauschale": string;
   "datev.bewirtungsanteil": string;
+  "datev.verrechnungskonto": string;
 }
 
 const FIELDS: { key: keyof DatevSettings; label: string; description: string; type?: string; step?: string }[] = [
@@ -49,6 +50,11 @@ const FIELDS: { key: keyof DatevSettings; label: string; description: string; ty
     type: "number",
     step: "1",
   },
+  {
+    key: "datev.verrechnungskonto",
+    label: "Verrechnungskonto für Ausgleichspositionen",
+    description: "Konto für „Alte Forderung“/„Gutschrift-Verrechnung“/„Restdifferenz“ (0 % MwSt, kein neuer Umsatz — sonst würden diese Positionen fälschlich als Erlös gebucht). Vorschlag 1590 (SKR03 „Verrechnungskonto“) — bitte mit dem Steuerberater abstimmen. Leer lassen, um wie bisher als normalen 0%-Umsatz zu buchen.",
+  },
 ];
 
 const DEFAULT_VALUES: DatevSettings = {
@@ -58,6 +64,7 @@ const DEFAULT_VALUES: DatevSettings = {
   "datev.wirtschaftsjahrBeginn": "1",
   "datev.kilometerpauschale": "0.30",
   "datev.bewirtungsanteil": "70",
+  "datev.verrechnungskonto": "1590",
 };
 
 export default function DatevEinstellungenPage() {
@@ -215,6 +222,7 @@ export default function DatevEinstellungenPage() {
           <li>Erlöskonten: SKR03 — 8400 (19% MwSt), 8300 (7% MwSt), 8000 (0% MwSt)</li>
           <li>SKR04 — 4400 (19% MwSt), 4300 (7% MwSt), 4200 (0% MwSt)</li>
           <li>Debitorenkonten: 10000 + Kunden-ID</li>
+          <li>Ist ein Verrechnungskonto gepflegt: „Alte Forderung“/„Gutschrift-Verrechnung“/„Restdifferenz“-Positionen laufen darüber statt über ein Erlöskonto (kein neuer Umsatz, nur Ausgleich einer bereits versteuerten Rechnung)</li>
           <li>Die CSV-Datei kann direkt in DATEV Buchhalter / DATEV Unternehmen online importiert werden.</li>
         </ul>
       </div>
