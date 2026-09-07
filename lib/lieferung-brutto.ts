@@ -29,3 +29,24 @@ export function berechneLieferungBrutto(lieferung: LieferungFuerBrutto): number 
 export function berechneSammelrechnungBrutto(sammelrechnung: { lieferungen: LieferungFuerBrutto[] }): number {
   return sammelrechnung.lieferungen.reduce((sum, l) => sum + berechneLieferungBrutto(l), 0);
 }
+
+export interface GutschriftpositionFuerBrutto {
+  menge: number;
+  preis: number;
+  // GutschriftPosition hat (anders als Lieferposition) kein eigenes mwstSatz-Snapshot-Feld
+  // — liest live von Artikel.mwstSatz, identisch zu generiereGutschriftPdf().
+  artikel?: { mwstSatz: number | null } | null;
+}
+
+/**
+ * Brutto-Summe einer Gutschrift (Menge × Preis × (1+MwSt%), je Position). Eine Gutschrift
+ * gegen eine bereits gestellte (brutto ausgewiesene) Rechnung muss ebenfalls brutto
+ * verrechnet werden — sonst fehlt der Restdifferenz genau der MwSt-Anteil der Gutschrift
+ * (siehe verrechneOffeneRestdifferenz() in lib/lieferung.ts).
+ */
+export function berechneGutschriftBrutto(positionen: GutschriftpositionFuerBrutto[]): number {
+  return positionen.reduce((sum, p) => {
+    const mwst = p.artikel?.mwstSatz ?? 19;
+    return sum + p.menge * p.preis * (1 + mwst / 100);
+  }, 0);
+}

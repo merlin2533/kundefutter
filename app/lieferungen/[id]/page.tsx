@@ -390,13 +390,21 @@ export default function LieferungDetailPage() {
     try {
       const res = await fetch(`/api/gutschriften?kundeId=${lieferung.kunde.id}&status=OFFEN`);
       if (res.ok) {
-        const data: { id: number; nummer: string; grund: string; positionen: { menge: number; preis: number }[] }[] = await res.json();
+        const data: {
+          id: number;
+          nummer: string;
+          grund: string;
+          positionen: { menge: number; preis: number; artikel?: { mwstSatz: number | null } | null }[];
+        }[] = await res.json();
         setOffeneGutschriften(
           (Array.isArray(data) ? data : []).map((g) => ({
             id: g.id,
             nummer: g.nummer,
             grund: g.grund,
-            betrag: g.positionen.reduce((s, p) => s + p.menge * p.preis, 0),
+            // Brutto (inkl. MwSt) — die Rechnung ist brutto ausgewiesen, eine Gutschrift muss
+            // deshalb ebenfalls brutto verrechnet werden (analog verrechneOffeneRestdifferenz()
+            // in lib/lieferung.ts).
+            betrag: g.positionen.reduce((s, p) => s + p.menge * p.preis * (1 + (p.artikel?.mwstSatz ?? 19) / 100), 0),
           }))
         );
       }
