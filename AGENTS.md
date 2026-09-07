@@ -404,6 +404,9 @@ app/
 │   └── saisonal/page.tsx       → redirect /statistik/saisonal
 ├── audit/page.tsx              Änderungshistorie (AuditLog, Filter nach Entität/Aktion)
 ├── exporte/page.tsx
+│   └── datev-vorschau/page.tsx Buchungsvorschau für den DATEV-Export (Tabelle Datum/Herkunft/Beleg/
+│                               Konto/Gegenkonto/Betrag/S-H/MwSt + Saldo je Konto), bevor die CSV
+│                               heruntergeladen wird; Nav unter Finanzen → Konditionen
 ├── qr/[id]/page.tsx            QR-Lieferschein-Scan (öffentlich, kein Login)
 ├── portal/                     Kunden-Portal (öffentlich/eigenständige Authentifizierung)
 │   ├── page.tsx                Portal-Dashboard
@@ -658,6 +661,10 @@ app/
 /api/exporte/kundenmappe        GET?kundeId=
 /api/exporte/tour               GET(?tourname=)
 /api/exporte/datev              GET(?von,?bis) — DATEV-Export CSV
+/api/exporte/datev/vorschau     GET(?von,?bis) — Buchungsvorschau als JSON (Datum/Herkunft/Beleg/Konto/
+                                 Gegenkonto/Betrag/S-H/MwSt je Zeile + Saldo je Konto), nutzt dieselbe
+                                 Kontierung wie der CSV-Export (`sammleDatevBuchungen()` in lib/datev.ts);
+                                 zeigt VOR dem eigentlichen Download, was gebucht würde
 /api/exporte/datev/archivieren  POST{von,bis} — DATEV-Export zusätzlich nach Nextcloud archivieren
 /api/exporte/bulk               POST — Bulk-Export
 /api/exporte/bestellvorschlag   GET — Bestellvorschlag CSV/PDF

@@ -129,6 +129,7 @@ const groups: NavGroup[] = [
       { href: "/finanzen/cashflow", label: "Cashflow", section: "Bank" },
       { href: "/mengenrabatte", label: "Mengenrabatte", section: "Konditionen" },
       { href: "/exporte", label: "Export", section: "Konditionen" },
+      { href: "/exporte/datev-vorschau", label: "DATEV-Buchungen ansehen", section: "Konditionen" },
     ],
   },
   {
@@ -177,6 +178,7 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/gebietsanalyse": "Gebietsanalyse",
   "/prognose": "Prognose",
   "/exporte": "Exporte",
+  "/exporte/datev-vorschau": "DATEV-Buchungen",
   "/mengenrabatte": "Mengenrabatte",
   "/telefonmaske": "Telefonmaske",
   "/tagesansicht": "Tagesansicht",
