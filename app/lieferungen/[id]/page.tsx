@@ -198,6 +198,7 @@ export default function LieferungDetailPage() {
   const [offeneGutschriften, setOffeneGutschriften] = useState<OffeneGutschrift[]>([]);
   const [offeneGutschriftenLoading, setOffeneGutschriftenLoading] = useState(false);
   const [restdiffGutschriftId, setRestdiffGutschriftId] = useState<string>("");
+  const [restdiffModus, setRestdiffModus] = useState<"forderung" | "neue_rechnung">("forderung");
   const [restdiffSaving, setRestdiffSaving] = useState(false);
   const [restdiffError, setRestdiffError] = useState("");
   const [restdiffUndoKey, setRestdiffUndoKey] = useState<string | null>(null);
@@ -424,7 +425,10 @@ export default function LieferungDetailPage() {
       const res = await fetch(`/api/lieferungen/${id}/restdifferenz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gutschriftId: restdiffGutschriftId ? Number(restdiffGutschriftId) : null }),
+        body: JSON.stringify({
+          gutschriftId: restdiffGutschriftId ? Number(restdiffGutschriftId) : null,
+          modus: restdiffModus,
+        }),
       });
       const d = await res.json().catch((err) => {
         Sentry.captureException(err);
@@ -436,6 +440,13 @@ export default function LieferungDetailPage() {
       }
       setShowRestdiff(false);
       setRestdiffGutschriftId("");
+      const neueRechnung = (d as { neueRechnung?: { id: number; rechnungNr: string } | null }).neueRechnung;
+      if (neueRechnung) {
+        // Eigene Rechnung für die Restdifferenz — direkt zur neuen Rechnung, dort ist der
+        // Rechenweg als Positions-Notiz sichtbar; kein load() mehr nötig, die Seite wechselt.
+        router.push(`/lieferungen/${neueRechnung.id}/rechnung`);
+        return;
+      }
       await load();
     } catch (err) {
       Sentry.captureException(err);
@@ -2358,9 +2369,7 @@ export default function LieferungDetailPage() {
             <div className="border border-amber-200 rounded-lg p-4 bg-amber-50 space-y-3 mb-4">
               <p className="text-sm text-gray-700">
                 Noch offen: <span className="font-mono font-medium text-amber-700">{formatEuro(offenNachAusgleich)}</span>.
-                Falls der Kunde dabei eine Gutschrift verrechnet hat, kann sie hier gegengebucht werden — der danach
-                verbleibende Restbetrag wird als offene Forderung angelegt und automatisch mit der nächsten Rechnung
-                dieses Kunden verrechnet.
+                Falls der Kunde dabei eine Gutschrift verrechnet hat, kann sie hier gegengebucht werden.
               </p>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Gutschrift verrechnen (optional)</label>
@@ -2387,12 +2396,40 @@ export default function LieferungDetailPage() {
               {(() => {
                 const gsBetrag = offeneGutschriften.find((g) => String(g.id) === restdiffGutschriftId)?.betrag ?? 0;
                 const restbetrag = Math.max(0, offenNachAusgleich - gsBetrag);
-                return restbetrag > 0.01 ? (
-                  <p className="text-sm text-gray-700">
-                    Restbetrag nach Verrechnung: <span className="font-mono font-medium">{formatEuro(restbetrag)}</span> — wird als Forderung auf die nächste Rechnung übernommen.
-                  </p>
-                ) : (
-                  <p className="text-sm text-green-700">Damit ist die Differenz vollständig ausgeglichen.</p>
+                if (restbetrag <= 0.01) {
+                  return <p className="text-sm text-green-700">Damit ist die Differenz vollständig ausgeglichen.</p>;
+                }
+                return (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700">
+                      Verbleibender Restbetrag: <span className="font-mono font-medium">{formatEuro(restbetrag)}</span>
+                    </p>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Wie soll der Restbetrag erfasst werden?</label>
+                      <div className="space-y-1.5">
+                        <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="restdiffModus"
+                            checked={restdiffModus === "forderung"}
+                            onChange={() => setRestdiffModus("forderung")}
+                            className="mt-0.5"
+                          />
+                          <span>Auf die nächste Rechnung dieses Kunden übernehmen (als zusätzliche Position)</span>
+                        </label>
+                        <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="restdiffModus"
+                            checked={restdiffModus === "neue_rechnung"}
+                            onChange={() => setRestdiffModus("neue_rechnung")}
+                            className="mt-0.5"
+                          />
+                          <span>Eigene Rechnung nur über die Restdifferenz erstellen (mit sichtbarem Rechenweg) — kein Vermischen mit der nächsten regulären Rechnung</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 );
               })()}
               {restdiffError && <p className="text-xs text-red-600">{restdiffError}</p>}
@@ -2405,7 +2442,7 @@ export default function LieferungDetailPage() {
                   {restdiffSaving ? "Verrechnen…" : "Bestätigen"}
                 </button>
                 <button
-                  onClick={() => { setShowRestdiff(false); setRestdiffError(""); setRestdiffGutschriftId(""); }}
+                  onClick={() => { setShowRestdiff(false); setRestdiffError(""); setRestdiffGutschriftId(""); setRestdiffModus("forderung"); }}
                   className="px-3 py-1.5 border border-gray-300 rounded text-sm hover:bg-gray-50"
                 >
                   Abbrechen

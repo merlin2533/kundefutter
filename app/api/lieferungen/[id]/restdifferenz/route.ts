@@ -10,8 +10,10 @@ type Params = { params: Promise<{ id: string }> };
 // Verrechnet den noch offenen Restbetrag einer bereits gestellten Rechnung — z.B. wenn ein
 // Kunde beim Überweisen eine Gutschrift falsch/zu wenig abgezogen hat. Optional wird eine
 // bestehende offene Gutschrift des Kunden dagegen verbucht; ein danach verbleibender
-// Restbetrag wird als KundeForderung angelegt und automatisch in die nächste Rechnung
-// dieses Kunden übernommen (siehe injiziereAlteForderungen() in lib/lieferung.ts).
+// Restbetrag wird je nach `modus` entweder als KundeForderung angelegt und automatisch in
+// die nächste Rechnung dieses Kunden übernommen (Standard "forderung", siehe
+// injiziereAlteForderungen() in lib/lieferung.ts) oder als eigenständige neue Rechnung mit
+// genau einer Position gestellt (modus "neue_rechnung").
 export async function POST(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const nId = parseInt(id, 10);
@@ -29,9 +31,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (gutschriftId != null && isNaN(gutschriftId)) {
     return NextResponse.json({ error: "Ungültige gutschriftId" }, { status: 400 });
   }
+  const modus = b.modus === "neue_rechnung" ? "neue_rechnung" : "forderung";
 
   try {
-    const ergebnis = await prisma.$transaction((tx) => verrechneOffeneRestdifferenz(tx, nId, { gutschriftId }));
+    const ergebnis = await prisma.$transaction((tx) => verrechneOffeneRestdifferenz(tx, nId, { gutschriftId, modus }));
     return NextResponse.json(ergebnis);
   } catch (err) {
     if (err instanceof RestdifferenzValidierungsFehler) {
