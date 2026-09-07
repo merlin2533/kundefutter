@@ -393,8 +393,11 @@ export interface RestdifferenzErgebnis {
   offenVorAktion: number;
   gutschrift: { id: number; nummer: string; betrag: number } | null;
   forderung: { id: number; betrag: number } | null;
+  neueRechnung: { id: number; rechnungNr: string } | null;
   restbetrag: number;
 }
+
+const RESTDIFFERENZ_ARTIKELNUMMER = "RESTDIFFERENZ";
 
 /**
  * Verrechnet den noch offenen Betrag einer bereits gestellten Rechnung (Lieferung) — z.B.
@@ -403,13 +406,17 @@ export interface RestdifferenzErgebnis {
  * verbucht — OHNE neue Lieferposition, anders als injiziereOffeneGutschriften(): diese
  * Rechnung ist ja bereits gestellt (ggf. sogar schon versendet und damit in ihren
  * Positionen gesperrt, siehe rechnungVersendetAm). Ein danach verbleibender Restbetrag wird
- * als KundeForderung angelegt und automatisch mit der nächsten Rechnung dieses Kunden
- * verrechnet (siehe injiziereAlteForderungen() oben).
+ * je nach `opts.modus` entweder als KundeForderung angelegt und automatisch mit der
+ * nächsten Rechnung dieses Kunden verrechnet (siehe injiziereAlteForderungen() oben,
+ * Standardverhalten "forderung"), oder als eigenständige neue Rechnung mit exakt einer
+ * Position gestellt (modus "neue_rechnung") — für Kunden, bei denen eine zusätzliche
+ * Position auf der nächsten regulären Rechnung verwirrend wäre und die Differenz stattdessen
+ * separat, mit sichtbarem Rechenweg, nachvollzogen werden soll.
  */
 export async function verrechneOffeneRestdifferenz(
   tx: Tx,
   lieferungId: number,
-  opts: { gutschriftId?: number | null } = {}
+  opts: { gutschriftId?: number | null; modus?: "forderung" | "neue_rechnung" } = {}
 ): Promise<RestdifferenzErgebnis> {
   const lieferung = await tx.lieferung.findUnique({
     where: { id: lieferungId },
@@ -472,15 +479,46 @@ export async function verrechneOffeneRestdifferenz(
   }
 
   let forderung: { id: number; betrag: number } | null = null;
+  let neueRechnung: { id: number; rechnungNr: string } | null = null;
   if (restbetrag > 0.01) {
     const teile = [`Offener Betrag ${formatEuro(offenVorAktion)}`];
     if (gutschriftInfo) teile.push(`./. Gutschrift ${gutschriftInfo.nummer} (${formatEuro(gutschriftInfo.betrag)})`);
-    const grund = `Restdifferenz Rechnung ${lieferung.rechnungNr}: ${teile.join(" ")} = ${formatEuro(restbetrag)} offen — auf nächste Rechnung übernommen.`;
-    const erstellt = await tx.kundeForderung.create({
-      data: { kundeId: lieferung.kundeId, betrag: restbetrag, grund, quelleLieferungId: lieferungId },
-    });
-    forderung = { id: erstellt.id, betrag: restbetrag };
+    const rechenweg = `Restdifferenz Rechnung ${lieferung.rechnungNr}: ${teile.join(" ")} = ${formatEuro(restbetrag)}`;
+
+    if (opts.modus === "neue_rechnung") {
+      const restdifferenzArtikel = await ladeOderErstelleAusgleichsArtikel(tx, RESTDIFFERENZ_ARTIKELNUMMER, "Restdifferenz");
+      const zahlungsziel = await ladeStandardZahlungsziel(tx);
+      const neu = await tx.lieferung.create({
+        data: {
+          kundeId: lieferung.kundeId,
+          status: "geliefert",
+          zahlungsziel,
+          positionen: {
+            create: [{
+              artikelId: restdifferenzArtikel.id,
+              menge: 1,
+              verkaufspreis: restbetrag,
+              einkaufspreis: 0,
+              mwstSatz: restdifferenzArtikel.mwstSatz,
+              notiz: rechenweg,
+            }],
+          },
+        },
+      });
+      const rechnungNr = await vergebeRechnungsnummerFuerLieferung(tx, neu.id);
+      neueRechnung = { id: neu.id, rechnungNr };
+    } else {
+      const erstellt = await tx.kundeForderung.create({
+        data: {
+          kundeId: lieferung.kundeId,
+          betrag: restbetrag,
+          grund: `${rechenweg} offen — auf nächste Rechnung übernommen.`,
+          quelleLieferungId: lieferungId,
+        },
+      });
+      forderung = { id: erstellt.id, betrag: restbetrag };
+    }
   }
 
-  return { offenVorAktion, gutschrift: gutschriftInfo, forderung, restbetrag };
+  return { offenVorAktion, gutschrift: gutschriftInfo, forderung, neueRechnung, restbetrag };
 }
