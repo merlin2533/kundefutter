@@ -92,6 +92,7 @@ export default function ExportePage() {
   const [archiving, setArchiving] = useState<Record<string, boolean>>({});
   const [archivMeldung, setArchivMeldung] = useState<Record<string, string>>({});
   const [kunden, setKunden] = useState<Kunde[]>([]);
+  const [eierhandelAn, setEierhandelAn] = useState(false);
 
   // Massenexport state
   const [bulkTyp, setBulkTyp] = useState<"rechnung" | "lieferschein">("rechnung");
@@ -111,6 +112,13 @@ export default function ExportePage() {
       .catch((err) => {
         Sentry.captureException(err);
       });
+    fetch("/api/einstellungen?prefix=modul.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((mod: Record<string, string>) => {
+        const val = mod["modul.eierhandel"];
+        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
+      })
+      .catch((err) => Sentry.captureException(err));
   }, []);
 
   function updateState(typ: string, field: keyof ExportState, value: string) {
@@ -364,6 +372,24 @@ export default function ExportePage() {
             Zum Preislisten-Import →
           </Link>
         </div>
+
+        {/* KAT-Meldung card — nur wenn das Eierhandel-Modul aktiviert ist (Standard: aus) */}
+        {eierhandelAn && (
+          <div className="bg-white rounded-xl border border-dashed border-gray-300 shadow-sm p-5 flex flex-col gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 mb-1">KAT-Meldung (Eier)</h2>
+              <p className="text-sm text-gray-500">
+                Wöchentliche Warenstrommeldung (Erzeugercode, Güte-/Gewichtsklasse) für die KAT-Datenbank.
+              </p>
+            </div>
+            <Link
+              href="/exporte/kat-meldung"
+              className="mt-auto w-full px-4 py-2 text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg transition-colors text-center"
+            >
+              Zur KAT-Meldung →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ── Massenexport ───────────────────────────────────────────────────── */}

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 export interface ModulConfig {
   sortenversuche: boolean;
@@ -15,6 +16,8 @@ export interface ModulConfig {
   marktpreise: boolean;
   reklamationen: boolean;
   personal: boolean;
+  agrarantraege: boolean;
+  eierhandel: boolean;
 }
 
 export const DEFAULT_MODUL_CONFIG: ModulConfig = {
@@ -32,6 +35,8 @@ export const DEFAULT_MODUL_CONFIG: ModulConfig = {
   marktpreise: true,
   reklamationen: true,
   personal: true,
+  agrarantraege: true,
+  eierhandel: false,
 };
 
 export async function getModulConfig(): Promise<ModulConfig> {
@@ -61,5 +66,17 @@ export async function getModulConfig(): Promise<ModulConfig> {
     marktpreise: bool("marktpreise"),
     reklamationen: bool("reklamationen"),
     personal: bool("personal"),
+    agrarantraege: bool("agrarantraege"),
+    eierhandel: bool("eierhandel"),
   };
+}
+
+/** Serverseitiger Guard analog requirePermission() (lib/permissions.ts) — sperrt eine API-Route,
+ *  wenn das zugehörige Modul deaktiviert ist. Orthogonal zum Berechtigungssystem: eine Route kann
+ *  beides prüfen (erst requirePermission, dann requireModul), beide müssen unabhängig grün sein. */
+export function requireModul(config: ModulConfig, key: keyof ModulConfig): NextResponse | null {
+  if (!config[key]) {
+    return NextResponse.json({ error: "Modul deaktiviert" }, { status: 403 });
+  }
+  return null;
 }

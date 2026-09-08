@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PRODUKT_MAPPING } from "@/lib/eurostat";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
@@ -15,6 +16,10 @@ const HAUPT_KATEGORIEN = [
 
 export async function GET(_request: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "marktpreise");
+    if (denyModul) return denyModul;
+
     const kategorien = [];
 
     for (const { code, kategorie } of HAUPT_KATEGORIEN) {

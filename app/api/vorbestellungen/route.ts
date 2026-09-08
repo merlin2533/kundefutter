@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["OFFEN", "BESTAETIGT", "UMGEWANDELT", "STORNIERT"]);
 
 // GET /api/vorbestellungen?kundeId=X&status=Y&saison=Z
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "fruehbezug");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
   const status = searchParams.get("status");
@@ -56,6 +61,10 @@ export async function GET(req: NextRequest) {
 // Wendet automatisch Frühbezugs-Staffeln an, wenn keine rabattProzent angegeben.
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "fruehbezug");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
     const kundeId = parseInt(String(body.kundeId), 10);
     if (isNaN(kundeId)) return NextResponse.json({ error: "kundeId erforderlich" }, { status: 400 });

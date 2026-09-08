@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
 import { Sentry } from "@/lib/sentry";
 import { erstelleLieferungMitPreisberechnung } from "@/lib/lieferung";
+import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+
+const GUETEKLASSEN_KEYS = GUETEKLASSEN.map((g) => g.key) as string[];
+const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 
 export const dynamic = "force-dynamic";
 
@@ -142,14 +146,14 @@ export async function POST(req: NextRequest) {
   if (streckenLieferantId !== null && isNaN(streckenLieferantId)) {
     return NextResponse.json({ error: "Ungültige streckenLieferantId" }, { status: 400 });
   }
-  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; rabattProzent?: unknown; einkaufspreis?: unknown; chargeNr?: unknown; notiz?: unknown }[] = body.positionen;
+  const positionenRaw: { artikelId: unknown; menge: unknown; verkaufspreis?: unknown; rabattProzent?: unknown; einkaufspreis?: unknown; chargeNr?: unknown; notiz?: unknown; gueteklasse?: unknown; gewichtsklasse?: unknown; legedatum?: unknown; erzeugercode?: unknown }[] = body.positionen;
 
   if (!kundeId || isNaN(kundeId) || !Array.isArray(positionenRaw) || positionenRaw.length === 0) {
     return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
   }
 
   // Numerische Felder robust parsen (Frontend kann Strings senden)
-  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; rabattProzent?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string }[] = [];
+  const positionen: { artikelId: number; menge: number; verkaufspreis?: number; rabattProzent?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string; gueteklasse?: string; gewichtsklasse?: string; legedatum?: Date; erzeugercode?: string }[] = [];
   for (const p of positionenRaw) {
     const artikelId = Number(p.artikelId);
     const menge = Number(p.menge);
@@ -159,6 +163,19 @@ export async function POST(req: NextRequest) {
     if (isNaN(menge) || menge <= 0) {
       return NextResponse.json({ error: "Menge muss > 0 sein" }, { status: 400 });
     }
+    if (p.gueteklasse !== undefined && p.gueteklasse !== null && p.gueteklasse !== "" && !GUETEKLASSEN_KEYS.includes(String(p.gueteklasse))) {
+      return NextResponse.json({ error: "Güteklasse ungültig (A oder B)" }, { status: 400 });
+    }
+    if (p.gewichtsklasse !== undefined && p.gewichtsklasse !== null && p.gewichtsklasse !== "" && !GEWICHTSKLASSEN_KEYS.includes(String(p.gewichtsklasse))) {
+      return NextResponse.json({ error: "Gewichtsklasse ungültig (S, M, L oder XL)" }, { status: 400 });
+    }
+    let legedatumParsed: Date | undefined;
+    if (typeof p.legedatum === "string" && p.legedatum) {
+      legedatumParsed = new Date(p.legedatum);
+      if (isNaN(legedatumParsed.getTime())) {
+        return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
+      }
+    }
     positionen.push({
       artikelId,
       menge,
@@ -167,6 +184,10 @@ export async function POST(req: NextRequest) {
       einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
       chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
       notiz: typeof p.notiz === "string" && p.notiz.trim() ? p.notiz.trim() : undefined,
+      gueteklasse: typeof p.gueteklasse === "string" && p.gueteklasse ? p.gueteklasse : undefined,
+      gewichtsklasse: typeof p.gewichtsklasse === "string" && p.gewichtsklasse ? p.gewichtsklasse : undefined,
+      legedatum: legedatumParsed,
+      erzeugercode: typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : undefined,
     });
   }
 

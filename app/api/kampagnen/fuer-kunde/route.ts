@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,10 @@ export const dynamic = "force-dynamic";
  * enriched with potential article quantities from their Bedarf.
  */
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "kampagnen");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = searchParams.get("kundeId");
   if (!kundeId) return NextResponse.json({ error: "kundeId erforderlich" }, { status: 400 });

@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
 // GET /api/agrarantraege?search=NAME&plz=12345&ort=Musterstadt&haushaltsjahr=2023&kundeId=X
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.trim();
   const plz = searchParams.get("plz")?.trim();
@@ -41,6 +46,10 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/agrarantraege?id=X — Verknüpfe mit Kunden oder aktualisiere Felder
 export async function PATCH(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = Number(searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
@@ -61,6 +70,10 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/agrarantraege?id=X
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = Number(searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

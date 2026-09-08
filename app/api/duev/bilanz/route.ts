@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export async function GET(req: Request) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
 
   const { searchParams } = new URL(req.url);
   const jahr = parseInt(searchParams.get("jahr") ?? String(new Date().getFullYear()), 10);

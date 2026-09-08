@@ -7,7 +7,7 @@ import Link from "next/link";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import OffenePostenUebersicht from "./OffenePostenUebersicht";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
+import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, TAB_MODUL, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Tabs — lazy-geladen, damit nur der aktive Tab im Bundle landet ──────────
@@ -65,7 +65,35 @@ export default function KundeDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
   const [crmAutoOpen, setCrmAutoOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [disabledTabs, setDisabledTabs] = useState<Set<Tab>>(new Set());
   const navRef = useRef<HTMLDivElement>(null);
+
+  // Agrar-/Zusatz-Tabs nach dem Modul-System ausblenden (analog MODULE_HREFS in components/Nav.tsx,
+  // hier auf Tab- statt Routen-Ebene) — rein clientseitige Sichtbarkeit; die zugehörigen APIs sind
+  // zusätzlich serverseitig über requireModul() gesperrt.
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=modul.")
+      .then((r) => r.json())
+      .then((mod: Record<string, string>) => {
+        const disabled = new Set<Tab>();
+        for (const [tab, key] of Object.entries(TAB_MODUL) as [Tab, string][]) {
+          const val = mod[`modul.${key}`];
+          const isEnabled = val === undefined ? true : val !== "false" && val !== "0";
+          if (!isEnabled) disabled.add(tab);
+        }
+        setDisabledTabs(disabled);
+      })
+      .catch((err) => Sentry.captureException(err));
+  }, []);
+
+  useEffect(() => {
+    if (disabledTabs.has(activeTab)) setActiveTab("Stammdaten");
+  }, [disabledTabs, activeTab]);
+
+  const visibleDirektTabs = DIREKT_TABS.filter((t) => !disabledTabs.has(t));
+  const visibleTabGruppen = TAB_GRUPPEN
+    .map((g) => ({ ...g, tabs: g.tabs.filter((t) => !disabledTabs.has(t)) }))
+    .filter((g) => g.tabs.length > 0);
 
   // Rückruf planen
   const [showRueckruf, setShowRueckruf] = useState(false);
@@ -393,7 +421,7 @@ export default function KundeDetailPage() {
       <div className="border-b border-gray-200 mb-6" ref={navRef}>
         {/* xl+: alle Tabs flach, scrollbar */}
         <nav className="hidden xl:flex gap-0.5 -mb-px overflow-x-auto">
-          {([...DIREKT_TABS, ...TAB_GRUPPEN.flatMap((g) => g.tabs)] as Tab[]).map((tab) => {
+          {([...visibleDirektTabs, ...visibleTabGruppen.flatMap((g) => g.tabs)] as Tab[]).map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button
@@ -416,7 +444,7 @@ export default function KundeDetailPage() {
         {/* <xl: Direkt-Tabs + Dropdown-Gruppen */}
         <nav className="xl:hidden flex -mb-px">
           <div className="flex gap-0.5 overflow-x-auto min-w-0 flex-1">
-          {DIREKT_TABS.map((tab) => {
+          {visibleDirektTabs.map((tab) => {
             const isActive = activeTab === tab;
             return (
               <button
@@ -437,7 +465,7 @@ export default function KundeDetailPage() {
           </div>
 
           <div className="flex gap-0.5 shrink-0">
-          {TAB_GRUPPEN.map((gruppe) => {
+          {visibleTabGruppen.map((gruppe) => {
             const isGroupActive = gruppe.tabs.includes(activeTab);
             const isOpen = openDropdown === gruppe.label;
             return (

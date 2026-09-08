@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
     tags: true,
     betriebsnummer: true,
     vvvoNr: true,
+    erzeugercode: true,
     ...(withKontakte
       ? {
           kontakte: {
@@ -117,10 +118,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kontakte, name, firma, kategorie, verantwortlicher, strasse, plz, ort, land, lat, lng, notizen } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, strasse, plz, ort, land, lat, lng, notizen, erzeugercode } = body;
+  // Leerer String (z.B. "keine Auswahl" im Formular) zählt als "nicht angegeben" — sonst
+  // würde Number("") === 0 fälschlich als gültige Haltungsform "0 = Bio" durchgehen.
+  const haltungsformRaw = typeof body.haltungsform === "string" ? body.haltungsform.trim() : body.haltungsform;
+  const haltungsform = haltungsformRaw === "" ? null : haltungsformRaw;
 
   if (!name || typeof name !== "string" || !name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
+  }
+  if (haltungsform !== undefined && haltungsform !== null && ![0, 1, 2, 3].includes(Number(haltungsform))) {
+    return NextResponse.json({ error: "Haltungsform ungültig (0=Bio, 1=Freiland, 2=Boden, 3=Käfig/Kleingruppe)" }, { status: 400 });
   }
 
   try {
@@ -137,6 +145,8 @@ export async function POST(req: NextRequest) {
         lat: lat != null ? Number(lat) : null,
         lng: lng != null ? Number(lng) : null,
         notizen: notizen || null,
+        erzeugercode: erzeugercode || null,
+        haltungsform: haltungsform !== undefined && haltungsform !== null ? Number(haltungsform) : null,
         kontakte: Array.isArray(kontakte) && kontakte.length
           ? { create: kontakte.map((k: { typ: string; wert: string; label?: string }) => ({
               typ: k.typ,

@@ -1,16 +1,19 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
-import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, type MengenrabattEintrag } from "@/lib/utils";
+import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
+import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
   id: number;
   name: string;
   firma?: string;
+  erzeugercode?: string | null;
 }
 
 interface Lieferant {
@@ -127,6 +130,11 @@ interface NewPosition {
    *  einer Mengenänderung neu berechnet werden; false = Nutzer hat den Preis manuell überschrieben,
    *  eine Mengenänderung fasst ihn dann nicht mehr an. */
   vkAuto: boolean;
+  /** Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur relevant/sichtbar bei Artikel-Kategorie "Eier". */
+  gueteklasse: string;
+  gewichtsklasse: string;
+  legedatum: string;
+  erzeugercode: string;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -139,6 +147,10 @@ const emptyPosition = (): NewPosition => ({
   chargeNr: "",
   notiz: "",
   vkAuto: true,
+  gueteklasse: "",
+  gewichtsklasse: "",
+  legedatum: "",
+  erzeugercode: "",
 });
 
 function formatEuro(n: number) {
@@ -192,6 +204,13 @@ function NeueLieferungInner() {
   const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
   const [kundePreise, setKundePreise] = useState<KundePreisInfo[]>([]);
   const [mengenrabatte, setMengenrabatte] = useState<MengenrabattEintrag[]>([]);
+
+  // Erzeugercodes bereits geladener Kunden — Autocomplete-Vorschläge für das Erzeugercode-Feld
+  // bei Eier-Positionen (Kunden können im Anlieferungs-Kontext selbst als Erzeuger auftreten).
+  const erzeugerCodes = useMemo(
+    () => Array.from(new Set(kunden.map((k) => k.erzeugercode).filter((c): c is string => !!c))).sort(),
+    [kunden]
+  );
 
   useEffect(() => {
     async function load() {
@@ -252,6 +271,10 @@ function NeueLieferungInner() {
                     // Preis kommt aus dem verbindlichen Angebot — eine spätere Mengenänderung
                     // soll ihn nicht mit einer frischen Mengenstaffel-Berechnung überschreiben.
                     vkAuto: false,
+                    gueteklasse: "",
+                    gewichtsklasse: "",
+                    legedatum: "",
+                    erzeugercode: "",
                   };
                 }));
               }
@@ -333,6 +356,12 @@ function NeueLieferungInner() {
           const num = value === "" ? "" : Number(value);
           next.artikelId = num === "" || isNaN(num as number) ? "" : (num as number);
           const art = artikel.find((a) => a.id === next.artikelId);
+          // Eierhandel-Felder zurücksetzen — sie gelten je Artikel/Charge, nicht über einen
+          // Artikelwechsel hinweg (Legedatum/Güteklasse eines anderen Artikels wären falsch).
+          next.gueteklasse = "";
+          next.gewichtsklasse = "";
+          next.legedatum = "";
+          next.erzeugercode = "";
           if (art) {
             const kp = kundePreise.find((p) => p.artikelId === art.id);
             const basis = berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null);
@@ -466,6 +495,10 @@ function NeueLieferungInner() {
               einkaufspreis: parseFloat(p.einkaufspreis) || 0,
               chargeNr: p.chargeNr || undefined,
               notiz: p.notiz.trim() || undefined,
+              gueteklasse: p.gueteklasse || undefined,
+              gewichtsklasse: p.gewichtsklasse || undefined,
+              legedatum: p.legedatum || undefined,
+              erzeugercode: p.erzeugercode.trim() || undefined,
             };
           }),
         }),
@@ -675,6 +708,10 @@ function NeueLieferungInner() {
                                           chargeNr: "",
                                           notiz: artikel.find((a) => a.id === ka.artikelId)?.notiz ?? "",
                                           vkAuto: true,
+                                          gueteklasse: "",
+                                          gewichtsklasse: "",
+                                          legedatum: "",
+                                          erzeugercode: "",
                                         };
                                         if (last && last.artikelId === "") {
                                           return [...prev.slice(0, -1), newPos];
@@ -812,6 +849,60 @@ function NeueLieferungInner() {
                                 title="Notiz zur Position — aus dem Artikel übernommen, frei änderbar"
                                 className="w-full mt-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
                               />
+                              {/* Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur bei Artikel-Kategorie "Eier" */}
+                              {selectedArtikel?.kategorie === "Eier" && (
+                                <div className="mt-1.5 p-2 rounded border border-amber-200 bg-amber-50 space-y-1.5">
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    <select
+                                      value={pos.gueteklasse}
+                                      onChange={(e) => updatePosition(idx, "gueteklasse", e.target.value)}
+                                      className="w-full border border-amber-200 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                                    >
+                                      <option value="">Güteklasse…</option>
+                                      {GUETEKLASSEN.map((g) => (
+                                        <option key={g.key} value={g.key}>{g.label}</option>
+                                      ))}
+                                    </select>
+                                    <select
+                                      value={pos.gewichtsklasse}
+                                      onChange={(e) => updatePosition(idx, "gewichtsklasse", e.target.value)}
+                                      className="w-full border border-amber-200 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                                    >
+                                      <option value="">Gewichtsklasse…</option>
+                                      {GEWICHTSKLASSEN.map((g) => (
+                                        <option key={g.key} value={g.key}>{g.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <input
+                                      type="date"
+                                      value={pos.legedatum}
+                                      onChange={(e) => updatePosition(idx, "legedatum", e.target.value)}
+                                      title="Legedatum"
+                                      className="w-full border border-amber-200 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                                    />
+                                    {pos.legedatum && (
+                                      <p className="text-[10px] text-amber-700 mt-0.5">
+                                        MHD: {formatDatum(berechneEierMhd(new Date(pos.legedatum)))}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <input
+                                    type="text"
+                                    list={`erzeugercodes-list-${idx}`}
+                                    value={pos.erzeugercode}
+                                    onChange={(e) => updatePosition(idx, "erzeugercode", e.target.value)}
+                                    placeholder="Erzeugercode, z.B. 1-DE-0357701"
+                                    className="w-full border border-amber-200 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
+                                  />
+                                  {erzeugerCodes.length > 0 && (
+                                    <datalist id={`erzeugercodes-list-${idx}`}>
+                                      {erzeugerCodes.map((c) => <option key={c} value={c} />)}
+                                    </datalist>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>

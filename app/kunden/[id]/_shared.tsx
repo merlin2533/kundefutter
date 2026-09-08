@@ -88,6 +88,8 @@ export interface Kunde {
   sachkundeNr?: string | null;
   sachkundeGueltigBis?: string | null;
   vvvoNr?: string | null;
+  erzeugercode?: string | null;
+  haltungsform?: number | null;
   aktiv: boolean;
   createdAt: string;
   updatedAt: string;
@@ -133,6 +135,18 @@ export const TAB_GRUPPEN: { label: string; icon: string; tabs: Tab[] }[] = [
   { label: "Agrar",    icon: "🌾", tabs: ["Schlagkartei", "Düngebedarf", "Albrecht", "Tiere", "Agrarantrag"] },
   { label: "Mehr",     icon: "⋯",  tabs: ["Zertifizierungen", "Sachkundenachweise", "Dokumente", "Erklärungen"] },
 ];
+
+/** Ordnet Tabs, die zu einem abschaltbaren Modul gehören, dessen Einstellungs-Key (`modul.<key>`)
+ *  zu — analog zu MODULE_HREFS in components/Nav.tsx, hier auf Tab-Ebene statt Routen-Ebene.
+ *  Tabs ohne Eintrag (z.B. Stammdaten, CRM) sind immer sichtbar. */
+export const TAB_MODUL: Partial<Record<Tab, string>> = {
+  Schlagkartei: "bodenproben",
+  Düngebedarf: "bodenproben",
+  Albrecht: "bodenproben",
+  Agrarantrag: "agrarantraege",
+  Tiere: "rationsberechnung",
+  Reklamationen: "reklamationen",
+};
 
 export const inputClsSchlag =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";

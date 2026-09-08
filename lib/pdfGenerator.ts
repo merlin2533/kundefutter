@@ -12,6 +12,7 @@ import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
+import { berechneEierMhd } from "@/lib/eier-mhd";
 import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_BETREFF, mahnungTextBausteine, MAHNUNG_TEXT_EINSTELLUNG_KEY } from "@/lib/mahnwesen-config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -46,6 +47,29 @@ async function ladeLogo(): Promise<LogoDaten | null> {
   if (format === "svg+xml") return null; // jsPDF unterstützt kein SVG
   if (!["png", "jpg", "webp"].includes(format)) return null;
   return { dataUrl: value, format };
+}
+
+/**
+ * Baut die Eier-Kennzeichnungszeile (EU-Vermarktungsnorm) für eine Lieferposition, exakt im
+ * selben Format wie die Bildschirm-Vorschauen (app/lieferungen/[id]/rechnung/page.tsx,
+ * app/lieferungen/[id]/lieferschein/page.tsx): "Güteklasse A · Gewichtsklasse M · Erzeugercode
+ * … · MHD …", nur die tatsächlich gesetzten Teile. Leerer String, wenn keine Güteklasse gesetzt
+ * ist (Position ist kein Ei).
+ */
+function eierKennzeichnungZeile(p: {
+  gueteklasse?: string | null;
+  gewichtsklasse?: string | null;
+  erzeugercode?: string | null;
+  legedatum?: Date | string | null;
+}): string {
+  if (!p.gueteklasse) return "";
+  const teile = [
+    `Güteklasse ${p.gueteklasse}`,
+    p.gewichtsklasse ? `Gewichtsklasse ${p.gewichtsklasse}` : null,
+    p.erzeugercode ? `Erzeugercode ${p.erzeugercode}` : null,
+    p.legedatum ? `MHD ${formatDatum(berechneEierMhd(new Date(p.legedatum)))}` : null,
+  ].filter(Boolean);
+  return teile.join(" · ");
 }
 
 const EIGENTUMSVORBEHALT_DEFAULT =
@@ -503,9 +527,12 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const posNotiz = typeof p.notiz === "string" ? p.notiz.trim() : "";
     const posMwstSatz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
-    const artikelZelle = posNotiz
-      ? `${p.artikel.name}\n${posNotiz}\nMwSt ${posMwstSatz} %`
-      : `${p.artikel.name}\nMwSt ${posMwstSatz} %`;
+    const eierZeile = eierKennzeichnungZeile(p);
+    const artikelZeilen = [p.artikel.name];
+    if (posNotiz) artikelZeilen.push(posNotiz);
+    if (eierZeile) artikelZeilen.push(eierZeile);
+    artikelZeilen.push(`MwSt ${posMwstSatz} %`);
+    const artikelZelle = artikelZeilen.join("\n");
     const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
     const base = [String(i + 1), artikelZelle];
     if (hatCharge) base.push(p.chargeNr ?? "—");
@@ -837,11 +864,13 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
   const lsHead = hasCharge
     ? [["Pos.", "Bezeichnung", "Charge", "Menge", "Einheit"]]
     : [["Pos.", "Bezeichnung", "Menge", "Einheit"]];
-  const lsBody = positionen.map((p, i) =>
-    hasCharge
-      ? [String(i + 1), p.artikel.name, p.chargeNr ?? "—", p.menge.toLocaleString("de-DE"), p.artikel.einheit]
-      : [String(i + 1), p.artikel.name, p.menge.toLocaleString("de-DE"), p.artikel.einheit],
-  );
+  const lsBody = positionen.map((p, i) => {
+    const eierZeile = eierKennzeichnungZeile(p);
+    const artikelZelle = eierZeile ? `${p.artikel.name}\n${eierZeile}` : p.artikel.name;
+    return hasCharge
+      ? [String(i + 1), artikelZelle, p.chargeNr ?? "—", p.menge.toLocaleString("de-DE"), p.artikel.einheit]
+      : [String(i + 1), artikelZelle, p.menge.toLocaleString("de-DE"), p.artikel.einheit];
+  });
   autoTable(doc, {
     startY: tabelleStart,
     head: lsHead,

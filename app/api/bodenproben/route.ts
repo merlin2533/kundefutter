@@ -5,10 +5,15 @@ import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
 import { resolveUploadPath } from "@/lib/upload";
 import { readFile } from "fs/promises";
 import path from "path";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 // GET /api/bodenproben?schlagId=X&kundeId=Y
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const schlagId = parseInt(searchParams.get("schlagId") ?? "", 10);
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
@@ -38,6 +43,10 @@ export async function GET(req: NextRequest) {
 //   → Liefert in beiden Fällen ein Array zurück.
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "bodenproben");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
     const isBatch = Array.isArray(body?.proben);
     const liste: Record<string, unknown>[] = isBatch ? body.proben : [body];
@@ -163,6 +172,10 @@ function strTrim(v: unknown): string | null {
 
 // DELETE /api/bodenproben?id=X
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

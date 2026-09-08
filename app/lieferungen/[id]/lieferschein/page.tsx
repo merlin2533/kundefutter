@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
+import { berechneEierMhd } from "@/lib/eier-mhd";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
@@ -20,6 +21,10 @@ interface Position {
   menge: number;
   chargeNr?: string | null;
   notiz?: string | null;
+  gueteklasse?: string | null;
+  gewichtsklasse?: string | null;
+  legedatum?: string | null;
+  erzeugercode?: string | null;
   artikel: {
     id: number;
     name: string;
@@ -743,6 +748,17 @@ export default function LieferscheinPage() {
                       {pos.notiz && pos.notiz.trim().length > 0 && (
                         <div style={{ fontSize: "9pt", color: "#555", marginTop: "2px" }}>{pos.notiz}</div>
                       )}
+                      {pos.gueteklasse && (() => {
+                        const teile = [
+                          `Güteklasse ${pos.gueteklasse}`,
+                          pos.gewichtsklasse ? `Gewichtsklasse ${pos.gewichtsklasse}` : null,
+                          pos.erzeugercode ? `Erzeugercode ${pos.erzeugercode}` : null,
+                          pos.legedatum ? `MHD ${formatDatum(berechneEierMhd(new Date(pos.legedatum)))}` : null,
+                        ].filter(Boolean);
+                        return (
+                          <div style={{ fontSize: "9pt", color: "#555", marginTop: "2px" }}>{teile.join(" · ")}</div>
+                        );
+                      })()}
                       {(() => {
                         try {
                           const klassen: string[] = JSON.parse(pos.artikel.ghsKlassen || "[]");

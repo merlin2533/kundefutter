@@ -21,7 +21,7 @@ export const DEFAULT_SAATGUT_KULTUREN = [
   "Sorghum",
 ];
 
-export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege"];
+export const DEFAULT_ARTIKEL_KATEGORIEN = ["Futter", "Duenger", "Saatgut", "Analysen", "Beratung", "Pflege", "Eier"];
 
 /** Kategorien, deren Artikel zwingend chargenpflichtig sind
  *  (gesetzliche Rückverfolgbarkeit für Futtermittel und Saatgut).
@@ -173,4 +173,33 @@ export function parseListSetting(
  *  Listen und Detailseiten ohne Bestand/Ampel/Nachbestell-Box angezeigt. */
 export function istAnalyseArtikel(kategorie: string | null | undefined): boolean {
   return kategorie === "Analysen" || kategorie === "Analyse";
+}
+
+// ─── EIERHANDEL: Auswahllisten für die EU-Vermarktungsnorm ────────────────────
+// Del. VO (EU) 2023/2465 + DVO (EU) 2023/2466 (löst die zum 28.11.2023 aufgehobene
+// VO (EG) 589/2008 ab). Feste, gesetzlich definierte Werte — bewusst nicht über
+// Einstellung/system.* konfigurierbar (anders als Artikelkategorien/Einheiten).
+
+export const GUETEKLASSEN = [
+  { key: "A", label: "Güteklasse A" },
+  { key: "B", label: "Güteklasse B" },
+] as const;
+
+export const GEWICHTSKLASSEN = [
+  { key: "S", label: "S (< 53 g)" },
+  { key: "M", label: "M (53–63 g)" },
+  { key: "L", label: "L (63–73 g)" },
+  { key: "XL", label: "XL (> 73 g)" },
+] as const;
+
+export const HALTUNGSFORMEN = [
+  { code: 0, label: "Bio" },
+  { code: 1, label: "Freiland" },
+  { code: 2, label: "Boden" },
+  { code: 3, label: "Käfig / Kleingruppe" },
+] as const;
+
+export function haltungsformLabel(code: number | null | undefined): string | null {
+  if (code === null || code === undefined) return null;
+  return HALTUNGSFORMEN.find((h) => h.code === code)?.label ?? null;
 }

@@ -62,6 +62,13 @@ model Kunde {
   // ─── VVVO (Vieh-Verkehrs-Verordnung / HIT) ────────────────────────────────
   vvvoNr String? // 12-stellige Betriebsnummer DE + 2 Land + 8 Betrieb (z.B. DE 03 1234 5678)
 
+  // ─── EIERHANDEL: Erzeuger-Stammdaten (Legehennenbetriebsregister) ────────
+  // Ein Kunde ist im Anlieferungs-Kontext (Anlieferung.kundeId) der Erzeuger/Lieferant der Ware —
+  // Erzeugercode/Haltungsform werden dort einmalig je Stall gepflegt und beim Verkauf in
+  // Lieferposition.erzeugercode als Snapshot übernommen (siehe dort).
+  erzeugercode String? // z.B. "1-DE-0357701" (Haltungsform-Ländercode-Bundesland-Betrieb-Stall)
+  haltungsform Int? // 0=Bio, 1=Freiland, 2=Boden, 3=Käfig/Kleingruppe
+
   portalZugang          KundePortalZugang?
   anbauplaene           Anbauplan[]
   zertifizierungen      Zertifizierung[]
@@ -238,6 +245,7 @@ model Artikel {
   fruehbezugStaffeln       FruehbezugsStaffel[]
   anlieferungen            Anlieferung[]
   retourePositionen        RetourePosition[]
+  eierSortierungPositionen EierSortierungPosition[]
 
   @@index([aktiv])
   @@index([kategorie])
@@ -486,6 +494,10 @@ model Lieferposition {
   einkaufspreis       Float   @default(0)
   mwstSatz            Float   @default(19) // Eingefroren bei Positionserstellung (analog verkaufspreis) — eine spätere Änderung des MwSt-Satzes am Artikel-Stammdatensatz darf bereits erstellte Rechnungen/Lieferscheine nicht rückwirkend verändern (steuerrechtlich unzulässig, sobald die Rechnung verschickt wurde)
   chargeNr            String? // Chargen-/Losnummer (gesetzlich für Saatgut)
+  gueteklasse         String? // Eier: "A" | "B" (EU-Vermarktungsnorm, Del. VO (EU) 2023/2465)
+  gewichtsklasse      String? // Eier: "S" | "M" | "L" | "XL"
+  legedatum           DateTime? // Eier: Legedatum — MHD = legedatum + 28 Tage (lib/eier-mhd.ts), NICHT vom Wareneingangs-/Rechnungsdatum ableitbar
+  erzeugercode        String? // Eier: eingefroren bei Positionserstellung (analog mwstSatz), Ursprung Kunde.erzeugercode oder EierSortierungPosition
   rabattProzent       Float   @default(0) // Mengenrabatt der angewendet wurde
   notiz               String? // Auftragsnummer / interne Notiz zur Position
   preisInterpoliert   Boolean @default(false) // true = verkaufspreis wurde aus einem anderen Jahr übernommen (kein Jahrespreis fürs Lieferjahr erfasst)
@@ -1830,8 +1842,50 @@ model Anlieferung {
   artikel    Artikel     @relation(fields: [artikelId], references: [id])
   gutschrift Gutschrift? @relation(fields: [gutschriftId], references: [id])
 
+  eierSortierungen EierSortierung[]
+
   @@index([kundeId])
   @@index([datum])
+}
+
+// ─── EIERHANDEL: SORTIERPROTOKOLL ─────────────────────────────────────────────
+// Eine Anlieferung (z.B. 10.000 Eier vom Erzeuger) wird beim Sortieren in mehrere
+// Ausgangs-Chargen mit unterschiedlicher Güte-/Gewichtsklasse aufgeteilt (EU-Vermarktungsnorm,
+// Del. VO (EU) 2023/2465 + DVO (EU) 2023/2466). Jede Position bucht beim Speichern eine
+// Lagerbewegung (Typ "eingang") — wie bei einem normalen Wareneingang, nur klassifiziert.
+// anlieferungId ist optional, falls direkt aus eigener Erzeugung sortiert wird (kein Ankauf).
+
+model EierSortierung {
+  id            Int      @id @default(autoincrement())
+  datum         DateTime @default(now())
+  anlieferungId Int?
+  notiz         String?
+  erstelltVon   String?
+  createdAt     DateTime @default(now())
+
+  anlieferung Anlieferung?             @relation(fields: [anlieferungId], references: [id])
+  positionen  EierSortierungPosition[]
+
+  @@index([anlieferungId])
+  @@index([datum])
+}
+
+model EierSortierungPosition {
+  id             Int       @id @default(autoincrement())
+  sortierungId   Int
+  artikelId      Int
+  gueteklasse    String // "A" | "B"
+  gewichtsklasse String // "S" | "M" | "L" | "XL"
+  menge          Float
+  chargeNr       String?
+  legedatum      DateTime?
+  erzeugercode   String?
+
+  sortierung EierSortierung @relation(fields: [sortierungId], references: [id], onDelete: Cascade)
+  artikel    Artikel        @relation(fields: [artikelId], references: [id])
+
+  @@index([sortierungId])
+  @@index([artikelId])
 }
 
 // ─── KUNDEN-SELF-SERVICE-PORTAL ───────────────────────────────────────────────

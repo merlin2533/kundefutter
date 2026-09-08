@@ -6,6 +6,7 @@ import { digestEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
 import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
+import { pruefeMeldepflichten } from "@/lib/meldepflichten";
 import { Sentry } from "@/lib/sentry";
 
 const NEXTCLOUD_SYNC_KEY = "system.nextcloud.letzterAutoSync";
@@ -235,6 +236,29 @@ async function jobNextcloudSync(): Promise<JobResult> {
   }
 }
 
+/**
+ * Legt bei Fälligkeit Aufgaben für die Eierhandel-Meldepflichten an (Tierseuchenkasse-Frist
+ * 31.01., wöchentliche KAT-Meldung) — nur relevant/aktiv, wenn modul.eierhandel eingeschaltet
+ * ist (siehe pruefeMeldepflichten()). Läuft wie jobNextcloudSync bei jedem Tick, ist aber durch
+ * eigene Idempotenz-Checks (Aufgabe bereits vorhanden bzw. Wochen-Intervall) selbst gedrosselt.
+ */
+async function jobMeldepflichten(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const ergebnis = await pruefeMeldepflichten();
+    return { job: "meldepflichten", ok: true, detail: { ...ergebnis }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "meldepflichten",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
@@ -275,6 +299,7 @@ export async function GET(req: NextRequest) {
   results.push(await jobPegelstaende());
   results.push(await jobDigestEmail());
   results.push(await jobNextcloudSync());
+  results.push(await jobMeldepflichten());
 
   const allOk = results.every((r) => r.ok);
   await saveStatus(allOk, startedAt, results);
