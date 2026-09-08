@@ -6,10 +6,15 @@ import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "tourenplanung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const datum = searchParams.get("datum");
 

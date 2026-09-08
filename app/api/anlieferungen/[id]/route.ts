@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  if (denyModul) return denyModul;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -33,6 +38,10 @@ export async function GET(_req: NextRequest, ctx: Params) {
 }
 
 export async function PUT(req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  if (denyModul) return denyModul;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -79,6 +88,10 @@ export async function PUT(req: NextRequest, ctx: Params) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  if (denyModul) return denyModul;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

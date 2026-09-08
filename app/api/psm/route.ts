@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "psm_ausbringung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = searchParams.get("kundeId");
   const schlagId = searchParams.get("schlagId");
@@ -49,6 +54,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "psm_ausbringung");
+  if (denyModul) return denyModul;
+
   let body;
   try {
     body = await req.json();

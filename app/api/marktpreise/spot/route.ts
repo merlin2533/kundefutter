@@ -9,6 +9,7 @@ import {
   type MatifProdukt,
 } from "@/lib/matif";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
@@ -66,6 +67,10 @@ async function speicherePreiseInDB(preise: MatifProdukt[]): Promise<void> {
 
 export async function GET(request: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "marktpreise");
+    if (denyModul) return denyModul;
+
     const force = request.nextUrl.searchParams.get("force") === "true";
 
     // Cache-Alter + Bestandsgröße prüfen

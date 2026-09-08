@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { istLagerrelevant } from "@/lib/utils";
+import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
+
+const GUETEKLASSEN_KEYS = GUETEKLASSEN.map((g) => g.key) as string[];
+const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 
 
 type Ctx = { params: Promise<{ id: string; posId: string }> };
@@ -89,7 +93,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   // Nur ausgewählte Felder zulassen
-  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null; chargeNr?: string | null; preisInterpoliert?: boolean; preisQuelleJahr?: number | null } = {};
+  const updateData: { rabattProzent?: number; verkaufspreis?: number; einkaufspreis?: number; menge?: number; notiz?: string | null; chargeNr?: string | null; preisInterpoliert?: boolean; preisQuelleJahr?: number | null; gueteklasse?: string | null; gewichtsklasse?: string | null; legedatum?: Date | null; erzeugercode?: string | null } = {};
   if (body.rabattProzent !== undefined) {
     const r = Number(body.rabattProzent);
     if (isNaN(r) || r < 0 || r > 100) {
@@ -128,6 +132,31 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   // Chargennummer: reine Dokumentation/Rückverfolgung – auch nachträglich (nach Lieferung/Rechnung) erfassbar
   if (body.chargeNr !== undefined) {
     updateData.chargeNr = typeof body.chargeNr === "string" ? body.chargeNr.trim() || null : null;
+  }
+  // Eierhandel-Kennzeichnung (EU-Vermarktungsnorm): analog chargeNr reine Dokumentation, auch
+  // nachträglich erfassbar/korrigierbar — nicht betragsrelevant, daher nicht durch die
+  // rechnungVersendetAm-Sperre betroffen.
+  if (body.gueteklasse !== undefined) {
+    if (body.gueteklasse !== null && !GUETEKLASSEN_KEYS.includes(body.gueteklasse)) {
+      return NextResponse.json({ error: "Güteklasse ungültig (A oder B)" }, { status: 400 });
+    }
+    updateData.gueteklasse = body.gueteklasse || null;
+  }
+  if (body.gewichtsklasse !== undefined) {
+    if (body.gewichtsklasse !== null && !GEWICHTSKLASSEN_KEYS.includes(body.gewichtsklasse)) {
+      return NextResponse.json({ error: "Gewichtsklasse ungültig (S, M, L oder XL)" }, { status: 400 });
+    }
+    updateData.gewichtsklasse = body.gewichtsklasse || null;
+  }
+  if (body.legedatum !== undefined) {
+    const legedatumVal = body.legedatum ? new Date(body.legedatum) : null;
+    if (legedatumVal && isNaN(legedatumVal.getTime())) {
+      return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
+    }
+    updateData.legedatum = legedatumVal;
+  }
+  if (body.erzeugercode !== undefined) {
+    updateData.erzeugercode = typeof body.erzeugercode === "string" ? body.erzeugercode.trim() || null : null;
   }
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });

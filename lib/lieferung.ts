@@ -41,6 +41,11 @@ export interface LieferungPositionInput {
   einkaufspreis?: number;
   chargeNr?: string;
   notiz?: string;
+  /** Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — eingefroren bei Erstellung analog chargeNr. */
+  gueteklasse?: string;
+  gewichtsklasse?: string;
+  legedatum?: Date;
+  erzeugercode?: string;
 }
 
 export interface ErstelleLieferungInput {
@@ -121,6 +126,10 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
         notiz: pos.notiz ?? artikel.notiz ?? null,
         rabattProzent: bestRabatt,
+        gueteklasse: pos.gueteklasse ?? null,
+        gewichtsklasse: pos.gewichtsklasse ?? null,
+        legedatum: pos.legedatum ?? null,
+        erzeugercode: pos.erzeugercode ?? null,
       };
     });
 

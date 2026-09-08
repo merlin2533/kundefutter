@@ -9,6 +9,7 @@ import {
   type BedarfEingaben,
 } from "@/lib/duengebedarf";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 // GET /api/duengebedarf?schlagId=X
@@ -16,6 +17,10 @@ export const dynamic = "force-dynamic";
 // GET /api/duengebedarf?id=X           (Einzeleintrag mit Schlag+Kunde, für Druck)
 // GET /api/duengebedarf?kundeId=X      (alle Einträge aller Schläge eines Kunden)
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
 
   if (searchParams.get("fruchtarten")) {
@@ -85,6 +90,10 @@ export async function GET(req: NextRequest) {
 // Wenn versorgungsklasseX nicht gesetzt aber bodenprobeId vorhanden → wird aus Probe abgeleitet.
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "bodenproben");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
     const schlagId = parseInt(String(body.schlagId), 10);
     if (isNaN(schlagId)) return NextResponse.json({ error: "schlagId erforderlich" }, { status: 400 });
@@ -172,6 +181,10 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/duengebedarf?id=X — Eintrag neu berechnen und überschreiben
 export async function PUT(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
@@ -257,6 +270,10 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/duengebedarf?id=X
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

@@ -5,6 +5,7 @@ import { createReadStream } from "fs";
 import { stat } from "fs/promises";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -280,6 +281,10 @@ async function streamAndInsert(
 //   2. JSON { action: "url", url: "https://..." }
 //   3. JSON { action: "serverpath", path: "/absolute/path/to/file.csv" }
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const contentType = req.headers.get("content-type") ?? "";
 
   // ── Mode 1: multipart/form-data upload ────────────────────────────────────

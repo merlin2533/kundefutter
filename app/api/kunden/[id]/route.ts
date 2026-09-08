@@ -43,7 +43,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv, ustIdNr, kreditlimit, sachkundeNr, sachkundeGueltigBis, vvvoNr } = body;
+  const { kontakte, name, firma, kategorie, verantwortlicher, betriebsnummer, flaeche, strasse, plz, ort, land, lat, lng, notizen, aktiv, ustIdNr, kreditlimit, sachkundeNr, sachkundeGueltigBis, vvvoNr, erzeugercode } = body;
+  // Leerer String (z.B. "keine Auswahl" im Formular) zählt als explizites Löschen (→ null) —
+  // sonst würde Number("") === 0 fälschlich als gültige Haltungsform "0 = Bio" durchgehen.
+  const haltungsformRaw = typeof body.haltungsform === "string" ? body.haltungsform.trim() : body.haltungsform;
+  const haltungsform = haltungsformRaw === "" ? null : haltungsformRaw;
+
+  if (haltungsform !== undefined && haltungsform !== null && ![0, 1, 2, 3].includes(Number(haltungsform))) {
+    return NextResponse.json({ error: "Haltungsform ungültig (0=Bio, 1=Freiland, 2=Boden, 3=Käfig/Kleingruppe)" }, { status: 400 });
+  }
 
   // Nur erlaubte Felder uebernehmen
   const updateData: Record<string, unknown> = {};
@@ -73,6 +81,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
       updateData.vvvoNr = null;
     }
   }
+  if (erzeugercode !== undefined) updateData.erzeugercode = erzeugercode || null;
+  if (haltungsform !== undefined) updateData.haltungsform = haltungsform !== null ? Number(haltungsform) : null;
   if (body.tags !== undefined) {
     updateData.tags = JSON.stringify(Array.isArray(body.tags) ? body.tags : []);
   }

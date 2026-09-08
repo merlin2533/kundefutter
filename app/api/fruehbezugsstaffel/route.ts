@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 // GET /api/fruehbezugsstaffel?saison=Frühjahr+2026&aktiv=1
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "fruehbezug");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const saison = searchParams.get("saison");
   const aktiv = searchParams.get("aktiv");
@@ -30,6 +35,10 @@ export async function GET(req: NextRequest) {
 // POST /api/fruehbezugsstaffel
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "fruehbezug");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
     if (!body.saison?.trim()) return NextResponse.json({ error: "Saison erforderlich" }, { status: 400 });
     if (!body.bestellfrist) return NextResponse.json({ error: "Bestellfrist erforderlich" }, { status: 400 });
@@ -60,6 +69,10 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/fruehbezugsstaffel?id=X
 export async function PUT(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "fruehbezug");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
@@ -93,6 +106,10 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/fruehbezugsstaffel?id=X
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "fruehbezug");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

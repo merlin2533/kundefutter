@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeIdStr = searchParams.get("kundeId");
   const vonStr = searchParams.get("von");
@@ -52,6 +57,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "erzeugerabrechnung");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
     const { kundeId, artikelId, datum, menge, einheit, feuchte, qualitaet, preisProEinheit, notiz } = body;
 

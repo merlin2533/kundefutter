@@ -30,8 +30,13 @@ const MODULE_HREFS: Record<string, string[]> = {
   "modul.erzeugerabrechnung": ["/anlieferungen"],
   "modul.marktpreise": ["/marktpreise"],
   "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht"],
+  "modul.reklamationen": ["/reklamationen", "/statistik/reklamationen"],
+  "modul.agrarantraege": ["/agrarantraege"],
+  "modul.mqtt": ["/einstellungen/mqtt"],
+  "modul.nextcloud": ["/einstellungen/nextcloud"],
+  "modul.eierhandel": ["/eiersortierung", "/exporte/kat-meldung", "/meldepflichten"],
 };
-const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.nextcloud"]);
+const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.nextcloud", "modul.eierhandel"]);
 
 const groups: NavGroup[] = [
   { label: "Dashboard", href: "/" },
@@ -109,6 +114,9 @@ const groups: NavGroup[] = [
       { href: "/fahrer", label: "Fahrer-Cockpit", section: "Lieferungen" },
       { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
       { href: "/anlieferungen", label: "Erzeugerabrechnung", section: "Lieferungen" },
+      { href: "/eiersortierung", label: "Ei-Sortierprotokoll", section: "Eierhandel" },
+      { href: "/exporte/kat-meldung", label: "KAT-Meldung", section: "Eierhandel" },
+      { href: "/meldepflichten", label: "Meldepflichten", section: "Eierhandel" },
       { href: "/bestellliste", label: "Bestellliste", section: "Einkauf" },
       { href: "/bestellungen", label: "Lieferantenbestellungen", section: "Einkauf" },
       { href: "/einkaufszettel", label: "Einkaufszettel", section: "Einkauf" },

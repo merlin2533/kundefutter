@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FUTTERWERTE, FUTTERGRUPPEN, type Futterwert } from "@/lib/futterwerte";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const CUSTOM_KEY = "futterwerte.custom";
 
 // GET /api/futterwerte — Standard-Tabelle + benutzerdefinierte Einträge
 export async function GET() {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   try {
     const setting = await prisma.einstellung.findUnique({ where: { key: CUSTOM_KEY } });
     let custom: Futterwert[] = [];
@@ -33,6 +38,10 @@ export async function GET() {
 
 // PUT /api/futterwerte — benutzerdefinierte Einträge speichern (komplette Liste)
 export async function PUT(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     const eintraege = Array.isArray(body.custom) ? body.custom : [];

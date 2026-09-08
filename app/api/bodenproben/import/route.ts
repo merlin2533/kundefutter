@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { pickCol, parseNumber } from "@/lib/import-utils";
 import * as XLSX from "xlsx";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,10 @@ export const dynamic = "force-dynamic";
 // Schlag wird per Name innerhalb eines (optionalen) Kunden gesucht.
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "bodenproben");
+    if (denyModul) return denyModul;
+
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const kundeIdRaw = form.get("kundeId");

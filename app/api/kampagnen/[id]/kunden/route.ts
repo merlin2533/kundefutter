@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,10 @@ type Params = { params: Promise<{ id: string }> };
  * (sum of their Bedarf for campaign articles)
  */
 export async function GET(_req: NextRequest, { params }: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "kampagnen");
+  if (denyModul) return denyModul;
+
   const { id } = await params;
   const nId = parseInt(id, 10);
   if (isNaN(nId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

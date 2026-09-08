@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -19,6 +20,10 @@ function strOrNull(v: unknown): string | null {
 
 // GET /api/bodenanalyse?schlagId=X&kundeId=Y
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const schlagId = parseInt(searchParams.get("schlagId") ?? "", 10);
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
@@ -62,6 +67,10 @@ export async function GET(req: NextRequest) {
 // POST /api/bodenanalyse
 export async function POST(req: NextRequest) {
   try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "bodenproben");
+    if (denyModul) return denyModul;
+
     const body = await req.json();
 
     const schlagId = parseInt(String(body.schlagId ?? ""), 10);
@@ -151,6 +160,10 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/bodenanalyse?id=X
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const id = parseInt(new URL(req.url).searchParams.get("id") ?? "", 10);
   if (isNaN(id)) {
     return NextResponse.json({ error: "id fehlt" }, { status: 400 });

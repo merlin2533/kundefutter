@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 type Ampel = "gruen" | "gelb" | "rot";
@@ -64,6 +65,10 @@ function bewerte(
 }
 
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "psm_ausbringung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const lat = parseFloat(searchParams.get("lat") ?? "");
   const lng = parseFloat(searchParams.get("lng") ?? "");

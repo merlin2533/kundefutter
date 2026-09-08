@@ -9,6 +9,7 @@ import {
   type NaehrstoffWerte,
 } from "@/lib/rationsberechnung";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,10 @@ function dateiname(bezeichnung: string): string {
 
 // GET /api/rationsberechnung/export?id=X — gespeicherte Berechnung exportieren
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
@@ -132,6 +137,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/rationsberechnung/export — Inline-Ergebnis exportieren (nicht gespeichert)
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     const ergebnis: RationsErgebnis = body.ergebnis;

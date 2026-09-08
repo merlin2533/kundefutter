@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["LAUFEND", "ABGESCHLOSSEN"]);
 
 // GET /api/sortenversuche?jahr=2026&kultur=Wintergerste&kundeId=12&sorte=Avenue
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "sortenversuche");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const jahr = parseInt(searchParams.get("jahr") ?? "", 10);
   const kultur = searchParams.get("kultur");
@@ -44,6 +49,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/sortenversuche
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "sortenversuche");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     if (!body.name?.trim()) return NextResponse.json({ error: "Name erforderlich" }, { status: 400 });

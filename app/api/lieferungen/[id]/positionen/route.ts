@@ -4,9 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { getArtikelPreisFuerJahr } from "@/lib/jahrespreis";
 import { resolveBevorzugtenEK, istLagerrelevant } from "@/lib/utils";
 import { istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
+import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
+const GUETEKLASSEN_KEYS = GUETEKLASSEN.map((g) => g.key) as string[];
+const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
   }
 
-  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr, notiz, preisInterpoliert, preisQuelleJahr } = body;
+  const { artikelId, menge, verkaufspreis, einkaufspreis, chargeNr, notiz, preisInterpoliert, preisQuelleJahr, gueteklasse, gewichtsklasse, legedatum, erzeugercode } = body;
 
   if (!artikelId || typeof artikelId !== "number") {
     return NextResponse.json({ error: "artikelId fehlt" }, { status: 400 });
@@ -31,6 +34,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   const mengeNum = Number(menge);
   if (isNaN(mengeNum) || mengeNum <= 0) {
     return NextResponse.json({ error: "Menge ungültig" }, { status: 400 });
+  }
+  if (gueteklasse !== undefined && gueteklasse !== null && !GUETEKLASSEN_KEYS.includes(gueteklasse)) {
+    return NextResponse.json({ error: "Güteklasse ungültig (A oder B)" }, { status: 400 });
+  }
+  if (gewichtsklasse !== undefined && gewichtsklasse !== null && !GEWICHTSKLASSEN_KEYS.includes(gewichtsklasse)) {
+    return NextResponse.json({ error: "Gewichtsklasse ungültig (S, M, L oder XL)" }, { status: 400 });
   }
 
   try {
@@ -85,6 +94,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
     const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
     const chargeNrTrim = typeof chargeNr === "string" ? chargeNr.trim() || null : null;
+    // Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — analog chargeNr eingefroren bei Erstellung
+    const gueteklasseVal: string | null = typeof gueteklasse === "string" && gueteklasse ? gueteklasse : null;
+    const gewichtsklasseVal: string | null = typeof gewichtsklasse === "string" && gewichtsklasse ? gewichtsklasse : null;
+    const legedatumVal: Date | null = legedatum ? new Date(legedatum) : null;
+    if (legedatumVal && isNaN(legedatumVal.getTime())) {
+      return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
+    }
+    const erzeugercodeVal: string | null = typeof erzeugercode === "string" ? erzeugercode.trim() || null : null;
 
     // War die Lieferung beim Hinzufügen dieser Position bereits "geliefert" (d.h. eine
     // Rechnung existiert schon, ist aber noch nicht versendet), wurde der Lagerausgang für
@@ -110,6 +127,10 @@ export async function POST(req: NextRequest, { params }: Params) {
           notiz: posNotiz,
           preisInterpoliert: interpoliert,
           preisQuelleJahr: quelleJahr,
+          gueteklasse: gueteklasseVal,
+          gewichtsklasse: gewichtsklasseVal,
+          legedatum: legedatumVal,
+          erzeugercode: erzeugercodeVal,
         },
         include: { artikel: { select: liefposArtikelSelect } },
       });

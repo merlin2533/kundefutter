@@ -9,6 +9,7 @@ import {
   type NaehrstoffWerte,
 } from "@/lib/rationsberechnung";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const TIERART_KEYS: TierartKey[] = ["Rind", "Schwein", "Geflugel", "Pferd", "Schaf", "Ziege"];
@@ -161,6 +162,10 @@ function futterwertZuNaehrwerte(fw: Futterwert): NaehrstoffWerte {
 // ?kundeId=X | ?kundeTierId=Y → gespeicherte Berechnungen
 // (kein Parameter) → letzte 50
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
 
   if (searchParams.get("meta")) {
@@ -200,6 +205,10 @@ export async function GET(req: NextRequest) {
 //         eiweissProzent?, positionen[], manuellerBedarf?, kundeId?, kundeTierId?,
 //         speichern?, bezeichnung?, notiz? }
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     const tierart = body.tierart as TierartKey;
@@ -271,6 +280,10 @@ export async function POST(req: NextRequest) {
 
 // ─── DELETE ?id=X ────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "rationsberechnung");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

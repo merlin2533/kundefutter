@@ -11,12 +11,16 @@ import {
   buildDatevHeaderLine,
 } from "@/lib/datev";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
 function pad2(n: number): string { return String(n).padStart(2, "0"); }
 
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "personal");
+  if (denyModul) return denyModul;
   const { searchParams } = new URL(req.url);
   const vonStr = searchParams.get("von");
   const bisStr = searchParams.get("bis");

@@ -3,11 +3,16 @@ import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
 // GET /api/agrarantraege/pdf?kundeId=X  — Antragsdaten-PDF für einen Kunden
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = Number(searchParams.get("kundeId"));
   if (!kundeId) return NextResponse.json({ error: "kundeId fehlt" }, { status: 400 });

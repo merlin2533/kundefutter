@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
+import { HALTUNGSFORMEN, haltungsformLabel } from "@/lib/auswahllisten";
 import KontakteTab from "./KontakteTab";
 import * as Sentry from "@sentry/nextjs";
 
@@ -13,6 +14,19 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
   const [validMsg, setValidMsg] = useState("");
   const [kategorien, setKategorien] = useState<string[]>(["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"]);
   const [mitarbeiter, setMitarbeiter] = useState<string[]>([]);
+  const [eierhandelAn, setEierhandelAn] = useState(false);
+
+  // Erzeugerdaten-Abschnitt (Eierhandel-Modul) nur zeigen, wenn das Modul aktiviert ist —
+  // sonst sähe jede Installation zwei Eier-Branchen-Felder, obwohl das Modul standardmäßig aus ist.
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=modul.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((mod: Record<string, string>) => {
+        const val = mod["modul.eierhandel"];
+        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
+      })
+      .catch((err) => Sentry.captureException(err));
+  }, []);
 
   // Wettbewerber-Notizen
   const [wettbNotizenLoading, setWettbNotizenLoading] = useState(true);
@@ -77,6 +91,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
     sachkundeNr: kunde.sachkundeNr ?? "",
     sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
     vvvoNr: kunde.vvvoNr ?? "",
+    erzeugercode: kunde.erzeugercode ?? "",
+    haltungsform: kunde.haltungsform != null ? String(kunde.haltungsform) : "",
   });
 
   useEffect(() => {
@@ -137,6 +153,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
       sachkundeNr: kunde.sachkundeNr ?? "",
       sachkundeGueltigBis: kunde.sachkundeGueltigBis ? kunde.sachkundeGueltigBis.slice(0, 10) : "",
       vvvoNr: kunde.vvvoNr ?? "",
+      erzeugercode: kunde.erzeugercode ?? "",
+      haltungsform: kunde.haltungsform != null ? String(kunde.haltungsform) : "",
     });
     setTags(() => { try { return JSON.parse(kunde.tags || "[]"); } catch (err) {
       Sentry.captureException(err);
@@ -171,6 +189,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
           sachkundeNr: form.sachkundeNr || null,
           sachkundeGueltigBis: form.sachkundeGueltigBis || null,
           vvvoNr: form.vvvoNr || null,
+          erzeugercode: form.erzeugercode || null,
+          haltungsform: form.haltungsform !== "" ? Number(form.haltungsform) : null,
         }),
       });
       if (!res.ok) throw new Error();
@@ -266,6 +286,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
             const bl = blMap[normalisiert.substring(3, 5)];
             return <InfoRow label="VVVO/HIT-Nr." value={`DE ${normalisiert.substring(3, 5)} ${normalisiert.substring(5)}${bl ? ` (${bl})` : ""}`} />;
           })()}
+          {kunde.erzeugercode && <InfoRow label="Erzeugercode" value={kunde.erzeugercode} />}
+          {kunde.haltungsform != null && <InfoRow label="Haltungsform" value={haltungsformLabel(kunde.haltungsform)} />}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href={`/sachkundenachweise?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">📜 Sachkundenachweise</Link>
@@ -582,6 +604,36 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
             : <p className="text-xs text-orange-600 mt-0.5">⚠ Unbekannter Bundeslandcode {blCode}</p>;
         })()}
       </div>
+      {eierhandelAn && (
+        <div className="border-t border-gray-200 pt-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Erzeugerdaten (Eierhandel)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Erzeugercode</label>
+              <input
+                type="text"
+                value={form.erzeugercode}
+                onChange={(e) => setForm({ ...form, erzeugercode: e.target.value })}
+                placeholder="z.B. 1-DE-0357701"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Haltungsform</label>
+              <select
+                value={form.haltungsform}
+                onChange={(e) => setForm({ ...form, haltungsform: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">— keine Angabe —</option>
+                {HALTUNGSFORMEN.map((h) => (
+                  <option key={h.code} value={h.code}>{h.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Notizen</label>
         <textarea
