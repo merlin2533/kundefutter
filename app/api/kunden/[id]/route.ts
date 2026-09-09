@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
 import { autoGeocodeKunde } from "@/lib/geocoding";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, kundenOrdnerPfad, verschiebeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
@@ -34,6 +36,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KUNDEN_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await params;
   let body;
   try {
@@ -169,6 +175,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KUNDEN_LOESCHEN);
+  if (deny) return deny;
+
   const { id } = await params;
   try {
     await prisma.kunde.update({

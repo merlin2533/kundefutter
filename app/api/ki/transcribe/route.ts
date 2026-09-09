@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfig, transcribeAudio } from "@/lib/ai";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +10,10 @@ const VALID_FEATURES = ["crm", "sprachmemo", "lieferung", "bestellliste"] as con
 type Feature = (typeof VALID_FEATURES)[number];
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   try {
     const fd = await req.formData();
     const audioFile = fd.get("audio") as File | null;

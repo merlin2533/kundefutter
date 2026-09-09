@@ -5,6 +5,8 @@ import { generiereRechnungPdfMitZugferd } from "@/lib/pdfGenerator";
 import { sendEmail } from "@/lib/email";
 import { rechnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -12,6 +14,10 @@ export const dynamic = "force-dynamic";
 // POST /api/exporte/rechnung/mail
 // Body: { lieferungId: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG_MAIL);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { lieferungId?: unknown; empfaenger?: unknown; cc?: unknown };
     const lieferungId = Number(body.lieferungId);

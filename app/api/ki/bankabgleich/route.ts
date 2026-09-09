@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { analyzeText, PROMPTS } from "@/lib/ai";
 import { zuBankBuchung, ladeAlleOffenenKandidaten } from "@/lib/bankabgleich-kandidaten";
 import { pairTextScore, daysBetween, type AiMatch, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,10 @@ const VALID_KINDS: ReconCandidateKind[] = ["lieferung", "sammelrechnung", "ausga
 // Jeder Treffer landet ausschließlich in der Antwort, wird NIE automatisch übernommen —
 // die Bestätigung erfolgt weiterhin explizit über PUT /api/bankabgleich/[id].
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   let body: { umsatzIds?: unknown };
   try {
     body = await req.json();

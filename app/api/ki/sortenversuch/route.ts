@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { PROMPTS, analyzeDocumentFile, parseJsonFromText, strOrNull, numOrNull } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,10 @@ export const dynamic = "force-dynamic";
 // POST /api/ki/sortenversuch — Multipart: file=PDF/Bild/XLSX/CSV
 // → erkennt Sortenversuchs-Auswertung mit Versuch-Header und Positionen pro Sorte
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   const isDev = process.env.NODE_ENV === "development";
   try {
     const fd = await req.formData();

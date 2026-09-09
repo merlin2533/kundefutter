@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { ladeStandardZahlungsziel } from "@/lib/lieferung";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,10 @@ export async function GET(_req: NextRequest, ctx: Params) {
 }
 
 export async function PUT(req: NextRequest, ctx: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.ANGEBOTE_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   let body;
   try {
