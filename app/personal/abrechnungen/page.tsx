@@ -41,6 +41,14 @@ export default function AbrechnungenPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [istAdmin, setIstAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setIstAdmin(d?.user?.rolle === "admin"))
+      .catch((err) => Sentry.captureException(err));
+  }, []);
 
   useEffect(() => {
     try { sessionStorage.setItem("personal-abrechnungen-filters", JSON.stringify({ monat, jahr, status: statusFilter })); } catch (err) {
@@ -90,6 +98,23 @@ export default function AbrechnungenPage() {
       setError(d.error ?? "Fehler");
     } else {
       loadData();
+    }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Diese Abrechnung endgültig löschen?")) return;
+    setActionLoading(true);
+    setError("");
+    const res = await fetch(`/api/personal/abrechnungen/${id}`, { method: "DELETE" });
+    setActionLoading(false);
+    if (!res.ok) {
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      setError(d.error ?? "Löschen fehlgeschlagen");
+    } else {
+      setAbrechnungen((prev) => prev.filter((a) => a.id !== id));
     }
   }
 
@@ -235,6 +260,15 @@ export default function AbrechnungenPage() {
                       <Link href={`/personal/abrechnungen/${a.id}/druck`} target="_blank" className="text-xs text-gray-500 hover:underline">
                         Druck
                       </Link>
+                      {istAdmin && a.status !== "AUSGEZAHLT" && (
+                        <button
+                          onClick={() => handleDelete(a.id)}
+                          disabled={actionLoading}
+                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          Löschen
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

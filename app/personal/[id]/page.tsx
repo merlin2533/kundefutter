@@ -97,6 +97,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   const [stundenJahr, setStundenJahr] = useState(new Date().getFullYear());
   const [abrError, setAbrError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [istAdmin, setIstAdmin] = useState(false);
 
   const numId = parseInt(mitarbeiterId, 10);
 
@@ -106,6 +107,13 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       .then((d) => { if (d) setMa(d); })
       .finally(() => setLoading(false));
   }, [numId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setIstAdmin(d?.user?.rolle === "admin"))
+      .catch((err) => Sentry.captureException(err));
+  }, []);
 
   useEffect(() => {
     if (activeTab === "stunden") {
@@ -180,6 +188,23 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     if (!confirm("Stundeneintrag löschen?")) return;
     const res = await fetch(`/api/personal/arbeitsstunden/${stundeId}`, { method: "DELETE" });
     if (res.ok) setStunden((prev) => prev.filter((s) => s.id !== stundeId));
+  }
+
+  async function handleDeleteAbrechnung(abrId: number) {
+    if (!confirm("Diese Abrechnung endgültig löschen?")) return;
+    setActionLoading(true);
+    setAbrError("");
+    const res = await fetch(`/api/personal/abrechnungen/${abrId}`, { method: "DELETE" });
+    setActionLoading(false);
+    if (!res.ok) {
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      setAbrError(d.error ?? "Löschen fehlgeschlagen");
+    } else {
+      setAbrechnungen((prev) => prev.filter((a) => a.id !== abrId));
+    }
   }
 
   async function handleDeactivate() {
@@ -488,6 +513,15 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                           <Link href={`/personal/abrechnungen/${a.id}/druck`} className="text-xs text-gray-500 hover:underline" target="_blank">
                             Druck
                           </Link>
+                          {istAdmin && a.status !== "AUSGEZAHLT" && (
+                            <button
+                              onClick={() => handleDeleteAbrechnung(a.id)}
+                              disabled={actionLoading}
+                              className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                            >
+                              Löschen
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
