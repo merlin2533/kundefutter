@@ -131,6 +131,9 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   if (denyModul) return denyModul;
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (session.rolle !== "admin") {
+    return NextResponse.json({ error: "Nur Administratoren können Abrechnungen löschen" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
