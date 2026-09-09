@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { MONATE_KURZ, getJahreListeNum, formatDatum } from "@/lib/utils";
+import { MONATE_KURZ, getJahreListeNum, formatDatum, WOCHENTAGE, parseBevorzugteArbeitszeiten } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
@@ -55,6 +55,7 @@ interface Mitarbeiter {
   urlaubstageProJahr: number;
   kostenstelle: string | null;
   notiz: string | null;
+  bevorzugteArbeitszeiten: string | null;
 }
 
 interface Arbeitsstunde {
@@ -242,7 +243,13 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
 
   function startEditing() {
     if (!ma) return;
+    const bevorzugt = parseBevorzugteArbeitszeiten(ma.bevorzugteArbeitszeiten) ?? {};
+    const arbeitszeitFelder: Record<string, string> = {};
+    for (const w of WOCHENTAGE) {
+      arbeitszeitFelder[`arbeitszeit_${w.key}`] = typeof bevorzugt[w.key] === "number" ? String(bevorzugt[w.key]) : "";
+    }
     setEditForm({
+      ...arbeitszeitFelder,
       vorname: ma.vorname,
       nachname: ma.nachname,
       typ: ma.typ,
@@ -276,8 +283,14 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     }
     setSaving(true);
     setSaveError("");
+    const bevorzugt: Record<string, number> = {};
+    for (const w of WOCHENTAGE) {
+      const v = editForm[`arbeitszeit_${w.key}`];
+      if (v !== undefined && v !== "") bevorzugt[w.key] = parseFloat(v);
+    }
     const payload: Record<string, unknown> = {
       vorname: editForm.vorname.trim(),
+      bevorzugteArbeitszeiten: Object.keys(bevorzugt).length > 0 ? JSON.stringify(bevorzugt) : null,
       nachname: editForm.nachname.trim(),
       typ: editForm.typ,
       eintrittsdatum: editForm.eintrittsdatum,
@@ -451,6 +464,30 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
               </div>
 
               <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Bevorzugte Arbeitszeiten</h3>
+                <p className="text-xs text-gray-500 -mt-2">
+                  Vorbelegung für die Arbeitszeiterfassung — dort muss dann nur noch bestätigt werden.
+                </p>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                  {WOCHENTAGE.map((w) => (
+                    <div key={w.key}>
+                      <label className="block text-xs font-medium text-gray-500 mb-1 text-center">{w.label}</label>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max="24"
+                        placeholder="–"
+                        value={editForm[`arbeitszeit_${w.key}`] ?? ""}
+                        onChange={(e) => setEditField(`arbeitszeit_${w.key}`, e.target.value)}
+                        className={`${inputCls} text-center px-1`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-white border rounded-lg p-5 space-y-3">
                 <h3 className="font-semibold text-gray-800 mb-1">Vergütung</h3>
                 {editForm.typ === "festgehalt" && (
                   <div>
@@ -538,6 +575,15 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 {ma.wochenstunden != null && <Row label="Wochenstunden" value={`${ma.wochenstunden} h`} />}
                 <Row label="Urlaubstage/Jahr" value={`${ma.urlaubstageProJahr} Tage`} />
                 {ma.kostenstelle && <Row label="Kostenstelle" value={ma.kostenstelle} />}
+                {(() => {
+                  const bevorzugt = parseBevorzugteArbeitszeiten(ma.bevorzugteArbeitszeiten);
+                  if (!bevorzugt) return null;
+                  const text = WOCHENTAGE
+                    .filter((w) => typeof bevorzugt[w.key] === "number")
+                    .map((w) => `${w.label} ${bevorzugt[w.key]}h`)
+                    .join(" · ");
+                  return text ? <Row label="Bevorzugte Arbeitszeiten" value={text} /> : null;
+                })()}
               </div>
 
               <div className="bg-white border rounded-lg p-5 space-y-3">

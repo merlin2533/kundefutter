@@ -2008,6 +2008,7 @@ model Mitarbeiter {
   urlaubstageProJahr Int       @default(0)
   kostenstelle       String?
   notiz              String?
+  bevorzugteArbeitszeiten String? // JSON {mo,di,mi,do,fr,sa,so: Float} — Vorbelegung für die Arbeitszeiterfassung
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

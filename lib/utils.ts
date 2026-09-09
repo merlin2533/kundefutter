@@ -427,3 +427,51 @@ export function umlautSchreibweisen(suchbegriff: string): string[] {
   }
   return [...varianten];
 }
+
+// ─── ARBEITSZEITERFASSUNG: bevorzugte Arbeitszeiten je Wochentag ─────────────
+
+export const WOCHENTAGE: { key: string; label: string }[] = [
+  { key: "mo", label: "Mo" },
+  { key: "di", label: "Di" },
+  { key: "mi", label: "Mi" },
+  { key: "do", label: "Do" },
+  { key: "fr", label: "Fr" },
+  { key: "sa", label: "Sa" },
+  { key: "so", label: "So" },
+];
+
+// JS Date.getDay(): 0=So, 1=Mo, …, 6=Sa — auf unsere Mo-zuerst-Reihenfolge ummünzen.
+const WOCHENTAG_KEY_BY_GETDAY = ["so", "mo", "di", "mi", "do", "fr", "sa"];
+
+export function wochentagKeyFuerDatum(datum: Date | string): string {
+  return WOCHENTAG_KEY_BY_GETDAY[new Date(datum).getDay()];
+}
+
+/** Parst `Mitarbeiter.bevorzugteArbeitszeiten` (JSON {mo,di,mi,do,fr,sa,so}); null bei Fehler/leer. */
+export function parseBevorzugteArbeitszeiten(raw: string | null | undefined): Record<string, number> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Vorschlagswert für die Arbeitszeiterfassung an einem bestimmten Datum: bevorzugte
+ * Arbeitszeit für den jeweiligen Wochentag, sonst `wochenstunden/5` an Werktagen
+ * (Sa/So dann 0) als grobe Näherung, sonst der übliche Standardwert 8h an Werktagen.
+ */
+export function sollStundenFuerDatum(
+  datum: Date | string,
+  bevorzugteArbeitszeiten: string | null | undefined,
+  wochenstunden?: number | null,
+): number {
+  const key = wochentagKeyFuerDatum(datum);
+  const bevorzugt = parseBevorzugteArbeitszeiten(bevorzugteArbeitszeiten);
+  if (bevorzugt && typeof bevorzugt[key] === "number") return bevorzugt[key];
+  const istWerktag = key !== "sa" && key !== "so";
+  if (!istWerktag) return 0;
+  return wochenstunden != null ? rundeKaufmaennisch(wochenstunden / 5, 1) : 8;
+}
