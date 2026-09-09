@@ -47,7 +47,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       vorname, nachname, typ, eintrittsdatum, austrittsdatum, aktiv,
       email, telefon, iban, bic, kontoinhaber,
       grundgehalt, minijobPauschale, stundenlohn, wochenstunden,
-      urlaubstageProJahr, kostenstelle, notiz,
+      urlaubstageProJahr, kostenstelle, notiz, bevorzugteArbeitszeiten,
     } = body;
 
     if (typ !== undefined && !GUELTIGE_TYPEN.includes(typ)) {
@@ -75,6 +75,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         ...(urlaubstageProJahr !== undefined && { urlaubstageProJahr: parseInt(urlaubstageProJahr, 10) }),
         ...(kostenstelle !== undefined && { kostenstelle: kostenstelle || null }),
         ...(notiz !== undefined && { notiz: notiz || null }),
+        ...(bevorzugteArbeitszeiten !== undefined && {
+          bevorzugteArbeitszeiten: bevorzugteArbeitszeiten
+            ? (typeof bevorzugteArbeitszeiten === "string" ? bevorzugteArbeitszeiten : JSON.stringify(bevorzugteArbeitszeiten))
+            : null,
+        }),
       },
     });
 

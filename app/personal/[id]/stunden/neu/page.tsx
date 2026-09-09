@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { sollStundenFuerDatum } from "@/lib/utils";
 
 const ARTEN = [
   { value: "arbeit", label: "Arbeit" },
@@ -16,8 +17,11 @@ export default function StundenNeuPage({ params }: Params) {
   const router = useRouter();
   const [mitarbeiterId, setMitarbeiterId] = useState<string | null>(null);
   const [maName, setMaName] = useState("");
+  const [bevorzugteArbeitszeiten, setBevorzugteArbeitszeiten] = useState<string | null>(null);
+  const [wochenstunden, setWochenstunden] = useState<number | null>(null);
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
-  const [stunden, setStunden] = useState("8");
+  const [manuelleStunden, setManuelleStunden] = useState("8");
+  const [stundenAuto, setStundenAuto] = useState(true);
   const [art, setArt] = useState("arbeit");
   const [notiz, setNotiz] = useState("");
   const [saving, setSaving] = useState(false);
@@ -28,9 +32,21 @@ export default function StundenNeuPage({ params }: Params) {
       setMitarbeiterId(p.id);
       fetch(`/api/personal/mitarbeiter/${p.id}`)
         .then((r) => r.ok ? r.json() : null)
-        .then((d) => { if (d) setMaName(`${d.vorname} ${d.nachname}`); });
+        .then((d) => {
+          if (!d) return;
+          setMaName(`${d.vorname} ${d.nachname}`);
+          setBevorzugteArbeitszeiten(d.bevorzugteArbeitszeiten ?? null);
+          setWochenstunden(d.wochenstunden ?? null);
+        });
     });
   }, [params]);
+
+  // Vorbelegung aus den bevorzugten Arbeitszeiten (Stammdaten) — als abgeleiteter Wert
+  // während des Renderns berechnet (nicht per Effect synchronisiert), solange der Nutzer
+  // die Stunden noch nicht selbst überschrieben hat (analog vkAuto-Muster in lieferungen/neu).
+  const stunden = stundenAuto && (bevorzugteArbeitszeiten !== null || wochenstunden !== null)
+    ? String(sollStundenFuerDatum(datum, bevorzugteArbeitszeiten, wochenstunden))
+    : manuelleStunden;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,6 +101,9 @@ export default function StundenNeuPage({ params }: Params) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Stunden *</label>
+            {stundenAuto && bevorzugteArbeitszeiten && (
+              <p className="text-xs text-green-700 -mt-0.5 mb-1">Vorschlag aus bevorzugten Arbeitszeiten</p>
+            )}
             <input
               type="number"
               required
@@ -92,7 +111,7 @@ export default function StundenNeuPage({ params }: Params) {
               min="0.5"
               max="24"
               value={stunden}
-              onChange={(e) => setStunden(e.target.value)}
+              onChange={(e) => { setManuelleStunden(e.target.value); setStundenAuto(false); }}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>

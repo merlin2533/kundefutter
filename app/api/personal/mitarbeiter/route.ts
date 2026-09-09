@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
         wochenstunden: true,
         urlaubstageProJahr: true,
         kostenstelle: true,
+        bevorzugteArbeitszeiten: true,
       },
       orderBy: [{ aktiv: "desc" }, { nachname: "asc" }, { vorname: "asc" }],
       take: 500,
