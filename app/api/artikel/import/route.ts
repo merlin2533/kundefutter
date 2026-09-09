@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { ARTIKEL_ALIAS, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
 import { istChargenpflichtKategorie, resolveKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
@@ -48,6 +48,18 @@ export async function POST(req: NextRequest) {
 
   const chargenpflichtKats = await getChargenpflichtKategorien();
   const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
+
+  // Normalisierter Namens-Index statt eines pro Zeile neu ausgeführten
+  // case-sensitiven `equals`-Vergleichs — sonst matcht z.B. "Sulfomix® plus"
+  // (Import) nicht gegen den ohne ® gepflegten "Sulfomix plus" (DB), und
+  // Groß-/Kleinschreibungsabweichungen erzeugen stille Duplikate. Wird im
+  // Loop nach jedem Neuanlegen ergänzt, damit mehrere Zeilen derselben Datei
+  // mit demselben Namen sich ebenfalls gegenseitig als "aktualisieren" statt
+  // Duplikat erkennen.
+  const bestehendeArtikel = await prisma.artikel.findMany({ select: { id: true, name: true } });
+  const artikelIdByNormName = new Map<string, number>(
+    bestehendeArtikel.map((a) => [normalizeArtikelName(a.name), a.id])
+  );
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -109,11 +121,9 @@ export async function POST(req: NextRequest) {
           lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
         }
 
-        // Duplikat-Check: Artikel mit gleichem Namen bereits vorhanden?
-        const vorhandener = await tx.artikel.findFirst({
-          where: { name: { equals: name } },
-          select: { id: true },
-        });
+        // Duplikat-Check: Artikel mit gleichem (normalisiertem) Namen bereits vorhanden?
+        const vorhandenerId = artikelIdByNormName.get(normalizeArtikelName(name));
+        const vorhandener = vorhandenerId ? { id: vorhandenerId } : null;
 
         if (vorhandener) {
           // Artikel existiert: nur VK + EK/Lieferant aktualisieren, nichts überschreiben
@@ -155,7 +165,7 @@ export async function POST(req: NextRequest) {
           }
           aktualisiert++;
         } else {
-          await tx.artikel.create({
+          const erstellt = await tx.artikel.create({
             data: {
               artikelnummer: finalNummer,
               name,
@@ -184,7 +194,9 @@ export async function POST(req: NextRequest) {
                 },
               }),
             },
+            select: { id: true },
           });
+          artikelIdByNormName.set(normalizeArtikelName(name), erstellt.id);
           if (lieferantId) lieferantenGesetzt++;
           neu++;
         }

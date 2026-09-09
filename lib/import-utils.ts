@@ -14,6 +14,38 @@ export function pickCol(row: Record<string, unknown>, ...keys: string[]): string
   return "";
 }
 
+// Normalisiert einen Artikelnamen für den Duplikat-Abgleich beim Import:
+// ®/™/©-Symbole entfernen, verschiedene Bindestrich-/Minus-Varianten auf "-"
+// vereinheitlichen, Mehrfach-Leerzeichen zusammenfassen, groß-/kleinschreibungs-
+// tolerant. Ohne diese Normalisierung matcht z.B. "Sulfomix® plus" (Import)
+// nicht gegen "Sulfomix plus" (DB) — beide Import-Routen nutzen dieselbe
+// Funktion, damit Vorschau und tatsächlicher Import konsistent entscheiden.
+export function normalizeArtikelName(s: string): string {
+  return s
+    .normalize("NFKC")
+    .replace(/[®™©]/g, "")
+    .replace(/[‐-―−]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+// Reduziert einen Artikelnamen zusätzlich um Verpackungs-/Mengenangaben
+// (z.B. "- 25 kg Sack", "(600Kg)", "Big Bag") auf den reinen Produktnamen —
+// dient NUR der Erkennung möglicher Duplikate mit abweichender Benennung
+// (Anzeige als Hinweis in der Import-Vorschau), NICHT als automatischer
+// Match/Merge: unterschiedliche Sorten/Varianten (z.B. "SU Horizon" vs.
+// "SU Jonte") dürfen dadurch nicht fälschlich zusammengeführt werden.
+export function artikelBaseName(s: string): string {
+  return normalizeArtikelName(s)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b\d+([.,]\d+)?\s*(kg|t|to|tonnen?|l|liter|ltr|stk|stück|stueck)\b/g, " ")
+    .replace(/\b(big\s*bag|bigbag|sack|kanister|eimer|beutel|gebinde|flasche|palette|dose|karton|fass)\b/g, " ")
+    .replace(/[-/,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Deutsche Notation: "1.234,56" → 1234.56. Punkt nur als Tausender entfernen,
 // wenn auch ein Komma vorhanden ist — sonst gehen "2634.8" → 26348 verloren.
 export function parseNumber(s: string): number {

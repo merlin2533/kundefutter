@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { ARTIKEL_ALIAS, artikelBaseName, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
 import { resolveKategorie } from "@/lib/auswahllisten";
 import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
 import { Sentry } from "@/lib/sentry";
@@ -12,6 +12,7 @@ export interface VorschauZeile {
   name: string;
   aktion: "neu" | "aktualisieren" | "überspringen";
   details: string[];
+  moeglichesDuplikat?: string[];
 }
 
 export interface VorschauResult {
@@ -60,7 +61,22 @@ export async function POST(req: NextRequest) {
     prisma.lieferant.findMany({ select: { name: true }, take: 2000 }),
   ]);
 
-  const artikelNamenSet = new Set(alleArtikel.map((a) => a.name.toLowerCase()));
+  // Exakter Abgleich normalisiert (®/™/©, Bindestrich-Varianten, Mehrfach-
+  // Leerzeichen) — sonst matcht z.B. "Sulfomix® plus" nicht gegen den in der
+  // DB ohne ® gepflegten "Sulfomix plus". Zusätzlich ein Index über den reinen
+  // Produktnamen (ohne Gebinde-/Mengenangabe) für einen "könnte derselbe
+  // Artikel sein"-Hinweis, wenn der exakte Abgleich fehlschlägt.
+  const artikelByNormName = new Map<string, string>();
+  const artikelByBaseName = new Map<string, string[]>();
+  for (const a of alleArtikel) {
+    artikelByNormName.set(normalizeArtikelName(a.name), a.name);
+    const base = artikelBaseName(a.name);
+    if (base) {
+      const liste = artikelByBaseName.get(base) ?? [];
+      if (!liste.includes(a.name)) liste.push(a.name);
+      artikelByBaseName.set(base, liste);
+    }
+  }
   const lieferantenNamenSet = new Set(alleLieferanten.map((l) => l.name.toLowerCase()));
   const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
 
@@ -113,12 +129,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const istVorhanden = artikelNamenSet.has(name.toLowerCase());
+    const istVorhanden = artikelByNormName.has(normalizeArtikelName(name));
+    let moeglichesDuplikat: string[] | undefined;
+    if (!istVorhanden) {
+      const base = artikelBaseName(name);
+      const kandidaten = base ? artikelByBaseName.get(base) : undefined;
+      if (kandidaten?.length) {
+        moeglichesDuplikat = kandidaten;
+        details.push(
+          `⚠️ Möglicherweise bereits vorhanden unter anderem Namen: "${kandidaten.join('", "')}" — bitte vor dem Anlegen prüfen`
+        );
+      }
+    }
     plan.push({
       zeile,
       name,
       aktion: istVorhanden ? "aktualisieren" : "neu",
       details,
+      ...(moeglichesDuplikat && { moeglichesDuplikat }),
     });
   }
 
