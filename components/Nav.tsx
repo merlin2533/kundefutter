@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
+import { useCurrentUser } from "@/lib/user-context";
+import { hasPermission, P } from "@/lib/permissions";
 import * as Sentry from "@sentry/nextjs";
 
 interface NavChild {
@@ -167,6 +169,98 @@ const groups: NavGroup[] = [
     ],
   },
 ];
+
+// Nav-Eintrag (href, ohne Query-String) → benötigte Seiten-Berechtigung (s.*).
+// Nicht gelistete hrefs bleiben für jede Rolle sichtbar — es gibt für sie (noch) keine
+// eigene Permission, ungemappt niemals auf "verstecken" fallen lassen, sonst würde das
+// Ausrollen dieser Liste bestehenden Rollen unbemerkt Seiten entziehen, die sie vorher
+// (mangels jeglicher Prüfung) sehen konnten. Buckets ohne exakte 1:1-Permission (z.B.
+// Albrecht-Analyse/DüV unter Bodenproben) folgen der bereits bestehenden Gruppierung aus
+// MODULE_HREFS oben.
+const NAV_PERMISSION: Record<string, string> = {
+  "/": P.DASHBOARD,
+  // Kunden
+  "/kunden": P.KUNDEN,
+  "/kunden/verschmelzen": P.KUNDEN,
+  "/kunden/karte": P.KUNDEN_KARTE,
+  "/kundenimport": P.KUNDEN_IMPORT,
+  "/telefonmaske": P.KUNDEN,
+  "/preisauskunft": P.KUNDEN,
+  "/tagesansicht": P.KUNDEN,
+  "/mailverteiler": P.MAILVERTEILER,
+  "/kampagnen": P.KAMPAGNEN,
+  "/ki/crm": P.KI,
+  "/ki/sprache": P.KI,
+  // Vertrieb
+  "/besuchstermine": P.BESUCHSTERMINE,
+  "/aufgaben": P.AUFGABEN,
+  "/angebote": P.ANGEBOTE,
+  "/angebot-vorlagen": P.ANGEBOTE,
+  "/vorbestellungen": P.VORBESTELLUNGEN,
+  "/einstellungen/fruehbezug": P.EINSTELLUNGEN,
+  "/kontrakte": P.KONTRAKTE,
+  // Pflanze & Tier
+  "/bodenproben": P.BODENPROBEN,
+  "/bodenanalyse": P.BODENPROBEN,
+  "/duengebedarf": P.DUENGEBEDARF,
+  "/duev": P.BODENPROBEN,
+  "/duev/bilanz": P.BODENPROBEN,
+  "/sortenversuche": P.SORTENVERSUCHE,
+  "/anbauplanung": P.BODENPROBEN,
+  "/zwischenfruchtrechner": P.BODENPROBEN,
+  "/psm": P.PSM,
+  "/spritzfenster": P.PSM,
+  "/sachkundenachweise": P.PSM,
+  "/zertifizierungen": P.BODENPROBEN,
+  "/rationsberechnung": P.RATIONSBERECHNUNG,
+  // Artikel & Lager
+  "/artikel": P.ARTIKEL,
+  "/lieferanten": P.LIEFERANTEN,
+  "/kalkulation": P.FELD_KALKULATION,
+  "/kalkulation/naehrstoffe": P.FELD_KALKULATION,
+  "/lager": P.LAGER,
+  "/lager/umbuchungen": P.LAGER,
+  "/lager/chargen/zertifikate": P.LAGER,
+  "/lager/mhd": P.LAGER,
+  "/inventur": P.INVENTUR,
+  "/ki/wareneingang": P.KI,
+  // Lieferungen
+  "/lieferungen": P.LIEFERUNGEN,
+  "/sammelbestellung": P.LIEFERUNGEN,
+  "/streckengeschaeft": P.LIEFERUNGEN,
+  "/ki/lieferung": P.KI,
+  "/fahrer": P.FAHRER,
+  "/tourenplanung": P.TOURENPLANUNG,
+  "/bestellliste": P.BESTELLUNGEN,
+  "/bestellungen": P.BESTELLUNGEN,
+  "/einkaufszettel": P.BESTELLUNGEN,
+  // Finanzen
+  "/rechnungen": P.RECHNUNGEN,
+  "/sammelrechnungen": P.SAMMELRECHNUNGEN,
+  "/rechnungsuebersicht": P.RECHNUNGEN,
+  "/gutschriften": P.GUTSCHRIFTEN,
+  "/mahnwesen": P.MAHNWESEN,
+  "/offene-posten": P.RECHNUNGEN,
+  "/eingangsrechnungen": P.EINGANGSRECHNUNGEN,
+  "/ausgaben": P.AUSGABEN,
+  "/bankabgleich": P.BANKABGLEICH,
+  "/mengenrabatte": P.ARTIKEL,
+  "/exporte/datev-vorschau": P.EXPORT_DATEV,
+  // Analyse
+  "/kunden/bewertung": P.KUNDEN_BEWERTUNG,
+  "/gebietsanalyse": P.STATISTIK,
+  "/agrarantraege": P.AGRARANTRAEGE,
+  "/prognose": P.STATISTIK,
+  "/statistik": P.STATISTIK,
+  "/statistik/abc": P.STATISTIK,
+  "/statistik/saisonal": P.STATISTIK,
+  "/statistik/kategorie-verlauf": P.STATISTIK,
+  "/statistik/deckungsbeitrag": P.STATISTIK,
+  "/statistik/liquiditaet": P.STATISTIK,
+  "/finanzen/cashflow": P.STATISTIK,
+  "/marktpreise": P.MARKTPREISE,
+  "/ki/erkennung": P.KI,
+};
 
 // ---- PAGE TITLE MAP (for history) ----
 const PAGE_TITLE_MAP: Record<string, string> = {
@@ -776,6 +870,7 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
 
 export default function Nav() {
   const pathname = usePathname();
+  const user = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
   const [logo, setLogo] = useState<string | null>(null);
@@ -812,14 +907,22 @@ export default function Nav() {
 
   if (hideNav) return null;
 
-  const visibleGroups = modulDisabledHrefs.size === 0
-    ? groups
-    : groups
-        .map((g) => ({
-          ...g,
-          children: g.children?.filter((c) => !modulDisabledHrefs.has(c.href.split("?")[0])),
-        }))
-        .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
+  function isHrefAllowed(href: string): boolean {
+    const base = href.split("?")[0];
+    if (modulDisabledHrefs.has(base)) return false;
+    const perm = NAV_PERMISSION[base];
+    if (!perm) return true;
+    if (!user) return true;
+    return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
+  }
+
+  const visibleGroups = groups
+    .filter((g) => g.href === undefined || isHrefAllowed(g.href))
+    .map((g) => ({
+      ...g,
+      children: g.children?.filter((c) => isHrefAllowed(c.href)),
+    }))
+    .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
 
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
