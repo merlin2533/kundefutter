@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeText, PROMPTS, getAiConfig } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   let body;
   try {
     body = await req.json();

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeDocument, analyzeText, getAiConfig, logError, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +11,10 @@ const VALID_FEATURES = ["wareneingang", "lieferung", "crm", "bestellliste"] as c
 type Feature = (typeof VALID_FEATURES)[number];
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   try {
     const body = await req.json();
     const { image, text, feature } = body as { image?: string; text?: string; feature: string };

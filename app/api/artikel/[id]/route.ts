@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auditChanges, auditLog } from "@/lib/audit";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
-import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
+import { filterArtikelFelder, P, hasPermission, requirePermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { Sentry } from "@/lib/sentry";
@@ -43,6 +43,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.ARTIKEL_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await params;
   let body;
   try {
@@ -215,6 +219,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.ARTIKEL_LOESCHEN);
+  if (deny) return deny;
+
   const { id } = await params;
   const artikelId = Number(id);
   if (!artikelId || isNaN(artikelId)) {

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generiereLieferscheinPdf } from "@/lib/pdfGenerator";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_LIEFERSCHEIN);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const lieferungId = Number(searchParams.get("lieferungId"));
 

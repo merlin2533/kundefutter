@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { erstelleLieferungMitPreisberechnung } from "@/lib/lieferung";
 import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
@@ -128,6 +130,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.LIEFERUNGEN_ERSTELLEN);
+  if (deny) return deny;
+
   let body;
   try {
     body = await req.json();

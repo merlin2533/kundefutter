@@ -4,6 +4,7 @@ import { istLagerrelevant, rundeKaufmaennisch } from "@/lib/utils";
 import { berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { auditLog } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
@@ -123,6 +124,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   const { positionen, ...data } = body;
+
+  if (data.status === "storniert") {
+    const me = await getCurrentUser();
+    const deny = requirePermission(me, P.LIEFERUNGEN_STORNIEREN);
+    if (deny) return deny;
+  }
 
   // Capture old status for audit log before transaction
   const altLieferung = data.status !== undefined

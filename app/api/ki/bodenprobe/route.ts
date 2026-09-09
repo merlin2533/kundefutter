@@ -4,6 +4,8 @@ import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +13,10 @@ export const dynamic = "force-dynamic";
 // ─── Main POST handler ────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   const isDev = process.env.NODE_ENV === "development";
 
   try {

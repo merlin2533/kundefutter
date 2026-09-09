@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAiConfig, textToSpeech } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Nicht autorisiert" }, { status: 401 });
+  const deny = requirePermission(user, P.KI_NUTZEN);
+  if (deny) return deny;
 
   try {
     const body = await req.json();

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
-import { filterArtikelFelder, P, hasPermission } from "@/lib/permissions";
+import { filterArtikelFelder, P, hasPermission, requirePermission } from "@/lib/permissions";
 import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loeseArtikelPreiseFuerJahr } from "@/lib/jahrespreis";
@@ -131,6 +131,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.ARTIKEL_ERSTELLEN);
+  if (deny) return deny;
+
   let body;
   try {
     body = await req.json();

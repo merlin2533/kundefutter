@@ -5,12 +5,18 @@ import { getUploadBase } from "@/lib/upload";
 import { readFile } from "fs/promises";
 import path from "path";
 import { analyzeDocument, getAiConfig, logError, PROMPTS } from "@/lib/ai";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KI_NUTZEN);
+  if (deny) return deny;
+
   const { id: idStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   if (isNaN(batchId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
