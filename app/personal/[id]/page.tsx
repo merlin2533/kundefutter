@@ -26,6 +26,12 @@ const ART_COLOR: Record<string, string> = {
   krank: "bg-red-100 text-red-700",
   feiertag: "bg-gray-100 text-gray-600",
 };
+const TYPEN = [
+  { value: "festgehalt", label: "Festgehalt (monatl. Brutto)" },
+  { value: "minijob", label: "Minijob (Monatspauschale)" },
+  { value: "stundenbasis", label: "Stundenbasis (Stundenlohn)" },
+];
+const inputCls = "w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500";
 
 const MONATE = MONATE_KURZ;
 
@@ -98,6 +104,10 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   const [abrError, setAbrError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [istAdmin, setIstAdmin] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const numId = parseInt(mitarbeiterId, 10);
 
@@ -230,6 +240,83 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     router.push(`/personal/${numId}?tab=${tab}`, { scroll: false });
   }
 
+  function startEditing() {
+    if (!ma) return;
+    setEditForm({
+      vorname: ma.vorname,
+      nachname: ma.nachname,
+      typ: ma.typ,
+      eintrittsdatum: ma.eintrittsdatum.slice(0, 10),
+      austrittsdatum: ma.austrittsdatum ? ma.austrittsdatum.slice(0, 10) : "",
+      wochenstunden: ma.wochenstunden != null ? String(ma.wochenstunden) : "",
+      urlaubstageProJahr: String(ma.urlaubstageProJahr),
+      kostenstelle: ma.kostenstelle ?? "",
+      grundgehalt: ma.grundgehalt != null ? String(ma.grundgehalt) : "",
+      minijobPauschale: ma.minijobPauschale != null ? String(ma.minijobPauschale) : "",
+      stundenlohn: ma.stundenlohn != null ? String(ma.stundenlohn) : "",
+      email: ma.email ?? "",
+      telefon: ma.telefon ?? "",
+      iban: ma.iban ?? "",
+      bic: ma.bic ?? "",
+      kontoinhaber: ma.kontoinhaber ?? "",
+      notiz: ma.notiz ?? "",
+    });
+    setSaveError("");
+    setEditing(true);
+  }
+
+  function setEditField(field: string, value: string) {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function handleSave() {
+    if (!editForm.vorname?.trim() || !editForm.nachname?.trim()) {
+      setSaveError("Vorname und Nachname sind erforderlich.");
+      return;
+    }
+    setSaving(true);
+    setSaveError("");
+    const payload: Record<string, unknown> = {
+      vorname: editForm.vorname.trim(),
+      nachname: editForm.nachname.trim(),
+      typ: editForm.typ,
+      eintrittsdatum: editForm.eintrittsdatum,
+      austrittsdatum: editForm.austrittsdatum || null,
+      wochenstunden: editForm.wochenstunden ? parseFloat(editForm.wochenstunden) : null,
+      urlaubstageProJahr: parseInt(editForm.urlaubstageProJahr, 10) || 0,
+      kostenstelle: editForm.kostenstelle || null,
+      grundgehalt: editForm.grundgehalt ? parseFloat(editForm.grundgehalt) : null,
+      minijobPauschale: editForm.minijobPauschale ? parseFloat(editForm.minijobPauschale) : null,
+      stundenlohn: editForm.stundenlohn ? parseFloat(editForm.stundenlohn) : null,
+      email: editForm.email || null,
+      telefon: editForm.telefon || null,
+      iban: editForm.iban || null,
+      bic: editForm.bic || null,
+      kontoinhaber: editForm.kontoinhaber || null,
+      notiz: editForm.notiz || null,
+    };
+    try {
+      const res = await fetch(`/api/personal/mitarbeiter/${numId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return {};
+        });
+        setSaveError(d.error ?? "Fehler beim Speichern");
+        return;
+      }
+      const updated = await res.json();
+      setMa(updated);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <div className="p-8 text-center text-gray-500">Lade…</div>;
   if (!ma) return (
     <div className="p-8 text-center">
@@ -306,54 +393,192 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
 
       {/* Tab: Stammdaten */}
       {activeTab === "stammdaten" && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white border rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-gray-800">Beschäftigung</h3>
-            <Row label="Typ" value={TYP_LABEL[ma.typ] ?? ma.typ} />
-            <Row label="Eintritt" value={formatDatum(ma.eintrittsdatum)} />
-            {ma.austrittsdatum && <Row label="Austritt" value={formatDatum(ma.austrittsdatum)} />}
-            {ma.wochenstunden != null && <Row label="Wochenstunden" value={`${ma.wochenstunden} h`} />}
-            <Row label="Urlaubstage/Jahr" value={`${ma.urlaubstageProJahr} Tage`} />
-            {ma.kostenstelle && <Row label="Kostenstelle" value={ma.kostenstelle} />}
+        <div>
+          <div className="flex justify-end mb-4">
+            {!editing && (
+              <button onClick={startEditing} className="text-sm text-green-700 hover:text-green-900 font-medium">
+                Bearbeiten
+              </button>
+            )}
           </div>
 
-          <div className="bg-white border rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-gray-800">Vergütung</h3>
-            {ma.typ === "festgehalt" && <Row label="Grundgehalt" value={`${(ma.grundgehalt ?? 0).toFixed(2)} €/Mon.`} />}
-            {ma.typ === "minijob" && <Row label="Pauschale" value={`${(ma.minijobPauschale ?? 0).toFixed(2)} €/Mon.`} />}
-            {ma.typ === "stundenbasis" && (
-              <>
-                <Row label="Stundenlohn" value={`${(ma.stundenlohn ?? 0).toFixed(2)} €/h`} />
-                {ma.wochenstunden != null && (
-                  <Row label="Plankosten/Monat" value={`≈ ${((ma.stundenlohn ?? 0) * ma.wochenstunden * 4.33).toFixed(2)} €`} />
+          {saveError && (
+            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {saveError}
+            </div>
+          )}
+
+          {editing ? (
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Beschäftigung</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+                    <input value={editForm.vorname ?? ""} onChange={(e) => setEditField("vorname", e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+                    <input value={editForm.nachname ?? ""} onChange={(e) => setEditField("nachname", e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Beschäftigungstyp</label>
+                  <select value={editForm.typ ?? ""} onChange={(e) => setEditField("typ", e.target.value)} className={inputCls}>
+                    {TYPEN.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum</label>
+                    <input type="date" value={editForm.eintrittsdatum ?? ""} onChange={(e) => setEditField("eintrittsdatum", e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Austrittsdatum</label>
+                    <input type="date" value={editForm.austrittsdatum ?? ""} onChange={(e) => setEditField("austrittsdatum", e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Urlaubstage/Jahr</label>
+                    <input type="number" min="0" max="365" value={editForm.urlaubstageProJahr ?? ""} onChange={(e) => setEditField("urlaubstageProJahr", e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kostenstelle</label>
+                    <input value={editForm.kostenstelle ?? ""} onChange={(e) => setEditField("kostenstelle", e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Vergütung</h3>
+                {editForm.typ === "festgehalt" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Grundgehalt brutto (€/Monat)</label>
+                    <input type="number" step="0.01" min="0" value={editForm.grundgehalt ?? ""} onChange={(e) => setEditField("grundgehalt", e.target.value)} className={inputCls} />
+                  </div>
                 )}
-              </>
-            )}
-          </div>
+                {editForm.typ === "minijob" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Monatliche Pauschale (€)</label>
+                    <input type="number" step="0.01" min="0" max="556" value={editForm.minijobPauschale ?? ""} onChange={(e) => setEditField("minijobPauschale", e.target.value)} className={inputCls} />
+                  </div>
+                )}
+                {editForm.typ === "stundenbasis" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Stundenlohn brutto (€/h)</label>
+                      <input type="number" step="0.01" min="0" value={editForm.stundenlohn ?? ""} onChange={(e) => setEditField("stundenlohn", e.target.value)} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden (Soll)</label>
+                      <input type="number" step="0.5" min="0" max="60" value={editForm.wochenstunden ?? ""} onChange={(e) => setEditField("wochenstunden", e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                )}
+                {editForm.typ !== "stundenbasis" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Wochenstunden (optional)</label>
+                    <input type="number" step="0.5" min="0" max="60" value={editForm.wochenstunden ?? ""} onChange={(e) => setEditField("wochenstunden", e.target.value)} className={inputCls} />
+                  </div>
+                )}
+              </div>
 
-          <div className="bg-white border rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-gray-800">Kontakt</h3>
-            {ma.email && <Row label="E-Mail" value={ma.email} />}
-            {ma.telefon && <Row label="Telefon" value={ma.telefon} />}
-            {!ma.email && !ma.telefon && <p className="text-sm text-gray-400">Keine Kontaktdaten</p>}
-          </div>
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Kontakt</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+                  <input type="email" value={editForm.email ?? ""} onChange={(e) => setEditField("email", e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <input value={editForm.telefon ?? ""} onChange={(e) => setEditField("telefon", e.target.value)} className={inputCls} />
+                </div>
+              </div>
 
-          <div className="bg-white border rounded-lg p-5 space-y-3">
-            <h3 className="font-semibold text-gray-800">Bankverbindung</h3>
-            {ma.iban ? (
-              <>
-                <Row label="IBAN" value={ma.iban} mono />
-                {ma.bic && <Row label="BIC" value={ma.bic} mono />}
-                {ma.kontoinhaber && <Row label="Kontoinhaber" value={ma.kontoinhaber} />}
-              </>
-            ) : (
-              <p className="text-sm text-gray-400">Keine Bankverbindung hinterlegt</p>
-            )}
-          </div>
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Bankverbindung</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                  <input value={editForm.iban ?? ""} onChange={(e) => setEditField("iban", e.target.value.toUpperCase())} className={`${inputCls} font-mono`} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">BIC</label>
+                    <input value={editForm.bic ?? ""} onChange={(e) => setEditField("bic", e.target.value.toUpperCase())} className={`${inputCls} font-mono`} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kontoinhaber (falls abweichend)</label>
+                    <input value={editForm.kontoinhaber ?? ""} onChange={(e) => setEditField("kontoinhaber", e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+              </div>
 
-          {ma.notiz && (
-            <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-sm text-amber-900">{ma.notiz}</p>
+              <div className="md:col-span-2 bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800 mb-1">Notiz</h3>
+                <textarea rows={2} value={editForm.notiz ?? ""} onChange={(e) => setEditField("notiz", e.target.value)} className={`${inputCls} resize-none`} />
+              </div>
+
+              <div className="md:col-span-2 flex justify-end gap-3">
+                <button onClick={() => setEditing(false)} disabled={saving} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">
+                  Abbrechen
+                </button>
+                <button onClick={handleSave} disabled={saving} className="bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-50">
+                  {saving ? "Speichern…" : "Speichern"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800">Beschäftigung</h3>
+                <Row label="Typ" value={TYP_LABEL[ma.typ] ?? ma.typ} />
+                <Row label="Eintritt" value={formatDatum(ma.eintrittsdatum)} />
+                {ma.austrittsdatum && <Row label="Austritt" value={formatDatum(ma.austrittsdatum)} />}
+                {ma.wochenstunden != null && <Row label="Wochenstunden" value={`${ma.wochenstunden} h`} />}
+                <Row label="Urlaubstage/Jahr" value={`${ma.urlaubstageProJahr} Tage`} />
+                {ma.kostenstelle && <Row label="Kostenstelle" value={ma.kostenstelle} />}
+              </div>
+
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800">Vergütung</h3>
+                {ma.typ === "festgehalt" && <Row label="Grundgehalt" value={`${(ma.grundgehalt ?? 0).toFixed(2)} €/Mon.`} />}
+                {ma.typ === "minijob" && <Row label="Pauschale" value={`${(ma.minijobPauschale ?? 0).toFixed(2)} €/Mon.`} />}
+                {ma.typ === "stundenbasis" && (
+                  <>
+                    <Row label="Stundenlohn" value={`${(ma.stundenlohn ?? 0).toFixed(2)} €/h`} />
+                    {ma.wochenstunden != null && (
+                      <Row label="Plankosten/Monat" value={`≈ ${((ma.stundenlohn ?? 0) * ma.wochenstunden * 4.33).toFixed(2)} €`} />
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800">Kontakt</h3>
+                {ma.email && <Row label="E-Mail" value={ma.email} />}
+                {ma.telefon && <Row label="Telefon" value={ma.telefon} />}
+                {!ma.email && !ma.telefon && <p className="text-sm text-gray-400">Keine Kontaktdaten</p>}
+              </div>
+
+              <div className="bg-white border rounded-lg p-5 space-y-3">
+                <h3 className="font-semibold text-gray-800">Bankverbindung</h3>
+                {ma.iban ? (
+                  <>
+                    <Row label="IBAN" value={ma.iban} mono />
+                    {ma.bic && <Row label="BIC" value={ma.bic} mono />}
+                    {ma.kontoinhaber && <Row label="Kontoinhaber" value={ma.kontoinhaber} />}
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-400">Keine Bankverbindung hinterlegt</p>
+                )}
+              </div>
+
+              {ma.notiz && (
+                <div className="md:col-span-2 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-900">{ma.notiz}</p>
+                </div>
+              )}
             </div>
           )}
         </div>
