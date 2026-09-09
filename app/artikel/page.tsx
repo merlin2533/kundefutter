@@ -75,7 +75,7 @@ export default function ArtikelPage() {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [vorschauLoading, setVorschauLoading] = useState(false);
   const [vorschau, setVorschau] = useState<{
-    plan: { zeile: number; name: string; aktion: "neu" | "aktualisieren" | "überspringen"; details: string[]; moeglichesDuplikat?: string[] }[];
+    plan: { zeile: number; name: string; aktion: "neu" | "aktualisieren" | "überspringen"; details: string[]; moeglichesDuplikat?: string[]; moeglicherLieferant?: string }[];
     summary: { neu: number; aktualisieren: number; ueberspringen: number; neueLieferanten: number };
   } | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -440,8 +440,10 @@ export default function ArtikelPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {vorschau.plan.map((z) => (
-                      <tr key={z.zeile} className={`border-t border-gray-100 ${z.moeglichesDuplikat?.length ? "bg-amber-50" : ""}`}>
+                    {vorschau.plan.map((z) => {
+                      const hatWarnung = !!z.moeglichesDuplikat?.length || !!z.moeglicherLieferant;
+                      return (
+                      <tr key={z.zeile} className={`border-t border-gray-100 ${hatWarnung ? "bg-amber-50" : ""}`}>
                         <td className="px-3 py-1.5 text-gray-400 font-mono">{z.zeile}</td>
                         <td className="px-3 py-1.5 font-medium text-gray-800 max-w-[180px] truncate" title={z.name}>{z.name}</td>
                         <td className="px-3 py-1.5">
@@ -460,9 +462,10 @@ export default function ArtikelPage() {
                             <span className="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">— skip</span>
                           )}
                         </td>
-                        <td className={`px-3 py-1.5 text-xs ${z.moeglichesDuplikat?.length ? "text-amber-800 font-medium" : "text-gray-500"}`}>{z.details.join(" · ")}</td>
+                        <td className={`px-3 py-1.5 text-xs ${hatWarnung ? "text-amber-800 font-medium" : "text-gray-500"}`}>{z.details.join(" · ")}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -471,8 +474,8 @@ export default function ArtikelPage() {
 
           <div className="mt-2 text-xs text-blue-600">
             Vorhandene Artikel (gleicher Name) werden aktualisiert, nicht doppelt angelegt.
-            {vorschau?.plan.some((z) => z.moeglichesDuplikat?.length) && (
-              <> Gelb markierte Zeilen wurden trotzdem als „neu" eingestuft, es existiert aber ein Artikel mit sehr ähnlichem Namen — bitte vor dem Import prüfen, ob es sich um denselben Artikel handelt (sonst ggf. anschließend über „Artikel verschmelzen" zusammenführen).</>
+            {vorschau?.plan.some((z) => z.moeglichesDuplikat?.length || z.moeglicherLieferant) && (
+              <> Gelb markierte Zeilen wurden trotzdem als „neu" eingestuft — es existiert aber ein Artikel bzw. Lieferant mit sehr ähnlichem Namen. Bitte vor dem Import prüfen, ob es sich um denselben handelt (bei Artikeln sonst ggf. anschließend über „Artikel verschmelzen" zusammenführen; bei Lieferanten den Namen in der Import-Datei vor dem Import an die vorhandene Schreibweise anpassen).</>
             )}
           </div>
         </div>

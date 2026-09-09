@@ -46,6 +46,29 @@ export function artikelBaseName(s: string): string {
     .trim();
 }
 
+// Reduziert einen Firmennamen um gängige deutsche Rechtsformzusätze —
+// dient wie artikelBaseName NUR der Erkennung möglicher Duplikate
+// (Import-Vorschau-Hinweis), z.B. "BvG" (Import) vs. "BvG Agrar GmbH" (DB).
+export function firmenBaseName(s: string): string {
+  return normalizeArtikelName(s)
+    .replace(/\./g, "") // Abkürzungspunkte entfernen (z.B. "B.v.G." → "bvg"), nicht durch Leerzeichen ersetzen
+    .replace(/,/g, " ")
+    .replace(/\b(gmbh\s*(&|und)\s*co\s*kg|gmbh|mbh|co\s*kg|kg|ohg|gbr|ag|eg|e\s*k)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Zwei bereits normalisierte/reduzierte Namen gelten als "ähnlich", wenn
+// einer im anderen als zusammenhängender Text vorkommt (in beide Richtungen,
+// da Import-Namen oft kürzer sind als die ausführlicheren DB-Namen — z.B.
+// enthält "BvG-Bor 17,4 G – 17,4 % Bor, wasserlösliches Bor, Borsäure" den
+// kürzeren Import-Namen "BvG-Bor 17,4 G" als Präfix). `minLaenge` verhindert
+// Zufallstreffer durch sehr kurze/generische Reste.
+export function istAehnlicherName(basisA: string, basisB: string, minLaenge = 4): boolean {
+  if (basisA.length < minLaenge || basisB.length < minLaenge) return false;
+  return basisA.includes(basisB) || basisB.includes(basisA);
+}
+
 // Deutsche Notation: "1.234,56" → 1234.56. Punkt nur als Tausender entfernen,
 // wenn auch ein Komma vorhanden ist — sonst gehen "2634.8" → 26348 verloren.
 export function parseNumber(s: string): number {

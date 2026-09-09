@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { ARTIKEL_ALIAS, artikelBaseName, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
+import { ARTIKEL_ALIAS, artikelBaseName, firmenBaseName, istAehnlicherName, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
 import { resolveKategorie } from "@/lib/auswahllisten";
 import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
 import { Sentry } from "@/lib/sentry";
@@ -13,6 +13,7 @@ export interface VorschauZeile {
   aktion: "neu" | "aktualisieren" | "überspringen";
   details: string[];
   moeglichesDuplikat?: string[];
+  moeglicherLieferant?: string;
 }
 
 export interface VorschauResult {
@@ -65,19 +66,39 @@ export async function POST(req: NextRequest) {
   // Leerzeichen) — sonst matcht z.B. "Sulfomix® plus" nicht gegen den in der
   // DB ohne ® gepflegten "Sulfomix plus". Zusätzlich ein Index über den reinen
   // Produktnamen (ohne Gebinde-/Mengenangabe) für einen "könnte derselbe
-  // Artikel sein"-Hinweis, wenn der exakte Abgleich fehlschlägt.
+  // Artikel sein"-Hinweis per Enthalten-Prüfung (nicht nur exakte
+  // Gleichheit) — DB-Namen sind hier oft deutlich ausführlicher als der
+  // Import-Name (z.B. "BvG-Bor 17,4 G – 17,4 % Bor, wasserlösliches Bor,
+  // Borsäure (25 kg Sack)" vs. nur "BvG-Bor 17,4 G" in der Preisliste).
   const artikelByNormName = new Map<string, string>();
-  const artikelByBaseName = new Map<string, string[]>();
+  const artikelBasen: { name: string; base: string }[] = [];
   for (const a of alleArtikel) {
     artikelByNormName.set(normalizeArtikelName(a.name), a.name);
     const base = artikelBaseName(a.name);
-    if (base) {
-      const liste = artikelByBaseName.get(base) ?? [];
-      if (!liste.includes(a.name)) liste.push(a.name);
-      artikelByBaseName.set(base, liste);
-    }
+    if (base) artikelBasen.push({ name: a.name, base });
   }
+  const findeAehnlicheArtikel = (importBase: string): string[] => {
+    if (!importBase) return [];
+    const treffer: string[] = [];
+    for (const { name: n, base } of artikelBasen) {
+      if (istAehnlicherName(importBase, base, 6) && !treffer.includes(n)) {
+        treffer.push(n);
+        if (treffer.length >= 3) break;
+      }
+    }
+    return treffer;
+  };
+
   const lieferantenNamenSet = new Set(alleLieferanten.map((l) => l.name.toLowerCase()));
+  const lieferantenBasen = alleLieferanten.map((l) => ({ name: l.name, base: firmenBaseName(l.name) }));
+  const findeAehnlichenLieferanten = (importBase: string): string | undefined => {
+    if (!importBase) return undefined;
+    for (const { name: n, base } of lieferantenBasen) {
+      if (istAehnlicherName(importBase, base, 3)) return n;
+    }
+    return undefined;
+  };
+
   const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
 
   const plan: VorschauZeile[] = [];
@@ -117,6 +138,7 @@ export async function POST(req: NextRequest) {
     if (einkaufspreis > 0) details.push(`EK: ${einkaufspreis.toFixed(2)} €`);
     if (mindestbestellmenge > 0) details.push(`Mindestbestellmenge: ${mindestbestellmenge}`);
 
+    let moeglicherLieferant: string | undefined;
     if (lieferantName) {
       const lKey = lieferantName.toLowerCase();
       if (lieferantenNamenSet.has(lKey)) {
@@ -124,7 +146,15 @@ export async function POST(req: NextRequest) {
       } else if (neueLieferantenNamen.has(lKey)) {
         details.push(`Lieferant "${lieferantName}" — wird neu angelegt (mehrfach in Datei)`);
       } else {
-        details.push(`Lieferant "${lieferantName}" — wird neu angelegt`);
+        const kandidat = findeAehnlichenLieferanten(firmenBaseName(lieferantName));
+        if (kandidat) {
+          moeglicherLieferant = kandidat;
+          details.push(
+            `⚠️ Lieferant "${lieferantName}" nicht exakt gefunden — evtl. bereits vorhanden als "${kandidat}"? Bitte vor dem Import prüfen (sonst wird ein zweiter Lieferant angelegt).`
+          );
+        } else {
+          details.push(`Lieferant "${lieferantName}" — wird neu angelegt`);
+        }
         neueLieferantenNamen.add(lKey);
       }
     }
@@ -132,9 +162,8 @@ export async function POST(req: NextRequest) {
     const istVorhanden = artikelByNormName.has(normalizeArtikelName(name));
     let moeglichesDuplikat: string[] | undefined;
     if (!istVorhanden) {
-      const base = artikelBaseName(name);
-      const kandidaten = base ? artikelByBaseName.get(base) : undefined;
-      if (kandidaten?.length) {
+      const kandidaten = findeAehnlicheArtikel(artikelBaseName(name));
+      if (kandidaten.length) {
         moeglichesDuplikat = kandidaten;
         details.push(
           `⚠️ Möglicherweise bereits vorhanden unter anderem Namen: "${kandidaten.join('", "')}" — bitte vor dem Anlegen prüfen`
@@ -147,6 +176,7 @@ export async function POST(req: NextRequest) {
       aktion: istVorhanden ? "aktualisieren" : "neu",
       details,
       ...(moeglichesDuplikat && { moeglichesDuplikat }),
+      ...(moeglicherLieferant && { moeglicherLieferant }),
     });
   }
 
