@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { ARTIKEL_ALIAS, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
@@ -204,7 +205,22 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       Sentry.captureException(err);
       const isDev = process.env.NODE_ENV === "development";
-      const msg = isDev && err instanceof Error ? err.message : "Verarbeitungsfehler";
+      // Häufigster Fall bei Preislisten mit Mengenstaffel-Zeilen: mehrere
+      // Zeilen desselben Produkts (z.B. "… ab 500 kg" / "… ab 750 kg") teilen
+      // sich dieselbe Artikelnummer, der Name unterscheidet sich aber durch
+      // den Staffel-Zusatz — der Duplikat-Check (nur nach Name) erkennt das
+      // nicht als Update, `artikel.create()` scheitert dann an der
+      // @unique-Regel auf Artikelnummer (einziges @unique-Feld auf Artikel,
+      // ein P2002 an dieser Stelle kann daher nur davon kommen). Eigene,
+      // verständliche Meldung statt des generischen "Verarbeitungsfehler",
+      // ohne die interne Fehlermeldung preiszugeben.
+      const istArtikelnummerKonflikt =
+        err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+      const msg = istArtikelnummerKonflikt
+        ? `Artikelnummer${artikelnummer ? ` "${artikelnummer}"` : ""} bereits vergeben — evtl. Mengenstaffel-/Preisvariante desselben Artikels? Solche Zeilen mit geteilter Artikelnummer werden aktuell nicht unterstützt.`
+        : isDev && err instanceof Error
+          ? err.message
+          : "Verarbeitungsfehler";
       errors.push(`Zeile ${rowNum} (${name}): ${msg}`);
       skipped++;
     }
