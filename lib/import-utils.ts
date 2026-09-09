@@ -69,6 +69,28 @@ export function istAehnlicherName(basisA: string, basisB: string, minLaenge = 4)
   return basisA.includes(basisB) || basisB.includes(basisA);
 }
 
+// Firmennamen unterscheiden sich manchmal NICHT nur durch Rechtsform/
+// Abkürzung, sondern durch einen abweichenden Unternehmensbereich-Zusatz —
+// z.B. "BvG Agrar GmbH" (DB) vs. "BvG Bodenverbesserungs-GmbH" (Import),
+// beides derselbe Lieferant. Da hier keiner der vollen Basisnamen im
+// anderen enthalten ist, greift istAehnlicherName() nicht — als Fallback
+// vergleichen wir nur das erste, markentypische Wort. Generische deutsche
+// Branchenwörter werden ausgeschlossen, weil sie von vielen unabhängigen
+// Firmen als erstes Wort genutzt werden (z.B. "Raiffeisen Nord" vs.
+// "Raiffeisen Süd" sind KEIN gemeinsamer Treffer).
+const GENERISCHE_FIRMEN_ERSTWORT = new Set([
+  "raiffeisen", "landhandel", "landwirtschaftliche", "landwirtschafts",
+  "handel", "handels", "grosshandel", "großhandel", "agrar", "agro",
+  "genossenschaft", "vertrieb", "bau", "bayer", "syngenta", "basf",
+]);
+
+export function hatGemeinsamesErstwort(basisA: string, basisB: string, minLaenge = 3): boolean {
+  const ersteA = basisA.split(/[\s-]+/).filter(Boolean)[0] ?? "";
+  const ersteB = basisB.split(/[\s-]+/).filter(Boolean)[0] ?? "";
+  if (ersteA.length < minLaenge || ersteA !== ersteB) return false;
+  return !GENERISCHE_FIRMEN_ERSTWORT.has(ersteA);
+}
+
 // Deutsche Notation: "1.234,56" → 1234.56. Punkt nur als Tausender entfernen,
 // wenn auch ein Komma vorhanden ist — sonst gehen "2634.8" → 26348 verloren.
 export function parseNumber(s: string): number {
