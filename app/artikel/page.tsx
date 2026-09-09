@@ -475,7 +475,7 @@ export default function ArtikelPage() {
           <div className="mt-2 text-xs text-blue-600">
             Vorhandene Artikel (gleicher Name) werden aktualisiert, nicht doppelt angelegt.
             {vorschau?.plan.some((z) => z.moeglichesDuplikat?.length || z.moeglicherLieferant) && (
-              <> Gelb markierte Zeilen wurden trotzdem als „neu" eingestuft — es existiert aber ein Artikel bzw. Lieferant mit sehr ähnlichem Namen. Bitte vor dem Import prüfen, ob es sich um denselben handelt (bei Artikeln sonst ggf. anschließend über „Artikel verschmelzen" zusammenführen; bei Lieferanten den Namen in der Import-Datei vor dem Import an die vorhandene Schreibweise anpassen).</>
+              <> Gelb markierte Zeilen wurden trotzdem als „neu“ eingestuft — es existiert aber ein Artikel bzw. Lieferant mit sehr ähnlichem Namen. Bitte vor dem Import prüfen, ob es sich um denselben handelt (bei Artikeln sonst ggf. anschließend über „Artikel verschmelzen“ zusammenführen; bei Lieferanten den Namen in der Import-Datei vor dem Import an die vorhandene Schreibweise anpassen).</>
             )}
           </div>
         </div>

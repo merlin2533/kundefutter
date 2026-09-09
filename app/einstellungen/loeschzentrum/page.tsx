@@ -357,7 +357,7 @@ export default function LoeschzentrumPage() {
                                   </span>
                                   {!g.keepAktiv && (
                                     <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                                      ⚠ dieser Datensatz ist inaktiv — nach dem Bereinigen ggf. unter „Inaktive Artikel" wieder aktivieren
+                                      ⚠ dieser Datensatz ist inaktiv — nach dem Bereinigen ggf. unter „Inaktive Artikel“ wieder aktivieren
                                     </span>
                                   )}
                                 </div>
