@@ -144,7 +144,7 @@ function NeuesAngebotForm() {
       .catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/artikel?aktiv=true&limit=2000&relations=false")
+    fetch("/api/artikel?aktiv=true&limit=5000&relations=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch((err) => {

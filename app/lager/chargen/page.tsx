@@ -113,7 +113,7 @@ export default function RueckverfolgungPage() {
   useEffect(() => {
     if (modus === "artikel" && artikelOptions.length === 0) {
       setLoadingArtikel(true);
-      fetch("/api/artikel?limit=2000")
+      fetch("/api/artikel?limit=5000")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setArtikelOptions(Array.isArray(d) ? d : []))
         .finally(() => setLoadingArtikel(false));

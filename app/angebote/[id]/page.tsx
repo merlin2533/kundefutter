@@ -92,7 +92,7 @@ export default function AngebotDetailPage() {
     // aktiv=alle: eine bestehende Position kann auf einen inzwischen deaktivierten Artikel
     // zeigen — ohne inaktive Artikel mitzuladen fände die SearchableSelect dafür keine
     // passende Option und würde die gespeicherte Auswahl lautlos leer anzeigen.
-    fetch("/api/artikel?limit=2000&relations=false&aktiv=alle")
+    fetch("/api/artikel?limit=5000&relations=false&aktiv=alle")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch((err) => {

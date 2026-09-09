@@ -51,7 +51,7 @@ export default function EiersortierungNeuPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/artikel?limit=2000&relations=false")
+    fetch("/api/artikel?limit=5000&relations=false")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setArtikelList(Array.isArray(d) ? d : []))
       .catch((err) => Sentry.captureException(err));
