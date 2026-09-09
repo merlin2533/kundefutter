@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auditLog } from "@/lib/audit";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,15 @@ export async function POST(req: NextRequest) {
         const referenziert = lief + wae + bew + bed + inv + ang + rab + kp > 0;
         if (referenziert) {
           await prisma.artikel.update({ where: { id: dupId }, data: { aktiv: false } });
+          void auditLog({
+            entitaet: "Artikel",
+            entitaetId: dupId,
+            aktion: "geaendert",
+            feld: "aktiv",
+            alterWert: "true",
+            neuerWert: "false",
+            beschreibung: `"${g.name}" über Duplikat-Bereinigung deaktiviert (behalten: Artikel #${g.keepId}, referenziert in Lieferungen/Belegen)`,
+          });
           deactivated++;
         } else {
           // Abhängige Datensätze löschen
@@ -100,6 +110,12 @@ export async function POST(req: NextRequest) {
             prisma.artikelDokument.deleteMany({ where: { artikelId: dupId } }),
             prisma.artikel.delete({ where: { id: dupId } }),
           ]);
+          void auditLog({
+            entitaet: "Artikel",
+            entitaetId: dupId,
+            aktion: "geloescht",
+            beschreibung: `"${g.name}" über Duplikat-Bereinigung endgültig gelöscht (behalten: Artikel #${g.keepId}, keine Referenzen vorhanden)`,
+          });
           deleted++;
         }
       }
