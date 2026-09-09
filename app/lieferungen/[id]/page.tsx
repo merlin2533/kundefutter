@@ -643,7 +643,7 @@ export default function LieferungDetailPage() {
   useEffect(() => { load(); loadTeilzahlungen(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    fetch("/api/artikel?limit=2000&relations=false")
+    fetch("/api/artikel?limit=5000&relations=false")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setArtikelListe(d); })
       .catch((err) => {

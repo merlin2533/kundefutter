@@ -50,8 +50,14 @@ export async function GET(req: NextRequest) {
     ]);
   }
 
-  // Paginierung + optionale Relations (spart Joins bei Listenansichten)
-  const limit = Math.min(2000, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  // Paginierung + optionale Relations (spart Joins bei Listenansichten).
+  // Obergrenze 5000 (analog GET /api/kunden) — mehrere Artikel-Picker-Seiten
+  // (Gutschriften, Inventur, Vorbestellungen, Artikel-Verschmelzen) fragen
+  // bereits ?limit=5000 an, wurden serverseitig aber bisher unbemerkt auf
+  // 2000 gekappt; bei über 2000 aktiven Artikeln fielen dadurch alphabetisch
+  // spät einsortierte Artikel (z.B. "Sonnenblumen") aus dem client-seitig
+  // gefilterten Picker heraus.
+  const limit = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const withRelations = searchParams.get("relations") !== "false";
 

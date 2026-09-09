@@ -14,6 +14,83 @@ export function pickCol(row: Record<string, unknown>, ...keys: string[]): string
   return "";
 }
 
+// Normalisiert einen Artikelnamen für den Duplikat-Abgleich beim Import:
+// ®/™/©-Symbole entfernen, verschiedene Bindestrich-/Minus-Varianten auf "-"
+// vereinheitlichen, Mehrfach-Leerzeichen zusammenfassen, groß-/kleinschreibungs-
+// tolerant. Ohne diese Normalisierung matcht z.B. "Sulfomix® plus" (Import)
+// nicht gegen "Sulfomix plus" (DB) — beide Import-Routen nutzen dieselbe
+// Funktion, damit Vorschau und tatsächlicher Import konsistent entscheiden.
+export function normalizeArtikelName(s: string): string {
+  return s
+    .normalize("NFKC")
+    .replace(/[®™©]/g, "")
+    .replace(/[‐-―−]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+// Reduziert einen Artikelnamen zusätzlich um Verpackungs-/Mengenangaben
+// (z.B. "- 25 kg Sack", "(600Kg)", "Big Bag") auf den reinen Produktnamen —
+// dient NUR der Erkennung möglicher Duplikate mit abweichender Benennung
+// (Anzeige als Hinweis in der Import-Vorschau), NICHT als automatischer
+// Match/Merge: unterschiedliche Sorten/Varianten (z.B. "SU Horizon" vs.
+// "SU Jonte") dürfen dadurch nicht fälschlich zusammengeführt werden.
+export function artikelBaseName(s: string): string {
+  return normalizeArtikelName(s)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b\d+([.,]\d+)?\s*(kg|t|to|tonnen?|l|liter|ltr|stk|stück|stueck)\b/g, " ")
+    .replace(/\b(big\s*bag|bigbag|sack|kanister|eimer|beutel|gebinde|flasche|palette|dose|karton|fass)\b/g, " ")
+    .replace(/[-/,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Reduziert einen Firmennamen um gängige deutsche Rechtsformzusätze —
+// dient wie artikelBaseName NUR der Erkennung möglicher Duplikate
+// (Import-Vorschau-Hinweis), z.B. "BvG" (Import) vs. "BvG Agrar GmbH" (DB).
+export function firmenBaseName(s: string): string {
+  return normalizeArtikelName(s)
+    .replace(/\./g, "") // Abkürzungspunkte entfernen (z.B. "B.v.G." → "bvg"), nicht durch Leerzeichen ersetzen
+    .replace(/,/g, " ")
+    .replace(/\b(gmbh\s*(&|und)\s*co\s*kg|gmbh|mbh|co\s*kg|kg|ohg|gbr|ag|eg|e\s*k)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Zwei bereits normalisierte/reduzierte Namen gelten als "ähnlich", wenn
+// einer im anderen als zusammenhängender Text vorkommt (in beide Richtungen,
+// da Import-Namen oft kürzer sind als die ausführlicheren DB-Namen — z.B.
+// enthält "BvG-Bor 17,4 G – 17,4 % Bor, wasserlösliches Bor, Borsäure" den
+// kürzeren Import-Namen "BvG-Bor 17,4 G" als Präfix). `minLaenge` verhindert
+// Zufallstreffer durch sehr kurze/generische Reste.
+export function istAehnlicherName(basisA: string, basisB: string, minLaenge = 4): boolean {
+  if (basisA.length < minLaenge || basisB.length < minLaenge) return false;
+  return basisA.includes(basisB) || basisB.includes(basisA);
+}
+
+// Firmennamen unterscheiden sich manchmal NICHT nur durch Rechtsform/
+// Abkürzung, sondern durch einen abweichenden Unternehmensbereich-Zusatz —
+// z.B. "BvG Agrar GmbH" (DB) vs. "BvG Bodenverbesserungs-GmbH" (Import),
+// beides derselbe Lieferant. Da hier keiner der vollen Basisnamen im
+// anderen enthalten ist, greift istAehnlicherName() nicht — als Fallback
+// vergleichen wir nur das erste, markentypische Wort. Generische deutsche
+// Branchenwörter werden ausgeschlossen, weil sie von vielen unabhängigen
+// Firmen als erstes Wort genutzt werden (z.B. "Raiffeisen Nord" vs.
+// "Raiffeisen Süd" sind KEIN gemeinsamer Treffer).
+const GENERISCHE_FIRMEN_ERSTWORT = new Set([
+  "raiffeisen", "landhandel", "landwirtschaftliche", "landwirtschafts",
+  "handel", "handels", "grosshandel", "großhandel", "agrar", "agro",
+  "genossenschaft", "vertrieb", "bau", "bayer", "syngenta", "basf",
+]);
+
+export function hatGemeinsamesErstwort(basisA: string, basisB: string, minLaenge = 3): boolean {
+  const ersteA = basisA.split(/[\s-]+/).filter(Boolean)[0] ?? "";
+  const ersteB = basisB.split(/[\s-]+/).filter(Boolean)[0] ?? "";
+  if (ersteA.length < minLaenge || ersteA !== ersteB) return false;
+  return !GENERISCHE_FIRMEN_ERSTWORT.has(ersteA);
+}
+
 // Deutsche Notation: "1.234,56" → 1234.56. Punkt nur als Tausender entfernen,
 // wenn auch ein Komma vorhanden ist — sonst gehen "2634.8" → 26348 verloren.
 export function parseNumber(s: string): number {

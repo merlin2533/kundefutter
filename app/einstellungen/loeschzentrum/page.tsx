@@ -8,6 +8,7 @@ interface DedupGroup {
   name: string;
   count: number;
   keepId: number;
+  keepAktiv: boolean;
   deleteIds: number[];
 }
 
@@ -354,6 +355,11 @@ export default function LoeschzentrumPage() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
                                     ID {g.keepId}
                                   </span>
+                                  {!g.keepAktiv && (
+                                    <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                                      ⚠ dieser Datensatz ist inaktiv — nach dem Bereinigen ggf. unter „Inaktive Artikel“ wieder aktivieren
+                                    </span>
+                                  )}
                                 </div>
                                 {/* Entfernen */}
                                 <div className="flex items-start gap-2">

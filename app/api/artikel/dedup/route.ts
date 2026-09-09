@@ -5,15 +5,18 @@ export const dynamic = "force-dynamic";
 
 /** Findet Artikel-Gruppen mit identischem Namen (case-insensitiv). */
 async function findDuplicateGroups() {
-  // Alle aktiven Artikel nach Name sortiert laden (id + name genügt)
+  // Alle Artikel (aktiv UND inaktiv!) nach Name sortiert laden — bewusst
+  // ohne aktiv-Filter, da sonst ein bereits inaktiver Duplikat-Eintrag
+  // unsichtbar für die Gruppierung wäre und fälschlich NICHT als Duplikat
+  // erkannt würde.
   const alle = await prisma.artikel.findMany({
-    select: { id: true, name: true },
+    select: { id: true, name: true, aktiv: true },
     orderBy: { name: "asc" },
     take: 5000,
   });
 
   // Gruppieren nach normiertem Namen
-  const groups = new Map<string, { id: number; name: string }[]>();
+  const groups = new Map<string, { id: number; name: string; aktiv: boolean }[]>();
   for (const a of alle) {
     const key = a.name.trim().toLowerCase();
     const g = groups.get(key) ?? [];
@@ -24,11 +27,21 @@ async function findDuplicateGroups() {
   return [...groups.values()]
     .filter((g) => g.length > 1)
     .map((g) => {
-      const sorted = g.slice().sort((a, b) => a.id - b.id);
+      // Aktive Einträge zuerst behalten — sonst kann ein längst inaktiver
+      // Alt-Datensatz (kleinste ID) als "Überlebender" gewählt werden,
+      // während die tatsächlich genutzten aktiven Duplikate gelöscht/
+      // deaktiviert werden und der Artikel dadurch komplett aus der
+      // (standardmäßig auf "aktiv" gefilterten) Artikelliste verschwindet.
+      // Innerhalb derselben aktiv/inaktiv-Gruppe weiterhin älteste ID zuerst.
+      const sorted = g.slice().sort((a, b) => {
+        if (a.aktiv !== b.aktiv) return a.aktiv ? -1 : 1;
+        return a.id - b.id;
+      });
       return {
         name: sorted[0].name,
         count: sorted.length,
         keepId: sorted[0].id,
+        keepAktiv: sorted[0].aktiv,
         deleteIds: sorted.slice(1).map((a) => a.id),
       };
     });

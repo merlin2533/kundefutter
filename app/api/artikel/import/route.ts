@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { ARTIKEL_ALIAS, parseNumber, pickCol } from "@/lib/import-utils";
+import { ARTIKEL_ALIAS, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
 import { istChargenpflichtKategorie, resolveKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
@@ -48,6 +49,18 @@ export async function POST(req: NextRequest) {
 
   const chargenpflichtKats = await getChargenpflichtKategorien();
   const { kategorien: gueltigeKategorien, unterkategorienByKat } = await loadKategorieTaxonomie();
+
+  // Normalisierter Namens-Index statt eines pro Zeile neu ausgeführten
+  // case-sensitiven `equals`-Vergleichs — sonst matcht z.B. "Sulfomix® plus"
+  // (Import) nicht gegen den ohne ® gepflegten "Sulfomix plus" (DB), und
+  // Groß-/Kleinschreibungsabweichungen erzeugen stille Duplikate. Wird im
+  // Loop nach jedem Neuanlegen ergänzt, damit mehrere Zeilen derselben Datei
+  // mit demselben Namen sich ebenfalls gegenseitig als "aktualisieren" statt
+  // Duplikat erkennen.
+  const bestehendeArtikel = await prisma.artikel.findMany({ select: { id: true, name: true } });
+  const artikelIdByNormName = new Map<string, number>(
+    bestehendeArtikel.map((a) => [normalizeArtikelName(a.name), a.id])
+  );
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -109,11 +122,9 @@ export async function POST(req: NextRequest) {
           lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
         }
 
-        // Duplikat-Check: Artikel mit gleichem Namen bereits vorhanden?
-        const vorhandener = await tx.artikel.findFirst({
-          where: { name: { equals: name } },
-          select: { id: true },
-        });
+        // Duplikat-Check: Artikel mit gleichem (normalisiertem) Namen bereits vorhanden?
+        const vorhandenerId = artikelIdByNormName.get(normalizeArtikelName(name));
+        const vorhandener = vorhandenerId ? { id: vorhandenerId } : null;
 
         if (vorhandener) {
           // Artikel existiert: nur VK + EK/Lieferant aktualisieren, nichts überschreiben
@@ -155,7 +166,7 @@ export async function POST(req: NextRequest) {
           }
           aktualisiert++;
         } else {
-          await tx.artikel.create({
+          const erstellt = await tx.artikel.create({
             data: {
               artikelnummer: finalNummer,
               name,
@@ -184,7 +195,9 @@ export async function POST(req: NextRequest) {
                 },
               }),
             },
+            select: { id: true },
           });
+          artikelIdByNormName.set(normalizeArtikelName(name), erstellt.id);
           if (lieferantId) lieferantenGesetzt++;
           neu++;
         }
@@ -192,7 +205,22 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       Sentry.captureException(err);
       const isDev = process.env.NODE_ENV === "development";
-      const msg = isDev && err instanceof Error ? err.message : "Verarbeitungsfehler";
+      // Häufigster Fall bei Preislisten mit Mengenstaffel-Zeilen: mehrere
+      // Zeilen desselben Produkts (z.B. "… ab 500 kg" / "… ab 750 kg") teilen
+      // sich dieselbe Artikelnummer, der Name unterscheidet sich aber durch
+      // den Staffel-Zusatz — der Duplikat-Check (nur nach Name) erkennt das
+      // nicht als Update, `artikel.create()` scheitert dann an der
+      // @unique-Regel auf Artikelnummer (einziges @unique-Feld auf Artikel,
+      // ein P2002 an dieser Stelle kann daher nur davon kommen). Eigene,
+      // verständliche Meldung statt des generischen "Verarbeitungsfehler",
+      // ohne die interne Fehlermeldung preiszugeben.
+      const istArtikelnummerKonflikt =
+        err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+      const msg = istArtikelnummerKonflikt
+        ? `Artikelnummer${artikelnummer ? ` "${artikelnummer}"` : ""} bereits vergeben — evtl. Mengenstaffel-/Preisvariante desselben Artikels? Solche Zeilen mit geteilter Artikelnummer werden aktuell nicht unterstützt.`
+        : isDev && err instanceof Error
+          ? err.message
+          : "Verarbeitungsfehler";
       errors.push(`Zeile ${rowNum} (${name}): ${msg}`);
       skipped++;
     }
