@@ -198,7 +198,7 @@ export default function LieferungDetailPage() {
   const [offeneGutschriften, setOffeneGutschriften] = useState<OffeneGutschrift[]>([]);
   const [offeneGutschriftenLoading, setOffeneGutschriftenLoading] = useState(false);
   const [restdiffGutschriftId, setRestdiffGutschriftId] = useState<string>("");
-  const [restdiffModus, setRestdiffModus] = useState<"forderung" | "neue_rechnung">("forderung");
+  const [restdiffModus, setRestdiffModus] = useState<"forderung" | "neue_rechnung" | "email">("forderung");
   const [restdiffSaving, setRestdiffSaving] = useState(false);
   const [restdiffError, setRestdiffError] = useState("");
   const [restdiffUndoKey, setRestdiffUndoKey] = useState<string | null>(null);
@@ -2395,7 +2395,12 @@ export default function LieferungDetailPage() {
                 ) : (
                   <select
                     value={restdiffGutschriftId}
-                    onChange={(e) => setRestdiffGutschriftId(e.target.value)}
+                    onChange={(e) => {
+                      setRestdiffGutschriftId(e.target.value);
+                      // "Nur informieren" verbucht keine Gutschrift — bei Auswahl einer Gutschrift
+                      // macht diese Kombination keinen Sinn, zurück auf die Standard-Option.
+                      if (e.target.value && restdiffModus === "email") setRestdiffModus("forderung");
+                    }}
                     className="w-full sm:w-96 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
                   >
                     <option value="">— keine —</option>
@@ -2444,6 +2449,18 @@ export default function LieferungDetailPage() {
                           />
                           <span>Eigene Rechnung nur über die Restdifferenz erstellen (mit sichtbarem Rechenweg) — kein Vermischen mit der nächsten regulären Rechnung</span>
                         </label>
+                        {!restdiffGutschriftId && (
+                          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="restdiffModus"
+                              checked={restdiffModus === "email"}
+                              onChange={() => setRestdiffModus("email")}
+                              className="mt-0.5"
+                            />
+                            <span>Nur den Kunden per E-Mail über den aktuellen Zahlungsstand informieren — der Restbetrag bleibt unverändert als offener Betrag auf dieser Rechnung stehen</span>
+                          </label>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2452,11 +2469,20 @@ export default function LieferungDetailPage() {
               {restdiffError && <p className="text-xs text-red-600">{restdiffError}</p>}
               <div className="flex gap-2">
                 <button
-                  onClick={handleRestdifferenz}
+                  onClick={() => {
+                    if (restdiffModus === "email") {
+                      setShowRestdiff(false);
+                      setRestdiffModus("forderung");
+                      setZuebersichtErfolg(""); setZuebersichtFehler("");
+                      setZuebersichtModalOffen(true);
+                      return;
+                    }
+                    handleRestdifferenz();
+                  }}
                   disabled={restdiffSaving}
                   className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm font-medium disabled:opacity-60"
                 >
-                  {restdiffSaving ? "Verrechnen…" : "Bestätigen"}
+                  {restdiffModus === "email" ? "Weiter zur E-Mail →" : restdiffSaving ? "Verrechnen…" : "Bestätigen"}
                 </button>
                 <button
                   onClick={() => { setShowRestdiff(false); setRestdiffError(""); setRestdiffGutschriftId(""); setRestdiffModus("forderung"); }}
