@@ -176,6 +176,11 @@ const STATUS_OPTIONS = [
   { value: "geliefert", label: "Lieferschein (sofort geliefert)" },
 ];
 
+// Auf sehr schwachem Mobilfunknetz hängt ein fetch() oft einfach fest (weder Erfolg noch Fehler),
+// statt sauber fehlzuschlagen — ohne Timeout bliebe die Seite dann für immer auf "Lade Daten..."
+// stehen, ganz ohne Fehlermeldung/Retry-Möglichkeit.
+const LADE_TIMEOUT_MS = 20000;
+
 function NeueLieferungInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -242,11 +247,15 @@ function NeueLieferungInner() {
     try {
       // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
       // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
+      // AbortSignal.timeout(): auf sehr schwachem Mobilfunknetz hängt ein fetch() oft einfach
+      // (weder resolve noch reject) statt sauber fehlzuschlagen — ein reiner try/catch (siehe
+      // unten) greift dann NIE, die Seite bliebe für immer auf "Lade Daten...” stehen. Der
+      // Timeout erzwingt nach LADE_TIMEOUT_MS einen AbortError, den der catch-Block unten abfängt.
       const [kr, ar, lr, mr] = await Promise.all([
-        fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
-        fetch("/api/artikel?limit=5000&relations=false").then((r) => r.ok ? r.json() : []),
-        fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
-        fetch("/api/mengenrabatte").then((r) => r.ok ? r.json() : []),
+        fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
+        fetch("/api/artikel?limit=5000&relations=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
+        fetch("/api/lieferanten?limit=500", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
+        fetch("/api/mengenrabatte", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
       ]);
       let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
       const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
@@ -258,7 +267,7 @@ function NeueLieferungInner() {
       const vorauswahlId = kundeIdParam ? parseInt(kundeIdParam, 10) : NaN;
       if (!isNaN(vorauswahlId) && !kundenData.some((k) => k.id === vorauswahlId)) {
         try {
-          const k = await fetch(`/api/kunden/${vorauswahlId}`).then((r) => (r.ok ? r.json() : null));
+          const k = await fetch(`/api/kunden/${vorauswahlId}`, { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => (r.ok ? r.json() : null));
           if (k && k.id) kundenData = [k, ...kundenData];
         } catch (err) {
           Sentry.captureException(err);
@@ -271,7 +280,7 @@ function NeueLieferungInner() {
       // Pre-fill from angebot if param present
       if (ausAngebotId) {
         try {
-          const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.ok ? r.json() : null);
+          const ang = await fetch(`/api/angebote/${ausAngebotId}`, { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : null);
           if (ang && ang.id) {
             setKundeId(ang.kundeId ?? ang.kunde?.id ?? "");
             setAngebotHinweis(`Erstellt aus Angebot ${ang.nummer}`);
