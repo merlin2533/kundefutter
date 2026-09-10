@@ -239,6 +239,13 @@ export default function LieferungDetailPage() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
+
+  // Zahlungsübersicht per E-Mail (Teilzahlungen + Notiz + Restbetrag, OHNE die Rechnung selbst
+  // zu verändern oder erneut zu versenden — reine Info-Mail über den Zahlungsstand)
+  const [zuebersichtModalOffen, setZuebersichtModalOffen] = useState(false);
+  const [zuebersichtLoading, setZuebersichtLoading] = useState(false);
+  const [zuebersichtErfolg, setZuebersichtErfolg] = useState("");
+  const [zuebersichtFehler, setZuebersichtFehler] = useState("");
   const [showRechnungNachGeliefert, setShowRechnungNachGeliefert] = useState(false);
   const [notizSavingId, setNotizSavingId] = useState<number | null>(null);
 
@@ -2306,10 +2313,20 @@ export default function LieferungDetailPage() {
                   </button>
                 </div>
               ))}
-              <div className="pt-3 border-t border-gray-200 flex flex-wrap gap-4 text-sm">
+              <div className="pt-3 border-t border-gray-200 flex flex-wrap items-center gap-4 text-sm">
                 <span>Gesamt gezahlt: <span className="font-mono font-medium text-green-700">{formatEuro(teilzahlungenSumme)}</span></span>
                 <span>Offen: <span className={`font-mono font-medium ${offenNachAusgleich > 0.01 ? "text-amber-600" : "text-green-700"}`}>{formatEuro(offenNachAusgleich)}</span></span>
+                <button
+                  onClick={() => { setZuebersichtModalOffen(true); setZuebersichtErfolg(""); setZuebersichtFehler(""); }}
+                  className="ml-auto text-xs text-teal-700 hover:text-teal-900 font-medium underline"
+                  title="Sendet dem Kunden eine E-Mail mit Rechnungsbetrag, Teilzahlungen (inkl. Notiz) und offenem Restbetrag — die Rechnung selbst bleibt unverändert"
+                >
+                  📧 Zahlungsübersicht per E-Mail senden
+                </button>
               </div>
+              {zuebersichtErfolg && (
+                <div className="mt-2 text-xs text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">{zuebersichtErfolg}</div>
+              )}
             </div>
           )}
 
@@ -2505,6 +2522,34 @@ export default function LieferungDetailPage() {
               </div>
             </div>
           )}
+
+          <EmailVersandModal
+            open={zuebersichtModalOffen}
+            onClose={() => setZuebersichtModalOffen(false)}
+            title={`Zahlungsübersicht zu Rechnung ${lieferung.rechnungNr} senden`}
+            kundenname={lieferung.kunde.firma ?? lieferung.kunde.name}
+            emailKontakte={(lieferung.kunde.kontakte ?? []).filter((k) => k.typ === "email")}
+            docType="rechnung"
+            loading={zuebersichtLoading}
+            fehler={zuebersichtFehler || undefined}
+            onSend={async (empfaenger, cc) => {
+              setZuebersichtLoading(true); setZuebersichtFehler("");
+              try {
+                const res = await fetch(`/api/lieferungen/${id}/zahlungsuebersicht/mail`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ empfaenger, cc }),
+                });
+                const data = await res.json() as { ok?: boolean; error?: string };
+                if (data.ok) { setZuebersichtErfolg(`Zahlungsübersicht an ${empfaenger} gesendet`); setZuebersichtModalOffen(false); }
+                else setZuebersichtFehler(data.error ?? "Versand fehlgeschlagen");
+              } catch (err) {
+                Sentry.captureException(err);
+                setZuebersichtFehler("Versand fehlgeschlagen");
+              }
+              finally { setZuebersichtLoading(false); }
+            }}
+          />
         </div>
       )}
 
