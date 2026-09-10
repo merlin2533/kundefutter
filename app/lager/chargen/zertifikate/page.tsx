@@ -34,7 +34,7 @@ export default function ChargenZertifikatePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/artikel?limit=500")
+    fetch("/api/artikel?limit=5000")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setArtikelList(Array.isArray(d) ? d : []));
   }, []);

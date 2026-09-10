@@ -47,7 +47,7 @@ export default function UmbuchungenPage() {
   const [nachMode, setNachMode] = useState<"select" | "custom">("select");
 
   const fetchArtikel = useCallback(async () => {
-    const res = await fetch("/api/artikel?limit=500");
+    const res = await fetch("/api/artikel?limit=5000");
     if (!res.ok) return;
     const data = await res.json();
     setArtikel(Array.isArray(data) ? data : []);

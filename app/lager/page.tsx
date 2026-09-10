@@ -93,7 +93,7 @@ export default function LagerPage() {
 
   const fetchArtikel = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/artikel?limit=500");
+    const res = await fetch("/api/artikel?limit=5000");
     if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
     setArtikel((Array.isArray(data) ? data : []).filter((a: LagerArtikel) => istLagerrelevant(a.kategorie, a.lagerTracking)));

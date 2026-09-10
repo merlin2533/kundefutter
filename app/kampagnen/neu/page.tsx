@@ -62,7 +62,7 @@ function KampagneNeuInner() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/artikel?limit=500").then((r) => r.json()).catch((err) => {
+      fetch("/api/artikel?limit=5000").then((r) => r.json()).catch((err) => {
         Sentry.captureException(err);
         return [];
       }),

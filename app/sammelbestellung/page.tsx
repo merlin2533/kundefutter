@@ -81,7 +81,7 @@ export default function SammelbestellungPage() {
   useEffect(() => {
     setLoadingArtikel(true);
     Promise.all([
-      fetch("/api/artikel?limit=500").then((r) => r.json()),
+      fetch("/api/artikel?limit=5000").then((r) => r.json()),
       fetch("/api/lieferanten").then((r) => r.json()),
       fetch("/api/kunden?limit=500&aktiv=true").then((r) => r.json()),
     ])
