@@ -30,11 +30,52 @@ export async function GET(req: NextRequest) {
       include: {
         lieferant: { select: { id: true, name: true } },
         _count: { select: { positionen: true } },
+        bestelllisteEintraege: { select: { kundeId: true } },
       },
       orderBy: { datum: "desc" },
       take: 200,
     });
-    return NextResponse.json(list);
+
+    // Streckengeschäft-Lieferort für die Listenübersicht: identische Eindeutigkeits-Logik wie
+    // beim E-Mail-Versand (app/api/bestellungen/[id]/mail/route.ts) — nur wenn sich ALLE
+    // Bestellliste-Einträge einer Bestellung auf genau denselben Kunden zurückführen lassen,
+    // sonst bleibt der Lieferort leer (mehrdeutig/manuell gebündelt/reine Lagerbestellung).
+    // Kunden werden gebündelt in einer einzigen Query nachgeladen (kein N+1 über die Liste).
+    const kundenIdByBestellung = new Map<number, number>();
+    for (const b of list) {
+      const ids = [...new Set(b.bestelllisteEintraege.map((e) => e.kundeId))];
+      if (b.bestelllisteEintraege.length > 0 && ids.length === 1 && ids[0] != null) {
+        kundenIdByBestellung.set(b.id, ids[0]);
+      }
+    }
+    const kundenIds = [...new Set(kundenIdByBestellung.values())];
+    const kunden = kundenIds.length > 0
+      ? await prisma.kunde.findMany({
+          where: { id: { in: kundenIds } },
+          select: { id: true, name: true, firma: true, ort: true },
+        })
+      : [];
+    const kundeById = new Map(kunden.map((k) => [k.id, k]));
+
+    const result = list.map((b) => {
+      const kundeId = kundenIdByBestellung.get(b.id);
+      const kunde = kundeId != null ? kundeById.get(kundeId) : undefined;
+      return {
+        id: b.id,
+        nummer: b.nummer,
+        lieferantId: b.lieferantId,
+        datum: b.datum,
+        lieferdatum: b.lieferdatum,
+        status: b.status,
+        notiz: b.notiz,
+        versendetAm: b.versendetAm,
+        lieferant: b.lieferant,
+        _count: b._count,
+        versandKunde: kunde ? { name: kunde.firma ?? kunde.name, ort: kunde.ort } : null,
+      };
+    });
+
+    return NextResponse.json(result);
   } catch (err) {
     Sentry.captureException(err);
     console.error("Bestellungen GET error:", err);
