@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -186,6 +186,11 @@ function NeueLieferungInner() {
   const [artikel, setArtikel] = useState<Artikel[]>([]);
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [loading, setLoading] = useState(true);
+  // Schlägt einer der parallelen Lade-Requests unten fehl (z.B. schwaches Mobilfunknetz), blieb
+  // die Seite bisher OHNE jede Fehlermeldung stehen — Kunde/Artikel/Lieferant-Listen einfach leer,
+  // wirkte für den Nutzer wie "die App reagiert nicht"/"springt weg". `loadError` macht das
+  // sichtbar und bietet einen "Erneut versuchen"-Button statt eines stummen leeren Formulars.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [angebotHinweis, setAngebotHinweis] = useState<string | null>(null);
 
   const [kundeId, setKundeId] = useState<number | "">("");
@@ -232,87 +237,96 @@ function NeueLieferungInner() {
     [lieferanten]
   );
 
-  useEffect(() => {
-    async function load() {
-      try {
-        // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
-        // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
-        const [kr, ar, lr, mr] = await Promise.all([
-          fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
-          fetch("/api/artikel?limit=5000&relations=false").then((r) => r.ok ? r.json() : []),
-          fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
-          fetch("/api/mengenrabatte").then((r) => r.ok ? r.json() : []),
-        ]);
-        let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
-        const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
-        setLieferanten(Array.isArray(lr) ? lr : []);
-        setMengenrabatte(Array.isArray(mr) ? mr : []);
+  const load = useCallback(async () => {
+    setLoadError(null);
+    try {
+      // Volle Kundenliste laden (max 1000, ohne Kontakte für Performance);
+      // Artikel ebenfalls mit hohem Limit, damit alle für Vorschläge verfügbar sind.
+      const [kr, ar, lr, mr] = await Promise.all([
+        fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
+        fetch("/api/artikel?limit=5000&relations=false").then((r) => r.ok ? r.json() : []),
+        fetch("/api/lieferanten?limit=500").then((r) => r.ok ? r.json() : []),
+        fetch("/api/mengenrabatte").then((r) => r.ok ? r.json() : []),
+      ]);
+      let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];
+      const artikelData: Artikel[] = Array.isArray(ar) ? ar : [];
+      setLieferanten(Array.isArray(lr) ? lr : []);
+      setMengenrabatte(Array.isArray(mr) ? mr : []);
 
-        // Wenn ein bestimmter Kunde vorausgewählt werden soll, sicherstellen
-        // dass er in der Liste ist (auch wenn inaktiv oder außerhalb des Limits).
-        const vorauswahlId = kundeIdParam ? parseInt(kundeIdParam, 10) : NaN;
-        if (!isNaN(vorauswahlId) && !kundenData.some((k) => k.id === vorauswahlId)) {
-          try {
-            const k = await fetch(`/api/kunden/${vorauswahlId}`).then((r) => (r.ok ? r.json() : null));
-            if (k && k.id) kundenData = [k, ...kundenData];
-          } catch (err) {
-            Sentry.captureException(err);
-            /* ignore */
-          }
+      // Wenn ein bestimmter Kunde vorausgewählt werden soll, sicherstellen
+      // dass er in der Liste ist (auch wenn inaktiv oder außerhalb des Limits).
+      const vorauswahlId = kundeIdParam ? parseInt(kundeIdParam, 10) : NaN;
+      if (!isNaN(vorauswahlId) && !kundenData.some((k) => k.id === vorauswahlId)) {
+        try {
+          const k = await fetch(`/api/kunden/${vorauswahlId}`).then((r) => (r.ok ? r.json() : null));
+          if (k && k.id) kundenData = [k, ...kundenData];
+        } catch (err) {
+          Sentry.captureException(err);
+          /* ignore */
         }
-        setKunden(kundenData);
-        setArtikel(artikelData);
-
-        // Pre-fill from angebot if param present
-        if (ausAngebotId) {
-          try {
-            const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.ok ? r.json() : null);
-            if (ang && ang.id) {
-              setKundeId(ang.kundeId ?? ang.kunde?.id ?? "");
-              setAngebotHinweis(`Erstellt aus Angebot ${ang.nummer}`);
-              setNotiz(`Aus Angebot ${ang.nummer} übernommen`);
-              if (Array.isArray(ang.positionen) && ang.positionen.length > 0) {
-                setPositionen(ang.positionen.map((pos: {
-                  artikelId: number;
-                  menge: number;
-                  preis: number;
-                  rabatt: number;
-                  artikel?: { einheit?: string };
-                }) => {
-                  const art = artikelData.find((a: Artikel) => a.id === pos.artikelId);
-                  const vkPreis = pos.preis * (1 - pos.rabatt / 100);
-                  return {
-                    artikelId: pos.artikelId,
-                    menge: String(pos.menge),
-                    verkaufspreis: String(Math.round(vkPreis * 100) / 100),
-                    einkaufspreis: String(resolveEK(art)),
-                    chargeNr: "",
-                    notiz: art?.notiz ?? "",
-                    // Preis kommt aus dem verbindlichen Angebot — eine spätere Mengenänderung
-                    // soll ihn nicht mit einer frischen Mengenstaffel-Berechnung überschreiben.
-                    vkAuto: false,
-                    gueteklasse: "",
-                    gewichtsklasse: "",
-                    legedatum: "",
-                    erzeugercode: "",
-                  };
-                }));
-              }
-            }
-          } catch (err) {
-            Sentry.captureException(err);
-            // ignore, fallback to empty form
-          }
-        } else if (!isNaN(vorauswahlId)) {
-          setKundeId(vorauswahlId);
-        }
-      } finally {
-        setLoading(false);
       }
+      setKunden(kundenData);
+      setArtikel(artikelData);
+
+      // Pre-fill from angebot if param present
+      if (ausAngebotId) {
+        try {
+          const ang = await fetch(`/api/angebote/${ausAngebotId}`).then((r) => r.ok ? r.json() : null);
+          if (ang && ang.id) {
+            setKundeId(ang.kundeId ?? ang.kunde?.id ?? "");
+            setAngebotHinweis(`Erstellt aus Angebot ${ang.nummer}`);
+            setNotiz(`Aus Angebot ${ang.nummer} übernommen`);
+            if (Array.isArray(ang.positionen) && ang.positionen.length > 0) {
+              setPositionen(ang.positionen.map((pos: {
+                artikelId: number;
+                menge: number;
+                preis: number;
+                rabatt: number;
+                artikel?: { einheit?: string };
+              }) => {
+                const art = artikelData.find((a: Artikel) => a.id === pos.artikelId);
+                const vkPreis = pos.preis * (1 - pos.rabatt / 100);
+                return {
+                  artikelId: pos.artikelId,
+                  menge: String(pos.menge),
+                  verkaufspreis: String(Math.round(vkPreis * 100) / 100),
+                  einkaufspreis: String(resolveEK(art)),
+                  chargeNr: "",
+                  notiz: art?.notiz ?? "",
+                  // Preis kommt aus dem verbindlichen Angebot — eine spätere Mengenänderung
+                  // soll ihn nicht mit einer frischen Mengenstaffel-Berechnung überschreiben.
+                  vkAuto: false,
+                  gueteklasse: "",
+                  gewichtsklasse: "",
+                  legedatum: "",
+                  erzeugercode: "",
+                };
+              }));
+            }
+          }
+        } catch (err) {
+          Sentry.captureException(err);
+          // ignore, fallback to empty form
+        }
+      } else if (!isNaN(vorauswahlId)) {
+        setKundeId(vorauswahlId);
+      }
+    } catch (err) {
+      // Netzwerkfehler eines der parallelen fetch()-Aufrufe (z.B. schwaches Mobilfunknetz) —
+      // bereits automatisch von lib/fetch-reporter.ts an GlitchTip gemeldet, hier NICHT
+      // zusätzlich Sentry.captureException (Doppel-Reporting). Ohne diesen catch blieb die
+      // Seite bisher mit leeren Kunde-/Artikel-Listen stehen, ohne jede Rückmeldung.
+      void err;
+      setLoadError("Daten konnten nicht vollständig geladen werden — möglicherweise eine schwache Verbindung.");
+    } finally {
+      setLoading(false);
     }
-    load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Aktive Kampagnen für den ausgewählten Kunden laden
   useEffect(() => {
@@ -567,6 +581,19 @@ function NeueLieferungInner() {
           Abbrechen
         </Link>
       </div>
+
+      {loadError && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <span>⚠ {loadError} Kunden-/Artikelliste ggf. unvollständig.</span>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="shrink-0 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg"
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      )}
 
       {angebotHinweis && (
         <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg px-4 py-3 flex items-center gap-2">
