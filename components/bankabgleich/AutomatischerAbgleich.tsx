@@ -116,6 +116,14 @@ export default function AutomatischerAbgleich({
   const [schnellOffen, setSchnellOffen] = useState(false);
   const [schnellBusy, setSchnellBusy] = useState(false);
 
+  // "Schritt für Schritt"-Review für Abweichungen: anders als bei "Sicher" gibt es hier keine
+  // einheitliche Aktion für alle Zeilen (mal Gutschrift, mal Forderung, mal einfach übernehmen) —
+  // statt eines Sammel-Häkchens führt dieser Modus einzeln durch die Liste. Der Index bleibt nach
+  // dem Bearbeiten einer Zeile unverändert: entferneAusListe() filtert die erledigte Zeile heraus,
+  // wodurch die nächste automatisch an dieselbe Position nachrückt.
+  const [deviationReviewOffen, setDeviationReviewOffen] = useState(false);
+  const [deviationIndex, setDeviationIndex] = useState(0);
+
   const [kiLoading, setKiLoading] = useState(false);
 
   async function abgleichStarten() {
@@ -303,6 +311,13 @@ export default function AutomatischerAbgleich({
             onChange={(e) => setToleranzBetrag(parseFloat(e.target.value) || 0)}
             className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
+          <p className="mt-1 text-xs text-gray-400 max-w-[16rem]">
+            Steuert nur, was im Tab &bdquo;Abweichung&ldquo; erscheint — für &bdquo;Sicher&ldquo;
+            gilt unabhängig davon immer eine feste Toleranz von wenigen Cent. Ruhig großzügig
+            einstellen (z. B. 50 €): eine größere Differenz landet dadurch NIE automatisch als
+            &bdquo;Sicher&ldquo;, sondern wird nur zusätzlich unter &bdquo;Abweichung&ldquo; statt
+            ganz ohne Vorschlag unter &bdquo;Nur Bank&ldquo; angezeigt.
+          </p>
         </div>
         <button
           onClick={abgleichStarten}
@@ -381,6 +396,23 @@ export default function AutomatischerAbgleich({
                 >
                   {kiLoading ? "KI prüft…" : "🤖 KI-Abgleich für offene Bankbuchungen"}
                 </button>
+              )}
+              {ergebnis.deviations.length > 0 && (
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-3 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-sm">
+                  <span className="text-amber-800">
+                    {ergebnis.deviations.length} Abweichung{ergebnis.deviations.length === 1 ? "" : "en"} · Gesamtdifferenz:{" "}
+                    {formatEuro(ergebnis.deviations.reduce((s, p) => s + Math.abs(p.amountDiff), 0))}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setDeviationIndex(0);
+                      setDeviationReviewOffen(true);
+                    }}
+                    className="px-3 py-1.5 border border-amber-700 text-amber-800 hover:bg-amber-100 rounded-lg text-sm font-medium whitespace-nowrap"
+                  >
+                    Schritt für Schritt durchgehen
+                  </button>
+                </div>
               )}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {ergebnis.deviations.map((p) => (
@@ -549,6 +581,76 @@ export default function AutomatischerAbgleich({
                 {schnellBusy ? "Übernehme…" : `Alle ${ergebnis.matched.length} übernehmen`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {deviationReviewOffen && ergebnis && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+            <div className="p-5 border-b border-gray-200 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-gray-900">Abweichungen Schritt für Schritt</h3>
+                {ergebnis.deviations.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {Math.min(deviationIndex + 1, ergebnis.deviations.length)} von {ergebnis.deviations.length}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setDeviationReviewOffen(false)}
+                className="text-gray-400 hover:text-gray-700 text-lg leading-none"
+                aria-label="Schließen"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-5">
+              {ergebnis.deviations.length === 0 ? (
+                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  ✓ Alle Abweichungen abgearbeitet.
+                </div>
+              ) : (
+                (() => {
+                  const idx = Math.min(deviationIndex, ergebnis.deviations.length - 1);
+                  const p = ergebnis.deviations[idx];
+                  return (
+                    <AutoMatchKarte
+                      key={p.bank.umsatzId}
+                      bank={p.bank}
+                      kandidat={p.kandidat}
+                      konfidenz={p.textScore >= 0.5 ? "mittel" : "niedrig"}
+                      kiKonfidenz={p.konfidenz}
+                      kiBegruendung={p.begruendung}
+                      wirdBezahltAm={p.wirdBezahltAm}
+                      amountDiff={p.amountDiff}
+                      dayDiff={p.dayDiff}
+                      skontoMatch={p.skontoMatch}
+                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                      onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
+                    />
+                  );
+                })()
+              )}
+            </div>
+            {ergebnis.deviations.length > 0 && (
+              <div className="p-5 border-t border-gray-200 flex justify-between gap-2">
+                <button
+                  onClick={() => setDeviationIndex((i) => Math.max(0, i - 1))}
+                  disabled={deviationIndex === 0}
+                  className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40"
+                >
+                  ← Zurück
+                </button>
+                <button
+                  onClick={() => setDeviationIndex((i) => Math.min(ergebnis.deviations.length - 1, i + 1))}
+                  disabled={deviationIndex >= ergebnis.deviations.length - 1}
+                  className="px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40"
+                >
+                  Überspringen →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
