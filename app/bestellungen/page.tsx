@@ -22,6 +22,7 @@ interface Bestellung {
   versendetAm: string | null;
   lieferantId: number;
   lieferant: { id: number; name: string; firma: string | null } | null;
+  versandKunde: { name: string; ort: string | null } | null;
   _count: { positionen: number };
 }
 
@@ -173,6 +174,12 @@ function BestellungenListeInner() {
                     </td>
                     <td className="px-4 py-3">
                       {item.lieferant ? (item.lieferant.firma ?? item.lieferant.name) : "—"}
+                      {item.versandKunde && (
+                        <div className="text-xs text-teal-700 mt-0.5">
+                          📍 {item.versandKunde.name}
+                          {item.versandKunde.ort ? ` (${item.versandKunde.ort})` : ""}
+                        </div>
+                      )}
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">
                       {item._count.positionen}
