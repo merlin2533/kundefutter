@@ -212,6 +212,26 @@ function NeueLieferungInner() {
     [kunden]
   );
 
+  // SearchableSelect-Optionslisten memoisiert: `kunden` (bis zu 1000) und `artikel` (bis zu 5000)
+  // wurden vorher bei JEDEM Render (also bei JEDEM Tastendruck in irgendeinem Feld, da
+  // `positionen` sich dabei ändert) neu mit .map() abgebildet — die Artikel-Liste sogar einmal
+  // PRO Positionszeile. Auf einem realen Handy blockierte das den Main-Thread messbar
+  // (150–850ms je Tastendruck bei gedrosselter CPU) und ließ Eingabefelder scheinbar "wegspringen"
+  // (Fokusverlust durch Reflow/Jank). `artikelOptions` wird jetzt einmal berechnet und von allen
+  // Positionszeilen geteilt, statt pro Zeile neu erzeugt zu werden.
+  const kundenOptions = useMemo(
+    () => kunden.map((k) => ({ value: k.id, label: k.firma ? `${k.firma} (${k.name})` : k.name, sub: k.firma ? k.name : undefined })),
+    [kunden]
+  );
+  const artikelOptions = useMemo(
+    () => artikel.map((a) => ({ value: a.id, label: a.name, sub: a.einheit })),
+    [artikel]
+  );
+  const lieferantenOptions = useMemo(
+    () => lieferanten.map((l) => ({ value: l.id, label: l.name })),
+    [lieferanten]
+  );
+
   useEffect(() => {
     async function load() {
       try {
@@ -322,14 +342,21 @@ function NeueLieferungInner() {
       });
   }, [kundeId]);
 
-  // Wenn Kunde oder Positionen wechseln: prüfen ob Sprengstoffvorläufer betroffen
+  // Ob mind. eine Position einen Sprengstoffvorläufer-Artikel enthält — als eigener,
+  // primitiver useMemo-Wert statt direkt `positionen` als Effekt-Dependency zu nutzen: die
+  // boolesche Aussage ändert sich nur bei Artikelwechsel, `positionen` als Objekt-Referenz
+  // aber bei JEDEM Tastendruck (Menge/Preis/Notiz) — der Effekt unten würde sonst bei jeder
+  // Eingabe neu feuern, jedes Mal einen Server-Request auslösen UND die bereits gesetzte
+  // Bestätigungs-Checkbox `erklaerungBestaetigt` stillschweigend wieder zurücksetzen.
+  const hatSprengstoffPosition = useMemo(
+    () => positionen.some((p) => artikel.find((a) => a.id === Number(p.artikelId))?.sprengstoffvorlaeufer),
+    [positionen, artikel]
+  );
+
+  // Wenn Kunde oder betroffene Artikel wechseln: prüfen ob Sprengstoffvorläufer betroffen
   // und ob für diesen Kunden eine gültige Jahreserklärung vorliegt.
   useEffect(() => {
-    const hatSprengstoff = positionen.some((p) => {
-      const art = artikel.find((a) => a.id === Number(p.artikelId));
-      return art?.sprengstoffvorlaeufer;
-    });
-    if (!hatSprengstoff || !kundeId) {
+    if (!hatSprengstoffPosition || !kundeId) {
       setErklaerungOk(null);
       setErklaerungBestaetigt(false);
       return;
@@ -345,7 +372,7 @@ function NeueLieferungInner() {
         Sentry.captureException(err);
         return setErklaerungOk(false);
       });
-  }, [kundeId, positionen, artikel]);
+  }, [kundeId, hatSprengstoffPosition]);
 
   function updatePosition(idx: number, field: keyof NewPosition, value: string | number) {
     setPositionen((prev) =>
@@ -563,11 +590,7 @@ function NeueLieferungInner() {
                 <a href="/kunden/neu" target="_blank" rel="noopener" className="ml-2 text-xs text-green-700 hover:underline font-normal">+ Neuer Kunde</a>
               </label>
               <SearchableSelect
-                options={kunden.map((k) => ({
-                  value: k.id,
-                  label: k.firma ? `${k.firma} (${k.name})` : k.name,
-                  sub: k.firma ? k.name : undefined,
-                }))}
+                options={kundenOptions}
                 value={kundeId}
                 onChange={(v) => setKundeId(v ? Number(v) : "")}
                 placeholder="Kunde auswählen..."
@@ -630,10 +653,7 @@ function NeueLieferungInner() {
                 <span className="text-sm text-gray-700 whitespace-nowrap">Direktlieferant <span className="text-red-500">*</span></span>
                 <div className="flex-1">
                   <SearchableSelect
-                    options={lieferanten.map((l) => ({
-                      value: l.id,
-                      label: l.name,
-                    }))}
+                    options={lieferantenOptions}
                     value={streckenLieferantId}
                     onChange={(v) => setStreckenLieferantId(v ? Number(v) : "")}
                     placeholder="Lieferant auswählen…"
@@ -817,11 +837,7 @@ function NeueLieferungInner() {
                         {/* Artikel */}
                         <td className="px-3 py-2">
                           <SearchableSelect
-                            options={artikel.map((a) => ({
-                              value: a.id,
-                              label: a.name,
-                              sub: a.einheit,
-                            }))}
+                            options={artikelOptions}
                             value={pos.artikelId}
                             onChange={(v) => handleArtikelChange(idx, v)}
                             placeholder="— Artikel wählen —"

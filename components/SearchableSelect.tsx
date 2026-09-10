@@ -35,10 +35,18 @@ export default function SearchableSelect({
 
   const selected = options.find((o) => String(o.value) === String(value));
 
-  const filtered = options.filter((o) => {
-    const q = search.toLowerCase();
-    return o.label.toLowerCase().includes(q) || (o.sub?.toLowerCase().includes(q) ?? false);
-  });
+  // Nur filtern, solange das Dropdown offen ist — sonst wird bei JEDEM Tastendruck in
+  // irgendeinem GESCHWISTER-Feld (z.B. Menge/Notiz einer anderen Position) diese ganze Liste
+  // (bis zu 5000 Artikel) unnötig neu durchsucht, obwohl das Ergebnis (geschlossenes Dropdown)
+  // gar nicht gerendert wird. Bei mehreren Positionszeilen summiert sich das auf spürbaren
+  // Main-Thread-Jank (auf echten Mobilgeräten gemessen: 150–1000ms je Tastendruck), der sich als
+  // scheinbarer Fokusverlust/"Wegspringen" von Eingabefeldern äußerte.
+  const filtered = open
+    ? options.filter((o) => {
+        const q = search.toLowerCase();
+        return o.label.toLowerCase().includes(q) || (o.sub?.toLowerCase().includes(q) ?? false);
+      })
+    : [];
 
   // Close on outside click
   useEffect(() => {
