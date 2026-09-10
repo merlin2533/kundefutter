@@ -36,7 +36,7 @@ function NeueAnlieferungInner() {
       .catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/artikel?limit=1000")
+    fetch("/api/artikel?limit=5000")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? [])))
       .catch((err) => {

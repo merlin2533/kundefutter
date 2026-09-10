@@ -53,7 +53,7 @@ export default function AngebotVorlageNeuPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/artikel?limit=500")
+    fetch("/api/artikel?limit=5000")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => { if (Array.isArray(d)) setArtikel(d); })
       .catch((err) => {

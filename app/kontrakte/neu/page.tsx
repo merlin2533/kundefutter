@@ -51,7 +51,7 @@ function KontraktNeuInner() {
       .catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/artikel?limit=500")
+    fetch("/api/artikel?limit=5000")
       .then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch((err) => {

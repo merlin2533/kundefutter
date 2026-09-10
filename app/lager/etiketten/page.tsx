@@ -110,7 +110,7 @@ export default function EtikettenPage() {
   useEffect(() => {
     async function load() {
       const [artRes, einRes] = await Promise.all([
-        fetch("/api/artikel?limit=500").then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/artikel?limit=5000").then((r) => (r.ok ? r.json() : [])),
         fetch("/api/einstellungen?prefix=firma.").then((r) => (r.ok ? r.json() : {})),
       ]);
       setArtikelList(Array.isArray(artRes) ? artRes : []);
