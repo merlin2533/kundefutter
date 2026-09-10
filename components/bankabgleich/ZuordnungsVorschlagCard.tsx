@@ -90,6 +90,10 @@ export default function ZuordnungsVorschlagCard({
 }: ZuordnungsVorschlagCardProps) {
   const [alsBezahlt, setAlsBezahlt] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Ersetzt einen nativen window.confirm() durch eine inline eingeblendete Bestätigung direkt in
+  // der Karte — der native Dialog unterbricht beim Durchklicken mehrerer Karten (z.B. im
+  // "Schritt für Schritt"-Review) den Ablauf und lässt sich nicht stylen/kontextualisieren.
+  const [pendingAktion, setPendingAktion] = useState<"gutschrift" | "forderung" | null>(null);
 
   async function handleUebernehmen(differenzAktion?: "gutschrift" | "forderung") {
     setBusy(true);
@@ -97,6 +101,7 @@ export default function ZuordnungsVorschlagCard({
       await onUebernehmen(alsBezahlt, differenzAktion);
     } finally {
       setBusy(false);
+      setPendingAktion(null);
     }
   }
 
@@ -104,15 +109,6 @@ export default function ZuordnungsVorschlagCard({
   const ueberzahlung = kannDifferenz && signedDiff! > DIFFERENZ_SCHWELLE;
   // Ein per Skonto erklärter Fehlbetrag ist keine echte Unterzahlung — kein Forderung-Button dafür.
   const fehlbetrag = kannDifferenz && signedDiff! < -DIFFERENZ_SCHWELLE && !skontoMatch;
-
-  async function handleGutschrift() {
-    if (!confirm(`Gutschrift über ${formatEuro(signedDiff!)} erfassen? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.`)) return;
-    await handleUebernehmen("gutschrift");
-  }
-  async function handleForderung() {
-    if (!confirm(`Forderung über ${formatEuro(Math.abs(signedDiff!))} erfassen (Fehlbetrag)? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.`)) return;
-    await handleUebernehmen("forderung");
-  }
 
   return (
     <div className={`bg-white border rounded-lg ${compact ? "p-2.5" : "p-3"} transition-colors ${selected ? "border-green-500 ring-1 ring-green-500" : "border-gray-200 hover:border-green-400"}`}>
@@ -175,33 +171,61 @@ export default function ZuordnungsVorschlagCard({
         </p>
       )}
 
-      <button
-        onClick={() => handleUebernehmen()}
-        disabled={busy}
-        className="mt-2 w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
-      >
-        {busy ? "Übernehme…" : "Übernehmen (ohne Differenzbuchung)"}
-      </button>
+      {pendingAktion ? (
+        <div className="mt-2 border border-blue-200 bg-blue-50 rounded-lg p-2 text-xs text-blue-900">
+          {pendingAktion === "gutschrift" ? (
+            <>Gutschrift über {formatEuro(signedDiff!)} erfassen? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.</>
+          ) : (
+            <>Forderung über {formatEuro(Math.abs(signedDiff!))} erfassen (Fehlbetrag)? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.</>
+          )}
+          <div className="flex gap-1.5 mt-1.5">
+            <button
+              onClick={() => handleUebernehmen(pendingAktion)}
+              disabled={busy}
+              className="flex-1 text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded font-medium"
+            >
+              {busy ? "…" : "Ja, erfassen"}
+            </button>
+            <button
+              onClick={() => setPendingAktion(null)}
+              disabled={busy}
+              className="flex-1 text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            onClick={() => handleUebernehmen()}
+            disabled={busy}
+            className="mt-2 w-full text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
+          >
+            {busy ? "Übernehme…" : "Übernehmen (ohne Differenzbuchung)"}
+          </button>
 
-      {ueberzahlung && (
-        <button
-          onClick={handleGutschrift}
-          disabled={busy}
-          title="Kunde hat mehr überwiesen als die Rechnung beträgt — Differenz als Gutschrift für die nächste Rechnung erfassen"
-          className="mt-1.5 w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-800 border border-blue-200 rounded-lg font-medium"
-        >
-          + Gutschrift über {formatEuro(signedDiff!)} erfassen
-        </button>
-      )}
-      {fehlbetrag && (
-        <button
-          onClick={handleForderung}
-          disabled={busy}
-          title="Kunde hat weniger überwiesen als die Rechnung beträgt — Differenz als Forderung für die nächste Rechnung erfassen"
-          className="mt-1.5 w-full text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 text-amber-800 border border-amber-200 rounded-lg font-medium"
-        >
-          + Forderung über {formatEuro(Math.abs(signedDiff!))} erfassen
-        </button>
+          {ueberzahlung && (
+            <button
+              onClick={() => setPendingAktion("gutschrift")}
+              disabled={busy}
+              title="Kunde hat mehr überwiesen als die Rechnung beträgt — Differenz als Gutschrift für die nächste Rechnung erfassen"
+              className="mt-1.5 w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-800 border border-blue-200 rounded-lg font-medium"
+            >
+              + Gutschrift über {formatEuro(signedDiff!)} erfassen
+            </button>
+          )}
+          {fehlbetrag && (
+            <button
+              onClick={() => setPendingAktion("forderung")}
+              disabled={busy}
+              title="Kunde hat weniger überwiesen als die Rechnung beträgt — Differenz als Forderung für die nächste Rechnung erfassen"
+              className="mt-1.5 w-full text-xs px-3 py-1.5 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 text-amber-800 border border-amber-200 rounded-lg font-medium"
+            >
+              + Forderung über {formatEuro(Math.abs(signedDiff!))} erfassen
+            </button>
+          )}
+        </>
       )}
     </div>
   );
