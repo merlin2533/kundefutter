@@ -58,6 +58,7 @@ function BestellungenListeInner() {
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
   const [lieferantId, setLieferantId] = useState(searchParams.get("lieferantId") ?? "");
+  const [lieferortSuche, setLieferortSuche] = useState("");
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
@@ -98,6 +99,17 @@ function BestellungenListeInner() {
     sub: l.firma ? l.name : undefined,
   }));
 
+  // Lieferort (Streckengeschäft-Kunde) durchsucht nur bereits geladene Zeilen — dieselbe
+  // Datenbasis, auf der auch Status-/Lieferant-Filter serverseitig gefiltert wurden.
+  const lieferortSucheNorm = lieferortSuche.trim().toLowerCase();
+  const gefiltert = lieferortSucheNorm
+    ? data.filter((item) => {
+        if (!item.versandKunde) return false;
+        const text = `${item.versandKunde.name} ${item.versandKunde.ort ?? ""}`.toLowerCase();
+        return text.includes(lieferortSucheNorm);
+      })
+    : data;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
@@ -132,9 +144,16 @@ function BestellungenListeInner() {
             allowClear
           />
         </div>
-        {(statusFilter || lieferantId) && (
+        <input
+          type="text"
+          value={lieferortSuche}
+          onChange={(e) => setLieferortSuche(e.target.value)}
+          placeholder="Lieferort/Kunde suchen…"
+          className="w-full sm:w-60 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+        {(statusFilter || lieferantId || lieferortSuche) && (
           <button
-            onClick={() => { setStatusFilter(""); setLieferantId(""); }}
+            onClick={() => { setStatusFilter(""); setLieferantId(""); setLieferortSuche(""); }}
             className="text-sm text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-2 rounded-lg"
           >
             Filter zurücksetzen
@@ -147,6 +166,8 @@ function BestellungenListeInner() {
           <p className="p-6 text-gray-400 text-sm">Lade Bestellungen…</p>
         ) : data.length === 0 ? (
           <p className="p-6 text-gray-400 text-sm">Keine Bestellungen gefunden.</p>
+        ) : gefiltert.length === 0 ? (
+          <p className="p-6 text-gray-400 text-sm">Kein Lieferort passend zu &bdquo;{lieferortSuche}&rdquo; gefunden.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -163,7 +184,7 @@ function BestellungenListeInner() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {data.map((item) => (
+                {gefiltert.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-mono text-xs text-gray-700">{item.nummer}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
