@@ -110,6 +110,31 @@ export type LieferscheinMailData = {
   pdfFilename: string;
 };
 
+export type ZahlungsuebersichtPosition = {
+  datum: Date;
+  betrag: number;
+  notiz?: string | null;
+};
+
+export type ZahlungsuebersichtWeiterePosition = {
+  label: string;
+  betrag: number;
+};
+
+export type ZahlungsuebersichtMailData = {
+  rechnungNr: string;
+  rechnungDatum: Date;
+  bruttoBetrag: number;
+  teilzahlungen: ZahlungsuebersichtPosition[];
+  /** Zusätzlich gegen diese Rechnung verrechnete Gutschriften/Forderungen (siehe
+   * verrechneOffeneRestdifferenz() in lib/lieferung.ts) — reduzieren den offenen Betrag
+   * genauso wie eine Teilzahlung, werden aber als eigene Zeile ausgewiesen. */
+  weiterePositionen?: ZahlungsuebersichtWeiterePosition[];
+  offenerBetrag: number;
+  kundenAnrede?: string | null;
+  firma: FirmaDaten;
+};
+
 function fmtDatum(d: Date): string {
   return d.toLocaleDateString("de-DE", { year: "numeric", month: "2-digit", day: "2-digit" });
 }
@@ -239,6 +264,149 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
           ${escapeHtml(pdfFilename)} &mdash; Rechnung (PDF mit eingebetteter ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;E-Rechnung)
         </div>
         ${bankHtml}
+        <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
+      </td></tr>
+      ${emailFooterRow(impressumParts, firma)}
+    </table>
+    <div style="max-width:600px;padding:12px 32px;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">
+      Bei Rückfragen antworten Sie einfach auf diese Nachricht.
+    </div>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+// ─── Zahlungsübersicht ────────────────────────────────────────────────────────
+// Bewusst KEIN PDF/Anhang und KEINE Änderung an der Rechnung selbst — reine Info-Mail über
+// den aktuellen Zahlungsstand (Teilzahlungen inkl. ihrer Notiz + verbleibender Restbetrag),
+// z.B. wenn eine Überzahlung einer anderen Rechnung als Teilzahlung auf diese hier angerechnet
+// wurde und der Kunde darüber nachvollziehbar informiert werden soll.
+
+export function zahlungsuebersichtSubject(rechnungNr: string, firmenname: string): string {
+  return `Zahlungsübersicht zu Rechnung ${rechnungNr} – ${firmenname}`;
+}
+
+export function zahlungsuebersichtEmail(
+  data: ZahlungsuebersichtMailData,
+): { subject: string; text: string; html: string } {
+  const { rechnungNr, rechnungDatum, bruttoBetrag, teilzahlungen, offenerBetrag, kundenAnrede, firma } = data;
+  const weiterePositionen = data.weiterePositionen ?? [];
+  const subject = zahlungsuebersichtSubject(rechnungNr, firma.name);
+  const anrede = kundenAnrede?.trim()
+    ? `Sehr geehrte/r ${kundenAnrede.trim()},`
+    : "Sehr geehrte Damen und Herren,";
+  const beglichen = offenerBetrag <= 0.005;
+
+  const text = [
+    anrede,
+    "",
+    "anbei eine Übersicht zum aktuellen Zahlungsstand Ihrer Rechnung.",
+    "",
+    `Rechnungsnummer:  ${rechnungNr}`,
+    `Rechnungsdatum:   ${fmtDatum(rechnungDatum)}`,
+    `Rechnungsbetrag:  ${fmtEuro(bruttoBetrag)}`,
+    "",
+    "Erhaltene Zahlungen:",
+    ...(teilzahlungen.length
+      ? teilzahlungen.map(
+          (tz) => `• ${fmtDatum(tz.datum)}  ${fmtEuro(tz.betrag)}${tz.notiz ? `  – ${tz.notiz}` : ""}`,
+        )
+      : ["  (keine)"]),
+    ...(weiterePositionen.length
+      ? ["", ...weiterePositionen.map((p) => `• ${p.label}: ${fmtEuro(p.betrag)}`)]
+      : []),
+    "",
+    beglichen
+      ? "Die Rechnung ist damit vollständig beglichen."
+      : `Noch offener Betrag: ${fmtEuro(offenerBetrag)}`,
+    "",
+    "Mit freundlichen Grüßen",
+    firma.name,
+    "",
+    "─────────────────────────────────────────",
+    firma.name + (firma.zusatz ? ` · ${firma.zusatz}` : ""),
+    [firma.strasse, firma.plzOrt].filter(Boolean).join(", "),
+    firma.telefon ? `Tel: ${firma.telefon}` : "",
+    firma.email || "",
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+
+  const impressumParts = [
+    escapeHtml(firma.name) + (firma.zusatz ? ` · ${escapeHtml(firma.zusatz)}` : ""),
+    [firma.strasse, firma.plzOrt].filter(Boolean).map(escapeHtml).join(", "),
+    firma.telefon ? `Tel: ${escapeHtml(firma.telefon)}` : "",
+    firma.email
+      ? `<a href="mailto:${escapeHtml(firma.email)}" style="color:${firma.primaryColor};text-decoration:none;">${escapeHtml(firma.email)}</a>`
+      : "",
+  ].filter(Boolean);
+
+  const zeile = (label: string, value: string, bold = false) => `
+    <tr>
+      <td style="padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;font-weight:600;color:#374151;width:42%;">${escapeHtml(label)}</td>
+      <td style="padding:10px 14px;border:1px solid #e5e7eb;color:#1f2937;font-variant-numeric:tabular-nums;">${bold ? `<b>${escapeHtml(value)}</b>` : escapeHtml(value)}</td>
+    </tr>`;
+
+  const zahlungsZeilenHtml = teilzahlungen.length
+    ? teilzahlungen
+        .map(
+          (tz) => `
+    <tr>
+      <td style="padding:8px 14px;border:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;">${escapeHtml(fmtDatum(tz.datum))}</td>
+      <td style="padding:8px 14px;border:1px solid #e5e7eb;color:#1f2937;font-variant-numeric:tabular-nums;"><b>${escapeHtml(fmtEuro(tz.betrag))}</b></td>
+      <td style="padding:8px 14px;border:1px solid #e5e7eb;color:#6b7280;">${tz.notiz ? escapeHtml(tz.notiz) : ""}</td>
+    </tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="3" style="padding:10px 14px;border:1px solid #e5e7eb;color:#9ca3af;font-style:italic;">Keine Zahlungen erfasst</td></tr>`;
+
+  const weitereZeilenHtml = weiterePositionen.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:12px 0 0 0;border-collapse:collapse;font-size:13px;">
+        ${weiterePositionen.map((p) => zeile(p.label, fmtEuro(p.betrag))).join("")}
+      </table>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
+  <tr><td align="center">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden;">
+      <tr><td style="padding:24px 32px;border-bottom:3px solid ${firma.primaryColor};">
+        <div style="font-size:20px;font-weight:700;color:${firma.primaryColor};letter-spacing:-0.01em;">${escapeHtml(firma.name)}</div>
+        ${firma.zusatz ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${escapeHtml(firma.zusatz)}</div>` : ""}
+      </td></tr>
+      <tr><td style="padding:28px 32px 8px 32px;">
+        <p style="margin:0 0 16px 0;font-size:15px;">${escapeHtml(anrede)}</p>
+        <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#374151;">
+          anbei eine Übersicht zum aktuellen Zahlungsstand Ihrer Rechnung.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
+          ${zeile("Rechnungsnummer", rechnungNr)}
+          ${zeile("Rechnungsdatum", fmtDatum(rechnungDatum))}
+          ${zeile("Rechnungsbetrag", fmtEuro(bruttoBetrag), true)}
+        </table>
+        <p style="margin:0 0 8px 0;font-size:13px;font-weight:600;color:#374151;">Erhaltene Zahlungen</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 8px 0;border-collapse:collapse;font-size:13px;">
+          <tr>
+            <td style="padding:8px 14px;background:#f9fafb;border:1px solid #e5e7eb;font-weight:600;color:#374151;">Datum</td>
+            <td style="padding:8px 14px;background:#f9fafb;border:1px solid #e5e7eb;font-weight:600;color:#374151;">Betrag</td>
+            <td style="padding:8px 14px;background:#f9fafb;border:1px solid #e5e7eb;font-weight:600;color:#374151;">Notiz</td>
+          </tr>
+          ${zahlungsZeilenHtml}
+        </table>
+        ${weitereZeilenHtml}
+        <div style="margin:20px 0 0 0;padding:14px 16px;background:${beglichen ? "#f0fdf4" : firma.primaryLight};border-left:3px solid ${beglichen ? "#16a34a" : firma.primaryColor};border-radius:4px;font-size:14px;color:${beglichen ? "#15803d" : firma.primaryColor};">
+          ${beglichen ? "<b>Die Rechnung ist damit vollständig beglichen.</b>" : `Noch offener Betrag: <b>${escapeHtml(fmtEuro(offenerBetrag))}</b>`}
+        </div>
         <p style="margin:28px 0 0 0;font-size:15px;">Mit freundlichen Grüßen<br><b>${escapeHtml(firma.name)}</b></p>
       </td></tr>
       ${emailFooterRow(impressumParts, firma)}
