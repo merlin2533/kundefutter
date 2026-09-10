@@ -21,6 +21,9 @@ export interface Vorschlag {
   /** true = amountDiff wurde gegen den Skonto-reduzierten statt den vollen Rechnungsbetrag
    * berechnet — die Abweichung ist damit vermutlich kein Fehlbetrag, sondern genutztes Skonto. */
   skontoMatch: boolean;
+  /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
+   * Kunden berechnet wurde — der Kunde hat sie bereits selbst von der Überweisung abgezogen. */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 
 const MAX_VORSCHLAEGE = 8;
@@ -36,7 +39,15 @@ function konfidenzFuer(amountDiff: number, dayDiff: number, textScore: number): 
   return "niedrig";
 }
 
-function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: number, dayDiff: number, textScore: number, skontoMatch = false): Vorschlag {
+function zuVorschlag(
+  c: ReconCandidate,
+  wirdBezahltAm: string,
+  amountDiff: number,
+  dayDiff: number,
+  textScore: number,
+  skontoMatch = false,
+  gutschriftMatch?: { id: number; nummer: string; betrag: number }
+): Vorschlag {
   return {
     typ: c.kind,
     id: c.id,
@@ -49,6 +60,7 @@ function zuVorschlag(c: ReconCandidate, wirdBezahltAm: string, amountDiff: numbe
     textScore,
     wirdBezahltAm,
     skontoMatch,
+    gutschriftMatch,
   };
 }
 
@@ -75,8 +87,8 @@ export async function GET(req: NextRequest) {
     if (q.length >= 2) {
       const treffer = await sucheKandidatenFuerBetrag(umsatz.betrag, q);
       const vorschlaege = treffer.slice(0, MAX_SUCHTREFFER).map((c) => {
-        const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, bank.amount);
-        return zuVorschlag(c, bank.date, amountDiff, daysBetween(bank.date, c.date), 0, skontoMatch);
+        const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, bank.amount);
+        return zuVorschlag(c, bank.date, amountDiff, daysBetween(bank.date, c.date), 0, skontoMatch, gutschriftMatch);
       });
       return NextResponse.json(vorschlaege);
     }
@@ -100,11 +112,11 @@ export async function GET(req: NextRequest) {
       if (!bereitsVorhanden.has(key)) nummerTreffer.set(key, c);
     }
     const zusaetzlich = [...nummerTreffer.values()].map((c) => {
-      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, bank.amount);
-      return { candidate: c, amountDiff, dayDiff: daysBetween(bank.date, c.date), textScore: pairTextScore(bank, c), skontoMatch };
+      const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, bank.amount);
+      return { candidate: c, amountDiff, dayDiff: daysBetween(bank.date, c.date), textScore: pairTextScore(bank, c), skontoMatch, gutschriftMatch };
     });
 
-    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore, r.skontoMatch));
+    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore, r.skontoMatch, r.gutschriftMatch));
 
     return NextResponse.json(vorschlaege);
   } catch (err) {

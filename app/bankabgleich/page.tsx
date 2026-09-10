@@ -74,6 +74,7 @@ interface Vorschlag {
   dayDiff: number;
   wirdBezahltAm: string;
   skontoMatch: boolean;
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 
 function BankabgleichContent() {
@@ -320,6 +321,7 @@ function BankabgleichContent() {
       alsBezahltMarkieren,
       zuordnungsArt: "manuell",
       ...(differenzAktion ? { differenzAktion } : {}),
+      ...(vorschlag.gutschriftMatch ? { gutschriftIdFuerVerrechnung: vorschlag.gutschriftMatch.id } : {}),
     };
 
     const res = await fetch(`/api/bankabgleich/${umsatzId}`, {
@@ -733,6 +735,7 @@ function BankabgleichContent() {
                                     signedDiff={u.betrag - v.betrag}
                                     bankBetrag={u.betrag}
                                     skontoMatch={v.skontoMatch}
+                                    gutschriftMatch={v.gutschriftMatch}
                                     onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
                                     selected={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? ausgewaehlt.has(`${v.typ}:${v.id}`) : undefined}
                                     onToggleSelect={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? () => toggleAuswahl(v) : undefined}

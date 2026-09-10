@@ -34,6 +34,9 @@ interface AbgleichPaar {
   wirdBezahltAm: string;
   /** true = amountDiff wurde gegen den Skonto-reduzierten statt den vollen Rechnungsbetrag berechnet. */
   skontoMatch: boolean;
+  /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
+   * Kunden berechnet wurde — der Kunde hat sie bereits selbst von der Überweisung abgezogen. */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 
 export async function POST(req: NextRequest) {
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
       verwendungszweck: b.purpose,
       gegenpartei: b.name,
     });
-    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number; skontoMatch?: boolean }): AbgleichPaar => ({
+    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number; skontoMatch?: boolean; gutschriftMatch?: { id: number; nummer: string; betrag: number } }): AbgleichPaar => ({
       bank: toBankInfo(p.bank),
       kandidat: toKandidatInfo(p.candidate),
       amountDiff: p.amountDiff,
@@ -91,6 +94,7 @@ export async function POST(req: NextRequest) {
       textScore: p.textScore ?? 0,
       wirdBezahltAm: p.bank.date,
       skontoMatch: p.skontoMatch ?? false,
+      gutschriftMatch: p.gutschriftMatch,
     });
 
     return NextResponse.json({

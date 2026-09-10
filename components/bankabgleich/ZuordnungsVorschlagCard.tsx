@@ -50,6 +50,11 @@ export interface ZuordnungsVorschlagCardProps {
    * überwiesen) — kein echter Fehlbetrag. Blendet die Fehlbetrags-Warnung/den Forderung-Button
    * aus; "Skonto genutzt" wird beim Übernehmen automatisch serverseitig gesetzt. */
   skontoMatch?: boolean;
+  /** Gesetzt, wenn die Abweichung dem Rechnungsbetrag abzüglich einer bereits bestehenden OFFENEN
+   * Gutschrift des Kunden entspricht (Kunde hat sie selbst von der Überweisung abgezogen) — kein
+   * echter Fehlbetrag. Blendet ebenfalls die Fehlbetrags-Warnung/den Forderung-Button aus; die
+   * Gutschrift wird beim Übernehmen automatisch als VERBUCHT markiert. */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
   onUebernehmen: (alsBezahltMarkieren: boolean, differenzAktion?: "gutschrift" | "forderung") => void | Promise<void>;
   compact?: boolean;
   /** Mehrfachauswahl (z.B. wenn eine Zahlung mehrere Rechnungen gleichzeitig deckt) — nur
@@ -83,6 +88,7 @@ export default function ZuordnungsVorschlagCard({
   signedDiff,
   bankBetrag,
   skontoMatch,
+  gutschriftMatch,
   onUebernehmen,
   compact,
   selected,
@@ -107,8 +113,9 @@ export default function ZuordnungsVorschlagCard({
 
   const kannDifferenz = (typ === "lieferung" || typ === "sammelrechnung") && signedDiff !== undefined;
   const ueberzahlung = kannDifferenz && signedDiff! > DIFFERENZ_SCHWELLE;
-  // Ein per Skonto erklärter Fehlbetrag ist keine echte Unterzahlung — kein Forderung-Button dafür.
-  const fehlbetrag = kannDifferenz && signedDiff! < -DIFFERENZ_SCHWELLE && !skontoMatch;
+  // Ein per Skonto oder per bereits verrechneter Gutschrift erklärter Fehlbetrag ist keine echte
+  // Unterzahlung — kein Forderung-Button dafür.
+  const fehlbetrag = kannDifferenz && signedDiff! < -DIFFERENZ_SCHWELLE && !skontoMatch && !gutschriftMatch;
 
   return (
     <div className={`bg-white border rounded-lg ${compact ? "p-2.5" : "p-3"} transition-colors ${selected ? "border-green-500 ring-1 ring-green-500" : "border-gray-200 hover:border-green-400"}`}>
@@ -140,6 +147,10 @@ export default function ZuordnungsVorschlagCard({
       {skontoMatch ? (
         <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 mt-1.5">
           ✓ Abweichung entspricht dem hinterlegten Skonto — wird beim Übernehmen automatisch erfasst.
+        </div>
+      ) : gutschriftMatch ? (
+        <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 mt-1.5">
+          ✓ Abweichung entspricht Rechnung abzüglich Gutschrift {gutschriftMatch.nummer} ({formatEuro(gutschriftMatch.betrag)}) — wird beim Übernehmen automatisch verrechnet.
         </div>
       ) : (() => {
         const zeigeBetrag = amountDiff !== undefined && amountDiff > 0.01;

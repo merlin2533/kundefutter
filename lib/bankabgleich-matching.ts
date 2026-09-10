@@ -37,6 +37,14 @@ export interface ReconCandidate {
    * das Skonto nutzt, überweist absichtlich weniger als den vollen Rechnungsbetrag — ohne diesen
    * zweiten möglichen Betrag sähe eine korrekte Skonto-Zahlung wie ein Fehlbetrag aus. */
   skontoAmount?: number;
+  /** Nur bei kind "lieferung": alle aktuell OFFENEN Gutschriften desselben Kunden (Brutto-Betrag,
+   * siehe berechneGutschriftBrutto()). Ein Kunde, der eine bereits erhaltene Gutschrift selbst von
+   * seiner Überweisung abzieht, bevor sie automatisch in eine künftige Rechnung eingerechnet wird
+   * (siehe injiziereOffeneGutschriften() in lib/lieferung.ts), zahlt dadurch bewusst weniger als
+   * den vollen Rechnungsbetrag — ohne das hier zu berücksichtigen sähe das wie ein Fehlbetrag aus.
+   * Sammelrechnung bewusst ausgenommen: Gutschrift.verbuchtBeiLieferungId kennt keine
+   * Sammelrechnung, eine Verrechnung dorthin ist im Schema nicht vorgesehen. */
+  offeneGutschriften?: { id: number; nummer: string; betrag: number }[];
 }
 
 export interface MatchedPair {
@@ -51,6 +59,9 @@ export interface MatchedPair {
   textScore?: number;
   /** true = der Bankbetrag entspricht dem Skonto-reduzierten statt dem vollen Rechnungsbetrag. */
   skontoMatch?: boolean;
+  /** Gesetzt, wenn der Bankbetrag dem Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
+   * Kunden entspricht — der Kunde hat die Gutschrift bereits selbst verrechnet. */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 
 export interface AggregatedGroup {
@@ -188,21 +199,48 @@ export function pairTextScore(bank: BankBuchung, candidate: ReconCandidate): num
  * winzige Teilzahlung, die weit von beiden Beträgen entfernt liegt, aber marginal näher am
  * Skonto-Betrag als am vollen Betrag ist, fälschlich als erkannte Skonto-Zahlung markiert. */
 const SKONTO_ERKENNUNGS_TOLERANZ = 1;
+/** Toleranz (€), ab der der Bankbetrag tatsächlich als "Rechnung abzüglich dieser Gutschrift"
+ * gilt — enger als bei Skonto, da eine Gutschrift-Verrechnung ein exakter Centbetrag ist (kein
+ * Prozentsatz), Abweichungen also nur aus Rundung stammen sollten. */
+const GUTSCHRIFT_ERKENNUNGS_TOLERANZ = DEFAULT_AMOUNT_TOLERANZ;
+
+export interface Betragsabweichung {
+  amountDiff: number;
+  skontoMatch: boolean;
+  /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich dieser Gutschrift berechnet
+   * wurde (näher als der volle bzw. Skonto-reduzierte Betrag). */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
+}
 
 /** Betragsabweichung eines Kandidaten zu einer Bankbuchung — berücksichtigt bei Kandidaten mit
  * hinterlegtem Skonto (skontoAmount) automatisch auch den Skonto-reduzierten Betrag, damit eine
  * legitime Skonto-Zahlung (Kunde überweist absichtlich weniger) nicht wie ein Fehlbetrag aussieht.
- * Liefert den jeweils näher liegenden Betrag (für Ranking/Toleranz-Checks) + ob dieser Betrag
- * PLAUSIBEL dem Skonto-Betrag entspricht (innerhalb SKONTO_ERKENNUNGS_TOLERANZ) — nicht schon,
- * weil er nur geringfügig näher liegt als der volle Betrag. */
-export function bestimmeBetragsabweichung(candidate: ReconCandidate, bankAmount: number): { amountDiff: number; skontoMatch: boolean } {
-  const diffVoll = Math.abs(candidate.amount - bankAmount);
-  if (candidate.skontoAmount == null) return { amountDiff: diffVoll, skontoMatch: false };
-  const diffSkonto = Math.abs(candidate.skontoAmount - bankAmount);
-  if (diffSkonto < diffVoll) {
-    return { amountDiff: diffSkonto, skontoMatch: diffSkonto <= SKONTO_ERKENNUNGS_TOLERANZ };
+ * Ebenso für offene Gutschriften des Kunden (offeneGutschriften): ein Kunde, der eine bereits
+ * erhaltene Gutschrift selbst von seiner Überweisung abzieht, zahlt dadurch ebenfalls bewusst
+ * weniger als den vollen Rechnungsbetrag. Liefert den jeweils näher liegenden Betrag (für
+ * Ranking/Toleranz-Checks) + ob dieser Betrag PLAUSIBEL dem Skonto-/Gutschrift-Betrag entspricht
+ * (innerhalb der jeweiligen Toleranz) — nicht schon, weil er nur geringfügig näher liegt als der
+ * volle Betrag. */
+export function bestimmeBetragsabweichung(candidate: ReconCandidate, bankAmount: number): Betragsabweichung {
+  let best: Betragsabweichung = { amountDiff: Math.abs(candidate.amount - bankAmount), skontoMatch: false };
+
+  if (candidate.skontoAmount != null) {
+    const diffSkonto = Math.abs(candidate.skontoAmount - bankAmount);
+    if (diffSkonto < best.amountDiff) {
+      best = { amountDiff: diffSkonto, skontoMatch: diffSkonto <= SKONTO_ERKENNUNGS_TOLERANZ };
+    }
   }
-  return { amountDiff: diffVoll, skontoMatch: false };
+
+  if (candidate.offeneGutschriften) {
+    for (const g of candidate.offeneGutschriften) {
+      const diffGutschrift = Math.abs(candidate.amount - g.betrag - bankAmount);
+      if (diffGutschrift < best.amountDiff && diffGutschrift <= GUTSCHRIFT_ERKENNUNGS_TOLERANZ) {
+        best = { amountDiff: diffGutschrift, skontoMatch: false, gutschriftMatch: g };
+      }
+    }
+  }
+
+  return best;
 }
 
 export interface RankedCandidate {
@@ -212,6 +250,8 @@ export interface RankedCandidate {
   textScore: number;
   /** true = amountDiff wurde gegen den Skonto-reduzierten Betrag berechnet (näher als der volle Betrag). */
   skontoMatch: boolean;
+  /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich dieser offenen Gutschrift berechnet wurde. */
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 
 /**
@@ -225,14 +265,14 @@ export interface RankedCandidate {
  */
 export function rankCandidatesForBank(bank: BankBuchung, candidates: ReconCandidate[], limit = 8): RankedCandidate[] {
   const scored = candidates.map((candidate) => {
-    const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(candidate, bank.amount);
+    const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(candidate, bank.amount);
     const dayDiff = daysBetween(bank.date, candidate.date);
     const textScore = pairTextScore(bank, candidate);
     const score = textScore * 100 - Math.min(amountDiff, 10000) / 50 - Math.min(dayDiff, 60) / 6;
-    return { candidate, amountDiff, dayDiff, textScore, skontoMatch, score };
+    return { candidate, amountDiff, dayDiff, textScore, skontoMatch, gutschriftMatch, score };
   });
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map(({ candidate, amountDiff, dayDiff, textScore, skontoMatch }) => ({ candidate, amountDiff, dayDiff, textScore, skontoMatch }));
+  return scored.slice(0, limit).map(({ candidate, amountDiff, dayDiff, textScore, skontoMatch, gutschriftMatch }) => ({ candidate, amountDiff, dayDiff, textScore, skontoMatch, gutschriftMatch }));
 }
 
 function hintScore(bank: BankBuchung, candidate: ReconCandidate): number {
@@ -286,9 +326,10 @@ export function runNormalMatch(
     let bestDayDiff = Infinity;
     let bestTextScore = -1;
     let bestSkontoMatch = false;
+    let bestGutschriftMatch: { id: number; nummer: string; betrag: number } | undefined;
     for (let ci = 0; ci < candidates.length; ci++) {
       if (usedCandidate.has(ci)) continue;
-      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(candidates[ci], mv.amount);
+      const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(candidates[ci], mv.amount);
       if (amountDiff > AMOUNT_EXACT) continue;
       const dayDiff = daysBetween(mv.date, candidates[ci].date);
       if (dayDiff > dateTol) continue;
@@ -298,6 +339,7 @@ export function runNormalMatch(
         bestDayDiff = dayDiff;
         best = ci;
         bestSkontoMatch = skontoMatch;
+        bestGutschriftMatch = gutschriftMatch;
       }
     }
     if (best >= 0) {
@@ -312,6 +354,7 @@ export function runNormalMatch(
         source: "auto",
         textScore: bestTextScore,
         skontoMatch: bestSkontoMatch,
+        gutschriftMatch: bestGutschriftMatch,
       });
     }
   }
@@ -327,11 +370,12 @@ export function runNormalMatch(
     let bestDayDiff = 0;
     let bestTextScore = 0;
     let bestSkontoMatch = false;
+    let bestGutschriftMatch: { id: number; nummer: string; betrag: number } | undefined;
 
     for (let ci = 0; ci < candidates.length; ci++) {
       if (usedCandidate.has(ci)) continue;
       const c = candidates[ci];
-      const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, mv.amount);
+      const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, mv.amount);
       if (amountDiff > amountTol) continue;
       const dayDiff = daysBetween(mv.date, c.date);
       const textScore = pairTextScore(mv, c);
@@ -350,6 +394,7 @@ export function runNormalMatch(
         bestDayDiff = dayDiff;
         bestTextScore = textScore;
         bestSkontoMatch = skontoMatch;
+        bestGutschriftMatch = gutschriftMatch;
       }
     }
 
@@ -364,6 +409,7 @@ export function runNormalMatch(
         source: "auto",
         textScore: bestTextScore,
         skontoMatch: bestSkontoMatch,
+        gutschriftMatch: bestGutschriftMatch,
       });
     } else {
       pending.push(mv);
@@ -493,7 +539,7 @@ export function mergeAiMatches(base: ReconciliationResult, aiMatches: AiMatch[])
 
     consumedBank.add(m.bankIndex);
     consumedCandidate.add(key);
-    const { amountDiff, skontoMatch } = bestimmeBetragsabweichung(c, mv.amount);
+    const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, mv.amount);
     deviations.push({
       bank: mv,
       candidate: c,
@@ -502,6 +548,7 @@ export function mergeAiMatches(base: ReconciliationResult, aiMatches: AiMatch[])
       category: "deviation",
       source: "ai",
       skontoMatch,
+      gutschriftMatch,
       aiReason: m.reason,
       confidence: m.confidence,
       textScore: pairTextScore(mv, c),
