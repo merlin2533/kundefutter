@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
 import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, markiereSkontoGenutztFallsPassend, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
-import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
+import { loescheGutschriftMitNebenwirkungen, verbucheGutschriftGegenLieferung, GutschriftVerrechnungFehler } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       kiKonfidenz,
       ignoriert,
       differenzAktion,
+      gutschriftIdFuerVerrechnung,
     } = body as {
       lieferungId?: number | null;
       sammelrechnungId?: number | null;
@@ -39,6 +40,11 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
        * Bankbetrag und Rechnungsbetrag als Gutschrift (Überzahlung) oder KundeForderung
        * (Fehlbetrag) — beides fließt automatisch in die nächste Rechnung des Kunden ein. */
       differenzAktion?: DifferenzArt | null;
+      /** Nur bei Zuordnung zu lieferungId: eine bereits bestehende OFFENE Gutschrift des Kunden,
+       * die der Bankabgleich als Erklärung für den geringeren Zahlbetrag erkannt hat (Kunde hat
+       * sie selbst von der Überweisung abgezogen) — wird beim Übernehmen als VERBUCHT markiert,
+       * ohne den offenen Rechnungsbetrag anzutasten. */
+      gutschriftIdFuerVerrechnung?: number | null;
     };
 
     const umsatz = await prisma.kontoumsatz.findUnique({ where: { id } });
@@ -106,6 +112,12 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         // zusätzlich eine Differenzbuchung angefordert wurde).
         if (lieferungId) await markiereSkontoGenutztFallsPassend(tx, "lieferung", lieferungId, umsatz.betrag);
         if (sammelrechnungId) await markiereSkontoGenutztFallsPassend(tx, "sammelrechnung", sammelrechnungId, umsatz.betrag);
+        // Vom Matcher erkannte, bereits offene Gutschrift des Kunden (siehe bestimmeBetragsabweichung()
+        // in lib/bankabgleich-matching.ts) — der Kunde hat sie schon selbst von der Überweisung
+        // abgezogen, daher hier verbuchen statt sie als Fehlbetrag/Forderung misszudeuten.
+        if (lieferungId && gutschriftIdFuerVerrechnung) {
+          await verbucheGutschriftGegenLieferung(tx, { gutschriftId: gutschriftIdFuerVerrechnung, lieferungId });
+        }
       } else if (lieferungId || sammelrechnungId) {
         // Kunde zahlt eine Rechnung in mehreren Teilbeträgen (z.B. zwei Überweisungen): die
         // Rechnung bleibt offen (bezahltAm bleibt null, taucht also weiter als Kandidat für die
@@ -146,7 +158,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
     return NextResponse.json(aktualisiert);
   } catch (err: unknown) {
-    if (err instanceof DifferenzValidierungsFehler) {
+    if (err instanceof DifferenzValidierungsFehler || err instanceof GutschriftVerrechnungFehler) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
     Sentry.captureException(err);

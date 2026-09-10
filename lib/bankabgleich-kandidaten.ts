@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { berechneLieferungBrutto, berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
+import { berechneLieferungBrutto, berechneSammelrechnungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import type { BankBuchung, ReconCandidate } from "@/lib/bankabgleich-matching";
 
 /** Default-Obergrenze des Kandidaten-Pools, falls kein Wert unter dem Einstellung-Key
@@ -74,6 +74,29 @@ function skontoBetrag(brutto: number, skontoProzent: number | null): number | un
   return skontoProzent != null ? brutto * (1 - skontoProzent / 100) : undefined;
 }
 
+/** Offene Gutschriften je Kunde, gebündelt für eine Menge von Lieferungs-Kandidaten (kein N+1 —
+ * ein einziger `findMany` über alle beteiligten Kunden). Ein Kunde, der eine bereits erhaltene
+ * Gutschrift selbst von seiner Überweisung abzieht, bevor sie automatisch in eine künftige
+ * Rechnung eingerechnet wird (injiziereOffeneGutschriften() in lib/lieferung.ts), zahlt dadurch
+ * bewusst weniger als den vollen Rechnungsbetrag — siehe bestimmeBetragsabweichung() in
+ * lib/bankabgleich-matching.ts, das diese Liste je Kandidat als zweite mögliche Erklärung prüft. */
+async function ladeOffeneGutschriftenProKunde(kundeIds: number[]): Promise<Map<number, { id: number; nummer: string; betrag: number }[]>> {
+  const map = new Map<number, { id: number; nummer: string; betrag: number }[]>();
+  if (kundeIds.length === 0) return map;
+  const gutschriften = await prisma.gutschrift.findMany({
+    where: { kundeId: { in: kundeIds }, status: "OFFEN" },
+    include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } },
+  });
+  for (const g of gutschriften) {
+    const betrag = berechneGutschriftBrutto(g.positionen);
+    if (betrag <= 0) continue;
+    const list = map.get(g.kundeId) ?? [];
+    list.push({ id: g.id, nummer: g.nummer, betrag });
+    map.set(g.kundeId, list);
+  }
+  return map;
+}
+
 async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: number): Promise<ReconCandidate[]> {
   const lieferungen = await prisma.lieferung.findMany({
     where,
@@ -81,6 +104,7 @@ async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: 
     take,
     orderBy: { rechnungDatum: "desc" },
   });
+  const gutschriftenProKunde = await ladeOffeneGutschriftenProKunde([...new Set(lieferungen.map((l) => l.kundeId))]);
   return lieferungen.map((l) => {
     const amount = berechneLieferungBrutto(l);
     return {
@@ -92,6 +116,7 @@ async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: 
       counterparty: l.kunde.name,
       receiptNumber: l.rechnungNr ?? undefined,
       skontoAmount: skontoBetrag(amount, l.skontoProzent),
+      offeneGutschriften: gutschriftenProKunde.get(l.kundeId),
     };
   });
 }

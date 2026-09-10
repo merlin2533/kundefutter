@@ -199,3 +199,107 @@ describe("Skonto-Erkennung — bestimmeBetragsabweichung / runNormalMatch / rank
     expect(ranked[0].amountDiff).toBeCloseTo(0, 5);
   });
 });
+
+describe("Gutschrift-Erkennung — bestimmeBetragsabweichung / runNormalMatch / rankCandidatesForBank", () => {
+  // Realer gemeldeter Fall: Rechnung RE-2026-0755 über 1.196,26 €, Kunde hat eine bereits
+  // bestehende offene Gutschrift über 378,78 € selbst abgezogen und nur 817,48 € überwiesen.
+  it("bestimmeBetragsabweichung erkennt den Bankbetrag als Rechnung abzüglich einer offenen Gutschrift des Kunden", () => {
+    const candidate: ReconCandidate = {
+      kind: "lieferung",
+      id: 1,
+      date: "2026-08-27",
+      amount: 1196.26,
+      description: "",
+      counterparty: "",
+      offeneGutschriften: [{ id: 42, nummer: "GS-2026-0031", betrag: 378.78 }],
+    };
+    const r = bestimmeBetragsabweichung(candidate, 817.48);
+    expect(r.amountDiff).toBeCloseTo(0, 5);
+    expect(r.gutschriftMatch).toEqual({ id: 42, nummer: "GS-2026-0031", betrag: 378.78 });
+    expect(r.skontoMatch).toBe(false);
+  });
+
+  it("bestimmeBetragsabweichung wählt unter mehreren offenen Gutschriften diejenige, die am besten passt", () => {
+    const candidate: ReconCandidate = {
+      kind: "lieferung",
+      id: 1,
+      date: "2026-08-27",
+      amount: 1000,
+      description: "",
+      counterparty: "",
+      offeneGutschriften: [
+        { id: 1, nummer: "GS-2026-0001", betrag: 50 },
+        { id: 2, nummer: "GS-2026-0002", betrag: 120 },
+      ],
+    };
+    const r = bestimmeBetragsabweichung(candidate, 880);
+    expect(r.gutschriftMatch).toEqual({ id: 2, nummer: "GS-2026-0002", betrag: 120 });
+    expect(r.amountDiff).toBeCloseTo(0, 5);
+  });
+
+  it("bestimmeBetragsabweichung markiert gutschriftMatch NICHT, wenn keine offene Gutschrift den Betrag plausibel erklärt (echter Fehlbetrag)", () => {
+    const candidate: ReconCandidate = {
+      kind: "lieferung",
+      id: 1,
+      date: "2026-08-27",
+      amount: 1000,
+      description: "",
+      counterparty: "",
+      offeneGutschriften: [{ id: 1, nummer: "GS-2026-0001", betrag: 50 }],
+    };
+    const r = bestimmeBetragsabweichung(candidate, 700);
+    expect(r.gutschriftMatch).toBeUndefined();
+    expect(r.amountDiff).toBeCloseTo(300, 5);
+  });
+
+  it("bestimmeBetragsabweichung ignoriert offeneGutschriften, wenn nicht gesetzt", () => {
+    const candidate: ReconCandidate = { kind: "lieferung", id: 1, date: "2026-08-27", amount: 1000, description: "", counterparty: "" };
+    const r = bestimmeBetragsabweichung(candidate, 817.48);
+    expect(r.amountDiff).toBeCloseTo(182.52, 5);
+    expect(r.skontoMatch).toBe(false);
+    expect(r.gutschriftMatch).toBeUndefined();
+  });
+
+  it("runNormalMatch zeigt die Gutschrift-erklärte Zahlung als Abweichung mit gutschriftMatch statt als reinen Fehlbetrag", () => {
+    const bank: BankBuchung[] = [
+      { id: 1, date: "2026-09-04", amount: 817.48, purpose: "RG2026 0755", name: "Ernst Baumann" },
+    ];
+    const candidates: ReconCandidate[] = [
+      {
+        kind: "lieferung",
+        id: 1,
+        date: "2026-08-27",
+        amount: 1196.26,
+        description: "Lieferung RE-2026-0755",
+        counterparty: "Ernst Baumann",
+        receiptNumber: "RE-2026-0755",
+        offeneGutschriften: [{ id: 42, nummer: "GS-2026-0031", betrag: 378.78 }],
+      },
+    ];
+    const result = runNormalMatch(bank, candidates);
+    expect(result.deviations).toHaveLength(1);
+    expect(result.deviations[0].gutschriftMatch).toEqual({ id: 42, nummer: "GS-2026-0031", betrag: 378.78 });
+    expect(result.deviations[0].amountDiff).toBeCloseTo(0, 5);
+  });
+
+  it("rankCandidatesForBank rankt einen Gutschrift-erklärten Treffer vor einem betraglich näheren, aber unpassenden Kandidaten", () => {
+    const bank: BankBuchung = { id: 1, date: "2026-09-04", amount: 817.48, purpose: "RG2026 0755", name: "Ernst Baumann" };
+    const candidates: ReconCandidate[] = [
+      {
+        kind: "lieferung",
+        id: 1,
+        date: "2026-08-27",
+        amount: 1196.26,
+        description: "Lieferung",
+        counterparty: "Ernst Baumann",
+        receiptNumber: "RE-2026-0755",
+        offeneGutschriften: [{ id: 42, nummer: "GS-2026-0031", betrag: 378.78 }],
+      },
+      { kind: "lieferung", id: 2, date: "2026-08-27", amount: 820, description: "Andere Lieferung", counterparty: "Anderer Kunde" },
+    ];
+    const ranked = rankCandidatesForBank(bank, candidates);
+    expect(ranked[0].candidate.id).toBe(1);
+    expect(ranked[0].gutschriftMatch).toEqual({ id: 42, nummer: "GS-2026-0031", betrag: 378.78 });
+    expect(ranked[0].amountDiff).toBeCloseTo(0, 5);
+  });
+});

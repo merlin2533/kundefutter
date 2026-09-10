@@ -126,6 +126,40 @@ export async function loescheGutschriftMitNebenwirkungen(tx: Tx, gutschriftId: n
   return true;
 }
 
+/** Signalisiert einen Eingabefehler beim Verrechnen einer bestehenden Gutschrift gegen eine
+ * Rechnung (z.B. gehört sie nicht zu diesem Kunden oder ist nicht mehr offen) statt eines
+ * echten Serverfehlers — Aufrufer können damit gezielt 400 statt 500 zurückgeben. */
+export class GutschriftVerrechnungFehler extends Error {}
+
+/**
+ * Verbucht eine bereits bestehende OFFENE Gutschrift des Kunden gegen eine Lieferung — für den
+ * Bankabgleich-Fall, dass der Kunde die Gutschrift schon selbst von seiner Überweisung
+ * abgezogen hat, bevor sie automatisch in eine künftige Rechnung eingerechnet worden wäre (siehe
+ * injiziereOffeneGutschriften() in lib/lieferung.ts). Anders als dort wird KEINE neue
+ * Ausgleichsposition angelegt — die Rechnung bleibt inhaltlich unverändert, der Bankbetrag
+ * darunter erklärt die Differenz jetzt einfach korrekt. Identisches Zustandsupdate wie der
+ * "Restbetrag klären"-Pfad (verrechneOffeneRestdifferenz() in lib/lieferung.ts), hier aber schon
+ * beim erstmaligen Zuordnen im Bankabgleich statt erst nach einer separat erfassten Teilzahlung.
+ * "Wieder öffnen" auf /gutschriften/[id] (oeffneGutschriftErneut() oben) macht das unverändert
+ * rückgängig — der dortige Lieferposition-Löschversuch matcht mangels Ausgleichsposition auf 0
+ * Zeilen, der Reset auf OFFEN funktioniert also ohne weitere Anpassung.
+ */
+export async function verbucheGutschriftGegenLieferung(
+  tx: Tx,
+  opts: { gutschriftId: number; lieferungId: number }
+): Promise<void> {
+  const { gutschriftId, lieferungId } = opts;
+  const lieferung = await tx.lieferung.findUnique({ where: { id: lieferungId }, select: { kundeId: true } });
+  if (!lieferung) throw new GutschriftVerrechnungFehler("Lieferung nicht gefunden");
+  const gs = await tx.gutschrift.findUnique({ where: { id: gutschriftId } });
+  if (!gs || gs.kundeId !== lieferung.kundeId) throw new GutschriftVerrechnungFehler("Gutschrift nicht gefunden");
+  if (gs.status !== "OFFEN") throw new GutschriftVerrechnungFehler("Diese Gutschrift ist nicht mehr offen");
+  await tx.gutschrift.update({
+    where: { id: gutschriftId },
+    data: { status: "VERBUCHT", verbuchtBeiLieferungId: lieferungId },
+  });
+}
+
 /**
  * Öffnet eine VERBUCHTE Gutschrift wieder (Status zurück auf OFFEN) — Gegenstück zum manuellen
  * "Als verbucht markieren"-Button auf /gutschriften/[id], der versehentlich geklickt werden kann

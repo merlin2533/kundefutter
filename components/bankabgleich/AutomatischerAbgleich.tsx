@@ -44,6 +44,7 @@ interface AbgleichPaar {
   konfidenz?: number; // nur bei KI-Treffern
   begruendung?: string;
   skontoMatch: boolean;
+  gutschriftMatch?: { id: number; nummer: string; betrag: number };
 }
 interface BankOnlyItem extends BankInfo {
   naechsterKandidat: KandidatInfo | null;
@@ -70,7 +71,7 @@ interface AutoMatchResponse {
 type Tab = "matched" | "deviations" | "bankOnly" | "candidateOnly";
 
 async function uebernehmen(
-  paar: { bank: BankInfo; kandidat: KandidatInfo },
+  paar: { bank: BankInfo; kandidat: KandidatInfo; gutschriftMatch?: { id: number; nummer: string; betrag: number } },
   alsBezahltMarkieren: boolean,
   zuordnungsArt: "automatisch" | "ki",
   kiKonfidenz?: number,
@@ -83,6 +84,7 @@ async function uebernehmen(
   };
   if (kiKonfidenz != null) body.kiKonfidenz = kiKonfidenz;
   if (differenzAktion) body.differenzAktion = differenzAktion;
+  if (paar.gutschriftMatch) body.gutschriftIdFuerVerrechnung = paar.gutschriftMatch.id;
   const res = await fetch(`/api/bankabgleich/${paar.bank.umsatzId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -179,6 +181,7 @@ export default function AutomatischerAbgleich({
                 dayDiff: neu.dayDiff,
                 textScore: neu.textScore,
                 skontoMatch: neu.skontoMatch,
+                gutschriftMatch: neu.gutschriftMatch,
                 konfidenz: undefined,
                 begruendung: undefined,
               }
@@ -377,6 +380,7 @@ export default function AutomatischerAbgleich({
                     amountDiff={p.amountDiff}
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
+                    gutschriftMatch={p.gutschriftMatch}
                     onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                     onKandidatWechseln={(neu) => kandidatWechseln("matched", p.bank.umsatzId, neu)}
                   />
@@ -427,6 +431,7 @@ export default function AutomatischerAbgleich({
                     amountDiff={p.amountDiff}
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
+                    gutschriftMatch={p.gutschriftMatch}
                     onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                     onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                   />
@@ -626,6 +631,7 @@ export default function AutomatischerAbgleich({
                       amountDiff={p.amountDiff}
                       dayDiff={p.dayDiff}
                       skontoMatch={p.skontoMatch}
+                      gutschriftMatch={p.gutschriftMatch}
                       onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
                       onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                     />
