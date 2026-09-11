@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
@@ -12,6 +13,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -36,8 +40,9 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
 
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
@@ -125,13 +130,14 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   }
 }
 
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.rolle !== "admin") {
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
+  if (me!.rolle !== "admin") {
     return NextResponse.json({ error: "Nur Administratoren können Abrechnungen löschen" }, { status: 403 });
   }
 

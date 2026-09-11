@@ -18,6 +18,7 @@ const SELECT = {
   rolle: true,
   rolleId: true,
   berechtigungen: true,
+  mitarbeiterId: true,
   aktiv: true,
   letzterLogin: true,
   erstelltAm: true,
@@ -154,6 +155,23 @@ export async function PUT(req: NextRequest, ctx: Params) {
     data.berechtigungen = JSON.stringify(valid);
   }
 
+  // mitarbeiterId: Personal-Selbstbedienung — verknüpft diesen Login mit genau einem
+  // Mitarbeiter-Stammdatensatz (macht ihn zum Selbstbedienungs-Account, siehe
+  // istPersonalSelbstbedienung() in lib/permissions.ts). null = Verknüpfung aufheben.
+  if (body?.mitarbeiterId !== undefined) {
+    if (body.mitarbeiterId === null) {
+      data.mitarbeiterId = null;
+    } else {
+      const maId = parseInt(String(body.mitarbeiterId), 10);
+      if (isNaN(maId) || maId <= 0) {
+        return NextResponse.json({ error: "Ungültige Mitarbeiter-ID" }, { status: 400 });
+      }
+      const ma = await prisma.mitarbeiter.findUnique({ where: { id: maId }, select: { id: true } });
+      if (!ma) return NextResponse.json({ error: "Mitarbeiter nicht gefunden" }, { status: 404 });
+      data.mitarbeiterId = maId;
+    }
+  }
+
   if (typeof body?.passwort === "string" && body.passwort.length > 0) {
     let minLaenge = 8;
     try {
@@ -175,6 +193,12 @@ export async function PUT(req: NextRequest, ctx: Params) {
     Sentry.captureException(e);
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    }
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return NextResponse.json(
+        { error: "Dieser Mitarbeiter ist bereits mit einem anderen Login verknüpft" },
+        { status: 409 },
+      );
     }
     return NextResponse.json({ error: "Fehler beim Speichern" }, { status: 500 });
   }

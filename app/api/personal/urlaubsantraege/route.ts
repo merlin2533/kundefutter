@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
@@ -10,8 +11,9 @@ export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
 
   const { searchParams } = new URL(req.url);
   const mitarbeiterIdParam = searchParams.get("mitarbeiterId");
@@ -52,8 +54,9 @@ export async function POST(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
 
   try {
     const body = await req.json();

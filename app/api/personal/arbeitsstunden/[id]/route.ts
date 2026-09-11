@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { istPersonalSelbstbedienung } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { stundenZwischenUhrzeiten } from "@/lib/utils";
@@ -14,12 +15,20 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+
+  if (istPersonalSelbstbedienung(me)) {
+    const bestehend = await prisma.arbeitsstunde.findUnique({ where: { id: numId }, select: { mitarbeiterId: true } });
+    if (!bestehend) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    if (bestehend.mitarbeiterId !== me!.mitarbeiterId) {
+      return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+    }
+  }
 
   try {
     const body = await req.json();
@@ -68,16 +77,24 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   }
 }
 
-export async function DELETE(req: NextRequest, ctx: Ctx) {
+export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+
+  if (istPersonalSelbstbedienung(me)) {
+    const bestehend = await prisma.arbeitsstunde.findUnique({ where: { id: numId }, select: { mitarbeiterId: true } });
+    if (!bestehend) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    if (bestehend.mitarbeiterId !== me!.mitarbeiterId) {
+      return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+    }
+  }
 
   try {
     await prisma.arbeitsstunde.delete({ where: { id: numId } });

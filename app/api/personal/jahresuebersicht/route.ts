@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
@@ -9,6 +11,9 @@ export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
   const { searchParams } = new URL(req.url);
   const jahrStr = searchParams.get("jahr");
   const jahr = jahrStr ? parseInt(jahrStr, 10) : new Date().getFullYear();

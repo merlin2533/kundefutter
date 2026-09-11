@@ -105,6 +105,7 @@ export type CurrentUser = {
   rolleBerechtigungen: string[];      // Berechtigungen aus der Rolle (geparst)
   berechtigungen: string[];           // individuelle Overrides (geparst)
   aktiv: boolean;
+  mitarbeiterId: number | null;       // gesetzt = Personal-Selbstbedienungs-Account, siehe lib/permissions.ts
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
@@ -125,6 +126,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
         rolleId: true,
         berechtigungen: true,
         aktiv: true,
+        mitarbeiterId: true,
         rolleRef: {
           select: { bezeichnung: true, berechtigungen: true },
         },
@@ -142,6 +144,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       rolleBerechtigungen: parseJson(user.rolleRef?.berechtigungen),
       berechtigungen: parseJson(user.berechtigungen),
       aktiv: user.aktiv,
+      mitarbeiterId: user.mitarbeiterId,
     };
   } catch (e) {
     Sentry.captureException(e);

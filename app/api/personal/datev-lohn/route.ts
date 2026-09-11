@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requireVollePersonalRechte } from "@/lib/permissions";
 import { getAppName } from "@/lib/appinfo";
 import {
   lohnKonto,
@@ -21,6 +23,9 @@ export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
+  const me = await getCurrentUser();
+  const deny = requireVollePersonalRechte(me);
+  if (deny) return deny;
   const { searchParams } = new URL(req.url);
   const vonStr = searchParams.get("von");
   const bisStr = searchParams.get("bis");

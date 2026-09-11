@@ -266,6 +266,34 @@ export function requirePermission(user: CurrentUser | null, key: string): NextRe
 }
 
 /**
+ * Personal-Selbstbedienung: ein Benutzer-Login, der über `Benutzer.mitarbeiterId` mit genau
+ * einem Mitarbeiter-Stammdatensatz verknüpft ist, darf UNABHÄNGIG von rolle/rolleId/berechtigungen
+ * nur die eigene Arbeitszeiterfassung (/meine-arbeitszeit) nutzen — kein Zugriff auf
+ * Kollegendaten, Gehaltsabrechnungen oder andere Personal-Auswertungen. Diese Verknüpfung ist
+ * ein bewusst eigenständiges, additives Gate (kein neuer Eintrag in P.* / PERMISSION_META): eine
+ * neue Pflicht-Permission für den gesamten Personal-Bereich hätte rückwirkend jeder bestehenden
+ * Rolle ohne diese Permission unbemerkt den heute uneingeschränkten Zugriff entzogen (siehe
+ * NAV_PERMISSION-Kommentar in components/Nav.tsx zum selben Vorsichtsprinzip) — die Restriktion
+ * gilt daher ausschließlich für neu verknüpfte Accounts, nie rückwirkend für Bestandsrollen.
+ */
+export function istPersonalSelbstbedienung(user: Pick<CurrentUser, "mitarbeiterId"> | null | undefined): boolean {
+  return !!user?.mitarbeiterId;
+}
+
+/**
+ * API-Helper für Personal-Routen, die für Selbstbedienungs-Accounts komplett gesperrt sind
+ * (alles außer der eigenen Arbeitszeiterfassung: Mitarbeiterliste/-stammdaten, Gehaltsabrechnungen,
+ * Urlaubsanträge, Auswertungen). Gibt einen 401/403-NextResponse zurück, sonst null.
+ */
+export function requireVollePersonalRechte(user: CurrentUser | null): NextResponse | null {
+  if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  if (istPersonalSelbstbedienung(user)) {
+    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+  }
+  return null;
+}
+
+/**
  * Entfernt sensible EK-Preis-Felder aus einem Artikel-Objekt wenn die Permission fehlt.
  *
  * Der Einkaufspreis lebt ausschließlich auf ArtikelLieferant.einkaufspreis (kleines "p") —

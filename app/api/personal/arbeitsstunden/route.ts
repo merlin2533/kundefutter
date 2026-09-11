@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { istPersonalSelbstbedienung } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { stundenZwischenUhrzeiten } from "@/lib/utils";
@@ -13,8 +14,9 @@ export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  const selbstbedienung = istPersonalSelbstbedienung(me);
 
   const { searchParams } = new URL(req.url);
   const mitarbeiterIdParam = searchParams.get("mitarbeiterId");
@@ -26,7 +28,12 @@ export async function GET(req: NextRequest) {
   try {
     const where: Record<string, unknown> = {};
 
-    if (mitarbeiterIdParam) {
+    // Selbstbedienung sieht ausschließlich die eigenen Einträge — der Query-Parameter wird
+    // dafür bewusst ignoriert (nie als Filter des Aufrufers übernommen), sonst könnte ein
+    // Selbstbedienungs-Account per URL die Arbeitszeit eines Kollegen abfragen.
+    if (selbstbedienung) {
+      where.mitarbeiterId = me!.mitarbeiterId;
+    } else if (mitarbeiterIdParam) {
       const id = parseInt(mitarbeiterIdParam, 10);
       if (!isNaN(id)) where.mitarbeiterId = id;
     }
@@ -65,14 +72,17 @@ export async function POST(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  const selbstbedienung = istPersonalSelbstbedienung(me);
 
   try {
     const body = await req.json();
     const { mitarbeiterId, datum, stunden, art, notiz, von, bis } = body;
 
-    const maId = parseInt(mitarbeiterId, 10);
+    // Selbstbedienung darf ausschließlich für sich selbst erfassen — der mitgesendete
+    // mitarbeiterId-Wert wird ignoriert, sonst könnte ein Account im Namen eines Kollegen buchen.
+    const maId = selbstbedienung ? me!.mitarbeiterId! : parseInt(mitarbeiterId, 10);
     if (isNaN(maId)) return NextResponse.json({ error: "Ungültige Mitarbeiter-ID" }, { status: 400 });
 
     if (!datum) return NextResponse.json({ error: "Datum ist erforderlich" }, { status: 400 });
