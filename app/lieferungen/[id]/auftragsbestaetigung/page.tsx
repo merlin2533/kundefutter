@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
-import { formatDatum, formatEuro } from "@/lib/utils";
+import { formatDatum } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Position {
@@ -140,19 +140,6 @@ export default function AuftragsbestaetigungPage() {
   if (!lieferung) return <div className="p-8 text-red-500">Lieferung nicht gefunden.</div>;
 
   const auftragsNr = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
-  const hatRabatt = lieferung.positionen.some((p) => p.rabattProzent > 0);
-
-  const mwstGruppen = new Map<number, number>();
-  let nettoGesamt = 0;
-  for (const p of lieferung.positionen) {
-    const netto = p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100);
-    nettoGesamt += netto;
-    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
-    mwstGruppen.set(satz, (mwstGruppen.get(satz) ?? 0) + netto);
-  }
-  let mwstGesamt = 0;
-  for (const [satz, basis] of mwstGruppen) mwstGesamt += basis * (satz / 100);
-  const bruttoGesamt = nettoGesamt + mwstGesamt;
 
   const firmaName = firma["firma.firmenname"] ?? firma["firma.name"] ?? "";
   const firmaStrasse = firma["firma.strasse"] ?? "";
@@ -328,73 +315,26 @@ export default function AuftragsbestaetigungPage() {
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Artikel</th>
               <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Menge</th>
               <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: "600" }}>Einheit</th>
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Einzelpreis</th>
-              {hatRabatt && <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Rabatt</th>}
-              <th style={{ textAlign: "right", padding: "6px 8px", fontWeight: "600" }}>Gesamt</th>
             </tr>
           </thead>
           <tbody>
-            {lieferung.positionen.map((pos, i) => {
-              const netto = pos.menge * pos.verkaufspreis * (1 - pos.rabattProzent / 100);
-              return (
-                <tr
-                  key={pos.id}
-                  style={{ borderBottom: "1px solid #ddd", backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}
-                >
-                  <td style={{ padding: "6px 8px" }}>
-                    {pos.artikel.name}
-                    {pos.notiz && <div style={{ fontSize: "9pt", color: "#666" }}>{pos.notiz}</div>}
-                  </td>
-                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                    {pos.menge.toLocaleString("de-DE")}
-                  </td>
-                  <td style={{ padding: "6px 8px" }}>{pos.artikel.einheit}</td>
-                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                    {formatEuro(pos.verkaufspreis)}
-                  </td>
-                  {hatRabatt && (
-                    <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
-                      {pos.rabattProzent > 0 ? `${pos.rabattProzent} %` : "—"}
-                    </td>
-                  )}
-                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace", fontWeight: "500" }}>
-                    {formatEuro(netto)}
-                  </td>
-                </tr>
-              );
-            })}
+            {lieferung.positionen.map((pos, i) => (
+              <tr
+                key={pos.id}
+                style={{ borderBottom: "1px solid #ddd", backgroundColor: i % 2 === 0 ? "#fff" : "#fafafa" }}
+              >
+                <td style={{ padding: "6px 8px" }}>
+                  {pos.artikel.name}
+                  {pos.notiz && <div style={{ fontSize: "9pt", color: "#666" }}>{pos.notiz}</div>}
+                </td>
+                <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "monospace" }}>
+                  {pos.menge.toLocaleString("de-DE")}
+                </td>
+                <td style={{ padding: "6px 8px" }}>{pos.artikel.einheit}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
-
-        {/* Summen */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "32px" }}>
-          <table style={{ fontSize: "10pt", borderCollapse: "collapse", minWidth: "240px" }}>
-            <tbody>
-              <tr>
-                <td style={{ padding: "4px 10px", color: "#444" }}>Nettobetrag:</td>
-                <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
-                  {formatEuro(nettoGesamt)}
-                </td>
-              </tr>
-              {Array.from(mwstGruppen.entries())
-                .sort(([a], [b]) => a - b)
-                .map(([satz, basis]) => (
-                  <tr key={satz}>
-                    <td style={{ padding: "4px 10px", color: "#444" }}>MwSt {satz} %:</td>
-                    <td style={{ padding: "4px 10px", textAlign: "right", fontFamily: "monospace" }}>
-                      {formatEuro(basis * (satz / 100))}
-                    </td>
-                  </tr>
-                ))}
-              <tr style={{ borderTop: "2px solid #333" }}>
-                <td style={{ padding: "6px 10px", fontWeight: "bold", fontSize: "12pt" }}>Auftragssumme:</td>
-                <td style={{ padding: "6px 10px", textAlign: "right", fontFamily: "monospace", fontWeight: "bold", fontSize: "12pt" }}>
-                  {formatEuro(bruttoGesamt)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
         {/* Notiz */}
         {lieferung.notiz && (
@@ -416,9 +356,6 @@ export default function AuftragsbestaetigungPage() {
         {/* Schlusstext */}
         <div style={{ fontSize: "9pt", color: "#555", marginTop: "32px", marginBottom: "12px" }}>
           <p style={{ marginBottom: "4px" }}>Die Rechnungsstellung erfolgt nach erfolgter Lieferung.</p>
-          <p style={{ marginBottom: "4px" }}>
-            Alle Preise verstehen sich netto zuzüglich der ausgewiesenen Mehrwertsteuer.
-          </p>
           <p style={{ marginTop: "16px", marginBottom: "4px" }}>Mit freundlichen Grüßen</p>
           <p style={{ fontWeight: "bold" }}>{firmaName}</p>
         </div>

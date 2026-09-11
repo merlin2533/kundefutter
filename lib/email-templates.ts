@@ -105,7 +105,6 @@ export type RechnungMailData = {
 export type AuftragsbestaetigungMailData = {
   auftragsNr: string;
   auftragsDatum: Date;
-  bruttoBetrag: number;
   kundenAnrede?: string | null;
   firma: FirmaDaten;
   pdfFilename: string;
@@ -434,7 +433,7 @@ export function zahlungsuebersichtEmail(
 // ─── Auftragsbestätigung ────────────────────────────────────────────────────────
 
 export function auftragsbestaetigungEmail(data: AuftragsbestaetigungMailData): { subject: string; text: string; html: string } {
-  const { auftragsNr, auftragsDatum, bruttoBetrag, kundenAnrede, firma, pdfFilename } = data;
+  const { auftragsNr, auftragsDatum, kundenAnrede, firma, pdfFilename } = data;
   const subject = `Auftragsbestätigung Nr. ${auftragsNr} – ${firma.name} (${fmtDatum(auftragsDatum)})`;
   const anrede = kundenAnrede?.trim()
     ? `Sehr geehrte/r ${kundenAnrede.trim()},`
@@ -447,7 +446,6 @@ export function auftragsbestaetigungEmail(data: AuftragsbestaetigungMailData): {
     "",
     `Auftragsnummer: ${auftragsNr}`,
     `Datum:          ${fmtDatum(auftragsDatum)}`,
-    `Gesamtbetrag:   ${fmtEuro(bruttoBetrag)}`,
     "",
     "Anhänge:",
     `• ${pdfFilename} – Auftragsbestätigung (PDF)`,
@@ -498,7 +496,6 @@ export function auftragsbestaetigungEmail(data: AuftragsbestaetigungMailData): {
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
           ${zeile("Auftragsnummer", auftragsNr)}
           ${zeile("Datum", fmtDatum(auftragsDatum))}
-          ${zeile("Gesamtbetrag", fmtEuro(bruttoBetrag), true)}
         </table>
         <div style="margin:0 0 8px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;">
           <b>Anhang</b><br>${escapeHtml(pdfFilename)} &mdash; Auftragsbestätigung (PDF)

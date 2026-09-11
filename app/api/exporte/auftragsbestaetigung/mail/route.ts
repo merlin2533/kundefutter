@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generiereAuftragsbestaetigungPdf } from "@/lib/pdfGenerator";
-import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { sendEmail } from "@/lib/email";
 import { auftragsbestaetigungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
@@ -28,7 +27,6 @@ export async function POST(req: NextRequest) {
       where: { id: lieferungId },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: { select: { mwstSatz: true } } } },
       },
     });
     if (!lieferung) {
@@ -55,7 +53,6 @@ export async function POST(req: NextRequest) {
 
     const auftragsNr = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
     const pdfFilename = `Auftragsbestaetigung_${auftragsNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`;
-    const bruttoBetrag = berechneLieferungBrutto(lieferung);
 
     const kontaktMitName = lieferung.kunde.kontakte.find(
       (k: { vorname?: string | null; nachname?: string | null }) =>
@@ -68,7 +65,6 @@ export async function POST(req: NextRequest) {
     const { subject, text, html } = auftragsbestaetigungEmail({
       auftragsNr,
       auftragsDatum: new Date(lieferung.datum),
-      bruttoBetrag,
       kundenAnrede,
       firma,
       pdfFilename,
