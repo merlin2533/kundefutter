@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { MONATE_KURZ, getJahreListeNum, formatDatum, WOCHENTAGE, parseBevorzugteArbeitszeiten } from "@/lib/utils";
+import { MONATE_KURZ, getJahreListeNum, formatDatum, WOCHENTAGE, parseBevorzugteArbeitszeiten, istBevorzugtesZeitfenster } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const TYP_LABEL: Record<string, string> = { festgehalt: "Festgehalt", minijob: "Minijob", stundenbasis: "Stundenbasis" };
@@ -63,6 +63,8 @@ interface Arbeitsstunde {
   datum: string;
   stunden: number;
   art: string;
+  von: string | null;
+  bis: string | null;
   notiz: string | null;
 }
 
@@ -110,6 +112,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   const [istAdmin, setIstAdmin] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [legacyArbeitszeiten, setLegacyArbeitszeiten] = useState<Record<string, number>>({});
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -292,9 +295,19 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     if (!ma) return;
     const bevorzugt = parseBevorzugteArbeitszeiten(ma.bevorzugteArbeitszeiten) ?? {};
     const arbeitszeitFelder: Record<string, string> = {};
+    const legacy: Record<string, number> = {};
     for (const w of WOCHENTAGE) {
-      arbeitszeitFelder[`arbeitszeit_${w.key}`] = typeof bevorzugt[w.key] === "number" ? String(bevorzugt[w.key]) : "";
+      const wert = bevorzugt[w.key];
+      if (istBevorzugtesZeitfenster(wert)) {
+        arbeitszeitFelder[`arbeitszeit_von_${w.key}`] = wert.von;
+        arbeitszeitFelder[`arbeitszeit_bis_${w.key}`] = wert.bis;
+      } else {
+        arbeitszeitFelder[`arbeitszeit_von_${w.key}`] = "";
+        arbeitszeitFelder[`arbeitszeit_bis_${w.key}`] = "";
+        if (typeof wert === "number") legacy[w.key] = wert;
+      }
     }
+    setLegacyArbeitszeiten(legacy);
     setEditForm({
       ...arbeitszeitFelder,
       vorname: ma.vorname,
@@ -328,13 +341,22 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       setSaveError("Vorname und Nachname sind erforderlich.");
       return;
     }
+    const bevorzugt: Record<string, number | { von: string; bis: string }> = {};
+    for (const w of WOCHENTAGE) {
+      const von = editForm[`arbeitszeit_von_${w.key}`]?.trim() ?? "";
+      const bis = editForm[`arbeitszeit_bis_${w.key}`]?.trim() ?? "";
+      if (von && bis) {
+        bevorzugt[w.key] = { von, bis };
+      } else if (von || bis) {
+        setSaveError(`Bei ${w.label} bitte sowohl Von als auch Bis angeben (oder beide leer lassen).`);
+        return;
+      } else if (legacyArbeitszeiten[w.key] !== undefined) {
+        // Unverändert gelassener Alteintrag (reine Stundenzahl ohne Uhrzeit) bleibt erhalten.
+        bevorzugt[w.key] = legacyArbeitszeiten[w.key];
+      }
+    }
     setSaving(true);
     setSaveError("");
-    const bevorzugt: Record<string, number> = {};
-    for (const w of WOCHENTAGE) {
-      const v = editForm[`arbeitszeit_${w.key}`];
-      if (v !== undefined && v !== "") bevorzugt[w.key] = parseFloat(v);
-    }
     const payload: Record<string, unknown> = {
       vorname: editForm.vorname.trim(),
       bevorzugteArbeitszeiten: Object.keys(bevorzugt).length > 0 ? JSON.stringify(bevorzugt) : null,
@@ -513,22 +535,33 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
               <div className="bg-white border rounded-lg p-5 space-y-3">
                 <h3 className="font-semibold text-gray-800 mb-1">Bevorzugte Arbeitszeiten</h3>
                 <p className="text-xs text-gray-500 -mt-2">
-                  Vorbelegung für die Arbeitszeiterfassung — dort muss dann nur noch bestätigt werden.
+                  Vorbelegung (Von/Bis) für die Arbeitszeiterfassung — dort muss dann nur noch bestätigt werden.
+                  Ein Tag ohne Eintrag gilt als &bdquo;arbeitet nicht&ldquo;.
                 </p>
-                <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                <div className="space-y-1.5">
                   {WOCHENTAGE.map((w) => (
-                    <div key={w.key}>
-                      <label className="block text-xs font-medium text-gray-500 mb-1 text-center">{w.label}</label>
+                    <div key={w.key} className="flex items-center gap-2">
+                      <span className="w-7 text-xs font-medium text-gray-500 shrink-0">{w.label}</span>
                       <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        max="24"
-                        placeholder="–"
-                        value={editForm[`arbeitszeit_${w.key}`] ?? ""}
-                        onChange={(e) => setEditField(`arbeitszeit_${w.key}`, e.target.value)}
-                        className={`${inputCls} text-center px-1`}
+                        type="time"
+                        value={editForm[`arbeitszeit_von_${w.key}`] ?? ""}
+                        onChange={(e) => setEditField(`arbeitszeit_von_${w.key}`, e.target.value)}
+                        className="border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                       />
+                      <span className="text-gray-400 text-xs shrink-0">bis</span>
+                      <input
+                        type="time"
+                        value={editForm[`arbeitszeit_bis_${w.key}`] ?? ""}
+                        onChange={(e) => setEditField(`arbeitszeit_bis_${w.key}`, e.target.value)}
+                        className="border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                      />
+                      {legacyArbeitszeiten[w.key] !== undefined &&
+                        !editForm[`arbeitszeit_von_${w.key}`] &&
+                        !editForm[`arbeitszeit_bis_${w.key}`] && (
+                          <span className="text-xs text-gray-400">
+                            (bisher {legacyArbeitszeiten[w.key]}h ohne Uhrzeit hinterlegt — bleibt beim Speichern unverändert)
+                          </span>
+                        )}
                     </div>
                   ))}
                 </div>
@@ -626,8 +659,11 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   const bevorzugt = parseBevorzugteArbeitszeiten(ma.bevorzugteArbeitszeiten);
                   if (!bevorzugt) return null;
                   const text = WOCHENTAGE
-                    .filter((w) => typeof bevorzugt[w.key] === "number")
-                    .map((w) => `${w.label} ${bevorzugt[w.key]}h`)
+                    .filter((w) => bevorzugt[w.key] !== undefined)
+                    .map((w) => {
+                      const wert = bevorzugt[w.key];
+                      return istBevorzugtesZeitfenster(wert) ? `${w.label} ${wert.von}–${wert.bis}` : `${w.label} ${wert}h`;
+                    })
                     .join(" · ");
                   return text ? <Row label="Bevorzugte Arbeitszeiten" value={text} /> : null;
                 })()}
@@ -729,6 +765,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
                     <th className="px-4 py-2 text-left">Datum</th>
                     <th className="px-4 py-2 text-left">Art</th>
+                    <th className="px-4 py-2 text-left hidden sm:table-cell">Zeit</th>
                     <th className="px-4 py-2 text-right">Stunden</th>
                     <th className="px-4 py-2 text-left hidden md:table-cell">Notiz</th>
                     <th className="px-4 py-2 text-right">Löschen</th>
@@ -737,11 +774,19 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 <tbody className="divide-y divide-gray-100">
                   {stunden.map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2">{formatDatum(s.datum)}</td>
+                      <td className="px-4 py-2">
+                        {formatDatum(s.datum)}
+                        {s.von && s.bis && (
+                          <div className="sm:hidden text-xs text-gray-400">{s.von}–{s.bis}</div>
+                        )}
+                      </td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ART_COLOR[s.art] ?? "bg-gray-100"}`}>
                           {ART_LABEL[s.art] ?? s.art}
                         </span>
+                      </td>
+                      <td className="px-4 py-2 text-gray-500 hidden sm:table-cell">
+                        {s.von && s.bis ? `${s.von}–${s.bis}` : "—"}
                       </td>
                       <td className="px-4 py-2 text-right font-mono">{s.stunden.toFixed(1)}</td>
                       <td className="px-4 py-2 text-gray-500 hidden md:table-cell">{s.notiz ?? "—"}</td>

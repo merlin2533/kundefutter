@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { sollStundenFuerDatum } from "@/lib/utils";
+import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten } from "@/lib/utils";
 
 const ARTEN = [
   { value: "arbeit", label: "Arbeit" },
@@ -22,6 +22,9 @@ export default function StundenNeuPage({ params }: Params) {
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
   const [manuelleStunden, setManuelleStunden] = useState("8");
   const [stundenAuto, setStundenAuto] = useState(true);
+  const [manuelleVon, setManuelleVon] = useState("");
+  const [manuelleBis, setManuelleBis] = useState("");
+  const [zeitAuto, setZeitAuto] = useState(true);
   const [art, setArt] = useState("arbeit");
   const [notiz, setNotiz] = useState("");
   const [saving, setSaving] = useState(false);
@@ -41,12 +44,28 @@ export default function StundenNeuPage({ params }: Params) {
     });
   }, [params]);
 
-  // Vorbelegung aus den bevorzugten Arbeitszeiten (Stammdaten) — als abgeleiteter Wert
-  // während des Renderns berechnet (nicht per Effect synchronisiert), solange der Nutzer
-  // die Stunden noch nicht selbst überschrieben hat (analog vkAuto-Muster in lieferungen/neu).
-  const stunden = stundenAuto && (bevorzugteArbeitszeiten !== null || wochenstunden !== null)
-    ? String(sollStundenFuerDatum(datum, bevorzugteArbeitszeiten, wochenstunden))
-    : manuelleStunden;
+  // Vorbelegung des Zeitfensters (Kommen/Gehen) aus den bevorzugten Arbeitszeiten, sofern für
+  // diesen Wochentag als Uhrzeit (nicht nur reine Stundenzahl) hinterlegt — nur relevant bei
+  // Art "arbeit". Als abgeleiteter Wert berechnet, solange der Nutzer es nicht selbst überschreibt
+  // (analog vkAuto-Muster in lieferungen/neu).
+  const zeitVorschlag = art === "arbeit" ? bevorzugtesZeitfensterFuerDatum(datum, bevorzugteArbeitszeiten) : null;
+  const von = zeitAuto ? (zeitVorschlag?.von ?? "") : manuelleVon;
+  const bis = zeitAuto ? (zeitVorschlag?.bis ?? "") : manuelleBis;
+  const stundenAusZeit = art === "arbeit" ? stundenZwischenUhrzeiten(von, bis) : null;
+
+  // Tatsächliches Kommen/Gehen (Aufzeichnungspflicht) hat Vorrang: ist ein gültiges Zeitfenster
+  // gesetzt, wird die Stundenzahl daraus berechnet und ist nicht mehr manuell editierbar.
+  const stunden = stundenAusZeit != null
+    ? String(stundenAusZeit)
+    : stundenAuto && (bevorzugteArbeitszeiten !== null || wochenstunden !== null)
+      ? String(sollStundenFuerDatum(datum, bevorzugteArbeitszeiten, wochenstunden))
+      : manuelleStunden;
+
+  function zeitZuruecksetzen() {
+    setManuelleVon("");
+    setManuelleBis("");
+    setZeitAuto(true);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +81,8 @@ export default function StundenNeuPage({ params }: Params) {
         datum,
         stunden: parseFloat(stunden),
         art,
+        von: art === "arbeit" && von ? von : null,
+        bis: art === "arbeit" && bis ? bis : null,
         notiz: notiz || null,
       }),
     });
@@ -87,31 +108,14 @@ export default function StundenNeuPage({ params }: Params) {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
-          <input
-            type="date"
-            required
-            value={datum}
-            onChange={(e) => setDatum(e.target.value)}
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-          />
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stunden *</label>
-            {stundenAuto && bevorzugteArbeitszeiten && (
-              <p className="text-xs text-green-700 -mt-0.5 mb-1">Vorschlag aus bevorzugten Arbeitszeiten</p>
-            )}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Datum *</label>
             <input
-              type="number"
+              type="date"
               required
-              step="0.5"
-              min="0.5"
-              max="24"
-              value={stunden}
-              onChange={(e) => { setManuelleStunden(e.target.value); setStundenAuto(false); }}
+              value={datum}
+              onChange={(e) => setDatum(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
@@ -125,6 +129,57 @@ export default function StundenNeuPage({ params }: Params) {
               {ARTEN.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
             </select>
           </div>
+        </div>
+
+        {art === "arbeit" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Uhrzeit (Kommen/Gehen)</label>
+            {zeitAuto && zeitVorschlag && (
+              <p className="text-xs text-green-700 -mt-0.5 mb-1">Vorschlag aus bevorzugten Arbeitszeiten</p>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={von}
+                onChange={(e) => { setManuelleVon(e.target.value); setManuelleBis(bis); setZeitAuto(false); }}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <span className="text-gray-400 text-xs">bis</span>
+              <input
+                type="time"
+                value={bis}
+                onChange={(e) => { setManuelleBis(e.target.value); setManuelleVon(von); setZeitAuto(false); }}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              {(von || bis) && (
+                <button type="button" onClick={zeitZuruecksetzen} className="text-xs text-gray-400 hover:text-gray-600">
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Stunden *</label>
+          {stundenAusZeit != null ? (
+            <p className="text-xs text-gray-400 -mt-0.5 mb-1">Automatisch aus Von/Bis berechnet</p>
+          ) : (
+            stundenAuto && bevorzugteArbeitszeiten && (
+              <p className="text-xs text-green-700 -mt-0.5 mb-1">Vorschlag aus bevorzugten Arbeitszeiten</p>
+            )
+          )}
+          <input
+            type="number"
+            required
+            step="0.5"
+            min="0.5"
+            max="24"
+            value={stunden}
+            disabled={stundenAusZeit != null}
+            onChange={(e) => { setManuelleStunden(e.target.value); setStundenAuto(false); }}
+            className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${stundenAusZeit != null ? "bg-gray-50 text-gray-500" : ""}`}
+          />
         </div>
 
         <div>

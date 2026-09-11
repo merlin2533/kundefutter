@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -267,5 +267,81 @@ describe("sollStundenFuerDatum", () => {
   it("fällt ohne bevorzugte Arbeitszeit und ohne wochenstunden auf den Standardwert 8h an Werktagen zurück", () => {
     expect(sollStundenFuerDatum(montag, null, null)).toBe(8);
     expect(sollStundenFuerDatum(samstag, null, null)).toBe(0);
+  });
+
+  it("berechnet die Stundenzahl aus einem als Zeitfenster (von/bis) konfigurierten Tag", () => {
+    const zeitfenster = JSON.stringify({ do: { von: "08:00", bis: "16:30" } });
+    expect(sollStundenFuerDatum(donnerstag, zeitfenster, null)).toBe(8.5);
+    expect(sollStundenFuerDatum(montag, zeitfenster, 40)).toBe(0);
+  });
+});
+
+describe("parseUhrzeit / stundenZwischenUhrzeiten", () => {
+  it("parst gültige HH:MM-Uhrzeiten zu Minuten seit Mitternacht", () => {
+    expect(parseUhrzeit("08:00")).toBe(480);
+    expect(parseUhrzeit("16:30")).toBe(990);
+    expect(parseUhrzeit("0:05")).toBe(5);
+  });
+
+  it("liefert null für fehlende/ungültige Uhrzeiten", () => {
+    expect(parseUhrzeit(null)).toBeNull();
+    expect(parseUhrzeit(undefined)).toBeNull();
+    expect(parseUhrzeit("")).toBeNull();
+    expect(parseUhrzeit("25:00")).toBeNull();
+    expect(parseUhrzeit("08:70")).toBeNull();
+    expect(parseUhrzeit("abc")).toBeNull();
+  });
+
+  it("berechnet die Dezimalstunden zwischen zwei Uhrzeiten", () => {
+    expect(stundenZwischenUhrzeiten("08:00", "16:30")).toBe(8.5);
+    expect(stundenZwischenUhrzeiten("08:00", "12:15")).toBe(4.25);
+  });
+
+  it("liefert null, wenn Bis nicht nach Von liegt oder eine Uhrzeit fehlt/ungültig ist", () => {
+    expect(stundenZwischenUhrzeiten("16:00", "08:00")).toBeNull();
+    expect(stundenZwischenUhrzeiten("08:00", "08:00")).toBeNull();
+    expect(stundenZwischenUhrzeiten("08:00", null)).toBeNull();
+    expect(stundenZwischenUhrzeiten("08:00", "")).toBeNull();
+  });
+});
+
+describe("stundenAusBevorzugtemTag / istBevorzugtesZeitfenster", () => {
+  it("gibt eine Legacy-Stundenzahl unverändert zurück", () => {
+    expect(stundenAusBevorzugtemTag(8)).toBe(8);
+  });
+
+  it("berechnet die Stunden aus einem Zeitfenster-Objekt", () => {
+    expect(stundenAusBevorzugtemTag({ von: "08:00", bis: "12:00" })).toBe(4);
+  });
+
+  it("liefert null für einen nicht konfigurierten Tag (undefined)", () => {
+    expect(stundenAusBevorzugtemTag(undefined)).toBeNull();
+  });
+
+  it("erkennt ein Zeitfenster-Objekt korrekt", () => {
+    expect(istBevorzugtesZeitfenster({ von: "08:00", bis: "16:00" })).toBe(true);
+    expect(istBevorzugtesZeitfenster(8)).toBe(false);
+    expect(istBevorzugtesZeitfenster(undefined)).toBe(false);
+    expect(istBevorzugtesZeitfenster(null)).toBe(false);
+  });
+});
+
+describe("bevorzugtesZeitfensterFuerDatum", () => {
+  const montag = "2024-01-01";
+  const donnerstag = "2024-01-04";
+
+  it("liefert das konfigurierte Zeitfenster für den passenden Wochentag", () => {
+    const cfg = JSON.stringify({ do: { von: "08:00", bis: "16:00" } });
+    expect(bevorzugtesZeitfensterFuerDatum(donnerstag, cfg)).toEqual({ von: "08:00", bis: "16:00" });
+  });
+
+  it("liefert null für einen Tag ohne konfiguriertes Zeitfenster", () => {
+    const cfg = JSON.stringify({ do: { von: "08:00", bis: "16:00" } });
+    expect(bevorzugtesZeitfensterFuerDatum(montag, cfg)).toBeNull();
+  });
+
+  it("liefert null, wenn der Tag nur als Legacy-Stundenzahl (ohne Uhrzeit) konfiguriert ist", () => {
+    const cfg = JSON.stringify({ mo: 8 });
+    expect(bevorzugtesZeitfensterFuerDatum(montag, cfg)).toBeNull();
   });
 });
