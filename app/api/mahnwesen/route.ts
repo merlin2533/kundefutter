@@ -31,7 +31,7 @@ export async function GET() {
         },
       },
       orderBy: { datum: "asc" },
-      take: 500,
+      take: 5000,
     });
 
     // manuelleMahnstufe ist im include oben nicht selektierbar eingeschränkt (voller Datensatz) —
