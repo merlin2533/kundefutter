@@ -870,8 +870,14 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
   );
 }
 
+// Personal-Selbstbedienung: darf ausschließlich die eigene Arbeitszeiterfassung sehen — hier nur
+// kosmetisch (Nav ausblenden + Redirect), die eigentliche Absicherung sitzt in den API-Routen
+// (siehe requireVollePersonalRechte in lib/permissions.ts).
+const SELBSTBEDIENUNG_HREF = "/meine-arbeitszeit";
+
 export default function Nav() {
   const pathname = usePathname();
+  const router = useRouter();
   const user = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState<string | null>(null);
@@ -881,6 +887,12 @@ export default function Nav() {
   const [modulDisabledHrefs, setModulDisabledHrefs] = useState<Set<string>>(new Set());
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");
+  const selbstbedienung = !!user?.mitarbeiterId;
+
+  useEffect(() => {
+    if (hideNav || !selbstbedienung) return;
+    if (pathname !== SELBSTBEDIENUNG_HREF) router.replace(SELBSTBEDIENUNG_HREF);
+  }, [hideNav, selbstbedienung, pathname, router]);
 
   useEffect(() => {
     if (hideNav) return;
@@ -908,6 +920,38 @@ export default function Nav() {
   }, [hideNav]);
 
   if (hideNav) return null;
+
+  if (selbstbedienung) {
+    return (
+      <header className="bg-green-800 text-white shadow-md relative z-40">
+        <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
+          <div className="flex-shrink-0">
+            {logo ? (
+              <img src={logo} alt={appName} className="h-9 w-auto object-contain" />
+            ) : (
+              <span className="flex items-center gap-2 whitespace-nowrap leading-tight">
+                <img src={DEFAULT_LOGO_DATA_URI} alt="" className="h-9 w-9 object-contain" />
+                <span className="font-bold text-lg tracking-tight text-white">{appName}</span>
+              </span>
+            )}
+          </div>
+          <nav className="flex items-center gap-0.5 flex-1 min-w-0">
+            <Link
+              href={SELBSTBEDIENUNG_HREF}
+              className={`px-2.5 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
+                pathname === SELBSTBEDIENUNG_HREF ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
+              }`}
+            >
+              Meine Arbeitszeit
+            </Link>
+          </nav>
+          <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+            <UserMenu />
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   function isHrefAllowed(href: string): boolean {
     const base = href.split("?")[0];

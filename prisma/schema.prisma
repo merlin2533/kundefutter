@@ -1120,6 +1120,13 @@ model Benutzer {
   rolleId        Int?
   rolleRef       Rolle?    @relation(fields: [rolleId], references: [id])
   berechtigungen String    @default("[]") // JSON — individuelle Overrides (additiv zur Rolle)
+  // Weiche ID (ohne @relation, analog Kontoumsatz.gutschriftId) auf genau einen
+  // Mitarbeiter-Stammdatensatz: macht diesen Login zu einem Selbstbedienungs-Account, der
+  // unabhängig von rolle/rolleId/berechtigungen NUR die eigene Arbeitszeiterfassung
+  // (/meine-arbeitszeit) sehen darf — kein Zugriff auf Kollegendaten, Gehaltsabrechnungen oder
+  // andere Personal-Auswertungen. Siehe istPersonalSelbstbedienung() in lib/permissions.ts,
+  // das einzige Gate dafür.
+  mitarbeiterId  Int?      @unique
   aktiv          Boolean   @default(true)
   letzterLogin   DateTime?
   erstelltAm     DateTime  @default(now())
@@ -1127,6 +1134,7 @@ model Benutzer {
 
   @@index([aktiv])
   @@index([rolleId])
+  @@index([mitarbeiterId])
 }
 
 // ─── PSM-AUSBRINGUNG (Pflanzenschutz) ─────────────────────────────────────────

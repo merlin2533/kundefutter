@@ -15,6 +15,7 @@ export type ClientUser = {
   rolleBerechtigungen: string[];
   berechtigungen: string[];
   aktiv: boolean;
+  mitarbeiterId: number | null;
 };
 
 const UserContext = createContext<ClientUser | null>(null);

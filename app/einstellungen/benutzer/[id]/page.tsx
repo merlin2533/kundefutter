@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { PERMISSION_META, ALL_PERMISSIONS } from "@/lib/permissions";
+import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
 
 type Rolle = {
@@ -23,10 +24,13 @@ type Benutzer = {
   rolleId: number | null;
   berechtigungen: string[];
   rolleRef: Rolle | null;
+  mitarbeiterId: number | null;
   aktiv: boolean;
   letzterLogin: string | null;
   erstelltAm: string;
 };
+
+type MitarbeiterOption = { id: number; vorname: string; nachname: string; aktiv: boolean };
 
 export default function BenutzerBearbeitenPage() {
   const router = useRouter();
@@ -35,11 +39,13 @@ export default function BenutzerBearbeitenPage() {
 
   const [benutzer, setBenutzer] = useState<Benutzer | null>(null);
   const [rollen, setRollen] = useState<Rolle[]>([]);
+  const [mitarbeiterListe, setMitarbeiterListe] = useState<MitarbeiterOption[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [mobil, setMobil] = useState("");
   const [aktiv, setAktiv] = useState(true);
   const [rolleId, setRolleId] = useState<number | null>(null);
+  const [mitarbeiterId, setMitarbeiterId] = useState<number | null>(null);
   const [overrides, setOverrides] = useState<string[]>([]); // individuelle Zusatz-Permissions
   const [overridesOffen, setOverridesOffen] = useState(false);
   const [passwort, setPasswort] = useState("");
@@ -55,9 +61,10 @@ export default function BenutzerBearbeitenPage() {
     setLoading(true);
     setFehler(null);
     try {
-      const [bRes, rRes] = await Promise.all([
+      const [bRes, rRes, mRes] = await Promise.all([
         fetch(`/api/benutzer/${id}`),
         fetch("/api/rollen"),
+        fetch("/api/personal/mitarbeiter?aktiv=true"),
       ]);
       if (!bRes.ok) {
         const data = await bRes.json().catch((err) => {
@@ -73,6 +80,7 @@ export default function BenutzerBearbeitenPage() {
       setMobil(b.mobil ?? "");
       setAktiv(b.aktiv);
       setRolleId(b.rolleId);
+      setMitarbeiterId(b.mitarbeiterId ?? null);
       // berechtigungen aus JSON parsen falls noch String
       const perms = Array.isArray(b.berechtigungen)
         ? b.berechtigungen
@@ -82,6 +90,10 @@ export default function BenutzerBearbeitenPage() {
         } })();
       setOverrides(perms);
       if (rRes.ok) setRollen(await rRes.json());
+      if (mRes.ok) {
+        const m = await mRes.json();
+        setMitarbeiterListe(Array.isArray(m) ? m : []);
+      }
     } catch (e) {
       Sentry.captureException(e);
       setFehler(e instanceof Error ? e.message : "Fehler beim Laden");
@@ -121,6 +133,7 @@ export default function BenutzerBearbeitenPage() {
         aktiv,
         rolleId,
         berechtigungen: overrides,
+        mitarbeiterId,
       };
       if (passwort) body.passwort = passwort;
       const res = await fetch(`/api/benutzer/${id}`, {
@@ -346,6 +359,28 @@ export default function BenutzerBearbeitenPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Personal-Selbstbedienung */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-3">
+          <h2 className="font-semibold text-gray-800">Selbstbedienung</h2>
+          <p className="text-xs text-gray-500">
+            Mit einem Mitarbeiter-Stammdatensatz verknüpfen, um diesen Login auf die eigene
+            Arbeitszeiterfassung zu beschränken — unabhängig von Rolle und Berechtigungen oben
+            sieht dieser Benutzer dann ausschließlich „Meine Arbeitszeit&rdquo; und hat keinen Zugriff
+            auf Kollegendaten, Gehaltsabrechnungen oder andere Bereiche des Personal-Moduls.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Verknüpfter Mitarbeiter</label>
+            <SearchableSelect
+              options={mitarbeiterListe.map((m) => ({ value: String(m.id), label: `${m.vorname} ${m.nachname}` }))}
+              value={mitarbeiterId != null ? String(mitarbeiterId) : ""}
+              onChange={(v) => setMitarbeiterId(v ? parseInt(v, 10) : null)}
+              placeholder="Kein Mitarbeiter verknüpft — voller Zugriff"
+              allowClear
+              clearLabel="Kein Mitarbeiter verknüpft — voller Zugriff"
+            />
           </div>
         </div>
 
