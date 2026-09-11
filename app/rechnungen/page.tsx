@@ -127,16 +127,16 @@ export default function RechnungenPage() {
     }
   }
 
-  // Bewusst ungepaginter Load (bis 500 Rechnungen): Filter (offen/überfällig/bezahlt)
+  // Bewusst ungepaginter Load (bis 5000 Rechnungen): Filter (offen/überfällig/bezahlt)
   // und Suche laufen clientseitig auf einem abgeleiteten Zahlungsstatus
   // (getRechnungStatus), der serverseitig nicht existiert. Eine echte Server-
   // Pagination würde Filter/Suche/KPI-Summen unbemerkt auf die aktuell geladene
   // Seite beschränken (siehe Review-Finding). Sollte die Zahl der Rechnungen
-  // 500 übersteigen, braucht es einen eigenen serverseitigen Zahlungsstatus-Filter.
+  // 5000 übersteigen, braucht es einen eigenen serverseitigen Zahlungsstatus-Filter.
   const load = useCallback(() => {
     setLoading(true);
     setFetchError(null);
-    fetch("/api/lieferungen?hatRechnung=true&limit=500")
+    fetch("/api/lieferungen?hatRechnung=true&limit=5000")
       .then((r) => { if (!r.ok) { setLoading(false); setFetchError(`Serverfehler ${r.status}`); return Promise.reject(); } return r.json(); })
       .then((data) => {
         setRechnungen(Array.isArray(data) ? data : []);
