@@ -66,6 +66,7 @@ export default function KundeDetailPage() {
   const [crmAutoOpen, setCrmAutoOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [disabledTabs, setDisabledTabs] = useState<Set<Tab>>(new Set());
+  const [reaktivierenLoading, setReaktivierenLoading] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
 
   // Agrar-/Zusatz-Tabs nach dem Modul-System ausblenden (analog MODULE_HREFS in components/Nav.tsx,
@@ -155,6 +156,28 @@ export default function KundeDetailPage() {
     fetchKunde();
   }, [fetchKunde]);
 
+  // "Kunde löschen" ist ein Soft-Delete (aktiv:false, siehe DELETE /api/kunden/[id]) — die komplette
+  // Historie (Lieferungen/Rechnungen etc.) bleibt erhalten, verschwindet aber aus globaler Suche
+  // und der Kundenliste (dort per "Alle"-Filter weiterhin auffindbar). Bislang gab es keinen Weg
+  // zurück in der Oberfläche, obwohl PUT /api/kunden/[id] {aktiv:true} bereits unterstützt.
+  async function handleReaktivieren() {
+    if (!kunde) return;
+    setReaktivierenLoading(true);
+    try {
+      const res = await fetch(`/api/kunden/${kunde.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktiv: true }),
+      });
+      if (!res.ok) throw new Error();
+      await fetchKunde();
+    } catch (err) {
+      Sentry.captureException(err);
+    } finally {
+      setReaktivierenLoading(false);
+    }
+  }
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
@@ -197,7 +220,16 @@ export default function KundeDetailPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <KategorieBadge kategorie={kunde.kategorie} />
           {!kunde.aktiv && (
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Inaktiv</span>
+            <>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">Inaktiv</span>
+              <button
+                onClick={handleReaktivieren}
+                disabled={reaktivierenLoading}
+                className="text-xs px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg transition-colors font-medium disabled:opacity-60"
+              >
+                {reaktivierenLoading ? "…" : "↺ Reaktivieren"}
+              </button>
+            </>
           )}
           <Link
             href={`/kunden/${kunde.id}/mappe`}
