@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -240,5 +240,32 @@ describe("bestMengenstaffel / wendeMengenstaffelAn / effektiverMengenstaffelRaba
       const legacy: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: null, rabattProzent: 10, aktiv: true };
       expect(effektiverMengenstaffelRabatt(20, legacy)).toBe(10);
     });
+  });
+});
+
+describe("sollStundenFuerDatum", () => {
+  const montag = "2024-01-01"; // Montag
+  const donnerstag = "2024-01-04"; // Donnerstag
+  const samstag = "2024-01-06"; // Samstag
+
+  it("liefert 0 für einen Wochentag, der in den bevorzugten Arbeitszeiten NICHT aufgeführt ist, statt einer Standardschätzung — auch wenn wochenstunden gesetzt ist", () => {
+    const nurDonnerstag = JSON.stringify({ do: 8 });
+    expect(sollStundenFuerDatum(montag, nurDonnerstag, 40)).toBe(0);
+    expect(sollStundenFuerDatum(montag, nurDonnerstag, null)).toBe(0);
+  });
+
+  it("liefert den konfigurierten Wert für einen tatsächlich aufgeführten Wochentag", () => {
+    const nurDonnerstag = JSON.stringify({ do: 8 });
+    expect(sollStundenFuerDatum(donnerstag, nurDonnerstag, null)).toBe(8);
+  });
+
+  it("fällt ohne jegliche bevorzugte Arbeitszeit auf wochenstunden/5 an Werktagen zurück", () => {
+    expect(sollStundenFuerDatum(montag, null, 30)).toBe(6);
+    expect(sollStundenFuerDatum(samstag, null, 30)).toBe(0);
+  });
+
+  it("fällt ohne bevorzugte Arbeitszeit und ohne wochenstunden auf den Standardwert 8h an Werktagen zurück", () => {
+    expect(sollStundenFuerDatum(montag, null, null)).toBe(8);
+    expect(sollStundenFuerDatum(samstag, null, null)).toBe(0);
   });
 });
