@@ -27,6 +27,7 @@ interface MahnwesenEintrag {
   mahnstufe: 1 | 2 | 3;
   automatischeMahnstufe: 1 | 2 | 3;
   mahnstufeManuell: boolean;
+  letzteVersendung: { am: string; stufe: string } | null;
 }
 
 const STUFE_FARBEN: Record<number, string> = {
@@ -490,6 +491,21 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         <div className="sm:hidden text-xs text-gray-400 mt-0.5">
                           {e.rechnungNr ?? `#${e.lieferung.id}`}
                         </div>
+                        {/* Letzter tatsächlicher E-Mail-Versand (via KundeAktivitaet) — Drucken/PDF
+                            hinterlassen bewusst keine Spur, da ihr Briefdatum bei jeder erneuten
+                            Erzeugung "heute" zeigt und daher kein verlässlicher Versand-Nachweis ist */}
+                        {e.letzteVersendung ? (
+                          <div
+                            className="text-xs text-green-700 mt-0.5"
+                            title={`${e.letzteVersendung.stufe} per E-Mail versendet am ${formatDatum(e.letzteVersendung.am)}`}
+                          >
+                            ✉ zuletzt versendet {formatDatum(e.letzteVersendung.am)}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400 mt-0.5" title="Noch keine E-Mail-Versendung über den „E-Mail“-Button protokolliert (Drucken/PDF zählen nicht als Versand-Nachweis)">
+                            ✉ noch nicht versendet
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 font-mono text-gray-700 hidden sm:table-cell">
                         {e.rechnungNr ? (

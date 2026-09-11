@@ -37,6 +37,31 @@ export async function GET() {
     // manuelleMahnstufe ist im include oben nicht selektierbar eingeschränkt (voller Datensatz) —
     // Prisma liefert das Feld automatisch mit, da kein explizites `select` verwendet wird.
 
+    // Letzten tatsächlichen E-Mail-Versand je Rechnung ermitteln: POST /api/exporte/mahnung/mail
+    // legt bei jedem Versand einen KundeAktivitaet-Eintrag mit betreff "<Zahlungserinnerung|Mahnung
+    // (Stufe N)>: Rechnung <rechnungNr>" an (siehe app/api/exporte/mahnung/mail/route.ts) — das ist
+    // die einzige verlässliche, nicht überschreibbare Spur eines tatsächlichen Versands (anders als
+    // das PDF/Drucken, deren Briefdatum bei jeder erneuten Erzeugung "heute" zeigt). Ein Bulk-Fetch
+    // über alle betroffenen Kunden statt N+1 Einzelabfragen.
+    const kundeIds = [...new Set(offene.map((l) => l.kundeId))];
+    const aktivitaeten = kundeIds.length
+      ? await prisma.kundeAktivitaet.findMany({
+          where: { kundeId: { in: kundeIds }, typ: "email", betreff: { contains: "Rechnung " } },
+          select: { kundeId: true, betreff: true, datum: true },
+          orderBy: { datum: "desc" },
+        })
+      : [];
+    const letzteVersendungFuer = (kundeId: number, rechnungNr: string) => {
+      const treffer = aktivitaeten.find(
+        (a) => a.kundeId === kundeId && a.betreff.endsWith(`Rechnung ${rechnungNr}`),
+      );
+      if (!treffer) return null;
+      const stufe = treffer.betreff.startsWith("Zahlungserinnerung")
+        ? "Zahlungserinnerung"
+        : (treffer.betreff.split(":")[0] ?? "Mahnung");
+      return { am: treffer.datum, stufe };
+    };
+
     const result = [];
 
     for (const l of offene) {
@@ -69,6 +94,7 @@ export async function GET() {
         mahnstufe: stufe,
         automatischeMahnstufe: automatischeStufe,
         mahnstufeManuell: l.manuelleMahnstufe !== null,
+        letzteVersendung: l.rechnungNr ? letzteVersendungFuer(l.kunde.id, l.rechnungNr) : null,
       });
     }
 
