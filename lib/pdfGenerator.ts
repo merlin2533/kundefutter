@@ -1291,17 +1291,10 @@ export async function generiereAuftragsbestaetigungPdf(lieferungId: number): Pro
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const positionen = lieferung.positionen as any[];
-  const hatRabatt = positionen.some((p) => (p.rabattProzent ?? 0) > 0);
-  const abHead = hatRabatt
-    ? [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Rabatt %", "Gesamt"]]
-    : [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+  const abHead = [["Pos.", "Artikel", "Menge", "Einheit"]];
   const abBody = positionen.map((p, i) => {
-    const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
-    const base = [String(i + 1), p.artikel.name, mengeStr, p.artikel.einheit, formatEuro(p.verkaufspreis)];
-    if (hatRabatt) base.push((p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "");
-    base.push(formatEuro(netto));
-    return base;
+    return [String(i + 1), p.artikel.name, mengeStr, p.artikel.einheit];
   });
 
   autoTable(doc, {
@@ -1314,56 +1307,10 @@ export async function generiereAuftragsbestaetigungPdf(lieferungId: number): Pro
     headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
-    columnStyles: hatRabatt
-      ? { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { cellWidth: 20 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 20 }, 6: { halign: "right", cellWidth: 26 } }
-      : { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+    columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 24 }, 3: { cellWidth: 30 } },
   });
 
-  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
-  const mwstGruppenAB = new Map<number, number>();
-  let nettoGesamtAB = 0;
-  for (const p of positionen) {
-    const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
-    nettoGesamtAB += netto;
-    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
-    mwstGruppenAB.set(satz, (mwstGruppenAB.get(satz) ?? 0) + netto);
-  }
-  let mwstGesamtAB = 0;
-  for (const [satz, basis] of mwstGruppenAB) mwstGesamtAB += basis * (satz / 100);
-  const bruttoAB = rundeKaufmaennisch(nettoGesamtAB + mwstGesamtAB, 2);
-
-  let sumY = finalY + 2;
-  const sumLabelX = 140;
-  const sumValueX = 196;
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(68);
-  doc.text("Nettobetrag:", sumLabelX, sumY);
-  doc.setTextColor(...COL_TEXT);
-  doc.text(formatEuro(nettoGesamtAB), sumValueX, sumY, { align: "right" });
-  sumY += 5.5;
-
-  for (const [satz, basis] of Array.from(mwstGruppenAB.entries()).sort(([a], [b]) => a - b)) {
-    doc.setTextColor(68);
-    doc.text(`MwSt ${satz} %:`, sumLabelX, sumY);
-    doc.setTextColor(...COL_TEXT);
-    doc.text(formatEuro(basis * (satz / 100)), sumValueX, sumY, { align: "right" });
-    sumY += 5.5;
-  }
-
-  doc.setDrawColor(...COL_BORDER_STRONG);
-  doc.setLineWidth(0.5);
-  doc.line(sumLabelX, sumY, sumValueX, sumY);
-  sumY += 6;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(...COL_TEXT);
-  doc.text("Auftragssumme:", sumLabelX, sumY);
-  doc.text(formatEuro(bruttoAB), sumValueX, sumY, { align: "right" });
-  sumY += 8;
-
+  let sumY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
   sumY = sicherstellenPlatz(doc, sumY, 5, footerReserve);
   doc.setFontSize(9);
   doc.setFont("helvetica", "italic");
