@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         lieferungen: {
           include: { positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, standardpreis: true, mwstSatz: true } } } } },
           orderBy: { datum: "desc" },
-          take: 500,
+          take: 5000,
         },
       },
     });
