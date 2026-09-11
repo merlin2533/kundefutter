@@ -2009,7 +2009,8 @@ model Mitarbeiter {
   urlaubstageProJahr Int       @default(0)
   kostenstelle       String?
   notiz              String?
-  bevorzugteArbeitszeiten String? // JSON {mo,di,mi,do,fr,sa,so: Float} — Vorbelegung für die Arbeitszeiterfassung
+  bevorzugteArbeitszeiten String? // JSON {mo,di,mi,do,fr,sa,so: Float|{von,bis:"HH:MM"}} — Vorbelegung für die
+  // Arbeitszeiterfassung; Float = reine Stundenzahl (Legacy/ohne Uhrzeit), {von,bis} = Zeitfenster
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -2027,6 +2028,8 @@ model Arbeitsstunde {
   datum         DateTime
   stunden       Float
   art           String   @default("arbeit") // "arbeit"|"urlaub"|"krank"|"feiertag"
+  von           String? // tatsächlicher Arbeitsbeginn "HH:MM" (Aufzeichnungspflicht), optional
+  bis           String? // tatsächliches Arbeitsende "HH:MM", optional
   notiz         String?
   createdAt     DateTime @default(now())
 

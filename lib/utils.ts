@@ -447,8 +447,53 @@ export function wochentagKeyFuerDatum(datum: Date | string): string {
   return WOCHENTAG_KEY_BY_GETDAY[new Date(datum).getDay()];
 }
 
+/** Ein konfiguriertes Zeitfenster (Uhrzeit) für einen Wochentag der bevorzugten Arbeitszeiten. */
+export interface BevorzugtesZeitfenster {
+  von: string; // "HH:MM"
+  bis: string; // "HH:MM"
+}
+
+/** Tageswert in `Mitarbeiter.bevorzugteArbeitszeiten`: Float = reine Stundenzahl (Legacy, ohne
+ *  Uhrzeit), `{von,bis}` = tatsächliches Zeitfenster (seit Einführung der Uhrzeit-Erfassung). */
+export type BevorzugterTagWert = number | BevorzugtesZeitfenster;
+
+export function istBevorzugtesZeitfenster(wert: unknown): wert is BevorzugtesZeitfenster {
+  return (
+    !!wert &&
+    typeof wert === "object" &&
+    typeof (wert as BevorzugtesZeitfenster).von === "string" &&
+    typeof (wert as BevorzugtesZeitfenster).bis === "string"
+  );
+}
+
+/** Parst "HH:MM" zu Minuten seit Mitternacht; null bei fehlendem/ungültigem Format. */
+export function parseUhrzeit(zeit: string | null | undefined): number | null {
+  if (!zeit) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(zeit.trim());
+  if (!m) return null;
+  const stunde = parseInt(m[1], 10);
+  const minute = parseInt(m[2], 10);
+  if (stunde < 0 || stunde > 23 || minute < 0 || minute > 59) return null;
+  return stunde * 60 + minute;
+}
+
+/** Dezimalstunden zwischen zwei "HH:MM"-Uhrzeiten; null bei fehlenden/ungültigen Werten oder bis<=von. */
+export function stundenZwischenUhrzeiten(von: string | null | undefined, bis: string | null | undefined): number | null {
+  const vonMin = parseUhrzeit(von);
+  const bisMin = parseUhrzeit(bis);
+  if (vonMin == null || bisMin == null || bisMin <= vonMin) return null;
+  return rundeKaufmaennisch((bisMin - vonMin) / 60, 2);
+}
+
+/** Stundenzahl aus einem einzelnen Tageswert der bevorzugten Arbeitszeiten; null bei fehlendem/ungültigem Zeitfenster. */
+export function stundenAusBevorzugtemTag(wert: BevorzugterTagWert | undefined): number | null {
+  if (typeof wert === "number") return wert;
+  if (istBevorzugtesZeitfenster(wert)) return stundenZwischenUhrzeiten(wert.von, wert.bis) ?? 0;
+  return null;
+}
+
 /** Parst `Mitarbeiter.bevorzugteArbeitszeiten` (JSON {mo,di,mi,do,fr,sa,so}); null bei Fehler/leer. */
-export function parseBevorzugteArbeitszeiten(raw: string | null | undefined): Record<string, number> | null {
+export function parseBevorzugteArbeitszeiten(raw: string | null | undefined): Record<string, BevorzugterTagWert> | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
@@ -460,11 +505,11 @@ export function parseBevorzugteArbeitszeiten(raw: string | null | undefined): Re
 
 /**
  * Vorschlagswert für die Arbeitszeiterfassung an einem bestimmten Datum: bevorzugte
- * Arbeitszeit für den jeweiligen Wochentag. Sind überhaupt bevorzugte Arbeitszeiten
- * gepflegt, gilt das als vollständige Wochenplanung — ein dort nicht aufgeführter Tag
- * bedeutet "arbeitet an diesem Tag nicht" (0), nicht "unbekannt, also Standardschätzung"
- * (sonst würde z.B. ein nur für Donnerstag eingetragener Mitarbeiter am Montag
- * fälschlich einen vollen Arbeitstag vorgeschlagen bekommen). Nur wenn GAR KEINE
+ * Arbeitszeit für den jeweiligen Wochentag (Legacy-Stundenzahl ODER {von,bis}-Zeitfenster).
+ * Sind überhaupt bevorzugte Arbeitszeiten gepflegt, gilt das als vollständige Wochenplanung —
+ * ein dort nicht aufgeführter Tag bedeutet "arbeitet an diesem Tag nicht" (0), nicht "unbekannt,
+ * also Standardschätzung" (sonst würde z.B. ein nur für Donnerstag eingetragener Mitarbeiter am
+ * Montag fälschlich einen vollen Arbeitstag vorgeschlagen bekommen). Nur wenn GAR KEINE
  * bevorzugten Arbeitszeiten gepflegt sind, greift der grobe Fallback `wochenstunden/5`
  * an Werktagen (Sa/So dann 0), sonst der übliche Standardwert 8h an Werktagen.
  */
@@ -475,8 +520,23 @@ export function sollStundenFuerDatum(
 ): number {
   const key = wochentagKeyFuerDatum(datum);
   const bevorzugt = parseBevorzugteArbeitszeiten(bevorzugteArbeitszeiten);
-  if (bevorzugt) return typeof bevorzugt[key] === "number" ? bevorzugt[key] : 0;
+  if (bevorzugt) return stundenAusBevorzugtemTag(bevorzugt[key]) ?? 0;
   const istWerktag = key !== "sa" && key !== "so";
   if (!istWerktag) return 0;
   return wochenstunden != null ? rundeKaufmaennisch(wochenstunden / 5, 1) : 8;
+}
+
+/**
+ * Bevorzugtes Uhrzeit-Zeitfenster (von/bis) für einen Wochentag — nur, wenn für diesen Tag
+ * tatsächlich ein Zeitfenster (nicht nur eine Legacy-Stundenzahl) konfiguriert ist. Dient als
+ * Vorbelegung für die tatsächliche Kommen-/Gehen-Erfassung (`Arbeitsstunde.von`/`bis`).
+ */
+export function bevorzugtesZeitfensterFuerDatum(
+  datum: Date | string,
+  bevorzugteArbeitszeiten: string | null | undefined,
+): BevorzugtesZeitfenster | null {
+  const key = wochentagKeyFuerDatum(datum);
+  const bevorzugt = parseBevorzugteArbeitszeiten(bevorzugteArbeitszeiten);
+  const wert = bevorzugt?.[key];
+  return istBevorzugtesZeitfenster(wert) ? wert : null;
 }

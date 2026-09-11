@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { stundenZwischenUhrzeiten } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -22,18 +23,37 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 
   try {
     const body = await req.json();
-    const { datum, stunden, art, notiz } = body;
+    const { datum, stunden, art, notiz, von, bis } = body;
 
     if (art !== undefined && !GUELTIGE_ARTEN.includes(art)) {
       return NextResponse.json({ error: "Ungültige Stundenart" }, { status: 400 });
+    }
+
+    // Wird ein vollständiges Zeitfenster mitgeschickt, hat es Vorrang vor einer manuell
+    // übergebenen Stundenzahl — die Stunden werden daraus neu berechnet (Aufzeichnungspflicht:
+    // die Uhrzeit ist der maßgebliche Wert, nicht die reine Dauer).
+    let stundenVal: number | undefined;
+    if (typeof von === "string" && von.trim() && typeof bis === "string" && bis.trim()) {
+      const berechnet = stundenZwischenUhrzeiten(von, bis);
+      if (berechnet == null) {
+        return NextResponse.json(
+          { error: "Ungültiges Zeitfenster (Bis muss nach Von liegen, Format HH:MM)" },
+          { status: 400 },
+        );
+      }
+      stundenVal = berechnet;
+    } else if (stunden !== undefined) {
+      stundenVal = parseFloat(stunden);
     }
 
     const updated = await prisma.arbeitsstunde.update({
       where: { id: numId },
       data: {
         ...(datum !== undefined && { datum: new Date(datum) }),
-        ...(stunden !== undefined && { stunden: parseFloat(stunden) }),
+        ...(stundenVal !== undefined && { stunden: stundenVal }),
         ...(art !== undefined && { art }),
+        ...(von !== undefined && { von: von || null }),
+        ...(bis !== undefined && { bis: bis || null }),
         ...(notiz !== undefined && { notiz: notiz || null }),
       },
     });

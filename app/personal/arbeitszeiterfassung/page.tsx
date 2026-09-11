@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { sollStundenFuerDatum } from "@/lib/utils";
+import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const ARTEN = [
@@ -23,6 +23,8 @@ interface Arbeitsstunde {
   id: number;
   stunden: number;
   art: string;
+  von: string | null;
+  bis: string | null;
   notiz: string | null;
   mitarbeiter: { id: number };
 }
@@ -30,6 +32,8 @@ interface Arbeitsstunde {
 interface RowState {
   stunden: string;
   art: string;
+  von: string;
+  bis: string;
   notiz: string;
   bestehendId: number | null;
   saving: boolean;
@@ -64,6 +68,8 @@ export default function ArbeitszeiterfassungPage() {
           neueRows[ma.id] = {
             stunden: String(bestehend.stunden),
             art: bestehend.art,
+            von: bestehend.von ?? "",
+            bis: bestehend.bis ?? "",
             notiz: bestehend.notiz ?? "",
             bestehendId: bestehend.id,
             saving: false,
@@ -71,9 +77,12 @@ export default function ArbeitszeiterfassungPage() {
           };
         } else {
           const soll = sollStundenFuerDatum(targetDatum, ma.bevorzugteArbeitszeiten, ma.wochenstunden);
+          const zeitVorschlag = bevorzugtesZeitfensterFuerDatum(targetDatum, ma.bevorzugteArbeitszeiten);
           neueRows[ma.id] = {
             stunden: String(soll),
             art: "arbeit",
+            von: zeitVorschlag?.von ?? "",
+            bis: zeitVorschlag?.bis ?? "",
             notiz: "",
             bestehendId: null,
             saving: false,
@@ -96,6 +105,15 @@ export default function ArbeitszeiterfassungPage() {
     setRows((prev) => ({ ...prev, [maId]: { ...prev[maId], ...patch } }));
   }
 
+  // Tatsächliches Kommen/Gehen hat Vorrang: sobald beide Zeiten gültig sind, wird die
+  // Stundenzahl daraus berechnet und in dieselbe Row-Änderung mit übernommen.
+  function setZeit(maId: number, patch: { von?: string; bis?: string }, row: RowState) {
+    const von = patch.von ?? row.von;
+    const bis = patch.bis ?? row.bis;
+    const berechnet = stundenZwischenUhrzeiten(von, bis);
+    setRow(maId, { ...patch, veraendert: true, ...(berechnet != null ? { stunden: String(berechnet) } : {}) });
+  }
+
   async function bestaetigeZeile(ma: Mitarbeiter, row: RowState) {
     const std = parseFloat(row.stunden);
     if (isNaN(std) || std <= 0 || std > 24) {
@@ -105,16 +123,23 @@ export default function ArbeitszeiterfassungPage() {
     setRow(ma.id, { saving: true });
     setError("");
     try {
+      const body = {
+        stunden: std,
+        art: row.art,
+        von: row.art === "arbeit" && row.von ? row.von : null,
+        bis: row.art === "arbeit" && row.bis ? row.bis : null,
+        notiz: row.notiz || null,
+      };
       const res = row.bestehendId
         ? await fetch(`/api/personal/arbeitsstunden/${row.bestehendId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ stunden: std, art: row.art, notiz: row.notiz || null }),
+            body: JSON.stringify(body),
           })
         : await fetch("/api/personal/arbeitsstunden", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mitarbeiterId: ma.id, datum, stunden: std, art: row.art, notiz: row.notiz || null }),
+            body: JSON.stringify({ mitarbeiterId: ma.id, datum, ...body }),
           });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -146,7 +171,7 @@ export default function ArbeitszeiterfassungPage() {
   const offenCount = mitarbeiterListe.filter((ma) => !rows[ma.id]?.bestehendId).length;
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2">
         <div>
           <Link href="/personal" className="text-gray-400 hover:text-gray-600 text-sm">← Personal</Link>
@@ -160,7 +185,7 @@ export default function ArbeitszeiterfassungPage() {
         />
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Stunden sind aus den bevorzugten Arbeitszeiten der Stammdaten vorbelegt — bei Bedarf anpassen und bestätigen.
+        Uhrzeit und Stunden sind aus den bevorzugten Arbeitszeiten der Stammdaten vorbelegt — bei Bedarf anpassen und bestätigen.
       </p>
 
       {error && <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
@@ -188,6 +213,8 @@ export default function ArbeitszeiterfassungPage() {
                 <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
                   <th className="px-4 py-2 text-left">Mitarbeiter</th>
                   <th className="px-4 py-2 text-left">Art</th>
+                  <th className="px-4 py-2 text-left">Von</th>
+                  <th className="px-4 py-2 text-left">Bis</th>
                   <th className="px-4 py-2 text-right">Stunden</th>
                   <th className="px-4 py-2 text-left hidden md:table-cell">Notiz</th>
                   <th className="px-4 py-2 text-right">Status</th>
@@ -213,6 +240,26 @@ export default function ArbeitszeiterfassungPage() {
                           {ARTEN.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                         </select>
                       </td>
+                      <td className="px-4 py-2">
+                        {row.art === "arbeit" && (
+                          <input
+                            type="time"
+                            value={row.von}
+                            onChange={(e) => setZeit(ma.id, { von: e.target.value }, row)}
+                            className="border rounded px-2 py-1 text-xs"
+                          />
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {row.art === "arbeit" && (
+                          <input
+                            type="time"
+                            value={row.bis}
+                            onChange={(e) => setZeit(ma.id, { bis: e.target.value }, row)}
+                            className="border rounded px-2 py-1 text-xs"
+                          />
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-right">
                         <input
                           type="number"
@@ -220,8 +267,9 @@ export default function ArbeitszeiterfassungPage() {
                           min="0.5"
                           max="24"
                           value={row.stunden}
+                          disabled={stundenZwischenUhrzeiten(row.von, row.bis) != null}
                           onChange={(e) => setRow(ma.id, { stunden: e.target.value, veraendert: true })}
-                          className="w-20 border rounded px-2 py-1 text-right font-mono text-xs"
+                          className="w-20 border rounded px-2 py-1 text-right font-mono text-xs disabled:bg-gray-50 disabled:text-gray-500"
                         />
                       </td>
                       <td className="px-4 py-2 hidden md:table-cell">

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { stundenZwischenUhrzeiten } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -69,21 +70,40 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { mitarbeiterId, datum, stunden, art, notiz } = body;
+    const { mitarbeiterId, datum, stunden, art, notiz, von, bis } = body;
 
     const maId = parseInt(mitarbeiterId, 10);
     if (isNaN(maId)) return NextResponse.json({ error: "Ungültige Mitarbeiter-ID" }, { status: 400 });
 
     if (!datum) return NextResponse.json({ error: "Datum ist erforderlich" }, { status: 400 });
 
-    const std = parseFloat(stunden);
-    if (isNaN(std) || std <= 0 || std > 24) {
-      return NextResponse.json({ error: "Stunden müssen zwischen 0.5 und 24 liegen" }, { status: 400 });
-    }
-
     const artVal = art ?? "arbeit";
     if (!GUELTIGE_ARTEN.includes(artVal)) {
       return NextResponse.json({ error: "Ungültige Stundenart" }, { status: 400 });
+    }
+
+    // Tatsächliche Kommen-/Gehen-Zeit (Aufzeichnungspflicht) hat Vorrang vor einer manuell
+    // eingegebenen Gesamtstundenzahl: ist ein Zeitfenster angegeben, wird die Stundenzahl daraus
+    // berechnet statt aus `stunden` übernommen.
+    let std: number;
+    let vonVal: string | null = null;
+    let bisVal: string | null = null;
+    if (typeof von === "string" && von.trim() && typeof bis === "string" && bis.trim()) {
+      const berechnet = stundenZwischenUhrzeiten(von, bis);
+      if (berechnet == null) {
+        return NextResponse.json(
+          { error: "Ungültiges Zeitfenster (Bis muss nach Von liegen, Format HH:MM)" },
+          { status: 400 },
+        );
+      }
+      std = berechnet;
+      vonVal = von.trim();
+      bisVal = bis.trim();
+    } else {
+      std = parseFloat(stunden);
+      if (isNaN(std) || std <= 0 || std > 24) {
+        return NextResponse.json({ error: "Stunden müssen zwischen 0.5 und 24 liegen" }, { status: 400 });
+      }
     }
 
     const eintrag = await prisma.arbeitsstunde.create({
@@ -92,6 +112,8 @@ export async function POST(req: NextRequest) {
         datum: new Date(datum),
         stunden: std,
         art: artVal,
+        von: vonVal,
+        bis: bisVal,
         notiz: notiz || null,
       },
       include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true } } },
