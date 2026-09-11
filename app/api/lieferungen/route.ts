@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     if (Object.keys(datum).length > 0) where.datum = datum;
   }
 
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
+  const limit = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
   const pageParam = searchParams.get("page");
   // Abwärtskompatibel: Nur wenn ?page= explizit mitgeschickt wird, liefern wir das
   // paginierte Format { data, total, page, limit, totalPages }. Ohne ?page= bleibt die

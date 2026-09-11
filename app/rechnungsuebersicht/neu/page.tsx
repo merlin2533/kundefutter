@@ -66,7 +66,7 @@ function NeueRechnungsuebersichtForm() {
   useEffect(() => {
     if (!kundeId) { setRechnungen([]); setAusgewaehlt(new Set()); return; }
     setLoadingRechnungen(true);
-    fetch(`/api/lieferungen?kundeId=${kundeId}&hatRechnung=true&limit=500`)
+    fetch(`/api/lieferungen?kundeId=${kundeId}&hatRechnung=true&limit=5000`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
         const list = Array.isArray(data) ? data : [];
