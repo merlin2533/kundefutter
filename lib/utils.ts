@@ -460,8 +460,13 @@ export function parseBevorzugteArbeitszeiten(raw: string | null | undefined): Re
 
 /**
  * Vorschlagswert für die Arbeitszeiterfassung an einem bestimmten Datum: bevorzugte
- * Arbeitszeit für den jeweiligen Wochentag, sonst `wochenstunden/5` an Werktagen
- * (Sa/So dann 0) als grobe Näherung, sonst der übliche Standardwert 8h an Werktagen.
+ * Arbeitszeit für den jeweiligen Wochentag. Sind überhaupt bevorzugte Arbeitszeiten
+ * gepflegt, gilt das als vollständige Wochenplanung — ein dort nicht aufgeführter Tag
+ * bedeutet "arbeitet an diesem Tag nicht" (0), nicht "unbekannt, also Standardschätzung"
+ * (sonst würde z.B. ein nur für Donnerstag eingetragener Mitarbeiter am Montag
+ * fälschlich einen vollen Arbeitstag vorgeschlagen bekommen). Nur wenn GAR KEINE
+ * bevorzugten Arbeitszeiten gepflegt sind, greift der grobe Fallback `wochenstunden/5`
+ * an Werktagen (Sa/So dann 0), sonst der übliche Standardwert 8h an Werktagen.
  */
 export function sollStundenFuerDatum(
   datum: Date | string,
@@ -470,7 +475,7 @@ export function sollStundenFuerDatum(
 ): number {
   const key = wochentagKeyFuerDatum(datum);
   const bevorzugt = parseBevorzugteArbeitszeiten(bevorzugteArbeitszeiten);
-  if (bevorzugt && typeof bevorzugt[key] === "number") return bevorzugt[key];
+  if (bevorzugt) return typeof bevorzugt[key] === "number" ? bevorzugt[key] : 0;
   const istWerktag = key !== "sa" && key !== "so";
   if (!istWerktag) return 0;
   return wochenstunden != null ? rundeKaufmaennisch(wochenstunden / 5, 1) : 8;
