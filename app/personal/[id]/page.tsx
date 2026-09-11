@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MONATE_KURZ, getJahreListeNum, formatDatum, WOCHENTAGE, parseBevorzugteArbeitszeiten } from "@/lib/utils";
@@ -104,6 +104,9 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   const [stundenJahr, setStundenJahr] = useState(new Date().getFullYear());
   const [abrError, setAbrError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [editingAbrId, setEditingAbrId] = useState<number | null>(null);
+  const [abrEditForm, setAbrEditForm] = useState({ brutto: "", netto: "", abzuege: "", notiz: "" });
+  const [abrSaving, setAbrSaving] = useState(false);
   const [istAdmin, setIstAdmin] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
@@ -199,6 +202,50 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
     if (!confirm("Stundeneintrag löschen?")) return;
     const res = await fetch(`/api/personal/arbeitsstunden/${stundeId}`, { method: "DELETE" });
     if (res.ok) setStunden((prev) => prev.filter((s) => s.id !== stundeId));
+  }
+
+  function startEditAbrechnung(a: Gehaltsabrechnung) {
+    setAbrEditForm({
+      brutto: String(a.brutto),
+      netto: String(a.netto),
+      abzuege: String(a.abzuege),
+      notiz: a.notiz ?? "",
+    });
+    setAbrError("");
+    setEditingAbrId(a.id);
+  }
+
+  function cancelEditAbrechnung() {
+    setEditingAbrId(null);
+  }
+
+  async function handleSaveAbrechnung(abrId: number) {
+    const brutto = parseFloat(abrEditForm.brutto);
+    const netto = parseFloat(abrEditForm.netto);
+    const abzuege = abrEditForm.abzuege.trim() === "" ? 0 : parseFloat(abrEditForm.abzuege);
+    if (isNaN(brutto) || brutto < 0 || isNaN(netto) || netto < 0 || isNaN(abzuege)) {
+      setAbrError("Bitte gültige Beträge eingeben.");
+      return;
+    }
+    setAbrSaving(true);
+    setAbrError("");
+    const res = await fetch(`/api/personal/abrechnungen/${abrId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ brutto, netto, abzuege, notiz: abrEditForm.notiz.trim() || null }),
+    });
+    setAbrSaving(false);
+    if (!res.ok) {
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      setAbrError(d.error ?? "Speichern fehlgeschlagen");
+    } else {
+      const d = await res.json();
+      setAbrechnungen((prev) => prev.map((a) => (a.id === abrId ? d : a)));
+      setEditingAbrId(null);
+    }
   }
 
   async function handleDeleteAbrechnung(abrId: number) {
@@ -742,60 +789,144 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {abrechnungen.map((a) => (
-                    <tr key={a.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">
-                        {MONATE[a.monat - 1]} {a.jahr}
-                      </td>
-                      {ma.typ === "stundenbasis" && (
-                        <td className="px-4 py-2 text-right hidden sm:table-cell text-gray-500 text-xs">
-                          {a.stundenGesamt != null ? `${a.stundenGesamt.toFixed(1)} h` : "—"}
+                    <Fragment key={a.id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-2 font-medium">
+                          {MONATE[a.monat - 1]} {a.jahr}
                         </td>
+                        {ma.typ === "stundenbasis" && (
+                          <td className="px-4 py-2 text-right hidden sm:table-cell text-gray-500 text-xs">
+                            {a.stundenGesamt != null ? `${a.stundenGesamt.toFixed(1)} h` : "—"}
+                          </td>
+                        )}
+                        <td className="px-4 py-2 text-right">
+                          {editingAbrId === a.id ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={abrEditForm.brutto}
+                              onChange={(e) => setAbrEditForm((p) => ({ ...p, brutto: e.target.value }))}
+                              className="w-24 border rounded px-1.5 py-0.5 text-right text-xs"
+                            />
+                          ) : (
+                            `${a.brutto.toFixed(2)} €`
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium">
+                          {editingAbrId === a.id ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={abrEditForm.netto}
+                              onChange={(e) => setAbrEditForm((p) => ({ ...p, netto: e.target.value }))}
+                              className="w-24 border rounded px-1.5 py-0.5 text-right text-xs font-normal"
+                            />
+                          ) : (
+                            `${a.netto.toFixed(2)} €`
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[a.status] ?? "bg-gray-100"}`}>
+                            {a.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 hidden md:table-cell text-gray-500 text-xs">
+                          {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex justify-end gap-2">
+                            {editingAbrId === a.id ? (
+                              <>
+                                <button
+                                  onClick={() => handleSaveAbrechnung(a.id)}
+                                  disabled={abrSaving}
+                                  className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                                >
+                                  Speichern
+                                </button>
+                                <button
+                                  onClick={cancelEditAbrechnung}
+                                  disabled={abrSaving}
+                                  className="text-xs text-gray-500 hover:underline disabled:opacity-50"
+                                >
+                                  Abbrechen
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {a.status !== "AUSGEZAHLT" && (
+                                  <button
+                                    onClick={() => startEditAbrechnung(a)}
+                                    disabled={actionLoading}
+                                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                  >
+                                    Bearbeiten
+                                  </button>
+                                )}
+                                {a.status === "OFFEN" && (
+                                  <button
+                                    onClick={() => handleAbrechnen(a.id)}
+                                    disabled={actionLoading}
+                                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                  >
+                                    Abrechnen
+                                  </button>
+                                )}
+                                {a.status === "ABGERECHNET" && (
+                                  <button
+                                    onClick={() => handleAuszahlen(a.id)}
+                                    disabled={actionLoading}
+                                    className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                                  >
+                                    Auszahlen
+                                  </button>
+                                )}
+                                <Link href={`/personal/abrechnungen/${a.id}/druck`} className="text-xs text-gray-500 hover:underline" target="_blank">
+                                  Druck
+                                </Link>
+                                {istAdmin && a.status !== "AUSGEZAHLT" && (
+                                  <button
+                                    onClick={() => handleDeleteAbrechnung(a.id)}
+                                    disabled={actionLoading}
+                                    className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                                  >
+                                    Löschen
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {editingAbrId === a.id && (
+                        <tr className="bg-blue-50/40">
+                          <td colSpan={ma.typ === "stundenbasis" ? 6 : 5} className="px-4 py-3">
+                            <div className="flex flex-wrap items-end gap-3">
+                              <label className="text-xs text-gray-600">
+                                Abzüge (€)
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={abrEditForm.abzuege}
+                                  onChange={(e) => setAbrEditForm((p) => ({ ...p, abzuege: e.target.value }))}
+                                  className="block w-24 border rounded px-1.5 py-1 text-xs mt-0.5"
+                                />
+                              </label>
+                              <label className="text-xs text-gray-600 flex-1 min-w-[220px]">
+                                Notiz
+                                <input
+                                  type="text"
+                                  value={abrEditForm.notiz}
+                                  onChange={(e) => setAbrEditForm((p) => ({ ...p, notiz: e.target.value }))}
+                                  placeholder="z.B. Halber Monat wegen Eintritt am 15.09."
+                                  className="block w-full border rounded px-1.5 py-1 text-xs mt-0.5"
+                                />
+                              </label>
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      <td className="px-4 py-2 text-right">{a.brutto.toFixed(2)} €</td>
-                      <td className="px-4 py-2 text-right font-medium">{a.netto.toFixed(2)} €</td>
-                      <td className="px-4 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[a.status] ?? "bg-gray-100"}`}>
-                          {a.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 hidden md:table-cell text-gray-500 text-xs">
-                        {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex justify-end gap-2">
-                          {a.status === "OFFEN" && (
-                            <button
-                              onClick={() => handleAbrechnen(a.id)}
-                              disabled={actionLoading}
-                              className="text-xs text-blue-600 hover:underline disabled:opacity-50"
-                            >
-                              Abrechnen
-                            </button>
-                          )}
-                          {a.status === "ABGERECHNET" && (
-                            <button
-                              onClick={() => handleAuszahlen(a.id)}
-                              disabled={actionLoading}
-                              className="text-xs text-green-700 hover:underline disabled:opacity-50"
-                            >
-                              Auszahlen
-                            </button>
-                          )}
-                          <Link href={`/personal/abrechnungen/${a.id}/druck`} className="text-xs text-gray-500 hover:underline" target="_blank">
-                            Druck
-                          </Link>
-                          {istAdmin && a.status !== "AUSGEZAHLT" && (
-                            <button
-                              onClick={() => handleDeleteAbrechnung(a.id)}
-                              disabled={actionLoading}
-                              className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
-                            >
-                              Löschen
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
