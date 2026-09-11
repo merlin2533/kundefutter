@@ -1185,6 +1185,210 @@ export async function generiereAngebotPdf(angebotId: number): Promise<Buffer> {
 }
 
 /**
+ * Auftragsbestätigung zu einer noch nicht gelieferten Lieferung (status "geplant"), nach
+ * demselben Aufbau wie generiereAngebotPdf — anders als der Lieferschein (keine Preise,
+ * Unterschriftsfeld, Chargen/Nährstoffdeklaration) bestätigt dieses Dokument dem Kunden VOR der
+ * Lieferung die Positionen samt Preisen/MwSt, ohne bereits eine Rechnung zu sein. Nutzt
+ * Lieferposition.mwstSatz (bei Positionserstellung eingefroren) statt Artikel.mwstSatz, analog
+ * generiereRechnungPdf.
+ */
+export async function generiereAuftragsbestaetigungPdf(lieferungId: number): Promise<Buffer> {
+  const lieferung = await prisma.lieferung.findUnique({
+    where: { id: lieferungId },
+    include: {
+      kunde: { include: { kontakte: true } },
+      positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+    },
+  });
+  if (!lieferung) throw new Error(`Lieferung ${lieferungId} nicht gefunden`);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+  zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+
+  const k = lieferung.kunde;
+  const auftragsNr = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
+  const auftragsDatum = new Date(lieferung.datum);
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Auftragsbestätigung", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  let metaY = 27;
+  const metaLabelX = 155;
+  const metaValueX = 196;
+  const drawMetaAB = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelX, metaY, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueX, metaY, { align: "right" });
+    metaY += 5;
+  };
+  drawMetaAB("Auftragsnummer:", auftragsNr, true);
+  drawMetaAB("Datum:", formatDatum(auftragsDatum));
+
+  const sepY = Math.max(metaY + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  let ey = sepY + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_LABEL);
+  doc.text("EMPFÄNGER", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+
+  ey += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Auftragsbestätigung Nr. ${auftragsNr}`, 14, ey);
+  ey += 6;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const positionen = lieferung.positionen as any[];
+  const hatRabatt = positionen.some((p) => (p.rabattProzent ?? 0) > 0);
+  const abHead = hatRabatt
+    ? [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Rabatt %", "Gesamt"]]
+    : [["Pos.", "Artikel", "Menge", "Einheit", "Einzelpreis", "Gesamt"]];
+  const abBody = positionen.map((p, i) => {
+    const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
+    const mengeStr = p.menge.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+    const base = [String(i + 1), p.artikel.name, mengeStr, p.artikel.einheit, formatEuro(p.verkaufspreis)];
+    if (hatRabatt) base.push((p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "");
+    base.push(formatEuro(netto));
+    return base;
+  });
+
+  autoTable(doc, {
+    startY: ey + 2,
+    head: abHead,
+    body: abBody,
+    theme: "plain",
+    margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    rowPageBreak: "avoid",
+    headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
+    columnStyles: hatRabatt
+      ? { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 18 }, 3: { cellWidth: 20 }, 4: { halign: "right", cellWidth: 24 }, 5: { halign: "right", cellWidth: 20 }, 6: { halign: "right", cellWidth: 26 } }
+      : { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { cellWidth: 18 }, 4: { halign: "right", cellWidth: 28 }, 5: { halign: "right", cellWidth: 28 } },
+  });
+
+  const finalY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 4;
+  const mwstGruppenAB = new Map<number, number>();
+  let nettoGesamtAB = 0;
+  for (const p of positionen) {
+    const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
+    nettoGesamtAB += netto;
+    const satz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
+    mwstGruppenAB.set(satz, (mwstGruppenAB.get(satz) ?? 0) + netto);
+  }
+  let mwstGesamtAB = 0;
+  for (const [satz, basis] of mwstGruppenAB) mwstGesamtAB += basis * (satz / 100);
+  const bruttoAB = rundeKaufmaennisch(nettoGesamtAB + mwstGesamtAB, 2);
+
+  let sumY = finalY + 2;
+  const sumLabelX = 140;
+  const sumValueX = 196;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(68);
+  doc.text("Nettobetrag:", sumLabelX, sumY);
+  doc.setTextColor(...COL_TEXT);
+  doc.text(formatEuro(nettoGesamtAB), sumValueX, sumY, { align: "right" });
+  sumY += 5.5;
+
+  for (const [satz, basis] of Array.from(mwstGruppenAB.entries()).sort(([a], [b]) => a - b)) {
+    doc.setTextColor(68);
+    doc.text(`MwSt ${satz} %:`, sumLabelX, sumY);
+    doc.setTextColor(...COL_TEXT);
+    doc.text(formatEuro(basis * (satz / 100)), sumValueX, sumY, { align: "right" });
+    sumY += 5.5;
+  }
+
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.5);
+  doc.line(sumLabelX, sumY, sumValueX, sumY);
+  sumY += 6;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Auftragssumme:", sumLabelX, sumY);
+  doc.text(formatEuro(bruttoAB), sumValueX, sumY, { align: "right" });
+  sumY += 8;
+
+  sumY = sicherstellenPlatz(doc, sumY, 5, footerReserve);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...COL_MUTED);
+  doc.text("Die Rechnungsstellung erfolgt nach erfolgter Lieferung.", 14, sumY);
+  sumY += 5;
+
+  if (lieferung.notiz?.trim()) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Hinweis: ${lieferung.notiz.trim()}`, 182) as string[];
+    sumY = sicherstellenPlatz(doc, sumY, notizLines.length * 4 + 2, footerReserve);
+    notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
+  }
+
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Auftragsbestätigung ${auftragsNr} – Fortsetzung`,
+  });
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
+/**
  * Bestellung (Lieferantenbestellung) als PDF, nach demselben Aufbau wie generiereAngebotPdf.
  * Empfänger ist der Lieferant statt eines Kunden; bei einem Streckengeschäft (alle
  * Bestellliste-Einträge dieser Bestellung eindeutig demselben Kunden zugeordnet) wird zusätzlich

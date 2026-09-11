@@ -447,6 +447,7 @@ model Lieferung {
   rechnungVersendetAm     DateTime? // gesetzt wenn die Rechnung das Haus verlassen hat (E-Mail ODER manuell "Als per Post versendet markieren") — löst denselben Positions-Sperr-Mechanismus aus, unabhängig vom Kanal
   rechnungVersandKanal    String?   // "email" | "post" — nur Anzeige/Auskunft, welcher Kanal rechnungVersendetAm gesetzt hat; alte Datensätze vor Einführung des Postversands bleiben null und werden weiterhin als "E-Mail" angezeigt
   lieferscheinVersendetAm DateTime? // gesetzt wenn der Lieferschein per E-Mail verschickt wurde
+  auftragsbestaetigungVersendetAm DateTime? // gesetzt wenn die Auftragsbestätigung per E-Mail verschickt wurde (nur relevant solange status "geplant")
   bezahltAm               DateTime?
   zahlungsziel            Int?      @default(30) // Tage
   wiederkehrend           Boolean   @default(false) // wurde automatisch angelegt

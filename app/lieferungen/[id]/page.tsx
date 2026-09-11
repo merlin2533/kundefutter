@@ -1675,6 +1675,15 @@ export default function LieferungDetailPage() {
               </>
             )}
 
+            {lieferung.status === "geplant" && (
+              <button
+                onClick={() => router.push(`/lieferungen/${id}/auftragsbestaetigung`)}
+                className="p-2 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors"
+                title="Auftragsbestätigung (noch nicht geliefert)"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </button>
+            )}
             {lieferung.status !== "storniert" && (
               <button
                 onClick={() => router.push(`/lieferungen/${id}/lieferschein`)}
