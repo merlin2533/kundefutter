@@ -6,6 +6,7 @@ import {
   generiereGutschriftPdf,
   generiereAngebotPdf,
   generiereLieferscheinPdf,
+  generiereAuftragsbestaetigungPdf,
 } from "@/lib/pdfGenerator";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ type Params = { params: Promise<{ id: string }> };
 
 // Features, deren ursprüngliche Mail einen PDF-Anhang hatte – muss beim
 // erneuten Senden frisch erzeugt werden, da MailLog keine Anhang-Binärdaten speichert.
-const ANHANG_FEATURES = new Set(["rechnung", "gutschrift", "angebot", "lieferschein"]);
+const ANHANG_FEATURES = new Set(["rechnung", "gutschrift", "angebot", "lieferschein", "auftragsbestaetigung"]);
 
 async function baueAnhang(feature: string, entityId: number): Promise<EmailAttachment | null> {
   if (feature === "rechnung") {
@@ -41,6 +42,13 @@ async function baueAnhang(feature: string, entityId: number): Promise<EmailAttac
     const lieferscheinNr = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
     const content = await generiereLieferscheinPdf(entityId);
     return { filename: `Lieferschein_${lieferscheinNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`, content, contentType: "application/pdf" };
+  }
+  if (feature === "auftragsbestaetigung") {
+    const lieferung = await prisma.lieferung.findUnique({ where: { id: entityId } });
+    if (!lieferung) return null;
+    const auftragsNr = lieferung.lieferscheinNr?.trim() || String(lieferung.id);
+    const content = await generiereAuftragsbestaetigungPdf(entityId);
+    return { filename: `Auftragsbestaetigung_${auftragsNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`, content, contentType: "application/pdf" };
   }
   return null;
 }
