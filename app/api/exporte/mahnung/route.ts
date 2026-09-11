@@ -36,7 +36,11 @@ export async function GET(req: NextRequest) {
       : null;
 
     const pdfBuffer = await generiereMahnungPdf(lieferungId, mahnstufe, ansprechpartner ?? undefined);
-    const filename = `Mahnung_${lieferung.rechnungNr.replace(/[^A-Za-z0-9\-_]/g, "_")}.pdf`;
+    // Mahnstufe + Erzeugungsdatum sind Teil des Dateinamens, damit eine erneute Erzeugung (z.B.
+    // nur zur Kontrolle angeklickt) NICHT die zuvor in Nextcloud archivierte Mahnung — mit ihrem
+    // damaligen, jetzt nicht mehr reproduzierbaren Briefdatum — stillschweigend überschreibt.
+    const heute = new Date().toISOString().slice(0, 10);
+    const filename = `Mahnung_${lieferung.rechnungNr.replace(/[^A-Za-z0-9\-_]/g, "_")}_Stufe${mahnstufe}_${heute}.pdf`;
 
     // Fire-and-forget: Mahnung in den Kunden-Ordner spiegeln
     isNextcloudKonfiguriert()
