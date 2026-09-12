@@ -22,12 +22,38 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 session_start();
 $token = trim($_POST['csrf'] ?? '');
 if (!isset($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
+    // Frischen Token mitgeben, damit ein abgelaufener Token (z.B. lange offenes
+    // Tab) kein Neuladen erzwingt — der Client setzt ihn und der zweite Versuch
+    // geht durch. Unbedenklich: Ein fremder Ursprung kann diese Antwort wegen
+    // CORS nicht lesen, und /csrf.php gibt Tokens ohnehin frei heraus.
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'Ungültige Sitzung. Seite neu laden und erneut versuchen.']);
+    echo json_encode([
+        'ok'    => false,
+        'error' => 'Sitzung abgelaufen. Bitte senden Sie die Anfrage noch einmal ab.',
+        'csrf'  => $_SESSION['csrf_token'],
+    ]);
     exit;
 }
-// Token einmalig verbrauchen
-unset($_SESSION['csrf_token']);
+// Token NICHT hier verbrauchen: Jeder vorzeitige Abbruch (Validierungsfehler,
+// Rate-Limit, Resend-Ausfall) würde das Formular sonst dauerhaft lahmlegen — der
+// Client behält seinen inzwischen ungültigen Token und bekommt ab dann nur noch
+// "Ungültige Sitzung". Der Token wird erst nach erfolgreichem Versand rotiert
+// (siehe unten), und jede Fehlerantwort liefert ihn über antwortMitToken() mit.
+
+/**
+ * Beendet die Anfrage mit einem Fehler und gibt den weiterhin gültigen CSRF-Token
+ * zurück, damit der Besucher es direkt noch einmal versuchen kann.
+ */
+function antwortMitToken(int $status, string $error): void {
+    http_response_code($status);
+    echo json_encode([
+        'ok'    => false,
+        'error' => $error,
+        'csrf'  => $_SESSION['csrf_token'] ?? '',
+    ]);
+    exit;
+}
 
 // ── Rate-Limiting (session-basiert) ───────────────────────────────────────────
 $ip  = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
@@ -39,11 +65,10 @@ $rl = &$_SESSION[$key];
 if (time() - $rl['first'] > RATE_WINDOW) {
     $rl = ['count' => 0, 'first' => time()];
 }
-$rl['count']++;
-if ($rl['count'] > RATE_LIMIT) {
-    http_response_code(429);
-    echo json_encode(['ok' => false, 'error' => 'Zu viele Anfragen. Bitte warten Sie eine Stunde.']);
-    exit;
+// Nur prüfen, noch nicht hochzählen: ein Tippfehler im E-Mail-Feld darf kein
+// Kontingent verbrauchen. Gezählt wird erst, wenn tatsächlich eine Mail rausgeht.
+if ($rl['count'] >= RATE_LIMIT) {
+    antwortMitToken(429, 'Zu viele Anfragen. Bitte warten Sie eine Stunde.');
 }
 
 // ── Honeypot (Bot-Schutz) ─────────────────────────────────────────────────────
@@ -66,7 +91,12 @@ $paket     = clean($_POST['paket']     ?? '');
 // Produktlinie (index.html sendet nichts, eierhandel.html sendet "Eierhandel") und
 // Betriebsart — beides optional, damit das Formular beider Landingpages dieselbe
 // Route nutzen kann, ohne dass eines der Felder Pflicht wird.
-$quelle      = clean($_POST['quelle']      ?? '', 40);
+// Gegen eine Whitelist prüfen: Das Feld steuert Betreff und Resend-Tag `linie`
+// und damit die Auswertung nach Produktlinie — ein frei gesetzter Wert aus einem
+// Skript-Post würde die Statistik verfälschen.
+$QUELLEN     = ['Eierhandel', 'Agrarhandel'];
+$quelle_roh  = clean($_POST['quelle'] ?? '', 40);
+$quelle      = in_array($quelle_roh, $QUELLEN, true) ? $quelle_roh : '';
 $betriebsart = clean($_POST['betriebsart'] ?? '', 60);
 $nachricht = clean($_POST['nachricht'] ?? '', 2000);
 $dsgvo     = !empty($_POST['dsgvo']);
@@ -78,9 +108,7 @@ if (strlen($nachricht) < 10)                     $errors[] = 'Bitte schreiben Si
 if (!$dsgvo)                                     $errors[] = 'Bitte stimmen Sie der Datenschutzerklärung zu.';
 
 if ($errors) {
-    http_response_code(422);
-    echo json_encode(['ok' => false, 'error' => implode(' ', $errors)]);
-    exit;
+    antwortMitToken(422, implode(' ', $errors));
 }
 
 // ── E-Mail-Text aufbauen ──────────────────────────────────────────────────────
@@ -162,10 +190,11 @@ curl_close($ch);
 
 if ($err || $status < 200 || $status >= 300) {
     error_log("Resend API Fehler: status=$status err=$err body=$body");
-    http_response_code(502);
-    echo json_encode(['ok' => false, 'error' => 'E-Mail konnte nicht gesendet werden. Bitte rufen Sie uns direkt an.']);
-    exit;
+    antwortMitToken(502, 'E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es erneut oder rufen Sie uns direkt an.');
 }
+
+// Ab hier ist die Mail raus — erst jetzt zählt die Anfrage aufs Stundenkontingent.
+$rl['count']++;
 
 // ── Bestätigungs-E-Mail an Interessenten ──────────────────────────────────────
 $confirm_html = <<<HTML

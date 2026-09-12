@@ -164,61 +164,107 @@
   <!-- Structured Data: FAQPage -->
   <script type="application/ld+json">
   {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "Druckt AGRI-Office die Kennzeichnung nach EU-Vermarktungsnorm auf Lieferschein und Rechnung?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ja. Je Position werden Güteklasse (A/B), Gewichtsklasse (S, M, L, XL), Erzeugercode und Legedatum erfasst. Auf Lieferschein und Rechnung erscheint daraus automatisch die Kennzeichnungszeile „Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026\" — sowohl in der Bildschirmvorschau als auch im server-seitig erzeugten PDF. Die Angaben werden bei der Positionserfassung eingefroren, eine spätere Stammdatenänderung verändert bereits gestellte Belege nicht." }
-      },
-      {
-        "@type": "Question",
-        "name": "Wie berechnet AGRI-Office das Mindesthaltbarkeitsdatum von Eiern?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Das MHD wird aus dem Legedatum berechnet: Legedatum plus 28 Tage, gemäß EU-Vermarktungsnorm. Ausdrücklich nicht ab Wareneingangs- oder Rechnungsdatum. Beim Erfassen einer Position sehen Sie das MHD sofort als Live-Vorschau, und dieselbe Berechnung läuft serverseitig für Druck und Export — es gibt nur eine Quelle der Wahrheit." }
-      },
-      {
-        "@type": "Question",
-        "name": "Was macht das Ei-Sortierprotokoll?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Eine Anlieferung vom Erzeuger wird in mehrere klassifizierte Ausgangschargen aufgeteilt — zum Beispiel 12.000 Eier eingehend, daraus 4.200 Stück Güteklasse A / Gewichtsklasse L, 6.100 Stück A / M und 1.700 Stück B. Jede Ausgangsposition bekommt Güteklasse, Gewichtsklasse, Chargennummer, Legedatum und Erzeugercode und bucht automatisch einen Lagerzugang. So bleibt die Rückverfolgbarkeit vom Erzeuger bis zum belieferten Kunden lückenlos." }
-      },
-      {
-        "@type": "Question",
-        "name": "Unterstützt AGRI-Office die KAT-Warenstrommeldung?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ja. AGRI-Office aggregiert je ISO-Kalenderwoche, Erzeugercode, Güteklasse und Gewichtsklasse die sortierten Eingangsmengen aus dem Sortierprotokoll und die tatsächlich abgegebenen Mengen aus den Lieferungen. Das Ergebnis lässt sich vor dem Export in einer Vorschau prüfen und anschließend als CSV herunterladen." }
-      },
-      {
-        "@type": "Question",
-        "name": "Erinnert mich die Software an Meldefristen?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ja. Ein Meldepflichten-Tracker legt automatisch Aufgaben an: die jährliche Tierzahlmeldung an die Tierseuchenkasse (Stichtag 01.01., Frist 31.01.) und eine wiederkehrende Erinnerung an die KAT-Wochenmeldung. Die Erinnerung wird erst dann erneut angelegt, wenn die vorherige erledigt ist — die Aufgabenliste läuft also nicht voll." }
-      },
-      {
-        "@type": "Question",
-        "name": "Kann ich Eier von mehreren Erzeugern ankaufen und abrechnen?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ja. Je Erzeuger hinterlegen Sie Erzeugercode und Haltungsform (Bio, Freiland, Boden, Käfig/Kleingruppe). Anlieferungen werden erfasst und über die Erzeugerabrechnung abgerechnet; der Erzeugercode wandert automatisch in das Sortierprotokoll und von dort in die Kennzeichnung der Ausgangsware." }
-      },
-      {
-        "@type": "Question",
-        "name": "Muss ich die ganzen Ackerbau-Funktionen mitschleppen?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Nein. AGRI-Office ist modular aufgebaut. Mit dem Branchen-Preset „Eierbetrieb\" schalten Sie Sortenversuche, Bodenproben, PSM-Dokumentation, Düngebedarf und Agraranträge mit einem Klick ab — Navigation und Kundenakte zeigen dann nur noch, was Sie wirklich brauchen. Die Module bleiben danach einzeln frei umschaltbar, ein Preset ist nur ein Ausgangspunkt." }
-      },
-      {
-        "@type": "Question",
-        "name": "Ersetzt AGRI-Office meine Sortiermaschine?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Nein. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine tragen Sie dabei als Sortierprotokoll ein." }
-      },
-      {
-        "@type": "Question",
-        "name": "Wo werden meine Daten gespeichert?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ausschließlich auf Servern in Deutschland, vollständig DSGVO-konform. Auf Wunsch schließen wir einen Auftragsverarbeitungsvertrag (AVV) ab. Ihre Daten werden täglich gesichert, gehören ausschließlich Ihnen und lassen sich jederzeit vollständig exportieren." }
-      },
-      {
-        "@type": "Question",
-        "name": "Funktioniert die Software in der Packstelle und im Stall?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Ja. AGRI-Office ist eine Progressive Web App: Sie installieren sie auf Smartphone oder Tablet wie eine native App, ohne App Store. Sortierung erfassen, Anlieferung buchen oder den Lieferschein unterschreiben lassen funktioniert direkt vor Ort — auch bei schlechter Netzabdeckung." }
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Druckt AGRI-Office die Kennzeichnung nach EU-Vermarktungsnorm auf Lieferschein und Rechnung?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Je Position werden Güteklasse (A/B), Gewichtsklasse (S, M, L, XL), Erzeugercode und Legedatum erfasst. Daraus entsteht automatisch die Kennzeichnungszeile „Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026\" — sowohl in der Bildschirmvorschau als auch im server-seitig erzeugten PDF. Die Angaben werden bei der Positionserfassung eingefroren: Eine spätere Stammdatenänderung verändert bereits gestellte Belege nicht."
       }
-    ]
-  }
+    },
+    {
+      "@type": "Question",
+      "name": "Wie wird das Mindesthaltbarkeitsdatum berechnet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Aus dem Legedatum plus 28 Tage, gemäß EU-Vermarktungsnorm — ausdrücklich nicht ab Wareneingangs- oder Rechnungsdatum. Beim Erfassen einer Position sehen Sie das MHD sofort als Live-Vorschau, und dieselbe Berechnung läuft serverseitig für Druck und Export. Es gibt nur eine Quelle der Wahrheit, Bildschirm und PDF können nicht auseinanderlaufen."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Was genau macht das Ei-Sortierprotokoll?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Es teilt eine Anlieferung in mehrere klassifizierte Ausgangschargen auf — zum Beispiel 12.000 Eier eingehend, daraus 4.200 Stück Güteklasse A / Gewichtsklasse L, 6.100 Stück A / M und 1.700 Stück B. Jede Ausgangsposition bekommt Güteklasse, Gewichtsklasse, Chargennummer, Legedatum und Erzeugercode und bucht automatisch einen Lagerzugang. So bleibt die Rückverfolgbarkeit vom Erzeuger bis zum belieferten Kunden lückenlos, ohne dass Sie eine zweite Liste führen."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Unterstützt AGRI-Office die KAT-Warenstrommeldung?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. AGRI-Office aggregiert je ISO-Kalenderwoche, Erzeugercode, Güteklasse und Gewichtsklasse die sortierten Eingangsmengen aus dem Sortierprotokoll und die tatsächlich abgegebenen Mengen aus den Lieferungen. Das Ergebnis prüfen Sie in einer Vorschau und laden es anschließend als CSV herunter. Die Haltungsform wird dabei automatisch aus der ersten Ziffer des Erzeugercodes abgeleitet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Erinnert mich die Software an Meldefristen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Ein Meldepflichten-Tracker legt automatisch Aufgaben an: die jährliche Tierzahlmeldung an die Tierseuchenkasse (Stichtag 01.01., Frist 31.01.) und eine wiederkehrende Erinnerung an die KAT-Wochenmeldung. Die Tierseuchenkasse-Aufgabe zielt dabei immer auf die nächste noch offene Frist. Eine neue KAT-Erinnerung entsteht erst, wenn die vorherige erledigt ist — die Aufgabenliste läuft also nicht voll."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kann ich Eier von mehreren Erzeugern ankaufen und abrechnen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Je Erzeuger hinterlegen Sie Erzeugercode und Haltungsform (0 Bio, 1 Freiland, 2 Boden, 3 Käfig/Kleingruppe). Anlieferungen werden je Erzeuger erfasst und über die Erzeugerabrechnung abgerechnet. Wählen Sie beim Sortierprotokoll eine Anlieferung aus, übernimmt AGRI-Office den Erzeugercode automatisch in alle Positionszeilen, die noch keinen haben — von dort wandert er in die Kennzeichnung der Ausgangsware und in die KAT-Meldung."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Muss ich die ganzen Ackerbau-Funktionen mitschleppen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein. AGRI-Office ist modular aufgebaut. Mit dem Branchen-Preset „Eierbetrieb\" schalten Sie Sortenversuche, Bodenproben, PSM-Dokumentation, Düngebedarf und Agraranträge mit einem Klick ab — Navigation und Kundenakte zeigen dann nur noch, was Sie brauchen. Abgeschaltete Bereiche sind auch serverseitig gesperrt, nicht bloß ausgeblendet. Die Module bleiben danach einzeln frei umschaltbar: Ein Preset ist ein Ausgangspunkt, kein Lock-in."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Ersetzt AGRI-Office meine Sortiermaschine?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Nein — und das ist bewusst so. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine tragen Sie als Sortierprotokoll ein. Eine direkte Maschinenanbindung ist im Enterprise-Tarif als individuelle Schnittstelle möglich — sprechen Sie uns an."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Wo werden meine Daten gespeichert?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ausschließlich auf Servern in Deutschland, vollständig DSGVO-konform. Auf Wunsch schließen wir einen Auftragsverarbeitungsvertrag (AVV) ab. Ihre Daten werden täglich gesichert, gehören ausschließlich Ihnen und lassen sich jederzeit vollständig exportieren — auch nach einer Kündigung."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Funktioniert die Software in der Packstelle und im Stall?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. AGRI-Office ist eine Progressive Web App: Sie installieren sie auf Smartphone oder Tablet wie eine native App, ohne App Store. Sortierung erfassen, Anlieferung buchen oder den Lieferschein beim Kunden unterschreiben lassen funktioniert direkt vor Ort — auch bei schlechter Netzabdeckung."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Kann ich meine bestehenden Daten übernehmen?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Kunden, Artikel, Preislisten und Lieferanten importieren Sie per CSV oder Excel — mit Vorschau, bevor etwas geschrieben wird. Beim Enterprise-Tarif übernehmen wir die komplette Datenmigration aus Ihrem bisherigen System."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Ist das eine eigene Software oder dieselbe wie die Agrarhandel-Version?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Dieselbe Software, andere Module. Sie bekommen denselben Unterbau — CRM, Lager, Belegwesen, Finanzen, Rollen und Rechte, mobile Nutzung — und schalten über das Branchen-Preset die passenden Fachmodule ein. Wer beides betreibt, etwa Eiervermarktung plus Futterhandel, lässt einfach beide Modulgruppen aktiv und arbeitet in einem einzigen System statt in zweien."
+      }
+    }
+  ]
+}
   </script>
 
   <style>
@@ -285,17 +331,22 @@
     .nav-links a:hover { background: var(--gray-100); color: var(--gray-900); }
     .nav-cta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .nav-mobile-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; min-width: 40px; min-height: 40px; }
-    /* Progressiv Links ausblenden, um Platz zu sparen */
-    @media (max-width: 1280px) {
-      .nav-links a[href="#integrationen"] { display: none; }
-    }
+    /* Produktlinien-Umschalter (Agrarhandel ↔ Eierhandel) */
+    .brand-switch { display:flex; align-items:center; gap:2px; background:var(--gray-100); border-radius:50px; padding:3px; flex-shrink:0; }
+    .brand-switch a { padding:6px 12px; border-radius:50px; font-size:.76rem; font-weight:600; color:var(--gray-600); white-space:nowrap; transition:all .15s; }
+    .brand-switch a.active { background:var(--white); color:var(--green-800); box-shadow:0 1px 3px rgba(0,0,0,.12); }
+    .brand-switch a:not(.active):hover { color:var(--gray-900); }
+
+    /* Navigationsleiste schrittweise entlasten. Die Breakpoints müssen früh genug
+       greifen: `.container` ist auf 1200px gedeckelt, mehr Viewport verschafft der
+       Leiste also keinen zusätzlichen Platz — bei zu vielen Einträgen schrumpft
+       `.nav-links` (flex-shrink:1) unter seine Inhaltsbreite und der Text läuft
+       mangels `overflow` sichtbar unter den CTA-Button.
+       WELCHE Sprungmarken zuerst weichen, ist seitenspezifisch und steht am Ende
+       dieses Stylesheets — hier nur, was auf beiden Landingpages gilt. */
     @media (max-width: 1180px) {
-      .nav-links a[href="#tourenplanung"] { display: none; }
+      .brand-switch a { padding: 5px 10px; font-size: .73rem; }
       .nav-links a { padding: 7px 10px; font-size: .82rem; }
-    }
-    @media (max-width: 1080px) {
-      .nav-links a[href="#vergleich"] { display: none; }
-      .nav-links a[href="#ki"] { display: none; }
     }
     @media (max-width: 980px) {
       .nav-links { display: none; }
@@ -304,6 +355,11 @@
          horizontales Scrollen auf dem Handy. Der CTA steht im Burger-Menü und in
          der Sticky-Leiste am unteren Rand weiterhin zur Verfügung. */
       .nav-cta { display: none; }
+      /* Der Umschalter verschwindet erst hier — gemeinsam mit den Nav-Links und
+         genau dann, wenn das Burger-Menü übernimmt, das beide Produktlinien führt.
+         Früher ausgeblendet entstünde ein Fensterbreiten-Bereich ganz ohne
+         Umschaltmöglichkeit im Kopfbereich. */
+      .brand-switch { display: none; }
       .nav-mobile-btn { display: flex; align-items: center; justify-content: center; }
     }
 
@@ -761,15 +817,6 @@
       --shell:   #fdf8ee;
     }
 
-    /* Produktlinien-Umschalter in der Navigation */
-    .brand-switch { display:flex; align-items:center; gap:2px; background:var(--gray-100); border-radius:50px; padding:3px; flex-shrink:0; }
-    .brand-switch a { padding:6px 12px; border-radius:50px; font-size:.76rem; font-weight:600; color:var(--gray-600); white-space:nowrap; transition:all .15s; }
-    .brand-switch a.active { background:var(--white); color:var(--green-800); box-shadow:0 1px 3px rgba(0,0,0,.12); }
-    .brand-switch a:not(.active):hover { color:var(--gray-900); }
-    .nav.scrolled .brand-switch { background:var(--gray-100); }
-    @media (max-width: 1180px) { .brand-switch a { padding:5px 11px; font-size:.74rem; } }
-    @media (max-width: 980px)  { .brand-switch { display:none; } }
-
     /* Dotter-Akzente: dieselben Bausteine, wärmerer Ton */
     .hero .hero-badge-dot { background: var(--yolk); }
     .tag-yolk { background:#fdf1d8; color:#8a5a06; }
@@ -805,15 +852,13 @@
     @media (max-width:1024px) { .audience-grid { grid-template-columns:repeat(2,1fr); } }
     @media (max-width:768px)  { .audience-grid { grid-template-columns:1fr; } }
 
-    /* Progressives Ausblenden der Nav-Links — dieselbe Mechanik wie auf der
-       Agrarhandel-Seite, aber für die Sprungmarken DIESER Seite (plus den
-       Produktlinien-Umschalter, der zusätzlich Platz braucht). Die geerbten
-       Regeln oben zielen auf #integrationen/#tourenplanung/#ki/#vergleich und
-       laufen hier ins Leere. */
+    /* Seitenspezifisches Ausblenden der Nav-Links — dieselbe Mechanik wie auf der
+       Agrarhandel-Seite, aber für die Sprungmarken DIESER Seite. Die Eierhandel-
+       Labels sind länger ("Kennzeichnung"), deshalb greift die Reihenfolge hier
+       früher als bei index.html. */
     @media (max-width: 1340px) { .nav-links a[href="#faq"] { display: none; } }
-    @media (max-width: 1240px) { .brand-switch { display: none; } }
-    @media (max-width: 1080px) { .nav-links a[href="#ablauf"] { display: none; } }
-    @media (max-width: 1020px) { .nav-links a[href="#kennzeichnung"] { display: none; } }
+    @media (max-width: 1150px) { .nav-links a[href="#ablauf"] { display: none; } }
+    @media (max-width: 1060px) { .nav-links a[href="#kennzeichnung"] { display: none; } }
 
     /* Vier statt drei Schritte — als Klasse statt Inline-Style, damit die
        bestehenden Umbruch-Regeln bei 768px greifen (ein Inline-Style hätte die
@@ -922,7 +967,7 @@
           <span class="hero-badge-dot"></span>
           <span>Packstellen-Software · EU-Vermarktungsnorm · DSGVO-konform</span>
         </div>
-        <h1>Vom Stall bis zur Rechnung —<br/><em>jedes Ei nachweisbar</em></h1>
+        <h1>Eierhandel vom Stall bis zur Rechnung —<br/><em>jedes Ei nachweisbar</em></h1>
         <p class="hero-sub">AGRI-Office Eierhandel ist die Branchensoftware für Packstellen, Legehennenbetriebe und Eier-Großhandel: Sortierprotokoll, Kennzeichnung nach EU-Vermarktungsnorm, MHD automatisch aus dem Legedatum, KAT-Wochenmeldung und Erzeugerabrechnung — in einer Cloud-Lösung auf deutschen Servern.</p>
         <div class="hero-actions">
           <a href="#kontakt" class="btn btn-amber btn-lg">
@@ -942,8 +987,8 @@
             <span style="background:#1b4332">🧾</span>
           </div>
           <div class="hero-trust-text">
-            Anlieferung → Sortierung → Lieferschein → Rechnung<br/>
-            <strong>ein durchgehender Datensatz</strong>, keine Zettelwirtschaft
+            Packstellen-Software für Sortierprotokoll, Kennzeichnung und KAT-Meldung<br/>
+            <strong>ein durchgehender Datensatz</strong> von der Anlieferung bis zur Rechnung
           </div>
         </div>
       </div>
@@ -2169,8 +2214,12 @@ Servern. Entwickelt von Markus Straub, Walddorfhäslach, Baden-Württemberg.
   // Smooth scroll for anchor links (nur echte Sprungmarken, keine Seitenwechsel)
   document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
+      // Das Logo oben links verlinkt auf das blanke Rautezeichen. Als Selektor ist
+      // das ungültig: querySelector wirft dann eine SyntaxError, preventDefault()
+      // wird nie erreicht und der Browser springt hart auf "…/#". Stattdessen
+      // sanft nach oben scrollen, ohne die Adresszeile zu verändern.
       const href = a.getAttribute('href');
-      if (href === '#') return;
+      if (href === '#') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
       const target = document.querySelector(href);
       if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
@@ -2264,11 +2313,18 @@ Servern. Entwickelt von Markus Straub, Walddorfhäslach, Baden-Württemberg.
   document.head.appendChild(spinStyle);
 
   // ── Contact Form AJAX ──────────────────────────────────────────────────────
-  (async function initForm() {
-    try {
-      const r = await fetch('/api/kontakt/csrf');
-      if (r.ok) { const d = await r.json(); document.getElementById('csrfToken').value = d.token || ''; }
-    } catch (_) {}
+  (function initForm() {
+    // Den Submit-Handler ZUERST registrieren und den CSRF-Token erst danach holen.
+    // Andersherum (await vor addEventListener) gibt es ein Zeitfenster, in dem das
+    // Formular noch keinen Handler hat: Ein Klick auf "Anfrage senden" löst dann die
+    // native Übermittlung aus — das Formular hat weder action noch method, also ein
+    // GET auf die eigene URL. Die Seite lädt neu, die Anfrage geht verloren, und
+    // Name, E-Mail und Nachricht landen sichtbar in Adresszeile, Verlauf und
+    // Server-Logfile. Auf langsamem Mobilfunk ist dieses Fenster gut spürbar.
+    fetch('/api/kontakt/csrf')
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) { if (d && d.token) document.getElementById('csrfToken').value = d.token; })
+      .catch(function() {});
 
     document.getElementById('contactForm').addEventListener('submit', async function(e) {
       e.preventDefault();

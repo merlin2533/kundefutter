@@ -12,16 +12,37 @@ Produktlinien — statisches **HTML**, kein Framework:
 | `web/index.html` | Agrarhandel | Landhandel, Futter/Dünger/Saatgut/PSM |
 | `web/eierhandel.html` | Eierhandel | Packstellen, Legehennenbetriebe, Eier-Großhandel |
 
-**Beide Seiten teilen sich ein Design-System.** Der komplette `<style>`-Block von
-`index.html` (Zeilen ab `:root` bis einschließlich `@keyframes pulse-phone`) steht
-Zeichen für Zeichen identisch auch in `eierhandel.html`; `eierhandel.html` hängt danach
-einen klar abgegrenzten Block „EIERHANDEL-ERGÄNZUNGEN" an (Dotter-Akzent `--yolk`,
-Produktlinien-Umschalter `.brand-switch`, Rechtsgrundlagen-Tabelle `.legal-table`,
-Zielgruppen-Karten `.audience-*`, Etikett-Optik `.label-demo`).
+**Beide Seiten teilen sich ein Design-System.** Der `<style>`-Bereich von `:root` bis
+einschließlich `@keyframes pulse-phone { … }` ist in beiden Dateien **Zeichen für Zeichen
+identisch** (aktuell 44.994 Zeichen) — inklusive des Produktlinien-Umschalters
+`.brand-switch` und aller Navigations-Breakpoints, die auf beiden Seiten gleich gelten.
+Danach folgt je Datei ein klar überschriebener seitenspezifischer Block:
+`index.html` → „SEITENSPEZIFISCH — Agrarhandel", `eierhandel.html` →
+„EIERHANDEL-ERGÄNZUNGEN" (Dotter-Akzent `--yolk`, Rechtsgrundlagen-Tabelle
+`.legal-table`, Zielgruppen-Karten `.audience-*`, Etikett-Optik `.label-demo`).
+Dort steht auch, welche Sprungmarken die Navigation zuerst ausblendet — die
+Menüpunkte unterscheiden sich je Seite.
 
 > **Regel: Eine CSS-Änderung am gemeinsamen Teil muss in BEIDE Dateien.** Es gibt bewusst
 > kein gemeinsames Stylesheet (Critical CSS inline, kein Build-Schritt) — dafür ist der
-> geteilte Block wörtlich identisch und damit per `diff` vergleichbar.
+> geteilte Bereich wörtlich identisch und damit prüfbar:
+> ```bash
+> # muss "identisch" ausgeben
+> python3 - <<'EOF'
+> import io
+> def shared(p):
+>     s = io.open(p, encoding="utf-8").read()
+>     a = s.index("    :root {"); b = s.index("    @keyframes pulse-phone {")
+>     return s[a:s.index("\n", b) + 1]
+> print("identisch" if shared("web/index.html") == shared("web/eierhandel.html") else "ABWEICHUNG")
+> EOF
+> ```
+> Preis dieser Regel: `eierhandel.html` trägt rund 8 KB CSS für Abschnitte mit, die es
+> nur auf `index.html` gibt (Testimonials, Vergleichstabelle, ROI-Rechner, Blog-Teaser,
+> CTA-Banner). Das ist eine **bewusste** Entscheidung — gzip drückt den Mehraufwand auf
+> etwa 1,5 KB, während zwei separat gepflegte Stylesheets ohne Build-Schritt erfahrungsgemäß
+> auseinanderlaufen. Wer das ändert, verliert die diff-Prüfbarkeit und muss die Regel oben
+> ersetzen.
 
 Verlinkt sind die beiden Linien über den `.brand-switch` in der Navigation (auf beiden
 Seiten), je einen Eintrag im Mobile-Menü und im Footer sowie die Cross-Sell-Sektion
@@ -116,13 +137,24 @@ Kontaktformular · Footer
   jeweils passenden Seite (Eierhandel-Features nach `eierhandel.html`, alles andere nach
   `index.html`; betrifft es beide, in beide)
 - **Gemeinsames CSS immer in beide Dateien pflegen** (siehe Hinweis oben)
-- **Sichtbare FAQ und `FAQPage`-Schema müssen übereinstimmen** — eine neue Frage immer an
-  beiden Stellen ergänzen, sonst weicht das Rich-Snippet vom Seiteninhalt ab
+- **Sichtbare FAQ und `FAQPage`-Schema müssen übereinstimmen.** Googles FAQPage-Richtlinie
+  verlangt, dass jede ausgezeichnete Frage samt Antwort auf der Seite sichtbar ist —
+  weicht das Markup ab, fällt das Rich-Snippet weg oder es gibt eine manuelle Maßnahme.
+  Das Schema deshalb **nicht von Hand pflegen**, sondern aus der sichtbaren FAQ erzeugen:
+  `python3 scripts/sync-faq-schema.py web/index.html web/eierhandel.html` (liest die
+  `.faq-item`-Blöcke und schreibt den `FAQPage`-Block neu). Nach jeder FAQ-Änderung laufen
+  lassen; das Skript ist idempotent
 - Neue Seite/Sprungmarke → `sitemap.xml` UND `llms.txt` nachziehen
-- Vor dem Commit gegen einen echten Browser prüfen: `document.documentElement.scrollWidth
-  === clientWidth` bei 390px (kein horizontales Scrollen) und Navigation ohne Überlappung
-  bei 1600/1440/1366/1280px (`.container` ist auf 1200px gedeckelt — mehr Viewport bringt
-  der Navigationsleiste keinen zusätzlichen Platz)
+- Vor dem Commit gegen einen echten Browser prüfen:
+  - `document.documentElement.scrollWidth === clientWidth` bei 390px (kein horizontales Scrollen)
+  - Navigation ohne Überlappung bei 1600/1440/1366/1280/1240/1150/1060/1000/980px
+    (`.container` ist auf 1200px gedeckelt — mehr Viewport bringt der Leiste keinen Platz)
+  - der Produktlinien-Umschalter ist bei **jeder** Breite erreichbar: oberhalb 980px über
+    `.brand-switch`, darunter über das Burger-Menü. Beide Breakpoints hängen zusammen —
+    wer einen verschiebt, muss den anderen mitziehen, sonst entsteht ein Breitenbereich
+    ohne Umschaltmöglichkeit
+  - keine fehlenden Ressourcen (`requestfailed`-Log): Bild- und Videopfade sind stille
+    404er, die im Browser nur als leere Fläche auffallen
 - Preisänderungen → in `web/index.html` Abschnitt `pricing-grid` UND Schema.org `offers` anpassen
 - SEO-Keywords immer in `<title>`, `<meta name="description">` und `<h1>` integriert halten
 - Keine externen JS-Bibliotheken hinzufügen (Performance)
@@ -1226,6 +1258,12 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | `web/index.html`: die Navigationsleiste lief ab ~1366px Viewportbreite sichtbar unter den CTA-Button — die hinteren Menüpunkte („Referenzen", „FAQ") waren angeschnitten bzw. verdeckt; auf 390px erzeugte die Seite zusätzlich horizontales Scrollen (`scrollWidth` 422 statt 390) | `.nav-inner` ist `display:flex` mit `justify-content:space-between`, `.nav-links` hat `flex-shrink:1; min-width:0` und die Links selbst `white-space:nowrap`. Reichte der Platz nicht, schrumpfte `.nav-links` unter seine Inhaltsbreite und der Inhalt lief mangels `overflow` einfach sichtbar über den CTA-Block. Mehr Viewportbreite half dabei nie: `.container` ist auf `max-width:1200px` gedeckelt, ab ~1250px ändert sich am verfügbaren Platz nichts mehr. Die vorhandenen Ausblend-Breakpoints (1280/1180/1080px) griffen alle erst unterhalb des Bereichs, in dem die Überlappung auftrat. Auf dem Handy kamen zwei weitere Ursachen dazu: `@media (max-width:980px)` blendete nur `.nav-cta .btn-outline` aus statt des ganzen `.nav-cta`, und der 406px breite CTA „AGRI-Office 14 Tage gratis testen →" konnte wegen `white-space:nowrap` auf `.btn` nicht umbrechen | Drei Korrekturen im gemeinsamen CSS (also in **beiden** Landingpages): (1) `@media (max-width:980px)` blendet jetzt `.nav-cta` komplett aus statt nur den Outline-Button — der CTA steht im Burger-Menü und in der Sticky-Leiste weiterhin bereit; (2) `@media (max-width:480px)` setzt `.btn { white-space: normal; flex-wrap: wrap; }`, damit lange CTA-Texte umbrechen statt den Viewport zu sprengen; (3) Nav-Einträge reduziert (index: 8 → 5 Links, dafür Produktlinien-Umschalter; der frühere „Anmelden"-Button entfiel, er zeigte ohnehin auf `#kontakt` wie der Haupt-CTA) und die Ausblend-Breakpoints auf die tatsächlichen Inhalte der jeweiligen Seite gemappt. Per Playwright bei 1600/1440/1366/1280/1200/1150/1100/1024/1000px verifiziert (kein `lastLinkRight > ctaLeft` mehr) sowie bei 390px (`scrollWidth === clientWidth` auf beiden Seiten) |
 | `web/index.html`: der Werbespot wurde weder im Video-Abschnitt noch im Hero abgespielt — stattdessen blieb die Fläche leer, auch das Poster-Bild fehlte | `<source src="video/agri-office-werbung.mp4">` und `poster="video/agri-office-werbung-poster.jpg"` (mit Bindestrich nach „agri"), die Dateien heißen aber `video/agraroffice-werbung.mp4` bzw. `agraroffice-werbung-poster.jpg`. Sechs Vorkommen über zwei Abschnitte hinweg, alle mit demselben Tippfehler — ein stiller 404, den nur das Netzwerk-Log zeigt | Alle sechs Pfade auf `video/agraroffice-werbung*` korrigiert; per Playwright-`requestfailed`-Log gegengeprüft, dass keine `ERR_FILE_NOT_FOUND` mehr auftreten |
 | `.how-steps` mit vier statt drei Schritten (`eierhandel.html`) brach auf dem Handy nicht um und erzeugte horizontales Scrollen | Die Spaltenzahl war als Inline-Style gesetzt (`style="grid-template-columns:repeat(4,1fr)"`). Ein Inline-Style hat höhere Spezifität als jede Media-Query — die vorhandene Regel `@media(max-width:768px) { .how-steps { grid-template-columns:1fr } }` konnte ihn nicht überschreiben | Eigene Klasse `.how-steps-4` statt Inline-Style, mit passenden Umbruch-Regeln (4 → 2 Spalten ab 1024px, 1 Spalte ab 768px) und angepasster Position der gestrichelten Verbindungslinie. **Lehre:** Grid-/Flex-Spaltenzahlen nie als Inline-Style setzen, wenn es dafür responsive Regeln gibt |
+| Kontaktformular auf **beiden** Landingpages: nach jedem abgelehnten Absenden (zu kurze Nachricht, fehlendes DSGVO-Häkchen, Resend-Ausfall) war das Formular dauerhaft tot — jeder weitere Versuch endete mit „Ungültige Sitzung. Seite neu laden…". Der Interessent musste die Seite neu laden und alles noch einmal tippen; in der Praxis ist der Lead an dieser Stelle weg | `web/kontakt.php` verbrauchte den CSRF-Token direkt nach der Prüfung (`unset($_SESSION['csrf_token'])`, Zeile 30) — also **vor** Rate-Limit, Validierung und Versand. Ein neuer Token wurde ausschließlich auf dem Erfolgspfad erzeugt und zurückgegeben; jede Fehlerantwort (422/429/502) enthielt keinen. Der Client behielt damit einen serverseitig nicht mehr existierenden Token, und `!isset($_SESSION['csrf_token'])` schlug ab dann bei jedem Versuch zu | Token wird nicht mehr vorzeitig verbraucht, sondern erst nach erfolgreichem Versand rotiert. Neue Hilfsfunktion `antwortMitToken($status, $error)` liefert bei **jedem** Fehlerausgang den weiterhin gültigen Token im JSON mit (das Frontend setzt ihn über den bereits vorhandenen `data.csrf`-Pfad). Der 403-Zweig (abgelaufene Session) erzeugt zusätzlich einen frischen Token, statt ein Neuladen zu erzwingen — unbedenklich, da ein fremder Ursprung die Antwort wegen CORS nicht lesen kann und `csrf.php` Tokens ohnehin frei herausgibt. Gleicher Durchgang: `$rl['count']++` wanderte vom Anfang der Verarbeitung hinter den erfolgreichen Versand, damit ein Tippfehler im E-Mail-Feld nicht das Stundenkontingent aufbraucht |
+| Kontaktformular: Wurde „Anfrage senden" gedrückt, solange der CSRF-Token noch geladen wurde, lud die Seite neu und die Anfrage ging verloren — Name, E-Mail und die komplette Nachricht landeten dabei sichtbar in der Adresszeile, im Browserverlauf und im Server-Logfile | `initForm()` war `async` und registrierte den `submit`-Handler erst **nach** `await fetch('/api/kontakt/csrf')`. In diesem Fenster hatte das Formular keinen Handler; da `<form id="contactForm" novalidate>` weder `action` noch `method` hat, führte der Browser die Standardübermittlung aus: ein GET auf die eigene URL mit allen Feldern als Query-Parameter. Auf schnellem Desktop-Netz kaum zu treffen, auf schwachem Mobilfunk (genau die Zielgruppe im Außendienst) gut spürbar | `initForm()` ist nicht mehr `async`: Der `submit`-Handler wird zuerst registriert, der Token danach per `.then()` nachgereicht. Ein Absenden im Ladefenster geht damit regulär über AJAX raus — schlimmstenfalls mit leerem Token, was der Server mit einem frischen Token beantwortet (siehe Zeile darüber), sodass der zweite Versuch durchgeht. In **beiden** Landingpages korrigiert |
+| Klick auf das Logo oben links (`<a href="#">`) erzeugte auf `index.html` eine unbehandelte `SyntaxError` in der Konsole und sprang hart auf `…/#`, statt sanft nach oben zu scrollen | Der Smooth-Scroll-Handler greift alle `a[href^="#"]` ab und rief `document.querySelector(a.getAttribute('href'))` auf. `'#'` allein ist kein gültiger CSS-Selektor — `querySelector` wirft, `preventDefault()` wurde nie erreicht, der Browser führte die Standardnavigation aus. Beim Bau von `eierhandel.html` war die Absicherung ergänzt worden, in `index.html` (im selben Commit angefasst, gleiches Skript) aber nicht | `if (href === '#') return;` vor dem `querySelector`-Aufruf, jetzt in beiden Dateien identisch |
+| Das `FAQPage`-Schema auf `index.html` enthielt vier Fragen, die auf der Seite gar nicht (mehr) standen, `eierhandel.html` fehlten umgekehrt zwei sichtbare Fragen im Schema | Schema und sichtbare FAQ wurden getrennt von Hand gepflegt und liefen dadurch auseinander. Auf `index.html` fiel es nie auf, weil der Block ohnehin ungültiges JSON war (siehe Zeile weiter oben) und von Suchmaschinen komplett verworfen wurde — die Reparatur des JSON machte die Abweichung erst wirksam. Googles FAQPage-Richtlinie verlangt, dass jede ausgezeichnete Frage samt Antwort sichtbar auf der Seite steht; sonst entfällt das Rich-Snippet oder es folgt eine manuelle Maßnahme | Neues Skript `scripts/sync-faq-schema.py` erzeugt den `FAQPage`-Block **aus** den sichtbaren `.faq-item`-Blöcken (Klammerzählung statt Regex, um den JSON-Block sicher zu finden) — die Seite ist damit die Quelle der Wahrheit, ein Auseinanderlaufen ist konstruktiv ausgeschlossen. `--check` prüft ohne zu schreiben (Exit-Code 1 bei Abweichung), der Normallauf ist idempotent. Beide Seiten sind jetzt synchron (21 bzw. 12 Fragen); Regel dazu im Website-Abschnitt oben |
+| Der Produktlinien-Umschalter (Agrarhandel ↔ Eierhandel) verschwand zwischen 981px und 1240px Fensterbreite spurlos aus dem Kopfbereich — in genau diesem Bereich war das Burger-Menü, das den Querverweis sonst trägt, noch ausgeblendet | `.brand-switch { display:none }` griff ab 1240px, `.nav-mobile-btn { display:flex }` aber erst ab 980px. Dazwischen blieb als einziger Weg zur anderen Produktlinie der Footer bzw. die Cross-Sell-Sektion mitten auf der Seite. Zusätzlich stand die Ausblend-Regel in `eierhandel.html` doppelt (980px und 1240px), wobei die erste vollständig verdeckt war | Beide Breakpoints auf 980px zusammengelegt: Der Umschalter verschwindet exakt dann, wenn das Burger-Menü übernimmt. Damit die Leiste in dem zusätzlichen Bereich trotzdem passt, schrumpfen die Umschalter-Labels ab 1180px mit (`.brand-switch a { padding:5px 10px; font-size:.73rem }`) und die seitenspezifischen Ausblend-Breakpoints greifen früher. Per Playwright über 17 Breiten von 1600px bis 390px verifiziert: keine Überlappung, und bei jeder Breite ist entweder Umschalter oder Burger sichtbar |
+| Im gemeinsamen CSS-Bereich beider Landingpages standen seitenspezifische Navigations-Regeln — `eierhandel.html` schleppte vier Ausblend-Regeln für Sprungmarken mit, die es dort gar nicht gibt (`#integrationen`, `#tourenplanung`, `#vergleich`, `#ki`) | Beim Anlegen von `eierhandel.html` wurde der `<style>`-Block von `index.html` wörtlich übernommen — inklusive der Regeln, die auf die Menüpunkte der Agrarhandel-Seite zielen. Die passenden Ersatzregeln kamen 500 Zeilen später dazu, die toten blieben stehen. Damit stimmte auch die in AGENTS.md dokumentierte Zusicherung nicht mehr, der gemeinsame Bereich sei per `diff` vergleichbar (24 abweichende Zeilen) | Alles, was auf beiden Seiten gleich gilt (inkl. `.brand-switch` und der gemeinsamen Breakpoints), steht jetzt im geteilten Bereich; alles Seitenspezifische in einem eigens überschriebenen Block dahinter (`SEITENSPEZIFISCH — Agrarhandel` bzw. `EIERHANDEL-ERGÄNZUNGEN`). Der geteilte Bereich ist wieder Zeichen für Zeichen identisch (44.994 Zeichen), AGENTS.md enthält das Prüfskript dazu |
 
 ## Schemata: Wichtige Felder
 
