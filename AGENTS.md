@@ -4,7 +4,28 @@
 
 ## Marketing-Website (`web/`)
 
-Die SaaS-Landingpage liegt unter `web/index.html` (statisches **HTML**, kein Framework).
+Die Marketing-Website besteht aus **zwei eigenständigen Landingpages** für die zwei
+Produktlinien — statisches **HTML**, kein Framework:
+
+| Datei | Produktlinie | Zielgruppe |
+|-------|--------------|------------|
+| `web/index.html` | Agrarhandel | Landhandel, Futter/Dünger/Saatgut/PSM |
+| `web/eierhandel.html` | Eierhandel | Packstellen, Legehennenbetriebe, Eier-Großhandel |
+
+**Beide Seiten teilen sich ein Design-System.** Der komplette `<style>`-Block von
+`index.html` (Zeilen ab `:root` bis einschließlich `@keyframes pulse-phone`) steht
+Zeichen für Zeichen identisch auch in `eierhandel.html`; `eierhandel.html` hängt danach
+einen klar abgegrenzten Block „EIERHANDEL-ERGÄNZUNGEN" an (Dotter-Akzent `--yolk`,
+Produktlinien-Umschalter `.brand-switch`, Rechtsgrundlagen-Tabelle `.legal-table`,
+Zielgruppen-Karten `.audience-*`, Etikett-Optik `.label-demo`).
+
+> **Regel: Eine CSS-Änderung am gemeinsamen Teil muss in BEIDE Dateien.** Es gibt bewusst
+> kein gemeinsames Stylesheet (Critical CSS inline, kein Build-Schritt) — dafür ist der
+> geteilte Block wörtlich identisch und damit per `diff` vergleichbar.
+
+Verlinkt sind die beiden Linien über den `.brand-switch` in der Navigation (auf beiden
+Seiten), je einen Eintrag im Mobile-Menü und im Footer sowie die Cross-Sell-Sektion
+`#eierhandel` auf `index.html`.
 
 ### Technologie-Stack der Website
 - **Reines HTML5 + CSS3 + Vanilla JS** — kein Build-Schritt, kein Framework
@@ -16,32 +37,64 @@ Die SaaS-Landingpage liegt unter `web/index.html` (statisches **HTML**, kein Fra
 ### Struktur
 ```
 web/
-├── index.html          ← Haupt-Landingpage (Single-Page)
-├── sitemap.xml         ← SEO Sitemap
+├── index.html          ← Landingpage Agrarhandel (Single-Page)
+├── eierhandel.html     ← Landingpage Eierhandel (Single-Page, gleiches Design-System)
+├── impressum.html
+├── datenschutz.html
+├── kontakt.php         ← Formular-Backend (Resend); nimmt beide Seiten entgegen
+├── csrf.php
+├── sitemap.xml         ← SEO Sitemap (beide Seiten + Sprungmarken)
 ├── robots.txt          ← Crawler-Regeln
-└── img/
-    └── favicon.svg     ← Favicon
+├── llms.txt            ← LLM-Kontext (beide Produktlinien)
+├── img/
+│   ├── favicon.svg
+│   ├── hero_bg.png · crm_sales.png · warehouse.png
+│   └── truck_delivery.png · smartphone_scan.png · commodities.png
+└── video/
+    └── agraroffice-werbung.mp4 (+ -poster.jpg)
 ```
 
-### Abschnitte der Landingpage
-1. **Hero** — Headline, CTA, App-Preview-Mockup, Trust-Avatare
-2. **Trust-Bar** — DSGVO, Verfügbarkeit, Support, Kündigung
-3. **Features-Übersicht** — 9 Feature-Cards (3×3 Grid)
-4. **Deep-Dives** — CRM, Lager/Lieferung, KI/Marktpreise (alternierend mit App-Mockups)
-5. **Stats** — Animierte Zähler (47+ Betriebe, 12.000+ Lieferscheine, 98%, 4h)
-6. **Pricing** — 3 Tarife (Starter €49, Professional €129, Enterprise individuell) mit Monats/Jahres-Toggle
-7. **Testimonials** — 3 Kundenstimmen
-8. **FAQ** — 6 Fragen mit Accordion (Schema.org FAQPage)
-9. **CTA-Banner** — E-Mail + Telefon Conversion
-10. **Footer** — Links, Badges, Copyright
+**`kontakt.php` unterscheidet die Produktlinien** über zwei optionale Felder, die nur
+`eierhandel.html` mitsendet: `quelle` (Hidden-Feld, Wert `"Eierhandel"`) und
+`betriebsart` (Packstelle / Legehennenbetrieb / Eier-Großhandel / kombiniert). Beide sind
+optional — `index.html` sendet sie nicht, die Route funktioniert unverändert. Die
+Produktlinie erscheint im Betreff, in einer eigenen Zeile der Benachrichtigungs-Mail und
+als Resend-Tag `linie`.
+
+### Abschnitte `index.html` (Agrarhandel)
+Hero · Trust-Bar · Features-Übersicht (Karten-Akkordeon) · Integrationen · Demo ·
+ROI-Rechner · How-it-works · Deep-Dives (CRM, Lager/Lieferung, Tourenplanung, KI,
+Marktpreise, Compliance, Finanzen) · Vergleichstabelle · Stats · ROI-Sektion ·
+Wettbewerbsvergleich · **Cross-Sell `#eierhandel`** · Pricing (Monats/Jahres-Toggle) ·
+Video · Testimonials · Blog-Teaser · FAQ (Accordion + `FAQPage`) · Kontaktformular · Footer
+
+### Abschnitte `eierhandel.html`
+Hero · Trust-Bar · Features-Übersicht (12 Karten) · How-it-works (4 Schritte:
+Anlieferung → Sortieren/Klassifizieren → Liefern/Abrechnen → Melden) ·
+Deep-Dives (`#kennzeichnung`, `#sortierung`, `#meldungen`) · **Rechtsgrundlagen-Tabelle
+`#rechtsgrundlagen`** · **Zielgruppen-Karten `#zielgruppen`** · Stats · Pricing · FAQ ·
+Kontaktformular · Footer
+
+> **Bewusst KEINE Kundenstimmen auf `eierhandel.html`.** An der Stelle, an der
+> `index.html` Testimonials zeigt, stehen die Zielgruppen-Karten (Packstelle /
+> Legehennenbetrieb / Eier-Großhandel). Für die neue Produktlinie gibt es noch keine
+> echten Referenzkunden — es werden keine erfunden, entsprechend trägt
+> `eierhandel.html` auch kein `aggregateRating`/`review` im Schema.org-Markup.
 
 ### SEO-Daten
-- Title: `AGRI-Office – Die All-in-One CRM & ERP Software für Agrarhändler | SaaS`
-- Meta Description: max 160 Zeichen, mit Keywords
-- Schema.org: `SoftwareApplication` + `FAQPage` + `AggregateRating`
-- Open Graph + Twitter Card vollständig
-- Canonical: `https://agri-office.de/`
-- Sitemap verlinkt in `robots.txt`
+| | `index.html` | `eierhandel.html` |
+|---|---|---|
+| Canonical | `https://agri-office.de/` | `https://agri-office.de/eierhandel.html` |
+| Schema.org | `SoftwareApplication`, `Organization`, `WebSite`, `BreadcrumbList`, `Product`+`AggregateRating`, `FAQPage`, `HowTo`, `LocalBusiness` | `SoftwareApplication` (mit `isPartOf`), `BreadcrumbList`, `FAQPage` |
+| Open Graph / Twitter Card | vollständig | vollständig |
+
+- Meta Description: max ~160 Zeichen, mit Keywords
+- Sitemap verlinkt in `robots.txt`; `sitemap.xml` führt beide Seiten inkl. Sprungmarken
+- `llms.txt` beschreibt beide Produktlinien (Abschnitt 12 = Eierhandel-Modul)
+- **Achtung typografische Anführungszeichen in JSON-LD:** `„…"` mit ASCII-`"` als
+  Schlusszeichen beendet den JSON-String und macht den kompletten Block ungültig —
+  immer `„…"` (U+201E/U+201C) verwenden. Genau dieser Fehler hatte das `FAQPage`-Markup
+  auf `index.html` unbemerkt komplett unbrauchbar gemacht (siehe Bug-Tabelle).
 
 ### Preise (SaaS-Tarife)
 | Tarif | Monatlich | Jährlich | Nutzer |
@@ -55,13 +108,99 @@ web/
 - `--green-800: #2d6a4f` (Hover)
 - `--green-900: #1b4332` (Hero/Footer Hintergrund)
 - `--amber: #f4a261` (CTA/Akzent)
+- `--yolk: #f4b942` / `--yolk-d: #d99a1f` / `--shell: #fdf8ee` — **nur `eierhandel.html`**,
+  warmer Dotter-Akzent zur Unterscheidung der Produktlinie bei identischem Grundsystem
 
 ### Regeln für Website-Änderungen
-- Neue Features im Produkt → immer Feature-Card und ggf. Deep-Dive in `web/index.html` ergänzen
+- Neue Features im Produkt → immer Feature-Card und ggf. Deep-Dive ergänzen, auf der
+  jeweils passenden Seite (Eierhandel-Features nach `eierhandel.html`, alles andere nach
+  `index.html`; betrifft es beide, in beide)
+- **Gemeinsames CSS immer in beide Dateien pflegen** (siehe Hinweis oben)
+- **Sichtbare FAQ und `FAQPage`-Schema müssen übereinstimmen** — eine neue Frage immer an
+  beiden Stellen ergänzen, sonst weicht das Rich-Snippet vom Seiteninhalt ab
+- Neue Seite/Sprungmarke → `sitemap.xml` UND `llms.txt` nachziehen
+- Vor dem Commit gegen einen echten Browser prüfen: `document.documentElement.scrollWidth
+  === clientWidth` bei 390px (kein horizontales Scrollen) und Navigation ohne Überlappung
+  bei 1600/1440/1366/1280px (`.container` ist auf 1200px gedeckelt — mehr Viewport bringt
+  der Navigationsleiste keinen zusätzlichen Platz)
 - Preisänderungen → in `web/index.html` Abschnitt `pricing-grid` UND Schema.org `offers` anpassen
 - SEO-Keywords immer in `<title>`, `<meta name="description">` und `<h1>` integriert halten
 - Keine externen JS-Bibliotheken hinzufügen (Performance)
 - PHP nur für serverseitige Logik (Kontaktformular, Lead-Capture) — Datei dann `web/kontakt.php`
+
+---
+
+## Eierhandel-Modul (`modul.eierhandel`)
+
+Für Packstellen, Legehennenbetriebe und Eier-Großhandel. Standardmäßig **aus**
+(`DEFAULT_MODUL_CONFIG.eierhandel = false`), eingeschaltet über `/einstellungen/module`
+oder das Branchen-Preset „Eierbetrieb" (`lib/modul-presets.ts`).
+
+Rechtsgrundlage: EU-Vermarktungsnorm für Eier, **Del. VO (EU) 2023/2465 + DVO (EU) 2023/2466**.
+
+### Zusätzliche Felder an bestehenden Modellen
+| Modell | Feld | Zweck |
+|--------|------|-------|
+| `Kunde` | `erzeugercode String?` | Erzeugercode des Legehennenbetriebs (z.B. `1-DE-0123451`) |
+| `Kunde` | `haltungsform Int?` | 0 Bio · 1 Freiland · 2 Boden · 3 Käfig/Kleingruppe |
+| `Lieferposition` | `gueteklasse String?` | A \| B — **bei Positionserstellung eingefroren**, analog `mwstSatz` |
+| `Lieferposition` | `gewichtsklasse String?` | S \| M \| L \| XL |
+| `Lieferposition` | `legedatum DateTime?` | Basis der MHD-Berechnung |
+| `Lieferposition` | `erzeugercode String?` | Erzeugercode der gelieferten Charge |
+
+### Konstanten (`lib/auswahllisten.ts`)
+`GUETEKLASSEN` (A, B), `GEWICHTSKLASSEN` (S <53 g, M 53–63 g, L 63–73 g, XL >73 g),
+`HALTUNGSFORMEN` (0–3) + `haltungsformLabel()`. Bewusst **nicht** über `Einstellung`
+konfigurierbar (anders als Artikelkategorien/Einheiten) — gesetzlich definierte Werte.
+
+### MHD (`lib/eier-mhd.ts`)
+`berechneEierMhd(legedatum)` = **Legedatum + 28 Tage** — ausdrücklich NICHT ab
+Wareneingangs- oder Rechnungsdatum. Abhängigkeitsfrei, damit Frontend (Live-Vorschau im
+Lieferungs-Formular) und Server (PDF/Export) dieselbe Funktion nutzen; `istEierMhdAbgelaufen()`
+für die Ampel-Anzeige. **Eine Quelle der Wahrheit — nirgends nachrechnen.**
+
+### Kennzeichnung auf dem Beleg
+`eierKennzeichnungZeile()` (`lib/pdfGenerator.ts`) baut aus den gesetzten Feldern
+`"Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026"`.
+Leerer String, wenn keine Güteklasse gesetzt ist (Position ist kein Ei) — es wird also
+nichts mit Platzhaltern aufgefüllt. Erscheint im server-seitigen PDF **und** in der
+Bildschirmvorschau von Lieferschein/Rechnung.
+
+### KAT-Warenstrommeldung (`lib/kat-meldung.ts`)
+`sammleKatMeldung(von, bis)` aggregiert je **ISO-Kalenderwoche** (`"2026-W37"`),
+Erzeugercode, Güte- und Gewichtsklasse:
+- `mengeSortiert` aus `EierSortierungPosition` (Eingang/klassifiziert)
+- `mengeVerkauft` aus `Lieferposition` (Ausgang, nur `lieferung.status === "geliefert"`)
+
+Die Haltungsform wird aus der **ersten Ziffer des Erzeugercodes** abgeleitet, nicht aus
+`Kunde.haltungsform` — die Position trägt ihren Code selbst. Aufbau bewusst analog zu
+`sammleDatevBuchungen()` (`lib/datev.ts`): **eine** Sammelfunktion für Vorschau UND CSV-Export.
+
+### Meldepflichten-Tracker (`lib/meldepflichten.ts`)
+Läuft über den bestehenden Cron-Job (`app/api/cron/route.ts`), legt `Aufgabe`-Einträge an:
+- **Tierseuchenkasse-Tierzahlmeldung** (Stichtag 01.01., Frist 31.01.) — zielt immer auf die
+  **nächste noch bevorstehende** Frist, sonst wäre der Job vom 01.02. bis 31.12. wirkungslos
+- **KAT-Wochenmeldung** alle 7 Tage — eine neue Erinnerung entsteht erst, wenn die vorherige
+  erledigt ist, sonst würde ein unbeaufsichtigter Server die Aufgabenliste unbegrenzt füllen
+
+Ist `modul.eierhandel` aus, bricht der Job sofort mit `uebersprungen` ab.
+
+### Seiten & Routen
+```
+/eiersortierung            Liste der Sortierprotokolle
+/eiersortierung/neu        Neues Protokoll (Anlieferung wählen → Ausgangschargen erfassen)
+/eiersortierung/[id]       Detail
+
+/api/eiersortierung        GET, POST (bucht je Position Lagerzugang in einer $transaction)
+/api/eiersortierung/[id]   GET, DELETE
+/api/exporte/kat-meldung          GET(?von,?bis) — CSV-Download
+/api/exporte/kat-meldung/vorschau GET(?von,?bis) — JSON-Vorschau vor dem Download
+```
+Alle Eierhandel-Routen sind mit `requireModul(config, "eierhandel")` gesperrt (403 bei
+deaktiviertem Modul) — nicht nur optisch in der Navigation.
+
+### Marketing
+Eigene Landingpage `web/eierhandel.html` (siehe Abschnitt „Marketing-Website").
 
 ---
 
@@ -189,6 +328,11 @@ MqttRegel           — MQTT-Automatisierungsregeln (topic, bedingung, aktion, k
 PegelstandCache     — Pegelstand-Daten (station, wert, einheit, zeitpunkt)
 EinkaufStatus       — Interner Bestell-/Lieferstatus je BestelllistenPosition
 KundeSprengstoffErklaerung — Sprengstoffvorläufer-Erklärungen je Kunde
+EierSortierung      — Ei-Sortierprotokoll (datum, anlieferungId?, notiz): eine Anlieferung wird in
+                      mehrere klassifizierte Ausgangschargen aufgeteilt (Eierhandel-Modul)
+EierSortierungPosition — Ausgangscharge einer Sortierung (artikel, gueteklasse, gewichtsklasse, menge,
+                      chargeNr?, legedatum?, erzeugercode?); jede Position bucht beim Anlegen eine
+                      Lagerbewegung "eingang" und aktualisiert Artikel.aktuellerBestand
 ```
 
 ### Einstellung Key-Konventionen
@@ -1078,6 +1222,10 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 | Gehaltsabrechnung (Tab "Abrechnung" auf `/personal/[id]`): eine bereits angelegte, noch offene Abrechnung ließ sich nicht mehr korrigieren — z.B. wenn ein Mitarbeiter unterjährig zum 15. eines Monats eintritt und für diesen ersten Monat nur das halbe Festgehalt statt des vollen `Mitarbeiter.grundgehalt`-Werts bekommen soll, den `POST /api/personal/abrechnungen` beim Anlegen automatisch übernimmt | Reine UI-Lücke: `PUT /api/personal/abrechnungen/[id]` unterstützte ein normales Feld-Update (`brutto`/`netto`/`abzuege`/`notiz`/`status`/`zahlungsDatum`) bereits vollständig (genutzt von den bestehenden Aktionen "Abrechnen"/"Auszahlen", die intern denselben Endpunkt mit `{aktion:...}` aufrufen) — nur die Abrechnung-Tabelle auf `/personal/[id]` bot dafür keine Eingabemöglichkeit, ausschließlich Anlegen/Löschen/Statuswechsel | Neuer "Bearbeiten"-Button je Zeile (sichtbar wie beim bestehenden "Löschen"-Button nur solange `status !== "AUSGEZAHLT"` — eine bereits ausgezahlte Abrechnung hat bereits eine `Ausgabe` mit dem ausgezahlten Netto-Betrag erzeugt, nachträgliches Ändern würde das inkonsistent machen; anders als "Löschen" bewusst NICHT zusätzlich auf `istAdmin` beschränkt, da der zugrunde liegende `PUT`-Endpunkt selbst keine Rollenprüfung über eine gültige Session hinaus vornimmt) schaltet Brutto/Netto in der Zeile auf editierbare `<input type="number">`-Felder um, eine zusätzliche Zeile darunter nimmt Abzüge und eine freie Notiz auf (z.B. "Halber Monat wegen Eintritt am 15.09."); "Speichern" ruft den bereits bestehenden `PUT /api/personal/abrechnungen/[id]` mit den drei Beträgen + Notiz auf, "Abbrechen" verwirft die Eingabe ohne Request. End-to-end gegen die echte DB + Playwright verifiziert: Bearbeiten einer OFFEN-Abrechnung (603,00 € → 301,50 € Brutto/Netto + Notiz) persistiert korrekt und übersteht einen Seiten-Reload; "Abbrechen" nach einer Änderung lässt den ursprünglichen Wert unverändert (kein Request); nach Setzen auf AUSGEZAHLT verschwindet der "Bearbeiten"-Button korrekt aus der Zeile (nur noch "Druck" sichtbar) |
 | Auftragsbestätigung (`/lieferungen/[id]/auftragsbestaetigung`) zeigte Preise, Rabatt und MwSt-Aufschlüsselung samt Auftragssumme — Kundenwunsch: der Kunde soll dem Auftrag nur ansehen, WAS bestellt wurde (Artikel/Menge/Einheit), keine Preise. Die Rechnungsstellung mit Preisen erfolgt ohnehin erst später bei der tatsächlichen Rechnung | War beim ursprünglichen Bau dieses Dokuments (siehe Zeile weiter oben) bewusst MIT Preisen angelegt worden — nach Rückmeldung sollte das rückgängig gemacht werden, nach dem Vorbild des bereits bestehenden, preisfreien Lieferscheins | Positionstabelle in `generiereAuftragsbestaetigungPdf()` (`lib/pdfGenerator.ts`) und der Bildschirm-Vorschau (`app/lieferungen/[id]/auftragsbestaetigung/page.tsx`) auf nur noch `Pos./Artikel/Menge/Einheit` reduziert (Einzelpreis/Rabatt-Spalte/Gesamt-Spalte entfernt); die komplette Summenbox (Nettobetrag/MwSt-Zeilen/Auftragssumme) darunter entfernt, ebenso der Hinweissatz "Alle Preise verstehen sich netto zuzüglich der ausgewiesenen Mehrwertsteuer." (ergibt ohne angezeigte Preise keinen Sinn mehr); der Hinweis "Die Rechnungsstellung erfolgt nach erfolgter Lieferung." bleibt bestehen, da die spätere Rechnung ja weiterhin die Preise nennt. `AuftragsbestaetigungMailData`/`auftragsbestaetigungEmail()` (`lib/email-templates.ts`) verlieren das Feld `bruttoBetrag`/die "Gesamtbetrag"-Zeile (Text + HTML) — analog zu `LieferscheinMailData`, das aus demselben Grund nie einen Betrag kannte; `POST /api/exporte/auftragsbestaetigung/mail/route.ts` berechnet `bruttoBetrag` dadurch nicht mehr (`berechneLieferungBrutto()`-Import entfernt) und lädt `positionen` im eigenen Lieferungs-Fetch nicht mehr mit (die PDF-Erzeugung selbst holt sich die Positionen ohnehin über einen eigenen Fetch in `pdfGenerator.ts`). End-to-end gegen die echte DB + Playwright verifiziert: Bildschirm-Vorschau zeigt nur noch Artikel/Menge/Einheit, enthält weder "Einzelpreis" noch "Nettobetrag"/"Auftragssumme"/"Alle Preise" noch einen Euro-Betrag, der Rechnungsstellungs-Hinweis bleibt sichtbar; PDF-Download (`GET /api/exporte/auftragsbestaetigung`) liefert weiterhin erfolgreich (200) ein gültiges Dokument |
 | Der gesamte Personal-Bereich (`/personal/*` + `/api/personal/*`) hatte praktisch KEINE Zugriffskontrolle über "eingeloggt" hinaus — jeder angemeldete Benutzer, unabhängig von Rolle, konnte Gehalt/IBAN/Kostenstelle jedes Kollegen einsehen (`GET /api/personal/mitarbeiter/[id]` hatte gar keine Session-Prüfung), ohne dass es einen Weg gab, Mitarbeitern OHNE Systemarbeit einen eigenen, eingeschränkten Login zu geben, der nur die eigene Arbeitszeit erfassen darf | `NAV_PERMISSION` (`components/Nav.tsx`) hatte `/personal/*` beim ursprünglichen Rollout bewusst ungemappt gelassen (siehe Kommentar dort), um bestehenden Rollen nicht unbemerkt Zugriff zu entziehen — dadurch blieb serverseitig aber auch nie eine Permission dafür eingeführt: fast jede `/api/personal/*`-Route prüfte nur `verifySession()` (gültiger Login, jede Rolle), mehrere (`GET .../mitarbeiter/[id]`, `datev-lohn`, `jahresuebersicht`) sogar gar nichts außer der globalen Cookie-Gültigkeitsprüfung in `middleware.ts` | Bewusst KEINE neue Pflicht-Permission im allgemeinen `P.*`-Bitmask-System (hätte rückwirkend jeder bestehenden Rolle ohne diese Permission unbemerkt den heute uneingeschränkten Zugriff entzogen, siehe `ROLLE_PRESETS`-Kommentar) — stattdessen ein eigenständiges, additives Gate über ein neues Feld `Benutzer.mitarbeiterId Int? @unique` (weiche ID ohne `@relation`, analog `Kontoumsatz.gutschriftId`): verknüpft ein Admin diesen Login mit einem `Mitarbeiter`-Stammdatensatz (neue "Selbstbedienung"-Karte in `/einstellungen/benutzer/[id]`, `PUT /api/benutzer/[id]` mit `mitarbeiterId`, P2002-Konflikt bei Doppelverknüpfung sauber abgefangen), wird der Login UNABHÄNGIG von `rolle`/`rolleId`/`berechtigungen` zu einem Selbstbedienungs-Account (`istPersonalSelbstbedienung()`/`requireVollePersonalRechte()` in `lib/permissions.ts`). Alle 12 `/api/personal/*`-Routen außer `arbeitsstunden` nutzen jetzt `getCurrentUser()` + `requireVollePersonalRechte()` (403 für Selbstbedienung, unverändertes Verhalten für alle bestehenden Accounts ohne Verknüpfung); `arbeitsstunden` (GET/POST/PUT/DELETE) läuft im Dual-Modus — Selbstbedienung sieht/bucht/löscht ausschließlich eigene Einträge, ein mitgesendeter `mitarbeiterId`-Query-/Body-Wert wird dabei ignoriert statt vertraut. Neue, bewusst schlanke Route `GET /api/personal/mitarbeiter/me` liefert nur die für die Erfassung nötigen Felder (Name, Wochenstunden, bevorzugte Arbeitszeiten) OHNE Gehalt/IBAN. Neue Seite `/meine-arbeitszeit` (Erfassungsformular wie `/personal/[id]/stunden/neu` + eigene Monatsliste); `components/Nav.tsx` zeigt einem Selbstbedienungs-Account ausschließlich einen "Meine Arbeitszeit"-Menüpunkt und redirected per `useEffect` von jeder anderen Seite dorthin zurück (rein kosmetisch — die eigentliche Absicherung sitzt in den API-Routen, ein direkter API-Aufruf ist unabhängig vom Nav-Zustand blockiert). Bewusst NICHT im Scope: andere Module (Kunden/Artikel/globale Suche etc.) bleiben für einen Selbstbedienungs-Account über direkte API-Aufrufe erreichbar — das JWT (`SessionPayload`) trägt bewusst kein `mitarbeiterId`, nur `getCurrentUser()` (Node-Runtime, frischer DB-Read) kennt es, `middleware.ts` bleibt unverändert. End-to-end gegen die echte DB + Playwright verifiziert: ein mit `Mitarbeiter` verknüpfter Account mit `rolle:"admin"` bekommt trotzdem 403 auf jede volle Personal-Route, sieht/bearbeitet ausschließlich eigene `Arbeitsstunde`-Einträge (Schreib-/Lese-Spoofing-Versuche mit fremder `mitarbeiterId` werden ignoriert bzw. mit 403 abgelehnt), Nav zeigt nur "Meine Arbeitszeit" und jede andere Seite redirected sofort dorthin zurück; ein unverknüpfter Account behält exakt den bisherigen, uneingeschränkten Zugriff (keine Regression); Verknüpfen eines bereits vergebenen Mitarbeiters liefert 409 |
+| `web/index.html`: das komplette `FAQPage`-Schema.org-Markup war **ungültiges JSON** und wurde von Google, Bing & Co. kommentarlos verworfen — die Seite hatte also seit Einführung faktisch gar keine FAQ-Rich-Snippets, obwohl 18 Fragen gepflegt waren | In der Antwort zur Frühbezugs-Frage stand `„Frühjahr 2026 — bis 31.07. -3%"` — öffnendes deutsches Anführungszeichen `„` (U+201E), aber ASCII-`"` (U+0022) als Schlusszeichen. In JSON beendet dieses Zeichen den String: alles danach war Syntaxfehler, `JSON.parse` scheiterte am gesamten Block. Im gerenderten HTML fiel es nicht auf, weil der Text dort optisch korrekt aussieht | Schlusszeichen auf `"` (U+201C) korrigiert — an beiden Stellen (JSON-LD **und** sichtbarer FAQ-Text, damit beide identisch bleiben). Alle acht JSON-LD-Blöcke der Seite werden jetzt per `json.loads()` gegengeprüft; neue Regel dazu im Website-Abschnitt oben. **Lehre:** typografische Anführungszeichen in JSON-LD immer paarweise als U+201E/U+201C setzen, nie das ASCII-`"` als Schlusszeichen |
+| `web/index.html`: die Navigationsleiste lief ab ~1366px Viewportbreite sichtbar unter den CTA-Button — die hinteren Menüpunkte („Referenzen", „FAQ") waren angeschnitten bzw. verdeckt; auf 390px erzeugte die Seite zusätzlich horizontales Scrollen (`scrollWidth` 422 statt 390) | `.nav-inner` ist `display:flex` mit `justify-content:space-between`, `.nav-links` hat `flex-shrink:1; min-width:0` und die Links selbst `white-space:nowrap`. Reichte der Platz nicht, schrumpfte `.nav-links` unter seine Inhaltsbreite und der Inhalt lief mangels `overflow` einfach sichtbar über den CTA-Block. Mehr Viewportbreite half dabei nie: `.container` ist auf `max-width:1200px` gedeckelt, ab ~1250px ändert sich am verfügbaren Platz nichts mehr. Die vorhandenen Ausblend-Breakpoints (1280/1180/1080px) griffen alle erst unterhalb des Bereichs, in dem die Überlappung auftrat. Auf dem Handy kamen zwei weitere Ursachen dazu: `@media (max-width:980px)` blendete nur `.nav-cta .btn-outline` aus statt des ganzen `.nav-cta`, und der 406px breite CTA „AGRI-Office 14 Tage gratis testen →" konnte wegen `white-space:nowrap` auf `.btn` nicht umbrechen | Drei Korrekturen im gemeinsamen CSS (also in **beiden** Landingpages): (1) `@media (max-width:980px)` blendet jetzt `.nav-cta` komplett aus statt nur den Outline-Button — der CTA steht im Burger-Menü und in der Sticky-Leiste weiterhin bereit; (2) `@media (max-width:480px)` setzt `.btn { white-space: normal; flex-wrap: wrap; }`, damit lange CTA-Texte umbrechen statt den Viewport zu sprengen; (3) Nav-Einträge reduziert (index: 8 → 5 Links, dafür Produktlinien-Umschalter; der frühere „Anmelden"-Button entfiel, er zeigte ohnehin auf `#kontakt` wie der Haupt-CTA) und die Ausblend-Breakpoints auf die tatsächlichen Inhalte der jeweiligen Seite gemappt. Per Playwright bei 1600/1440/1366/1280/1200/1150/1100/1024/1000px verifiziert (kein `lastLinkRight > ctaLeft` mehr) sowie bei 390px (`scrollWidth === clientWidth` auf beiden Seiten) |
+| `web/index.html`: der Werbespot wurde weder im Video-Abschnitt noch im Hero abgespielt — stattdessen blieb die Fläche leer, auch das Poster-Bild fehlte | `<source src="video/agri-office-werbung.mp4">` und `poster="video/agri-office-werbung-poster.jpg"` (mit Bindestrich nach „agri"), die Dateien heißen aber `video/agraroffice-werbung.mp4` bzw. `agraroffice-werbung-poster.jpg`. Sechs Vorkommen über zwei Abschnitte hinweg, alle mit demselben Tippfehler — ein stiller 404, den nur das Netzwerk-Log zeigt | Alle sechs Pfade auf `video/agraroffice-werbung*` korrigiert; per Playwright-`requestfailed`-Log gegengeprüft, dass keine `ERR_FILE_NOT_FOUND` mehr auftreten |
+| `.how-steps` mit vier statt drei Schritten (`eierhandel.html`) brach auf dem Handy nicht um und erzeugte horizontales Scrollen | Die Spaltenzahl war als Inline-Style gesetzt (`style="grid-template-columns:repeat(4,1fr)"`). Ein Inline-Style hat höhere Spezifität als jede Media-Query — die vorhandene Regel `@media(max-width:768px) { .how-steps { grid-template-columns:1fr } }` konnte ihn nicht überschreiben | Eigene Klasse `.how-steps-4` statt Inline-Style, mit passenden Umbruch-Regeln (4 → 2 Spalten ab 1024px, 1 Spalte ab 768px) und angepasster Position der gestrichelten Verbindungslinie. **Lehre:** Grid-/Flex-Spaltenzahlen nie als Inline-Style setzen, wenn es dafür responsive Regeln gibt |
 
 ## Schemata: Wichtige Felder
 

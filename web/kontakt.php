@@ -63,6 +63,11 @@ $firma     = clean($_POST['firma']     ?? '');
 $email     = clean($_POST['email']     ?? '', 254);
 $telefon   = clean($_POST['telefon']   ?? '', 30);
 $paket     = clean($_POST['paket']     ?? '');
+// Produktlinie (index.html sendet nichts, eierhandel.html sendet "Eierhandel") und
+// Betriebsart — beides optional, damit das Formular beider Landingpages dieselbe
+// Route nutzen kann, ohne dass eines der Felder Pflicht wird.
+$quelle      = clean($_POST['quelle']      ?? '', 40);
+$betriebsart = clean($_POST['betriebsart'] ?? '', 60);
 $nachricht = clean($_POST['nachricht'] ?? '', 2000);
 $dsgvo     = !empty($_POST['dsgvo']);
 
@@ -81,6 +86,12 @@ if ($errors) {
 // ── E-Mail-Text aufbauen ──────────────────────────────────────────────────────
 $paket_label = $paket ?: '(nicht angegeben)';
 $telefon_label = $telefon ?: '(nicht angegeben)';
+$quelle_label = $quelle ?: 'Agrarhandel';
+// Zeile nur einblenden, wenn die Betriebsart tatsächlich gewählt wurde — die
+// Agrarhandel-Seite kennt das Feld gar nicht.
+$betriebsart_block = $betriebsart
+    ? '<div class="field"><div class="field-label">Betriebsart</div><div class="field-value">' . $betriebsart . '</div></div>'
+    : '';
 
 $html = <<<HTML
 <!DOCTYPE html>
@@ -108,6 +119,8 @@ body{font-family:Arial,sans-serif;color:#1f2937;background:#f9fafb;margin:0;padd
   <div class="field"><div class="field-label">Firma / Betrieb</div><div class="field-value">$firma</div></div>
   <div class="field"><div class="field-label">E-Mail</div><div class="field-value"><a href="mailto:$email">$email</a></div></div>
   <div class="field"><div class="field-label">Telefon</div><div class="field-value">$telefon_label</div></div>
+  <div class="field"><div class="field-label">Produktlinie</div><div class="field-value">$quelle_label</div></div>
+  $betriebsart_block
   <div class="field"><div class="field-label">Gewünschter Plan</div><div class="field-value">$paket_label</div></div>
   <div class="field"><div class="field-label">Nachricht</div><div class="field-value msg">$nachricht</div></div>
 </div>
@@ -120,11 +133,12 @@ $payload = json_encode([
     'from'    => FROM_EMAIL,
     'to'      => [TO_EMAIL],
     'reply_to'=> $email,
-    'subject' => "Neue AGRI-Office-Anfrage von $name ($firma)",
+    'subject' => "Neue AGRI-Office-Anfrage ($quelle_label) von $name ($firma)",
     'html'    => $html,
     'tags'    => [
-        ['name' => 'source', 'value' => 'website-contact'],
-        ['name' => 'paket',  'value' => preg_replace('/[^a-z0-9_\-]/i', '', $paket) ?: 'unknown'],
+        ['name' => 'source',  'value' => 'website-contact'],
+        ['name' => 'linie',   'value' => preg_replace('/[^a-z0-9_\-]/i', '', $quelle_label) ?: 'unknown'],
+        ['name' => 'paket',   'value' => preg_replace('/[^a-z0-9_\-]/i', '', $paket) ?: 'unknown'],
     ],
 ]);
 
