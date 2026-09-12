@@ -103,7 +103,7 @@
       "Vorbestellungen mit Frühbezugs-Staffeln",
       "VVVO/HIT-Betriebsnummer Validierung",
       "Rollen- und Rechteverwaltung mit granularer Rechtematrix",
-      "Branchen-Module und Presets (Vollsortiment, Saatguthandel, Eierbetrieb)",
+      "Branchen-Module und Betriebsarten (Agrarhandel, Saatguthandel, Eierbetrieb)",
       "Eierhandel-Modul: Sortierprotokoll, EU-Kennzeichnung, KAT-Meldung",
       "Personal und Arbeitszeiterfassung mit Kommen-/Gehen-Zeit",
       "Streckengeschäft: Kundenauftrag zur Lieferantenbestellung",
@@ -404,7 +404,7 @@
       "name": "Muss ich alle Funktionen nutzen, auch was ich nicht brauche?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Nein. AGRI-Office ist modular: Sortenversuche, Bodenproben, PSM-Dokumentation, Rationsberechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Personal und Agraranträge lassen sich einzeln an- und abschalten. Für den schnellen Start gibt es Branchen-Presets — „Vollsortiment“, „Saatguthandel“ und „Eierbetrieb“ setzen mehrere Module auf einen Schlag. Abgeschaltete Bereiche verschwinden nicht nur aus dem Menü, sondern sind auch serverseitig gesperrt. Ein Preset ist dabei nur ein Ausgangspunkt: Jedes Modul bleibt danach einzeln umschaltbar."
+        "text": "Nein. AGRI-Office ist modular: Sortenversuche, Bodenproben, PSM-Dokumentation, Rationsberechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Personal und Agraranträge lassen sich einzeln an- und abschalten — gebündelt in sechs Bereichen, damit die Einstellung übersichtlich bleibt. Den Ausgangspunkt setzen Sie über die Betriebsart: „Agrarhandel“, „Saatguthandel“ oder „Eierbetrieb“ schalten das passende Modulbündel und schneiden zusätzlich das Menü zu. Abgeschaltete Bereiche verschwinden nicht nur aus dem Menü, sondern sind auch serverseitig gesperrt. Jeder Einzelschalter bleibt danach frei überschreibbar."
       }
     },
     {
@@ -1488,7 +1488,7 @@
         </ul>
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
-          <p><strong>Frühbezugs-Staffeln pflegen:</strong> Pro Saison (z.B. „Frühjahr 2026") und optional je Kategorie/Artikel definieren Sie Rabatt-Staffeln mit Bestellfrist. Beim Anlegen einer Vorbestellung schlägt das System den höchsten passenden Rabatt automatisch vor.</p>
+          <p><strong>Frühbezugs-Staffeln pflegen:</strong> Pro Saison (z.B. „Frühjahr 2026“) und optional je Kategorie/Artikel definieren Sie Rabatt-Staffeln mit Bestellfrist. Beim Anlegen einer Vorbestellung schlägt das System den höchsten passenden Rabatt automatisch vor.</p>
           <p><strong>Automatischer Bestellvorschlag:</strong> Basierend auf Mindestbeständen und Verbrauchshistorie schlägt AGRI-Office automatisch vor, was und wann bestellt werden soll.</p>
           <a href="#kontakt">Bestellwesen ansehen →</a>
         </div>
@@ -1555,7 +1555,7 @@
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
           <p><strong>Arbeitsrechtlich sauber:</strong> Aufgezeichnet wird Beginn und Ende der täglichen Arbeitszeit, nicht bloß die Dauer. Die Stundenzahl berechnet sich daraus automatisch.</p>
-          <p><strong>Abgeschottet:</strong> Ein Mitarbeiter-Login sieht ausschließlich die Seite „Meine Arbeitszeit" — Gehälter, Bankverbindungen und Daten der Kolleginnen bleiben unerreichbar, serverseitig geprüft.</p>
+          <p><strong>Abgeschottet:</strong> Ein Mitarbeiter-Login sieht ausschließlich die Seite „Meine Arbeitszeit“ — Gehälter, Bankverbindungen und Daten der Kolleginnen bleiben unerreichbar, serverseitig geprüft.</p>
           <a href="#kontakt">Personalfunktionen ansehen →</a>
         </div>
       </div>
@@ -1570,13 +1570,14 @@
           <li>Rechtematrix je Rolle, frei zusammenstellbar</li>
           <li>Menü blendet aus, was die Rolle nicht darf</li>
           <li>Einkaufspreise je Rolle ausblendbar</li>
-          <li>Branchen-Presets: Vollsortiment, Saatgut, Eierbetrieb</li>
-          <li>Module einzeln an- und abschaltbar</li>
+          <li>Betriebsart: Agrarhandel, Saatguthandel, Eierbetrieb</li>
+          <li>Module in sechs Bereichen, einzeln umschaltbar</li>
         </ul>
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
           <p><strong>Rechte, die wirklich greifen:</strong> Geprüft wird nicht nur im Menü, sondern in jeder Schnittstelle. Ein fehlendes Recht lässt sich auch mit einem direkten Aufruf nicht umgehen.</p>
-          <p><strong>Kein Ballast:</strong> Ein Preset setzt mehrere Module auf einen Schlag — danach bleibt jedes einzeln umschaltbar. Ausgangspunkt statt Einbahnstraße.</p>
+          <p><strong>Menü nach Betriebsart:</strong> Die Betriebsart wählen Sie einmal im Onboarding — sie schaltet das passende Modulbündel und schneidet zusätzlich das Menü zu. Kein einmaliger Knopfdruck, sondern eine Einstellung, die gesetzt bleibt.</p>
+          <p><strong>Kein Ballast:</strong> Jeder Einzelschalter bleibt danach frei überschreibbar. Ausgangspunkt statt Einbahnstraße.</p>
           <a href="#kontakt">Rollen &amp; Module ansehen →</a>
         </div>
       </div>
@@ -1978,7 +1979,7 @@
           </div>
           <div class="check-item">
             <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
-            <p><strong>Benannte Tour-Templates:</strong> Speichern Sie feste Touren (z.B. „Nord-Route Dienstag") und laden Sie sie mit einem Klick – ideal für regelmäßige Liefergebiete.</p>
+            <p><strong>Benannte Tour-Templates:</strong> Speichern Sie feste Touren (z.B. „Nord-Route Dienstag“) und laden Sie sie mit einem Klick – ideal für regelmäßige Liefergebiete.</p>
           </div>
           <div class="check-item">
             <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
@@ -3098,7 +3099,7 @@
           <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
         </div>
         <div class="faq-answer">
-          <div class="faq-answer-inner">Nein. AGRI-Office ist modular: Sortenversuche, Bodenproben, PSM-Dokumentation, Rationsberechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Personal und Agraranträge lassen sich einzeln an- und abschalten. Für den schnellen Start gibt es Branchen-Presets — „Vollsortiment“, „Saatguthandel“ und „Eierbetrieb“ setzen mehrere Module auf einen Schlag. Abgeschaltete Bereiche verschwinden nicht nur aus dem Menü, sondern sind auch serverseitig gesperrt. Ein Preset ist dabei nur ein Ausgangspunkt: Jedes Modul bleibt danach einzeln umschaltbar.</div>
+          <div class="faq-answer-inner">Nein. AGRI-Office ist modular: Sortenversuche, Bodenproben, PSM-Dokumentation, Rationsberechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Personal und Agraranträge lassen sich einzeln an- und abschalten — gebündelt in sechs Bereichen, damit die Einstellung übersichtlich bleibt. Den Ausgangspunkt setzen Sie über die Betriebsart: „Agrarhandel“, „Saatguthandel“ oder „Eierbetrieb“ schalten das passende Modulbündel und schneiden zusätzlich das Menü zu. Abgeschaltete Bereiche verschwinden nicht nur aus dem Menü, sondern sind auch serverseitig gesperrt. Jeder Einzelschalter bleibt danach frei überschreibbar.</div>
         </div>
       </div>
 
