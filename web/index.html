@@ -28,7 +28,6 @@
   <link rel="canonical" href="https://agri-office.de/" />
   <link rel="alternate" hreflang="de" href="https://agri-office.de/" />
   <link rel="alternate" hreflang="x-default" href="https://agri-office.de/" />
-  <link rel="alternate" type="application/rss+xml" title="AGRI-Office Blog" href="https://agri-office.de/feed.xml" />
 
   <!-- Open Graph / Social -->
   <meta property="og:type" content="website" />
@@ -442,7 +441,7 @@
   <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
   <link rel="preload" href="img/favicon.svg" as="image" type="image/svg+xml" fetchpriority="low" />
   <!-- Preload hero bg for LCP -->
-  <link rel="preload" href="img/hero_bg.png" as="image" fetchpriority="high" />
+  <link rel="preload" href="img/hero_bg.webp" as="image" type="image/webp" fetchpriority="high" />
 
   <!-- Fonts: non-render-blocking via preload trick -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
@@ -592,7 +591,12 @@
     }
 
     /* ── HERO ── */
+    /* Erst die PNG-Zeile, dann image-set(): Browser ohne image-set()-Unterstützung
+       ignorieren die zweite Deklaration und behalten das PNG. Das Hero-Bild liegt
+       ohnehin unter einem zu 92–95 % deckenden Gradienten (.hero::before), deshalb
+       reicht dort eine deutlich stärkere Kompression als bei den Mockup-Fotos. */
     .hero { min-height: 100vh; display: flex; align-items: center; position: relative; overflow: hidden; background: url('img/hero_bg.png') center/cover no-repeat; }
+    .hero { background-image: image-set(url('img/hero_bg.webp') type('image/webp'), url('img/hero_bg.png') type('image/png')); }
     .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(27,67,50,0.92) 0%, rgba(45,106,79,0.85) 50%, rgba(29,77,58,0.95) 100%); z-index: 0; }
     .hero-bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
     .hero .container { position: relative; z-index: 2; }
@@ -696,6 +700,9 @@
     /* Foto liegt absolut über dem App-Mockup und blendet bei Hover aus */
     .mockup-bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; z-index: 3; transition: opacity .55s ease; border-radius: 0; }
     .mockup-wrapper.show-app .mockup-bg-img { opacity: 0; pointer-events: none; }
+    /* <picture> darf keinen eigenen Kasten erzeugen: das <img> darin ist absolut
+       positioniert, der Wrapper soll im Layout gar nicht erst auftauchen. */
+    .mockup-wrapper picture { display: contents; }
     /* App-Mockup liegt darunter in normalem Fluss – bestimmt die Kartenhöhe */
     .mockup.mockup-overlay { position: relative; width: 100%; z-index: 1; box-shadow: none; border-radius: 0; }
     .deep-dive-inner.reverse .mockup.mockup-overlay { }
@@ -1838,7 +1845,10 @@
       </div>
       <div class="animate-on-scroll delay-2">
         <div class="mockup-wrapper">
-          <img src="img/crm_sales.png" alt="CRM Sales" class="mockup-bg-img" loading="lazy" />
+          <picture>
+            <source srcset="img/crm_sales.webp" type="image/webp" />
+            <img src="img/crm_sales.png" alt="CRM Sales" class="mockup-bg-img" loading="lazy" />
+          </picture>
           <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
@@ -1911,7 +1921,10 @@
       </div>
       <div class="animate-on-scroll delay-2">
         <div class="mockup-wrapper">
-          <img src="img/warehouse.png" alt="Lager & Lieferung" class="mockup-bg-img" loading="lazy" />
+          <picture>
+            <source srcset="img/warehouse.webp" type="image/webp" />
+            <img src="img/warehouse.png" alt="Lager & Lieferung" class="mockup-bg-img" loading="lazy" />
+          </picture>
           <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
@@ -1980,7 +1993,10 @@
       </div>
       <div class="animate-on-scroll delay-2">
         <div class="mockup-wrapper">
-          <img src="img/truck_delivery.png" alt="Tourenplanung" class="mockup-bg-img" loading="lazy" />
+          <picture>
+            <source srcset="img/truck_delivery.webp" type="image/webp" />
+            <img src="img/truck_delivery.png" alt="Tourenplanung" class="mockup-bg-img" loading="lazy" />
+          </picture>
           <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
@@ -2075,7 +2091,10 @@
       </div>
       <div class="animate-on-scroll delay-2">
         <div class="mockup-wrapper">
-          <img src="img/smartphone_scan.png" alt="KI Lieferschein Scan" class="mockup-bg-img" loading="lazy" />
+          <picture>
+            <source srcset="img/smartphone_scan.webp" type="image/webp" />
+            <img src="img/smartphone_scan.png" alt="KI Lieferschein Scan" class="mockup-bg-img" loading="lazy" />
+          </picture>
           <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
@@ -2158,7 +2177,10 @@
       </div>
       <div class="animate-on-scroll delay-2">
         <div class="mockup-wrapper">
-          <img src="img/commodities.png" alt="Agrar Rohstoffe & Marktpreise" class="mockup-bg-img" loading="lazy" />
+          <picture>
+            <source srcset="img/commodities.webp" type="image/webp" />
+            <img src="img/commodities.png" alt="Agrar Rohstoffe & Marktpreise" class="mockup-bg-img" loading="lazy" />
+          </picture>
           <div class="mockup mockup-overlay">
           <div class="mockup-bar">
             <div class="mockup-dot" style="background:#ef4444"></div>
@@ -3463,6 +3485,9 @@ Walddorfhäslach, Baden-Württemberg.
   // ── Mockup Slideshow mit Dots ──────────────────────────────────────────
   (function initMockupSlideshow() {
     document.querySelectorAll('.mockup-wrapper').forEach(function(wrap, idx) {
+      // Ohne Foto gibt es nichts umzuschalten - sonst zeigte die "Foto-Ansicht"
+      // eine leere dunkle Flaeche (z.B. Compliance-/Finanzen-Deep-Dive).
+      if (!wrap.querySelector('.mockup-bg-img')) return;
       var current = 0;
       var timer = null;
       var paused = false;

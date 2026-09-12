@@ -147,9 +147,13 @@
     <changefreq>weekly</changefreq>
     <priority>0.95</priority>
     <image:image>
+      <image:loc>https://agri-office.de/img/og-preview-eierhandel.png</image:loc>
+      <image:title>AGRI-Office Eierhandel – Kennzeichnung, Sortierung und KAT-Meldung</image:title>
+      <image:caption>AGRI-Office Eierhandel – Sortierprotokoll und Kennzeichnung für Packstellen</image:caption>
+    </image:image>
+    <image:image>
       <image:loc>https://agri-office.de/img/warehouse.png</image:loc>
       <image:title>Eierhandel-Software – Packstelle und Lagerhaltung</image:title>
-      <image:caption>AGRI-Office Eierhandel – Sortierprotokoll und Kennzeichnung für Packstellen</image:caption>
     </image:image>
     <image:image>
       <image:loc>https://agri-office.de/img/truck_delivery.png</image:loc>
