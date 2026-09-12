@@ -185,8 +185,10 @@ Kontaktformular · Footer
 ## Eierhandel-Modul (`modul.eierhandel`)
 
 Für Packstellen, Legehennenbetriebe und Eier-Großhandel. Standardmäßig **aus**
-(`DEFAULT_MODUL_CONFIG.eierhandel = false`), eingeschaltet über `/einstellungen/module`
-oder das Branchen-Preset „Eierbetrieb" (`lib/modul-presets.ts`).
+(`DEFAULT_MODUL_CONFIG.eierhandel = false`, `lib/modul-keys.ts`), eingeschaltet über den
+Bereich „🥚 Eierhandel" in `/einstellungen/module` oder die Betriebsart „Eierbetrieb"
+(`lib/betriebsart.ts`) — die schneidet zusätzlich das Menü zu, siehe Abschnitt
+„Branchen-Profile & Module".
 
 Rechtsgrundlage: EU-Vermarktungsnorm für Eier, **Del. VO (EU) 2023/2465 + DVO (EU) 2023/2466**.
 
