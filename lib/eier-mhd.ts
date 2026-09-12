@@ -10,8 +10,3 @@ export function berechneEierMhd(legedatum: Date): Date {
   mhd.setDate(mhd.getDate() + EIER_MHD_TAGE);
   return mhd;
 }
-
-/** true, wenn das übergebene Datum das MHD einer Eier-Position bereits überschritten hat. */
-export function istEierMhdAbgelaufen(legedatum: Date, stichtag: Date = new Date()): boolean {
-  return berechneEierMhd(legedatum) < stichtag;
-}

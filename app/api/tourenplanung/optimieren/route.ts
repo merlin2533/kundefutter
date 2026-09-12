@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
@@ -105,6 +106,10 @@ function twoOpt(start: Point, stops: Stop[], order: number[]): number[] {
 }
 
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "tourenplanung");
+  if (denyModul) return denyModul;
+
   let body: OptimierungRequest;
   try {
     body = await req.json();
