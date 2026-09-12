@@ -19,7 +19,7 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - Packstellen, Legehennenbetriebe und Eier-Großhandel (Eierhandel-Modul, siehe Abschnitt 12)
 
 **Zwei Produktlinien, eine Software:**
-AGRI-Office ist modular. Über Branchen-Presets werden die passenden Module aktiviert:
+AGRI-Office ist modular. Über die Betriebsart (system.betriebsart) werden die passenden Module aktiviert und das Menü zugeschnitten:
 - **Agrarhandel-Version** (https://agri-office.de/) — Futter, Dünger, Saatgut, Pflanzenschutz
 - **Eierhandel-Version** (https://agri-office.de/eierhandel.html) — Packstellen und Legehennenbetriebe
 Beide Linien teilen denselben Unterbau (CRM, Lager, Belegwesen, Finanzen, Rechte, PWA).
@@ -35,7 +35,7 @@ Ein Betrieb, der beides handelt, lässt beide Modulgruppen aktiv und arbeitet in
 - VVVO/HIT-Betriebsnummer: Validierung und Normalisierung für Tierhaltungsbetriebe
 - Sortenversuche mit Mehrjahres-Ranking: Datenbasierte Saatgut-Beratung
 - Eierhandel-Modul: EU-Vermarktungsnorm-Kennzeichnung, Ei-Sortierprotokoll, KAT-Warenstrommeldung
-- Modulares Branchen-System mit serverseitiger Sperre abgeschalteter Bereiche
+- Modulares Branchen-System mit Betriebsart-Menüzuschnitt und serverseitiger Sperre abgeschalteter Bereiche
 - Granulare Rollen- und Rechteverwaltung, bis hin zum Selbstbedienungs-Login für die Arbeitszeit
 - Bankabgleich, der Skonto, Gutschriften, Teil- und Doppelzahlungen selbstständig erkennt
 
@@ -146,14 +146,15 @@ Rechtsgrundlage: EU-Vermarktungsnorm für Eier, Del. VO (EU) 2023/2465 und DVO (
 - **Meldepflichten-Tracker**: Tierseuchenkasse-Tierzahlmeldung (Stichtag 01.01., Frist 31.01., zielt immer auf die nächste offene Frist) und wiederkehrende KAT-Wochenerinnerung; neue Erinnerung erst nach Erledigung der vorherigen
 - **Erzeugerabrechnung**: Anlieferungen je Erzeuger erfassen und abrechnen
 - **Rückverfolgbarkeit**: Chargensuche vorwärts (Charge → Kunde) und rückwärts (Kunde → Erzeuger)
-- **Branchen-Preset "Eierbetrieb"**: schaltet Sortenversuche, Bodenproben, PSM, Düngebedarf und Agraranträge ab; Artikelkategorien auf Eier/Futter/Analysen/Beratung
+- **Betriebsart "Eierbetrieb"**: schaltet Sortenversuche, Bodenproben, PSM, Düngebedarf und Agraranträge ab; Artikelkategorien auf Eier/Futter/Analysen/Beratung; Menügruppe "Pflanze & Tier" wird zu "Eier & Futter"
 - **Nicht abgedeckt**: behördliche Registrierung der Packstelle, Steuerberatung, physische Sortier-/Wiegetechnik (Maschinenanbindung nur als Enterprise-Schnittstelle)
 
 ### 13. Rollen, Rechte & Branchen-Module
 - **Rechtematrix je Rolle**: Seitenzugriff, Aktionen (anlegen/bearbeiten/löschen/stornieren) und Feldsichtbarkeit (z.B. Einkaufspreis) frei kombinierbar
 - **Durchgesetzt, nicht kosmetisch**: Navigation blendet unerlaubte Bereiche aus UND jede API-Route prüft dasselbe Recht serverseitig
 - **Module einzeln schaltbar**: Sortenversuche, Rationsberechnung, Bodenproben, PSM, Erzeugerabrechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Marktpreise, Reklamationen, Personal, Agraranträge, Eierhandel, MQTT, Nextcloud
-- **Branchen-Presets**: "Vollsortiment (Agrarhandel)", "Saatguthandel", "Eierbetrieb" — setzen mehrere Module (und optional Artikelkategorien) auf einen Schlag; danach bleibt jedes Modul einzeln umschaltbar
+- **Betriebsart** (system.betriebsart): "agrarhandel" (Standard), "saatguthandel", "eierbetrieb", "individuell" — gewählt im Onboarding oder unter /einstellungen/module; setzt das Modulbündel einmalig und formt dauerhaft den Menüzuschnitt (Gruppen umbenennen/umsortieren, auch in der Kundenakte). Einzelschalter bleiben frei überschreibbar
+- **Modul-Einstellung**: sechs Oberbereiche mit Master-Schalter und aufklappbaren Details statt 16 Einzelschaltern; die modul.*-Keys bleiben unverändert Speicher- und Enforcement-Format
 
 ### 14. Personal & Arbeitszeiterfassung
 - **Mitarbeiterstammdaten**: Beschäftigung, Vergütung, Kontakt, Bankverbindung, bevorzugte Arbeitszeiten je Wochentag
@@ -247,7 +248,7 @@ A: Legedatum + 28 Tage gemäß EU-Vermarktungsnorm — ausdrücklich nicht ab Wa
 A: Ja. Rollen mit granularer Rechtematrix; Menü und API prüfen dasselbe Recht. Für Mitarbeitende ohne Büroarbeit gibt es einen Selbstbedienungs-Login nur für die eigene Arbeitszeit.
 
 **Q: Muss ich alle Funktionen nutzen?**
-A: Nein. Module sind einzeln abschaltbar, Branchen-Presets (Vollsortiment, Saatguthandel, Eierbetrieb) setzen mehrere auf einen Schlag. Abgeschaltete Bereiche sind auch serverseitig gesperrt.
+A: Nein. Module sind einzeln abschaltbar, gebündelt in sechs Bereichen. Die Betriebsart (Agrarhandel, Saatguthandel, Eierbetrieb) setzt den Ausgangspunkt und schneidet zusätzlich das Menü zu. Abgeschaltete Bereiche sind auch serverseitig gesperrt.
 
 ---
 
