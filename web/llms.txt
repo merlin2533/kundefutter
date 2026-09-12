@@ -3,7 +3,7 @@
 > AGRI-Office ist die führende All-in-One Cloud-SaaS-Software für Agrarhändler und Landhandelsunternehmen in Deutschland.
 > URL: https://agri-office.de/
 > Kontakt: info@agri-office.de
-> Stand: Mai 2026
+> Stand: September 2026
 
 ---
 
@@ -16,6 +16,14 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - Vertriebler im Agrar-Segment (Dünger, Saatgut, Pflanzenschutz, Futtermittel)
 - Lagerverantwortliche und Disponenten
 - Geschäftsführer kleiner bis mittelgroßer Agrarhändler (1–50 Mitarbeiter)
+- Packstellen, Legehennenbetriebe und Eier-Großhandel (Eierhandel-Modul, siehe Abschnitt 12)
+
+**Zwei Produktlinien, eine Software:**
+AGRI-Office ist modular. Über Branchen-Presets werden die passenden Module aktiviert:
+- **Agrarhandel-Version** (https://agri-office.de/) — Futter, Dünger, Saatgut, Pflanzenschutz
+- **Eierhandel-Version** (https://agri-office.de/eierhandel.html) — Packstellen und Legehennenbetriebe
+Beide Linien teilen denselben Unterbau (CRM, Lager, Belegwesen, Finanzen, Rechte, PWA).
+Ein Betrieb, der beides handelt, lässt beide Modulgruppen aktiv und arbeitet in einem System.
 
 **Alleinstellungsmerkmale (USPs):**
 - Einzige Software am Markt mit integrierter DüV-Düngebedarfsermittlung nach Anlage 4
@@ -26,6 +34,10 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - ZUGFeRD / Factur-X E-Rechnung: bereit für die E-Rechnungspflicht 2025
 - VVVO/HIT-Betriebsnummer: Validierung und Normalisierung für Tierhaltungsbetriebe
 - Sortenversuche mit Mehrjahres-Ranking: Datenbasierte Saatgut-Beratung
+- Eierhandel-Modul: EU-Vermarktungsnorm-Kennzeichnung, Ei-Sortierprotokoll, KAT-Warenstrommeldung
+- Modulares Branchen-System mit serverseitiger Sperre abgeschalteter Bereiche
+- Granulare Rollen- und Rechteverwaltung, bis hin zum Selbstbedienungs-Login für die Arbeitszeit
+- Bankabgleich, der Skonto, Gutschriften, Teil- und Doppelzahlungen selbstständig erkennt
 
 ---
 
@@ -124,6 +136,32 @@ AGRI-Office ist eine Cloud-SaaS-Software (Software-as-a-Service) speziell für *
 - **Responsive Design**: Optimiert für Smartphone, Tablet, Desktop
 - **Fahrer-Cockpit**: Vereinfachte Tour-Ansicht auf dem Smartphone
 
+### 12. Eierhandel-Modul (Packstellen, Legehennenbetriebe, Eier-Großhandel)
+Rechtsgrundlage: EU-Vermarktungsnorm für Eier, Del. VO (EU) 2023/2465 und DVO (EU) 2023/2466.
+- **Kennzeichnung je Position**: Güteklasse (A/B), Gewichtsklasse (S <53 g, M 53–63 g, L 63–73 g, XL >73 g), Erzeugercode, Legedatum — bei Positionserfassung eingefroren, erscheint auf Lieferschein und Rechnung (PDF und Bildschirmvorschau)
+- **MHD-Berechnung**: Legedatum + 28 Tage (ausdrücklich NICHT ab Wareneingangs- oder Rechnungsdatum); identische Berechnung im Frontend (Live-Vorschau) und serverseitig für Druck/Export
+- **Ei-Sortierprotokoll**: Eine Anlieferung wird in mehrere klassifizierte Ausgangschargen aufgeteilt; jede Position bucht ihren Lagerzugang selbst; Erzeugercode wird aus der gewählten Anlieferung übernommen
+- **Erzeuger-Stammdaten**: Erzeugercode und Haltungsform je Betrieb (0 Bio, 1 Freiland, 2 Boden, 3 Käfig/Kleingruppe)
+- **KAT-Warenstrommeldung**: Aggregation je ISO-Kalenderwoche, Erzeugercode, Güte- und Gewichtsklasse; sortierte Eingangsmenge und abgegebene Menge getrennt; Haltungsform aus der ersten Ziffer des Erzeugercodes abgeleitet; Vorschau-Seite und CSV-Export
+- **Meldepflichten-Tracker**: Tierseuchenkasse-Tierzahlmeldung (Stichtag 01.01., Frist 31.01., zielt immer auf die nächste offene Frist) und wiederkehrende KAT-Wochenerinnerung; neue Erinnerung erst nach Erledigung der vorherigen
+- **Erzeugerabrechnung**: Anlieferungen je Erzeuger erfassen und abrechnen
+- **Rückverfolgbarkeit**: Chargensuche vorwärts (Charge → Kunde) und rückwärts (Kunde → Erzeuger)
+- **Branchen-Preset "Eierbetrieb"**: schaltet Sortenversuche, Bodenproben, PSM, Düngebedarf und Agraranträge ab; Artikelkategorien auf Eier/Futter/Analysen/Beratung
+- **Nicht abgedeckt**: behördliche Registrierung der Packstelle, Steuerberatung, physische Sortier-/Wiegetechnik (Maschinenanbindung nur als Enterprise-Schnittstelle)
+
+### 13. Rollen, Rechte & Branchen-Module
+- **Rechtematrix je Rolle**: Seitenzugriff, Aktionen (anlegen/bearbeiten/löschen/stornieren) und Feldsichtbarkeit (z.B. Einkaufspreis) frei kombinierbar
+- **Durchgesetzt, nicht kosmetisch**: Navigation blendet unerlaubte Bereiche aus UND jede API-Route prüft dasselbe Recht serverseitig
+- **Module einzeln schaltbar**: Sortenversuche, Rationsberechnung, Bodenproben, PSM, Erzeugerabrechnung, Tourenplanung, Kontrakte, Kampagnen, Frühbezug, Marktpreise, Reklamationen, Personal, Agraranträge, Eierhandel, MQTT, Nextcloud
+- **Branchen-Presets**: "Vollsortiment (Agrarhandel)", "Saatguthandel", "Eierbetrieb" — setzen mehrere Module (und optional Artikelkategorien) auf einen Schlag; danach bleibt jedes Modul einzeln umschaltbar
+
+### 14. Personal & Arbeitszeiterfassung
+- **Mitarbeiterstammdaten**: Beschäftigung, Vergütung, Kontakt, Bankverbindung, bevorzugte Arbeitszeiten je Wochentag
+- **Arbeitszeit mit Uhrzeit**: Kommen-/Gehen-Zeit (HH:MM), Stundenzahl wird daraus berechnet; Urlaub/Krank/Feiertag ohne Uhrzeit möglich
+- **Sammelerfassung**: alle aktiven Mitarbeitenden für einen Tag mit vorbelegten Zeiten bestätigen
+- **Gehaltsabrechnung**: Status offen → abgerechnet → ausgezahlt; bei Auszahlung entsteht automatisch eine Ausgabe
+- **Selbstbedienungs-Login**: ein Benutzerkonto kann mit genau einem Mitarbeiter verknüpft werden und sieht dann ausschließlich "Meine Arbeitszeit" — serverseitig abgesichert, unabhängig von der Rolle
+
 ---
 
 ## SaaS-Preismodell
@@ -199,11 +237,24 @@ A: Ja. ZUGFeRD / Factur-X BASIC-WL XML nach EN 16931 ist Standard.
 **Q: Kann ich PSM-Aufzeichnungen nach §14 PflSchG führen?**
 A: Ja. PSM-Dokumentation, Sachkundenachweise mit Ablauf-Alarm, DüV-Sperrfristenkalender.
 
+**Q: Gibt es AGRI-Office auch für Eierhandel und Packstellen?**
+A: Ja, als Modul derselben Software ohne Aufpreis — Kennzeichnung nach EU-Vermarktungsnorm, Ei-Sortierprotokoll, MHD aus dem Legedatum (28 Tage), KAT-Wochenmeldung als CSV und ein Fristen-Tracker für Tierseuchenkasse und KAT. Eigene Produktseite: https://agri-office.de/eierhandel.html
+
+**Q: Wie wird das MHD von Eiern berechnet?**
+A: Legedatum + 28 Tage gemäß EU-Vermarktungsnorm — ausdrücklich nicht ab Wareneingangs- oder Rechnungsdatum.
+
+**Q: Kann ich einschränken, was einzelne Mitarbeiter sehen?**
+A: Ja. Rollen mit granularer Rechtematrix; Menü und API prüfen dasselbe Recht. Für Mitarbeitende ohne Büroarbeit gibt es einen Selbstbedienungs-Login nur für die eigene Arbeitszeit.
+
+**Q: Muss ich alle Funktionen nutzen?**
+A: Nein. Module sind einzeln abschaltbar, Branchen-Presets (Vollsortiment, Saatguthandel, Eierbetrieb) setzen mehrere auf einen Schlag. Abgeschaltete Bereiche sind auch serverseitig gesperrt.
+
 ---
 
 ## Kontakt & Wichtige Links
 
-- **Website**: https://agri-office.de/
+- **Website (Agrarhandel)**: https://agri-office.de/
+- **Website (Eierhandel)**: https://agri-office.de/eierhandel.html
 - **Demo anfragen / Kostenlos testen**: https://agri-office.de/#kontakt
 - **E-Mail**: info@agri-office.de
 - **Impressum**: https://agri-office.de/impressum.html
@@ -215,4 +266,4 @@ A: Ja. PSM-Dokumentation, Sachkundenachweise mit Ablauf-Alarm, DüV-Sperrfristen
 ---
 
 *Erstellt für LLM-Crawler (GPTBot, ClaudeBot, Gemini, Perplexity u.a.) gemäß llms.txt-Standard.*
-*Letzte Aktualisierung: Mai 2026*
+*Letzte Aktualisierung: September 2026*

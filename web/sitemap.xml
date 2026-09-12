@@ -6,7 +6,7 @@
   <!-- Hauptseite -->
   <url>
     <loc>https://agri-office.de/</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
@@ -39,7 +39,7 @@
   <!-- Abschnitt: Funktionen -->
   <url>
     <loc>https://agri-office.de/#funktionen</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -47,7 +47,7 @@
   <!-- Abschnitt: CRM -->
   <url>
     <loc>https://agri-office.de/#crm</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.85</priority>
   </url>
@@ -55,7 +55,7 @@
   <!-- Abschnitt: Lager & Lieferung -->
   <url>
     <loc>https://agri-office.de/#lager</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -63,7 +63,7 @@
   <!-- Abschnitt: Tourenplanung -->
   <url>
     <loc>https://agri-office.de/#tourenplanung</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -71,7 +71,7 @@
   <!-- Abschnitt: KI-Integration -->
   <url>
     <loc>https://agri-office.de/#ki</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -79,7 +79,7 @@
   <!-- Abschnitt: Integrationen -->
   <url>
     <loc>https://agri-office.de/#integrationen</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -87,7 +87,7 @@
   <!-- Abschnitt: Preise -->
   <url>
     <loc>https://agri-office.de/#preise</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -95,7 +95,7 @@
   <!-- Abschnitt: Vergleich -->
   <url>
     <loc>https://agri-office.de/#vergleich</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
@@ -103,7 +103,7 @@
   <!-- Abschnitt: ROI-Rechner -->
   <url>
     <loc>https://agri-office.de/#roi-rechner</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -111,7 +111,7 @@
   <!-- Abschnitt: Referenzen / Testimonials -->
   <url>
     <loc>https://agri-office.de/#testimonials</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.65</priority>
   </url>
@@ -119,7 +119,7 @@
   <!-- Abschnitt: FAQ -->
   <url>
     <loc>https://agri-office.de/#faq</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.75</priority>
   </url>
@@ -127,7 +127,7 @@
   <!-- Abschnitt: Demo -->
   <url>
     <loc>https://agri-office.de/#demo</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -135,15 +135,104 @@
   <!-- Abschnitt: Kontakt / Demo-Anfrage -->
   <url>
     <loc>https://agri-office.de/#kontakt</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+
+  <!-- Eierhandel-Version (eigene Landingpage) -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <image:image>
+      <image:loc>https://agri-office.de/img/warehouse.png</image:loc>
+      <image:title>Eierhandel-Software – Packstelle und Lagerhaltung</image:title>
+      <image:caption>AGRI-Office Eierhandel – Sortierprotokoll und Kennzeichnung für Packstellen</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://agri-office.de/img/truck_delivery.png</image:loc>
+      <image:title>Auslieferung sortierter Eier mit vollständiger Kennzeichnung</image:title>
+    </image:image>
+  </url>
+
+  <!-- Eierhandel: Funktionen -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#funktionen</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Eierhandel: Ablauf Anlieferung bis Meldung -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#ablauf</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Eierhandel: Kennzeichnung & MHD -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#kennzeichnung</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+  </url>
+
+  <!-- Eierhandel: Sortierprotokoll -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#sortierung</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Eierhandel: KAT-Meldung & Meldepflichten -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#meldungen</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Eierhandel: Rechtsgrundlagen -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#rechtsgrundlagen</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Eierhandel: Preise -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#preise</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Eierhandel: FAQ -->
+  <url>
+    <loc>https://agri-office.de/eierhandel.html#faq</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Abschnitt: Eierhandel-Modul auf der Agrarhandel-Seite -->
+  <url>
+    <loc>https://agri-office.de/#eierhandel</loc>
+    <lastmod>2026-09-12</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 
   <!-- Impressum -->
   <url>
     <loc>https://agri-office.de/impressum.html</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
@@ -151,7 +240,7 @@
   <!-- Datenschutz -->
   <url>
     <loc>https://agri-office.de/datenschutz.html</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
@@ -159,7 +248,7 @@
   <!-- LLMs.txt für KI-Crawler -->
   <url>
     <loc>https://agri-office.de/llms.txt</loc>
-    <lastmod>2026-05-14</lastmod>
+    <lastmod>2026-09-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>

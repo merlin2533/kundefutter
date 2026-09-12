@@ -83,5 +83,9 @@ Allow: /llms.txt
 User-agent: facebookexternalhit
 Allow: /
 
+# Produktlinien (für Crawler explizit benannt)
+# /                 → Agrarhandel-Version
+# /eierhandel.html  → Eierhandel-Version (Packstellen, Legehennenbetriebe)
+
 # Sitemaps
 Sitemap: https://agri-office.de/sitemap.xml
