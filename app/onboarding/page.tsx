@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
+import { BETRIEBSARTEN, BETRIEBSART_KEY, type BetriebsartKey } from "@/lib/betriebsart";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 interface FirmaDaten {
   name: string;
@@ -55,6 +56,31 @@ export default function OnboardingPage() {
   });
 
   const [kunde, setKunde] = useState<KundeDaten>({ name: "", telefon: "" });
+  const [betriebsart, setBetriebsart] = useState<BetriebsartKey>("agrarhandel");
+
+  /** Betriebsart speichern und die dazugehörigen Module setzen — dieselbe Mechanik wie
+   *  /einstellungen/module, damit ein frisch aufgesetztes System sofort das passende Menü zeigt. */
+  async function handleBetriebsartWeiter() {
+    const art = BETRIEBSARTEN.find((b) => b.key === betriebsart);
+    setLoading(true);
+    setError("");
+    try {
+      const writes: Promise<unknown>[] = [saveSetting(BETRIEBSART_KEY, betriebsart)];
+      for (const [k, v] of Object.entries(art?.config ?? {})) {
+        writes.push(saveSetting(`modul.${k}`, v ? "true" : "false"));
+      }
+      if (art?.artikelkategorien) {
+        writes.push(saveSetting("system.artikelkategorien", JSON.stringify(art.artikelkategorien)));
+      }
+      await Promise.all(writes);
+      setStep(4);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern der Betriebsart.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function updateFirma(key: keyof FirmaDaten, value: string) {
     setFirma((prev) => ({ ...prev, [key]: value }));
@@ -110,7 +136,7 @@ export default function OnboardingPage() {
           return;
         }
       }
-      setStep(4);
+      setStep(5);
     } catch (err) {
       Sentry.captureException(err);
       setError("Netzwerkfehler beim Anlegen des Artikels.");
@@ -145,7 +171,7 @@ export default function OnboardingPage() {
       }
       // Mark onboarding as done
       await saveSetting("system.onboarding_done", "1");
-      setStep(5);
+      setStep(6);
     } catch (err) {
       Sentry.captureException(err);
       setError("Netzwerkfehler beim Anlegen des Kunden.");
@@ -160,9 +186,10 @@ export default function OnboardingPage() {
   const STEPS = [
     { n: 1, label: "Willkommen" },
     { n: 2, label: "Firmendaten" },
-    { n: 3, label: "Erster Artikel" },
-    { n: 4, label: "Erster Kunde" },
-    { n: 5, label: "Fertig" },
+    { n: 3, label: "Betriebsart" },
+    { n: 4, label: "Erster Artikel" },
+    { n: 5, label: "Erster Kunde" },
+    { n: 6, label: "Fertig" },
   ];
 
   return (
@@ -195,7 +222,7 @@ export default function OnboardingPage() {
               Füllen Sie in 4 Schritten die wichtigsten Stammdaten aus, um AGRI-Office für Ihren Betrieb einzurichten.
             </p>
             <div className="grid grid-cols-2 gap-3 text-sm text-left mt-4">
-              {[["2", "Firmendaten"], ["3", "Erster Artikel"], ["4", "Erster Kunde"], ["5", "Fertig!"]].map(([n, label]) => (
+              {[["2", "Firmendaten"], ["3", "Betriebsart"], ["4", "Erster Artikel"], ["5", "Erster Kunde"], ["6", "Fertig!"]].map(([n, label]) => (
                 <div key={n} className="flex items-center gap-2 text-gray-500">
                   <span className="w-6 h-6 rounded-full bg-green-100 text-green-700 font-bold text-xs flex items-center justify-center">{n}</span>
                   {label}
@@ -292,8 +319,60 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3: Erster Artikel */}
+        {/* Step 3: Betriebsart */}
         {step === 3 && (
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">Was für ein Betrieb sind Sie?</h1>
+            <p className="text-sm text-gray-500 mt-1 mb-4">
+              Danach zeigt AGRI-Office nur die Bereiche, die Sie wirklich brauchen. Sie können das später
+              unter Einstellungen › Module jederzeit ändern.
+            </p>
+
+            <div className="space-y-2">
+              {BETRIEBSARTEN.map((art) => (
+                <button
+                  key={art.key}
+                  type="button"
+                  onClick={() => setBetriebsart(art.key)}
+                  className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                    betriebsart === art.key
+                      ? "border-green-600 bg-green-50"
+                      : "border-gray-200 hover:border-green-300"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl leading-none">{art.icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{art.label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{art.beschreibung}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setStep(2)}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Zurück
+              </button>
+              <button
+                onClick={handleBetriebsartWeiter}
+                disabled={loading}
+                className="flex-1 bg-green-700 hover:bg-green-800 text-white py-2.5 rounded-lg font-medium text-sm disabled:opacity-60"
+              >
+                {loading ? "Speichern…" : "Weiter"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Erster Artikel */}
+        {step === 4 && (
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Erster Artikel</h2>
@@ -336,8 +415,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 4: Erster Kunde */}
-        {step === 4 && (
+        {/* Step 5: Erster Kunde */}
+        {step === 5 && (
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-bold text-gray-900">Erster Kunde</h2>
@@ -363,8 +442,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 5: Fertig */}
-        {step === 5 && (
+        {/* Step 6: Fertig */}
+        {step === 6 && (
           <div className="text-center space-y-4">
             <div className="text-5xl mb-2">✅</div>
             <h2 className="text-2xl font-bold text-gray-900">AGRI-Office ist eingerichtet!</h2>

@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useModule } from "@/lib/modul-context";
+import type { ModulKey } from "@/lib/modul-keys";
 
 function EinstellungTile({ href, icon, title, description }: {
   href: string;
@@ -23,6 +27,8 @@ interface Tile {
   icon: string;
   title: string;
   description: string;
+  /** Kachel nur zeigen, wenn dieses Modul aktiv ist (analog MODULE_HREFS in components/Nav.tsx). */
+  modul?: ModulKey;
 }
 
 interface Section {
@@ -48,9 +54,9 @@ const SECTIONS: Section[] = [
       { href: "/einstellungen/artikelkategorien", icon: "🏷️", title: "Artikelkategorien", description: "Artikel-Kategorien anlegen, umbenennen und löschen" },
       { href: "/einstellungen/lieferanten", icon: "🚚", title: "Lieferanten", description: "Standard-Zahlungskonditionen und Lieferbedingungen" },
       { href: "/einstellungen/lager", icon: "📦", title: "Lager", description: "Mindestbestände, Alarme und Kategorien" },
-      { href: "/einstellungen/futterwerte", icon: "🐄", title: "Futterwerte", description: "Eigene Futtermittel für die Rationsberechnung pflegen" },
-      { href: "/einstellungen/fruehbezug", icon: "⏱", title: "Frühbezugs-Staffeln", description: "Saison-Rabatte für Vorbestellungen (z.B. -3% bis 31.07.)" },
-      { href: "/einstellungen/tournamen", icon: "🚛", title: "Tour-Namen", description: "Gespeicherte Tourbezeichnungen" },
+      { href: "/einstellungen/futterwerte", icon: "🐄", title: "Futterwerte", description: "Eigene Futtermittel für die Rationsberechnung pflegen" , modul: "rationsberechnung" },
+      { href: "/einstellungen/fruehbezug", icon: "⏱", title: "Frühbezugs-Staffeln", description: "Saison-Rabatte für Vorbestellungen (z.B. -3% bis 31.07.)" , modul: "fruehbezug" },
+      { href: "/einstellungen/tournamen", icon: "🚛", title: "Tour-Namen", description: "Gespeicherte Tourbezeichnungen" , modul: "tourenplanung" },
     ],
   },
   {
@@ -71,11 +77,11 @@ const SECTIONS: Section[] = [
     tiles: [
       { href: "/einstellungen/import", icon: "📥", title: "Import", description: "Kunden, Artikel und Stammdaten aus Excel-Dateien importieren" },
       { href: "/einstellungen/artikel-import", icon: "🌿", title: "Artikel-Stammdaten", description: "marstall & BvG Agrar Artikel manuell importieren" },
-      { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" },
-      { href: "/einstellungen/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Cache-Gültigkeit und Daten-Aktualisierung" },
+      { href: "/einstellungen/agrarantraege", icon: "🌾", title: "Agraranträge (AFIG)", description: "CSV von agrarzahlungen.de importieren" , modul: "agrarantraege" },
+      { href: "/einstellungen/marktpreise", icon: "📈", title: "Marktpreise", description: "Eurostat-Cache-Gültigkeit und Daten-Aktualisierung" , modul: "marktpreise" },
       { href: "/einstellungen/email", icon: "✉️", title: "Mail", description: "Absenderadressen, SMTP/Resend, Info-Adresse, BCC und Mailversand-Konfiguration" },
       { href: "/einstellungen/mail-log", icon: "📋", title: "Mail-Log", description: "Alle versendeten E-Mails einsehen, HTML-Vorschau, erneut senden und löschen" },
-      { href: "/einstellungen/nextcloud", icon: "☁️", title: "Nextcloud", description: "Dokumente für Kunden, Artikel und Buchhaltung automatisch nach Nextcloud synchronisieren" },
+      { href: "/einstellungen/nextcloud", icon: "☁️", title: "Nextcloud", description: "Dokumente für Kunden, Artikel und Buchhaltung automatisch nach Nextcloud synchronisieren" , modul: "nextcloud" },
       { href: "/einstellungen/ki", icon: "🤖", title: "KI / AI", description: "API-Keys, Modellauswahl und Nutzungsstatistik" },
     ],
   },
@@ -109,19 +115,26 @@ const SECTIONS: Section[] = [
     tiles: [
       { href: "/einstellungen/loeschzentrum", icon: "🗑️", title: "Löschzentrum", description: "Duplikate bereinigen, Suchindex neu aufbauen und Datenpflege" },
       { href: "/einstellungen/gdpr", icon: "🔐", title: "DSGVO / Datenschutz", description: "Auskunft, Datenexport und Löschung personenbezogener Daten (Art. 15–17)" },
-      { href: "/einstellungen/mqtt", icon: "📡", title: "MQTT-Automatisierung", description: "Regeln für die automatische Verarbeitung eingehender MQTT-Nachrichten per KI" },
+      { href: "/einstellungen/mqtt", icon: "📡", title: "MQTT-Automatisierung", description: "Regeln für die automatische Verarbeitung eingehender MQTT-Nachrichten per KI" , modul: "mqtt" },
       { href: "/einstellungen/email-import", icon: "✉️", title: "E-Mail Import", description: "Eingehende E-Mails über Resend empfangen, lokal speichern und per KI verarbeiten" },
     ],
   },
 ];
 
 export default function EinstellungenPage() {
+  const modulConfig = useModule();
+  // Kacheln abgeschalteter Module ausblenden; eine dadurch leere Section verschwindet
+  // komplett (gleiches Muster wie die Nav-Gruppen in components/Nav.tsx).
+  const sichtbareSections = SECTIONS
+    .map((s) => ({ ...s, tiles: s.tiles.filter((t) => !t.modul || modulConfig[t.modul]) }))
+    .filter((s) => s.tiles.length > 0);
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6 sm:mb-8">Einstellungen</h1>
 
       <div className="space-y-8 sm:space-y-10">
-        {SECTIONS.map((section) => (
+        {sichtbareSections.map((section) => (
           <section key={section.title}>
             <div className="mb-3 sm:mb-4">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">

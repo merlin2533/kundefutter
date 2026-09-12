@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const TYPEN_WHITELIST = new Set([
@@ -11,6 +12,10 @@ const STATUS_WHITELIST = new Set(["aktiv", "abgelaufen", "gesperrt"]);
 
 // GET /api/zertifizierungen?kundeId=&abgelaufen=1&ablaufendIn=90&typ=
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
   const abgelaufen = searchParams.get("abgelaufen") === "1";
@@ -46,6 +51,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/zertifizierungen
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     const kundeId = parseInt(String(body.kundeId), 10);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["geplant", "ausgesaet", "geerntet", "abgebrochen"]);
@@ -9,6 +10,10 @@ type Ctx = { params: Promise<{ id: string }> };
 
 // PUT /api/anbauplanung/[id]
 export async function PUT(req: NextRequest, ctx: Ctx) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

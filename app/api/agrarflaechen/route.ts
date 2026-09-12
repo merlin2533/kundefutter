@@ -3,10 +3,15 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchFarmlandAround } from "@/lib/overpass";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
 export async function GET(request: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "agrarantraege");
+  if (denyModul) return denyModul;
+
   const searchParams = request.nextUrl.searchParams;
 
   const latStr = searchParams.get("lat");

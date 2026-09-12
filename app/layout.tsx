@@ -10,6 +10,9 @@ import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import { getAppName } from "@/lib/appinfo";
 import { getCurrentUser } from "@/lib/auth";
 import { UserProvider } from "@/lib/user-context";
+import { ModulProvider } from "@/lib/modul-context";
+import { getModulConfig } from "@/lib/modul-config";
+import { getBetriebsart } from "@/lib/betriebsart-server";
 import { SentryUserContext } from "@/components/SentryUserContext";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,7 +39,12 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [appName, currentUser] = await Promise.all([getAppName(), getCurrentUser()]);
+  const [appName, currentUser, modulConfig, betriebsart] = await Promise.all([
+    getAppName(),
+    getCurrentUser(),
+    getModulConfig(),
+    getBetriebsart(),
+  ]);
   return (
     <html lang="de" className="h-full" suppressHydrationWarning>
       <head>
@@ -47,6 +55,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <UserProvider user={currentUser}>
+        <ModulProvider module={modulConfig} betriebsart={betriebsart}>
           <SentryUserContext
             userId={currentUser?.id}
             benutzername={currentUser?.benutzername}
@@ -63,6 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {children}
             </main>
           </ToastProvider>
+        </ModulProvider>
         </UserProvider>
       </body>
     </html>

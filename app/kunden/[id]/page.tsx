@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import nextDynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,9 @@ import NextcloudOrdner from "@/components/NextcloudOrdner";
 import OffenePostenUebersicht from "./OffenePostenUebersicht";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Tab, TABS, DIREKT_TABS, TAB_GRUPPEN, TAB_MODUL, statusBadge, lieferungTotal, KategorieBadge } from "./_shared";
+import { useModule, useBetriebsart } from "@/lib/modul-context";
+import { navProfilFuer } from "@/lib/betriebsart";
+import type { ModulKey } from "@/lib/modul-keys";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Tabs — lazy-geladen, damit nur der aktive Tab im Bundle landet ──────────
@@ -65,35 +68,33 @@ export default function KundeDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Stammdaten");
   const [crmAutoOpen, setCrmAutoOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [disabledTabs, setDisabledTabs] = useState<Set<Tab>>(new Set());
   const [reaktivierenLoading, setReaktivierenLoading] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const modulConfig = useModule();
+  const betriebsart = useBetriebsart();
 
   // Agrar-/Zusatz-Tabs nach dem Modul-System ausblenden (analog MODULE_HREFS in components/Nav.tsx,
   // hier auf Tab- statt Routen-Ebene) — rein clientseitige Sichtbarkeit; die zugehörigen APIs sind
   // zusätzlich serverseitig über requireModul() gesperrt.
-  useEffect(() => {
-    fetch("/api/einstellungen?prefix=modul.")
-      .then((r) => r.json())
-      .then((mod: Record<string, string>) => {
-        const disabled = new Set<Tab>();
-        for (const [tab, key] of Object.entries(TAB_MODUL) as [Tab, string][]) {
-          const val = mod[`modul.${key}`];
-          const isEnabled = val === undefined ? true : val !== "false" && val !== "0";
-          if (!isEnabled) disabled.add(tab);
-        }
-        setDisabledTabs(disabled);
-      })
-      .catch((err) => Sentry.captureException(err));
-  }, []);
+  const disabledTabs = useMemo(() => {
+    const disabled = new Set<Tab>();
+    for (const [tab, key] of Object.entries(TAB_MODUL) as [Tab, ModulKey][]) {
+      if (!modulConfig[key]) disabled.add(tab);
+    }
+    return disabled;
+  }, [modulConfig]);
 
   useEffect(() => {
     if (disabledTabs.has(activeTab)) setActiveTab("Stammdaten");
   }, [disabledTabs, activeTab]);
 
   const visibleDirektTabs = DIREKT_TABS.filter((t) => !disabledTabs.has(t));
+  // Gruppen-Beschriftung je Betriebsart anpassen (analog gruppenLabels im Nav-Profil):
+  // bei einem Eierbetrieb bliebe sonst eine Gruppe "Agrar" stehen, in der nur noch der
+  // Tierbestand liegt.
+  const tabGruppenLabels = navProfilFuer(betriebsart)?.kundenTabGruppen ?? {};
   const visibleTabGruppen = TAB_GRUPPEN
-    .map((g) => ({ ...g, tabs: g.tabs.filter((t) => !disabledTabs.has(t)) }))
+    .map((g) => ({ ...g, label: tabGruppenLabels[g.label] ?? g.label, tabs: g.tabs.filter((t) => !disabledTabs.has(t)) }))
     .filter((g) => g.tabs.length > 0);
 
   // Rückruf planen

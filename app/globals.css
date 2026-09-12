@@ -49,3 +49,15 @@ body {
 @media print {
   .tour-handzettel { display: block !important; }
 }
+
+/* Die Desktop-Navigationsleiste scrollt horizontal, wenn viele Gruppen aktiv sind
+   (siehe components/Nav.tsx) — ohne das liefen die letzten Menuepunkte sichtbar in die
+   rechte Aktionsleiste hinein. Die Scrollleiste selbst wird ausgeblendet, gescrollt wird
+   per Trackpad/Shift+Mausrad. */
+.nav-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.nav-scroll::-webkit-scrollbar {
+  display: none;
+}

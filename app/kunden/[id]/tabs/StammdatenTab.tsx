@@ -7,6 +7,7 @@ import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from 
 import { HALTUNGSFORMEN, haltungsformLabel } from "@/lib/auswahllisten";
 import KontakteTab from "./KontakteTab";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
 
 export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -14,19 +15,9 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
   const [validMsg, setValidMsg] = useState("");
   const [kategorien, setKategorien] = useState<string[]>(["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"]);
   const [mitarbeiter, setMitarbeiter] = useState<string[]>([]);
-  const [eierhandelAn, setEierhandelAn] = useState(false);
-
   // Erzeugerdaten-Abschnitt (Eierhandel-Modul) nur zeigen, wenn das Modul aktiviert ist —
   // sonst sähe jede Installation zwei Eier-Branchen-Felder, obwohl das Modul standardmäßig aus ist.
-  useEffect(() => {
-    fetch("/api/einstellungen?prefix=modul.")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((mod: Record<string, string>) => {
-        const val = mod["modul.eierhandel"];
-        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
-      })
-      .catch((err) => Sentry.captureException(err));
-  }, []);
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   // Wettbewerber-Notizen
   const [wettbNotizenLoading, setWettbNotizenLoading] = useState(true);

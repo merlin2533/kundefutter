@@ -6,6 +6,10 @@ import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 import { useCurrentUser } from "@/lib/user-context";
 import { hasPermission, P } from "@/lib/permissions";
+import { useModule, useBetriebsart } from "@/lib/modul-context";
+import { navProfilFuer } from "@/lib/betriebsart";
+import { wendeNavProfilAn } from "@/lib/nav-profil";
+import { modulSettingKey, MODUL_KEYS } from "@/lib/modul-keys";
 import * as Sentry from "@sentry/nextjs";
 
 interface NavChild {
@@ -23,22 +27,25 @@ interface NavGroup {
 const MODULE_HREFS: Record<string, string[]> = {
   "modul.kampagnen": ["/kampagnen"],
   "modul.kontrakte": ["/kontrakte"],
-  "modul.fruehbezug": ["/vorbestellungen", "/einstellungen/fruehbezug"],
+  "modul.fruehbezug": ["/vorbestellungen", "/einstellungen/fruehbezug", "/statistik/vorbestellungen"],
   "modul.sortenversuche": ["/sortenversuche"],
-  "modul.bodenproben": ["/bodenproben", "/bodenanalyse", "/duengebedarf", "/duev", "/duev/bilanz"],
-  "modul.psm_ausbringung": ["/psm", "/spritzfenster"],
-  "modul.rationsberechnung": ["/rationsberechnung"],
-  "modul.tourenplanung": ["/tourenplanung"],
+  "modul.bodenproben": [
+    "/bodenproben", "/bodenanalyse", "/duengebedarf", "/duev", "/duev/bilanz",
+    "/anbauplanung", "/zwischenfruchtrechner", "/zertifizierungen", "/kalkulation/naehrstoffe",
+  ],
+  "modul.psm_ausbringung": ["/psm", "/spritzfenster", "/sachkundenachweise"],
+  "modul.rationsberechnung": ["/rationsberechnung", "/einstellungen/futterwerte"],
+  "modul.tourenplanung": ["/tourenplanung", "/fahrer", "/einstellungen/tournamen"],
   "modul.erzeugerabrechnung": ["/anlieferungen"],
-  "modul.marktpreise": ["/marktpreise"],
+  "modul.marktpreise": ["/marktpreise", "/einstellungen/marktpreise"],
   "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht", "/personal/arbeitszeiterfassung"],
   "modul.reklamationen": ["/reklamationen", "/statistik/reklamationen"],
-  "modul.agrarantraege": ["/agrarantraege"],
+  "modul.agrarantraege": ["/agrarantraege", "/einstellungen/agrarantraege", "/gebietsanalyse"],
   "modul.mqtt": ["/einstellungen/mqtt"],
   "modul.nextcloud": ["/einstellungen/nextcloud"],
   "modul.eierhandel": ["/eiersortierung", "/exporte/kat-meldung", "/meldepflichten"],
 };
-const MODULE_DEFAULTS_OFF = new Set(["modul.mqtt", "modul.nextcloud", "modul.eierhandel"]);
+
 
 const groups: NavGroup[] = [
   { label: "Dashboard", href: "/" },
@@ -466,8 +473,19 @@ function HeaderSearch() {
         setMobileExpanded(false);
       }
     }
+    function onScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    // capture: true — auch das horizontale Scrollen INNERHALB der Navigationsleiste
+    // erreicht den Listener, Scroll-Events blubbern sonst nicht bis zum document.
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   const doSearch = useCallback((q: string) => {
@@ -655,8 +673,19 @@ function RecentPages() {
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    // capture: true — auch das horizontale Scrollen INNERHALB der Navigationsleiste
+    // erreicht den Listener, Scroll-Events blubbern sonst nicht bis zum document.
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   const shown = history.filter((e) => e.href !== pathname).slice(0, 7);
@@ -725,8 +754,19 @@ function UserMenu() {
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    // capture: true — auch das horizontale Scrollen INNERHALB der Navigationsleiste
+    // erreicht den Listener, Scroll-Events blubbern sonst nicht bis zum document.
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   async function handleLogout() {
@@ -794,14 +834,38 @@ function UserMenu() {
 
 function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChildActive: boolean }) {
   const [open, setOpen] = useState(false);
+  // Das Panel liegt per `position: fixed` ueber der Seite statt `absolute` im <nav> —
+  // der nav ist horizontal scrollbar (s.u.), und ein scrollbarer Container klippt ein
+  // absolut positioniertes Kind auch vertikal weg.
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function oeffnen(naechster: boolean) {
+    if (naechster && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPanelPos({ top: r.bottom + 4, left: r.left });
+    }
+    setOpen(naechster);
+  }
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
+    function onScroll() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    // capture: true — auch das horizontale Scrollen INNERHALB der Navigationsleiste
+    // erreicht den Listener, Scroll-Events blubbern sonst nicht bis zum document.
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   const children = group.children ?? [];
@@ -821,8 +885,9 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-medium transition-colors ${
+        ref={btnRef}
+        onClick={() => oeffnen(!open)}
+        className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
           isAnyChildActive ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
         }`}
       >
@@ -831,8 +896,11 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
           <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
         </svg>
       </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50" style={{ minWidth: "180px" }}>
+      {open && panelPos && (
+        <div
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50"
+          style={{ minWidth: "180px", top: panelPos.top, left: panelPos.left }}
+        >
           {hasSections ? (
             sections.map((sec, si) => (
               <div key={sec.name}>
@@ -884,7 +952,8 @@ export default function Nav() {
   const [logo, setLogo] = useState<string | null>(null);
   const [appName, setAppName] = useState("AGRI-Office");
   const [firmenname, setFirmenname] = useState("");
-  const [modulDisabledHrefs, setModulDisabledHrefs] = useState<Set<string>>(new Set());
+  const modulConfig = useModule();
+  const betriebsart = useBetriebsart();
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");
   const selbstbedienung = !!user?.mitarbeiterId;
@@ -896,23 +965,14 @@ export default function Nav() {
 
   useEffect(() => {
     if (hideNav) return;
-    Promise.all([
-      fetch("/api/einstellungen?prefix=system.").then((r) => r.json()),
-      fetch("/api/einstellungen?prefix=modul.").then((r) => r.json()),
-    ])
-      .then(([sys, mod]) => {
+    // Die Modulkonfiguration kommt server-seitig über den ModulProvider (app/layout.tsx),
+    // hier wird nur noch das Branding nachgeladen.
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => r.json())
+      .then((sys: Record<string, string>) => {
         if (sys["system.logo"]) setLogo(sys["system.logo"]);
         if (sys["system.appname"]) setAppName(sys["system.appname"]);
         if (sys["system.firmenname"]) setFirmenname(sys["system.firmenname"]);
-
-        const disabled = new Set<string>();
-        for (const [key, hrefs] of Object.entries(MODULE_HREFS)) {
-          const defaultOff = MODULE_DEFAULTS_OFF.has(key);
-          const val = (mod as Record<string, string>)[key];
-          const isEnabled = val === undefined ? !defaultOff : (val !== "false" && val !== "0");
-          if (!isEnabled) hrefs.forEach((h) => disabled.add(h));
-        }
-        setModulDisabledHrefs(disabled);
       })
       .catch((err) => {
         Sentry.captureException(err);
@@ -953,6 +1013,12 @@ export default function Nav() {
     );
   }
 
+  const modulDisabledHrefs = new Set<string>();
+  for (const key of MODUL_KEYS) {
+    if (modulConfig[key]) continue;
+    for (const href of MODULE_HREFS[modulSettingKey(key)] ?? []) modulDisabledHrefs.add(href);
+  }
+
   function isHrefAllowed(href: string): boolean {
     const base = href.split("?")[0];
     if (modulDisabledHrefs.has(base)) return false;
@@ -962,7 +1028,10 @@ export default function Nav() {
     return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
   }
 
-  const visibleGroups = groups
+  // Erst umbauen (Gruppen umbenennen/herausloesen/sortieren), dann filtern — andernfalls
+  // bliebe eine herausgeloeste Gruppe mit leerer Kinderliste stehen, statt von der
+  // "Gruppe ohne Kinder verschwindet"-Regel unten mit erfasst zu werden.
+  const visibleGroups = wendeNavProfilAn(groups, navProfilFuer(betriebsart))
     .filter((g) => g.href === undefined || isHrefAllowed(g.href))
     .map((g) => ({
       ...g,
@@ -1002,7 +1071,7 @@ export default function Nav() {
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0">
+        <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto nav-scroll">
           {visibleGroups.map((g) =>
             g.href ? (
               <Link
