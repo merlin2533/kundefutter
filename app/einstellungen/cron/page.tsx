@@ -33,6 +33,11 @@ const JOB_META: Record<string, { label: string; beschreibung: string; icon: stri
     icon: "☁️",
     beschreibung: "Überträgt fehlende Dokumente (Rechnungen, Lieferscheine, Gutschriften, Nachweise) nach Nextcloud — läuft höchstens 1×/Tag",
   },
+  meldepflichten: {
+    label: "Meldepflichten (Eierhandel)",
+    icon: "🥚",
+    beschreibung: "Legt fällige Meldeaufgaben an (Tierseuchenkasse-Frist 31.01., wöchentliche KAT-Warenstrommeldung) — nur bei aktivem Eierhandel-Modul",
+  },
 };
 
 function formatDauer(ms: number) {
@@ -130,7 +135,7 @@ export default function CronVerwaltungPage() {
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Registrierte Jobs</h2>
 
-        {(["pegelstaende", "digest", "nextcloudSync"] as const).map((jobId) => {
+        {(["pegelstaende", "digest", "nextcloudSync", "meldepflichten"] as const).map((jobId) => {
           const meta = JOB_META[jobId];
           const result = status?.jobs.find((j) => j.job === jobId);
           return (

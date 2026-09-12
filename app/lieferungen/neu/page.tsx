@@ -337,6 +337,19 @@ function NeueLieferungInner() {
     load();
   }, [load]);
 
+  // Eier-Kennzeichnungsfelder nur zeigen, wenn das Eierhandel-Modul aktiv ist — die Kategorie
+  // "Eier" allein reicht nicht, sonst sähe jede Installation (Modul-Default: aus) die Felder.
+  const [eierhandelAn, setEierhandelAn] = useState(false);
+  useEffect(() => {
+    fetch("/api/einstellungen?prefix=modul.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((mod: Record<string, string>) => {
+        const val = mod["modul.eierhandel"];
+        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
+      })
+      .catch((err) => Sentry.captureException(err));
+  }, []);
+
   // Aktive Kampagnen für den ausgewählten Kunden laden
   useEffect(() => {
     if (!kundeId) { setKampagnen([]); return; }
@@ -901,8 +914,8 @@ function NeueLieferungInner() {
                                 title="Notiz zur Position — aus dem Artikel übernommen, frei änderbar"
                                 className="w-full mt-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
                               />
-                              {/* Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur bei Artikel-Kategorie "Eier" */}
-                              {selectedArtikel?.kategorie === "Eier" && (
+                              {/* Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur bei aktivem Modul und Artikel-Kategorie "Eier" */}
+                              {eierhandelAn && selectedArtikel?.kategorie === "Eier" && (
                                 <div className="mt-1.5 p-2 rounded border border-amber-200 bg-amber-50 space-y-1.5">
                                   <div className="grid grid-cols-2 gap-1.5">
                                     <select
