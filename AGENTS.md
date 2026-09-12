@@ -189,6 +189,11 @@ MqttRegel           — MQTT-Automatisierungsregeln (topic, bedingung, aktion, k
 PegelstandCache     — Pegelstand-Daten (station, wert, einheit, zeitpunkt)
 EinkaufStatus       — Interner Bestell-/Lieferstatus je BestelllistenPosition
 KundeSprengstoffErklaerung — Sprengstoffvorläufer-Erklärungen je Kunde
+EierSortierung     — Sortierprotokoll Eierhandel (datum, anlieferungId? optional — Sortierung aus
+                      eigener Erzeugung braucht keine Anlieferung, notiz, erstelltVon)
+EierSortierungPosition — klassifizierte Ausgangscharge je Sortierung (gueteklasse A|B,
+                      gewichtsklasse S|M|L|XL, menge, chargeNr?, legedatum?, erzeugercode?);
+                      bucht beim Anlegen eine Lagerbewegung "eingang" wie ein Wareneingang
 ```
 
 ### Einstellung Key-Konventionen
@@ -323,6 +328,11 @@ app/
 │   ├── page.tsx                Inventurliste
 │   ├── neu/page.tsx
 │   └── [id]/page.tsx           Inventur-Detail (Positionen, Abschluss)
+├── eiersortierung/             Ei-Sortierprotokoll (Modul `eierhandel`, Standard: aus)
+│   ├── page.tsx                Liste der Sortiervorgänge
+│   ├── neu/page.tsx            Anlieferung wählen → klassifizierte Ausgangschargen erfassen
+│   └── [id]/page.tsx           Detail (Chargen mit Güte-/Gewichtsklasse, MHD, Erzeugercode), Löschen bucht zurück
+├── meldepflichten/page.tsx     Fristen-Tracker Eierhandel (Tierseuchenkasse, KAT-Wochenmeldung)
 ├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant; manuelles/diktiert
 │                               vorbereitetes Erfassen, Lieferant-Umschlüsseln, Bündeln zu Bestellung)
 ├── bestellungen/               Lieferantenbestellungen (OFFEN→BESTAETIGT→TEILGELIEFERT→ABGESCHLOSSEN;
@@ -413,6 +423,8 @@ app/
 │   └── datev-vorschau/page.tsx Buchungsvorschau für den DATEV-Export (Tabelle Datum/Herkunft/Beleg/
 │                               Konto/Gegenkonto/Betrag/S-H/MwSt + Saldo je Konto), bevor die CSV
 │                               heruntergeladen wird; Nav unter Finanzen → Konditionen
+│   └── kat-meldung/page.tsx    KAT-Warenstrommeldung (Woche/Erzeugercode/Güte-/Gewichtsklasse,
+│                               sortierte vs. verkaufte Mengen) mit Vorschau vor dem CSV-Download
 ├── qr/[id]/page.tsx            QR-Lieferschein-Scan (öffentlich, kein Login)
 ├── portal/                     Kunden-Portal (öffentlich/eigenständige Authentifizierung)
 │   ├── page.tsx                Portal-Dashboard
@@ -677,6 +689,8 @@ app/
                                  Kontierung wie der CSV-Export (`sammleDatevBuchungen()` in lib/datev.ts);
                                  zeigt VOR dem eigentlichen Download, was gebucht würde
 /api/exporte/datev/archivieren  POST{von,bis} — DATEV-Export zusätzlich nach Nextcloud archivieren
+/api/exporte/kat-meldung        GET(?von,?bis) — KAT-Warenstrommeldung als CSV (Modul `eierhandel`)
+/api/exporte/kat-meldung/vorschau  GET(?von,?bis) — dieselbe Aggregation als JSON für die Vorschau
 /api/exporte/bulk               POST — Bulk-Export
 /api/exporte/bestellvorschlag   GET — Bestellvorschlag CSV/PDF
 /api/exporte/zugferd            GET?lieferungId= — ZUGFeRD/Factur-X XML
@@ -1113,7 +1127,8 @@ Alle Dropdown/Autocomplete-Daten kommen aus `lib/auswahllisten.ts` + `Einstellun
 
 | Export | DB-Key | Inhalt |
 |--------|--------|--------|
-| `DEFAULT_ARTIKEL_KATEGORIEN` | — | Futter, Duenger, Saatgut, Analysen, Beratung, Pflege |
+| `DEFAULT_ARTIKEL_KATEGORIEN` | — | Futter, Duenger, Saatgut, Analysen, Beratung, Pflege, Eier |
+| `GUETEKLASSEN` / `GEWICHTSKLASSEN` / `HALTUNGSFORMEN` | — | Eierhandel: gesetzlich fixe Werte (A/B, S/M/L/XL, 0–3) — bewusst NICHT über `Einstellung` konfigurierbar |
 | `DEFAULT_SAATGUT_KULTUREN` | `system.saatgut_kulturen` | Saatgut-Unterkategorien (Mais, Raps…) |
 | `DEFAULT_UNTERKATEGORIEN` | via `getUnterkategorienKey(kat)` | Unterkategorien je Kategorie |
 | `DEFAULT_LAGERORTE` | `system.lagerorte` | Lagerorte (leer by default) |
@@ -1490,7 +1505,15 @@ sind durchgehend modulneutral.
 3. Client-Code liest Module **nie** per `fetch("/api/einstellungen?prefix=modul.")`, sondern über
    `useModule()`/`useModulAktiv()` aus `lib/modul-context.tsx` — `app/layout.tsx` lädt sie einmal
    server-seitig. Einzige Ausnahme ist `/einstellungen/module` selbst (braucht den Live-Zustand
-   zum Bearbeiten).
+   zum Bearbeiten). Das gilt auch für einzelne branchenspezifische **Felder** in geteilten
+   Formularen (Eier-Kennzeichnung in `app/lieferungen/neu/page.tsx`, Erzeugerdaten-Block in
+   `StammdatenTab.tsx`) — sonst sieht jede Installation Felder einer fremden Branche.
+
+**Bewusst NICHT gegatet:** Routen von Modulen mit Default `false` (`mqtt`, `nextcloud`). Deren
+Integration ist auch ohne Modulschalter konfigurierbar — ein Gate würde jede bestehende
+Installation abwürgen, die den Schalter nie angefasst hat. Aus demselben Grund bleibt
+`app/api/pegelstaende` offen (reiner Umweltdatendienst ohne Fachbezug; nur das Dashboard-Widget
+ist modulabhängig).
 
 ---
 
@@ -1532,11 +1555,14 @@ sind durchgehend modulneutral.
 | `lib/einkaufspreisverlauf.ts` | Datumsgenauer Einkaufspreis-Verlauf je Lieferant (`ArtikelLieferantPreis`): `setAktiverEinkaufspreis()` markiert genau einen Eintrag als aktiv und synct `ArtikelLieferant.einkaufspreis`; `hatAktivenEinkaufspreis()` lässt `syncEinkaufspreis()` (lib/jahrespreis.ts) einen bewusst gewählten Preisverlauf-Preis nicht überschreiben |
 | `lib/artikel-kategorie.ts` | `loadKategorieTaxonomie()` — lädt die konfigurierten Top-Level-Kategorien + deren Unterkategorien aus `Einstellung` für `resolveKategorie()` (lib/auswahllisten.ts), genutzt von den Artikel-Import-Routen und `/api/artikel/kategorien-bereinigen` |
 | `lib/modul-keys.ts` | Reine Daten-/Parselogik des Modul-Systems (`ModulConfig`, `DEFAULT_MODUL_CONFIG`, `MODUL_KEYS`, `modulConfigAusMap()`) — bewusst importfrei, damit Server UND Client dieselbe Auswertung nutzen können |
-| `lib/modul-config.ts` | Server-Einstieg: `getModulConfig()` (liest `modul.*` aus `Einstellung`) + `requireModul()`-Guard für API-Routen; Typ/Defaults kommen aus `lib/modul-keys.ts` und werden re-exportiert |
+| `lib/modul-config.ts` | **Modul-System**, Server-Einstieg: `getModulConfig()` (liest `Einstellung`-Keys mit Prefix `modul.`) + `requireModul(config, key)` — serverseitiger 403-Guard analog `requirePermission()` in `lib/permissions.ts`, orthogonal dazu (beide müssen unabhängig grün sein). Typ/Defaults kommen aus `lib/modul-keys.ts` und werden re-exportiert |
 | `lib/modul-context.tsx` | `ModulProvider`/`useModule()`/`useModulAktiv()`/`useBetriebsart()` — Client-Kontext, aus `app/layout.tsx` server-seitig befüllt (Muster wie `lib/user-context.tsx`); ersetzt die früheren Einzel-Fetches auf `/api/einstellungen?prefix=modul.` |
-| `lib/betriebsart.ts` | Branchen-Profile (`BETRIEBSARTEN`, `parseBetriebsart()`, `navProfilFuer()`) + die sechs Modul-Oberbereiche (`MODUL_BEREICHE`, `MODUL_LABELS`) für `/einstellungen/module` |
+| `lib/betriebsart.ts` | Branchen-Profile (`BETRIEBSARTEN`, `parseBetriebsart()`, `navProfilFuer()`) + die sechs Modul-Oberbereiche (`MODUL_BEREICHE`, `MODUL_LABELS`) für `/einstellungen/module`. Löst das frühere `lib/modul-presets.ts` ab (Presets ohne Gedächtnis) |
 | `lib/betriebsart-server.ts` | `getBetriebsart()` — server-seitiger Lesezugriff auf `system.betriebsart` (getrennt, damit `lib/betriebsart.ts` importfrei bleibt) |
 | `lib/nav-profil.ts` | `wendeNavProfilAn()` — reine Funktion, die die Nav-Gruppen gemäß Betriebsart umbenennt, eine Section in eine eigene Gruppe herauslöst (optional eine zweite Gruppe absorbiert) und umsortiert |
+| `lib/eier-mhd.ts` | `berechneEierMhd(legedatum)` — MHD für Eier = Legedatum + 28 Tage (EU-Vermarktungsnorm). Importfrei, client- UND serverseitig nutzbar |
+| `lib/kat-meldung.ts` | `sammleKatMeldung(von,bis)` + `buildKatMeldungCsv()` — wöchentliche KAT-Warenstrommeldung (Struktur analog `sammleDatevBuchungen()` in `lib/datev.ts`); zählt nur `status:"geliefert"` (stornierte Lieferungen bleiben draußen) |
+| `lib/meldepflichten.ts` | `pruefeMeldepflichten()` — legt fällige Melde-Aufgaben an (Tierseuchenkasse-Frist 31.01. → nächste bevorstehende, nicht "dieses Jahr"; wöchentliche KAT-Erinnerung nur wenn die vorherige erledigt ist). Eingebunden als Cron-Job `meldepflichten` in `app/api/cron/route.ts`, prüft `modul.eierhandel` selbst |
 | `lib/ausgleichsartikel.ts` | Zentrale, dependency-freie Liste der "Ausgleichsartikel"-Artikelnummern (`ALTE_FORDERUNG_ARTIKELNUMMER`/`GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER`/`RESTDIFFERENZ_ARTIKELNUMMER`) + `istAusgleichsArtikelnummer()` — genutzt von `lib/lieferung.ts` (erzeugt die Positionen) UND `lib/datev.ts` (muss sie im Export erkennen, um sie auf ein Verrechnungs- statt Erlöskonto zu buchen) |
 
 ## Wettbewerber-Notizen

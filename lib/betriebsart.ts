@@ -235,8 +235,8 @@ export const MODUL_BEREICHE: ModulBereich[] = [
 export const MODUL_LABELS: Record<ModulKey, { label: string; beschreibung: string }> = {
   sortenversuche: { label: "Sortenversuche", beschreibung: "Feldversuche und Sortenvergleiche (Ertrag, Feuchte, Protein)" },
   rationsberechnung: { label: "Rationsberechnung (Tier)", beschreibung: "Futterrationen für Rinder, Schweine, Geflügel, Pferde u.a." },
-  bodenproben: { label: "Bodenproben & Düngung", beschreibung: "Schlagkartei, Bodenanalysen, Albrecht, Düngebedarf (DüV), Anbauplanung, Zertifizierungen" },
-  psm_ausbringung: { label: "Pflanzenschutz", beschreibung: "PSM-Ausbringung, Spritzfenster-Prognose und Sachkundenachweise" },
+  bodenproben: { label: "Bodenproben & Düngung", beschreibung: "Schlagkartei, Bodenanalysen, Albrecht, Düngebedarf (DüV), Anbauplanung, Zertifizierungen, Sachkundenachweise" },
+  psm_ausbringung: { label: "Pflanzenschutz", beschreibung: "PSM-Ausbringung und Spritzfenster-Prognose" },
   erzeugerabrechnung: { label: "Erzeugerabrechnung", beschreibung: "Erfassung und Abrechnung von Anlieferungen" },
   tourenplanung: { label: "Tourenplanung", beschreibung: "Routenoptimierung, Tour-Namen und Fahrer-Cockpit" },
   kontrakte: { label: "Kontrakte", beschreibung: "Rahmenverträge mit Mengenabrufen und Lieferverfolgung" },

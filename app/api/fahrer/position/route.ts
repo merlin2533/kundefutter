@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,10 @@ const isDev = process.env.NODE_ENV === "development";
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "tourenplanung");
+  if (denyModul) return denyModul;
 
   let body: { lat?: unknown; lng?: unknown; genauigkeit?: unknown; tourname?: unknown };
   try {
@@ -59,6 +64,10 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "tourenplanung");
+  if (denyModul) return denyModul;
+
   try {
     const einstellungen = await prisma.einstellung.findMany({
       where: { key: { startsWith: "fahrer.position." } },
@@ -103,6 +112,10 @@ export async function GET() {
 export async function DELETE() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "tourenplanung");
+  if (denyModul) return denyModul;
 
   const key = `fahrer.position.${user.id}`;
   try {

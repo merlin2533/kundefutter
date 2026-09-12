@@ -32,13 +32,17 @@ const MODULE_HREFS: Record<string, string[]> = {
   "modul.bodenproben": [
     "/bodenproben", "/bodenanalyse", "/duengebedarf", "/duev", "/duev/bilanz",
     "/anbauplanung", "/zwischenfruchtrechner", "/zertifizierungen", "/kalkulation/naehrstoffe",
+    // Sachkundenachweise haengen bewusst hier und nicht an psm_ausbringung: die meisten
+    // Nachweistypen (Sprengstoff-Sachkunde, Duengerschulung, Mais-Beize) sind Duenger- statt
+    // Pflanzenschutzthemen.
+    "/sachkundenachweise",
   ],
-  "modul.psm_ausbringung": ["/psm", "/spritzfenster", "/sachkundenachweise"],
+  "modul.psm_ausbringung": ["/psm", "/spritzfenster"],
   "modul.rationsberechnung": ["/rationsberechnung", "/einstellungen/futterwerte"],
-  "modul.tourenplanung": ["/tourenplanung", "/fahrer", "/einstellungen/tournamen"],
+  "modul.tourenplanung": ["/tourenplanung", "/fahrer", "/fahrer/standorte", "/einstellungen/tournamen"],
   "modul.erzeugerabrechnung": ["/anlieferungen"],
   "modul.marktpreise": ["/marktpreise", "/einstellungen/marktpreise"],
-  "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht", "/personal/arbeitszeiterfassung"],
+  "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht", "/personal/arbeitszeiterfassung", "/meine-arbeitszeit"],
   "modul.reklamationen": ["/reklamationen", "/statistik/reklamationen"],
   "modul.agrarantraege": ["/agrarantraege", "/einstellungen/agrarantraege", "/gebietsanalyse"],
   "modul.mqtt": ["/einstellungen/mqtt"],

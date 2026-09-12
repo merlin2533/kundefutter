@@ -8,6 +8,7 @@ import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMe
 import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
 
 interface Kunde {
   id: number;
@@ -336,6 +337,10 @@ function NeueLieferungInner() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Eier-Kennzeichnungsfelder nur zeigen, wenn das Eierhandel-Modul aktiv ist — die Kategorie
+  // "Eier" allein reicht nicht, sonst sähe jede Installation (Modul-Default: aus) die Felder.
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   // Aktive Kampagnen für den ausgewählten Kunden laden
   useEffect(() => {
@@ -901,8 +906,8 @@ function NeueLieferungInner() {
                                 title="Notiz zur Position — aus dem Artikel übernommen, frei änderbar"
                                 className="w-full mt-1 border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white"
                               />
-                              {/* Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur bei Artikel-Kategorie "Eier" */}
-                              {selectedArtikel?.kategorie === "Eier" && (
+                              {/* Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur bei aktivem Modul und Artikel-Kategorie "Eier" */}
+                              {eierhandelAn && selectedArtikel?.kategorie === "Eier" && (
                                 <div className="mt-1.5 p-2 rounded border border-amber-200 bg-amber-50 space-y-1.5">
                                   <div className="grid grid-cols-2 gap-1.5">
                                     <select

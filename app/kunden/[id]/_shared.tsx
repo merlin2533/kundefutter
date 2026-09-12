@@ -147,7 +147,9 @@ export const TAB_MODUL: Partial<Record<Tab, ModulKey>> = {
   Zertifizierungen: "bodenproben",
   // Sprengstoffvorläufer-Erklärung (Ammoniumnitrat) ist ein reines Düngemittel-Thema.
   Erklärungen: "bodenproben",
-  Sachkundenachweise: "psm_ausbringung",
+  // s. Kommentar in MODULE_HREFS (components/Nav.tsx): Sprengstoff-/Duenger-Nachweise
+  // sind kein Pflanzenschutzthema.
+  Sachkundenachweise: "bodenproben",
   Agrarantrag: "agrarantraege",
   Tiere: "rationsberechnung",
   Reklamationen: "reklamationen",

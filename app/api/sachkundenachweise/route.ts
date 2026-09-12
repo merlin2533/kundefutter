@@ -17,7 +17,7 @@ const TYPEN_WHITELIST = new Set([
 // GET /api/sachkundenachweise?kundeId=X&abgelaufen=1&ablaufendIn=90
 export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "psm_ausbringung");
+  const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;
 
   const { searchParams } = new URL(req.url);
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 // POST /api/sachkundenachweise
 export async function POST(req: NextRequest) {
   const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "psm_ausbringung");
+  const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;
 
   try {
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 // PUT /api/sachkundenachweise?id=X
 export async function PUT(req: NextRequest) {
   const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "psm_ausbringung");
+  const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;
 
   const { searchParams } = new URL(req.url);
@@ -127,7 +127,7 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/sachkundenachweise?id=X
 export async function DELETE(req: NextRequest) {
   const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "psm_ausbringung");
+  const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;
 
   const { searchParams } = new URL(req.url);
