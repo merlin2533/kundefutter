@@ -1,61 +1,67 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { MODUL_PRESETS } from "@/lib/modul-presets";
+import {
+  BETRIEBSARTEN,
+  BETRIEBSART_KEY,
+  MODUL_BEREICHE,
+  MODUL_LABELS,
+  parseBetriebsart,
+  type BetriebsartKey,
+} from "@/lib/betriebsart";
+import { DEFAULT_MODUL_CONFIG, MODUL_KEYS, modulConfigAusMap, modulSettingKey, type ModulConfig, type ModulKey } from "@/lib/modul-keys";
 
-interface ModulToggle {
-  key: string;
-  label: string;
-  description: string;
-  defaultAktiv: boolean;
+async function speichereEinstellung(key: string, value: string) {
+  const res = await fetch("/api/einstellungen", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, value }),
+  });
+  if (!res.ok) throw new Error(`Einstellung ${key} konnte nicht gespeichert werden`);
 }
 
-const MODULE_LIST: ModulToggle[] = [
-  { key: "modul.sortenversuche", label: "Sortenversuche", description: "Verwaltung von Feldversuchen und Sortenvergleichen (Ertrag, Feuchte, Protein)", defaultAktiv: true },
-  { key: "modul.rationsberechnung", label: "Rationsberechnung (Tier)", description: "Futterrationsberechnung für Rinder, Schweine, Geflügel, Pferde u.a.", defaultAktiv: true },
-  { key: "modul.bodenproben", label: "Bodenproben & Düngung", description: "Bodenanalysen, Albrecht-Analyse, Düngebedarfsermittlung (DüV) und Nährstoffbilanz", defaultAktiv: true },
-  { key: "modul.psm_ausbringung", label: "PSM-Ausbringung", description: "Pflanzenschutz-Dokumentation und Spritzfenster-Prognose", defaultAktiv: true },
-  { key: "modul.erzeugerabrechnung", label: "Erzeugerabrechnung", description: "Erfassung und Abrechnung von Getreide-/Rohstoffanlieferungen", defaultAktiv: true },
-  { key: "modul.tourenplanung", label: "Tourenplanung", description: "Routenoptimierung, Tour-Übersicht und Fahrer-Cockpit", defaultAktiv: true },
-  { key: "modul.kontrakte", label: "Kontrakte", description: "Rahmenverträge mit Mengenabrufen und Lieferverfolgung", defaultAktiv: true },
-  { key: "modul.kampagnen", label: "Kampagnen", description: "Marketing-Kampagnen mit Zielgruppen-Kriterien und Rabatten", defaultAktiv: true },
-  { key: "modul.fruehbezug", label: "Frühbezug / Vorbestellungen", description: "Saison-Vorbestellungen mit Frühbezugs-Rabattstaffeln", defaultAktiv: true },
-  { key: "modul.marktpreise", label: "Marktpreise (Eurostat)", description: "Agrarpreisindizes und MATIF-Futures aus Eurostat-Daten", defaultAktiv: true },
-  { key: "modul.reklamationen", label: "Reklamationen", description: "Beschwerdemanagement mit Prioritäten, Status und Lösungsdokumentation", defaultAktiv: true },
-  { key: "modul.personal", label: "Personal & Lohn", description: "Mitarbeiterverwaltung, Arbeitsstunden, Urlaubsanträge und Lohnabrechnung", defaultAktiv: true },
-  { key: "modul.agrarantraege", label: "Agraranträge (AFIG)", description: "Import und Auswertung der Agrarförderungs-Daten (agrarzahlungen.de)", defaultAktiv: true },
-  { key: "modul.mqtt", label: "MQTT-Automatisierung", description: "IoT-Regeln für automatische Verarbeitung eingehender MQTT-Nachrichten", defaultAktiv: false },
-  { key: "modul.nextcloud", label: "Nextcloud", description: "Dokumentensynchronisation für Kunden, Artikel und Buchhaltung in Nextcloud", defaultAktiv: false },
-  { key: "modul.eierhandel", label: "Eierhandel", description: "Eier-Sortierprotokoll, Güte-/Gewichtsklassen, KAT-Meldung und Meldepflichten-Tracker", defaultAktiv: false },
-];
+function Schalter({ an, onClick, label }: { an: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={an}
+      className={`flex-shrink-0 w-10 h-6 rounded-full relative transition-colors ${an ? "bg-green-600" : "bg-gray-300"}`}
+    >
+      <span
+        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${an ? "right-1" : "left-1"}`}
+      />
+    </button>
+  );
+}
 
 export default function ModuleEinstellungenPage() {
-  const [form, setForm] = useState<Record<string, boolean>>(() => {
-    const defaults: Record<string, boolean> = {};
-    MODULE_LIST.forEach((m) => { defaults[m.key] = m.defaultAktiv; });
-    return defaults;
-  });
+  const router = useRouter();
+  const [form, setForm] = useState<ModulConfig>(DEFAULT_MODUL_CONFIG);
+  const [betriebsart, setBetriebsart] = useState<BetriebsartKey>("agrarhandel");
+  const [offeneBereiche, setOffeneBereiche] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [presetApplying, setPresetApplying] = useState<string | null>(null);
-  const [presetApplied, setPresetApplied] = useState<string | null>(null);
+  const [artApplying, setArtApplying] = useState<BetriebsartKey | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/einstellungen?prefix=modul.");
-      if (!res.ok) throw new Error();
-      const data: Record<string, string> = await res.json();
-      setForm((prev) => {
-        const updated = { ...prev };
-        for (const [key, val] of Object.entries(data)) {
-          updated[key] = val !== "false" && val !== "0";
-        }
-        return updated;
-      });
+      const [modRes, sysRes] = await Promise.all([
+        fetch("/api/einstellungen?prefix=modul."),
+        fetch(`/api/einstellungen?prefix=${encodeURIComponent(BETRIEBSART_KEY)}`),
+      ]);
+      if (!modRes.ok) throw new Error("Module konnten nicht geladen werden");
+      setForm(modulConfigAusMap(await modRes.json()));
+      if (sysRes.ok) {
+        const sys: Record<string, string> = await sysRes.json();
+        setBetriebsart(parseBetriebsart(sys[BETRIEBSART_KEY]));
+      }
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Laden der Einstellungen.");
@@ -64,24 +70,22 @@ export default function ModuleEinstellungenPage() {
     }
   }, []);
 
-  useEffect(() => { fetchSettings(); }, [fetchSettings]);
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await Promise.all(
-        MODULE_LIST.map((m) =>
-          fetch("/api/einstellungen", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: m.key, value: form[m.key] ? "true" : "false" }),
-          })
-        )
-      );
+      await Promise.all(MODUL_KEYS.map((k) => speichereEinstellung(modulSettingKey(k), form[k] ? "true" : "false")));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      // Navigation, Einstellungs-Kacheln, Dashboard und Hilfe lesen die Module aus dem
+      // server-gerenderten ModulProvider (app/layout.tsx) — refresh() zieht sie sofort nach,
+      // statt den Nutzer auf den nächsten harten Seitenaufruf zu vertrösten.
+      router.refresh();
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Speichern.");
@@ -90,51 +94,55 @@ export default function ModuleEinstellungenPage() {
     }
   }
 
-  function toggle(key: string) {
+  function toggleModul(key: ModulKey) {
     setForm((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  async function applyPreset(presetKey: string) {
-    const preset = MODUL_PRESETS.find((p) => p.key === presetKey);
-    if (!preset) return;
-    setPresetApplying(presetKey);
+  function toggleBereich(module: ModulKey[], zielZustand: boolean) {
+    setForm((prev) => {
+      const next = { ...prev };
+      for (const k of module) next[k] = zielZustand;
+      return next;
+    });
+  }
+
+  function toggleDetails(key: string) {
+    setOffeneBereiche((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function waehleBetriebsart(key: BetriebsartKey) {
+    const art = BETRIEBSARTEN.find((b) => b.key === key);
+    if (!art) return;
+    setArtApplying(key);
     setError(null);
     try {
-      const updated: Record<string, boolean> = { ...form };
-      const writes = Object.entries(preset.config).map(([k, v]) => {
-        const settingKey = `modul.${k}`;
-        updated[settingKey] = !!v;
-        return fetch("/api/einstellungen", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: settingKey, value: v ? "true" : "false" }),
-        });
-      });
-      if (preset.artikelkategorien) {
-        writes.push(
-          fetch("/api/einstellungen", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: "system.artikelkategorien", value: JSON.stringify(preset.artikelkategorien) }),
-          })
-        );
+      const naechsteForm = { ...form };
+      const writes: Promise<void>[] = [speichereEinstellung(BETRIEBSART_KEY, key)];
+      for (const [k, v] of Object.entries(art.config) as [ModulKey, boolean][]) {
+        naechsteForm[k] = v;
+        writes.push(speichereEinstellung(modulSettingKey(k), v ? "true" : "false"));
+      }
+      if (art.artikelkategorien) {
+        writes.push(speichereEinstellung("system.artikelkategorien", JSON.stringify(art.artikelkategorien)));
       }
       await Promise.all(writes);
-      setForm(updated);
-      setPresetApplied(presetKey);
-      setTimeout(() => setPresetApplied(null), 3000);
+      setForm(naechsteForm);
+      setBetriebsart(key);
+      router.refresh();
     } catch (err) {
       Sentry.captureException(err);
-      setError("Fehler beim Anwenden des Presets.");
+      setError("Fehler beim Anwenden der Betriebsart.");
     } finally {
-      setPresetApplying(null);
+      setArtApplying(null);
     }
   }
 
   if (loading) return <p className="text-gray-400 mt-8 text-sm">Lade Einstellungen…</p>;
-
-  const aktiv = MODULE_LIST.filter((m) => form[m.key]);
-  const inaktiv = MODULE_LIST.filter((m) => !form[m.key]);
 
   return (
     <div className="max-w-3xl">
@@ -144,102 +152,132 @@ export default function ModuleEinstellungenPage() {
         <span className="text-gray-800 font-medium">Module</span>
       </div>
 
-      <h1 className="text-2xl font-bold mb-1">Module</h1>
+      <h1 className="text-2xl font-bold mb-1">Betriebsart & Module</h1>
       <p className="text-sm text-gray-500 mb-6">
-        Aktiviere oder deaktiviere Funktionsbereiche der Anwendung. Deaktivierte Module werden aus der Navigation ausgeblendet.
-        Alle Module sind standardmäßig aktiviert – deaktiviere nur, was für diesen Betrieb nicht relevant ist.
+        Die Betriebsart legt fest, welche Funktionsbereiche dieser Betrieb überhaupt braucht — sie blendet nicht
+        benötigte Menüpunkte, Einstellungen und Dashboard-Kacheln aus und passt den Zuschnitt der Navigation an.
+        Darunter lässt sich alles einzeln nachjustieren.
       </p>
 
       {error && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
       )}
 
-      <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-sm font-semibold text-gray-700">Branchen-Presets</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Setzt mehrere Module (und ggf. Artikelkategorien) auf einen Schlag. Einzel-Toggles bleiben danach weiter frei editierbar.
-          </p>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {MODUL_PRESETS.map((preset) => (
-            <div key={preset.key} className="flex items-start justify-between gap-4 px-5 py-4">
-              <div>
-                <p className="text-sm font-medium text-gray-800">{preset.label}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{preset.beschreibung}</p>
-              </div>
+      {/* ─── Betriebsart ─────────────────────────────────────────────── */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Betriebsart</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          Setzt die passenden Module auf einen Schlag. Die Einzelschalter darunter bleiben danach frei änderbar.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {BETRIEBSARTEN.map((art) => {
+            const aktiv = betriebsart === art.key;
+            return (
               <button
+                key={art.key}
                 type="button"
-                onClick={() => applyPreset(preset.key)}
-                disabled={presetApplying !== null}
-                className="shrink-0 px-4 py-2 text-xs font-medium rounded-lg border border-green-600 text-green-700 hover:bg-green-50 transition-colors disabled:opacity-60 min-w-[110px]"
+                onClick={() => waehleBetriebsart(art.key)}
+                disabled={artApplying !== null}
+                className={`text-left p-4 rounded-xl border-2 transition-all disabled:opacity-60 ${
+                  aktiv
+                    ? "border-green-600 bg-green-50 shadow-sm"
+                    : "border-gray-200 bg-white hover:border-green-300 hover:shadow-sm"
+                }`}
               >
-                {presetApplying === preset.key ? "Anwenden…" : presetApplied === preset.key ? "✓ Angewendet" : "Anwenden"}
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl leading-none">{art.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
+                      {art.label}
+                      {aktiv && (
+                        <span className="text-[11px] font-medium text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                          aktiv
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">{art.beschreibung}</p>
+                    {artApplying === art.key && <p className="text-xs text-green-700 mt-1.5">Wird angewendet…</p>}
+                  </div>
+                </div>
               </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-700">Aktive Module ({aktiv.length})</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Diese Funktionsbereiche sind sichtbar und nutzbar.</p>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {aktiv.map((m) => (
-              <div key={m.key} className="flex items-start gap-4 px-5 py-4">
-                <button
-                  type="button"
-                  onClick={() => toggle(m.key)}
-                  className="mt-0.5 flex-shrink-0 w-10 h-6 rounded-full bg-green-600 relative transition-colors"
-                  aria-label={`${m.label} deaktivieren`}
-                >
-                  <span className="absolute right-1 top-1 w-4 h-4 rounded-full bg-white shadow transition-transform" />
-                </button>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">{m.label}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{m.description}</p>
-                </div>
-              </div>
-            ))}
-            {aktiv.length === 0 && (
-              <p className="px-5 py-4 text-sm text-gray-400 italic">Keine Module aktiv.</p>
-            )}
-          </div>
-        </div>
+      {/* ─── Bereiche ────────────────────────────────────────────────── */}
+      <form onSubmit={handleSave}>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Funktionsbereiche</h2>
+        <p className="text-xs text-gray-400 mb-3">
+          Ein Bereich schaltet alle enthaltenen Funktionen gemeinsam. „Details“ öffnet die einzelnen Module,
+          falls davon nur ein Teil gebraucht wird.
+        </p>
 
-        {inaktiv.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-              <h2 className="text-sm font-semibold text-gray-700">Inaktive Module ({inaktiv.length})</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Diese Module sind ausgeblendet und nicht nutzbar.</p>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {inaktiv.map((m) => (
-                <div key={m.key} className="flex items-start gap-4 px-5 py-4 bg-gray-50/50">
-                  <button
-                    type="button"
-                    onClick={() => toggle(m.key)}
-                    className="mt-0.5 flex-shrink-0 w-10 h-6 rounded-full bg-gray-300 relative transition-colors"
-                    aria-label={`${m.label} aktivieren`}
-                  >
-                    <span className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow transition-transform" />
-                  </button>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">{m.label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>
+        <div className="space-y-3">
+          {MODUL_BEREICHE.map((bereich) => {
+            const anzahlAn = bereich.module.filter((k) => form[k]).length;
+            const allesAn = anzahlAn === bereich.module.length;
+            const teilweise = anzahlAn > 0 && !allesAn;
+            const offen = offeneBereiche.has(bereich.key);
+            return (
+              <div
+                key={bereich.key}
+                className={`bg-white rounded-xl shadow-sm border overflow-hidden ${
+                  anzahlAn > 0 ? "border-gray-200" : "border-gray-200 bg-gray-50/50"
+                }`}
+              >
+                <div className="flex items-start gap-4 px-5 py-4">
+                  <Schalter
+                    an={anzahlAn > 0}
+                    onClick={() => toggleBereich(bereich.module, !allesAn)}
+                    label={`${bereich.label} ${allesAn ? "deaktivieren" : "aktivieren"}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-medium flex items-center gap-2 flex-wrap ${anzahlAn > 0 ? "text-gray-800" : "text-gray-500"}`}>
+                      <span>{bereich.icon}</span>
+                      {bereich.label}
+                      {teilweise && (
+                        <span className="text-[11px] font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                          teilweise ({anzahlAn} von {bereich.module.length})
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{bereich.beschreibung}</p>
+                    {bereich.module.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleDetails(bereich.key)}
+                        className="mt-2 text-xs text-green-700 hover:text-green-800 font-medium"
+                      >
+                        {offen ? "▾ Details ausblenden" : "▸ Details"}
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        <div className="flex justify-end">
+                {offen && bereich.module.length > 1 && (
+                  <div className="border-t border-gray-100 bg-gray-50/60 divide-y divide-gray-100">
+                    {bereich.module.map((k) => (
+                      <div key={k} className="flex items-start gap-4 px-5 py-3 pl-8">
+                        <Schalter
+                          an={form[k]}
+                          onClick={() => toggleModul(k)}
+                          label={`${MODUL_LABELS[k].label} ${form[k] ? "deaktivieren" : "aktivieren"}`}
+                        />
+                        <div className="min-w-0">
+                          <p className={`text-sm ${form[k] ? "text-gray-800" : "text-gray-500"}`}>{MODUL_LABELS[k].label}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{MODUL_LABELS[k].beschreibung}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end mt-6">
           <button
             type="submit"
             disabled={saving}
@@ -251,7 +289,9 @@ export default function ModuleEinstellungenPage() {
       </form>
 
       <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-        <b>Hinweis:</b> Änderungen werden nach dem nächsten Seitenladen in der Navigation wirksam. Bereits geöffnete Seiten deaktivierter Module bleiben zugänglich bis zum nächsten Neustart.
+        <b>Hinweis:</b> Deaktivierte Bereiche verschwinden aus Navigation, Einstellungen, Dashboard und Hilfe; die
+        zugehörigen Schnittstellen sind zusätzlich serverseitig gesperrt. Bereits erfasste Daten bleiben erhalten und
+        tauchen nach dem Wiedereinschalten unverändert auf.
       </div>
     </div>
   );

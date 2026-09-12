@@ -1089,38 +1089,6 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 
 ---
 
-## Modul-System (Branchen-Module)
-
-**Regel: Ein abschaltbarer Funktionsbereich wird an DREI Stellen konsistent gepflegt** — sonst
-entsteht entweder eine sichtbare, aber tote Seite oder eine versteckte, aber offene API:
-
-1. **Server**: jede zugehörige API-Route ruft `requireModul(await getModulConfig(), "<key>")` als
-   erste Anweisung im Handler auf (403 `{error:"Modul deaktiviert"}`) — Muster exakt wie
-   `requirePermission()`, aber orthogonal dazu (Rolle UND Modul müssen unabhängig passen).
-2. **Navigation**: `MODULE_HREFS` in `components/Nav.tsx` mappt den Modul-Key auf alle Routen des
-   Bereichs; fehlt eine neue Seite dort, bleibt sie bei deaktiviertem Modul sichtbar und läuft
-   dann in 403 (kaputt statt versteckt).
-3. **Kunden-Tabs**: `TAB_MODUL` in `app/kunden/[id]/_shared.tsx`, falls der Bereich einen Tab auf
-   der Kundendetailseite hat.
-
-Dazu die UI-Liste `MODULE_LIST` in `app/einstellungen/module/page.tsx` (Label/Beschreibung/Default)
-und optional ein Eintrag in `lib/modul-presets.ts`. `ModulConfig`, `MODULE_LIST`, `MODULE_HREFS` und
-`MODULE_DEFAULTS_OFF` müssen dieselben Keys führen — die Defaults liegen bewusst redundant vor
-(Server, Nav, Einstellungs-UI), aber sie dürfen nicht auseinanderlaufen.
-
-**Nicht gaten:** Routen von Modulen mit Default `false` (`mqtt`, `nextcloud`), solange die
-Integration ohne Modulschalter konfigurierbar ist — ein Gate würde jede bestehende Installation
-abwürgen, die den Schalter nie angefasst hat. Ebenso ungegatet bleiben Bereiche, die mehrere
-Branchen betreffen (z.B. `/sachkundenachweise`: die meisten Nachweistypen — Sprengstoff,
-Düngerschulung, Mais-Beize — haben nichts mit PSM-Ausbringung zu tun).
-
-**UI-seitig** gilt zusätzlich: branchenspezifische Felder in geteilten Formularen (z.B. die
-Eier-Kennzeichnung in `app/lieferungen/neu/page.tsx` oder der Erzeugerdaten-Block in
-`StammdatenTab.tsx`) werden über einen eigenen `fetch("/api/einstellungen?prefix=modul.")` hinter
-dem Modul-Flag versteckt — sonst sehen alle Installationen Felder einer fremden Branche.
-
----
-
 ## Einstellungen-Architektur (Pflichtprinzip)
 
 **Regel: Alle Einstellungen/Konfigurationen IMMER als Kachelseite + Unterseiten aufbauen.**
@@ -1149,7 +1117,7 @@ dem Modul-Flag versteckt — sonst sehen alle Installationen Felder einer fremde
 | Import | /einstellungen/import | Kunden-Import + Preislisten-Import Konfiguration |
 | Frühbezug | /einstellungen/fruehbezug | Saison-Rabattstaffeln für Vorbestellungen |
 | Futterwerte | /einstellungen/futterwerte | Eigene Futtermittel für die Rationsberechnung pflegen |
-| Module | /einstellungen/module | Funktionsbereiche an-/abschalten + Branchen-Presets (siehe Abschnitt „Modul-System") |
+| Module | /einstellungen/module | Betriebsart (Branchen-Profil) wählen und die sechs Funktionsbereiche ein-/ausschalten |
 
 ---
 
@@ -1571,7 +1539,8 @@ Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
     Bekannte client-sichere `lib/*.ts`-Module mit diesem Muster: `lib/appinfo.ts`,
     `lib/auswahllisten.ts`, `lib/backup-config.ts`, `lib/fetch-reporter.ts`, `lib/girocode.ts`,
     `lib/logger.ts`, `lib/mahnwesen-config.ts`, `lib/matif.ts`, `lib/prisma.ts`,
-    `lib/sentry-dsn.ts`, `lib/useScrollRestoration.ts`.
+    `lib/sentry-dsn.ts`, `lib/useScrollRestoration.ts`, `lib/modul-keys.ts`, `lib/modul-context.tsx`,
+    `lib/betriebsart.ts`, `lib/nav-profil.ts`.
     Hinweis: `lib/sentry.ts` ist inzwischen nur noch ein Re-Export von `@sentry/nextjs` (der
     `withSentry`-Wrapper ist entfallen) und zieht `next/headers` nicht mehr nach. Die Regel bleibt
     trotzdem bestehen — sie schützt davor, dass ein künftiger server-only Import im Wrapper den
@@ -1658,6 +1627,88 @@ Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
 - **Middleware:** Prüft Cookie auf geschützten Routen; `/login` und `/qr/[id]` sind öffentlich
 - **Rollen:** Gespeichert im JWT-Payload; `rolle: "admin" | "benutzer"`
 
+## Branchen-Profile & Module
+
+**Regel: Jede Seite, API-Route, Einstellungs-Kachel, Dashboard-Kachel und Hilfe-Sektion, die nur
+für einen Teil der Betriebe relevant ist, wird einem `modul.*`-Key zugeordnet — sonst sieht ein
+Eierbetrieb weiterhin den Zwischenfrucht-Mischungsrechner.**
+
+### Betriebsart (`system.betriebsart`)
+
+Eine Einstellung, vier Werte: `agrarhandel` (Standard/Fallback) | `eierbetrieb` | `saatguthandel` |
+`individuell`. Sie wird im Onboarding (Schritt 3) und unter `/einstellungen/module` gesetzt und
+bewirkt zweierlei:
+
+1. **Modulbündel** — beim Auswählen werden die `modul.*`-Werte des Profils (und ggf.
+   `system.artikelkategorien`) einmalig geschrieben. Danach sind die Einzelschalter frei
+   überschreibbar; die Betriebsart ist ein Ausgangspunkt, kein Lock-in.
+2. **Nav-Profil** (`navProfil` in `lib/betriebsart.ts`, angewandt von `wendeNavProfilAn()`) —
+   benennt Menügruppen um, löst eine `section` in eine eigene Top-Level-Gruppe heraus (optional
+   unter Absorption einer zweiten Gruppe, `auchAusGruppe`), sortiert die Gruppen um und
+   beschriftet die Tab-Gruppen der Kunden-Detailseite (`kundenTabGruppen`).
+
+| Betriebsart | Menü-Zuschnitt |
+|---|---|
+| agrarhandel | unverändert (kein Profil) — Bestandsinstallationen ohne gesetzten Key verhalten sich exakt wie vorher |
+| eierbetrieb | „Pflanze & Tier" und der Eierhandel-Abschnitt aus „Lieferungen" werden zu einer Gruppe **„Eier & Futter"** zusammengefasst; Kunden-Tab-Gruppe „Agrar" heißt „Tier" |
+| saatguthandel | „Pflanze & Tier" → **„Pflanzenbau"**; Kunden-Tab-Gruppe „Agrar" → „Pflanzenbau" |
+
+**Wichtig:** `wendeNavProfilAn()` läuft in `components/Nav.tsx` VOR der Modul-/Permission-Filterung.
+Andersherum bliebe eine herausgelöste Gruppe mit leerer Kinderliste stehen, statt von der
+bestehenden „Gruppe ohne Kinder verschwindet"-Regel mit erfasst zu werden.
+
+### Modul-Oberbereiche
+
+`/einstellungen/module` zeigt nicht mehr 16 Einzelschalter, sondern sechs Bereiche
+(`MODUL_BEREICHE` in `lib/betriebsart.ts`) mit Master-Schalter und aufklappbaren Details. Die
+`modul.*`-Keys selbst bleiben unverändert das Speicher- und Enforcement-Format — es gibt keine
+Migration, und alle `requireModul()`-Aufrufe bleiben gültig.
+
+| Bereich | Module |
+|---|---|
+| 🌾 Pflanzenbau & Feld | bodenproben, psm_ausbringung, sortenversuche, agrarantraege |
+| 🐄 Tierhaltung & Futter | rationsberechnung |
+| 🥚 Eierhandel | eierhandel |
+| 📊 Vertrieb & Kundenbindung | kampagnen, kontrakte, fruehbezug, reklamationen |
+| 🚛 Logistik & Einkauf | tourenplanung, erzeugerabrechnung |
+| ⚙️ Betrieb & Schnittstellen | personal, marktpreise, nextcloud, mqtt |
+
+### Wo die Filterung greift
+
+| Ort | Mechanismus |
+|---|---|
+| Navigation | `MODULE_HREFS` (`components/Nav.tsx`) — href (ohne Query-String) → Modul-Key |
+| Kunden-Detail-Tabs | `TAB_MODUL` (`app/kunden/[id]/_shared.tsx`) |
+| Einstellungs-Kacheln | optionales `modul`-Feld je Tile in `app/einstellungen/page.tsx`; eine leer gewordene Section verschwindet ganz |
+| Dashboard | optionales `modul`-Feld in `WIDGET_DEFS` und `SCHNELLZUGRIFF` (`app/page.tsx`); `widgetAktiv()` prüft es zusätzlich zur gespeicherten Auswahl, die gespeicherte Liste selbst wird NICHT umgeschrieben (Wiedereinschalten bringt die alte Auswahl zurück) |
+| Hilfe | optionales `modul`-Feld je Section in `app/hilfe/page.tsx` |
+| API | `requireModul(await getModulConfig(), "<key>")` als erste Zeilen des Handlers |
+
+Die globale Suche (`components/SearchPalette.tsx`) braucht bewusst **keine** Filterung: ihre
+Ergebnistypen (Kunden/Artikel/Lieferungen/Angebote/Aufgaben/Ausgaben/Chargen) und Schnellaktionen
+sind durchgehend modulneutral.
+
+### Beim Bau einer neuen Seite beachten
+
+1. Ist die Seite branchenspezifisch? → Eintrag in `MODULE_HREFS` **und** `requireModul()` in der
+   zugehörigen API-Route. Beides, nicht nur eines: `MODULE_HREFS` versteckt nur den Menüpunkt.
+2. Ein Modul-Key ist immer in genau einem `MODUL_BEREICHE`-Eintrag gelistet (Unit-Test
+   `__tests__/lib/betriebsart.test.ts` erzwingt das).
+3. Client-Code liest Module **nie** per `fetch("/api/einstellungen?prefix=modul.")`, sondern über
+   `useModule()`/`useModulAktiv()` aus `lib/modul-context.tsx` — `app/layout.tsx` lädt sie einmal
+   server-seitig. Einzige Ausnahme ist `/einstellungen/module` selbst (braucht den Live-Zustand
+   zum Bearbeiten). Das gilt auch für einzelne branchenspezifische **Felder** in geteilten
+   Formularen (Eier-Kennzeichnung in `app/lieferungen/neu/page.tsx`, Erzeugerdaten-Block in
+   `StammdatenTab.tsx`) — sonst sieht jede Installation Felder einer fremden Branche.
+
+**Bewusst NICHT gegatet:** Routen von Modulen mit Default `false` (`mqtt`, `nextcloud`). Deren
+Integration ist auch ohne Modulschalter konfigurierbar — ein Gate würde jede bestehende
+Installation abwürgen, die den Schalter nie angefasst hat. Aus demselben Grund bleibt
+`app/api/pegelstaende` offen (reiner Umweltdatendienst ohne Fachbezug; nur das Dashboard-Widget
+ist modulabhängig).
+
+---
+
 ## Neue Lib-Module
 
 | Datei | Zweck |
@@ -1695,8 +1746,12 @@ Zwei Eigenschaften des Reporters, die nicht „wegoptimiert" werden dürfen:
 | `lib/jahrespreis.ts` | Preis-Jahresgültigkeiten (`ArtikelJahrespreis`/`ArtikelLieferantJahrespreis`/`KundeArtikelPreisJahr`): `loeseJahrespreisAuf()` interpoliert auf das nächstgelegene bekannte Jahr, `syncArtikelStandardpreis()`/`syncEinkaufspreis()`/`syncKundePreis()` halten den jeweiligen Basispreis-Skalar synchron |
 | `lib/einkaufspreisverlauf.ts` | Datumsgenauer Einkaufspreis-Verlauf je Lieferant (`ArtikelLieferantPreis`): `setAktiverEinkaufspreis()` markiert genau einen Eintrag als aktiv und synct `ArtikelLieferant.einkaufspreis`; `hatAktivenEinkaufspreis()` lässt `syncEinkaufspreis()` (lib/jahrespreis.ts) einen bewusst gewählten Preisverlauf-Preis nicht überschreiben |
 | `lib/artikel-kategorie.ts` | `loadKategorieTaxonomie()` — lädt die konfigurierten Top-Level-Kategorien + deren Unterkategorien aus `Einstellung` für `resolveKategorie()` (lib/auswahllisten.ts), genutzt von den Artikel-Import-Routen und `/api/artikel/kategorien-bereinigen` |
-| `lib/modul-config.ts` | **Modul-System**: `ModulConfig` (16 Bool-Flags), `getModulConfig()` (liest `Einstellung`-Keys mit Prefix `modul.`), `requireModul(config, key)` — serverseitiger 403-Guard analog `requirePermission()` in `lib/permissions.ts`, orthogonal dazu (beide müssen unabhängig grün sein) |
-| `lib/modul-presets.ts` | Branchen-Presets ("vollsortiment"/"eierbetrieb"/"saatguthandel") — setzen mehrere `modul.*`-Werte + optional `system.artikelkategorien` auf einen Klick; Einzel-Toggles bleiben danach frei editierbar. Importiert `ModulConfig` nur als `import type` (client-sicher) |
+| `lib/modul-keys.ts` | Reine Daten-/Parselogik des Modul-Systems (`ModulConfig`, `DEFAULT_MODUL_CONFIG`, `MODUL_KEYS`, `modulConfigAusMap()`) — bewusst importfrei, damit Server UND Client dieselbe Auswertung nutzen können |
+| `lib/modul-config.ts` | **Modul-System**, Server-Einstieg: `getModulConfig()` (liest `Einstellung`-Keys mit Prefix `modul.`) + `requireModul(config, key)` — serverseitiger 403-Guard analog `requirePermission()` in `lib/permissions.ts`, orthogonal dazu (beide müssen unabhängig grün sein). Typ/Defaults kommen aus `lib/modul-keys.ts` und werden re-exportiert |
+| `lib/modul-context.tsx` | `ModulProvider`/`useModule()`/`useModulAktiv()`/`useBetriebsart()` — Client-Kontext, aus `app/layout.tsx` server-seitig befüllt (Muster wie `lib/user-context.tsx`); ersetzt die früheren Einzel-Fetches auf `/api/einstellungen?prefix=modul.` |
+| `lib/betriebsart.ts` | Branchen-Profile (`BETRIEBSARTEN`, `parseBetriebsart()`, `navProfilFuer()`) + die sechs Modul-Oberbereiche (`MODUL_BEREICHE`, `MODUL_LABELS`) für `/einstellungen/module`. Löst das frühere `lib/modul-presets.ts` ab (Presets ohne Gedächtnis) |
+| `lib/betriebsart-server.ts` | `getBetriebsart()` — server-seitiger Lesezugriff auf `system.betriebsart` (getrennt, damit `lib/betriebsart.ts` importfrei bleibt) |
+| `lib/nav-profil.ts` | `wendeNavProfilAn()` — reine Funktion, die die Nav-Gruppen gemäß Betriebsart umbenennt, eine Section in eine eigene Gruppe herauslöst (optional eine zweite Gruppe absorbiert) und umsortiert |
 | `lib/eier-mhd.ts` | `berechneEierMhd(legedatum)` — MHD für Eier = Legedatum + 28 Tage (EU-Vermarktungsnorm). Importfrei, client- UND serverseitig nutzbar |
 | `lib/kat-meldung.ts` | `sammleKatMeldung(von,bis)` + `buildKatMeldungCsv()` — wöchentliche KAT-Warenstrommeldung (Struktur analog `sammleDatevBuchungen()` in `lib/datev.ts`); zählt nur `status:"geliefert"` (stornierte Lieferungen bleiben draußen) |
 | `lib/meldepflichten.ts` | `pruefeMeldepflichten()` — legt fällige Melde-Aufgaben an (Tierseuchenkasse-Frist 31.01. → nächste bevorstehende, nicht "dieses Jahr"; wöchentliche KAT-Erinnerung nur wenn die vorherige erledigt ist). Eingebunden als Cron-Job `meldepflichten` in `app/api/cron/route.ts`, prüft `modul.eierhandel` selbst |

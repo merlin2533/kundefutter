@@ -5,11 +5,16 @@ import path from "path";
 import { getUploadBase } from "@/lib/upload";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, uploadZuKundeOrdner } from "@/lib/nextcloud";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id } = await params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -27,6 +32,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id } = await params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

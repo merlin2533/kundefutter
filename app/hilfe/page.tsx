@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useModule } from "@/lib/modul-context";
+import type { ModulKey } from "@/lib/modul-keys";
 
 interface Feature {
   text: string;
@@ -15,6 +17,8 @@ interface Section {
   color: string;
   features: Feature[];
   link?: string;
+  /** Bereich nur zeigen, wenn dieses Modul aktiv ist (analog MODULE_HREFS in components/Nav.tsx). */
+  modul?: ModulKey;
 }
 
 const sections: Section[] = [
@@ -114,6 +118,7 @@ const sections: Section[] = [
   },
   {
     id: "tourenplanung",
+    modul: "tourenplanung",
     icon: "🗺️",
     title: "Tourenplanung",
     color: "cyan",
@@ -145,6 +150,7 @@ const sections: Section[] = [
   },
   {
     id: "agrarantraege",
+    modul: "agrarantraege",
     icon: "🌾",
     title: "Agraranträge (AFIG)",
     color: "lime",
@@ -159,6 +165,7 @@ const sections: Section[] = [
   },
   {
     id: "schlagkartei",
+    modul: "bodenproben",
     icon: "🌱",
     title: "Schlagkartei & Pflanzenbau",
     color: "teal",
@@ -182,6 +189,7 @@ const sections: Section[] = [
   },
   {
     id: "tier",
+    modul: "rationsberechnung",
     icon: "🐄",
     title: "Tierhaltung & Rationsberechnung",
     color: "amber",
@@ -230,6 +238,7 @@ const sections: Section[] = [
   },
   {
     id: "reklamationen",
+    modul: "reklamationen",
     icon: "⚠️",
     title: "Reklamationen & Qualität",
     color: "purple",
@@ -245,6 +254,7 @@ const sections: Section[] = [
   },
   {
     id: "kampagnen",
+    modul: "kampagnen",
     icon: "📣",
     title: "Kampagnen & Marketing",
     color: "cyan",
@@ -286,6 +296,23 @@ const sections: Section[] = [
       { text: "Self-Service-Portal für Kunden: eigene Bestellungen aufgeben" },
       { text: "Lieferscheine und Rechnungen online einsehen" },
       { text: "Portal-Zugangsdaten je Kunde konfigurieren" },
+    ],
+  },
+  {
+    id: "eierhandel",
+    icon: "🥚",
+    title: "Eierhandel",
+    color: "amber",
+    modul: "eierhandel",
+    link: "/eiersortierung",
+    features: [
+      { text: "Ei-Sortierprotokoll: eine Anlieferung in klassifizierte Ausgangschargen aufteilen (bucht Lagerbewegungen)" },
+      { text: "Güte- und Gewichtsklassen nach EU-Vermarktungsnorm (Del. VO (EU) 2023/2465, DVO 2023/2466)" },
+      { text: "Erzeugercode und Haltungsform je Kunde hinterlegen" },
+      { text: "Legedatum je Position mit automatischer MHD-Berechnung (Legedatum + 28 Tage)" },
+      { text: "Kennzeichnung erscheint auf Lieferschein und Rechnung (Bildschirm und PDF)" },
+      { text: "KAT-Wochenmeldung als Export inkl. Vorschau" },
+      { text: "Meldepflichten-Tracker: Tierseuchenkasse-Frist (31.01.) und wöchentliche KAT-Meldung als Aufgabe" },
     ],
   },
   {
@@ -399,17 +426,22 @@ function SectionCard({ section, defaultOpen }: { section: Section; defaultOpen?:
 export default function HilfePage() {
   const [search, setSearch] = useState("");
   const [expandAll, setExpandAll] = useState(false);
+  const modulConfig = useModule();
 
   const query = search.trim().toLowerCase();
 
+  // Bereiche abgeschalteter Module gar nicht erst anbieten — sonst beschreibt die Hilfe
+  // Funktionen, die es in dieser Installation nicht gibt.
+  const sichtbareSections = sections.filter((s) => !s.modul || modulConfig[s.modul]);
+
   const filtered = query
-    ? sections
+    ? sichtbareSections
         .map((s) => ({
           ...s,
           features: s.features.filter((f) => f.text.toLowerCase().includes(query)),
         }))
         .filter((s) => s.features.length > 0 || s.title.toLowerCase().includes(query))
-    : sections;
+    : sichtbareSections;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -430,7 +462,7 @@ export default function HilfePage() {
 
       {/* Schnellnavigation */}
       <div className="mb-6 flex flex-wrap gap-2">
-        {sections.map((s) => (
+        {sichtbareSections.map((s) => (
           <a
             key={s.id}
             href={`#${s.id}`}

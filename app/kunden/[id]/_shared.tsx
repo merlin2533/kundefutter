@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
+import type { ModulKey } from "@/lib/modul-keys";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,10 +140,16 @@ export const TAB_GRUPPEN: { label: string; icon: string; tabs: Tab[] }[] = [
 /** Ordnet Tabs, die zu einem abschaltbaren Modul gehören, dessen Einstellungs-Key (`modul.<key>`)
  *  zu — analog zu MODULE_HREFS in components/Nav.tsx, hier auf Tab-Ebene statt Routen-Ebene.
  *  Tabs ohne Eintrag (z.B. Stammdaten, CRM) sind immer sichtbar. */
-export const TAB_MODUL: Partial<Record<Tab, string>> = {
+export const TAB_MODUL: Partial<Record<Tab, ModulKey>> = {
   Schlagkartei: "bodenproben",
   Düngebedarf: "bodenproben",
   Albrecht: "bodenproben",
+  Zertifizierungen: "bodenproben",
+  // Sprengstoffvorläufer-Erklärung (Ammoniumnitrat) ist ein reines Düngemittel-Thema.
+  Erklärungen: "bodenproben",
+  // s. Kommentar in MODULE_HREFS (components/Nav.tsx): Sprengstoff-/Duenger-Nachweise
+  // sind kein Pflanzenschutzthema.
+  Sachkundenachweise: "bodenproben",
   Agrarantrag: "agrarantraege",
   Tiere: "rationsberechnung",
   Reklamationen: "reklamationen",

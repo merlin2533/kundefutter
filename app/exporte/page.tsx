@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
 
 interface ExportCard {
   title: string;
@@ -92,7 +93,7 @@ export default function ExportePage() {
   const [archiving, setArchiving] = useState<Record<string, boolean>>({});
   const [archivMeldung, setArchivMeldung] = useState<Record<string, string>>({});
   const [kunden, setKunden] = useState<Kunde[]>([]);
-  const [eierhandelAn, setEierhandelAn] = useState(false);
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   // Massenexport state
   const [bulkTyp, setBulkTyp] = useState<"rechnung" | "lieferschein">("rechnung");
@@ -112,13 +113,6 @@ export default function ExportePage() {
       .catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/einstellungen?prefix=modul.")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((mod: Record<string, string>) => {
-        const val = mod["modul.eierhandel"];
-        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
-      })
-      .catch((err) => Sentry.captureException(err));
   }, []);
 
   function updateState(typ: string, field: keyof ExportState, value: string) {

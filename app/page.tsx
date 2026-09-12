@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { KpiCard, Card } from "@/components/Card";
+import { useModule } from "@/lib/modul-context";
+import type { ModulKey } from "@/lib/modul-keys";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -214,22 +216,24 @@ type WidgetId =
   | "wetter" | "besuchstermine" | "sachkundenachweise" | "sprengstoff_nachweise" | "reklamationen_kritisch"
   | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung";
 
-const WIDGET_DEFS: { id: WidgetId; label: string; icon: string }[] = [
+// `modul` blendet ein Widget aus, wenn der zugehoerige Funktionsbereich abgeschaltet ist
+// (analog MODULE_HREFS in components/Nav.tsx). Widgets ohne Eintrag sind immer verfuegbar.
+const WIDGET_DEFS: { id: WidgetId; label: string; icon: string; modul?: ModulKey }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
-  { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️" },
+  { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️", modul: "reklamationen" },
   { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
   { id: "wiedervorlagen", label: "Wiedervorlagen", icon: "🔁" },
   { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
-  { id: "sachkundenachweise", label: "Ablaufende Sachkundenachweise", icon: "🎓" },
+  { id: "sachkundenachweise", label: "Ablaufende Sachkundenachweise", icon: "🎓", modul: "psm_ausbringung" },
   { id: "besuchstermine", label: "Besuchstermine", icon: "📅" },
   { id: "budget", label: "Budget-Fortschritt", icon: "🎯" },
   { id: "angebote_pipeline", label: "Angebots-Pipeline", icon: "📊" },
-  { id: "vorbestellungen", label: "Offene Vorbestellungen", icon: "🌱" },
-  { id: "matif", label: "MATIF-Futures", icon: "📈" },
+  { id: "vorbestellungen", label: "Offene Vorbestellungen", icon: "🌱", modul: "fruehbezug" },
+  { id: "matif", label: "MATIF-Futures", icon: "📈", modul: "marktpreise" },
   { id: "wetter", label: "5-Tage-Wetter", icon: "🌤️" },
-  { id: "pegelstaende", label: "Pegelstände", icon: "🌊" },
-  { id: "sprengstoff_nachweise", label: "Sprengstoff-Nachweise (ablaufend)", icon: "💥" },
-  { id: "personal_abrechnung", label: "Personal-Abrechnungen", icon: "👥" },
+  { id: "pegelstaende", label: "Pegelstände", icon: "🌊", modul: "bodenproben" },
+  { id: "sprengstoff_nachweise", label: "Sprengstoff-Nachweise (ablaufend)", icon: "💥", modul: "bodenproben" },
+  { id: "personal_abrechnung", label: "Personal-Abrechnungen", icon: "👥", modul: "personal" },
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = [
@@ -400,15 +404,17 @@ function BenachrichtigungenWidget() {
   );
 }
 
-const SCHNELLZUGRIFF = [
+const SCHNELLZUGRIFF: { href: string; label: string; icon: string; color: string; modul?: ModulKey }[] = [
   { href: "/lieferungen/neu", label: "Neue Lieferung", icon: "📦", color: "bg-green-50 border-green-200 hover:bg-green-100" },
   { href: "/lager/wareneingang", label: "Wareneingang", icon: "🚚", color: "bg-blue-50 border-blue-200 hover:bg-blue-100" },
   { href: "/kunden/neu", label: "Neuer Kunde", icon: "👤", color: "bg-purple-50 border-purple-200 hover:bg-purple-100" },
   { href: "/crm", label: "CRM Aktivität", icon: "💬", color: "bg-orange-50 border-orange-200 hover:bg-orange-100" },
-  { href: "/tourenplanung", label: "Tourenplanung", icon: "🗺️", color: "bg-yellow-50 border-yellow-200 hover:bg-yellow-100" },
+  { href: "/tourenplanung", label: "Tourenplanung", icon: "🗺️", color: "bg-yellow-50 border-yellow-200 hover:bg-yellow-100", modul: "tourenplanung" },
   { href: "/bestellliste", label: "Bestellliste", icon: "🛒", color: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100" },
-  { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100" },
-  { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100" },
+  { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100", modul: "agrarantraege" },
+  { href: "/eiersortierung/neu", label: "Ei-Sortierprotokoll", icon: "🥚", color: "bg-amber-50 border-amber-200 hover:bg-amber-100", modul: "eierhandel" },
+  { href: "/meldepflichten", label: "Meldepflichten", icon: "📋", color: "bg-lime-50 border-lime-200 hover:bg-lime-100", modul: "eierhandel" },
+  { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100", modul: "marktpreise" },
   { href: "/ki/lieferung?eingabe=sprache", label: "Lieferung per Sprache", icon: "🎙️", color: "bg-red-50 border-red-200 hover:bg-red-100" },
 ];
 
@@ -1455,9 +1461,16 @@ export default function DashboardPage() {
   const [anpassenOpen, setAnpassenOpen] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const { aktiv: aktiveWidgets, loaded: widgetsLoaded, toggleWidget } = useDashboardWidgets();
+  const modulConfig = useModule();
+
+  // Ein in dashboard.widgets.<userId> gespeichertes Widget eines abgeschalteten Moduls darf
+  // nicht mehr rendern. Die gespeicherte Auswahl selbst wird bewusst NICHT umgeschrieben —
+  // beim Wiedereinschalten des Moduls ist das Widget dadurch sofort wieder da.
+  const verfuegbareWidgets = WIDGET_DEFS.filter((w) => !w.modul || modulConfig[w.modul]);
 
   function widgetAktiv(id: WidgetId): boolean {
-    return aktiveWidgets.includes(id);
+    if (!aktiveWidgets.includes(id)) return false;
+    return verfuegbareWidgets.some((w) => w.id === id);
   }
 
   const loadData = () => {
@@ -1486,9 +1499,13 @@ export default function DashboardPage() {
       });
   };
 
+  // Ohne aktives Marktpreise-Modul antwortet /api/marktpreise/spot mit 403 (requireModul) —
+  // der Aufruf wuerde nur Rauschen im Fehler-Log erzeugen, das Widget ist ohnehin ausgeblendet.
+  const matifModulAn = modulConfig.marktpreise;
+
   useEffect(() => {
     loadData();
-    loadMatif();
+    if (matifModulAn) loadMatif();
     // Check onboarding status
     fetch("/api/einstellungen?prefix=system.onboarding")
       .then((r) => r.ok ? r.json() : {})
@@ -1507,10 +1524,10 @@ export default function DashboardPage() {
     };
     const interval = setInterval(tick, 60_000);
     document.addEventListener("visibilitychange", tick);
-    const matifInterval = setInterval(loadMatif, 6 * 60 * 60_000); // 6h
+    const matifInterval = matifModulAn ? setInterval(loadMatif, 6 * 60 * 60_000) : null; // 6h
     return () => {
       clearInterval(interval);
-      clearInterval(matifInterval);
+      if (matifInterval) clearInterval(matifInterval);
       document.removeEventListener("visibilitychange", tick);
     };
   }, []);
@@ -1669,7 +1686,7 @@ export default function DashboardPage() {
         <div className="mb-5 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Widgets ein-/ausblenden</h2>
           <div className="flex flex-wrap gap-2">
-            {WIDGET_DEFS.map((w) => {
+            {verfuegbareWidgets.map((w) => {
               const isOn = aktiveWidgets.includes(w.id);
               return (
                 <button
@@ -2166,7 +2183,7 @@ export default function DashboardPage() {
         <Card>
           <h2 className="font-semibold mb-3">Schnellzugriff</h2>
           <div className="grid grid-cols-2 gap-2">
-            {SCHNELLZUGRIFF.map((item) => (
+            {SCHNELLZUGRIFF.filter((i) => !i.modul || modulConfig[i.modul]).map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

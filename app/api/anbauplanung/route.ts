@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 const STATUS_WHITELIST = new Set(["geplant", "ausgesaet", "geerntet", "abgebrochen"]);
 
 // GET /api/anbauplanung?kundeId=&schlagId=&jahr=
 export async function GET(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const kundeId = parseInt(searchParams.get("kundeId") ?? "", 10);
   const schlagId = parseInt(searchParams.get("schlagId") ?? "", 10);
@@ -37,6 +42,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/anbauplanung
 export async function POST(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   try {
     const body = await req.json();
     const kundeId = parseInt(String(body.kundeId), 10);
@@ -82,6 +91,10 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/anbauplanung?id=
 export async function DELETE(req: NextRequest) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

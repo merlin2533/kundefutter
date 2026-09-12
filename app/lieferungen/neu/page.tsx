@@ -8,6 +8,7 @@ import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMe
 import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
 
 interface Kunde {
   id: number;
@@ -339,16 +340,7 @@ function NeueLieferungInner() {
 
   // Eier-Kennzeichnungsfelder nur zeigen, wenn das Eierhandel-Modul aktiv ist — die Kategorie
   // "Eier" allein reicht nicht, sonst sähe jede Installation (Modul-Default: aus) die Felder.
-  const [eierhandelAn, setEierhandelAn] = useState(false);
-  useEffect(() => {
-    fetch("/api/einstellungen?prefix=modul.")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((mod: Record<string, string>) => {
-        const val = mod["modul.eierhandel"];
-        setEierhandelAn(val !== undefined && val !== "false" && val !== "0");
-      })
-      .catch((err) => Sentry.captureException(err));
-  }, []);
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   // Aktive Kampagnen für den ausgewählten Kunden laden
   useEffect(() => {
