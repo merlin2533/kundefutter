@@ -286,8 +286,8 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
             const bl = blMap[normalisiert.substring(3, 5)];
             return <InfoRow label="VVVO/HIT-Nr." value={`DE ${normalisiert.substring(3, 5)} ${normalisiert.substring(5)}${bl ? ` (${bl})` : ""}`} />;
           })()}
-          {kunde.erzeugercode && <InfoRow label="Erzeugercode" value={kunde.erzeugercode} />}
-          {kunde.haltungsform != null && <InfoRow label="Haltungsform" value={haltungsformLabel(kunde.haltungsform)} />}
+          {eierhandelAn && kunde.erzeugercode && <InfoRow label="Erzeugercode" value={kunde.erzeugercode} />}
+          {eierhandelAn && kunde.haltungsform != null && <InfoRow label="Haltungsform" value={haltungsformLabel(kunde.haltungsform)} />}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href={`/sachkundenachweise?kundeId=${kunde.id}`} className="text-xs px-3 py-1.5 border rounded hover:bg-gray-50">📜 Sachkundenachweise</Link>

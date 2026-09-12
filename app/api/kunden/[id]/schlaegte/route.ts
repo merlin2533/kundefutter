@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getModulConfig, requireModul } from "@/lib/modul-config";
 export const dynamic = "force-dynamic";
 
 
@@ -8,6 +9,10 @@ type Params = { params: Promise<{ id: string }> };
 
 // GET /api/kunden/[id]/schlaegte
 export async function GET(_req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id } = await ctx.params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -26,6 +31,10 @@ export async function GET(_req: NextRequest, ctx: Params) {
 
 // POST /api/kunden/[id]/schlaegte
 export async function POST(req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id } = await ctx.params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -72,6 +81,10 @@ export async function POST(req: NextRequest, ctx: Params) {
 
 // DELETE /api/kunden/[id]/schlaegte?schlagId=X
 export async function DELETE(req: NextRequest, ctx: Params) {
+  const modul = await getModulConfig();
+  const denyModul = requireModul(modul, "bodenproben");
+  if (denyModul) return denyModul;
+
   const { id } = await ctx.params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
