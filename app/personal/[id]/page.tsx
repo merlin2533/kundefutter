@@ -760,6 +760,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
             </div>
           ) : (
             <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
@@ -799,6 +800,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -820,6 +822,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
             </div>
           ) : (
             <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
@@ -975,6 +978,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
@@ -999,6 +1003,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
             </div>
           ) : (
             <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
@@ -1040,6 +1045,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </div>
