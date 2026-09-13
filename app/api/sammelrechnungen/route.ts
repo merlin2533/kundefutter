@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRechnungsnummer } from "@/lib/utils";
+import { markiereLieferungGeliefertFallsGeplant } from "@/lib/lieferung";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,22 @@ export async function POST(req: NextRequest) {
       });
       if (bereitsZugewiesen.length > 0) {
         throw new Error(`Lieferungen [${bereitsZugewiesen.map((l) => l.id).join(", ")}] sind bereits einer Sammelrechnung zugewiesen`);
+      }
+      const storniert = await tx.lieferung.findMany({
+        where: { id: { in: lieferungIds }, status: "storniert" },
+        select: { id: true },
+      });
+      if (storniert.length > 0) {
+        throw new Error(`Lieferungen [${storniert.map((l) => l.id).join(", ")}] sind storniert und können nicht abgerechnet werden`);
+      }
+
+      // Manche Betriebe markieren Lieferungen im Alltag nie explizit als "geliefert"
+      // (die Ware verlässt das Haus, ohne dass jemand den Status im System nachzieht) — eine
+      // Sammelrechnung darf trotzdem gestellt werden, genau wie bei der Einzelrechnung
+      // (aktion=rechnung_erstellen), die denselben Übergang schon immer automatisch mitzieht.
+      // Bucht bei noch "geplanten" Lieferungen Lagerausgang + Chargenpflicht-Prüfung nach.
+      for (const id of lieferungIds) {
+        await markiereLieferungGeliefertFallsGeplant(tx, id);
       }
 
       const [einstellung, prefixSetting] = await Promise.all([

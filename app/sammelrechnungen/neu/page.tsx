@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import { StatusBadge } from "@/components/Badge";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
@@ -60,12 +61,16 @@ function NeueSammelrechnungForm() {
   useEffect(() => {
     if (!kundeId) { setLieferungen([]); setAusgewaehlt(new Set()); return; }
     setLoadingLieferungen(true);
-    fetch(`/api/lieferungen?kundeId=${kundeId}&status=geliefert`)
+    // Bewusst OHNE status=geliefert-Filter: viele Betriebe markieren Lieferungen im Alltag nie
+    // explizit als "geliefert" — eine noch "geplante" Lieferung wird beim Erstellen der
+    // Sammelrechnung serverseitig automatisch mitgezogen (wie bei der Einzelrechnung), siehe
+    // POST /api/sammelrechnungen. Nur stornierte Lieferungen scheiden aus.
+    fetch(`/api/lieferungen?kundeId=${kundeId}`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
         const list = Array.isArray(data) ? data : [];
-        // Nur Lieferungen ohne bestehende Einzel-Rechnung und ohne Sammelrechnung
-        const verfuegbar = list.filter((l) => !l.rechnungNr && !l.sammelrechnungId);
+        // Nur Lieferungen ohne bestehende Einzel-Rechnung, ohne Sammelrechnung und nicht storniert
+        const verfuegbar = list.filter((l) => !l.rechnungNr && !l.sammelrechnungId && l.status !== "storniert");
         setLieferungen(verfuegbar);
         setAusgewaehlt(new Set(verfuegbar.map((l) => l.id)));
       })
@@ -177,36 +182,45 @@ function NeueSammelrechnungForm() {
                 Keine offenen Lieferungen ohne Rechnung gefunden.
               </p>
             ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                {lieferungen.map((l, i) => {
-                  const betrag = berechneBetrag(l.positionen);
-                  const checked = ausgewaehlt.has(l.id);
-                  return (
-                    <label
-                      key={l.id}
-                      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-                        i > 0 ? "border-t border-gray-100" : ""
-                      } ${checked ? "bg-green-50" : "hover:bg-gray-50"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          const next = new Set(ausgewaehlt);
-                          if (e.target.checked) next.add(l.id);
-                          else next.delete(l.id);
-                          setAusgewaehlt(next);
-                        }}
-                        className="w-4 h-4 accent-green-600"
-                      />
-                      <span className="flex-1 text-sm">
-                        Lieferung #{l.id} · {formatDatum(l.datum)}
-                      </span>
-                      <span className="text-sm font-mono font-medium text-gray-700">{formatEuro(betrag)}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              <>
+                {lieferungen.some((l) => l.status === "geplant") && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    Mit „Auftrag“ markierte Positionen sind noch nicht als geliefert erfasst — beim
+                    Erstellen der Sammelrechnung werden sie automatisch auf „geliefert“ gesetzt.
+                  </p>
+                )}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {lieferungen.map((l, i) => {
+                    const betrag = berechneBetrag(l.positionen);
+                    const checked = ausgewaehlt.has(l.id);
+                    return (
+                      <label
+                        key={l.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                          i > 0 ? "border-t border-gray-100" : ""
+                        } ${checked ? "bg-green-50" : "hover:bg-gray-50"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = new Set(ausgewaehlt);
+                            if (e.target.checked) next.add(l.id);
+                            else next.delete(l.id);
+                            setAusgewaehlt(next);
+                          }}
+                          className="w-4 h-4 accent-green-600"
+                        />
+                        <span className="flex-1 text-sm flex items-center gap-2">
+                          Lieferung #{l.id} · {formatDatum(l.datum)}
+                          {l.status === "geplant" && <StatusBadge status={l.status} />}
+                        </span>
+                        <span className="text-sm font-mono font-medium text-gray-700">{formatEuro(betrag)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
