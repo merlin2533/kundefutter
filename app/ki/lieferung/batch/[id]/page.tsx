@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -584,8 +584,20 @@ export default function KiLieferungBatchDetailPage() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const kundenOptions = kunden.map((k) => ({ value: String(k.id), label: k.firma ? `${k.name} — ${k.firma}` : k.name, sub: k.ort }));
-  const artikelOptions = artikel.map((a) => ({ value: String(a.id), label: a.name, sub: a.artikelnummer }));
+  // Als useMemo (statt Inline-.map()) berechnet — sonst würde bei JEDEM setBatch-Update (Analyse-
+  // Loop-Fortschritt eines ANDEREN Items, jeder Tastendruck in Menge/Preis/Chargennummer) die
+  // komplette Kunden-/Artikelliste (bis zu 5000 Einträge) neu abgebildet, was bei größerem
+  // Datenbestand spürbaren Main-Thread-Jank verursacht — exakt derselbe Bug-Mechanismus, der auf
+  // /lieferungen/neu bereits zu "springenden"/scheinbar nicht reagierenden Eingabefeldern führte
+  // (siehe AGENTS.md).
+  const kundenOptions = useMemo(
+    () => kunden.map((k) => ({ value: String(k.id), label: k.firma ? `${k.name} — ${k.firma}` : k.name, sub: k.ort })),
+    [kunden]
+  );
+  const artikelOptions = useMemo(
+    () => artikel.map((a) => ({ value: String(a.id), label: a.name, sub: a.artikelnummer })),
+    [artikel]
+  );
 
   const items = batch?.items ?? [];
   const bereitCount = items.filter((it) => it.entscheidung === "passt" && it.status !== "uebernommen").length;
