@@ -64,6 +64,7 @@ export default function NeueAusgabePage() {
   const [belegName, setBelegName] = useState<string>("");
   const [kiLaeding, setKiLaeding] = useState(false);
   const [kiHinweis, setKiHinweis] = useState("");
+  const [kiWarnung, setKiWarnung] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(d => {
@@ -145,12 +146,14 @@ export default function NeueAusgabePage() {
     setBelegPreview(preview);
     setBelegName(file.name);
     setKiHinweis("");
+    setKiWarnung(false);
   }
 
   async function kiAnalyse() {
     if (!belegPreview) return;
     setKiLaeding(true);
     setKiHinweis("");
+    setKiWarnung(false);
     try {
       const res = await fetch("/api/ki/beleg", {
         method: "POST",
@@ -160,19 +163,34 @@ export default function NeueAusgabePage() {
       if (!res.ok) {
         const d = await res.json();
         setKiHinweis("KI-Fehler: " + (d.error ?? "Unbekannt"));
+        setKiWarnung(true);
         return;
       }
       const d = await res.json();
-      if (d.datum) setDatum(d.datum);
-      if (d.belegNr) setBelegNr(d.belegNr);
-      if (d.beschreibung) setBeschreibung(d.beschreibung);
-      if (d.betragNetto !== null && d.betragNetto !== undefined) setBetragNetto(String(d.betragNetto));
-      if (d.mwstSatz !== undefined) setMwstSatz(String(d.mwstSatz));
+      const erkannt: string[] = [];
+      if (d.datum) { setDatum(d.datum); erkannt.push("Datum"); }
+      if (d.belegNr) { setBelegNr(d.belegNr); erkannt.push("Beleg-Nr."); }
+      if (d.beschreibung) { setBeschreibung(d.beschreibung); erkannt.push("Beschreibung"); }
+      if (d.betragNetto !== null && d.betragNetto !== undefined) { setBetragNetto(String(d.betragNetto)); erkannt.push("Betrag"); }
+      if (d.mwstSatz !== undefined && d.mwstSatz !== null) setMwstSatz(String(d.mwstSatz));
       if (d.kategorie) setKategorie(d.kategorie);
-      setKiHinweis("Felder wurden automatisch ausgefüllt – bitte prüfen.");
+      if (d.lieferant) {
+        const nameLower = String(d.lieferant).toLowerCase();
+        const match = lieferanten.find(
+          (l) => l.name.toLowerCase().includes(nameLower) || nameLower.includes(l.name.toLowerCase())
+        );
+        if (match) { setLieferantId(String(match.id)); erkannt.push("Lieferant"); }
+      }
+      if (erkannt.length > 0) {
+        setKiHinweis(`Erkannt und übernommen: ${erkannt.join(", ")} – bitte prüfen.`);
+      } else {
+        setKiHinweis("Die KI konnte auf diesem Beleg keine Daten erkennen – bitte ein schärferes/helleres Foto versuchen oder die Felder manuell ausfüllen.");
+        setKiWarnung(true);
+      }
     } catch (err) {
       Sentry.captureException(err);
       setKiHinweis("KI-Analyse fehlgeschlagen.");
+      setKiWarnung(true);
     } finally {
       setKiLaeding(false);
     }
@@ -275,7 +293,9 @@ export default function NeueAusgabePage() {
           )}
 
           {kiHinweis && (
-            <p className="mt-1 text-xs text-purple-700 bg-purple-50 rounded px-2 py-1">{kiHinweis}</p>
+            <p className={`mt-1 text-xs rounded px-2 py-1 ${kiWarnung ? "text-amber-800 bg-amber-50" : "text-purple-700 bg-purple-50"}`}>
+              {kiHinweis}
+            </p>
           )}
         </div>
 
