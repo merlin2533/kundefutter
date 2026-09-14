@@ -222,6 +222,43 @@ export function rundeKaufmaennisch(n: number, stellen = 2): number {
   return vorzeichen * Number(`${gerundet}e-${stellen}`);
 }
 
+export interface AusgabeBetragsteile {
+  betragNetto: number;
+  mwstSatz: number;
+  betragNetto2?: number | null;
+  mwstSatz2?: number | null;
+}
+
+/**
+ * Zerlegt eine Ausgabe in ihre MwSt-Anteile — im Regelfall ein einziger Anteil, bei
+ * einem Beleg mit gemischten Sätzen auf EINER Rechnung (z.B. Bewirtung: Speisen 7 % /
+ * Getränke 19 %) zwei. Einzige Quelle der Wahrheit für diese Aufteilung — UStVA-Export,
+ * DATEV-Export und alle Summenanzeigen (Ausgabenbuch-Liste, Cashflow) nutzen sie, damit
+ * ein zweiter Satz nirgends unbemerkt unter den Tisch fällt.
+ */
+export function ausgabeBetragsteile(a: AusgabeBetragsteile): { netto: number; satz: number }[] {
+  const teile = [{ netto: a.betragNetto, satz: a.mwstSatz }];
+  if (a.betragNetto2 != null && a.betragNetto2 > 0 && a.mwstSatz2 != null) {
+    teile.push({ netto: a.betragNetto2, satz: a.mwstSatz2 });
+  }
+  return teile;
+}
+
+/** Gesamter Netto-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+export function berechneAusgabeNetto(a: AusgabeBetragsteile): number {
+  return ausgabeBetragsteile(a).reduce((s, t) => s + t.netto, 0);
+}
+
+/** Gesamter MwSt-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+export function berechneAusgabeMwst(a: AusgabeBetragsteile): number {
+  return ausgabeBetragsteile(a).reduce((s, t) => s + t.netto * (t.satz / 100), 0);
+}
+
+/** Gesamter Brutto-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+export function berechneAusgabeBrutto(a: AusgabeBetragsteile): number {
+  return berechneAusgabeNetto(a) + berechneAusgabeMwst(a);
+}
+
 /**
  * Netto-Betrag aus einem gegebenen Brutto-Betrag ableiten (Brutto-first, wie bei einem
  * Kassenbon/einer Kleinbetragsrechnung nach §33 UStDV — dort ist der tatsächlich bezahlte

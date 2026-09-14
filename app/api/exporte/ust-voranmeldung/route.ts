@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ausgabeBetragsteile } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
     // Load Ausgaben in range for Vorsteuer
     const ausgaben = await prisma.ausgabe.findMany({
       where: { datum: { gte: von, lte: bis } },
-      select: { betragNetto: true, mwstSatz: true },
+      select: { betragNetto: true, mwstSatz: true, betragNetto2: true, mwstSatz2: true },
     });
 
     // Aggregate revenue by MwSt rate
@@ -114,9 +115,11 @@ export async function GET(req: NextRequest) {
     let vorsteuer19 = 0;
     let vorsteuer7 = 0;
     for (const ausg of ausgaben) {
-      const vorsteuer = ausg.betragNetto * (ausg.mwstSatz / 100);
-      if (ausg.mwstSatz === 19) vorsteuer19 += vorsteuer;
-      else if (ausg.mwstSatz === 7) vorsteuer7 += vorsteuer;
+      for (const teil of ausgabeBetragsteile(ausg)) {
+        const vorsteuer = teil.netto * (teil.satz / 100);
+        if (teil.satz === 19) vorsteuer19 += vorsteuer;
+        else if (teil.satz === 7) vorsteuer7 += vorsteuer;
+      }
     }
     vorsteuer19 = Math.round(vorsteuer19 * 100) / 100;
     vorsteuer7 = Math.round(vorsteuer7 * 100) / 100;

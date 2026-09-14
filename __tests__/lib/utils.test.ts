@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, berechneNettoAusBrutto, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, berechneNettoAusBrutto, ausgabeBetragsteile, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -50,6 +50,39 @@ describe("berechneNettoAusBrutto", () => {
     // (das wäre der Fehler, den eine KI per Kopfrechnung machen könnte).
     expect(berechneNettoAusBrutto(13.0, 19)).toBeCloseTo(10.92, 10);
     expect(berechneNettoAusBrutto(107.0, 7)).toBeCloseTo(100.0, 10);
+  });
+});
+
+describe("ausgabeBetragsteile / berechneAusgabeNetto / berechneAusgabeMwst / berechneAusgabeBrutto", () => {
+  it("liefert nur einen Anteil, wenn kein zweiter Satz gesetzt ist", () => {
+    const a = { betragNetto: 100, mwstSatz: 19 };
+    expect(ausgabeBetragsteile(a)).toEqual([{ netto: 100, satz: 19 }]);
+    expect(berechneAusgabeNetto(a)).toBeCloseTo(100, 10);
+    expect(berechneAusgabeMwst(a)).toBeCloseTo(19, 10);
+    expect(berechneAusgabeBrutto(a)).toBeCloseTo(119, 10);
+  });
+
+  it("berücksichtigt einen zweiten Satz — z.B. Bewirtung: Speisen 7 % / Getränke 19 %", () => {
+    const a = { betragNetto: 31.01, mwstSatz: 19, betragNetto2: 20, mwstSatz2: 7 };
+    expect(ausgabeBetragsteile(a)).toEqual([
+      { netto: 31.01, satz: 19 },
+      { netto: 20, satz: 7 },
+    ]);
+    expect(berechneAusgabeNetto(a)).toBeCloseTo(51.01, 10);
+    expect(berechneAusgabeMwst(a)).toBeCloseTo(31.01 * 0.19 + 20 * 0.07, 10);
+    expect(berechneAusgabeBrutto(a)).toBeCloseTo(31.01 * 1.19 + 20 * 1.07, 10);
+  });
+
+  it("ignoriert einen zweiten Anteil mit 0 € oder fehlendem Satz (kein zweiter Satz genutzt)", () => {
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto2: 0, mwstSatz2: 7 })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto2: 5, mwstSatz2: null })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto2: null, mwstSatz2: null })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
   });
 });
 

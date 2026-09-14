@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
@@ -30,6 +30,10 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [beschreibung, setBeschreibung] = useState("");
   const [betragNetto, setBetragNetto] = useState("");
   const [mwstSatz, setMwstSatz] = useState("19");
+  // Beleg mit gemischten MwSt-Sätzen auf einer Rechnung (z.B. Bewirtung: Speisen 7 % / Getränke 19 %)
+  const [zweiterSatz, setZweiterSatz] = useState(false);
+  const [betragNetto2, setBetragNetto2] = useState("");
+  const [mwstSatz2, setMwstSatz2] = useState("19");
   const [kategorie, setKategorie] = useState("Sonstige");
   const [lieferantId, setLieferantId] = useState("");
   const [bezahltAm, setBezahltAm] = useState("");
@@ -74,6 +78,11 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         setBeschreibung(a.beschreibung ?? "");
         setBetragNetto(String(a.betragNetto ?? ""));
         setMwstSatz(String(a.mwstSatz ?? 19));
+        if (a.betragNetto2 != null && a.mwstSatz2 != null) {
+          setZweiterSatz(true);
+          setBetragNetto2(String(a.betragNetto2));
+          setMwstSatz2(String(a.mwstSatz2));
+        }
         setKategorie(a.kategorie ?? "Sonstige");
         setLieferantId(a.lieferantId ? String(a.lieferantId) : "");
         setBezahltAm(a.bezahltAm?.slice(0, 10) ?? "");
@@ -149,17 +158,25 @@ export default function AusgabeDetailPage({ params }: Ctx) {
     }
   }, [buchungstyp, reiseKilometerpauschale, reiseKm]);
 
-  // Privatentnahme/einlage: MwSt auf 0
+  // Privatentnahme/einlage: MwSt auf 0, zweiten Satz nicht anwendbar
   useEffect(() => {
     if (!laden && (buchungstyp === "Privatentnahme" || buchungstyp === "Privateinlage")) {
       setMwstSatz("0");
+      setZweiterSatz(false);
     }
   }, [buchungstyp, laden]);
 
   const isPrivat = buchungstyp === "Privatentnahme" || buchungstyp === "Privateinlage";
   const netto = parseFloat(betragNetto) || 0;
-  const mwstBetrag = netto * (parseFloat(mwstSatz) / 100);
-  const brutto = netto + mwstBetrag;
+  const betragsteile = {
+    betragNetto: netto,
+    mwstSatz: parseFloat(mwstSatz) || 0,
+    betragNetto2: zweiterSatz ? parseFloat(betragNetto2) || 0 : null,
+    mwstSatz2: zweiterSatz ? parseFloat(mwstSatz2) || 0 : null,
+  };
+  const gesamtNetto = berechneAusgabeNetto(betragsteile);
+  const mwstBetrag = berechneAusgabeMwst(betragsteile);
+  const brutto = berechneAusgabeBrutto(betragsteile);
 
   function handleBelegSelected(file: File, preview: string) {
     setBelegFile(file);
@@ -265,6 +282,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         beschreibung,
         betragNetto: netto,
         mwstSatz: parseFloat(mwstSatz),
+        betragNetto2: zweiterSatz && betragNetto2 ? parseFloat(betragNetto2) : null,
+        mwstSatz2: zweiterSatz && betragNetto2 ? parseFloat(mwstSatz2) : null,
         kategorie,
         lieferantId: lieferantId || null,
         bezahltAm: bezahltAm || null,
@@ -527,14 +546,46 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           </div>
         </div>
 
-        {netto > 0 && (
+        {!isPrivat && (
+          <div>
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input type="checkbox" checked={zweiterSatz}
+                onChange={e => setZweiterSatz(e.target.checked)} />
+              Beleg enthält einen zweiten MwSt-Satz (z. B. Bewirtung: Speisen 7 % / Getränke 19 %)
+            </label>
+            {zweiterSatz && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Betrag netto 2 (€)</label>
+                  <input type="number" step="0.01" min="0" value={betragNetto2}
+                    onChange={e => setBetragNetto2(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full border rounded px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">MwSt-Satz 2</label>
+                  <select value={mwstSatz2} onChange={e => setMwstSatz2(e.target.value)}
+                    className="w-full border rounded px-3 py-2 text-sm">
+                    <option value="19">19 %</option>
+                    <option value="7">7 %</option>
+                    <option value="0">0 % (steuerfrei)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {gesamtNetto > 0 && (
           <div className="bg-gray-50 border rounded p-3 text-sm grid grid-cols-3 gap-2 text-center">
             <div>
               <div className="text-xs text-gray-500">Netto</div>
-              <div className="font-medium">{formatEuro(netto)}</div>
+              <div className="font-medium">{formatEuro(gesamtNetto)}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500">MwSt {mwstSatz}%</div>
+              <div className="text-xs text-gray-500">
+                MwSt {zweiterSatz && betragsteile.betragNetto2 ? `${mwstSatz}%+${mwstSatz2}%` : `${mwstSatz}%`}
+              </div>
               <div className="font-medium text-amber-600">{formatEuro(mwstBetrag)}</div>
             </div>
             <div>

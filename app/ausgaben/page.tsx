@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
@@ -23,6 +23,8 @@ interface Ausgabe {
   beschreibung: string;
   betragNetto: number;
   mwstSatz: number;
+  betragNetto2: number | null;
+  mwstSatz2: number | null;
   kategorie: string;
   buchungstyp: string;
   sachkonto: string | null;
@@ -180,15 +182,15 @@ function AusgabenContent() {
     laden();
   }
 
-  const summeNetto = ausgaben.reduce((s, a) => s + a.betragNetto, 0);
-  const summeMwst = ausgaben.reduce((s, a) => s + a.betragNetto * (a.mwstSatz / 100), 0);
+  const summeNetto = ausgaben.reduce((s, a) => s + berechneAusgabeNetto(a), 0);
+  const summeMwst = ausgaben.reduce((s, a) => s + berechneAusgabeMwst(a), 0);
   const summeBrutto = summeNetto + summeMwst;
   const offeneAuslagen = ausgaben
     .filter(a => a.ausleger && !a.bezahltAm)
-    .reduce((s, a) => s + a.betragNetto * (1 + a.mwstSatz / 100), 0);
+    .reduce((s, a) => s + berechneAusgabeBrutto(a), 0);
 
-  const bezahltBrutto = ausgaben.filter(a => a.bezahltAm).reduce((s, a) => s + a.betragNetto * (1 + a.mwstSatz / 100), 0);
-  const offenBrutto = ausgaben.filter(a => !a.bezahltAm).reduce((s, a) => s + a.betragNetto * (1 + a.mwstSatz / 100), 0);
+  const bezahltBrutto = ausgaben.filter(a => a.bezahltAm).reduce((s, a) => s + berechneAusgabeBrutto(a), 0);
+  const offenBrutto = ausgaben.filter(a => !a.bezahltAm).reduce((s, a) => s + berechneAusgabeBrutto(a), 0);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -349,8 +351,10 @@ function AusgabenContent() {
             </thead>
             <tbody className="divide-y">
               {ausgaben.map(a => {
-                const mwstBetrag = a.betragNetto * (a.mwstSatz / 100);
-                const brutto = a.betragNetto + mwstBetrag;
+                const netto = berechneAusgabeNetto(a);
+                const mwstBetrag = berechneAusgabeMwst(a);
+                const brutto = netto + mwstBetrag;
+                const satzText = a.betragNetto2 && a.mwstSatz2 != null ? `${a.mwstSatz}%+${a.mwstSatz2}%` : `${a.mwstSatz}%`;
                 return (
                   <tr key={a.id} className={`hover:bg-gray-50 ${selected.has(a.id) ? "bg-blue-50" : ""}`}>
                     <td className="px-3 py-2 w-8" onClick={e => e.stopPropagation()}>
@@ -390,9 +394,9 @@ function AusgabenContent() {
                       </div>
                     </td>
                     <td className="px-3 py-2 text-gray-600 hidden xl:table-cell">{a.lieferant?.name ?? "—"}</td>
-                    <td className="px-3 py-2 text-right">{formatEuro(a.betragNetto)}</td>
+                    <td className="px-3 py-2 text-right">{formatEuro(netto)}</td>
                     <td className="px-3 py-2 text-right text-gray-500 hidden sm:table-cell">
-                      {a.mwstSatz}% / {formatEuro(mwstBetrag)}
+                      {satzText} / {formatEuro(mwstBetrag)}
                     </td>
                     <td className="px-3 py-2 text-right font-medium">{formatEuro(brutto)}</td>
                     <td className="px-3 py-2 hidden lg:table-cell">

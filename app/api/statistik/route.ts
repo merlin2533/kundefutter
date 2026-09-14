@@ -147,7 +147,10 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<AusgabeRow[]>(
           `SELECT
             COALESCE(a.kategorie, 'Sonstige') as kategorie,
-            CAST(SUM(a.betragNetto * (1 + a.mwstSatz / 100.0)) AS REAL) as summe
+            CAST(SUM(
+              a.betragNetto * (1 + a.mwstSatz / 100.0)
+              + COALESCE(a.betragNetto2, 0) * (1 + COALESCE(a.mwstSatz2, 0) / 100.0)
+            ) AS REAL) as summe
           FROM Ausgabe a
           WHERE a.datum >= ? AND a.datum < ?
           GROUP BY kategorie

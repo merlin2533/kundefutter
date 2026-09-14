@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, berechneAusgabeBrutto } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferung {
@@ -41,6 +41,8 @@ interface Ausgabe {
   id: number;
   betragNetto: number;
   mwstSatz: number;
+  betragNetto2?: number | null;
+  mwstSatz2?: number | null;
   bezahltAm: string | null;
   kategorie: string;
 }
@@ -146,7 +148,7 @@ export default function CashflowPage() {
   // Ausgaben brutto (unbezahlte)
   const ausgabenOffen = ausgaben.filter((a) => a.bezahltAm === null);
   const ausgabenBrutto = ausgabenOffen.reduce(
-    (s, a) => s + a.betragNetto * (1 + (a.mwstSatz ?? 0) / 100),
+    (s, a) => s + berechneAusgabeBrutto(a),
     0
   );
 

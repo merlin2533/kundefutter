@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       lieferantId, bezahltAm, notiz, ausleger, erfasstVon, bezahltVon,
       buchungstyp, sachkonto, kostenstelle, zahlungsweg,
       reiseZiel, reiseKm, reiseKilometerpauschale, reiseZweck,
-      bewirtungTeilnehmer, bewirtungZweck,
+      bewirtungTeilnehmer, bewirtungZweck, betragNetto2, mwstSatz2,
     } = body;
 
     if (!beschreibung || betragNetto === undefined) {
@@ -101,6 +101,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ungültiger MwSt-Satz" }, { status: 400 });
     }
 
+    // Zweiter Netto-/MwSt-Anteil (Beleg mit gemischten Sätzen, z.B. Bewirtung Speisen 7 % /
+    // Getränke 19 %) — optional, nur gültig außerhalb Privatentnahme/-einlage.
+    let betrag2: number | null = null;
+    let mwst2: number | null = null;
+    const isPrivatBt = bt === "Privatentnahme" || bt === "Privateinlage";
+    if (!isPrivatBt && betragNetto2 !== undefined && betragNetto2 !== null && betragNetto2 !== "") {
+      betrag2 = parseFloat(betragNetto2);
+      if (isNaN(betrag2) || betrag2 < 0) {
+        return NextResponse.json({ error: "Ungültiger zweiter Betrag" }, { status: 400 });
+      }
+      mwst2 = parseFloat(mwstSatz2 ?? "19");
+      if (isNaN(mwst2) || ![0, 7, 19].includes(mwst2)) {
+        return NextResponse.json({ error: "Ungültiger zweiter MwSt-Satz" }, { status: 400 });
+      }
+      if (betrag2 === 0) { betrag2 = null; mwst2 = null; }
+    }
+
     const kontenrahmen = await getKontenrahmen();
     const resolvedSachkonto = getSachkonto(
       kategorie ?? "Sonstige",
@@ -118,6 +135,8 @@ export async function POST(req: NextRequest) {
         beschreibung: String(beschreibung).trim(),
         betragNetto: betrag,
         mwstSatz: mwst,
+        betragNetto2: betrag2,
+        mwstSatz2: mwst2,
         kategorie: kategorie || "Sonstige",
         lieferantId: lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null,
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,

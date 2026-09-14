@@ -26,8 +26,11 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<KatRow[]>(
         `SELECT
            kategorie,
-           CAST(SUM(betragNetto) AS REAL)                                AS netto,
-           CAST(SUM(betragNetto * (1.0 + mwstSatz / 100.0)) AS REAL)    AS brutto
+           CAST(SUM(betragNetto + COALESCE(betragNetto2, 0)) AS REAL) AS netto,
+           CAST(SUM(
+             betragNetto * (1.0 + mwstSatz / 100.0)
+             + COALESCE(betragNetto2, 0) * (1.0 + COALESCE(mwstSatz2, 0) / 100.0)
+           ) AS REAL) AS brutto
          FROM Ausgabe
          WHERE datum >= ? AND datum < ?
          GROUP BY kategorie
@@ -38,7 +41,10 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<MonatRow[]>(
         `SELECT
            strftime('%Y-%m', datum) AS monat,
-           CAST(SUM(betragNetto * (1.0 + mwstSatz / 100.0)) AS REAL) AS brutto
+           CAST(SUM(
+             betragNetto * (1.0 + mwstSatz / 100.0)
+             + COALESCE(betragNetto2, 0) * (1.0 + COALESCE(mwstSatz2, 0) / 100.0)
+           ) AS REAL) AS brutto
          FROM Ausgabe
          WHERE datum >= ? AND datum < ?
          GROUP BY monat
@@ -48,8 +54,11 @@ export async function GET(req: NextRequest) {
       ),
       prisma.$queryRawUnsafe<SummeRow[]>(
         `SELECT
-           CAST(SUM(betragNetto) AS REAL)                                AS netto,
-           CAST(SUM(betragNetto * (1.0 + mwstSatz / 100.0)) AS REAL)    AS brutto,
+           CAST(SUM(betragNetto + COALESCE(betragNetto2, 0)) AS REAL) AS netto,
+           CAST(SUM(
+             betragNetto * (1.0 + mwstSatz / 100.0)
+             + COALESCE(betragNetto2, 0) * (1.0 + COALESCE(mwstSatz2, 0) / 100.0)
+           ) AS REAL) AS brutto,
            COUNT(*) AS anzahl
          FROM Ausgabe
          WHERE datum >= ? AND datum < ?`,
@@ -58,8 +67,11 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<BuchtypRow[]>(
         `SELECT
            COALESCE(buchungstyp, 'Betriebsausgabe') AS buchungstyp,
-           CAST(SUM(betragNetto) AS REAL)                             AS netto,
-           CAST(SUM(betragNetto * (1.0 + mwstSatz / 100.0)) AS REAL) AS brutto,
+           CAST(SUM(betragNetto + COALESCE(betragNetto2, 0)) AS REAL) AS netto,
+           CAST(SUM(
+             betragNetto * (1.0 + mwstSatz / 100.0)
+             + COALESCE(betragNetto2, 0) * (1.0 + COALESCE(mwstSatz2, 0) / 100.0)
+           ) AS REAL) AS brutto,
            COUNT(*) AS anzahl
          FROM Ausgabe
          WHERE datum >= ? AND datum < ?
