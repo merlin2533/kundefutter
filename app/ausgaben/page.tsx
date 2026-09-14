@@ -45,8 +45,14 @@ function AusgabenContent() {
   const [loading, setLoading] = useState(true);
 
   const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-  const todayStr = today.toISOString().slice(0, 10);
+  // Lokales Datum direkt aus den Feldern zusammensetzen statt über toISOString() zu gehen:
+  // toISOString() rechnet zuerst auf UTC um — in der deutschen Sommerzeit (UTC+2) landet
+  // Mitternacht des 1. eines Monats dadurch auf 22:00 UTC des LETZTEN Tages des Vormonats,
+  // wodurch "firstOfMonth" fälschlich den 31. statt den 1. lieferte (Kernursache der Meldung:
+  // der "Von"-Filter sprang beim erneuten Öffnen der Seite immer auf den 31.08. statt 01.09.).
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const firstOfMonth = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-01`;
+  const todayStr = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
 
   const [von, setVon] = useState(searchParams.get("von") ?? firstOfMonth);
   const [bis, setBis] = useState(searchParams.get("bis") ?? todayStr);
