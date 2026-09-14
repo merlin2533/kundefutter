@@ -346,6 +346,7 @@ export async function sammleDatevBuchungen(
   const { prisma } = await import("@/lib/prisma");
   const { getAppName } = await import("@/lib/appinfo");
   const { istAusgleichsArtikelnummer } = await import("@/lib/ausgleichsartikel");
+  const { ausgabeBetragsteile } = await import("@/lib/utils");
 
   const appName = await getAppName();
 
@@ -409,6 +410,7 @@ export async function sammleDatevBuchungen(
       where: { datum: { gte: von, lte: bis } },
       select: {
         id: true, datum: true, belegNr: true, beschreibung: true, betragNetto: true, mwstSatz: true,
+        betragNetto2: true, mwstSatz2: true,
         kategorie: true, lieferantId: true, belegPfad: true, buchungstyp: true, sachkonto: true,
         zahlungsweg: true, kostenstelle: true, reiseZiel: true, bewirtungZweck: true,
       },
@@ -538,8 +540,6 @@ export async function sammleDatevBuchungen(
   for (const ausg of ausgaben) {
     const bt = ausg.buchungstyp ?? "Betriebsausgabe";
     const isPrivat = bt === "Privatentnahme" || bt === "Privateinlage";
-    const mwst = isPrivat ? 0 : ausg.mwstSatz;
-    const brutto = ausg.betragNetto * (1 + mwst / 100);
     const beleglink = ausg.belegPfad && baseUrl ? `${baseUrl}${ausg.belegPfad}` : "";
 
     let buchungstext = ausg.beschreibung;
@@ -547,16 +547,25 @@ export async function sammleDatevBuchungen(
     if (bt === "Bewirtung" && ausg.bewirtungZweck) buchungstext = `${buchungstext} [${ausg.bewirtungZweck}]`;
     buchungstext = buchungstext.substring(0, 60);
 
-    rows.push({
-      umsatz: Math.round(brutto * 100) / 100, sollHaben: "H", wkz: "EUR",
-      konto: getSachkonto(ausg.kategorie, bt, kr, ausg.sachkonto),
-      gegenkonto: getGegenkonto(ausg.zahlungsweg, ausg.lieferantId, kr, bt),
-      buSchluessel: getBuSchluessel(bt), belegdatum: datevBelegdatum(ausg.datum),
-      belegfeld1: (ausg.belegNr ?? "").substring(0, 36), buchungstext, beleglink,
-      leistungsdatum: datevLeistungsdatum(ausg.datum), steuersatz: String(mwst),
-      kostenstelle: ausg.kostenstelle ?? "",
-      datum: ausg.datum, herkunft: "Ausgabe",
-    });
+    // Ein Beleg mit gemischten MwSt-Sätzen (z.B. Bewirtung Speisen 7 % / Getränke 19 %)
+    // bucht als zwei getrennte Zeilen — eine je Satz, DATEV kennt keinen gemischten
+    // Steuersatz auf einer Buchungszeile. Privatentnahme/-einlage bleibt bewusst
+    // einzeilig mit erzwungenem Satz 0, unabhängig von evtl. gespeicherten Altwerten.
+    const teile = isPrivat ? [{ netto: ausg.betragNetto, satz: 0 }] : ausgabeBetragsteile(ausg);
+
+    for (const teil of teile) {
+      const brutto = teil.netto * (1 + teil.satz / 100);
+      rows.push({
+        umsatz: Math.round(brutto * 100) / 100, sollHaben: "H", wkz: "EUR",
+        konto: getSachkonto(ausg.kategorie, bt, kr, ausg.sachkonto),
+        gegenkonto: getGegenkonto(ausg.zahlungsweg, ausg.lieferantId, kr, bt),
+        buSchluessel: getBuSchluessel(bt), belegdatum: datevBelegdatum(ausg.datum),
+        belegfeld1: (ausg.belegNr ?? "").substring(0, 36), buchungstext, beleglink,
+        leistungsdatum: datevLeistungsdatum(ausg.datum), steuersatz: String(teil.satz),
+        kostenstelle: ausg.kostenstelle ?? "",
+        datum: ausg.datum, herkunft: "Ausgabe",
+      });
+    }
   }
 
   return { rows, kontenrahmen: kontenrahmen as "SKR03" | "SKR04", beraternummer, mandantennummer, wjBeginnMonat, appName };

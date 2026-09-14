@@ -981,6 +981,10 @@ model Ausgabe {
   beschreibung            String
   betragNetto             Float
   mwstSatz                Float      @default(19) // 0 | 7 | 19
+  // Zweiter Netto-/MwSt-Anteil für Belege mit gemischten Sätzen auf EINER Rechnung
+  // (z.B. Bewirtung: Speisen 7 % / Getränke 19 %) — optional, nur gesetzt wenn genutzt.
+  betragNetto2            Float?
+  mwstSatz2               Float? // 0 | 7 | 19
   kategorie               String     @default("Sonstige")
   // Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf |
   //             Telefon/Internet | Versicherung | Miete | Sonstige

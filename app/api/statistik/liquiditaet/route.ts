@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       // 2. Ausgaben im Zeitraum
       prisma.ausgabe.findMany({
         where: { datum: { gte: von, lte: bis } },
-        select: { datum: true, betragNetto: true },
+        select: { datum: true, betragNetto: true, betragNetto2: true },
         take: 5000,
       }),
       // 3. Offene Forderungen (Stichtag)
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       if (!a.datum) continue;
       const monat = a.datum.toISOString().substring(0, 7);
       const entry = monatMap.get(monat) ?? { einnahmen: 0, ausgaben: 0 };
-      entry.ausgaben += a.betragNetto;
+      entry.ausgaben += a.betragNetto + (a.betragNetto2 ?? 0);
       monatMap.set(monat, entry);
     }
 

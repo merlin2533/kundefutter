@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatDatum, formatEuro } from "@/lib/utils";
+import { formatDatum, formatEuro, berechneAusgabeNetto, berechneAusgabeMwst } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { Sentry } from "@/lib/sentry";
 
@@ -38,6 +38,8 @@ export async function GET(req: NextRequest) {
         sachkonto: true,
         betragNetto: true,
         mwstSatz: true,
+        betragNetto2: true,
+        mwstSatz2: true,
         bezahltAm: true,
       },
       orderBy: { datum: "asc" },
@@ -68,12 +70,13 @@ export async function GET(req: NextRequest) {
     let totalMwst = 0;
 
     for (const a of ausgaben) {
-      const mwst = a.betragNetto * (a.mwstSatz / 100);
-      totalNetto += a.betragNetto;
+      const netto = berechneAusgabeNetto(a);
+      const mwst = berechneAusgabeMwst(a);
+      totalNetto += netto;
       totalMwst += mwst;
       const typ = a.buchungstyp ?? "Betriebsausgabe";
       const entry = byTyp.get(typ) ?? { netto: 0, mwst: 0 };
-      entry.netto += a.betragNetto;
+      entry.netto += netto;
       entry.mwst += mwst;
       byTyp.set(typ, entry);
     }
@@ -102,7 +105,12 @@ export async function GET(req: NextRequest) {
     const startY = docWithTable.lastAutoTable.finalY + 8;
 
     const rows = ausgaben.map(a => {
-      const mwst = a.betragNetto * (a.mwstSatz / 100);
+      const netto = berechneAusgabeNetto(a);
+      const mwst = berechneAusgabeMwst(a);
+      // Beleg mit zwei MwSt-S\u00e4tzen (z.B. Bewirtung Speisen 7 % / Getr\u00e4nke 19 %): beide
+      // S\u00e4tze in der kompakten Spalte nennen \u2014 die Aufteilung je Satz steht ausf\u00fchrlich
+      // im UStVA- bzw. DATEV-Export, hier reicht der Hinweis auf gemischte S\u00e4tze.
+      const satzText = a.betragNetto2 && a.mwstSatz2 != null ? `${a.mwstSatz}%+${a.mwstSatz2}%` : `${a.mwstSatz} %`;
       return [
         formatDatum(new Date(a.datum)),
         a.belegNr ?? "\u2013",
@@ -110,9 +118,9 @@ export async function GET(req: NextRequest) {
         a.kategorie ?? "",
         a.buchungstyp ?? "",
         a.sachkonto ?? "",
-        formatEuro(a.betragNetto),
-        `${a.mwstSatz} %`,
-        formatEuro(a.betragNetto + mwst),
+        formatEuro(netto),
+        satzText,
+        formatEuro(netto + mwst),
         a.bezahltAm ? formatDatum(new Date(a.bezahltAm)) : "\u2013",
       ];
     });
