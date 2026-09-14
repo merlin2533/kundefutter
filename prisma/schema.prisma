@@ -2165,6 +2165,54 @@ model KiLernZuordnung {
   @@index([typ])
 }
 
+// ─── KI-AUSGABEN BATCH-MODUS ────────────────────────────────────────────────────
+
+model KiAusgabenBatch {
+  id              Int       @id @default(autoincrement())
+  status          String    @default("offen") // offen | verarbeitung | bereit | abgeschlossen | verworfen
+  notiz           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  abgeschlossenAm DateTime?
+
+  items KiAusgabenBatchItem[]
+
+  @@index([status])
+}
+
+model KiAusgabenBatchItem {
+  id                 Int             @id @default(autoincrement())
+  batchId            Int
+  batch              KiAusgabenBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  reihenfolge        Int             @default(0)
+  dateiPfad          String // relativ unter uploads/ki-ausgaben-batch/<batchId>/
+  dateiName          String?
+  status             String          @default("wartet") // wartet | analysiert | fehler | uebernommen | verworfen
+  kiRohtext          String? // rohes OCR-Ergebnis, für Fehlersuche
+  kiErgebnisJson     String? // JSON: {datum, belegNr, faelligAm, beschreibung, betragNetto, mwstSatz, betragBrutto, kategorie, lieferant, iban, bic}
+  lieferantId        Int?
+  lieferantKonfidenz String? // hoch | mittel | niedrig | keine | gelernt
+  datum              String? // YYYY-MM-DD
+  belegNr            String?
+  beschreibung       String?
+  betragNetto        Float?
+  mwstSatz           Float?
+  // Zweiter Netto-/MwSt-Anteil (Beleg mit gemischten Sätzen, z.B. Bewirtung) — nur manuell
+  // während der Prüfung gesetzt, die KI extrahiert je Beleg nur den dominanten Satz.
+  betragNetto2       Float?
+  mwstSatz2          Float?
+  kategorie          String?
+  fehlendeFelder     String? // JSON-Array von Hinweistexten, z.B. ["Beschreibung fehlt"]
+  fehlerText         String?
+  entscheidung       String? // null | "passt" | "passt_nicht"
+  ausgabeId          Int? // gesetzt nach erfolgreichem Abschluss
+  analysiertAm       DateTime?
+  createdAt          DateTime        @default(now())
+
+  @@index([batchId])
+  @@index([status])
+}
+
 // ─── KI-EINGANGSRECHNUNG BATCH-MODUS ───────────────────────────────────────────
 
 model KiEingangsrechnungBatch {
