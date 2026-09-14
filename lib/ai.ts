@@ -506,7 +506,11 @@ Antworte AUSSCHLIESSLICH mit gültigem JSON in diesem Format:
 Regeln:
 - "mwstSatz" muss 0, 7 oder 19 sein. Wenn mehrere Sätze auf dem Beleg, wähle den dominanten.
 - "betragNetto" und "betragBrutto" als Dezimalzahl mit Punkt (kein €-Zeichen).
-- Wenn Netto nicht direkt angegeben: berechne aus Brutto und MwSt.
+- "betragNetto" NUR setzen, wenn der Netto-Betrag als eigene Zahl auf dem Beleg steht — niemals
+  selbst aus Brutto und MwSt-Satz herrechnen (auch nicht überschlagen). Ein Kassenbon nennt oft
+  nur den Bruttobetrag; in dem Fall "betragNetto": null lassen und nur "betragBrutto" füllen —
+  die Umrechnung übernimmt deterministischer Code, keine Kopfrechnung. Steht auf dem Beleg
+  bereits ein Netto-Betrag gedruckt, diesen unverändert übernehmen.
 - "faelligAm": Berechne aus Rechnungsdatum + Zahlungsziel (z.B. "30 Tage netto" → datum + 30 Tage). Falls kein Zahlungsziel angegeben: null.
 - "iban": Leerzeichen aus IBAN entfernen. Nur setzen wenn eindeutig als IBAN erkennbar (beginnt mit 2-Buchstaben-Ländercode + Ziffern).
 - "kategorie" anhand des Inhalts einordnen (z.B. Dünger/Futter → Wareneinkauf, Reparatur → Betriebsbedarf).
