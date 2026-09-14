@@ -3,6 +3,7 @@ import { analyzeDocument, getAiConfig, PROMPTS } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { berechneNettoAusBrutto } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -69,13 +70,25 @@ export async function POST(req: NextRequest) {
     const iban = ibanRaw && /^[A-Z]{2}[0-9A-Z]{10,30}$/.test(ibanRaw) ? ibanRaw : null;
     const bic = typeof p.bic === "string" && p.bic.trim() ? p.bic.trim().toUpperCase() : null;
 
+    const betragBrutto = typeof p.betragBrutto === "number" ? Math.round(p.betragBrutto * 100) / 100 : null;
+    // Netto nur übernehmen, wenn die KI es unverändert vom Beleg gelesen hat (siehe PROMPTS.beleg).
+    // Fehlt es (Regelfall bei einem reinen Kassenbon ohne Netto-Ausweis), wird es HIER per Code
+    // deterministisch aus dem Bruttobetrag abgeleitet — nicht von der KI selbst gerechnet, siehe
+    // lib/utils.ts berechneNettoAusBrutto() für die Begründung.
+    const betragNetto =
+      typeof p.betragNetto === "number"
+        ? Math.round(p.betragNetto * 100) / 100
+        : betragBrutto !== null
+          ? berechneNettoAusBrutto(betragBrutto, mwstSatz)
+          : null;
+
     return NextResponse.json({
       datum: typeof p.datum === "string" && datePattern.test(p.datum) ? p.datum : null,
       belegNr: typeof p.belegNr === "string" ? p.belegNr : null,
       faelligAm: typeof p.faelligAm === "string" && datePattern.test(p.faelligAm) ? p.faelligAm : null,
       beschreibung: typeof p.beschreibung === "string" ? p.beschreibung.substring(0, 80) : null,
-      betragNetto: typeof p.betragNetto === "number" ? Math.round(p.betragNetto * 100) / 100 : null,
-      betragBrutto: typeof p.betragBrutto === "number" ? Math.round(p.betragBrutto * 100) / 100 : null,
+      betragNetto,
+      betragBrutto,
       mwstSatz,
       kategorie,
       lieferant: typeof p.lieferant === "string" ? p.lieferant : null,

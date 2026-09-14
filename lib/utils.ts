@@ -222,6 +222,19 @@ export function rundeKaufmaennisch(n: number, stellen = 2): number {
   return vorzeichen * Number(`${gerundet}e-${stellen}`);
 }
 
+/**
+ * Netto-Betrag aus einem gegebenen Brutto-Betrag ableiten (Brutto-first, wie bei einem
+ * Kassenbon/einer Kleinbetragsrechnung nach §33 UStDV — dort ist der tatsächlich bezahlte
+ * Bruttobetrag der feste, gedruckte Wert, Netto/MwSt sind daraus abgeleitet). Bewusst als
+ * eigene, deterministische Funktion statt einer Division direkt an der Aufrufstelle: eine
+ * KI darf diese Rechnung NICHT selbst per Freitext ausführen (siehe PROMPTS.beleg in
+ * lib/ai.ts) — Dezimal-Divisionen auf den Cent genau sind für ein Sprachmodell keine
+ * verlässliche Arithmetik und weichen dadurch regelmäßig um 1 Cent vom Bon ab.
+ */
+export function berechneNettoAusBrutto(brutto: number, mwstSatzProzent: number): number {
+  return rundeKaufmaennisch(brutto / (1 + mwstSatzProzent / 100));
+}
+
 /** Euro-Betrag, kaufmännisch auf `decimals` Nachkommastellen gerundet (Standard: 2 — für Endbeträge/Rechnungssummen). */
 export function formatEuro(n: number, decimals = 2): string {
   return rundeKaufmaennisch(n, decimals).toLocaleString("de-DE", {

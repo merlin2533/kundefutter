@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, berechneNettoAusBrutto, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -32,6 +32,24 @@ describe("rundeKaufmaennisch", () => {
     expect(rundeKaufmaennisch(1.1368683772161603e-13, 2)).toBe(0);
     expect(rundeKaufmaennisch(-1.1368683772161603e-13, 2)).toBe(0);
     expect(rundeKaufmaennisch(1e-13, 3)).toBe(0);
+  });
+});
+
+describe("berechneNettoAusBrutto", () => {
+  it("leitet Netto aus einem Kassenbon-Bruttobetrag ab (Brutto-first, wie beim Kleinbetragsbeleg)", () => {
+    // Realer Fall aus der Meldung: Auto-Waschpark-Bon, Brutto 13,01 € bei 19% MwSt.
+    expect(berechneNettoAusBrutto(13.01, 19)).toBeCloseTo(10.93, 10);
+  });
+
+  it("bleibt bei 0% MwSt unverändert", () => {
+    expect(berechneNettoAusBrutto(50, 0)).toBeCloseTo(50, 10);
+  });
+
+  it("rundet auf den vollen Cent, auch wenn die Division nicht glatt aufgeht", () => {
+    // 13,00 € Brutto / 1,19 = 10,9243697... — muss auf 10,92 runden, nicht auf 10,93
+    // (das wäre der Fehler, den eine KI per Kopfrechnung machen könnte).
+    expect(berechneNettoAusBrutto(13.0, 19)).toBeCloseTo(10.92, 10);
+    expect(berechneNettoAusBrutto(107.0, 7)).toBeCloseTo(100.0, 10);
   });
 });
 
