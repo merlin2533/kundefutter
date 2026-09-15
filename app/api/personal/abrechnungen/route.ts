@@ -1,21 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { requireVollePersonalRechte } from "@/lib/permissions";
+import { istPersonalSelbstbedienung, requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
 const GUELTIGE_STATUS = ["OFFEN", "ABGERECHNET", "AUSGEZAHLT"];
+// Für Selbstbedienung sichtbare Status — ein OFFEN-Entwurf kann sich noch ändern und würde beim
+// Mitarbeiter falsche/vorläufige Zahlen suggerieren, siehe requireVollePersonalRechte-Kommentar.
+const SELBSTBEDIENUNG_SICHTBARE_STATUS = ["ABGERECHNET", "AUSGEZAHLT"];
 
 export async function GET(req: NextRequest) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
   const me = await getCurrentUser();
-  const deny = requireVollePersonalRechte(me);
-  if (deny) return deny;
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  const selbstbedienung = istPersonalSelbstbedienung(me);
 
   const { searchParams } = new URL(req.url);
   const mitarbeiterIdParam = searchParams.get("mitarbeiterId");
@@ -25,9 +28,22 @@ export async function GET(req: NextRequest) {
 
   try {
     const where: Record<string, unknown> = {};
-    if (mitarbeiterIdParam) {
-      const id = parseInt(mitarbeiterIdParam, 10);
-      if (!isNaN(id)) where.mitarbeiterId = id;
+
+    // Selbstbedienung sieht ausschließlich die eigenen, bereits abgerechneten Zeiträume — der
+    // mitgesendete mitarbeiterId-/status-Wert wird dafür bewusst ignoriert (nie als Filter des
+    // Aufrufers übernommen), sonst könnte ein Selbstbedienungs-Account per URL die Abrechnung
+    // eines Kollegen abfragen oder sich einen noch offenen Entwurf anzeigen lassen.
+    if (selbstbedienung) {
+      where.mitarbeiterId = me.mitarbeiterId;
+      where.status = { in: SELBSTBEDIENUNG_SICHTBARE_STATUS };
+    } else {
+      const deny = requireVollePersonalRechte(me);
+      if (deny) return deny;
+      if (mitarbeiterIdParam) {
+        const id = parseInt(mitarbeiterIdParam, 10);
+        if (!isNaN(id)) where.mitarbeiterId = id;
+      }
+      if (statusParam && GUELTIGE_STATUS.includes(statusParam)) where.status = statusParam;
     }
     if (monatParam) {
       const m = parseInt(monatParam, 10);
@@ -37,7 +53,6 @@ export async function GET(req: NextRequest) {
       const j = parseInt(jahrParam, 10);
       if (!isNaN(j)) where.jahr = j;
     }
-    if (statusParam && GUELTIGE_STATUS.includes(statusParam)) where.status = statusParam;
 
     const abrechnungen = await prisma.gehaltsabrechnung.findMany({
       where,
