@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { requireVollePersonalRechte } from "@/lib/permissions";
+import { istPersonalSelbstbedienung, requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
@@ -14,8 +14,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const denyModul = requireModul(modul, "personal");
   if (denyModul) return denyModul;
   const me = await getCurrentUser();
-  const deny = requireVollePersonalRechte(me);
-  if (deny) return deny;
+  if (!me) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  const selbstbedienung = istPersonalSelbstbedienung(me);
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -28,6 +28,11 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       },
     });
     if (!abrechnung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    // Selbstbedienung darf ausschließlich die eigene, bereits abgerechnete Gehaltsabrechnung
+    // öffnen — 404 statt 403, um Kollegen-IDs nicht als "existiert, aber gesperrt" zu bestätigen.
+    if (selbstbedienung && (abrechnung.mitarbeiterId !== me.mitarbeiterId || abrechnung.status === "OFFEN")) {
+      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    }
     return NextResponse.json(abrechnung);
   } catch (err) {
     Sentry.captureException(err);

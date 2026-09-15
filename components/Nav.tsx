@@ -42,7 +42,7 @@ const MODULE_HREFS: Record<string, string[]> = {
   "modul.tourenplanung": ["/tourenplanung", "/fahrer", "/fahrer/standorte", "/einstellungen/tournamen"],
   "modul.erzeugerabrechnung": ["/anlieferungen"],
   "modul.marktpreise": ["/marktpreise", "/einstellungen/marktpreise"],
-  "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht", "/personal/arbeitszeiterfassung", "/meine-arbeitszeit"],
+  "modul.personal": ["/personal", "/personal/abrechnungen", "/personal/ueberweisungsliste", "/personal/jahresuebersicht", "/personal/arbeitszeiterfassung", "/meine-arbeitszeit", "/meine-lohnabrechnungen"],
   "modul.reklamationen": ["/reklamationen", "/statistik/reklamationen"],
   "modul.agrarantraege": ["/agrarantraege", "/einstellungen/agrarantraege", "/gebietsanalyse"],
   "modul.mqtt": ["/einstellungen/mqtt"],
@@ -942,10 +942,18 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
   );
 }
 
-// Personal-Selbstbedienung: darf ausschließlich die eigene Arbeitszeiterfassung sehen — hier nur
-// kosmetisch (Nav ausblenden + Redirect), die eigentliche Absicherung sitzt in den API-Routen
-// (siehe requireVollePersonalRechte in lib/permissions.ts).
+// Personal-Selbstbedienung: darf ausschließlich die eigene Arbeitszeiterfassung und die eigenen
+// Lohnabrechnungen sehen — hier nur kosmetisch (Nav ausblenden + Redirect), die eigentliche
+// Absicherung sitzt in den API-Routen (siehe requireVollePersonalRechte/istPersonalSelbstbedienung
+// in lib/permissions.ts).
 const SELBSTBEDIENUNG_HREF = "/meine-arbeitszeit";
+const SELBSTBEDIENUNG_HREFS = [SELBSTBEDIENUNG_HREF, "/meine-lohnabrechnungen"];
+// Eigener Gehaltszettel-Druck (/personal/abrechnungen/<id>/druck) — die API selbst beschränkt den
+// Zugriff auf die eigene, bereits abgerechnete Abrechnung (404 sonst); hier nur kosmetisch erlaubt.
+function istSelbstbedienungPfadErlaubt(pathname: string): boolean {
+  if (SELBSTBEDIENUNG_HREFS.includes(pathname)) return true;
+  return /^\/personal\/abrechnungen\/\d+\/druck$/.test(pathname);
+}
 
 export default function Nav() {
   const pathname = usePathname();
@@ -964,7 +972,7 @@ export default function Nav() {
 
   useEffect(() => {
     if (hideNav || !selbstbedienung) return;
-    if (pathname !== SELBSTBEDIENUNG_HREF) router.replace(SELBSTBEDIENUNG_HREF);
+    if (!istSelbstbedienungPfadErlaubt(pathname)) router.replace(SELBSTBEDIENUNG_HREF);
   }, [hideNav, selbstbedienung, pathname, router]);
 
   useEffect(() => {
@@ -1007,6 +1015,16 @@ export default function Nav() {
               }`}
             >
               Meine Arbeitszeit
+            </Link>
+            <Link
+              href="/meine-lohnabrechnungen"
+              className={`px-2.5 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${
+                pathname === "/meine-lohnabrechnungen" || pathname.startsWith("/personal/abrechnungen/")
+                  ? "bg-white text-green-800"
+                  : "hover:bg-green-700 text-white"
+              }`}
+            >
+              Meine Lohnabrechnungen
             </Link>
           </nav>
           <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
