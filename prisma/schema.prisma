@@ -2011,6 +2011,9 @@ model Mitarbeiter {
   aktiv              Boolean   @default(true)
   email              String?
   telefon            String?
+  strasse            String?
+  plz                String?
+  ort                String?
   iban               String?
   bic                String?
   kontoinhaber       String?

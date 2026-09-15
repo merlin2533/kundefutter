@@ -51,7 +51,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     const body = await req.json();
     const {
       vorname, nachname, typ, eintrittsdatum, austrittsdatum, aktiv,
-      email, telefon, iban, bic, kontoinhaber,
+      email, telefon, strasse, plz, ort, iban, bic, kontoinhaber,
       grundgehalt, minijobPauschale, stundenlohn, wochenstunden,
       urlaubstageProJahr, kostenstelle, notiz, bevorzugteArbeitszeiten,
     } = body;
@@ -71,6 +71,9 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         ...(aktiv !== undefined && { aktiv: Boolean(aktiv) }),
         ...(email !== undefined && { email: email || null }),
         ...(telefon !== undefined && { telefon: telefon || null }),
+        ...(strasse !== undefined && { strasse: strasse || null }),
+        ...(plz !== undefined && { plz: plz || null }),
+        ...(ort !== undefined && { ort: ort || null }),
         ...(iban !== undefined && { iban: iban || null }),
         ...(bic !== undefined && { bic: bic || null }),
         ...(kontoinhaber !== undefined && { kontoinhaber: kontoinhaber || null }),
