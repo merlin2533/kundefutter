@@ -19,6 +19,9 @@ export default function NeuerMitarbeiterPage() {
     austrittsdatum: "",
     email: "",
     telefon: "",
+    strasse: "",
+    plz: "",
+    ort: "",
     iban: "",
     bic: "",
     kontoinhaber: "",
@@ -50,6 +53,9 @@ export default function NeuerMitarbeiterPage() {
       austrittsdatum: form.austrittsdatum || null,
       email: form.email || null,
       telefon: form.telefon || null,
+      strasse: form.strasse || null,
+      plz: form.plz || null,
+      ort: form.ort || null,
       iban: form.iban || null,
       bic: form.bic || null,
       kontoinhaber: form.kontoinhaber || null,
@@ -261,6 +267,32 @@ export default function NeuerMitarbeiterPage() {
               <input
                 value={form.telefon}
                 onChange={(e) => set("telefon", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Straße, Hausnummer</label>
+            <input
+              value={form.strasse}
+              onChange={(e) => set("strasse", e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+              <input
+                value={form.plz}
+                onChange={(e) => set("plz", e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <input
+                value={form.ort}
+                onChange={(e) => set("ort", e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none"
               />
             </div>

@@ -45,6 +45,9 @@ interface Mitarbeiter {
   austrittsdatum: string | null;
   email: string | null;
   telefon: string | null;
+  strasse: string | null;
+  plz: string | null;
+  ort: string | null;
   iban: string | null;
   bic: string | null;
   kontoinhaber: string | null;
@@ -323,6 +326,9 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       stundenlohn: ma.stundenlohn != null ? String(ma.stundenlohn) : "",
       email: ma.email ?? "",
       telefon: ma.telefon ?? "",
+      strasse: ma.strasse ?? "",
+      plz: ma.plz ?? "",
+      ort: ma.ort ?? "",
       iban: ma.iban ?? "",
       bic: ma.bic ?? "",
       kontoinhaber: ma.kontoinhaber ?? "",
@@ -372,6 +378,9 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       stundenlohn: editForm.stundenlohn ? parseFloat(editForm.stundenlohn) : null,
       email: editForm.email || null,
       telefon: editForm.telefon || null,
+      strasse: editForm.strasse || null,
+      plz: editForm.plz || null,
+      ort: editForm.ort || null,
       iban: editForm.iban || null,
       bic: editForm.bic || null,
       kontoinhaber: editForm.kontoinhaber || null,
@@ -611,6 +620,20 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
                   <input value={editForm.telefon ?? ""} onChange={(e) => setEditField("telefon", e.target.value)} className={inputCls} />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Straße, Hausnummer</label>
+                  <input value={editForm.strasse ?? ""} onChange={(e) => setEditField("strasse", e.target.value)} className={inputCls} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+                    <input value={editForm.plz ?? ""} onChange={(e) => setEditField("plz", e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                    <input value={editForm.ort ?? ""} onChange={(e) => setEditField("ort", e.target.value)} className={inputCls} />
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white border rounded-lg p-5 space-y-3">
@@ -687,7 +710,11 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                 <h3 className="font-semibold text-gray-800">Kontakt</h3>
                 {ma.email && <Row label="E-Mail" value={ma.email} />}
                 {ma.telefon && <Row label="Telefon" value={ma.telefon} />}
-                {!ma.email && !ma.telefon && <p className="text-sm text-gray-400">Keine Kontaktdaten</p>}
+                {ma.strasse && <Row label="Straße" value={ma.strasse} />}
+                {(ma.plz || ma.ort) && <Row label="Ort" value={[ma.plz, ma.ort].filter(Boolean).join(" ")} />}
+                {!ma.email && !ma.telefon && !ma.strasse && !ma.plz && !ma.ort && (
+                  <p className="text-sm text-gray-400">Keine Kontaktdaten</p>
+                )}
               </div>
 
               <div className="bg-white border rounded-lg p-5 space-y-3">
