@@ -947,20 +947,20 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                           {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
+                          <div className="flex flex-wrap justify-end gap-1.5">
                             {editingAbrId === a.id ? (
                               <>
                                 <button
                                   onClick={() => handleSaveAbrechnung(a.id)}
                                   disabled={abrSaving}
-                                  className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                                  className="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
                                 >
                                   Speichern
                                 </button>
                                 <button
                                   onClick={cancelEditAbrechnung}
                                   disabled={abrSaving}
-                                  className="text-xs text-gray-500 hover:underline disabled:opacity-50"
+                                  className="text-xs px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-colors disabled:opacity-50"
                                 >
                                   Abbrechen
                                 </button>
@@ -971,7 +971,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                   <button
                                     onClick={() => startEditAbrechnung(a)}
                                     disabled={actionLoading}
-                                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                    className="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors disabled:opacity-50"
                                   >
                                     Bearbeiten
                                   </button>
@@ -980,7 +980,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                   <button
                                     onClick={() => handleAbrechnen(a.id)}
                                     disabled={actionLoading}
-                                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                    className="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors disabled:opacity-50"
                                   >
                                     Abrechnen
                                   </button>
@@ -989,12 +989,16 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                   <button
                                     onClick={() => handleAuszahlen(a.id)}
                                     disabled={actionLoading}
-                                    className="text-xs text-green-700 hover:underline disabled:opacity-50"
+                                    className="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors disabled:opacity-50"
                                   >
                                     Auszahlen
                                   </button>
                                 )}
-                                <Link href={`/personal/abrechnungen/${a.id}/druck`} className="text-xs text-gray-500 hover:underline" target="_blank">
+                                <Link
+                                  href={`/personal/abrechnungen/${a.id}/druck`}
+                                  className="text-xs px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded-lg transition-colors"
+                                  target="_blank"
+                                >
                                   Druck
                                 </Link>
                                 {a.belegDateiname ? (
@@ -1003,11 +1007,11 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                       href={`/api/personal/abrechnungen/${a.id}/beleg`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-xs text-green-700 hover:underline"
+                                      className="text-xs px-2.5 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg transition-colors"
                                     >
                                       📄 PDF
                                     </a>
-                                    <label className="text-xs text-blue-600 hover:underline cursor-pointer">
+                                    <label className="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors cursor-pointer">
                                       {belegUploadingId === a.id ? "…" : "Ersetzen"}
                                       <input
                                         type="file"
@@ -1024,13 +1028,13 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                     <button
                                       onClick={() => handleBelegDelete(a.id)}
                                       disabled={belegUploadingId === a.id}
-                                      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                                      className="text-xs px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg transition-colors disabled:opacity-50"
                                     >
                                       PDF entfernen
                                     </button>
                                   </>
                                 ) : (
-                                  <label className="text-xs text-blue-600 hover:underline cursor-pointer">
+                                  <label className="text-xs px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors cursor-pointer">
                                     {belegUploadingId === a.id ? "Wird hochgeladen…" : "PDF hochladen"}
                                     <input
                                       type="file"
@@ -1049,7 +1053,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                   <button
                                     onClick={() => handleDeleteAbrechnung(a.id)}
                                     disabled={actionLoading}
-                                    className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                                    className="text-xs px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg transition-colors disabled:opacity-50"
                                   >
                                     Löschen
                                   </button>
