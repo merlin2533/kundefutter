@@ -2068,6 +2068,8 @@ model Gehaltsabrechnung {
   status        String    @default("OFFEN") // "OFFEN"|"ABGERECHNET"|"AUSGEZAHLT"
   zahlungsDatum DateTime?
   ausgabeId     Int?      @unique
+  belegPfad     String? // hochgeladenes Original-PDF vom Steuerberater, siehe getUploadBase()
+  belegDateiname String? // Original-Dateiname für Anzeige/Download
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

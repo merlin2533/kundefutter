@@ -82,6 +82,7 @@ interface Gehaltsabrechnung {
   status: string;
   zahlungsDatum: string | null;
   notiz: string | null;
+  belegDateiname: string | null;
 }
 
 interface Urlaubsantrag {
@@ -109,6 +110,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   const [stundenJahr, setStundenJahr] = useState(new Date().getFullYear());
   const [abrError, setAbrError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [belegUploadingId, setBelegUploadingId] = useState<number | null>(null);
   const [editingAbrId, setEditingAbrId] = useState<number | null>(null);
   const [abrEditForm, setAbrEditForm] = useState({ brutto: "", netto: "", abzuege: "", notiz: "" });
   const [abrSaving, setAbrSaving] = useState(false);
@@ -268,6 +270,42 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
       setAbrError(d.error ?? "Löschen fehlgeschlagen");
     } else {
       setAbrechnungen((prev) => prev.filter((a) => a.id !== abrId));
+    }
+  }
+
+  async function handleBelegUpload(abrId: number, file: File) {
+    setBelegUploadingId(abrId);
+    setAbrError("");
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/personal/abrechnungen/${abrId}/beleg`, { method: "POST", body: formData });
+    setBelegUploadingId(null);
+    if (!res.ok) {
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      setAbrError(d.error ?? "Hochladen fehlgeschlagen");
+    } else {
+      const d = await res.json();
+      setAbrechnungen((prev) => prev.map((a) => (a.id === abrId ? { ...a, belegDateiname: d.belegDateiname } : a)));
+    }
+  }
+
+  async function handleBelegDelete(abrId: number) {
+    if (!confirm("Hinterlegtes PDF entfernen?")) return;
+    setBelegUploadingId(abrId);
+    setAbrError("");
+    const res = await fetch(`/api/personal/abrechnungen/${abrId}/beleg`, { method: "DELETE" });
+    setBelegUploadingId(null);
+    if (!res.ok) {
+      const d = await res.json().catch((err) => {
+        Sentry.captureException(err);
+        return {};
+      });
+      setAbrError(d.error ?? "Entfernen fehlgeschlagen");
+    } else {
+      setAbrechnungen((prev) => prev.map((a) => (a.id === abrId ? { ...a, belegDateiname: null } : a)));
     }
   }
 
@@ -909,7 +947,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                           {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
                         </td>
                         <td className="px-4 py-2 text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex flex-wrap justify-end gap-2">
                             {editingAbrId === a.id ? (
                               <>
                                 <button
@@ -959,6 +997,54 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
                                 <Link href={`/personal/abrechnungen/${a.id}/druck`} className="text-xs text-gray-500 hover:underline" target="_blank">
                                   Druck
                                 </Link>
+                                {a.belegDateiname ? (
+                                  <>
+                                    <a
+                                      href={`/api/personal/abrechnungen/${a.id}/beleg`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-green-700 hover:underline"
+                                    >
+                                      📄 PDF
+                                    </a>
+                                    <label className="text-xs text-blue-600 hover:underline cursor-pointer">
+                                      {belegUploadingId === a.id ? "…" : "Ersetzen"}
+                                      <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        className="hidden"
+                                        disabled={belegUploadingId === a.id}
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          if (f) handleBelegUpload(a.id, f);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      onClick={() => handleBelegDelete(a.id)}
+                                      disabled={belegUploadingId === a.id}
+                                      className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                                    >
+                                      PDF entfernen
+                                    </button>
+                                  </>
+                                ) : (
+                                  <label className="text-xs text-blue-600 hover:underline cursor-pointer">
+                                    {belegUploadingId === a.id ? "Wird hochgeladen…" : "PDF hochladen"}
+                                    <input
+                                      type="file"
+                                      accept="application/pdf"
+                                      className="hidden"
+                                      disabled={belegUploadingId === a.id}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleBelegUpload(a.id, f);
+                                        e.target.value = "";
+                                      }}
+                                    />
+                                  </label>
+                                )}
                                 {istAdmin && a.status !== "AUSGEZAHLT" && (
                                   <button
                                     onClick={() => handleDeleteAbrechnung(a.id)}

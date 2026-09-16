@@ -18,6 +18,7 @@ interface Abrechnung {
   netto: number;
   status: string;
   zahlungsDatum: string | null;
+  belegDateiname: string | null;
 }
 
 export default function MeineLohnabrechnungenPage() {
@@ -68,7 +69,7 @@ export default function MeineLohnabrechnungenPage() {
                 <th className="px-4 py-2 text-right">Netto</th>
                 <th className="px-4 py-2 text-left">Status</th>
                 <th className="px-4 py-2 text-left hidden sm:table-cell">Zahlung</th>
-                <th className="px-4 py-2 text-right">Gehaltszettel</th>
+                <th className="px-4 py-2 text-right">PDF</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -88,14 +89,18 @@ export default function MeineLohnabrechnungenPage() {
                     {a.zahlungsDatum ? formatDatum(a.zahlungsDatum) : "—"}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <a
-                      href={`/personal/abrechnungen/${a.id}/druck`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-green-700 hover:underline font-medium"
-                    >
-                      Ansehen / Drucken
-                    </a>
+                    {a.belegDateiname ? (
+                      <a
+                        href={`/api/personal/abrechnungen/${a.id}/beleg`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-green-700 hover:underline font-medium"
+                      >
+                        📄 Ansehen / Drucken
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-400">Noch nicht hinterlegt</span>
+                    )}
                   </td>
                 </tr>
               ))}

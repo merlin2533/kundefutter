@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { istPersonalSelbstbedienung, requireVollePersonalRechte } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { getUploadBase } from "@/lib/upload";
+import { unlink } from "fs/promises";
+import path from "path";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +158,15 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     if (!abrechnung) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     if (abrechnung.status === "AUSGEZAHLT") {
       return NextResponse.json({ error: "Ausgezahlte Abrechnungen können nicht gelöscht werden" }, { status: 409 });
+    }
+
+    if (abrechnung.belegPfad) {
+      try {
+        await unlink(path.join(getUploadBase(), abrechnung.belegPfad));
+      } catch (err) {
+        Sentry.captureException(err);
+        // Datei existiert nicht mehr — ignorieren
+      }
     }
 
     await prisma.gehaltsabrechnung.delete({ where: { id: numId } });
