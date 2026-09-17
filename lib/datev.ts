@@ -85,7 +85,11 @@ export const BUCHUNGSTYP_KONTEN_SKR03: Partial<Record<Buchungstyp, string>> = {
   Privatentnahme: "1800",
   Privateinlage: "1890",
   Reisekosten: "4530",
-  Bewirtung: "4654",
+  // 4650 = "Kosten der Bewirtung aus geschäftlichem Anlass" (voller Betrag + BU-Schlüssel 9,
+  // DATEV/Steuerberater-Software splittet die 30% nicht abzugsfähig automatisch). 4654 wäre nur
+  // richtig, wenn der nicht abzugsfähige Anteil manuell als EIGENE Zeile OHNE BU-Schlüssel gebucht
+  // würde — genau das macht getBuSchluessel() hier aber nicht (eine Zeile, voller Betrag, BU 9).
+  Bewirtung: "4650",
 };
 
 export const BUCHUNGSTYP_KONTEN_SKR04: Partial<Record<Buchungstyp, string>> = {
