@@ -231,6 +231,12 @@ export default function LieferungDetailPage() {
   // Gutschrift bewusst für eine spätere Rechnung aufgehoben werden soll.
   const [gutschriftBeruecksichtigen, setGutschriftBeruecksichtigen] = useState(true);
   function togglePosAuswahl(posId: number) {
+    // Eine vorherige Fehlermeldung (z.B. "Chargennummer ... ist Pflichtfeld" aus einem
+    // fehlgeschlagenen Rechnung-erstellen-Versuch mit einer anderen Auswahl) bezieht sich
+    // ggf. gar nicht mehr auf die jetzt gewählten Positionen — sonst wirkt es so, als würde
+    // eine gerade ABGEWÄHLTE (und damit gar nicht mehr zur Rechnung gehörende) Position
+    // weiterhin eine Chargennummer verlangen.
+    setError("");
     setDeselectedPosIds((prev) => {
       const next = new Set(prev);
       if (next.has(posId)) next.delete(posId); else next.add(posId);
@@ -1861,7 +1867,7 @@ export default function LieferungDetailPage() {
             </span>
             <button
               type="button"
-              onClick={() => setDeselectedPosIds(new Set())}
+              onClick={() => { setError(""); setDeselectedPosIds(new Set()); }}
               className="text-green-700 hover:underline disabled:text-gray-300 disabled:no-underline"
               disabled={deselectedPosIds.size === 0}
             >
@@ -1881,7 +1887,10 @@ export default function LieferungDetailPage() {
                   <input
                     type="checkbox"
                     checked={deselectedPosIds.size === 0}
-                    onChange={(e) => setDeselectedPosIds(e.target.checked ? new Set() : new Set(lieferung.positionen.map((p) => p.id)))}
+                    onChange={(e) => {
+                      setError("");
+                      setDeselectedPosIds(e.target.checked ? new Set() : new Set(lieferung.positionen.map((p) => p.id)));
+                    }}
                     title="Alle für die Rechnung aus-/abwählen"
                     className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                   />
