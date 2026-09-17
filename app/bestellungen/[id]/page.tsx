@@ -82,6 +82,9 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
   const [notizEdit, setNotizEdit] = useState("");
   const [notizSaving, setNotizSaving] = useState(false);
   const [notizSaved, setNotizSaved] = useState(false);
+  const [lieferantEditOpen, setLieferantEditOpen] = useState(false);
+  const [lieferantEditId, setLieferantEditId] = useState("");
+  const [lieferantSaving, setLieferantSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=500")
@@ -251,6 +254,31 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
+  async function handleLieferantWechseln() {
+    if (!id || !lieferantEditId) return;
+    setLieferantSaving(true);
+    try {
+      const res = await fetch(`/api/bestellungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferantId: Number(lieferantEditId) }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        showToast(d.error ?? "Lieferant konnte nicht geändert werden.", "error");
+        return;
+      }
+      setData(d);
+      setLieferantEditOpen(false);
+      showToast(`Lieferant geändert zu ${d.lieferant?.firma ?? d.lieferant?.name ?? "—"}.`, "success");
+    } catch (err) {
+      Sentry.captureException(err);
+      showToast("Netzwerkfehler.", "error");
+    } finally {
+      setLieferantSaving(false);
+    }
+  }
+
   if (loading) return <div className="p-8 text-gray-400">Lade…</div>;
   if (!data) return <div className="p-8 text-red-600">Bestellung nicht gefunden.</div>;
 
@@ -350,15 +378,56 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Bestelldetails</p>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Lieferant</span>
-              <span className="font-medium text-gray-900">
-                {data.lieferant ? (
-                  <Link href={`/lieferanten/${data.lieferant.id}`} className="text-green-700 hover:underline">
-                    {data.lieferant.firma ?? data.lieferant.name}
-                  </Link>
-                ) : "—"}
-              </span>
+            <div className="flex justify-between items-start gap-2 text-sm">
+              <span className="text-gray-500 shrink-0">Lieferant</span>
+              {!lieferantEditOpen ? (
+                <span className="font-medium text-gray-900 text-right">
+                  {data.lieferant ? (
+                    <Link href={`/lieferanten/${data.lieferant.id}`} className="text-green-700 hover:underline">
+                      {data.lieferant.firma ?? data.lieferant.name}
+                    </Link>
+                  ) : "—"}
+                  {(data.status === "OFFEN" || data.status === "BESTAETIGT") && (
+                    <button
+                      type="button"
+                      onClick={() => { setLieferantEditOpen(true); setLieferantEditId(String(data.lieferantId)); }}
+                      className="ml-2 text-xs text-amber-700 hover:text-amber-800 hover:underline"
+                      title="Falls dieser Lieferant den Artikel nicht (mehr) liefern kann"
+                    >
+                      ändern
+                    </button>
+                  )}
+                </span>
+              ) : (
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <select
+                      autoFocus
+                      value={lieferantEditId}
+                      onChange={(e) => setLieferantEditId(e.target.value)}
+                      className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-green-500"
+                    >
+                      {lieferantenListe.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleLieferantWechseln}
+                      disabled={lieferantSaving || Number(lieferantEditId) === data.lieferantId}
+                      className="px-2 py-1 text-xs bg-green-700 hover:bg-green-800 text-white rounded transition-colors disabled:opacity-50"
+                    >
+                      {lieferantSaving ? "Speichern…" : "Speichern"}
+                    </button>
+                    <button onClick={() => setLieferantEditOpen(false)} className="text-xs text-gray-400 hover:text-gray-600">
+                      Abbrechen
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 text-right max-w-[220px]">
+                    EK-Preise werden aus den Artikel-Lieferanten-Daten des neuen Lieferanten übernommen (falls gepflegt);
+                    ein bisheriger Versand-Nachweis wird zurückgesetzt.
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Bestelldatum</span>
