@@ -236,7 +236,7 @@ export default function AusgabenEinstellungenPage() {
           ))}
         </div>
         <p className="text-xs text-gray-400 mb-3">
-          Typ-basierte Konten (Privatentnahme=1800, Privateinlage=1890, Bewirtung=4654, Reisekosten=4530)
+          Typ-basierte Konten (Privatentnahme=1800, Privateinlage=1890, Bewirtung=4650, Reisekosten=4530)
           werden unabhängig von dieser Tabelle automatisch gesetzt.
         </p>
         <div className="flex justify-end">
