@@ -549,7 +549,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
               Betrag netto (€) *
               {buchungstyp === "Reisekosten" && reiseKilometerpauschale && " (auto)"}
             </label>
-            <input type="number" step="0.01" min="0" value={betragNetto}
+            <input type="number" step="0.001" min="0" value={betragNetto}
               onChange={e => setBetragNetto(e.target.value)}
               readOnly={buchungstyp === "Reisekosten" && reiseKilometerpauschale}
               className={`w-full border rounded px-3 py-2 text-sm ${buchungstyp === "Reisekosten" && reiseKilometerpauschale ? "bg-gray-50 text-gray-500" : ""}`}
@@ -578,7 +578,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>
                   <label className="block text-sm font-medium mb-1">Betrag netto 2 (€)</label>
-                  <input type="number" step="0.01" min="0" value={betragNetto2}
+                  <input type="number" step="0.001" min="0" value={betragNetto2}
                     onChange={e => setBetragNetto2(e.target.value)}
                     placeholder="0,00"
                     className="w-full border rounded px-3 py-2 text-sm" />
