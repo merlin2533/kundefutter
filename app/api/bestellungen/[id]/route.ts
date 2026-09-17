@@ -72,10 +72,55 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (body.lieferdatum !== undefined) data.lieferdatum = body.lieferdatum ? new Date(body.lieferdatum) : null;
   }
 
+  let neuLieferantId: number | null = null;
+  if (body.lieferantId !== undefined) {
+    neuLieferantId = parseInt(String(body.lieferantId), 10);
+    if (isNaN(neuLieferantId)) return NextResponse.json({ error: "Ungültige lieferantId" }, { status: 400 });
+  }
+
   try {
     const positionenUpdates = Array.isArray(body.positionen) ? body.positionen : null;
 
     const record = await prisma.$transaction(async (tx) => {
+      // Lieferant der gesamten Bestellung wechseln (z.B. weil der ursprüngliche Lieferant den
+      // Artikel nicht mehr liefern kann) — nur solange noch nichts geliefert wurde, sonst wäre
+      // eine bereits gebuchte Teil-/Volllieferung dem falschen Lieferanten zugeordnet. Aktualisiert
+      // je Position den EK-Preis aus ArtikelLieferant des neuen Lieferanten (falls gepflegt, > 0 —
+      // analog zum bereits bestehenden Umschlüsseln einzelner Positionen) und setzt einen
+      // vorhandenen Versand-Nachweis zurück, da der neue Lieferant die Bestellung noch nicht kennt.
+      if (neuLieferantId != null) {
+        const bestehend = await tx.bestellung.findUnique({
+          where: { id: nId },
+          select: { lieferantId: true, status: true },
+        });
+        if (!bestehend) throw new Error("__NOT_FOUND__");
+        if (["TEILGELIEFERT", "ABGESCHLOSSEN", "STORNIERT"].includes(bestehend.status)) {
+          throw new Error("__LIEFERANT_LOCKED__");
+        }
+        if (bestehend.lieferantId !== neuLieferantId) {
+          const lieferant = await tx.lieferant.findUnique({ where: { id: neuLieferantId }, select: { id: true } });
+          if (!lieferant) throw new Error("__LIEFERANT_NOT_FOUND__");
+
+          const positionen = await tx.bestellungPosition.findMany({
+            where: { bestellungId: nId },
+            select: { id: true, artikelId: true },
+          });
+          for (const pos of positionen) {
+            const zuordnung = await tx.artikelLieferant.findUnique({
+              where: { artikelId_lieferantId: { artikelId: pos.artikelId, lieferantId: neuLieferantId } },
+              select: { einkaufspreis: true },
+            });
+            if (zuordnung && zuordnung.einkaufspreis > 0) {
+              await tx.bestellungPosition.update({ where: { id: pos.id }, data: { preis: zuordnung.einkaufspreis } });
+            }
+          }
+
+          data.lieferantId = neuLieferantId;
+          data.versendetAm = null;
+          data.versendetAn = null;
+        }
+      }
+
       if (positionenUpdates) {
         for (const p of positionenUpdates as { id: unknown; mengeGeliefert?: unknown; preis?: unknown }[]) {
           const posId = parseInt(String(p.id), 10);
@@ -124,6 +169,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return NextResponse.json(record);
   } catch (err) {
     Sentry.captureException(err);
+    if (err instanceof Error && err.message === "__NOT_FOUND__") {
+      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    }
+    if (err instanceof Error && err.message === "__LIEFERANT_NOT_FOUND__") {
+      return NextResponse.json({ error: "Lieferant nicht gefunden" }, { status: 404 });
+    }
+    if (err instanceof Error && err.message === "__LIEFERANT_LOCKED__") {
+      return NextResponse.json(
+        { error: "Der Lieferant kann nur geändert werden, solange noch nichts geliefert wurde (Status Offen/Bestätigt)." },
+        { status: 400 }
+      );
+    }
     const code = (err as { code?: string }).code;
     if (code === "P2025") return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     console.error("Bestellungen PUT error:", err);
