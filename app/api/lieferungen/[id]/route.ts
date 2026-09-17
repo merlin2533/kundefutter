@@ -508,6 +508,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   const { aktion } = body;
+  // Bei rechnung_erstellen/teilrechnung_erstellen: offene Gutschrift(en) dieses Kunden bei
+  // dieser Rechnung mitverrechnen? Default true (bisheriges Verhalten) — der Nutzer kann das
+  // auf der Lieferungs-Detailseite per Checkbox abwählen, um eine Gutschrift bewusst für eine
+  // spätere Rechnung aufzuheben. Betrifft NICHT injiziereAlteForderungen() (Unterzahlung, die
+  // der Kunde noch schuldet) — dafür gibt es keinen Grund, sie zurückzuhalten.
+  const gutschriftenBeruecksichtigen = body.gutschriftenBeruecksichtigen !== false;
 
   // QR-Mobilerfassung: Status auf "geliefert" setzen
   if (body.status === "geliefert") {
@@ -563,7 +569,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         // Gutschriften (z.B. Überzahlung) dieses Kunden automatisch als Position mit
         // aufnehmen, bevor die Rechnung nummeriert wird.
         await injiziereAlteForderungen(tx, Number(id), bestehende.kundeId);
-        await injiziereOffeneGutschriften(tx, Number(id), bestehende.kundeId);
+        if (gutschriftenBeruecksichtigen) {
+          await injiziereOffeneGutschriften(tx, Number(id), bestehende.kundeId);
+        }
         await vergebeRechnungsnummerFuerLieferung(tx, Number(id));
         // Eine Rechnung setzt voraus, dass geliefert wurde — Auftrag muss dafür nicht mehr
         // separat manuell als "geliefert" markiert werden (bucht Lagerausgang mit).
@@ -659,7 +667,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }
 
         await injiziereAlteForderungen(tx, neue.id, original.kundeId);
-        await injiziereOffeneGutschriften(tx, neue.id, original.kundeId);
+        if (gutschriftenBeruecksichtigen) {
+          await injiziereOffeneGutschriften(tx, neue.id, original.kundeId);
+        }
         await vergebeRechnungsnummerFuerLieferung(tx, neue.id);
         if (original.status === "geplant") {
           await markiereLieferungGeliefertFallsGeplant(tx, neue.id);

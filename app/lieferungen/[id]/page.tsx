@@ -226,6 +226,10 @@ export default function LieferungDetailPage() {
   // Inverse Menge statt "ausgewählt" — neu hinzugefügte Positionen sind dadurch automatisch
   // mit ausgewählt, ohne dass ein Reload die Auswahl des Nutzers zurücksetzen müsste.
   const [deselectedPosIds, setDeselectedPosIds] = useState<Set<number>>(new Set());
+  // Ob eine offene Gutschrift dieses Kunden bei der nächsten Rechnung automatisch verrechnet
+  // wird (Standard: ja, wie bisher) — per Checkbox in OffenePostenHinweis abwählbar, falls die
+  // Gutschrift bewusst für eine spätere Rechnung aufgehoben werden soll.
+  const [gutschriftBeruecksichtigen, setGutschriftBeruecksichtigen] = useState(true);
   function togglePosAuswahl(posId: number) {
     setDeselectedPosIds((prev) => {
       const next = new Set(prev);
@@ -836,8 +840,8 @@ export default function LieferungDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           istTeilrechnung
-            ? { aktion: "teilrechnung_erstellen", positionIds: ausgewaehltePositionen.map((p) => p.id) }
-            : { aktion: "rechnung_erstellen" },
+            ? { aktion: "teilrechnung_erstellen", positionIds: ausgewaehltePositionen.map((p) => p.id), gutschriftenBeruecksichtigen: gutschriftBeruecksichtigen }
+            : { aktion: "rechnung_erstellen", gutschriftenBeruecksichtigen: gutschriftBeruecksichtigen },
         ),
       });
       if (!res.ok) throw new Error("Fehler beim Erstellen der Rechnung");
@@ -1837,7 +1841,13 @@ export default function LieferungDetailPage() {
 
       {/* Hinweis auf offene Gutschriften/Forderungen, die automatisch mit in die nächste
           Rechnung dieses Kunden übernommen werden. */}
-      {canEditPos() && <OffenePostenHinweis kundeId={lieferung.kunde.id} />}
+      {canEditPos() && (
+        <OffenePostenHinweis
+          kundeId={lieferung.kunde.id}
+          gutschriftBeruecksichtigen={gutschriftBeruecksichtigen}
+          onGutschriftBeruecksichtigenChange={setGutschriftBeruecksichtigen}
+        />
+      )}
 
       {/* Teilrechnung: Auswahlzeile — nur solange die Lieferung noch keine Rechnungsnummer
           hat und mehr als eine Position existiert (sonst gibt es nichts abzuwählen). */}

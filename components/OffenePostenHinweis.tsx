@@ -21,8 +21,21 @@ interface OffeneForderung {
  * sichtbar, dass offene Gutschriften/Forderungen dieses Kunden automatisch mit in die neue
  * Rechnung übernommen werden (injiziereOffeneGutschriften()/injiziereAlteForderungen() in
  * lib/lieferung.ts) — sonst käme die zusätzliche Position auf dem gedruckten Beleg überraschend.
+ * Offene Gutschriften sind zusätzlich per Checkbox abwählbar (gutschriftBeruecksichtigen) —
+ * bleibt sie unangehakt, wird die Gutschrift bei DIESER Rechnung übersprungen und bei einer
+ * späteren Rechnung dieses Kunden erneut vorgeschlagen. Offene Forderungen (Unterzahlung, die
+ * der Kunde noch schuldet) bleiben bewusst ohne Abwahlmöglichkeit — anders als eine Gutschrift
+ * gibt es keinen Grund, eine dem Kunden bereits bekannte Nachforderung zurückzuhalten.
  */
-export default function OffenePostenHinweis({ kundeId }: { kundeId: number }) {
+export default function OffenePostenHinweis({
+  kundeId,
+  gutschriftBeruecksichtigen,
+  onGutschriftBeruecksichtigenChange,
+}: {
+  kundeId: number;
+  gutschriftBeruecksichtigen: boolean;
+  onGutschriftBeruecksichtigenChange: (value: boolean) => void;
+}) {
   const [gutschriften, setGutschriften] = useState<OffeneGutschrift[]>([]);
   const [forderungen, setForderungen] = useState<OffeneForderung[]>([]);
 
@@ -45,18 +58,27 @@ export default function OffenePostenHinweis({ kundeId }: { kundeId: number }) {
   const forderungSumme = forderungen.reduce((s, f) => s + f.betrag, 0);
 
   return (
-    <div className="mb-3 text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-3 py-2 print:hidden">
-      ℹ️ Bei der nächsten Rechnung dieses Kunden werden automatisch mit aufgeführt:{" "}
+    <div className="mb-3 text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-3 py-2 print:hidden space-y-1.5">
       {gutschriften.length > 0 && (
-        <>
-          {gutschriften.length} offene Gutschrift{gutschriften.length > 1 ? "en" : ""} (−{formatEuro(gutschriftSumme)})
-        </>
+        <label className="flex items-start gap-1.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={gutschriftBeruecksichtigen}
+            onChange={(e) => onGutschriftBeruecksichtigenChange(e.target.checked)}
+            className="mt-0.5 rounded border-gray-300 text-green-600 focus:ring-green-500"
+          />
+          <span>
+            ℹ️ {gutschriften.length} offene Gutschrift{gutschriften.length > 1 ? "en" : ""} (−{formatEuro(gutschriftSumme)}) bei
+            dieser Rechnung berücksichtigen — sonst bleib{gutschriften.length > 1 ? "en sie offen und werden" : "t sie offen und wird"} bei
+            einer späteren Rechnung erneut vorgeschlagen.
+          </span>
+        </label>
       )}
-      {gutschriften.length > 0 && forderungen.length > 0 && " · "}
       {forderungen.length > 0 && (
-        <>
-          {forderungen.length} offene Forderung{forderungen.length > 1 ? "en" : ""} (+{formatEuro(forderungSumme)})
-        </>
+        <div>
+          ℹ️ {forderungen.length} offene Forderung{forderungen.length > 1 ? "en" : ""} (+{formatEuro(forderungSumme)}) werden
+          automatisch mit aufgeführt.
+        </div>
       )}
     </div>
   );
