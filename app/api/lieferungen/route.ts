@@ -5,7 +5,7 @@ import { artikelSafeSelect, lieferungSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
-import { erstelleLieferungMitPreisberechnung } from "@/lib/lieferung";
+import { erstelleLieferungMitPreisberechnung, LieferungValidierungsFehler } from "@/lib/lieferung";
 import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
 
 const GUETEKLASSEN_KEYS = GUETEKLASSEN.map((g) => g.key) as string[];
@@ -217,6 +217,9 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json(response, { status: 201 });
   } catch (err) {
+    if (err instanceof LieferungValidierungsFehler) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     Sentry.captureException(err);
     console.error("Lieferung POST error:", err);
     const isDev = process.env.NODE_ENV === "development";
