@@ -245,7 +245,11 @@ export function matchKunde<T extends MatchableKunde>(
 ): { kunde: T | null; konfidenz: Konfidenz } {
   if (!kunden.length) return { kunde: null, konfidenz: "keine" };
 
-  const search = (kiKunde.firma || kiKunde.name).toLowerCase();
+  // KI-Antworten können "name"/"firma" explizit auf null setzen, wenn auf dem Beleg gar kein
+  // Kunde erkennbar war (siehe lib/ai.ts PROMPTS) — kiKunde.name ist zur Laufzeit trotz des
+  // string-Typs nicht garantiert vorhanden (analog zum bereits bestehenden Guard in matchArtikel()
+  // oben für kiPos.name).
+  const search = (kiKunde.firma || kiKunde.name || "").toLowerCase();
 
   if (gelernt && gelernt.size > 0 && search) {
     const gelerntId = gelernt.get(normalisiereSuchtext(search));
@@ -315,6 +319,16 @@ export function berechneFehlendeFelder(input: {
 
   if (input.kundeKonfidenz === "keine" || input.kundeKonfidenz === "niedrig") {
     felder.push("Kunde nicht eindeutig zugeordnet");
+  }
+
+  // Erkannte die KI auf dem Beleg gar keine Positionen (leeres Array), lief die
+  // Schleife darunter nie und `felder` konnte leer bleiben — das Item wurde dann
+  // automatisch als "passt" markiert, obwohl beim Abschließen mangels Positionen
+  // nichts anzulegen ist (siehe app/api/ki/lieferung/batch/[id]/route.ts
+  // "Keine gültigen Positionen"). Ohne diesen Hinweis blieb der Fehlschlag beim
+  // Abschließen der einzige sichtbare Hinweis darauf.
+  if (input.positionen.length === 0) {
+    felder.push("Keine Positionen erkannt");
   }
 
   input.positionen.forEach((p, i) => {

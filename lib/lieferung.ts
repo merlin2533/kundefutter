@@ -66,6 +66,18 @@ export interface ErstelleLieferungResult {
   kreditlimit?: number;
 }
 
+/**
+ * Wird geworfen, wenn eine übergebene Lieferungs-Position auf einen Artikel verweist, der
+ * (mehr) nicht existiert — z.B. weil er zwischenzeitlich gelöscht oder über /artikel/verschmelzen
+ * in einen anderen Artikel überführt wurde. Ein sicherer, dem Nutzer direkt anzeigbarer
+ * Validierungsfehler (keine interne Ausnahme) — analog RestdifferenzValidierungsFehler weiter
+ * unten. POST /api/lieferungen unterscheidet danach, ob die echte Fehlermeldung an den Nutzer
+ * durchgereicht werden darf, statt sie in Produktion pauschal zu maskieren und an Sentry zu
+ * melden (siehe GlitchTip AGRI-15/AGRI-16: derselbe Nutzer scheiterte dadurch 11× in Folge an
+ * einer stillgelegten Artikel-ID, ohne zu erfahren, welche Position betroffen war).
+ */
+export class LieferungValidierungsFehler extends Error {}
+
 async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
   const { kundeId, positionen } = input;
   return prisma.$transaction(async (tx) => {
@@ -92,7 +104,11 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
     // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
     const angereichert = positionen.map((pos) => {
       const artikel = artikelMap.get(pos.artikelId);
-      if (!artikel) throw new Error(`Artikel mit ID ${pos.artikelId} nicht gefunden`);
+      if (!artikel) {
+        throw new LieferungValidierungsFehler(
+          `Artikel mit ID ${pos.artikelId} nicht gefunden — wurde er inzwischen gelöscht oder mit einem anderen Artikel verschmolzen? Bitte die Position neu auswählen.`
+        );
+      }
       const kundePreis = kundePreisMap.get(pos.artikelId) ?? null;
       const bevorzugterLieferant = bevorzugterLieferantMap.get(pos.artikelId);
 

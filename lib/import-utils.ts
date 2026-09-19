@@ -30,6 +30,16 @@ export function normalizeArtikelName(s: string): string {
     .toLowerCase();
 }
 
+// Normalisiert eine Artikelnummer für den Duplikat-Abgleich beim Import: Leerzeichen und
+// Bindestriche entfernen, Groß-/Kleinschreibung vereinheitlichen — Preislisten mit
+// Mengenstaffel-Zeilen (z.B. "… ab 500 kg" / "… ab 750 kg" desselben Produkts) teilen sich
+// oft dieselbe Artikelnummer unter abweichendem Namen; ohne diesen Abgleich erkennt der reine
+// Namens-Duplikat-Check (normalizeArtikelName) das nicht als Update und `artikel.create()`
+// scheitert an der @unique-Regel auf Artikelnummer (siehe AGENTS.md "Bekannte Bugs").
+export function normalizeArtikelnummer(s: string): string {
+  return s.trim().replace(/[\s-]+/g, "").toUpperCase();
+}
+
 // Reduziert einen Artikelnamen zusätzlich um Verpackungs-/Mengenangaben
 // (z.B. "- 25 kg Sack", "(600Kg)", "Big Bag") auf den reinen Produktnamen —
 // dient NUR der Erkennung möglicher Duplikate mit abweichender Benennung

@@ -87,6 +87,57 @@ export async function getAiConfig(category: ModelCategory = "language"): Promise
   };
 }
 
+// ─── Rate-Limit-Robustheit (Mistral HTTP 429) ────────────────────────────────
+//
+// Mistral drosselt bei zu vielen Anfragen kurz hintereinander mit HTTP 429
+// ("Rate limit exceeded") — beobachtet bei der Batch-Belegerkennung, wo
+// mehrere Analysen in Folge ausgelöst werden (GlitchTip "SDKError: API error
+// occurred: Status 429"). Ohne Wiederholung landete das sofort als
+// Fehlschlag beim Nutzer, obwohl ein erneuter Versuch nach kurzer Wartezeit
+// praktisch immer durchgeht — reine transiente Überlastung, kein
+// Anwendungsfehler. `mitRetryBei429()` ist der einzige Ort, an dem diese
+// Wiederholung passiert; jeder direkte Mistral-SDK-Aufruf in dieser Datei
+// läuft dadurch, AUSSER `testConnection()` — der Verbindungstest muss sofort
+// das echte Ergebnis melden, kein künstlich verzögertes "es klappt doch".
+// Ein nach allen Versuchen weiterhin fehlschlagender Aufruf wird unverändert
+// an den jeweils umgebenden catch-Block durchgereicht und dort wie bisher
+// gemeldet — hier wird nichts gefiltert oder verschluckt, nur ein
+// transienter Fehler bekommt eine echte Chance, sich von selbst zu lösen.
+const RATE_LIMIT_RETRY_VERZOEGERUNGEN_MS = [1000, 3000];
+
+function istMistralRateLimitFehler(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "statusCode" in err &&
+    (err as { statusCode?: number }).statusCode === 429
+  );
+}
+
+function mistralRetryAfterMs(err: unknown): number | null {
+  const headers = (err as { headers?: Headers } | null)?.headers;
+  const wert = typeof headers?.get === "function" ? headers.get("retry-after") : null;
+  if (!wert) return null;
+  const sekunden = Number(wert);
+  return Number.isFinite(sekunden) && sekunden > 0 ? sekunden * 1000 : null;
+}
+
+export async function mitRetryBei429<T>(aufruf: () => Promise<T>): Promise<T> {
+  for (let versuch = 0; versuch <= RATE_LIMIT_RETRY_VERZOEGERUNGEN_MS.length; versuch++) {
+    try {
+      return await aufruf();
+    } catch (err) {
+      const istLetzterVersuch = versuch === RATE_LIMIT_RETRY_VERZOEGERUNGEN_MS.length;
+      if (!istMistralRateLimitFehler(err) || istLetzterVersuch) throw err;
+      const wartezeit = mistralRetryAfterMs(err) ?? RATE_LIMIT_RETRY_VERZOEGERUNGEN_MS[versuch];
+      await new Promise((resolve) => setTimeout(resolve, wartezeit));
+    }
+  }
+  // Unerreichbar (die Schleife kehrt immer per return oder throw zurück),
+  // aber TypeScript kennt das nicht — ohne dies fehlt ein Rückgabepfad.
+  throw new Error("mitRetryBei429: unerreichbarer Zustand");
+}
+
 // ─── Dokument analysieren (Bild oder PDF, OCR-Kategorie) ─────────────────────
 //
 // Einheitliche Pipeline für Bild UND PDF: Schritt 1 extrahiert den Text via
@@ -111,12 +162,14 @@ export async function analyzeDocument(
 
   try {
     const client = new Mistral({ apiKey: ocrCfg.mistralKey });
-    const ocrResponse = await client.ocr.process({
-      model: "mistral-ocr-latest",
-      document: isPdf
-        ? { type: "document_url", documentUrl: dataUrl }
-        : { type: "image_url", imageUrl: dataUrl },
-    });
+    const ocrResponse = await mitRetryBei429(() =>
+      client.ocr.process({
+        model: "mistral-ocr-latest",
+        document: isPdf
+          ? { type: "document_url", documentUrl: dataUrl }
+          : { type: "image_url", imageUrl: dataUrl },
+      })
+    );
 
     const documentText = (ocrResponse.pages ?? [])
       .map((p) => p.markdown || "")
@@ -132,17 +185,19 @@ export async function analyzeDocument(
     // ocrCfg als `config` durchreichen, "mistral-ocr-latest" (kein Chat-Modell)
     // an client.chat.complete() gehen und JEDE Dokumentenanalyse fehlschlagen.
     const languageCfg = await getAiConfig("language");
-    const chatResponse = await client.chat.complete({
-      model: languageCfg.modell,
-      maxTokens: opts.maxTokens ?? 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `${opts.userInstruction ?? "Analysiere das folgende Dokument und extrahiere die relevanten Informationen als JSON:"}\n\n${documentText}`,
-        },
-      ],
-    });
+    const chatResponse = await mitRetryBei429(() =>
+      client.chat.complete({
+        model: languageCfg.modell,
+        maxTokens: opts.maxTokens ?? 4096,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `${opts.userInstruction ?? "Analysiere das folgende Dokument und extrahiere die relevanten Informationen als JSON:"}\n\n${documentText}`,
+          },
+        ],
+      })
+    );
 
     const content = chatResponse.choices?.[0]?.message?.content;
     const text = typeof content === "string" ? content : "{}";
@@ -194,17 +249,19 @@ export async function analyzeText(
   const client = new Mistral({ apiKey: cfg.mistralKey });
 
   try {
-    const response = await client.chat.complete({
-      model: cfg.modell,
-      maxTokens: 4096,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: `Analysiere den folgenden Text (von einer Spracheingabe) und extrahiere die relevanten Informationen als JSON:\n\n${text}`,
-        },
-      ],
-    });
+    const response = await mitRetryBei429(() =>
+      client.chat.complete({
+        model: cfg.modell,
+        maxTokens: 4096,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: `Analysiere den folgenden Text (von einer Spracheingabe) und extrahiere die relevanten Informationen als JSON:\n\n${text}`,
+          },
+        ],
+      })
+    );
 
     const content = response.choices?.[0]?.message?.content;
     const responseText = typeof content === "string" ? content : "{}";
@@ -233,11 +290,13 @@ export async function transcribeAudio(
   const client = new Mistral({ apiKey: cfg.mistralKey });
 
   try {
-    const response = await client.audio.transcriptions.complete({
-      model: cfg.modell,
-      file: { fileName: audio.fileName, content: audio.content },
-      language: "de",
-    });
+    const response = await mitRetryBei429(() =>
+      client.audio.transcriptions.complete({
+        model: cfg.modell,
+        file: { fileName: audio.fileName, content: audio.content },
+        language: "de",
+      })
+    );
 
     const tokensIn = response.usage?.promptTokens || 0;
     const tokensOut = response.usage?.completionTokens || 0;
@@ -262,12 +321,14 @@ export async function textToSpeech(
 
   const client = new Mistral({ apiKey: cfg.mistralKey });
 
-  const response = await client.audio.speech.complete({
-    model: cfg.modell || undefined,
-    input: text,
-    voiceId: voiceId || undefined,
-    responseFormat: "mp3",
-  });
+  const response = await mitRetryBei429(() =>
+    client.audio.speech.complete({
+      model: cfg.modell || undefined,
+      input: text,
+      voiceId: voiceId || undefined,
+      responseFormat: "mp3",
+    })
+  );
 
   if ("audioData" in response) {
     return Buffer.from(response.audioData, "base64").buffer as ArrayBuffer;

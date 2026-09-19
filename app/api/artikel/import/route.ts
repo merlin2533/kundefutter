@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
-import { ARTIKEL_ALIAS, normalizeArtikelName, parseNumber, pickCol } from "@/lib/import-utils";
+import { ARTIKEL_ALIAS, normalizeArtikelName, normalizeArtikelnummer, parseNumber, pickCol } from "@/lib/import-utils";
 import { istChargenpflichtKategorie, resolveKategorie } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loadKategorieTaxonomie } from "@/lib/artikel-kategorie";
@@ -57,9 +57,18 @@ export async function POST(req: NextRequest) {
   // Loop nach jedem Neuanlegen ergänzt, damit mehrere Zeilen derselben Datei
   // mit demselben Namen sich ebenfalls gegenseitig als "aktualisieren" statt
   // Duplikat erkennen.
-  const bestehendeArtikel = await prisma.artikel.findMany({ select: { id: true, name: true } });
+  const bestehendeArtikel = await prisma.artikel.findMany({ select: { id: true, name: true, artikelnummer: true } });
   const artikelIdByNormName = new Map<string, number>(
     bestehendeArtikel.map((a) => [normalizeArtikelName(a.name), a.id])
+  );
+  // Zweiter Index nach Artikelnummer: Mengenstaffel-/Preisvariante-Zeilen einer Preisliste teilen
+  // sich oft dieselbe Artikelnummer unter abweichendem Namen (z.B. "… ab 500 kg"/"… ab 750 kg") —
+  // der reine Namens-Index oben erkennt das nicht als Update, wodurch das anschließende
+  // `artikel.create()` an der @unique-Regel auf Artikelnummer scheitert (P2002, siehe Zeile 205ff.).
+  const artikelIdByNummer = new Map<string, number>(
+    bestehendeArtikel
+      .filter((a) => a.artikelnummer)
+      .map((a) => [normalizeArtikelnummer(a.artikelnummer), a.id])
   );
 
   for (let i = 0; i < rows.length; i++) {
@@ -122,8 +131,13 @@ export async function POST(req: NextRequest) {
           lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
         }
 
-        // Duplikat-Check: Artikel mit gleichem (normalisiertem) Namen bereits vorhanden?
-        const vorhandenerId = artikelIdByNormName.get(normalizeArtikelName(name));
+        // Duplikat-Check: Artikel mit gleichem (normalisiertem) Namen ODER gleicher Artikelnummer
+        // bereits vorhanden? Der Namens-Treffer hat Vorrang (er ist der ursprüngliche, engere
+        // Vergleich); die Artikelnummer greift zusätzlich für Mengenstaffel-/Preisvariante-Zeilen,
+        // die unter abweichendem Namen dieselbe Nummer tragen.
+        const vorhandenerId =
+          artikelIdByNormName.get(normalizeArtikelName(name)) ??
+          (artikelnummer ? artikelIdByNummer.get(normalizeArtikelnummer(artikelnummer)) : undefined);
         const vorhandener = vorhandenerId ? { id: vorhandenerId } : null;
 
         if (vorhandener) {
@@ -198,6 +212,7 @@ export async function POST(req: NextRequest) {
             select: { id: true },
           });
           artikelIdByNormName.set(normalizeArtikelName(name), erstellt.id);
+          if (finalNummer) artikelIdByNummer.set(normalizeArtikelnummer(finalNummer), erstellt.id);
           if (lieferantId) lieferantenGesetzt++;
           neu++;
         }
@@ -205,19 +220,20 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       Sentry.captureException(err);
       const isDev = process.env.NODE_ENV === "development";
-      // Häufigster Fall bei Preislisten mit Mengenstaffel-Zeilen: mehrere
-      // Zeilen desselben Produkts (z.B. "… ab 500 kg" / "… ab 750 kg") teilen
-      // sich dieselbe Artikelnummer, der Name unterscheidet sich aber durch
-      // den Staffel-Zusatz — der Duplikat-Check (nur nach Name) erkennt das
-      // nicht als Update, `artikel.create()` scheitert dann an der
-      // @unique-Regel auf Artikelnummer (einziges @unique-Feld auf Artikel,
-      // ein P2002 an dieser Stelle kann daher nur davon kommen). Eigene,
-      // verständliche Meldung statt des generischen "Verarbeitungsfehler",
-      // ohne die interne Fehlermeldung preiszugeben.
+      // Der häufigste Fall — Mengenstaffel-/Preisvariante-Zeilen mit geteilter Artikelnummer
+      // unter abweichendem Namen (z.B. "… ab 500 kg" / "… ab 750 kg") — wird seit dem
+      // Artikelnummer-Index oben (Zeile 64ff.) bereits VOR diesem Punkt als Update erkannt und
+      // erzeugt daher normalerweise kein P2002 mehr. Ein P2002 hier auf dem einzigen
+      // @unique-Feld von Artikel bedeutet jetzt entweder: zwei tatsächlich unterschiedliche
+      // Zeilen der Importdatei tragen irrtümlich dieselbe Artikelnummer, oder ein zweiter,
+      // gleichzeitig laufender Import hat dieselbe Nummer parallel neu angelegt (der
+      // Namens-/Nummern-Index wird einmalig zu Beginn dieser Anfrage geladen und sieht die
+      // Zeilen eines parallel laufenden Imports nicht). Eigene, verständliche Meldung statt des
+      // generischen "Verarbeitungsfehler", ohne die interne Fehlermeldung preiszugeben.
       const istArtikelnummerKonflikt =
         err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
       const msg = istArtikelnummerKonflikt
-        ? `Artikelnummer${artikelnummer ? ` "${artikelnummer}"` : ""} bereits vergeben — evtl. Mengenstaffel-/Preisvariante desselben Artikels? Solche Zeilen mit geteilter Artikelnummer werden aktuell nicht unterstützt.`
+        ? `Artikelnummer${artikelnummer ? ` "${artikelnummer}"` : ""} ist bereits einem anderen Artikel mit abweichendem Namen zugeordnet — bitte prüfen, ob es sich um zwei unterschiedliche Produkte handelt oder ob gerade ein zweiter Import gleichzeitig läuft.`
         : isDev && err instanceof Error
           ? err.message
           : "Verarbeitungsfehler";

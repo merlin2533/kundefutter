@@ -131,8 +131,11 @@ async function ladeAlleLieferanten(): Promise<LieferantRaw[]> {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function meldeLernkorrektur(typ: "artikel" | "kunde", suchtext: string, zielId: number) {
-  const text = suchtext.trim();
+function meldeLernkorrektur(typ: "artikel" | "kunde", suchtext: string | null | undefined, zielId: number) {
+  // suchtext kann null sein, wenn die KI weder Name noch Firma erkannt hatte (item.kiErgebnis.kunde
+  // .firma || item.kiErgebnis.kunde.name ergibt dann null, siehe matchKunde() in lib/kiMatching.ts) —
+  // aus einem unerkannten Kunden lässt sich ohnehin nichts lernen.
+  const text = (suchtext ?? "").trim();
   if (!text) return;
   fetch("/api/ki/lernen", {
     method: "POST",

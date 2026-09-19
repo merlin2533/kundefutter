@@ -66,6 +66,53 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
   obwohl der TypeScript-Typ `string` das zur Laufzeit nicht garantiert. Ein Null-Guard vor dem
   Zugriff lässt die betroffene Position jetzt als "nicht gefunden" stehen (manuell zuordenbar)
   statt die ganze Seite abstürzen zu lassen.
+- **Artikel-Import: `Unique constraint failed on the fields: (artikelnummer)`** (GlitchTip
+  AGRI-14, 129 Vorkommen) – der Duplikat-Check beim CSV-/Excel-Import (`POST /api/artikel/import`)
+  erkannte Mengenstaffel-/Preisvariante-Zeilen einer Preisliste (gleiche Artikelnummer, aber
+  abweichender Name, z.B. "… ab 500 kg"/"… ab 750 kg") nicht als Update, weil nur nach
+  normalisiertem Namen gesucht wurde – `artikel.create()` scheiterte dadurch an der `@unique`-Regel
+  auf `artikelnummer`. Neue `normalizeArtikelnummer()` (`lib/import-utils.ts`) plus ein zweiter
+  Duplikat-Index nach Artikelnummer (zusätzlich zum bestehenden Namens-Index) erkennen solche
+  Zeilen jetzt korrekt als Aktualisierung eines bestehenden Artikels.
+- **Neue Lieferung: unklarer Absturz, wenn eine Position auf einen inzwischen gelöschten/
+  verschmolzenen Artikel verwies** (GlitchTip AGRI-15/AGRI-16, `Error: Artikel mit ID … nicht
+  gefunden` bzw. der dadurch maskierte Folgefehler `Lieferung konnte nicht angelegt werden`,
+  je 11 Vorkommen desselben Vorfalls) – `erstelleLieferungTransaktion()` (`lib/lieferung.ts`) warf
+  bei einem fehlenden Artikel (gelöscht oder über `/artikel/verschmelzen` in einen anderen Artikel
+  überführt) eine generische `Error`, die `POST /api/lieferungen` wie jeden anderen internen Fehler
+  in Produktion pauschal zu "Lieferung konnte nicht angelegt werden" maskierte – der Nutzer erfuhr
+  nie, welche Position betroffen war, und scheiterte 11× in Folge an derselben stillgelegten
+  Artikel-ID. Neue `LieferungValidierungsFehler`-Klasse (analog zur bereits bestehenden
+  `RestdifferenzValidierungsFehler`) markiert diesen Fall als sicheren, dem Nutzer direkt
+  anzeigbaren Validierungsfehler; `POST /api/lieferungen` gibt seine Meldung jetzt unverändert als
+  400 zurück statt sie zu maskieren und als 500 an Sentry zu melden.
+- **KI-Batch-Belegerkennung: `SDKError: API error occurred: Status 429`** (GlitchTip AGRI-1C,
+  12 Vorkommen) – löst eine Batch-Erkennung mehrere Mistral-Analysen kurz hintereinander aus,
+  drosselt Mistral gelegentlich mit HTTP 429 ("Rate limit exceeded"); ein erneuter Versuch nach
+  kurzer Wartezeit geht praktisch immer durch, war aber nirgends vorgesehen – der Fehlschlag
+  erreichte den Nutzer sofort. Neue `mitRetryBei429()` (`lib/ai.ts`) umschließt jetzt jeden
+  direkten Mistral-SDK-Aufruf (OCR, Chat, Transkription, Sprachausgabe) mit bis zu zwei
+  Wiederholungen (respektiert einen `Retry-After`-Header, sonst feste Verzögerung); bewusst
+  ausgenommen bleibt `testConnection()` – ein Verbindungstest muss sofort das echte Ergebnis
+  melden. Ein nach allen Versuchen weiterhin fehlschlagender Aufruf wird unverändert gemeldet.
+- **KI-Batch-Lieferschein-Erkennung: Absturz bei nicht erkennbarem Kunden** (GlitchTip
+  AGRI-1E/AGRI-1F, `TypeError: null is not an object (evaluating '(e.firma||e.name).toLowerCase')`
+  bzw. `TypeError: Cannot read properties of null (reading 'trim')`) – liefert Mistral auf einem
+  Beleg weder Name noch Firma des Kunden (JSON-Ausgabe hält sich zur Laufzeit nicht an das
+  TypeScript-Typsystem), stürzte `matchKunde()` (`lib/kiMatching.ts`) beim Zugriff auf
+  `(kiKunde.firma || kiKunde.name).toLowerCase()` ab, und die anschließende Lernkorrektur-Meldung
+  (`app/ki/lieferung/batch/[id]/page.tsx`) beim `.trim()` des `null`-Suchtexts. Beide Stellen haben
+  jetzt denselben Null-Guard wie der bereits bestehende, analoge Fall in `matchArtikel()` – ein
+  nicht erkennbarer Kunde gilt jetzt korrekt als "kein Kunde erkannt" statt die Seite abstürzen zu
+  lassen.
+- **KI-Batch-Lieferschein-Erkennung: ein Beleg ohne erkannte Positionen ließ sich fälschlich als
+  "passt" markieren** (GlitchTip AGRI-1D/AGRI-1H, `Error: Keine gültigen Positionen`) – erkannte
+  Mistral auf einem Beleg gar keine Positionen (leeres Array), lief die Validierungsschleife in
+  `berechneFehlendeFelder()` (`lib/kiMatching.ts`) nie, `felder` blieb leer, und die
+  Batch-Oberfläche markierte das Item automatisch als vollständig – erst beim tatsächlichen
+  Abschließen scheiterte der Server serverseitig mit "Keine gültigen Positionen", ohne dass der
+  Nutzer vorher einen Hinweis darauf hatte. `berechneFehlendeFelder()` meldet jetzt explizit
+  "Keine Positionen erkannt", wenn das Positionen-Array leer ist.
 
 ### Behoben (Nachzug zum GlitchTip-Reporting)
 - **Server lief nach `uncaughtException` kaputt weiter** – der neue Handler in

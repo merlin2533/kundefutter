@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { matchArtikel, normalisiereArtikelnummer, istGleicherName, type MatchableArtikel } from "@/lib/kiMatching";
+import {
+  matchArtikel,
+  matchKunde,
+  normalisiereArtikelnummer,
+  istGleicherName,
+  berechneFehlendeFelder,
+  type MatchableArtikel,
+  type MatchableKunde,
+} from "@/lib/kiMatching";
 
 const ARTIKEL: MatchableArtikel[] = [
   { id: 1, name: "Ölrettich Gelbsenf Mischung", artikelnummer: "A-100" },
@@ -161,5 +169,82 @@ describe("matchArtikel", () => {
     const { artikel, konfidenz } = matchArtikel({ name: "Voellig unbekanntes Produkt Xyz" }, ARTIKEL);
     expect(artikel).toBeNull();
     expect(konfidenz).toBe("keine");
+  });
+});
+
+// Regressionstests für GlitchTip AGRI-1E ("null is not an object (evaluating
+// '(e.firma||e.name).toLowerCase')") und AGRI-1F ("Cannot read properties of null
+// (reading 'trim')"): die KI liefert bei einem auf dem Beleg nicht erkennbaren Kunden manchmal
+// weder Name noch Firma (JSON-Ausgabe von Mistral hält sich zur Laufzeit nicht an das TS-Typsystem
+// von MatchKundeInput.name: string) — das darf matchKunde() nicht zum Absturz bringen, sondern muss
+// wie beim analogen, bereits bestehenden Guard in matchArtikel() als "kein Kunde erkannt" behandelt
+// werden.
+describe("matchKunde", () => {
+  const KUNDEN: MatchableKunde[] = [
+    { id: 1, name: "Volker Vorhölter", firma: undefined, betriebsnummer: null, vvvoNr: null },
+    { id: 2, name: "Vorhölter", firma: undefined, betriebsnummer: null, vvvoNr: null },
+    { id: 3, name: "Hartwig Lagemann", firma: "Lagemann GbR", betriebsnummer: "276001234567", vvvoNr: null },
+  ];
+
+  it("liefert 'keine' statt abzustürzen, wenn die KI weder name noch firma liefert (beide null)", () => {
+    const { kunde, konfidenz } = matchKunde(
+      { name: null as unknown as string, firma: null as unknown as string },
+      KUNDEN
+    );
+    expect(kunde).toBeNull();
+    expect(konfidenz).toBe("keine");
+  });
+
+  it("liefert 'keine' bei leerer Kundenliste, unabhängig vom Namen", () => {
+    expect(matchKunde({ name: "Irgendwer" }, []).konfidenz).toBe("keine");
+  });
+
+  it("findet trotz null-name/-firma weiterhin über die Betriebsnummer", () => {
+    const { kunde, konfidenz } = matchKunde(
+      { name: null as unknown as string, firma: null as unknown as string, betriebsnummer: "276 001 234 567" },
+      KUNDEN
+    );
+    expect(konfidenz).toBe("hoch");
+    expect(kunde?.id).toBe(3);
+  });
+
+  it("findet weiterhin per exaktem Namenstreffer, wenn nur firma fehlt", () => {
+    const { kunde, konfidenz } = matchKunde({ name: "Volker Vorhölter", firma: null as unknown as string }, KUNDEN);
+    expect(konfidenz).toBe("hoch");
+    expect(kunde?.id).toBe(1);
+  });
+
+  it("liefert 'keine' bei einer nicht-leeren, aber komplett unpassenden Namensangabe", () => {
+    const { kunde, konfidenz } = matchKunde({ name: "Völlig unbekannter Betrieb Xyz" }, KUNDEN);
+    expect(kunde).toBeNull();
+    expect(konfidenz).toBe("keine");
+  });
+});
+
+// Regressionstest für GlitchTip AGRI-1D/AGRI-1H ("Keine gültigen Positionen"): erkannte die
+// KI auf einem Beleg gar keine Positionen (leeres Array), lief die Validierungsschleife in
+// berechneFehlendeFelder() nie und `felder` konnte leer bleiben — die Batch-Oberfläche
+// (app/ki/lieferung/batch/[id]/page.tsx) markiert ein Item bei `fehlendeFelder.length === 0`
+// automatisch als "passt", obwohl beim Abschließen mangels Positionen serverseitig
+// "Keine gültigen Positionen" geworfen wird (app/api/ki/lieferung/batch/[id]/route.ts).
+describe("berechneFehlendeFelder", () => {
+  it("meldet fehlende Positionen, wenn die KI ein leeres Array liefert", () => {
+    const felder = berechneFehlendeFelder({ kundeKonfidenz: "hoch", positionen: [] });
+    expect(felder).toContain("Keine Positionen erkannt");
+  });
+
+  it("meldet Kunde UND fehlende Positionen gleichzeitig, wenn beides zutrifft", () => {
+    const felder = berechneFehlendeFelder({ kundeKonfidenz: "keine", positionen: [] });
+    expect(felder).toContain("Kunde nicht eindeutig zugeordnet");
+    expect(felder).toContain("Keine Positionen erkannt");
+  });
+
+  it("meldet keine fehlenden Positionen, wenn mindestens eine vollständige Position vorhanden ist", () => {
+    const felder = berechneFehlendeFelder({
+      kundeKonfidenz: "hoch",
+      positionen: [{ artikelId: 1, konfidenz: "hoch", verkaufspreis: 10, menge: 5 }],
+    });
+    expect(felder).not.toContain("Keine Positionen erkannt");
+    expect(felder).toHaveLength(0);
   });
 });
