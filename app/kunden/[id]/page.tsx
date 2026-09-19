@@ -474,9 +474,12 @@ export default function KundeDetailPage() {
           })}
         </nav>
 
-        {/* <xl: Direkt-Tabs + Dropdown-Gruppen */}
-        <nav className="xl:hidden flex -mb-px">
-          <div className="flex gap-0.5 overflow-x-auto min-w-0 flex-1">
+        {/* <xl: Direkt-Tabs + Dropdown-Gruppen — EIN gemeinsam scrollbarer Strip, damit die
+            Dropdown-Buttons (Vertrieb/Agrar/Mehr) die Direkt-Tabs auf schmalen Viewports nicht
+            auf eine unbrauchbar schmale, kaum sichtbare Scroll-Spalte zusammenquetschen (siehe
+            Bug-Tabelle: „CRM"-Tab dadurch auf dem Handy praktisch unerreichbar) */}
+        <nav className="xl:hidden flex gap-0.5 overflow-x-auto -mb-px">
+          <div className="flex gap-0.5 shrink-0">
           {visibleDirektTabs.map((tab) => {
             const isActive = activeTab === tab;
             return (
