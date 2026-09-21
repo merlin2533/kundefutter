@@ -8,6 +8,19 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 ## [Unreleased]
 
 ### Behoben (GlitchTip-Sweep)
+- **KI-Batch-Lieferschein-Erkennung stürzte ab, wenn die KI keinen Kunden erkannte** (GlitchTip
+  AGRI-1M, `/ki/lieferung/batch/[id]`) – `KiErgebnis.kunde` war in beiden KI-Lieferungs-Seiten als
+  Pflichtfeld typisiert, wird aber aus `JSON.parse(raw.kiErgebnisJson)` befüllt, also aus einer
+  Mistral-Antwort ohne Schema-Garantie: ist auf dem Beleg kein Kunde lesbar (unscharfes Foto,
+  abgeschnittener Kopfbereich), lässt die KI das Feld laut Prompt bewusst ganz weg. Das
+  Geschwisterfeld `positionen` war dagegen längst mit `?? []` abgesichert. `matchKunde()`
+  (`lib/kiMatching.ts`) tolerierte zwar bereits `name`/`firma` als `null`, griff aber ungeprüft auf
+  `kiKunde.firma` zu und brach mit `TypeError: Cannot read properties of undefined` ab – der
+  gesamte Batch-Review war damit nicht mehr bedienbar. `matchKunde()` hat jetzt denselben
+  Frühausstieg wie bei leerer Kundenliste, der Typ ist auf `kunde?:` korrigiert und alle sieben
+  Zugriffsstellen in `app/ki/lieferung/batch/[id]/page.tsx` sowie `app/ki/lieferung/page.tsx` sind
+  optional verkettet (Anzeige „kein Kunde erkannt" statt Absturz); `ergebnis.positionen` ist auch in
+  der Einzel-Seite mit `?? []` abgesichert. Regressionstest in `__tests__/lib/kiMatching.test.ts`.
 - **`TypeError: Load failed` auf iOS Safari beim Hintergrund-Polling** (GlitchTip AGRI-R,
   `/artikel`) – `NotificationCenter.tsx` und das Dashboard (`app/page.tsx`) pollten `/api/aufgaben`
   bzw. `/api/dashboard` per `setInterval` alle 60 s, unabhängig davon, ob der Tab überhaupt

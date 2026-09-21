@@ -54,7 +54,9 @@ interface KiPosition {
 }
 
 interface KiErgebnis {
-  kunde: { name: string; firma?: string; ort?: string };
+  // Optional: die Werte stammen aus JSON.parse() der KI-Antwort (lib/ai.ts), nicht aus einem
+  // Schema mit Garantie — erkennt die KI keinen Kunden, fehlt das Feld ganz (Glitchtip AGRI-1M).
+  kunde?: { name: string; firma?: string; ort?: string };
   datum?: string;
   positionen: KiPosition[];
 }
@@ -385,7 +387,7 @@ export default function KiLieferungBatchDetailPage() {
   function setKundeFuerItem(item: BatchItem, kundeIdStr: string) {
     const neueId = kundeIdStr ? parseInt(kundeIdStr, 10) : null;
     if (neueId != null && item.kundeId !== neueId && item.kiErgebnis) {
-      meldeLernkorrektur("kunde", item.kiErgebnis.kunde.firma || item.kiErgebnis.kunde.name, neueId);
+      meldeLernkorrektur("kunde", item.kiErgebnis.kunde?.firma || item.kiErgebnis.kunde?.name, neueId);
     }
     updateItem(item.id, (it) => ({ ...it, kundeId: neueId, kundeKonfidenz: neueId ? "hoch" : "keine" }));
   }
@@ -518,7 +520,7 @@ export default function KiLieferungBatchDetailPage() {
     updateItem(item.id, (it) => ({ ...it, kundeId: kunde.id, kundeKonfidenz: "hoch" }));
     setNeuKundeItemId(null);
     if (item.kiErgebnis) {
-      meldeLernkorrektur("kunde", item.kiErgebnis.kunde.firma || item.kiErgebnis.kunde.name, kunde.id);
+      meldeLernkorrektur("kunde", item.kiErgebnis.kunde?.firma || item.kiErgebnis.kunde?.name, kunde.id);
     }
   }
 
@@ -765,7 +767,7 @@ export default function KiLieferungBatchDetailPage() {
                       </div>
                       {item.kiErgebnis && (
                         <p className="text-xs text-gray-400 mb-1">
-                          KI erkannt: <span className="font-medium text-gray-600">{item.kiErgebnis.kunde.firma ?? item.kiErgebnis.kunde.name}</span>
+                          KI erkannt: <span className="font-medium text-gray-600">{item.kiErgebnis.kunde?.firma ?? item.kiErgebnis.kunde?.name ?? "kein Kunde erkannt"}</span>
                         </p>
                       )}
                       <SearchableSelect
@@ -786,9 +788,9 @@ export default function KiLieferungBatchDetailPage() {
                       )}
                       {neuKundeItemId === item.id && (
                         <NeuKundeInline
-                          kiName={item.kiErgebnis?.kunde.name ?? ""}
-                          kiFirma={item.kiErgebnis?.kunde.firma}
-                          kiOrt={item.kiErgebnis?.kunde.ort}
+                          kiName={item.kiErgebnis?.kunde?.name ?? ""}
+                          kiFirma={item.kiErgebnis?.kunde?.firma}
+                          kiOrt={item.kiErgebnis?.kunde?.ort}
                           onCreated={(neu) => onKundeAngelegt(item, neu)}
                           onCancel={() => setNeuKundeItemId(null)}
                         />
