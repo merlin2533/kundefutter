@@ -146,6 +146,7 @@ export async function POST(req: NextRequest) {
   const quelle = typeof body.quelle === "string" && body.quelle ? body.quelle : undefined;
   const kundeId = Number(body.kundeId);
   const istStreckengeschaeft = body.istStreckengeschaeft === true;
+  const istVorkasse = body.istVorkasse === true;
   const streckenLieferantId = body.streckenLieferantId != null
     ? parseInt(String(body.streckenLieferantId), 10)
     : null;
@@ -205,6 +206,7 @@ export async function POST(req: NextRequest) {
     wiederkehrend,
     istStreckengeschaeft,
     streckenLieferantId,
+    istVorkasse,
     quelle,
     positionen,
   });

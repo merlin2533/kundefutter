@@ -58,6 +58,7 @@ interface Lieferung {
   skontoProzent?: number | null;
   skontoTage?: number | null;
   skontoGenutzt?: boolean | null;
+  istVorkasse?: boolean;
   istStreckengeschaeft?: boolean;
   streckenLieferantId?: number | null;
   streckenLieferant?: { id: number; name: string } | null;
@@ -173,6 +174,11 @@ export default function LieferungDetailPage() {
   const [skontoSaving, setSkontoSaving] = useState(false);
   const [skontoSaved, setSkontoSaved] = useState(false);
   const [skontoError, setSkontoError] = useState("");
+  // Vorkasse — rein informativer Zahlungshinweis auf Rechnung/Mail, keine Lager-/Statuslogik
+  const [vorkasseEdit, setVorkasseEdit] = useState<boolean>(false);
+  const [vorkasseSaving, setVorkasseSaving] = useState(false);
+  const [vorkasseSaved, setVorkasseSaved] = useState(false);
+  const [vorkasseError, setVorkasseError] = useState("");
   // Streckengeschäft / Direktlieferung
   const [lieferanten, setLieferanten] = useState<LieferantOption[]>([]);
   const [streckeEdit, setStreckeEdit] = useState<boolean>(false);
@@ -289,6 +295,7 @@ export default function LieferungDetailPage() {
     setSkontoProzentEdit(String(data.skontoProzent ?? ""));
     setSkontoTageEdit(String(data.skontoTage ?? ""));
     setSkontoGenutztEdit(!!data.skontoGenutzt);
+    setVorkasseEdit(!!data.istVorkasse);
     setStreckeEdit(!!data.istStreckengeschaeft);
     setStreckenLieferantIdEdit(data.streckenLieferantId ?? "");
     setStreckeSaved(false);
@@ -949,6 +956,34 @@ export default function LieferungDetailPage() {
     }
   }
 
+  async function speichereVorkasse() {
+    setVorkasseSaving(true);
+    setVorkasseError("");
+    setVorkasseSaved(false);
+    try {
+      const res = await fetch(`/api/lieferungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ istVorkasse: vorkasseEdit }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch((err) => {
+          Sentry.captureException(err);
+          return ({});
+        });
+        throw new Error((d as { error?: string }).error || "Fehler beim Speichern");
+      }
+      setVorkasseSaved(true);
+      setTimeout(() => setVorkasseSaved(false), 2000);
+      await load();
+    } catch (e) {
+      Sentry.captureException(e);
+      setVorkasseError(e instanceof Error ? e.message : "Fehler beim Speichern.");
+    } finally {
+      setVorkasseSaving(false);
+    }
+  }
+
   async function speichereStreckengeschaeft() {
     if (streckeEdit && !streckenLieferantIdEdit) {
       setStreckeError("Bitte einen Direktlieferanten wählen.");
@@ -1355,6 +1390,11 @@ export default function LieferungDetailPage() {
               <span>{formatDatum(lieferung.datum)}</span>
               <span>·</span>
               <StatusBadge status={lieferung.status} />
+              {lieferung.istVorkasse && (
+                <span className="px-2 py-0.5 text-xs bg-amber-50 border border-amber-300 text-amber-800 rounded-full font-medium">
+                  Vorkasse
+                </span>
+              )}
             </div>
             <div className="mt-2">
               {notizLieferungEditing ? (
@@ -1498,6 +1538,27 @@ export default function LieferungDetailPage() {
               {zahlungszielError && (
                 <span className="text-xs text-red-600">{zahlungszielError}</span>
               )}
+            </div>
+            {/* Vorkasse — rein informativer Zahlungshinweis, jederzeit änderbar */}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={vorkasseEdit}
+                  onChange={(e) => { setVorkasseEdit(e.target.checked); setVorkasseSaved(false); setVorkasseError(""); }}
+                  className="w-4 h-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+                />
+                <span className="text-gray-700 whitespace-nowrap">Vorkasse <span className="text-gray-400 font-normal">(Zahlung vor Lieferung)</span></span>
+              </label>
+              <button
+                onClick={speichereVorkasse}
+                disabled={vorkasseSaving}
+                className="px-2 py-0.5 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition-colors disabled:opacity-60"
+              >
+                Speichern
+              </button>
+              {vorkasseSaved && <span className="text-xs text-green-700">✓ gespeichert</span>}
+              {vorkasseError && <span className="text-xs text-red-600">{vorkasseError}</span>}
             </div>
             {/* Streckengeschäft / Direktlieferung */}
             {lieferung.status === "geplant" ? (

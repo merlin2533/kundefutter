@@ -261,6 +261,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       istStreckengeschaeft?: boolean; streckenLieferantId?: number | null;
       skontoProzent?: number | null; skontoTage?: number | null; skontoGenutzt?: boolean;
       manuelleMahnstufe?: number | null;
+      istVorkasse?: boolean;
     } = {};
     if (data.status !== undefined) updateData.status = data.status;
     if (data.notiz !== undefined) updateData.notiz = data.notiz;
@@ -357,6 +358,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
     if (data.skontoGenutzt !== undefined) {
       updateData.skontoGenutzt = Boolean(data.skontoGenutzt);
+    }
+    // Vorkasse: rein informativ (Zahlungshinweis auf Rechnung/Mail) — jederzeit änderbar,
+    // keine Statussperre nötig, da kein Lagerbuchungs-/Status-Mechanismus daran hängt.
+    if (data.istVorkasse !== undefined) {
+      updateData.istVorkasse = Boolean(data.istVorkasse);
     }
 
     // Streckengeschäft / Direktlieferung — nur änderbar solange "geplant",

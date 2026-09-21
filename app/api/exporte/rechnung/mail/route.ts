@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
       kundenAnrede,
       firma,
       pdfFilename,
+      istVorkasse: lieferung.istVorkasse,
     });
 
     const ccAdresse = typeof body.cc === "string" && body.cc.trim() ? body.cc.trim() : undefined;

@@ -100,6 +100,8 @@ export type RechnungMailData = {
   kundenAnrede?: string | null;
   firma: FirmaDaten;
   pdfFilename: string;
+  /** Vorkasse: zeigt statt des Fälligkeitsdatums einen Zahlungshinweis (Ware erst nach Zahlungseingang). */
+  istVorkasse?: boolean;
 };
 
 export type AuftragsbestaetigungMailData = {
@@ -173,7 +175,7 @@ export function rechnungSubject(rechnungNr: string, firmenname: string, datum: D
 }
 
 export function rechnungEmail(data: RechnungMailData): { subject: string; text: string; html: string } {
-  const { rechnungNr, rechnungDatum, faelligAm, bruttoBetrag, kundenAnrede, firma, pdfFilename } = data;
+  const { rechnungNr, rechnungDatum, faelligAm, bruttoBetrag, kundenAnrede, firma, pdfFilename, istVorkasse } = data;
   const subject = rechnungSubject(rechnungNr, firma.name, rechnungDatum);
   const anrede = kundenAnrede?.trim()
     ? `Sehr geehrte/r ${kundenAnrede.trim()},`
@@ -187,8 +189,11 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
     `Rechnungsnummer: ${rechnungNr}`,
     `Rechnungsdatum:  ${fmtDatum(rechnungDatum)}`,
     `Gesamtbetrag:    ${fmtEuro(bruttoBetrag)}`,
-    faelligAm ? `Fällig am:       ${fmtDatum(faelligAm)}` : "",
+    istVorkasse ? "Zahlungsart:     Vorkasse" : (faelligAm ? `Fällig am:       ${fmtDatum(faelligAm)}` : ""),
     "",
+    istVorkasse
+      ? "Vorkasse: Bitte überweisen Sie den Rechnungsbetrag vor Lieferung. Die Ware wird nach Zahlungseingang versendet."
+      : "",
     "Anhänge:",
     `• ${pdfFilename} – Rechnung (PDF mit eingebetteter ZUGFeRD / Factur-X E-Rechnung)`,
     ...(firma.iban
@@ -265,8 +270,14 @@ export function rechnungEmail(data: RechnungMailData): { subject: string; text: 
           ${zeile("Rechnungsnummer", rechnungNr)}
           ${zeile("Rechnungsdatum", fmtDatum(rechnungDatum))}
           ${zeile("Gesamtbetrag", fmtEuro(bruttoBetrag), true)}
-          ${faelligAm ? zeile("Fällig am", fmtDatum(faelligAm)) : ""}
+          ${istVorkasse ? zeile("Zahlungsart", "Vorkasse", true) : (faelligAm ? zeile("Fällig am", fmtDatum(faelligAm)) : "")}
         </table>
+        ${istVorkasse
+          ? `<div style="margin:0 0 16px 0;padding:12px 16px;background:#fffbeb;border-left:3px solid #d97706;border-radius:4px;font-size:13px;color:#92400e;line-height:1.6;">
+               <b>Vorkasse</b><br>
+               Bitte überweisen Sie den Rechnungsbetrag vor Lieferung. Die Ware wird nach Zahlungseingang versendet.
+             </div>`
+          : ""}
         <div style="margin:0 0 8px 0;padding:12px 16px;background:${firma.primaryLight};border-left:3px solid ${firma.primaryColor};border-radius:4px;font-size:13px;color:${firma.primaryColor};line-height:1.6;">
           <b>Anhänge</b><br>
           ${escapeHtml(pdfFilename)} &mdash; Rechnung (PDF mit eingebetteter ZUGFeRD&nbsp;/&nbsp;Factur-X&nbsp;E-Rechnung)
