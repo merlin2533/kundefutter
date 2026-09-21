@@ -458,6 +458,7 @@ model Lieferung {
   skontoProzent           Float? // z.B. 2.0 = 2% Skonto
   skontoTage              Int? // z.B. 10 = Skonto wenn Zahlung binnen 10 Tagen
   skontoGenutzt           Boolean   @default(false)
+  istVorkasse             Boolean   @default(false) // Zahlungsart Vorkasse — Rechnung/Mail zeigen einen Vorkasse-Hinweis statt des normalen Zahlungsziel-Satzes; keine technische Sperre, die Auslieferung erst nach Zahlungseingang bleibt organisatorische Disziplin
   quelle                  String? // Herkunft: null = manuell, "ki" = KI-Einzel-Scan, "ki-batch" = KI-Batch-Erkennung
   manuelleMahnstufe       Int? // manueller Override der automatisch berechneten Mahnstufe (1|2|3); null = automatisch anhand Tage überfällig. Ermöglicht z.B. einen Brief ohne Mahngebühr, indem man auf Stufe 1 zurückstuft.
   createdAt               DateTime  @default(now())

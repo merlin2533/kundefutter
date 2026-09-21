@@ -205,6 +205,7 @@ function NeueLieferungInner() {
   const [status, setStatus] = useState("geplant");
   const [positionen, setPositionen] = useState<NewPosition[]>([emptyPosition()]);
   const [istStreckengeschaeft, setIstStreckengeschaeft] = useState(false);
+  const [istVorkasse, setIstVorkasse] = useState(false);
   const [streckenLieferantId, setStreckenLieferantId] = useState<number | "">("");
 
   const [saving, setSaving] = useState(false);
@@ -533,6 +534,7 @@ function NeueLieferungInner() {
           notiz: notiz || undefined,
           istStreckengeschaeft,
           streckenLieferantId: istStreckengeschaeft && streckenLieferantId ? Number(streckenLieferantId) : undefined,
+          istVorkasse,
           positionen: positionen.map((p) => {
             const menge = parseFloat(p.menge) || 0;
             const art = artikel.find((a) => a.id === Number(p.artikelId));
@@ -703,6 +705,19 @@ function NeueLieferungInner() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Vorkasse Toggle */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={istVorkasse}
+                onChange={(e) => setIstVorkasse(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-green-700 focus:ring-green-700"
+              />
+              <span className="text-sm text-gray-700">Vorkasse <span className="text-gray-400 font-normal">(Rechnung zeigt Zahlungshinweis vor Lieferung)</span></span>
+            </label>
           </div>
 
           {/* Aktive Kampagnen */}

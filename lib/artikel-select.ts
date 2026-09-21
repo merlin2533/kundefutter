@@ -91,6 +91,7 @@ export const lieferungSafeSelect = {
   zahlungsziel: true,
   wiederkehrend: true,
   sammelrechnungId: true,
+  istVorkasse: true,
   createdAt: true,
   updatedAt: true,
 } as const;

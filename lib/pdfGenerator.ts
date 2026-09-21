@@ -457,7 +457,11 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
   drawMetaZeile("Rechnungsdatum:", formatDatum(rechnungDatum));
   drawMetaZeile("Lieferschein-Nr.:", lieferung.lieferscheinNr?.trim() || String(lieferung.id));
   drawMetaZeile("Lieferdatum:", formatDatum(lieferDatum));
-  drawMetaZeile("Fällig am:", formatDatum(faelligDatum), true);
+  drawMetaZeile(
+    lieferung.istVorkasse ? "Zahlungsart:" : "Fällig am:",
+    lieferung.istVorkasse ? "Vorkasse" : formatDatum(faelligDatum),
+    true,
+  );
 
   // (Trennlinie unter dem Kopf entfernt – Kundenwunsch: kein dicker Strich in der Kopfzeile)
 
@@ -674,9 +678,13 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  const zahlText =
-    `Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} bis zum ${formatDatum(faelligDatum)} ` +
-    `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}.`;
+  // Vorkasse: eigener Hinweistext statt des normalen Zahlungsziel-Satzes — die Ware wird
+  // erst nach Zahlungseingang versendet, ein Fälligkeitsdatum wäre hier irreführend.
+  const zahlText = lieferung.istVorkasse
+    ? `Vorkasse: Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} vor Lieferung ` +
+      `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}. Die Ware wird nach Zahlungseingang versendet.`
+    : `Bitte überweisen Sie den Betrag von ${formatEuro(brutto)} bis zum ${formatDatum(faelligDatum)} ` +
+      `unter Angabe der Rechnungsnummer ${lieferung.rechnungNr ?? ""}.`;
   const zahlLines = doc.splitTextToSize(zahlText, textMaxWidth) as string[];
 
   // Skonto nur wenn Prozent UND Frist gepflegt sind — Basisdatum/-berechnung identisch

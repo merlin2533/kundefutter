@@ -69,6 +69,7 @@ interface Lieferung {
   zahlungsziel?: number | null;
   skontoProzent?: number | null;
   skontoTage?: number | null;
+  istVorkasse?: boolean;
   bezahltAm?: string | null;
   notiz?: string | null;
   kundeId: number;
@@ -1149,8 +1150,12 @@ export default function RechnungPrintPage() {
                   <td>{lieferDatumStr}</td>
                 </tr>
                 <tr>
-                  <td style={{ paddingRight: "8px", color: "#555" }}>Fällig am:</td>
-                  <td style={{ fontWeight: "bold" }}>{formatDatum(faelligkeitsDatum)}</td>
+                  <td style={{ paddingRight: "8px", color: "#555" }}>
+                    {lieferung.istVorkasse ? "Zahlungsart:" : "Fällig am:"}
+                  </td>
+                  <td style={{ fontWeight: "bold" }}>
+                    {lieferung.istVorkasse ? "Vorkasse" : formatDatum(faelligkeitsDatum)}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -1375,12 +1380,21 @@ export default function RechnungPrintPage() {
               <tr>
                 <td style={{ padding: "10px 14px", verticalAlign: "top" }}>
                   <div style={{ fontWeight: "bold", marginBottom: "6px" }}>Zahlungsinformationen</div>
-                  <div style={{ marginBottom: "4px" }}>
-                    Bitte überweisen Sie den Betrag von{" "}
-                    <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
-                    <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
-                    Rechnungsnummer <strong>{rechnungNr}</strong>.
-                  </div>
+                  {lieferung.istVorkasse ? (
+                    <div style={{ marginBottom: "4px" }}>
+                      <strong>Vorkasse:</strong> Bitte überweisen Sie den Betrag von{" "}
+                      <strong>{formatEuro(bruttobetrag)}</strong> vor Lieferung unter Angabe der
+                      Rechnungsnummer <strong>{rechnungNr}</strong>. Die Ware wird nach
+                      Zahlungseingang versendet.
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: "4px" }}>
+                      Bitte überweisen Sie den Betrag von{" "}
+                      <strong>{formatEuro(bruttobetrag)}</strong> bis zum{" "}
+                      <strong>{formatDatum(faelligkeitsDatum)}</strong> unter Angabe der
+                      Rechnungsnummer <strong>{rechnungNr}</strong>.
+                    </div>
+                  )}
                   {skontoText && (
                     <div style={{ marginBottom: "4px" }}>{skontoText}</div>
                   )}

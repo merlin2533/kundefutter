@@ -55,6 +55,7 @@ export interface ErstelleLieferungInput {
   wiederkehrend?: boolean;
   istStreckengeschaeft?: boolean;
   streckenLieferantId?: number | null;
+  istVorkasse?: boolean;
   quelle?: string;
   positionen: LieferungPositionInput[];
 }
@@ -157,6 +158,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         wiederkehrend: input.wiederkehrend ?? false,
         istStreckengeschaeft: input.istStreckengeschaeft ?? false,
         streckenLieferantId: input.streckenLieferantId ?? undefined,
+        istVorkasse: input.istVorkasse ?? false,
         quelle: input.quelle,
         zahlungsziel,
         positionen: { create: angereichert },

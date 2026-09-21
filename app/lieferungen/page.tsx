@@ -19,6 +19,7 @@ interface Lieferung {
   rechnungVersendetAm?: string | null;
   lieferscheinVersendetAm?: string | null;
   istStreckengeschaeft?: boolean;
+  istVorkasse?: boolean;
   positionen: {
     id: number;
     menge: number;
@@ -461,6 +462,11 @@ export default function LieferungenPage() {
                                 🔀 Strecke
                               </span>
                             )}
+                            {l.istVorkasse && (
+                              <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                                💰 Vorkasse
+                              </span>
+                            )}
                           </div>
                           <div className="md:hidden text-xs text-gray-500 font-normal mt-0.5 truncate max-w-[220px]">
                             {l.positionen.map((p) => p.artikel.name).join(", ")}
@@ -545,6 +551,11 @@ export default function LieferungenPage() {
                           {l.istStreckengeschaeft && (
                             <span className="mt-0.5 hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
                               🔀 Strecke
+                            </span>
+                          )}
+                          {l.istVorkasse && (
+                            <span className="mt-0.5 ml-0.5 hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+                              💰 Vorkasse
                             </span>
                           )}
                         </td>
