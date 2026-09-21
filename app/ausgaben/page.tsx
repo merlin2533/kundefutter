@@ -193,7 +193,7 @@ function AusgabenContent() {
   const offenBrutto = ausgaben.filter(a => !a.bezahltAm).reduce((s, a) => s + berechneAusgabeBrutto(a), 0);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-screen-xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Ausgabenbuch</h1>
         <div className="flex items-center gap-2">
@@ -318,15 +318,18 @@ function AusgabenContent() {
         </div>
       )}
 
-      {/* Tabelle */}
-      <div className="bg-white border rounded overflow-x-auto">
+      {/* Tabelle — begrenzte Höhe + eigener Scroll-Container, damit der Scrollbalken
+          zum Rüberscrollen immer im sichtbaren Bereich bleibt, statt erst am Ende
+          einer langen Zeilenliste zu erscheinen; sticky thead hält die Spaltenköpfe
+          beim vertikalen Scrollen innerhalb der Box sichtbar. */}
+      <div className="bg-white border rounded overflow-auto max-h-[50vh]">
         {loading ? (
           <div className="p-8 text-center text-gray-400">Lade…</div>
         ) : ausgaben.length === 0 ? (
           <div className="p-8 text-center text-gray-400">Keine Ausgaben im gewählten Zeitraum.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b sticky top-0 z-10">
               <tr>
                 <th className="px-3 py-2 w-8">
                   <input type="checkbox"
