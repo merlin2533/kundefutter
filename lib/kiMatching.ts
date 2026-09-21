@@ -239,11 +239,17 @@ function normalisiereNummer(nr: string): string {
  * Firmentreffer, dann Teilstring, dann Wort-Teiltreffer.
  */
 export function matchKunde<T extends MatchableKunde>(
-  kiKunde: MatchKundeInput,
+  kiKunde: MatchKundeInput | null | undefined,
   kunden: T[],
   gelernt?: Map<string, number>
 ): { kunde: T | null; konfidenz: Konfidenz } {
   if (!kunden.length) return { kunde: null, konfidenz: "keine" };
+
+  // Die KI kann NICHT NUR die Felder, sondern das ganze kunde-Objekt weglassen, wenn auf dem
+  // Beleg kein Kunde erkennbar war (siehe lib/ai.ts PROMPTS) — der Aufrufer reicht dann
+  // `undefined` durch. Ohne diesen Guard wuerde gleich die naechste Zeile (kiKunde.firma) mit
+  // "Cannot read properties of undefined" abbrechen (Glitchtip AGRI-1M).
+  if (!kiKunde) return { kunde: null, konfidenz: "keine" };
 
   // KI-Antworten können "name"/"firma" explizit auf null setzen, wenn auf dem Beleg gar kein
   // Kunde erkennbar war (siehe lib/ai.ts PROMPTS) — kiKunde.name ist zur Laufzeit trotz des

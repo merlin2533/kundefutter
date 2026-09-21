@@ -186,6 +186,16 @@ describe("matchKunde", () => {
     { id: 3, name: "Hartwig Lagemann", firma: "Lagemann GbR", betriebsnummer: "276001234567", vvvoNr: null },
   ];
 
+  it("liefert 'keine' statt abzustürzen, wenn die KI das kunde-Objekt komplett weglässt", () => {
+    // Glitchtip AGRI-1M: KiErgebnis.kunde war als Pflichtfeld typisiert, stammt aber aus
+    // JSON.parse() der KI-Antwort — erkennt die KI keinen Kunden, fehlt das Feld ganz.
+    for (const leer of [undefined, null]) {
+      const { kunde, konfidenz } = matchKunde(leer, KUNDEN);
+      expect(kunde).toBeNull();
+      expect(konfidenz).toBe("keine");
+    }
+  });
+
   it("liefert 'keine' statt abzustürzen, wenn die KI weder name noch firma liefert (beide null)", () => {
     const { kunde, konfidenz } = matchKunde(
       { name: null as unknown as string, firma: null as unknown as string },

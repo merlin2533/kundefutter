@@ -59,7 +59,9 @@ interface KiPosition {
 }
 
 interface KiErgebnis {
-  kunde: { name: string; firma?: string; ort?: string; betriebsnummer?: string };
+  // Optional: die Werte stammen aus JSON.parse() der KI-Antwort (lib/ai.ts), nicht aus einem
+  // Schema mit Garantie — erkennt die KI keinen Kunden, fehlt das Feld ganz (Glitchtip AGRI-1M).
+  kunde?: { name: string; firma?: string; ort?: string; betriebsnummer?: string };
   datum?: string;
   positionen: KiPosition[];
 }
@@ -317,7 +319,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
       setVorschlagKundeId(matchedKunde ? matchedKunde.id : null);
       setKundKonfidenz(matchedKunde ? kk : "keine");
 
-      const zugeordnet: ZuordnungsPosition[] = ergebnis.positionen.map((pos) => {
+      const zugeordnet: ZuordnungsPosition[] = (ergebnis.positionen ?? []).map((pos) => {
         const { artikel: matchedArtikel, konfidenz } = matchArtikel(pos, artikelList, gelerntArtikelMapLoaded);
         return {
           kiPosition: pos,
@@ -514,8 +516,11 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
   // "hoch"-Treffern.
 
   function meldeLernkorrekturen(finalerKundeId: number) {
-    const sendeAlias = (typ: "artikel" | "kunde", suchtext: string, zielId: number) => {
-      const text = suchtext.trim();
+    const sendeAlias = (typ: "artikel" | "kunde", suchtext: string | null | undefined, zielId: number) => {
+      // suchtext kann fehlen, wenn die KI weder Name noch Firma erkannt hatte — aus einem
+      // unerkannten Kunden laesst sich ohnehin nichts lernen (gleiche Absicherung wie
+      // meldeLernkorrektur() in app/ki/lieferung/batch/[id]/page.tsx).
+      const text = (suchtext ?? "").trim();
       if (!text) return;
       fetch("/api/ki/lernen", {
         method: "POST",
@@ -527,7 +532,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
     };
 
     if (kiErgebnis && vorschlagKundeId !== finalerKundeId) {
-      sendeAlias("kunde", kiErgebnis.kunde.firma || kiErgebnis.kunde.name, finalerKundeId);
+      sendeAlias("kunde", kiErgebnis.kunde?.firma || kiErgebnis.kunde?.name, finalerKundeId);
     }
     for (const pos of positionen) {
       if (!pos.kiPosition.name || !pos.artikelId) continue;
@@ -783,11 +788,11 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
                 <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">
                   Erkannter Kunde
                 </p>
-                <p className="font-semibold text-gray-900">{kiErgebnis.kunde.name}</p>
-                {kiErgebnis.kunde.firma && (
+                <p className="font-semibold text-gray-900">{kiErgebnis.kunde?.name ?? "Kein Kunde erkannt"}</p>
+                {kiErgebnis.kunde?.firma && (
                   <p className="text-sm text-gray-600">{kiErgebnis.kunde.firma}</p>
                 )}
-                {kiErgebnis.kunde.ort && (
+                {kiErgebnis.kunde?.ort && (
                   <p className="text-sm text-gray-500">{kiErgebnis.kunde.ort}</p>
                 )}
               </div>
@@ -885,14 +890,14 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
               <p className="text-xs text-gray-400 mb-2">
                 KI erkannt:{" "}
                 <span className="font-medium text-gray-600">
-                  {kiErgebnis.kunde.firma ?? kiErgebnis.kunde.name}
+                  {kiErgebnis.kunde?.firma ?? kiErgebnis.kunde?.name ?? "kein Kunde erkannt"}
                 </span>
               </p>
             )}
-            {kiErgebnis?.kunde.betriebsnummer && (
+            {kiErgebnis?.kunde?.betriebsnummer && (
               <p className="text-xs text-gray-400 mb-2">
                 Betriebsnummer (erkannt):{" "}
-                <span className="font-medium text-gray-600">{kiErgebnis.kunde.betriebsnummer}</span>
+                <span className="font-medium text-gray-600">{kiErgebnis.kunde?.betriebsnummer}</span>
               </p>
             )}
             <SearchableSelect
@@ -920,9 +925,9 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
             )}
             {showNeuKundeForm && (
               <NeuKundeInline
-                kiName={kiErgebnis?.kunde.name ?? ""}
-                kiFirma={kiErgebnis?.kunde.firma}
-                kiOrt={kiErgebnis?.kunde.ort}
+                kiName={kiErgebnis?.kunde?.name ?? ""}
+                kiFirma={kiErgebnis?.kunde?.firma}
+                kiOrt={kiErgebnis?.kunde?.ort}
                 onCreated={onKundeCreated}
                 onCancel={() => setShowNeuKundeForm(false)}
               />
