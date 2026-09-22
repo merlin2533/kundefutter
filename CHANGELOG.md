@@ -8,6 +8,21 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 ## [Unreleased]
 
 ### Behoben (GlitchTip-Sweep)
+- **KI-JSON-Parsing meldete Fehler, obwohl ein nachgelagerter Fallback erfolgreich parste**
+  (GlitchTip AGRI-1I "Unexpected non-whitespace character after JSON" und AGRI-1K "SyntaxError:
+  Unexpected token '`'", `parseJsonFromText()` in `lib/ai.ts`) – Mistral hängt einer sonst
+  gültigen JSON-Antwort regelmäßig erklärenden Freitext an, sowohl VOR der JSON-Struktur (in
+  einer Markdown-Codeblock-Hülle, dafür gab es bereits `stripMarkdownJsonFence()`) als auch
+  DAHINTER ("...} Hinweis: Der Betrag wurde aus Brutto und MwSt berechnet."). Die Funktion
+  versuchte bisher `JSON.parse(entfenced)` direkt und meldete bei jedem Fehlschlag sofort per
+  `Sentry.captureException`, auch wenn direkt danach der Markdown-Fence- oder der
+  Greedy-Brace-Regex-Fallback das Ergebnis trotzdem korrekt extrahierte – ein einzelner
+  gescheiterter Zwischenversuch ist aber kein Bug, solange am Ende ein valides Ergebnis steht.
+  Alle drei bereits vorhandenen Parse-Strategien (direkt, Markdown-Fence, Greedy-Brace-Match)
+  laufen jetzt still in einer Schleife durch; `Sentry.captureException` wird nur noch aufgerufen,
+  wenn wirklich JEDE Strategie scheitert (dann mit dem letzten Fehler). Keine neue
+  Sentry-Filterung/-Suppression – der Fix ändert nur, WANN ein echtes Signal vorliegt, nicht OB
+  gemeldet wird. 4 neue Regressionstests in `__tests__/lib/ai.test.ts`.
 - **KI-Batch-Lieferschein-Erkennung stürzte ab, wenn die KI keinen Kunden erkannte** (GlitchTip
   AGRI-1M, `/ki/lieferung/batch/[id]`) – `KiErgebnis.kunde` war in beiden KI-Lieferungs-Seiten als
   Pflichtfeld typisiert, wird aber aus `JSON.parse(raw.kiErgebnisJson)` befüllt, also aus einer

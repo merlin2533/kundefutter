@@ -370,12 +370,31 @@ export function stripMarkdownJsonFence(raw: string): string {
 }
 
 export function parseJsonFromText(text: string): Record<string, unknown> {
+  // Mistral haengt einer sonst gueltigen JSON-Antwort haeufig erklaerenden
+  // Freitext an — vor der Markdown-Huelle (siehe stripMarkdownJsonFence oben,
+  // Issue AGRI-K) UND dahinter ("...} Hinweis: ..."). Ein einzelner
+  // gescheiterter Parse-Versuch ist deshalb fuer sich kein Meldungsgrund,
+  // solange eine der folgenden Strategien noch greift (Issues AGRI-1I/AGRI-1K:
+  // "Unexpected non-whitespace character after JSON" bei jedem Versuch
+  // gemeldet, obwohl der naechste Fallback am Ende sauber parste).
+  const versuche: Array<() => unknown> = [];
   const entfenced = stripMarkdownJsonFence(text);
-  try { return JSON.parse(entfenced); } catch (e) { Sentry.captureException(e); /* fall */ }
-  const match = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (match) { try { return JSON.parse(match[1]); } catch (e) { Sentry.captureException(e); /* fall */ } }
+  versuche.push(() => JSON.parse(entfenced));
+  const fenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (fenceMatch) versuche.push(() => JSON.parse(fenceMatch[1]));
   const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) { try { return JSON.parse(braceMatch[0]); } catch (e) { Sentry.captureException(e); /* fall */ } }
+  if (braceMatch) versuche.push(() => JSON.parse(braceMatch[0]));
+
+  let letzterFehler: unknown = null;
+  for (const versuch of versuche) {
+    try {
+      return versuch() as Record<string, unknown>;
+    } catch (e) {
+      letzterFehler = e;
+    }
+  }
+  // Erst wenn WIRKLICH jede Strategie scheitert, ist es ein echtes Signal.
+  if (letzterFehler) Sentry.captureException(letzterFehler);
   return { rawText: text };
 }
 
