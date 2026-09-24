@@ -43,6 +43,8 @@ interface Ausgabe {
   mwstSatz: number;
   betragNetto2?: number | null;
   mwstSatz2?: number | null;
+  betragNetto3?: number | null;
+  mwstSatz3?: number | null;
   bezahltAm: string | null;
   kategorie: string;
 }

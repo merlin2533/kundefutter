@@ -194,6 +194,8 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
               mwstSatz: item.mwstSatz ?? 19,
               betragNetto2: item.betragNetto2 ?? null,
               mwstSatz2: item.betragNetto2 != null ? (item.mwstSatz2 ?? 19) : null,
+              betragNetto3: item.betragNetto3 ?? null,
+              mwstSatz3: item.betragNetto3 != null ? (item.mwstSatz3 ?? 0) : null,
               kategorie,
               lieferantId: item.lieferantId,
               buchungstyp: "Betriebsausgabe",

@@ -14,7 +14,7 @@ import {
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
-import { berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, formatEuro } from "@/lib/utils";
+import { berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile, formatEuro } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +55,8 @@ interface BatchItem {
   mwstSatz: number | null;
   betragNetto2: number | null;
   mwstSatz2: number | null;
+  betragNetto3: number | null;
+  mwstSatz3: number | null;
   kategorie: string | null;
   fehlendeFelder: string[];
   fehlerText: string | null;
@@ -62,6 +64,7 @@ interface BatchItem {
   ausgabeId: number | null;
   ibanGespeichert?: boolean;
   zweiterSatz?: boolean;
+  dritterSatz?: boolean;
 }
 
 interface BatchDetail {
@@ -163,7 +166,11 @@ export default function AusgabenBatchDetailPage() {
       );
       setBatch({
         ...batchData,
-        items: batchData.items.map((it) => ({ ...it, zweiterSatz: it.betragNetto2 != null })),
+        items: batchData.items.map((it) => ({
+          ...it,
+          zweiterSatz: it.betragNetto2 != null,
+          dritterSatz: it.betragNetto3 != null,
+        })),
       });
     } catch (err: unknown) {
       Sentry.captureException(err);
@@ -306,6 +313,8 @@ export default function AusgabenBatchDetailPage() {
         mwstSatz: item.mwstSatz,
         betragNetto2: item.zweiterSatz ? item.betragNetto2 : null,
         mwstSatz2: item.zweiterSatz ? item.mwstSatz2 : null,
+        betragNetto3: item.dritterSatz ? item.betragNetto3 : null,
+        mwstSatz3: item.dritterSatz ? item.mwstSatz3 : null,
         kategorie: item.kategorie,
         fehlendeFelder: item.fehlendeFelder,
         entscheidung: item.entscheidung,
@@ -506,6 +515,8 @@ export default function AusgabenBatchDetailPage() {
             mwstSatz: item.mwstSatz ?? 19,
             betragNetto2: item.zweiterSatz ? item.betragNetto2 ?? 0 : null,
             mwstSatz2: item.zweiterSatz ? item.mwstSatz2 ?? 19 : null,
+            betragNetto3: item.dritterSatz ? item.betragNetto3 ?? 0 : null,
+            mwstSatz3: item.dritterSatz ? item.mwstSatz3 ?? 0 : null,
           };
           const gesamtNetto = berechneAusgabeNetto(betragsteile);
           const mwstBetrag = berechneAusgabeMwst(betragsteile);
@@ -702,34 +713,74 @@ export default function AusgabenBatchDetailPage() {
                           <input
                             type="checkbox"
                             checked={item.zweiterSatz ?? false}
-                            onChange={(e) => updateItem(item.id, (it) => ({ ...it, zweiterSatz: e.target.checked }))}
+                            onChange={(e) => updateItem(item.id, (it) => ({
+                              ...it,
+                              zweiterSatz: e.target.checked,
+                              dritterSatz: e.target.checked ? it.dritterSatz : false,
+                            }))}
                           />
                           Beleg enthält einen zweiten MwSt-Satz (z. B. Bewirtung: Speisen 7 % / Getränke 19 %)
                         </label>
                         {item.zweiterSatz && (
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Betrag netto 2 (€)</label>
-                              <DezimalInput
-                                value={item.betragNetto2 ?? 0}
-                                onChange={(v) => updateItem(item.id, (it) => ({ ...it, betragNetto2: v }))}
-                                placeholder="0,00"
-                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                          <>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Betrag netto 2 (€)</label>
+                                <DezimalInput
+                                  value={item.betragNetto2 ?? 0}
+                                  onChange={(v) => updateItem(item.id, (it) => ({ ...it, betragNetto2: v }))}
+                                  placeholder="0,00"
+                                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">MwSt-Satz 2</label>
+                                <select
+                                  value={item.mwstSatz2 ?? 19}
+                                  onChange={(e) => updateItem(item.id, (it) => ({ ...it, mwstSatz2: Number(e.target.value) }))}
+                                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                                >
+                                  <option value="19">19 %</option>
+                                  <option value="7">7 %</option>
+                                  <option value="0">0 % (steuerfrei)</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <label className="flex items-center gap-2 text-xs text-gray-600 mt-2">
+                              <input
+                                type="checkbox"
+                                checked={item.dritterSatz ?? false}
+                                onChange={(e) => updateItem(item.id, (it) => ({ ...it, dritterSatz: e.target.checked }))}
                               />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">MwSt-Satz 2</label>
-                              <select
-                                value={item.mwstSatz2 ?? 19}
-                                onChange={(e) => updateItem(item.id, (it) => ({ ...it, mwstSatz2: Number(e.target.value) }))}
-                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
-                              >
-                                <option value="19">19 %</option>
-                                <option value="7">7 %</option>
-                                <option value="0">0 % (steuerfrei)</option>
-                              </select>
-                            </div>
-                          </div>
+                              Beleg enthält einen dritten MwSt-Satz (z. B. zusätzlich Trinkgeld 0 %)
+                            </label>
+                            {item.dritterSatz && (
+                              <div className="grid grid-cols-2 gap-2 mt-2">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-500 mb-1">Betrag netto 3 (€)</label>
+                                  <DezimalInput
+                                    value={item.betragNetto3 ?? 0}
+                                    onChange={(v) => updateItem(item.id, (it) => ({ ...it, betragNetto3: v }))}
+                                    placeholder="0,00"
+                                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-500 mb-1">MwSt-Satz 3</label>
+                                  <select
+                                    value={item.mwstSatz3 ?? 0}
+                                    onChange={(e) => updateItem(item.id, (it) => ({ ...it, mwstSatz3: Number(e.target.value) }))}
+                                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-green-600"
+                                  >
+                                    <option value="19">19 %</option>
+                                    <option value="7">7 %</option>
+                                    <option value="0">0 % (steuerfrei)</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -741,7 +792,7 @@ export default function AusgabenBatchDetailPage() {
                           </div>
                           <div>
                             <div className="text-gray-500">
-                              MwSt {item.zweiterSatz && betragsteile.betragNetto2 ? `${item.mwstSatz ?? 19}%+${item.mwstSatz2 ?? 19}%` : `${item.mwstSatz ?? 19}%`}
+                              MwSt {ausgabeBetragsteile(betragsteile).map(t => `${t.satz}%`).join("+")}
                             </div>
                             <div className="font-medium text-amber-600">{formatEuro(mwstBetrag)}</div>
                           </div>

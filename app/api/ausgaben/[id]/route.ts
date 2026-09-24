@@ -50,7 +50,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       lieferantId, bezahltAm, notiz, ausleger, erfasstVon, bezahltVon,
       buchungstyp, sachkonto, kostenstelle, zahlungsweg,
       reiseZiel, reiseKm, reiseKilometerpauschale, reiseZweck,
-      bewirtungTeilnehmer, bewirtungZweck, betragNetto2, mwstSatz2,
+      bewirtungTeilnehmer, bewirtungZweck, betragNetto2, mwstSatz2, betragNetto3, mwstSatz3,
     } = body;
 
     if (buchungstyp !== undefined && !BUCHUNGSTYPEN.includes(buchungstyp)) {
@@ -98,6 +98,28 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       }
     }
 
+    // Dritter Netto-/MwSt-Anteil (z.B. zusätzlich Trinkgeld 0 % auf einem Bewirtungsbeleg
+    // mit bereits zwei Sätzen) — leerer/0-Wert löscht den dritten Anteil wieder.
+    let resolvedBetrag3: number | null | undefined;
+    let resolvedMwst3: number | null | undefined;
+    if (betragNetto3 !== undefined) {
+      if (isPrivat || betragNetto3 === null || betragNetto3 === "") {
+        resolvedBetrag3 = null;
+        resolvedMwst3 = null;
+      } else {
+        resolvedBetrag3 = parseFloat(betragNetto3);
+        if (isNaN(resolvedBetrag3) || resolvedBetrag3 < 0) {
+          return NextResponse.json({ error: "Ungültiger dritter Betrag" }, { status: 400 });
+        }
+        const mwst3Raw = mwstSatz3 ?? "0";
+        resolvedMwst3 = parseFloat(mwst3Raw);
+        if (isNaN(resolvedMwst3) || ![0, 7, 19].includes(resolvedMwst3)) {
+          return NextResponse.json({ error: "Ungültiger dritter MwSt-Satz" }, { status: 400 });
+        }
+        if (resolvedBetrag3 === 0) { resolvedBetrag3 = null; resolvedMwst3 = null; }
+      }
+    }
+
     const data: Record<string, unknown> = {};
     if (datum !== undefined) data.datum = new Date(datum);
     if (belegNr !== undefined) data.belegNr = belegNr || null;
@@ -106,6 +128,8 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
     if (mwstSatz !== undefined) data.mwstSatz = isPrivat ? 0 : parseFloat(mwstSatz);
     if (resolvedBetrag2 !== undefined) data.betragNetto2 = resolvedBetrag2;
     if (resolvedMwst2 !== undefined) data.mwstSatz2 = resolvedMwst2;
+    if (resolvedBetrag3 !== undefined) data.betragNetto3 = resolvedBetrag3;
+    if (resolvedMwst3 !== undefined) data.mwstSatz3 = resolvedMwst3;
     if (kategorie !== undefined) data.kategorie = kategorie;
     if (lieferantId !== undefined) data.lieferantId = lieferantId ? parseInt(lieferantId, 10) : null;
     if (bezahltAm !== undefined) data.bezahltAm = bezahltAm ? new Date(bezahltAm) : null;

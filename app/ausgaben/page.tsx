@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
-import { formatEuro, formatDatum, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto } from "@/lib/utils";
+import { formatEuro, formatDatum, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
@@ -25,6 +25,8 @@ interface Ausgabe {
   mwstSatz: number;
   betragNetto2: number | null;
   mwstSatz2: number | null;
+  betragNetto3: number | null;
+  mwstSatz3: number | null;
   kategorie: string;
   buchungstyp: string;
   sachkonto: string | null;
@@ -357,7 +359,10 @@ function AusgabenContent() {
                 const netto = berechneAusgabeNetto(a);
                 const mwstBetrag = berechneAusgabeMwst(a);
                 const brutto = netto + mwstBetrag;
-                const satzText = a.betragNetto2 && a.mwstSatz2 != null ? `${a.mwstSatz}%+${a.mwstSatz2}%` : `${a.mwstSatz}%`;
+                const teileFuerSatz = ausgabeBetragsteile(a);
+                const satzText = teileFuerSatz.length > 1
+                  ? teileFuerSatz.map(t => `${t.satz}%`).join("+")
+                  : `${a.mwstSatz}%`;
                 return (
                   <tr key={a.id} className={`hover:bg-gray-50 ${selected.has(a.id) ? "bg-blue-50" : ""}`}>
                     <td className="px-3 py-2 w-8" onClick={e => e.stopPropagation()}>

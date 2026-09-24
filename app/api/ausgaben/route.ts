@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       lieferantId, bezahltAm, notiz, ausleger, erfasstVon, bezahltVon,
       buchungstyp, sachkonto, kostenstelle, zahlungsweg,
       reiseZiel, reiseKm, reiseKilometerpauschale, reiseZweck,
-      bewirtungTeilnehmer, bewirtungZweck, betragNetto2, mwstSatz2,
+      bewirtungTeilnehmer, bewirtungZweck, betragNetto2, mwstSatz2, betragNetto3, mwstSatz3,
     } = body;
 
     if (!beschreibung || betragNetto === undefined) {
@@ -118,6 +118,22 @@ export async function POST(req: NextRequest) {
       if (betrag2 === 0) { betrag2 = null; mwst2 = null; }
     }
 
+    // Dritter Netto-/MwSt-Anteil (z.B. zusätzlich Trinkgeld 0 % auf einem Bewirtungsbeleg
+    // mit bereits zwei Sätzen) — setzt keinen gesetzten zweiten Anteil voraus.
+    let betrag3: number | null = null;
+    let mwst3: number | null = null;
+    if (!isPrivatBt && betragNetto3 !== undefined && betragNetto3 !== null && betragNetto3 !== "") {
+      betrag3 = parseFloat(betragNetto3);
+      if (isNaN(betrag3) || betrag3 < 0) {
+        return NextResponse.json({ error: "Ungültiger dritter Betrag" }, { status: 400 });
+      }
+      mwst3 = parseFloat(mwstSatz3 ?? "0");
+      if (isNaN(mwst3) || ![0, 7, 19].includes(mwst3)) {
+        return NextResponse.json({ error: "Ungültiger dritter MwSt-Satz" }, { status: 400 });
+      }
+      if (betrag3 === 0) { betrag3 = null; mwst3 = null; }
+    }
+
     const kontenrahmen = await getKontenrahmen();
     const resolvedSachkonto = getSachkonto(
       kategorie ?? "Sonstige",
@@ -137,6 +153,8 @@ export async function POST(req: NextRequest) {
         mwstSatz: mwst,
         betragNetto2: betrag2,
         mwstSatz2: mwst2,
+        betragNetto3: betrag3,
+        mwstSatz3: mwst3,
         kategorie: kategorie || "Sonstige",
         lieferantId: lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null,
         bezahltAm: bezahltAm ? new Date(bezahltAm) : null,

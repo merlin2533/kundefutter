@@ -414,7 +414,7 @@ export async function sammleDatevBuchungen(
       where: { datum: { gte: von, lte: bis } },
       select: {
         id: true, datum: true, belegNr: true, beschreibung: true, betragNetto: true, mwstSatz: true,
-        betragNetto2: true, mwstSatz2: true,
+        betragNetto2: true, mwstSatz2: true, betragNetto3: true, mwstSatz3: true,
         kategorie: true, lieferantId: true, belegPfad: true, buchungstyp: true, sachkonto: true,
         zahlungsweg: true, kostenstelle: true, reiseZiel: true, bewirtungZweck: true,
       },
@@ -551,10 +551,10 @@ export async function sammleDatevBuchungen(
     if (bt === "Bewirtung" && ausg.bewirtungZweck) buchungstext = `${buchungstext} [${ausg.bewirtungZweck}]`;
     buchungstext = buchungstext.substring(0, 60);
 
-    // Ein Beleg mit gemischten MwSt-Sätzen (z.B. Bewirtung Speisen 7 % / Getränke 19 %)
-    // bucht als zwei getrennte Zeilen — eine je Satz, DATEV kennt keinen gemischten
-    // Steuersatz auf einer Buchungszeile. Privatentnahme/-einlage bleibt bewusst
-    // einzeilig mit erzwungenem Satz 0, unabhängig von evtl. gespeicherten Altwerten.
+    // Ein Beleg mit gemischten MwSt-Sätzen (z.B. Bewirtung Speisen 7 % / Getränke 19 % /
+    // Trinkgeld 0 %) bucht als bis zu drei getrennte Zeilen — eine je Satz, DATEV kennt
+    // keinen gemischten Steuersatz auf einer Buchungszeile. Privatentnahme/-einlage bleibt
+    // bewusst einzeilig mit erzwungenem Satz 0, unabhängig von evtl. gespeicherten Altwerten.
     const teile = isPrivat ? [{ netto: ausg.betragNetto, satz: 0 }] : ausgabeBetragsteile(ausg);
 
     for (const teil of teile) {

@@ -84,6 +84,40 @@ describe("ausgabeBetragsteile / berechneAusgabeNetto / berechneAusgabeMwst / ber
       { netto: 10, satz: 19 },
     ]);
   });
+
+  it("berücksichtigt einen dritten Satz — z.B. Bewirtung 7%/19% zzgl. Trinkgeld 0%", () => {
+    // Brinkmanns Braterei: 31,68 € netto @7% (Speisen), 8,07 € netto @19% (Getränke),
+    // zusätzlich 1,50 € Trinkgeld @0% (kein Vorsteuerabzug, keine eigene Rechnung).
+    const a = { betragNetto: 31.68, mwstSatz: 7, betragNetto2: 8.07, mwstSatz2: 19, betragNetto3: 1.5, mwstSatz3: 0 };
+    expect(ausgabeBetragsteile(a)).toEqual([
+      { netto: 31.68, satz: 7 },
+      { netto: 8.07, satz: 19 },
+      { netto: 1.5, satz: 0 },
+    ]);
+    expect(berechneAusgabeNetto(a)).toBeCloseTo(41.25, 10);
+    expect(berechneAusgabeMwst(a)).toBeCloseTo(31.68 * 0.07 + 8.07 * 0.19, 10);
+    expect(berechneAusgabeBrutto(a)).toBeCloseTo(31.68 * 1.07 + 8.07 * 1.19 + 1.5, 10);
+  });
+
+  it("erlaubt einen dritten Satz auch ohne gesetzten zweiten Satz", () => {
+    const a = { betragNetto: 10, mwstSatz: 19, betragNetto3: 2, mwstSatz3: 0 };
+    expect(ausgabeBetragsteile(a)).toEqual([
+      { netto: 10, satz: 19 },
+      { netto: 2, satz: 0 },
+    ]);
+  });
+
+  it("ignoriert einen dritten Anteil mit 0 € oder fehlendem Satz (kein dritter Satz genutzt)", () => {
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto3: 0, mwstSatz3: 0 })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto3: 5, mwstSatz3: null })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
+    expect(ausgabeBetragsteile({ betragNetto: 10, mwstSatz: 19, betragNetto3: null, mwstSatz3: null })).toEqual([
+      { netto: 10, satz: 19 },
+    ]);
+  });
 });
 
 describe("formatEuro", () => {

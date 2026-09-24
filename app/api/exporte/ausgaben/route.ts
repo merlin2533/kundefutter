@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatDatum, formatEuro, berechneAusgabeNetto, berechneAusgabeMwst } from "@/lib/utils";
+import { formatDatum, formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, ausgabeBetragsteile } from "@/lib/utils";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { Sentry } from "@/lib/sentry";
 
@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
         mwstSatz: true,
         betragNetto2: true,
         mwstSatz2: true,
+        betragNetto3: true,
+        mwstSatz3: true,
         bezahltAm: true,
       },
       orderBy: { datum: "asc" },
@@ -107,10 +109,14 @@ export async function GET(req: NextRequest) {
     const rows = ausgaben.map(a => {
       const netto = berechneAusgabeNetto(a);
       const mwst = berechneAusgabeMwst(a);
-      // Beleg mit zwei MwSt-S\u00e4tzen (z.B. Bewirtung Speisen 7 % / Getr\u00e4nke 19 %): beide
-      // S\u00e4tze in der kompakten Spalte nennen \u2014 die Aufteilung je Satz steht ausf\u00fchrlich
-      // im UStVA- bzw. DATEV-Export, hier reicht der Hinweis auf gemischte S\u00e4tze.
-      const satzText = a.betragNetto2 && a.mwstSatz2 != null ? `${a.mwstSatz}%+${a.mwstSatz2}%` : `${a.mwstSatz} %`;
+      // Beleg mit mehreren MwSt-S\u00e4tzen (z.B. Bewirtung Speisen 7 % / Getr\u00e4nke 19 % /
+      // Trinkgeld 0 %): alle S\u00e4tze in der kompakten Spalte nennen \u2014 die Aufteilung je
+      // Satz steht ausf\u00fchrlich im UStVA- bzw. DATEV-Export, hier reicht der Hinweis auf
+      // gemischte S\u00e4tze.
+      const teileFuerSatz = ausgabeBetragsteile(a);
+      const satzText = teileFuerSatz.length > 1
+        ? teileFuerSatz.map(t => `${t.satz}%`).join("+")
+        : `${a.mwstSatz} %`;
       return [
         formatDatum(new Date(a.datum)),
         a.belegNr ?? "\u2013",
