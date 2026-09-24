@@ -64,7 +64,11 @@ export async function GET(req: NextRequest) {
     // Load Ausgaben in range for Vorsteuer
     const ausgaben = await prisma.ausgabe.findMany({
       where: { datum: { gte: von, lte: bis } },
-      select: { betragNetto: true, mwstSatz: true, betragNetto2: true, mwstSatz2: true },
+      select: {
+        betragNetto: true, mwstSatz: true,
+        betragNetto2: true, mwstSatz2: true,
+        betragNetto3: true, mwstSatz3: true,
+      },
     });
 
     // Aggregate revenue by MwSt rate

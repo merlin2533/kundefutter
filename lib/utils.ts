@@ -227,34 +227,40 @@ export interface AusgabeBetragsteile {
   mwstSatz: number;
   betragNetto2?: number | null;
   mwstSatz2?: number | null;
+  betragNetto3?: number | null;
+  mwstSatz3?: number | null;
 }
 
 /**
  * Zerlegt eine Ausgabe in ihre MwSt-Anteile — im Regelfall ein einziger Anteil, bei
  * einem Beleg mit gemischten Sätzen auf EINER Rechnung (z.B. Bewirtung: Speisen 7 % /
- * Getränke 19 %) zwei. Einzige Quelle der Wahrheit für diese Aufteilung — UStVA-Export,
+ * Getränke 19 % / Trinkgeld 0 %) bis zu drei. Der dritte Anteil setzt keinen gesetzten
+ * zweiten voraus. Einzige Quelle der Wahrheit für diese Aufteilung — UStVA-Export,
  * DATEV-Export und alle Summenanzeigen (Ausgabenbuch-Liste, Cashflow) nutzen sie, damit
- * ein zweiter Satz nirgends unbemerkt unter den Tisch fällt.
+ * ein weiterer Satz nirgends unbemerkt unter den Tisch fällt.
  */
 export function ausgabeBetragsteile(a: AusgabeBetragsteile): { netto: number; satz: number }[] {
   const teile = [{ netto: a.betragNetto, satz: a.mwstSatz }];
   if (a.betragNetto2 != null && a.betragNetto2 > 0 && a.mwstSatz2 != null) {
     teile.push({ netto: a.betragNetto2, satz: a.mwstSatz2 });
   }
+  if (a.betragNetto3 != null && a.betragNetto3 > 0 && a.mwstSatz3 != null) {
+    teile.push({ netto: a.betragNetto3, satz: a.mwstSatz3 });
+  }
   return teile;
 }
 
-/** Gesamter Netto-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+/** Gesamter Netto-Betrag einer Ausgabe (Summe aller gesetzten Anteile). */
 export function berechneAusgabeNetto(a: AusgabeBetragsteile): number {
   return ausgabeBetragsteile(a).reduce((s, t) => s + t.netto, 0);
 }
 
-/** Gesamter MwSt-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+/** Gesamter MwSt-Betrag einer Ausgabe (Summe aller gesetzten Anteile). */
 export function berechneAusgabeMwst(a: AusgabeBetragsteile): number {
   return ausgabeBetragsteile(a).reduce((s, t) => s + t.netto * (t.satz / 100), 0);
 }
 
-/** Gesamter Brutto-Betrag einer Ausgabe (Summe beider Anteile, falls ein zweiter Satz gesetzt ist). */
+/** Gesamter Brutto-Betrag einer Ausgabe (Summe aller gesetzten Anteile). */
 export function berechneAusgabeBrutto(a: AusgabeBetragsteile): number {
   return berechneAusgabeNetto(a) + berechneAusgabeMwst(a);
 }

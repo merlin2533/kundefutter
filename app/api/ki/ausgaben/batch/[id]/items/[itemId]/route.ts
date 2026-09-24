@@ -69,6 +69,20 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     data.mwstSatz2 = mwst2;
   }
+  if (body.betragNetto3 !== undefined) {
+    const betrag3 = body.betragNetto3 === null ? null : Number(body.betragNetto3);
+    if (betrag3 !== null && isNaN(betrag3)) {
+      return NextResponse.json({ error: "Ungültiger betragNetto3" }, { status: 400 });
+    }
+    data.betragNetto3 = betrag3;
+  }
+  if (body.mwstSatz3 !== undefined) {
+    const mwst3 = body.mwstSatz3 === null ? null : Number(body.mwstSatz3);
+    if (mwst3 !== null && !GUELTIGE_MWST.includes(mwst3)) {
+      return NextResponse.json({ error: "Ungültiger mwstSatz3" }, { status: 400 });
+    }
+    data.mwstSatz3 = mwst3;
+  }
   if (body.kategorie !== undefined) data.kategorie = body.kategorie === null ? null : String(body.kategorie);
   if (body.fehlendeFelder !== undefined) data.fehlendeFelder = JSON.stringify(body.fehlendeFelder);
   if (body.entscheidung !== undefined) {

@@ -982,10 +982,13 @@ model Ausgabe {
   beschreibung            String
   betragNetto             Float
   mwstSatz                Float      @default(19) // 0 | 7 | 19
-  // Zweiter Netto-/MwSt-Anteil für Belege mit gemischten Sätzen auf EINER Rechnung
-  // (z.B. Bewirtung: Speisen 7 % / Getränke 19 %) — optional, nur gesetzt wenn genutzt.
+  // Zweiter/dritter Netto-/MwSt-Anteil für Belege mit gemischten Sätzen auf EINER
+  // Rechnung (z.B. Bewirtung: Speisen 7 % / Getränke 19 % / Trinkgeld 0 %) — optional,
+  // nur gesetzt wenn genutzt. Ein dritter Anteil setzt keinen zweiten voraus.
   betragNetto2            Float?
   mwstSatz2               Float? // 0 | 7 | 19
+  betragNetto3            Float?
+  mwstSatz3               Float? // 0 | 7 | 19
   kategorie               String     @default("Sonstige")
   // Kategorien: Wareneinkauf | Betriebsbedarf | Fahrtkosten | Bürobedarf |
   //             Telefon/Internet | Versicherung | Miete | Sonstige
@@ -2203,10 +2206,13 @@ model KiAusgabenBatchItem {
   beschreibung       String?
   betragNetto        Float?
   mwstSatz           Float?
-  // Zweiter Netto-/MwSt-Anteil (Beleg mit gemischten Sätzen, z.B. Bewirtung) — nur manuell
-  // während der Prüfung gesetzt, die KI extrahiert je Beleg nur den dominanten Satz.
+  // Zweiter/dritter Netto-/MwSt-Anteil (Beleg mit gemischten Sätzen, z.B. Bewirtung
+  // Speisen 7 % / Getränke 19 % / Trinkgeld 0 %) — nur manuell während der Prüfung
+  // gesetzt, die KI extrahiert je Beleg nur den dominanten Satz.
   betragNetto2       Float?
   mwstSatz2          Float?
+  betragNetto3       Float?
+  mwstSatz3          Float?
   kategorie          String?
   fehlendeFelder     String? // JSON-Array von Hinweistexten, z.B. ["Beschreibung fehlt"]
   fehlerText         String?

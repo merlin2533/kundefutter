@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
-import { formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto } from "@/lib/utils";
+import { formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
@@ -30,10 +30,13 @@ export default function AusgabeDetailPage({ params }: Ctx) {
   const [beschreibung, setBeschreibung] = useState("");
   const [betragNetto, setBetragNetto] = useState("");
   const [mwstSatz, setMwstSatz] = useState("19");
-  // Beleg mit gemischten MwSt-Sätzen auf einer Rechnung (z.B. Bewirtung: Speisen 7 % / Getränke 19 %)
+  // Beleg mit gemischten MwSt-Sätzen auf einer Rechnung (z.B. Bewirtung: Speisen 7 % / Getränke 19 % / Trinkgeld 0 %)
   const [zweiterSatz, setZweiterSatz] = useState(false);
   const [betragNetto2, setBetragNetto2] = useState("");
   const [mwstSatz2, setMwstSatz2] = useState("19");
+  const [dritterSatz, setDritterSatz] = useState(false);
+  const [betragNetto3, setBetragNetto3] = useState("");
+  const [mwstSatz3, setMwstSatz3] = useState("0");
   const [kategorie, setKategorie] = useState("Sonstige");
   const [lieferantId, setLieferantId] = useState("");
   const [bezahltAm, setBezahltAm] = useState("");
@@ -83,6 +86,11 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           setZweiterSatz(true);
           setBetragNetto2(String(a.betragNetto2));
           setMwstSatz2(String(a.mwstSatz2));
+        }
+        if (a.betragNetto3 != null && a.mwstSatz3 != null) {
+          setDritterSatz(true);
+          setBetragNetto3(String(a.betragNetto3));
+          setMwstSatz3(String(a.mwstSatz3));
         }
         setKategorie(a.kategorie ?? "Sonstige");
         setLieferantId(a.lieferantId ? String(a.lieferantId) : "");
@@ -164,6 +172,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
     if (!laden && (buchungstyp === "Privatentnahme" || buchungstyp === "Privateinlage")) {
       setMwstSatz("0");
       setZweiterSatz(false);
+      setDritterSatz(false);
     }
   }, [buchungstyp, laden]);
 
@@ -174,6 +183,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
     mwstSatz: parseFloat(mwstSatz) || 0,
     betragNetto2: zweiterSatz ? parseFloat(betragNetto2) || 0 : null,
     mwstSatz2: zweiterSatz ? parseFloat(mwstSatz2) || 0 : null,
+    betragNetto3: dritterSatz ? parseFloat(betragNetto3) || 0 : null,
+    mwstSatz3: dritterSatz ? parseFloat(mwstSatz3) || 0 : null,
   };
   const gesamtNetto = berechneAusgabeNetto(betragsteile);
   const mwstBetrag = berechneAusgabeMwst(betragsteile);
@@ -302,6 +313,8 @@ export default function AusgabeDetailPage({ params }: Ctx) {
         mwstSatz: parseFloat(mwstSatz),
         betragNetto2: zweiterSatz && betragNetto2 ? parseFloat(betragNetto2) : null,
         mwstSatz2: zweiterSatz && betragNetto2 ? parseFloat(mwstSatz2) : null,
+        betragNetto3: dritterSatz && betragNetto3 ? parseFloat(betragNetto3) : null,
+        mwstSatz3: dritterSatz && betragNetto3 ? parseFloat(mwstSatz3) : null,
         kategorie,
         lieferantId: lieferantId || null,
         bezahltAm: bezahltAm || null,
@@ -571,28 +584,59 @@ export default function AusgabeDetailPage({ params }: Ctx) {
           <div>
             <label className="flex items-center gap-2 text-sm text-gray-600">
               <input type="checkbox" checked={zweiterSatz}
-                onChange={e => setZweiterSatz(e.target.checked)} />
+                onChange={e => {
+                  setZweiterSatz(e.target.checked);
+                  if (!e.target.checked) setDritterSatz(false);
+                }} />
               Beleg enthält einen zweiten MwSt-Satz (z. B. Bewirtung: Speisen 7 % / Getränke 19 %)
             </label>
             {zweiterSatz && (
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Betrag netto 2 (€)</label>
-                  <input type="number" step="0.001" min="0" value={betragNetto2}
-                    onChange={e => setBetragNetto2(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full border rounded px-3 py-2 text-sm" />
+              <>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Betrag netto 2 (€)</label>
+                    <input type="number" step="0.001" min="0" value={betragNetto2}
+                      onChange={e => setBetragNetto2(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full border rounded px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">MwSt-Satz 2</label>
+                    <select value={mwstSatz2} onChange={e => setMwstSatz2(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm">
+                      <option value="19">19 %</option>
+                      <option value="7">7 %</option>
+                      <option value="0">0 % (steuerfrei)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">MwSt-Satz 2</label>
-                  <select value={mwstSatz2} onChange={e => setMwstSatz2(e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-sm">
-                    <option value="19">19 %</option>
-                    <option value="7">7 %</option>
-                    <option value="0">0 % (steuerfrei)</option>
-                  </select>
-                </div>
-              </div>
+
+                <label className="flex items-center gap-2 text-sm text-gray-600 mt-3">
+                  <input type="checkbox" checked={dritterSatz}
+                    onChange={e => setDritterSatz(e.target.checked)} />
+                  Beleg enthält einen dritten MwSt-Satz (z. B. zusätzlich Trinkgeld 0 %)
+                </label>
+                {dritterSatz && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Betrag netto 3 (€)</label>
+                      <input type="number" step="0.001" min="0" value={betragNetto3}
+                        onChange={e => setBetragNetto3(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full border rounded px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">MwSt-Satz 3</label>
+                      <select value={mwstSatz3} onChange={e => setMwstSatz3(e.target.value)}
+                        className="w-full border rounded px-3 py-2 text-sm">
+                        <option value="19">19 %</option>
+                        <option value="7">7 %</option>
+                        <option value="0">0 % (steuerfrei)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -605,7 +649,7 @@ export default function AusgabeDetailPage({ params }: Ctx) {
             </div>
             <div>
               <div className="text-xs text-gray-500">
-                MwSt {zweiterSatz && betragsteile.betragNetto2 ? `${mwstSatz}%+${mwstSatz2}%` : `${mwstSatz}%`}
+                MwSt {ausgabeBetragsteile(betragsteile).map(t => `${t.satz}%`).join("+")}
               </div>
               <div className="font-medium text-amber-600">{formatEuro(mwstBetrag)}</div>
             </div>
