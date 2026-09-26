@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { ALTE_FORDERUNG_ARTIKELNUMMER, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, RESTDIFFERENZ_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
@@ -85,10 +85,14 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
     // Batch-load all needed data upfront to avoid N+1 queries
     const artikelIds = positionen.map((p) => p.artikelId);
 
-    const [alleArtikel, alleKundePreise, alleBevorzugteLieferanten, alleMengenrabatte, zahlungsziel] = await Promise.all([
+    const [alleArtikel, alleKundePreise, alleLieferanten, alleMengenrabatte, zahlungsziel] = await Promise.all([
       tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true } }),
       tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
-      tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds }, bevorzugt: true } }),
+      // Alle zugeordneten Lieferanten laden (nicht nur bevorzugt) — resolveBevorzugtenEK()
+      // wählt daraus den tatsächlich passenden EK (bevorzugt mit Preis > 0, sonst irgendeiner
+      // mit Preis > 0), analog zu allen anderen EK-Auflösungen im Projekt (siehe lib/utils.ts).
+      // Ein bevorzugter Lieferant ohne gepflegten Preis darf nicht länger den EK auf 0 zwingen.
+      tx.artikelLieferant.findMany({ where: { artikelId: { in: artikelIds } } }),
       tx.mengenrabatt.findMany({
         where: {
           aktiv: true,
@@ -100,7 +104,12 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
 
     const artikelMap = new Map(alleArtikel.map((a) => [a.id, a]));
     const kundePreisMap = new Map(alleKundePreise.map((kp) => [kp.artikelId, kp]));
-    const bevorzugterLieferantMap = new Map(alleBevorzugteLieferanten.map((al) => [al.artikelId, al]));
+    const lieferantenMap = new Map<number, typeof alleLieferanten>();
+    for (const al of alleLieferanten) {
+      const liste = lieferantenMap.get(al.artikelId) ?? [];
+      liste.push(al);
+      lieferantenMap.set(al.artikelId, liste);
+    }
 
     // Verkaufspreise + Einkaufspreise automatisch befüllen falls nicht übergeben
     const angereichert = positionen.map((pos) => {
@@ -111,7 +120,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         );
       }
       const kundePreis = kundePreisMap.get(pos.artikelId) ?? null;
-      const bevorzugterLieferant = bevorzugterLieferantMap.get(pos.artikelId);
+      const lieferantenFuerArtikel = lieferantenMap.get(pos.artikelId) ?? [];
 
       // Ein vom Aufrufer explizit übergebener Preis gilt als bereits final (z.B. die manuelle
       // Lieferungserfassung berechnet Sonderpreis + Mengenrabatt schon clientseitig für die
@@ -135,7 +144,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         artikelId: pos.artikelId,
         menge: pos.menge,
         verkaufspreis,
-        einkaufspreis: pos.einkaufspreis ?? bevorzugterLieferant?.einkaufspreis ?? 0,
+        einkaufspreis: pos.einkaufspreis ?? resolveBevorzugtenEK(lieferantenFuerArtikel),
         // Eingefroren bei Erstellung (analog verkaufspreis) — eine spätere Änderung
         // von Artikel.mwstSatz darf diese Position nie mehr rückwirkend verändern.
         mwstSatz: artikel.mwstSatz,
