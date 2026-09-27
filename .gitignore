@@ -46,6 +46,9 @@ next-env.d.ts
 *.db
 *.db-shm
 *.db-wal
+# Ausnahme: fertiges, restorebares Demo-Backup für das Eierhandel-Modul (siehe AGENTS.md,
+# Abschnitt "Eierhandel-Modul → Demodaten") — bewusst eingecheckt, kein Laufzeit-Artefakt.
+!/demodaten/eierhandel/eierhandel-demo-backup.db
 
 # claude code — lokale Settings ignorieren, aber eingecheckten SessionStart-Hook erlauben
 .claude/*

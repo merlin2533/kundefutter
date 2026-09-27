@@ -6,6 +6,7 @@ import type { ModulKey } from "@/lib/modul-keys";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
+import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
 
 interface ChurnKunde {
@@ -214,7 +215,7 @@ interface DashboardData {
 type WidgetId =
   | "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende"
   | "wetter" | "besuchstermine" | "sachkundenachweise" | "sprengstoff_nachweise" | "reklamationen_kritisch"
-  | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung";
+  | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung" | "eierhandel_kontrolle";
 
 // `modul` blendet ein Widget aus, wenn der zugehoerige Funktionsbereich abgeschaltet ist
 // (analog MODULE_HREFS in components/Nav.tsx). Widgets ohne Eintrag sind immer verfuegbar.
@@ -234,12 +235,13 @@ const WIDGET_DEFS: { id: WidgetId; label: string; icon: string; modul?: ModulKey
   { id: "pegelstaende", label: "Pegelstände", icon: "🌊", modul: "bodenproben" },
   { id: "sprengstoff_nachweise", label: "Sprengstoff-Nachweise (ablaufend)", icon: "💥", modul: "bodenproben" },
   { id: "personal_abrechnung", label: "Personal-Abrechnungen", icon: "👥", modul: "personal" },
+  { id: "eierhandel_kontrolle", label: "Eier-Kontrolle (MHD/Meldepflichten)", icon: "🥚", modul: "eierhandel" },
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = [
   "kpis", "reklamationen_kritisch", "benachrichtigungen", "wiedervorlagen", "kein_kontakt",
   "sachkundenachweise", "sprengstoff_nachweise", "besuchstermine", "budget", "angebote_pipeline", "vorbestellungen",
-  "matif", "wetter",
+  "matif", "wetter", "eierhandel_kontrolle",
 ];
 
 function useDashboardWidgets() {
@@ -414,6 +416,7 @@ const SCHNELLZUGRIFF: { href: string; label: string; icon: string; color: string
   { href: "/agrarantraege", label: "AFIG-Anträge", icon: "🌾", color: "bg-amber-50 border-amber-200 hover:bg-amber-100", modul: "agrarantraege" },
   { href: "/eiersortierung/neu", label: "Ei-Sortierprotokoll", icon: "🥚", color: "bg-amber-50 border-amber-200 hover:bg-amber-100", modul: "eierhandel" },
   { href: "/meldepflichten", label: "Meldepflichten", icon: "📋", color: "bg-lime-50 border-lime-200 hover:bg-lime-100", modul: "eierhandel" },
+  { href: "/eierkontrolle", label: "Eier-Kontrolle", icon: "🔎", color: "bg-orange-50 border-orange-200 hover:bg-orange-100", modul: "eierhandel" },
   { href: "/marktpreise", label: "Marktpreise", icon: "📈", color: "bg-teal-50 border-teal-200 hover:bg-teal-100", modul: "marktpreise" },
   { href: "/ki/lieferung?eingabe=sprache", label: "Lieferung per Sprache", icon: "🎙️", color: "bg-red-50 border-red-200 hover:bg-red-100" },
 ];
@@ -957,6 +960,76 @@ function SachkundenachweiseWidget() {
               </Link>
             );
           })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── Eier-Kontrolle Widget ─────────────────────────────────────────────────────
+
+interface EierSortierungPositionDash {
+  gueteklasse: string;
+  gewichtsklasse: string;
+  legedatum: string | null;
+  chargeNr: string | null;
+}
+interface EierSortierungDash {
+  id: number;
+  positionen: EierSortierungPositionDash[];
+}
+
+function EierKontrolleWidget() {
+  const [sortierungen, setSortierungen] = useState<EierSortierungDash[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/eiersortierung")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setSortierungen(Array.isArray(d) ? d : []))
+      .catch((err) => {
+        Sentry.captureException(err);
+        return setSortierungen([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const chargen = sortierungen.flatMap((s) => s.positionen);
+  const tageBisMhd = (legedatum: string | null) =>
+    legedatum ? Math.ceil((berechneEierMhd(new Date(legedatum)).getTime() - Date.now()) / 86400000) : null;
+  const abgelaufen = chargen.filter((c) => { const t = tageBisMhd(c.legedatum); return t !== null && t < 0; }).length;
+  const ablaufend = chargen.filter((c) => { const t = tageBisMhd(c.legedatum); return t !== null && t >= 0 && t <= 7; }).length;
+  const auffaellig = abgelaufen + ablaufend;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold">🥚 Eier-Kontrolle</h2>
+          {auffaellig > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-400 text-white text-xs font-bold">{auffaellig}</span>
+          )}
+        </div>
+        <Link href="/eierkontrolle" className="text-xs text-green-700 hover:underline">Alle →</Link>
+      </div>
+      {loading ? (
+        <p className="text-sm text-gray-400">Wird geladen…</p>
+      ) : chargen.length === 0 ? (
+        <p className="text-sm text-gray-400">Noch keine Sortier-Chargen erfasst</p>
+      ) : (
+        <div className="space-y-1 text-sm">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-gray-600">Abgelaufen</span>
+            <span className={`px-1.5 py-0.5 rounded font-medium ${abgelaufen > 0 ? "text-red-700 bg-red-100" : "text-gray-400"}`}>{abgelaufen}</span>
+          </div>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-gray-600">Läuft bald ab (≤7 Tage)</span>
+            <span className={`px-1.5 py-0.5 rounded font-medium ${ablaufend > 0 ? "text-amber-700 bg-amber-100" : "text-gray-400"}`}>{ablaufend}</span>
+          </div>
+          <div className="flex items-center justify-between px-1">
+            <span className="text-gray-600">Chargen gesamt</span>
+            <span className="px-1.5 py-0.5 text-gray-500">{chargen.length}</span>
+          </div>
         </div>
       )}
     </Card>
@@ -2131,11 +2204,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Compliance + Besuchsplanung */}
-      {(widgetAktiv("sachkundenachweise") || widgetAktiv("sprengstoff_nachweise") || widgetAktiv("besuchstermine")) && (
+      {(widgetAktiv("sachkundenachweise") || widgetAktiv("sprengstoff_nachweise") || widgetAktiv("besuchstermine") || widgetAktiv("eierhandel_kontrolle")) && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
           {widgetAktiv("sachkundenachweise") && <SachkundenachweiseWidget />}
           {widgetAktiv("sprengstoff_nachweise") && <SprengstoffNachweiseWidget />}
           {widgetAktiv("besuchstermine") && <BesuchstermineWidget />}
+          {widgetAktiv("eierhandel_kontrolle") && <EierKontrolleWidget />}
         </div>
       )}
 

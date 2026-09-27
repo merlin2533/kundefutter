@@ -1,0 +1,38 @@
+[
+  {
+    "_key": "anl-1",
+    "nummer": "ANL-DEMO-EI-0001",
+    "datumOffsetTage": -6,
+    "_kundeKey": "erzeuger-bio",
+    "_artikelKey": "artikel-ei-m",
+    "menge": 3500,
+    "einheit": "Stück",
+    "preisProEinheit": 0.18,
+    "gesamtBetrag": 630,
+    "notiz": "Demodaten Eierhandel"
+  },
+  {
+    "_key": "anl-2",
+    "nummer": "ANL-DEMO-EI-0002",
+    "datumOffsetTage": -24,
+    "_kundeKey": "erzeuger-freiland",
+    "_artikelKey": "artikel-ei-l",
+    "menge": 2500,
+    "einheit": "Stück",
+    "preisProEinheit": 0.21,
+    "gesamtBetrag": 525,
+    "notiz": "Demodaten Eierhandel"
+  },
+  {
+    "_key": "anl-3",
+    "nummer": "ANL-DEMO-EI-0003",
+    "datumOffsetTage": -32,
+    "_kundeKey": "erzeuger-boden",
+    "_artikelKey": "artikel-ei-m",
+    "menge": 2400,
+    "einheit": "Stück",
+    "preisProEinheit": 0.17,
+    "gesamtBetrag": 408,
+    "notiz": "Demodaten Eierhandel"
+  }
+]

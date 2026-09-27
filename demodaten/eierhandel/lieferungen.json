@@ -1,0 +1,78 @@
+[
+  {
+    "_key": "lief-1",
+    "_kundeKey": "abnehmer-edeka",
+    "datumOffsetTage": -3,
+    "status": "geliefert",
+    "notiz": "Demodaten Eierhandel [lief-1]",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-m",
+        "menge": 1000,
+        "verkaufspreis": 0.30,
+        "mwstSatz": 7,
+        "gueteklasse": "A",
+        "gewichtsklasse": "M",
+        "legedatumOffsetTage": -8,
+        "_erzeugerKundeKey": "erzeuger-bio"
+      }
+    ]
+  },
+  {
+    "_key": "lief-2",
+    "_kundeKey": "abnehmer-hofladen",
+    "datumOffsetTage": -10,
+    "status": "geliefert",
+    "notiz": "Demodaten Eierhandel [lief-2]",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-l",
+        "menge": 500,
+        "verkaufspreis": 0.34,
+        "mwstSatz": 7,
+        "gueteklasse": "A",
+        "gewichtsklasse": "L",
+        "legedatumOffsetTage": -20,
+        "_erzeugerKundeKey": "erzeuger-freiland"
+      }
+    ]
+  },
+  {
+    "_key": "lief-3",
+    "_kundeKey": "abnehmer-edeka",
+    "datumOffsetTage": -1,
+    "status": "geplant",
+    "notiz": "Demodaten Eierhandel [lief-3] — noch nicht geliefert, zählt bewusst NICHT in der KAT-Meldung",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-m",
+        "menge": 800,
+        "verkaufspreis": 0.30,
+        "mwstSatz": 7,
+        "gueteklasse": "B",
+        "gewichtsklasse": "M",
+        "legedatumOffsetTage": -6,
+        "_erzeugerKundeKey": "erzeuger-bio"
+      }
+    ]
+  },
+  {
+    "_key": "lief-4",
+    "_kundeKey": "abnehmer-hofladen",
+    "datumOffsetTage": -15,
+    "status": "geliefert",
+    "notiz": "Demodaten Eierhandel [lief-4]",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-m",
+        "menge": 1800,
+        "verkaufspreis": 0.29,
+        "mwstSatz": 7,
+        "gueteklasse": "A",
+        "gewichtsklasse": "S",
+        "legedatumOffsetTage": -32,
+        "_erzeugerKundeKey": "erzeuger-boden"
+      }
+    ]
+  }
+]
