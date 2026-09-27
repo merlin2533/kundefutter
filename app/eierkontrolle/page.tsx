@@ -3,9 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
-import { berechneEierMhd } from "@/lib/eier-mhd";
+import { berechneEierMhd, eierMhdStatus, type EierMhdStatus } from "@/lib/eier-mhd";
 import { haltungsformLabel } from "@/lib/auswahllisten";
-import * as Sentry from "@sentry/nextjs";
 
 interface Charge {
   id: number;
@@ -33,59 +32,91 @@ interface KontrollDaten {
   meldepflichtenUeberfaellig: number;
 }
 
-type MhdStatus = "abgelaufen" | "ablaufend" | "gueltig" | "unbekannt";
-
-function mhdStatus(legedatum: string | null): MhdStatus {
-  if (!legedatum) return "unbekannt";
-  const mhd = berechneEierMhd(new Date(legedatum));
-  const tage = Math.ceil((mhd.getTime() - Date.now()) / 86400000);
-  if (tage < 0) return "abgelaufen";
-  if (tage <= 7) return "ablaufend";
-  return "gueltig";
-}
-
-const MHD_STYLE: Record<MhdStatus, string> = {
+const MHD_STYLE: Record<EierMhdStatus, string> = {
   abgelaufen: "bg-red-50 text-red-700 border-red-200",
   ablaufend: "bg-amber-50 text-amber-700 border-amber-200",
   gueltig: "bg-green-50 text-green-700 border-green-200",
   unbekannt: "bg-gray-50 text-gray-500 border-gray-200",
 };
 
-const MHD_LABEL: Record<MhdStatus, string> = {
+const MHD_LABEL: Record<EierMhdStatus, string> = {
   abgelaufen: "Abgelaufen",
   ablaufend: "Läuft bald ab",
   gueltig: "Gültig",
   unbekannt: "Kein Legedatum",
 };
 
+// Erwartetes Format: <Haltungsform 0-3>-<Ländercode 2 Buchstaben>-<Betriebsnummer, min. 5 Ziffern>,
+// z.B. "1-DE-0123451" (siehe AGENTS.md-Beispiel bei Kunde.erzeugercode).
+const ERZEUGERCODE_FORMAT = /^[0-3]-[A-Z]{2}-\d{5,}$/;
+
+type ErzeugerBefund = "ok" | "fehlendesFeld" | "ungueltigesFormat" | "mismatch";
+
 // Erste Ziffer des Erzeugercodes muss der gepflegten Haltungsform entsprechen (0=Bio, 1=Freiland,
 // 2=Boden, 3=Käfig/Kleingruppe) — gleiche Ableitung wie haltungsformAusErzeugercode()
-// (lib/kat-meldung.ts), hier direkt auf den numerischen Code statt dem Label geprüft.
-function erzeugercodeMismatch(erzeugercode: string | null, haltungsform: number | null): boolean {
-  if (!erzeugercode || haltungsform === null) return false;
-  const ersteZiffer = parseInt(erzeugercode.trim().charAt(0), 10);
-  return !isNaN(ersteZiffer) && ersteZiffer !== haltungsform;
+// (lib/kat-meldung.ts), hier direkt auf den numerischen Code statt dem Label geprüft. Ein Code,
+// der schon formal nicht dem erwarteten Muster entspricht (z.B. eine führende Ziffer 4-9 oder
+// ganz andere Schreibweise), wird als "ungueltigesFormat" statt fälschlich als "mismatch"
+// eingestuft — ein Format-Fehler ist etwas anderes als eine zur Haltungsform passende, aber
+// falsch gepflegte Ziffer.
+function erzeugerBefund(erzeugercode: string | null, haltungsform: number | null): ErzeugerBefund {
+  const hatCode = !!erzeugercode;
+  const hatHaltungsform = haltungsform !== null;
+  if (hatCode !== hatHaltungsform) return "fehlendesFeld";
+  if (!hatCode) return "ok";
+  const code = erzeugercode!.trim();
+  if (!ERZEUGERCODE_FORMAT.test(code)) return "ungueltigesFormat";
+  const ersteZiffer = parseInt(code.charAt(0), 10);
+  return ersteZiffer !== haltungsform ? "mismatch" : "ok";
 }
+
+const BEFUND_LABEL: Record<Exclude<ErzeugerBefund, "ok">, string> = {
+  fehlendesFeld: "Nur eines der beiden Felder gesetzt",
+  ungueltigesFormat: "Erzeugercode-Format ungültig",
+  mismatch: "Ziffer passt nicht zur Haltungsform",
+};
+
+const FILTER_STORAGE_KEY = "eierkontrolle-mhd-filter";
 
 export default function EierKontrollePage() {
   const [data, setData] = useState<KontrollDaten | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState<"alle" | MhdStatus>("alle");
+  const [filter, setFilter] = useState<"alle" | EierMhdStatus>(() => {
+    if (typeof window === "undefined") return "alle";
+    try {
+      const stored = window.sessionStorage.getItem(FILTER_STORAGE_KEY);
+      return stored === "abgelaufen" || stored === "ablaufend" || stored === "gueltig" || stored === "unbekannt"
+        ? stored
+        : "alle";
+    } catch {
+      return "alle";
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(FILTER_STORAGE_KEY, filter);
+    } catch {
+      // sessionStorage kann in privaten/eingeschränkten Kontexten fehlschlagen — reiner
+      // Komfortmechanismus, kein Fehler wert.
+    }
+  }, [filter]);
 
   useEffect(() => {
     fetch("/api/eierkontrolle")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Laden fehlgeschlagen"))))
       .then((d) => setData(d))
-      .catch((err) => {
-        Sentry.captureException(err);
+      .catch(() => {
+        // Netzwerk-/Serverfehler auf /api/* werden bereits automatisch von
+        // lib/fetch-reporter.ts gemeldet (siehe AGENTS.md Regel 24) — hier nur Nutzer-Feedback.
         setError("Kontroll-Daten konnten nicht geladen werden.");
       })
       .finally(() => setLoading(false));
   }, []);
 
   const chargenMitStatus = useMemo(
-    () => (data?.chargen ?? []).map((c) => ({ ...c, status: mhdStatus(c.legedatum) })),
+    () => (data?.chargen ?? []).map((c) => ({ ...c, status: eierMhdStatus(c.legedatum) })),
     [data]
   );
   const gefiltert = useMemo(
@@ -100,12 +131,11 @@ export default function EierKontrollePage() {
     () =>
       (data?.erzeuger ?? []).map((e) => ({
         ...e,
-        fehlendesFeld: (e.erzeugercode && !e.haltungsform && e.haltungsform !== 0) || (!e.erzeugercode && e.haltungsform !== null),
-        mismatch: erzeugercodeMismatch(e.erzeugercode, e.haltungsform),
+        befund: erzeugerBefund(e.erzeugercode, e.haltungsform),
       })),
     [data]
   );
-  const erzeugerAuffaellig = erzeugerMitPruefung.filter((e) => e.fehlendesFeld || e.mismatch);
+  const erzeugerAuffaellig = erzeugerMitPruefung.filter((e) => e.befund !== "ok");
 
   return (
     <div className="max-w-6xl">
@@ -158,11 +188,11 @@ export default function EierKontrollePage() {
                     <tr>
                       <th className="text-left px-4 py-2">Charge</th>
                       <th className="text-left px-4 py-2">Güte</th>
-                      <th className="text-left px-4 py-2">Gewicht</th>
-                      <th className="text-left px-4 py-2">Erzeugercode</th>
-                      <th className="text-left px-4 py-2">Legedatum</th>
+                      <th className="text-left px-4 py-2 hidden sm:table-cell">Gewicht</th>
+                      <th className="text-left px-4 py-2 hidden md:table-cell">Erzeugercode</th>
+                      <th className="text-left px-4 py-2 hidden sm:table-cell">Legedatum</th>
                       <th className="text-left px-4 py-2">MHD</th>
-                      <th className="text-right px-4 py-2">Menge</th>
+                      <th className="text-right px-4 py-2 hidden md:table-cell">Menge</th>
                       <th className="text-left px-4 py-2">Status</th>
                     </tr>
                   </thead>
@@ -180,11 +210,11 @@ export default function EierKontrollePage() {
                             </Link>
                           </td>
                           <td className="px-4 py-2">{c.gueteklasse}</td>
-                          <td className="px-4 py-2">{c.gewichtsklasse}</td>
-                          <td className="px-4 py-2">{c.erzeugercode ?? "—"}</td>
-                          <td className="px-4 py-2">{c.legedatum ? formatDatum(c.legedatum) : "—"}</td>
+                          <td className="px-4 py-2 hidden sm:table-cell">{c.gewichtsklasse}</td>
+                          <td className="px-4 py-2 hidden md:table-cell">{c.erzeugercode ?? "—"}</td>
+                          <td className="px-4 py-2 hidden sm:table-cell">{c.legedatum ? formatDatum(c.legedatum) : "—"}</td>
                           <td className="px-4 py-2">{c.legedatum ? formatDatum(berechneEierMhd(new Date(c.legedatum)).toISOString()) : "—"}</td>
-                          <td className="px-4 py-2 text-right">{c.menge}</td>
+                          <td className="px-4 py-2 text-right hidden md:table-cell">{c.menge}</td>
                           <td className="px-4 py-2">
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${MHD_STYLE[c.status]}`}>
                               {MHD_LABEL[c.status]}
@@ -227,7 +257,7 @@ export default function EierKontrollePage() {
                           <td className="px-4 py-2">{haltungsformLabel(e.haltungsform) ?? "—"}</td>
                           <td className="px-4 py-2">
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200">
-                              {e.mismatch ? "Ziffer passt nicht zur Haltungsform" : "Nur eines der beiden Felder gesetzt"}
+                              {e.befund !== "ok" ? BEFUND_LABEL[e.befund] : null}
                             </span>
                           </td>
                         </tr>

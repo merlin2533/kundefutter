@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { KpiCard } from "@/components/Card";
-import * as Sentry from "@sentry/nextjs";
 
 interface Verteilung { key: string; mengeSortiert: number; mengeVerkauft: number }
 interface TopErzeuger { erzeugercode: string; haltungsform: string | null; mengeSortiert: number; mengeVerkauft: number }
@@ -15,8 +14,15 @@ interface EierStatistik {
   summeVerkauft: number;
 }
 
-const heute = new Date().toISOString().split("T")[0];
-const vorDreiMonaten = new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split("T")[0];
+// Lokale Datums-Komponenten statt toISOString() (UTC) — sonst zeigt der Default zwischen 00:00
+// und 02:00 MESZ fälschlich den Vortag (derselbe Bug wie beim "Von"-Datumsfilter im
+// Ausgabenbuch, siehe AGENTS.md Bug-Tabelle).
+function lokalesDatum(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+const heute = lokalesDatum(new Date());
+const vorDreiMonaten = lokalesDatum(new Date(new Date().setMonth(new Date().getMonth() - 3)));
 
 function BalkenZeile({ label, wert, max, farbe }: { label: string; wert: number; max: number; farbe: string }) {
   const breite = max > 0 ? Math.max((wert / max) * 100, wert > 0 ? 2 : 0) : 0;
@@ -55,8 +61,9 @@ function EierStatistikInner() {
       const res = await fetch(`/api/statistik/eier?${params}`);
       if (!res.ok) throw new Error("Laden fehlgeschlagen");
       setData(await res.json());
-    } catch (err) {
-      Sentry.captureException(err);
+    } catch {
+      // Netzwerk-/Serverfehler auf /api/* werden bereits automatisch von
+      // lib/fetch-reporter.ts gemeldet (siehe AGENTS.md Regel 24).
       setError("Eier-Statistik konnte nicht geladen werden.");
     } finally {
       setLoading(false);
@@ -68,8 +75,11 @@ function EierStatistikInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const maxGuete = data ? Math.max(...data.gueteklassen.map((g) => g.mengeSortiert + g.mengeVerkauft), 1) : 1;
-  const maxGewicht = data ? Math.max(...data.gewichtsklassen.map((g) => g.mengeSortiert + g.mengeVerkauft), 1) : 1;
+  // max muss auf demselben Wert basieren, der tatsächlich als Balken gezeichnet wird
+  // (mengeSortiert) — vorher war max die Summe aus Sortiert+Verkauft, wodurch selbst die
+  // größte Klasse nie die volle Balkenbreite erreichte.
+  const maxGuete = data ? Math.max(...data.gueteklassen.map((g) => g.mengeSortiert), 1) : 1;
+  const maxGewicht = data ? Math.max(...data.gewichtsklassen.map((g) => g.mengeSortiert), 1) : 1;
 
   return (
     <div className="max-w-5xl">
