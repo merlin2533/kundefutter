@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges } from "@/lib/audit";
 import { autoGeocodeKunde } from "@/lib/geocoding";
+import { istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
@@ -57,6 +58,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   if (haltungsform !== undefined && haltungsform !== null && ![0, 1, 2, 3].includes(Number(haltungsform))) {
     return NextResponse.json({ error: "Haltungsform ungültig (0=Bio, 1=Freiland, 2=Boden, 3=Käfig/Kleingruppe)" }, { status: 400 });
+  }
+  if (erzeugercode !== undefined && !istGueltigerErzeugercode(erzeugercode)) {
+    return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercode}“` }, { status: 400 });
   }
 
   // Nur erlaubte Felder uebernehmen
@@ -128,7 +132,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         Number(id),
         altSnapshot,
         kunde as Record<string, unknown>,
-        ["name", "firma", "kategorie", "plz", "ort"]
+        ["name", "firma", "kategorie", "plz", "ort", "erzeugercode", "haltungsform"]
       );
     }
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
+import { useModulAktiv } from "@/lib/modul-context";
 import * as Sentry from "@sentry/nextjs";
 
 interface AufgabeItem {
@@ -29,10 +30,15 @@ function istUeberfaellig(faelligAm: string | null): boolean {
 }
 
 export default function MeldepflichtenPage() {
+  const eierhandelAn = useModulAktiv("eierhandel");
   const [items, setItems] = useState<AufgabeItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!eierhandelAn) {
+      setLoading(false);
+      return;
+    }
     fetch("/api/aufgaben?status=offen&limit=500")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => {
@@ -41,7 +47,16 @@ export default function MeldepflichtenPage() {
       })
       .catch((err) => Sentry.captureException(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [eierhandelAn]);
+
+  if (!eierhandelAn) {
+    return (
+      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-4 py-3">
+        Das Modul „Eierhandel“ ist deaktiviert — Meldepflichten sind erst nach Aktivierung unter{" "}
+        <Link href="/einstellungen/module" className="underline font-medium">Einstellungen → Module</Link> sichtbar.
+      </p>
+    );
+  }
 
   return (
     <div>

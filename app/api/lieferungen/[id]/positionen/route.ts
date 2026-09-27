@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getArtikelPreisFuerJahr } from "@/lib/jahrespreis";
 import { resolveBevorzugtenEK, istLagerrelevant } from "@/lib/utils";
 import { istChargeNrPflichtFuerLieferschein } from "@/lib/lieferung";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
+import { getModulConfig } from "@/lib/modul-config";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
   if (gewichtsklasse !== undefined && gewichtsklasse !== null && !GEWICHTSKLASSEN_KEYS.includes(gewichtsklasse)) {
     return NextResponse.json({ error: "Gewichtsklasse ungültig (S, M, L oder XL)" }, { status: 400 });
+  }
+  if (typeof erzeugercode === "string" && !istGueltigerErzeugercode(erzeugercode)) {
+    return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercode}“` }, { status: 400 });
   }
 
   try {
@@ -94,14 +98,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Artikel-Notiz durchschleifen, falls keine positionsspezifische Notiz übergeben wurde
     const posNotiz = typeof notiz === "string" && notiz.trim() ? notiz.trim() : (artikel.notiz ?? null);
     const chargeNrTrim = typeof chargeNr === "string" ? chargeNr.trim() || null : null;
-    // Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — analog chargeNr eingefroren bei Erstellung
-    const gueteklasseVal: string | null = typeof gueteklasse === "string" && gueteklasse ? gueteklasse : null;
-    const gewichtsklasseVal: string | null = typeof gewichtsklasse === "string" && gewichtsklasse ? gewichtsklasse : null;
-    const legedatumVal: Date | null = legedatum ? new Date(legedatum) : null;
+    // Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — analog chargeNr eingefroren bei Erstellung.
+    // Bei deaktiviertem Modul werden diese Felder gar nicht erst übernommen (Defense in depth
+    // gegen einen direkten API-Aufruf am ausgeblendeten Formular vorbei).
+    const eierhandelAktiv = (await getModulConfig()).eierhandel;
+    const gueteklasseVal: string | null = eierhandelAktiv && typeof gueteklasse === "string" && gueteklasse ? gueteklasse : null;
+    const gewichtsklasseVal: string | null = eierhandelAktiv && typeof gewichtsklasse === "string" && gewichtsklasse ? gewichtsklasse : null;
+    const legedatumVal: Date | null = eierhandelAktiv && legedatum ? new Date(legedatum) : null;
     if (legedatumVal && isNaN(legedatumVal.getTime())) {
       return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
     }
-    const erzeugercodeVal: string | null = typeof erzeugercode === "string" ? erzeugercode.trim() || null : null;
+    const erzeugercodeVal: string | null = eierhandelAktiv && typeof erzeugercode === "string" ? erzeugercode.trim() || null : null;
 
     // War die Lieferung beim Hinzufügen dieser Position bereits "geliefert" (d.h. eine
     // Rechnung existiert schon, ist aber noch nicht versendet), wurde der Lagerausgang für

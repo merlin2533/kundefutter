@@ -2,7 +2,6 @@
 import { useState, useCallback, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import * as Sentry from "@sentry/nextjs";
 
 interface KatMeldungZeile {
   woche: string;
@@ -46,12 +45,14 @@ function KatMeldungInner() {
     try {
       const params = new URLSearchParams({ von, bis });
       const res = await fetch(`/api/exporte/kat-meldung/vorschau?${params}`);
-      if (!res.ok) throw new Error("Laden fehlgeschlagen");
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "Laden fehlgeschlagen");
+      }
       const json = await res.json();
       setData(json);
     } catch (err) {
-      Sentry.captureException(err);
-      setError("Warenströme konnten nicht geladen werden.");
+      setError(err instanceof Error ? err.message : "Warenströme konnten nicht geladen werden.");
     } finally {
       setLoading(false);
     }
