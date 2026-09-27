@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 import { useCurrentUser } from "@/lib/user-context";
@@ -944,6 +944,153 @@ function DropdownItem({ group, isAnyChildActive }: { group: NavGroup; isAnyChild
   );
 }
 
+// Feste Pixel-Reserven für die Overflow-Messung: Abstand zwischen den Gruppen (Tailwind
+// `gap-0.5` = 2px) und der Sicherheitsabstand, den der Messungslayer selbst nicht braucht,
+// weil er außerhalb des normalen Layouts liegt (position: fixed, siehe unten).
+const NAV_GAP_PX = 2;
+
+/** Misst unsichtbar (position: fixed, außerhalb des sichtbaren Bereichs) die natürliche Breite
+ *  jeder Top-Level-Gruppe sowie des "⋯ Mehr"-Buttons und liefert, wie viele Gruppen ab dem
+ *  Anfang der Liste in `containerWidth` passen — inklusive Platz für den "⋯ Mehr"-Button, falls
+ *  nicht alle passen. Grund für den eigenen Messungslayer statt Messung der sichtbaren Buttons:
+ *  sobald ein Element in den "⋯ Mehr"-Dropdown wandert, verlässt es das normale Layout und wäre
+ *  dort nicht mehr (mit seiner ursprünglichen Breite) messbar — der Messungslayer bleibt
+ *  unabhängig davon immer vollständig vorhanden. */
+function useNavOverflow(groups: NavGroup[]) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const mehrProbeRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(groups.length);
+
+  useLayoutEffect(() => {
+    function recompute() {
+      const container = containerRef.current;
+      if (!container) return;
+      const verfuegbar = container.clientWidth;
+      const breiten = itemRefs.current.slice(0, groups.length).map((el) => el?.offsetWidth ?? 0);
+      const gesamt = breiten.reduce((s, w) => s + w, 0) + NAV_GAP_PX * Math.max(breiten.length - 1, 0);
+      if (gesamt <= verfuegbar) {
+        setVisibleCount(groups.length);
+        return;
+      }
+      const mehrBreite = (mehrProbeRef.current?.offsetWidth ?? 0) + NAV_GAP_PX;
+      let benutzt = 0;
+      let anzahl = 0;
+      for (let i = 0; i < breiten.length; i++) {
+        const naechster = benutzt + breiten[i] + (i > 0 ? NAV_GAP_PX : 0);
+        if (naechster + mehrBreite <= verfuegbar) {
+          benutzt = naechster;
+          anzahl = i + 1;
+        } else {
+          break;
+        }
+      }
+      setVisibleCount(anzahl);
+    }
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener("resize", recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, [groups]);
+
+  return { containerRef, itemRefs, mehrProbeRef, visibleCount };
+}
+
+/** "⋯ Mehr"-Dropdown für Top-Level-Gruppen, die in der Leiste keinen Platz mehr finden — fasst
+ *  jede übergebene Gruppe als eigenen Abschnitt zusammen (Label als Abschnitts-Überschrift bei
+ *  Gruppen mit Untermenü, direkter Link bei flachen Gruppen wie "Dashboard"). Positionierung/
+ *  Öffnen-Schließen-Verhalten identisch zu DropdownItem (position: fixed, schließt bei Klick
+ *  außerhalb / Scrollen / Resize). */
+function MehrDropdown({ groups, isGroupActive }: { groups: NavGroup[]; isGroupActive: (g: NavGroup) => boolean }) {
+  const [open, setOpen] = useState(false);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function oeffnen(naechster: boolean) {
+    if (naechster && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPanelPos({ top: r.bottom + 4, left: Math.max(r.right - 220, 8) });
+    }
+    setOpen(naechster);
+  }
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onScroll() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  const anyActive = groups.some((g) => isGroupActive(g));
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        ref={btnRef}
+        onClick={() => oeffnen(!open)}
+        title="Weitere Menüpunkte"
+        className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors ${
+          anyActive ? "bg-white text-green-800" : "hover:bg-green-700 text-white"
+        }`}
+      >
+        ⋯ <span className="hidden lg:inline">Mehr</span>
+      </button>
+      {open && panelPos && (
+        <div
+          className="fixed bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 max-h-[70vh] overflow-y-auto"
+          style={{ minWidth: "220px", top: panelPos.top, left: panelPos.left }}
+        >
+          {groups.map((g, gi) => (
+            <div key={g.label}>
+              {gi > 0 && <div className="mx-3 my-1 border-t border-gray-100" />}
+              {g.href ? (
+                <Link
+                  href={g.href}
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors font-medium"
+                >
+                  {g.label}
+                </Link>
+              ) : (
+                <>
+                  <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                    {g.label}
+                  </div>
+                  {(g.children ?? []).map((c) => (
+                    <Link
+                      key={c.href}
+                      href={c.href}
+                      onClick={() => setOpen(false)}
+                      className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+                    >
+                      {c.label}
+                    </Link>
+                  ))}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Personal-Selbstbedienung: darf ausschließlich die eigene Arbeitszeiterfassung und die eigenen
 // Lohnabrechnungen sehen — hier nur kosmetisch (Nav ausblenden + Redirect), die eigentliche
 // Absicherung sitzt in den API-Routen (siehe requireVollePersonalRechte/istPersonalSelbstbedienung
@@ -971,6 +1118,44 @@ export default function Nav() {
 
   const hideNav = pathname === "/login" || pathname.startsWith("/login/");
   const selbstbedienung = !!user?.mitarbeiterId;
+
+  // Muss VOR den beiden frühen Returns (hideNav/selbstbedienung) berechnet werden und
+  // useNavOverflow() muss VOR ihnen aufgerufen werden — sonst verletzt der bedingte
+  // Hook-Aufruf die Rules of Hooks, sobald sich pathname/selbstbedienung während der
+  // Lebensdauer derselben gemounteten Nav-Instanz ändert (z.B. Login → Dashboard).
+  const modulDisabledHrefs = new Set<string>();
+  for (const key of MODUL_KEYS) {
+    if (modulConfig[key]) continue;
+    for (const href of MODULE_HREFS[modulSettingKey(key)] ?? []) modulDisabledHrefs.add(href);
+  }
+
+  function isHrefAllowed(href: string): boolean {
+    const base = href.split("?")[0];
+    if (modulDisabledHrefs.has(base)) return false;
+    const perm = NAV_PERMISSION[base];
+    if (!perm) return true;
+    if (!user) return true;
+    return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
+  }
+
+  // Erst umbauen (Gruppen umbenennen/herausloesen/sortieren), dann filtern — andernfalls
+  // bliebe eine herausgeloeste Gruppe mit leerer Kinderliste stehen, statt von der
+  // "Gruppe ohne Kinder verschwindet"-Regel unten mit erfasst zu werden.
+  const visibleGroups = wendeNavProfilAn(groups, navProfilFuer(betriebsart))
+    .filter((g) => g.href === undefined || isHrefAllowed(g.href))
+    .map((g) => ({
+      ...g,
+      children: g.children?.filter((c) => isHrefAllowed(c.href)),
+    }))
+    .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
+
+  // Destrukturiert in eigene, top-level Bindings statt navOverflow.xxx per Member-Expression in
+  // der JSX zu referenzieren — die react-hooks/refs-Lint-Regel meldet bei Ref-Zugriff über eine
+  // verschachtelte Objekteigenschaft "Cannot access ref value during render" (False Positive für
+  // diesen Fall, da es sich um das reine Weiterreichen des Ref-Objekts an ref= handelt, kein
+  // .current-Lesen) — mit einfachen Identifiern verschwindet die Meldung.
+  const { containerRef: navContainerRef, itemRefs: navItemRefs, mehrProbeRef: navMehrProbeRef, visibleCount: navVisibleCount } =
+    useNavOverflow(visibleGroups);
 
   useEffect(() => {
     if (hideNav || !selbstbedienung) return;
@@ -1037,32 +1222,6 @@ export default function Nav() {
     );
   }
 
-  const modulDisabledHrefs = new Set<string>();
-  for (const key of MODUL_KEYS) {
-    if (modulConfig[key]) continue;
-    for (const href of MODULE_HREFS[modulSettingKey(key)] ?? []) modulDisabledHrefs.add(href);
-  }
-
-  function isHrefAllowed(href: string): boolean {
-    const base = href.split("?")[0];
-    if (modulDisabledHrefs.has(base)) return false;
-    const perm = NAV_PERMISSION[base];
-    if (!perm) return true;
-    if (!user) return true;
-    return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
-  }
-
-  // Erst umbauen (Gruppen umbenennen/herausloesen/sortieren), dann filtern — andernfalls
-  // bliebe eine herausgeloeste Gruppe mit leerer Kinderliste stehen, statt von der
-  // "Gruppe ohne Kinder verschwindet"-Regel unten mit erfasst zu werden.
-  const visibleGroups = wendeNavProfilAn(groups, navProfilFuer(betriebsart))
-    .filter((g) => g.href === undefined || isHrefAllowed(g.href))
-    .map((g) => ({
-      ...g,
-      children: g.children?.filter((c) => isHrefAllowed(c.href)),
-    }))
-    .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
-
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     if (href === "/kunden") return pathname === "/kunden" || (pathname.startsWith("/kunden/") && !pathname.startsWith("/kunden/karte") && !pathname.startsWith("/kunden/bewertung") && !pathname.startsWith("/kunden/verschmelzen"));
@@ -1095,8 +1254,8 @@ export default function Nav() {
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto nav-scroll">
-          {visibleGroups.map((g) =>
+        <nav ref={navContainerRef} className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 overflow-x-auto nav-scroll">
+          {visibleGroups.slice(0, navVisibleCount).map((g) =>
             g.href ? (
               <Link
                 key={g.href}
@@ -1111,6 +1270,9 @@ export default function Nav() {
               <DropdownItem key={g.label} group={g} isAnyChildActive={isGroupActive(g)} />
             )
           )}
+          {navVisibleCount < visibleGroups.length && (
+            <MehrDropdown groups={visibleGroups.slice(navVisibleCount)} isGroupActive={isGroupActive} />
+          )}
           <Link
             href="/hilfe"
             title="Hilfe & Features"
@@ -1124,6 +1286,29 @@ export default function Nav() {
             ?
           </Link>
         </nav>
+
+        {/* Unsichtbarer Messungslayer für useNavOverflow (position: fixed + visibility: hidden —
+            nimmt an keinem sichtbaren Layout teil, bleibt aber unabhängig vom "⋯ Mehr"-Zustand
+            immer vollständig vorhanden und damit messbar; siehe Kommentar bei useNavOverflow). */}
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-0.5"
+          style={{ position: "fixed", top: 0, left: 0, visibility: "hidden", pointerEvents: "none" }}
+        >
+          {visibleGroups.map((g, i) => (
+            <div
+              key={g.label}
+              ref={(el) => { navItemRefs.current[i] = el; }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap"
+            >
+              {g.label}
+              {!g.href && <span className="w-3.5 h-3.5 inline-block" />}
+            </div>
+          ))}
+          <div ref={navMehrProbeRef} className="flex items-center gap-0.5 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap">
+            ⋯ Mehr
+          </div>
+        </div>
 
         {/* Right side actions: search + notifications + history + settings + user */}
         <div className="hidden md:flex items-center gap-1 flex-shrink-0 ml-auto">
