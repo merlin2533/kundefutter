@@ -257,8 +257,23 @@ als relative Tages-Offsets (`legedatumOffsetTage` usw.), nicht als feste Daten �
 berechnet sie beim Laden, damit die MHD-Ampel-Demo auf `/eierkontrolle` nicht nach wenigen
 Wochen veraltet.
 
+**Fertiges Backup zum Wiederherstellen:** `demodaten/eierhandel/eierhandel-demo-backup.db` ist
+eine bewusst eingecheckte, fertige SQLite-Datei (Ausnahme in `.gitignore` von der sonst
+gitignoreten `*.db`-Regel) — Schema + dieselben Muster-Einstellungen wie eine Neuinstallation
+(`lib/muster-seed.ts`) + Admin-Login + `modul.eierhandel=true` + die obigen Eierhandel-Demodaten
+in einem. Lässt sich unter `/einstellungen/backup` → „Wiederherstellen" direkt als Datei
+hochladen, ohne selbst Migrationen/Seed/Modul-Schalter anzufassen. Erzeugt/aktualisiert über
+`npm run seed:eierhandel:backup` (`scripts/erzeuge-demo-backup-eierhandel.ts`), das ausschließlich
+gegen eine frische, temporäre SQLite-Datei arbeitet — nie gegen `prisma/dev.db` oder eine
+produktive `DATABASE_URL`.
+**Achtung:** `restoreFromFile()` (`lib/backup.ts`) ersetzt beim Wiederherstellen die GESAMTE
+Datenbankdatei — diese Datei deshalb niemals auf einer Instanz mit echten Kundendaten einspielen,
+nur auf einer Demo-/Testinstanz. Enthaltener Admin-Login `admin`/`changeme` — Passwort nach dem
+Wiederherstellen sofort ändern.
+
 **Regel: Ändern sich Felder/Modelle/Features des Eierhandel-Moduls, müssen
-`demodaten/eierhandel/*.json` und `scripts/lade-demodaten-eierhandel.ts` im selben Zug
+`demodaten/eierhandel/*.json`, `scripts/lade-demodaten-eierhandel.ts` UND das Backup
+(`npm run seed:eierhandel:backup` neu laufen lassen, Ergebnis mit committen) im selben Zug
 nachgezogen werden** — analog zur FAQ-Schema-Sync-Regel oben. Nach jeder Schema- oder
 Feature-Änderung am Modul `npm run seed:eierhandel` gegen eine Test-DB laufen lassen und
 prüfen, ob die Demodaten noch zum aktuellen Schema passen.
