@@ -40,7 +40,14 @@ export async function POST(_req: NextRequest, ctx: Params) {
     // nummer @unique), da beide Zähler unabhängig voneinander hochzählen.
     const gutschrift = await prisma.$transaction(async (tx) => {
       const einstellung = await tx.einstellung.findUnique({ where: { key: "system.letzteGutschriftNr" } });
-      const nummer = naechsteGutschriftsnummer(einstellung?.value ?? null);
+      let nummer = naechsteGutschriftsnummer(einstellung?.value ?? null);
+      // Selbstheilung: Installationen, die vor diesem Fix über den alten, unabhängigen Zähler
+      // dieser Route bereits eine höhere Nummer vergeben haben, als der zentrale Zähler kennt,
+      // würden sonst dauerhaft mit P2002 (nummer @unique) kollidieren. Statt dessen auf die
+      // nächste tatsächlich freie Nummer weiterzählen.
+      while (await tx.gutschrift.findUnique({ where: { nummer }, select: { id: true } })) {
+        nummer = naechsteGutschriftsnummer(nummer);
+      }
       await tx.einstellung.upsert({
         where: { key: "system.letzteGutschriftNr" },
         update: { value: nummer },

@@ -48,7 +48,7 @@ interface Anzahl {
   bestellpositionen: number; bestellungPositionen: number; kontraktPositionen: number;
   kampagneArtikel: number; angebotVorlagePositionen: number; chargenZertifikate: number;
   vorbestellungPositionen: number; fruehbezugStaffeln: number; anlieferungen: number;
-  benachrichtigungen: number; einkaufStatus: number;
+  benachrichtigungen: number; einkaufStatus: number; eierSortierungPositionen: number;
 }
 
 interface Preview {
@@ -79,6 +79,7 @@ const ANZAHL_LABELS: { key: keyof Anzahl; label: string }[] = [
   { key: "fruehbezugStaffeln", label: "Frühbezugs-Staffeln" },
   { key: "kampagneArtikel", label: "Kampagnen-Zuordnungen" },
   { key: "anlieferungen", label: "Anlieferungen" },
+  { key: "eierSortierungPositionen", label: "Ei-Sortierungspositionen" },
   { key: "chargenZertifikate", label: "Chargen-Zertifikate" },
   { key: "angebotVorlagePositionen", label: "Angebotsvorlagen-Positionen" },
   { key: "inhaltsstoffe", label: "Inhaltsstoffe" },
