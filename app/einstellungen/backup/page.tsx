@@ -385,7 +385,11 @@ export default function BackupPage() {
           />
           <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
             <strong>Achtung:</strong> Vor dem Restore wird automatisch ein Sicherungs-Backup der
-            aktuellen Datenbank angelegt. Der Server startet danach neu (~10 Sekunden Downtime).
+            aktuellen Datenbank angelegt. Der Server startet danach neu (~10 Sekunden Downtime) —
+            im Docker-Betrieb laufen dabei automatisch auch ausstehende Datenbank-Migrationen
+            (falls die hochgeladene Datei älter als das aktuelle Schema ist). Läuft die App NICHT
+            über Docker (z.B. lokal per <code>npm run dev</code>), den Server nach dem Restore
+            selbst neu starten, damit <code>prisma migrate deploy</code> erneut greift.
           </p>
         </div>
       </div>

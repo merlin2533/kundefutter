@@ -86,6 +86,15 @@ async function setzeRahmendaten() {
     update: { value: "true" },
     create: { key: "modul.eierhandel", value: "true" },
   });
+  // Ohne gesetzte Betriebsart zeigt das Demo-Backup den vollen Agrarhandel-Menüzuschnitt mit
+  // allen Agrar-Modulen (Bodenproben/PSM/Sortenversuche stehen standardmäßig ebenfalls an) statt
+  // des für dieses Backup eigentlich gemeinten Eierbetrieb-Profils (siehe lib/betriebsart.ts) —
+  // Nav-Umbenennung "Pflanze & Tier" → "Eier & Futter" greift erst mit diesem Wert.
+  await prisma.einstellung.upsert({
+    where: { key: "system.betriebsart" },
+    update: { value: "eierbetrieb" },
+    create: { key: "system.betriebsart", value: "eierbetrieb" },
+  });
   await prisma.$disconnect();
 }
 

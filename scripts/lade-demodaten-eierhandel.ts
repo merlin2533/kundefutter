@@ -9,20 +9,44 @@
  * Kunde.erzeugercode, EierSortierung und Lieferung haben KEINEN unique-Constraint im Schema
  * (siehe prisma/schema.prisma) — hier läuft die Idempotenz über findFirst()-Guard-dann-create()
  * statt echter Prisma-Upsert-Semantik: EierSortierung/Lieferung werden über einen stabilen
- * "[key]"-Tag im notiz-Feld wiedererkannt, Kunden über erzeugercode bzw. (name+firma).
+ * "[key]"-Tag erkannt (notiz.contains, NICHT exaktes Gleich — die Notiz ist über die UI/PUT
+ * editierbar, ein exakter Vergleich würde nach einer harmlosen Notiz-Änderung erneut anlegen),
+ * Kunden über erzeugercode bzw. (name+firma), Aufgaben über exaktes betreff (siehe unten,
+ * für die Tierseuchenkasse-Meldung bewusst identisch zum Cron-Job berechnet).
  *
  * legedatum/datum/faelligAm stehen in den JSON-Dateien als relative Tages-Offsets
  * (legedatumOffsetTage, datumOffsetTage, faelligAmOffsetTage) — nicht als feste Daten —
  * und werden hier beim Laden in echte Daten umgerechnet, damit die MHD-Ampel-Demo nicht nach
  * wenigen Wochen veraltet.
+ *
+ * Sicherheitsnetz: Das Skript schreibt Kunden/Lieferungen mit echten Umsätzen — läuft es
+ * versehentlich gegen eine produktive DATABASE_URL (z.B. auf einer Maschine, deren .env auf eine
+ * echte Instanz zeigt), würden Demo-Datensätze mit echten Kunden/Artikeln vermischt. Bricht daher
+ * hart ab, wenn die Ziel-URL nicht offensichtlich eine Dev-/Tmp-Datenbank ist — Override nur
+ * explizit über ALLOW_DEMO_SEED=1 (genutzt von scripts/erzeuge-demo-backup-eierhandel.ts, das
+ * selbst schon gegen eine frische Tmp-Datei arbeitet).
  */
 import "dotenv/config";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { istLagerrelevant } from "../lib/utils";
 
 const url = process.env.DATABASE_URL ?? "file:prisma/dev.db";
+
+const wirktWieDevOderTmp = /dev\.db/i.test(url) || url.includes(os.tmpdir());
+if (!wirktWieDevOderTmp && process.env.ALLOW_DEMO_SEED !== "1") {
+  console.error(
+    `Abgebrochen: DATABASE_URL ("${url}") sieht nicht nach einer Dev-/Tmp-Datenbank aus (erwartet ` +
+      `z.B. "dev.db" im Pfad oder eine Datei unter ${os.tmpdir()}). Dieses Skript legt Demo-Kunden ` +
+      "und -Lieferungen an — auf einer echten Instanz würden sie sich mit produktiven Daten " +
+      "vermischen. Zum bewussten Überschreiben ALLOW_DEMO_SEED=1 setzen."
+  );
+  process.exit(1);
+}
+
 const libsqlUrl = url.startsWith("file:./") ? url.replace("file:./", "file:") : url;
 const adapter = new PrismaLibSql({ url: libsqlUrl });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -157,35 +181,66 @@ async function main() {
   console.log(`  Anlieferungen: ${anlieferungIdByKey.size}`);
 
   // ── EierSortierungen (findFirst-Guard über [key]-Tag im notiz, kein unique-Constraint) ──
+  // Bucht je Position dieselbe Lagerbewegung wie POST /api/eiersortierung (Lagerbewegung
+  // "eingang" + Artikel.aktuellerBestand-Update) — sonst bleiben die Demo-Artikel bei Bestand 0
+  // und ein späteres Löschen einer Demo-Sortierung über die UI (bucht eine Rückbuchung) treibt
+  // den Bestand ins Negative.
   const sortierungenJson = ladeJson<EierSortierungRow[]>("eiersortierungen.json");
   let sortierungenNeu = 0;
   for (const s of sortierungenJson) {
-    const vorhanden = await prisma.eierSortierung.findFirst({ where: { notiz: s.notiz } });
+    const keyTag = `[${s._key}]`;
+    const vorhanden = await prisma.eierSortierung.findFirst({ where: { notiz: { contains: keyTag } } });
     if (vorhanden) continue;
     const anlieferungId = s._anlieferungKey ? anlieferungIdByKey.get(s._anlieferungKey) ?? null : null;
-    await prisma.eierSortierung.create({
-      data: {
-        datum: tageAb(s.datumOffsetTage),
-        anlieferungId,
-        notiz: s.notiz,
-        erstelltVon: s.erstelltVon ?? null,
-        positionen: {
-          create: s.positionen.map((p) => {
-            const artikelId = artikelIdByKey.get(p._artikelKey);
-            if (!artikelId) throw new Error(`Sortierung ${s._key}: Artikel-Key ${p._artikelKey} nicht gefunden`);
-            const erzeugercode = p._erzeugerKundeKey ? kundeByKey.get(p._erzeugerKundeKey)?.erzeugercode ?? null : null;
-            return {
-              artikelId,
-              gueteklasse: p.gueteklasse,
-              gewichtsklasse: p.gewichtsklasse,
-              menge: p.menge,
-              chargeNr: p.chargeNr ?? null,
-              legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
-              erzeugercode,
-            };
-          }),
+
+    await prisma.$transaction(async (tx) => {
+      const sortierung = await tx.eierSortierung.create({
+        data: {
+          datum: tageAb(s.datumOffsetTage),
+          anlieferungId,
+          notiz: s.notiz,
+          erstelltVon: s.erstelltVon ?? null,
+          positionen: {
+            create: s.positionen.map((p) => {
+              const artikelId = artikelIdByKey.get(p._artikelKey);
+              if (!artikelId) throw new Error(`Sortierung ${s._key}: Artikel-Key ${p._artikelKey} nicht gefunden`);
+              const erzeugercode = p._erzeugerKundeKey ? kundeByKey.get(p._erzeugerKundeKey)?.erzeugercode ?? null : null;
+              return {
+                artikelId,
+                gueteklasse: p.gueteklasse,
+                gewichtsklasse: p.gewichtsklasse,
+                menge: p.menge,
+                chargeNr: p.chargeNr ?? null,
+                legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
+                erzeugercode,
+              };
+            }),
+          },
         },
-      },
+        include: { positionen: true },
+      });
+
+      const artikelIds = [...new Set(sortierung.positionen.map((p) => p.artikelId))];
+      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
+
+      for (const pos of sortierung.positionen) {
+        const artikel = artikelMap.get(pos.artikelId);
+        if (!artikel || !istLagerrelevant(artikel.kategorie, artikel.lagerTracking)) continue;
+        const neuerBestand = artikel.aktuellerBestand + pos.menge;
+        artikel.aktuellerBestand = neuerBestand;
+        await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
+        await tx.lagerbewegung.create({
+          data: {
+            artikelId: pos.artikelId,
+            typ: "eingang",
+            menge: pos.menge,
+            bestandNach: neuerBestand,
+            chargeNr: pos.chargeNr,
+            notiz: `Ei-Sortierung #${sortierung.id} · Güte ${pos.gueteklasse}/${pos.gewichtsklasse}${pos.chargeNr ? ` · Charge ${pos.chargeNr}` : ""} (Demodaten)`,
+          },
+        });
+      }
     });
     sortierungenNeu++;
   }
@@ -195,7 +250,8 @@ async function main() {
   const lieferungenJson = ladeJson<LieferungRow[]>("lieferungen.json");
   let lieferungenNeu = 0;
   for (const l of lieferungenJson) {
-    const vorhanden = await prisma.lieferung.findFirst({ where: { notiz: l.notiz } });
+    const keyTag = `[${l._key}]`;
+    const vorhanden = await prisma.lieferung.findFirst({ where: { notiz: { contains: keyTag } } });
     if (vorhanden) continue;
     const kundeId = kundeIdByKey.get(l._kundeKey);
     if (!kundeId) throw new Error(`Lieferung ${l._key}: Kunde-Key nicht gefunden`);
@@ -229,19 +285,34 @@ async function main() {
   console.log(`  Lieferungen: ${lieferungenNeu} neu (von ${lieferungenJson.length})`);
 
   // ── Aufgaben (findFirst-Guard über exaktes betreff, kein unique-Constraint) ──
+  // Die Tierseuchenkasse-Zeile bekommt betreff/faelligAm NICHT aus der JSON-Datei, sondern wird
+  // hier exakt wie in pruefeMeldepflichten() (lib/meldepflichten.ts) berechnet — der dortige Cron
+  // legt bei abweichendem Text sonst eine ZWEITE, echte Tierseuchenkasse-Aufgabe an (exakter
+  // betreff-Vergleich dort, keine Präfix-Prüfung wie bei KAT). Bewusst dupliziert statt
+  // importiert, analog zur MUSTER_EINSTELLUNGEN-Duplikation in
+  // scripts/erzeuge-demo-backup-eierhandel.ts — bei Änderung an pruefeMeldepflichten() beide
+  // Stellen nachziehen.
+  function tierseuchenkasseDemoAufgabe(): { betreff: string; faelligAm: Date } {
+    const heute = new Date();
+    const jahrDerFrist = heute > new Date(heute.getFullYear(), 0, 31, 23, 59, 59)
+      ? heute.getFullYear() + 1
+      : heute.getFullYear();
+    return {
+      betreff: `Tierseuchenkasse-Meldung ${jahrDerFrist} fällig (Jahreshöchstbesatz Legehennen)`,
+      faelligAm: new Date(jahrDerFrist, 0, 31, 23, 59, 59),
+    };
+  }
+
   const aufgabenJson = ladeJson<AufgabeRow[]>("aufgaben.json");
   let aufgabenNeu = 0;
   for (const a of aufgabenJson) {
-    const vorhanden = await prisma.aufgabe.findFirst({ where: { betreff: a.betreff } });
+    const override = a._key === "aufgabe-tierseuchenkasse" ? tierseuchenkasseDemoAufgabe() : null;
+    const betreff = override?.betreff ?? a.betreff;
+    const faelligAm = override?.faelligAm ?? tageAb(a.faelligAmOffsetTage);
+    const vorhanden = await prisma.aufgabe.findFirst({ where: { betreff } });
     if (vorhanden) continue;
     await prisma.aufgabe.create({
-      data: {
-        betreff: a.betreff,
-        faelligAm: tageAb(a.faelligAmOffsetTage),
-        erledigt: a.erledigt,
-        prioritaet: a.prioritaet,
-        typ: a.typ,
-      },
+      data: { betreff, faelligAm, erledigt: a.erledigt, prioritaet: a.prioritaet, typ: a.typ },
     });
     aufgabenNeu++;
   }
