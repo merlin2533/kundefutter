@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import NotificationCenter from "./NotificationCenter";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 import { useCurrentUser } from "@/lib/user-context";
@@ -960,13 +960,19 @@ function useNavOverflow(groups: NavGroup[]) {
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
   const mehrProbeRef = useRef<HTMLDivElement>(null);
+  // Der "?"-Hilfe-Link steht als letztes Element FEST in der Leiste (kein Gruppen-Item, kann also
+  // nicht ins "⋯ Mehr"-Menü wandern) — seine Breite muss von der verfügbaren Breite abgezogen
+  // werden, sonst überlappt/verdrängt er das letzte sichtbare Gruppen-Item bei exakt passender
+  // Breite (Breitenmessung würde ihn sonst schlicht ignorieren).
+  const hilfeProbeRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(groups.length);
 
   useLayoutEffect(() => {
     function recompute() {
       const container = containerRef.current;
       if (!container) return;
-      const verfuegbar = container.clientWidth;
+      const hilfeBreite = (hilfeProbeRef.current?.offsetWidth ?? 0) + NAV_GAP_PX;
+      const verfuegbar = container.clientWidth - hilfeBreite;
       const breiten = itemRefs.current.slice(0, groups.length).map((el) => el?.offsetWidth ?? 0);
       const gesamt = breiten.reduce((s, w) => s + w, 0) + NAV_GAP_PX * Math.max(breiten.length - 1, 0);
       if (gesamt <= verfuegbar) {
@@ -991,13 +997,17 @@ function useNavOverflow(groups: NavGroup[]) {
     const ro = new ResizeObserver(recompute);
     if (containerRef.current) ro.observe(containerRef.current);
     window.addEventListener("resize", recompute);
+    // Ein Webfont-Swap (FOUT→tatsächliche Schrift) ändert die Item-Breiten, ohne dass sich die
+    // Containerbreite ändert — der ResizeObserver bekommt das nicht mit. document.fonts.ready
+    // existiert nicht in jeder Testumgebung (z.B. jsdom), daher defensiv optional verkettet.
+    document.fonts?.ready?.then(recompute).catch(() => {});
     return () => {
       ro.disconnect();
       window.removeEventListener("resize", recompute);
     };
   }, [groups]);
 
-  return { containerRef, itemRefs, mehrProbeRef, visibleCount };
+  return { containerRef, itemRefs, mehrProbeRef, hilfeProbeRef, visibleCount };
 }
 
 /** "⋯ Mehr"-Dropdown für Top-Level-Gruppen, die in der Leiste keinen Platz mehr finden — fasst
@@ -1026,13 +1036,21 @@ function MehrDropdown({ groups, isGroupActive }: { groups: NavGroup[]; isGroupAc
     function onScroll() {
       setOpen(false);
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        btnRef.current?.focus();
+      }
+    }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
+    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
+      document.removeEventListener("keydown", onKey);
     };
   }, []);
 
@@ -1055,36 +1073,72 @@ function MehrDropdown({ groups, isGroupActive }: { groups: NavGroup[]; isGroupAc
           className="fixed bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50 max-h-[70vh] overflow-y-auto"
           style={{ minWidth: "220px", top: panelPos.top, left: panelPos.left }}
         >
-          {groups.map((g, gi) => (
-            <div key={g.label}>
-              {gi > 0 && <div className="mx-3 my-1 border-t border-gray-100" />}
-              {g.href ? (
-                <Link
-                  href={g.href}
-                  onClick={() => setOpen(false)}
-                  className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors font-medium"
-                >
-                  {g.label}
-                </Link>
-              ) : (
-                <>
-                  <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+          {groups.map((g, gi) => {
+            const children = g.children ?? [];
+            const hasSections = children.some((c) => c.section);
+            // Innerhalb einer Gruppe zusätzlich nach c.section unterteilen — gleiches Muster
+            // wie DropdownItem, sonst gehen z.B. "Eierhandel"/"Einkauf" innerhalb "Lieferungen"
+            // im Mehr-Menü unter, obwohl sie im regulären Dropdown getrennt erscheinen.
+            const sections: { name: string; items: NavChild[] }[] = [];
+            if (hasSections) {
+              for (const c of children) {
+                const sName = c.section ?? "";
+                const existing = sections.find((s) => s.name === sName);
+                if (existing) existing.items.push(c);
+                else sections.push({ name: sName, items: [c] });
+              }
+            }
+            return (
+              <div key={g.label}>
+                {gi > 0 && <div className="mx-3 my-1 border-t border-gray-100" />}
+                {g.href ? (
+                  <Link
+                    href={g.href}
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors font-medium"
+                  >
                     {g.label}
-                  </div>
-                  {(g.children ?? []).map((c) => (
-                    <Link
-                      key={c.href}
-                      href={c.href}
-                      onClick={() => setOpen(false)}
-                      className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
-                    >
-                      {c.label}
-                    </Link>
-                  ))}
-                </>
-              )}
-            </div>
-          ))}
+                  </Link>
+                ) : (
+                  <>
+                    <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                      {g.label}
+                    </div>
+                    {hasSections
+                      ? sections.map((sec) => (
+                          <div key={sec.name}>
+                            {sec.name && (
+                              <div className="px-4 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-wider text-gray-300">
+                                {sec.name}
+                              </div>
+                            )}
+                            {sec.items.map((c) => (
+                              <Link
+                                key={c.href}
+                                href={c.href}
+                                onClick={() => setOpen(false)}
+                                className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+                              >
+                                {c.label}
+                              </Link>
+                            ))}
+                          </div>
+                        ))
+                      : children.map((c) => (
+                          <Link
+                            key={c.href}
+                            href={c.href}
+                            onClick={() => setOpen(false)}
+                            className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-800 transition-colors"
+                          >
+                            {c.label}
+                          </Link>
+                        ))}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1123,39 +1177,51 @@ export default function Nav() {
   // useNavOverflow() muss VOR ihnen aufgerufen werden — sonst verletzt der bedingte
   // Hook-Aufruf die Rules of Hooks, sobald sich pathname/selbstbedienung während der
   // Lebensdauer derselben gemounteten Nav-Instanz ändert (z.B. Login → Dashboard).
-  const modulDisabledHrefs = new Set<string>();
-  for (const key of MODUL_KEYS) {
-    if (modulConfig[key]) continue;
-    for (const href of MODULE_HREFS[modulSettingKey(key)] ?? []) modulDisabledHrefs.add(href);
-  }
+  // In useMemo, damit visibleGroups bei unveränderten Abhängigkeiten dieselbe Array-Referenz
+  // behält — sonst würde useNavOverflow()s Effekt (deps: [groups]) bei JEDEM Render von Nav
+  // (z.B. durch einen Tick von HeaderSearch/NotificationCenter) den ResizeObserver komplett neu
+  // registrieren und unnötige synchrone Layout-Messungen auslösen.
+  const visibleGroups = useMemo(() => {
+    const modulDisabledHrefs = new Set<string>();
+    for (const key of MODUL_KEYS) {
+      if (modulConfig[key]) continue;
+      for (const href of MODULE_HREFS[modulSettingKey(key)] ?? []) modulDisabledHrefs.add(href);
+    }
 
-  function isHrefAllowed(href: string): boolean {
-    const base = href.split("?")[0];
-    if (modulDisabledHrefs.has(base)) return false;
-    const perm = NAV_PERMISSION[base];
-    if (!perm) return true;
-    if (!user) return true;
-    return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
-  }
+    function isHrefAllowed(href: string): boolean {
+      const base = href.split("?")[0];
+      if (modulDisabledHrefs.has(base)) return false;
+      const perm = NAV_PERMISSION[base];
+      if (!perm) return true;
+      if (!user) return true;
+      return hasPermission(user as Parameters<typeof hasPermission>[0], perm);
+    }
 
-  // Erst umbauen (Gruppen umbenennen/herausloesen/sortieren), dann filtern — andernfalls
-  // bliebe eine herausgeloeste Gruppe mit leerer Kinderliste stehen, statt von der
-  // "Gruppe ohne Kinder verschwindet"-Regel unten mit erfasst zu werden.
-  const visibleGroups = wendeNavProfilAn(groups, navProfilFuer(betriebsart))
-    .filter((g) => g.href === undefined || isHrefAllowed(g.href))
-    .map((g) => ({
-      ...g,
-      children: g.children?.filter((c) => isHrefAllowed(c.href)),
-    }))
-    .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
+    // Erst umbauen (Gruppen umbenennen/herausloesen/sortieren), dann filtern — andernfalls
+    // bliebe eine herausgeloeste Gruppe mit leerer Kinderliste stehen, statt von der
+    // "Gruppe ohne Kinder verschwindet"-Regel unten mit erfasst zu werden.
+    return wendeNavProfilAn(groups, navProfilFuer(betriebsart))
+      .filter((g) => g.href === undefined || isHrefAllowed(g.href))
+      .map((g) => ({
+        ...g,
+        children: g.children?.filter((c) => isHrefAllowed(c.href)),
+      }))
+      .filter((g) => g.href !== undefined || (g.children && g.children.length > 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulConfig, betriebsart, user]);
 
   // Destrukturiert in eigene, top-level Bindings statt navOverflow.xxx per Member-Expression in
   // der JSX zu referenzieren — die react-hooks/refs-Lint-Regel meldet bei Ref-Zugriff über eine
   // verschachtelte Objekteigenschaft "Cannot access ref value during render" (False Positive für
   // diesen Fall, da es sich um das reine Weiterreichen des Ref-Objekts an ref= handelt, kein
   // .current-Lesen) — mit einfachen Identifiern verschwindet die Meldung.
-  const { containerRef: navContainerRef, itemRefs: navItemRefs, mehrProbeRef: navMehrProbeRef, visibleCount: navVisibleCount } =
-    useNavOverflow(visibleGroups);
+  const {
+    containerRef: navContainerRef,
+    itemRefs: navItemRefs,
+    mehrProbeRef: navMehrProbeRef,
+    hilfeProbeRef: navHilfeProbeRef,
+    visibleCount: navVisibleCount,
+  } = useNavOverflow(visibleGroups);
 
   useEffect(() => {
     if (hideNav || !selbstbedienung) return;
@@ -1306,7 +1372,10 @@ export default function Nav() {
             </div>
           ))}
           <div ref={navMehrProbeRef} className="flex items-center gap-0.5 px-2.5 py-1.5 text-sm font-medium whitespace-nowrap">
-            ⋯ Mehr
+            ⋯ <span className="hidden lg:inline">Mehr</span>
+          </div>
+          <div ref={navHilfeProbeRef} className="ml-1 w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold flex-shrink-0">
+            ?
           </div>
         </div>
 
