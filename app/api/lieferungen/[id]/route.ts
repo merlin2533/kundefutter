@@ -44,7 +44,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
       where: { id: Number(id) },
       include: {
         kunde: { include: { kontakte: true } },
-        positionen: { include: { artikel: artikelWithInhaltSelect } },
+        positionen: {
+          include: {
+            // lieferanten zusätzlich zum sonst identischen artikelWithInhaltSelect: nötig, um
+            // auf der Detailseite eine seit Erfassung aktualisierte EK-Pflege zu erkennen
+            // (ermittlePreisAktualisierungen(), analog zur bereits bestehenden VK-Erkennung).
+            artikel: { select: { ...artikelWithInhaltSelect.select, lieferanten: { select: { einkaufspreis: true, bevorzugt: true, updatedAt: true } } } },
+          },
+        },
         teilzahlungen: { orderBy: { datum: "asc" as const } },
         streckenLieferant: { select: { id: true, name: true } },
         bestellpositionen: {

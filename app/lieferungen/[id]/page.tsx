@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, resolveBevorzugtenEK } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -22,7 +22,15 @@ interface Position {
   rabattProzent?: number;
   notiz?: string | null;
   mwstSatz?: number | null;
-  artikel: { id: number; name: string; einheit: string; mwstSatz: number; standardpreis?: number; updatedAt?: string };
+  artikel: {
+    id: number;
+    name: string;
+    einheit: string;
+    mwstSatz: number;
+    standardpreis?: number;
+    updatedAt?: string;
+    lieferanten?: { einkaufspreis: number; bevorzugt: boolean; updatedAt: string }[];
+  };
 }
 
 interface Sonderpreis {
@@ -108,13 +116,18 @@ interface OffeneGutschrift {
 interface PreisAktualisierung {
   posId: number;
   artikelName: string;
+  feld: "verkaufspreis" | "einkaufspreis";
   alterPreis: number;
   neuerPreis: number;
-  quelle: "Artikel" | "Sonderpreis";
+  quelle: "Artikel" | "Sonderpreis" | "Einkaufspreis";
 }
 
 // Nur für Entwürfe (status "geplant", noch keine Rechnung) relevant – fakturierte
 // Lieferungen sind eingefroren und werden nicht auf aktualisierte Preise geprüft.
+// Prüft sowohl den Verkaufspreis (Sonderpreis/Artikel-Standardpreis) als auch den
+// Einkaufspreis (ArtikelLieferant) — ein EK, der bei Erfassung der Position noch nicht
+// gepflegt war (0 €) oder sich seither geändert hat, wird sonst dauerhaft eingefroren
+// und verfälscht die Margenanzeige, ohne dass es je einen Weg zurück gäbe.
 function ermittlePreisAktualisierungen(lieferung: Lieferung): PreisAktualisierung[] {
   if (lieferung.status !== "geplant" || lieferung.rechnungNr) return [];
   const erstellt = new Date(lieferung.createdAt).getTime();
@@ -124,16 +137,23 @@ function ermittlePreisAktualisierungen(lieferung: Lieferung): PreisAktualisierun
   for (const pos of lieferung.positionen) {
     const sp = sonderMap.get(pos.artikel.id);
     if (sp && new Date(sp.updatedAt).getTime() > erstellt && sp.preis !== pos.verkaufspreis) {
-      updates.push({ posId: pos.id, artikelName: pos.artikel.name, alterPreis: pos.verkaufspreis, neuerPreis: sp.preis, quelle: "Sonderpreis" });
-      continue;
-    }
-    if (
+      updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: sp.preis, quelle: "Sonderpreis" });
+    } else if (
       pos.artikel.updatedAt &&
       pos.artikel.standardpreis !== undefined &&
       new Date(pos.artikel.updatedAt).getTime() > erstellt &&
       pos.artikel.standardpreis !== pos.verkaufspreis
     ) {
-      updates.push({ posId: pos.id, artikelName: pos.artikel.name, alterPreis: pos.verkaufspreis, neuerPreis: pos.artikel.standardpreis, quelle: "Artikel" });
+      updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: pos.artikel.standardpreis, quelle: "Artikel" });
+    }
+
+    const lieferanten = pos.artikel.lieferanten ?? [];
+    if (lieferanten.length > 0) {
+      const letzteAenderung = Math.max(...lieferanten.map((l) => new Date(l.updatedAt).getTime()));
+      const neuerEk = resolveBevorzugtenEK(lieferanten);
+      if (letzteAenderung > erstellt && neuerEk !== pos.einkaufspreis) {
+        updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "einkaufspreis", alterPreis: pos.einkaufspreis, neuerPreis: neuerEk, quelle: "Einkaufspreis" });
+      }
     }
   }
   return updates;
@@ -1045,13 +1065,13 @@ export default function LieferungDetailPage() {
     }
   }
 
-  async function preisAktualisierungUebernehmen(posId: number, neuerPreis: number) {
+  async function preisAktualisierungUebernehmen(update: PreisAktualisierung) {
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, {
+      const res = await fetch(`/api/lieferungen/${id}/positionen/${update.posId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verkaufspreis: neuerPreis }),
+        body: JSON.stringify({ [update.feld]: update.neuerPreis }),
       });
       if (!res.ok) {
         const d = await res.json().catch((err) => {
@@ -1076,7 +1096,7 @@ export default function LieferungDetailPage() {
         const res = await fetch(`/api/lieferungen/${id}/positionen/${u.posId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ verkaufspreis: u.neuerPreis }),
+          body: JSON.stringify({ [u.feld]: u.neuerPreis }),
         });
         if (!res.ok) {
           const d = await res.json().catch((err) => {
@@ -1109,7 +1129,10 @@ export default function LieferungDetailPage() {
   }
 
   const preisAktualisierungen = ermittlePreisAktualisierungen(lieferung);
-  const preisUpdateMap = new Map(preisAktualisierungen.map((u) => [u.posId, u]));
+  const preisUpdateMap = new Map(preisAktualisierungen.filter((u) => u.feld === "verkaufspreis").map((u) => [u.posId, u]));
+  const ekUpdateMap = new Map(preisAktualisierungen.filter((u) => u.feld === "einkaufspreis").map((u) => [u.posId, u]));
+  const preisAktualisierungenBetroffenePositionen = new Set(preisAktualisierungen.map((u) => u.posId)).size;
+  const preisAktualisierungenArtikelnamen = Array.from(new Set(preisAktualisierungen.map((u) => u.artikelName)));
 
   const ausgewaehlteAnzahl = lieferung.positionen.length - deselectedPosIds.size;
   const istTeilauswahl = ausgewaehlteAnzahl > 0 && ausgewaehlteAnzahl < lieferung.positionen.length;
@@ -1351,8 +1374,8 @@ export default function LieferungDetailPage() {
       {preisAktualisierungen.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm bg-blue-50 border border-blue-200 text-blue-800 rounded-lg px-4 py-3 print:hidden">
           <span>
-            Für {preisAktualisierungen.length} Position{preisAktualisierungen.length > 1 ? "en" : ""} liegen seit Erfassung dieser Lieferung aktualisierte Preise vor
-            {" "}({preisAktualisierungen.map((u) => u.artikelName).join(", ")}).
+            Für {preisAktualisierungenBetroffenePositionen} Position{preisAktualisierungenBetroffenePositionen > 1 ? "en" : ""} liegen seit Erfassung dieser Lieferung aktualisierte Preise vor
+            {" "}({preisAktualisierungenArtikelnamen.join(", ")}).
           </span>
           <div className="flex gap-2">
             <button
@@ -2071,7 +2094,7 @@ export default function LieferungDetailPage() {
                         {preisUpdateMap.has(pos.id) && (
                           <button
                             type="button"
-                            onClick={() => { const u = preisUpdateMap.get(pos.id)!; preisAktualisierungUebernehmen(pos.id, u.neuerPreis); }}
+                            onClick={() => preisAktualisierungUebernehmen(preisUpdateMap.get(pos.id)!)}
                             disabled={actionLoading}
                             title={`Aktualisierter Preis (${preisUpdateMap.get(pos.id)!.quelle}): ${formatEuro(preisUpdateMap.get(pos.id)!.neuerPreis)} — klicken zum Übernehmen`}
                             className="text-amber-600 hover:text-amber-800 disabled:opacity-60"
@@ -2137,7 +2160,24 @@ export default function LieferungDetailPage() {
                       </button>
                     )}
                   </td>
-                  {canSeeEk && <td className="px-4 py-3 font-mono">{formatEuro(pos.einkaufspreis)}</td>}
+                  {canSeeEk && (
+                    <td className="px-4 py-3 font-mono">
+                      <span className="inline-flex items-center gap-1">
+                        {formatEuro(pos.einkaufspreis)}
+                        {ekUpdateMap.has(pos.id) && (
+                          <button
+                            type="button"
+                            onClick={() => preisAktualisierungUebernehmen(ekUpdateMap.get(pos.id)!)}
+                            disabled={actionLoading}
+                            title={`Aktualisierter Einkaufspreis: ${formatEuro(ekUpdateMap.get(pos.id)!.neuerPreis)} — klicken zum Übernehmen`}
+                            className="text-amber-600 hover:text-amber-800 disabled:opacity-60"
+                          >
+                            ⚠
+                          </button>
+                        )}
+                      </span>
+                    </td>
+                  )}
                   {canSeeMarge && <td className="px-4 py-3 font-mono">{formatEuro(margeEuro)}</td>}
                   {canSeeMarge && <td className="px-4 py-3"><MargeBadge pct={margePct} /></td>}
                   {/* Notiz / Auftragsnr. – inline edit */}
