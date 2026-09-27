@@ -105,6 +105,12 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     if (err instanceof Error && err.message.includes("P2025")) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
+    if (err instanceof Error && err.message.includes("P2003")) {
+      return NextResponse.json(
+        { error: "Diese Anlieferung wird bereits von einer Ei-Sortierung verwendet und kann nicht gelöscht werden." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { error: isDev && err instanceof Error ? err.message : "Interner Fehler" },
       { status: 500 }

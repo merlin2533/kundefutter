@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, KpiCard } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
 import { berechneEierMhd, eierMhdStatus, type EierMhdStatus } from "@/lib/eier-mhd";
-import { haltungsformLabel } from "@/lib/auswahllisten";
+import { haltungsformLabel, ERZEUGERCODE_FORMAT } from "@/lib/auswahllisten";
 
 interface Charge {
   id: number;
@@ -45,10 +45,6 @@ const MHD_LABEL: Record<EierMhdStatus, string> = {
   gueltig: "Gültig",
   unbekannt: "Kein Legedatum",
 };
-
-// Erwartetes Format: <Haltungsform 0-3>-<Ländercode 2 Buchstaben>-<Betriebsnummer, min. 5 Ziffern>,
-// z.B. "1-DE-0123451" (siehe AGENTS.md-Beispiel bei Kunde.erzeugercode).
-const ERZEUGERCODE_FORMAT = /^[0-3]-[A-Z]{2}-\d{5,}$/;
 
 type ErzeugerBefund = "ok" | "fehlendesFeld" | "ungueltigesFormat" | "mismatch";
 

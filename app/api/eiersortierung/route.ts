@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { istLagerrelevant } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,21 @@ export async function POST(req: NextRequest) {
     if (body.anlieferungId && (anlieferungId === null || isNaN(anlieferungId))) {
       return NextResponse.json({ error: "Ungültige anlieferungId" }, { status: 400 });
     }
+    if (anlieferungId !== null) {
+      const anlieferung = await prisma.anlieferung.findUnique({
+        where: { id: anlieferungId },
+        select: { artikel: { select: { kategorie: true } } },
+      });
+      if (!anlieferung) {
+        return NextResponse.json({ error: "Anlieferung nicht gefunden" }, { status: 400 });
+      }
+      if (anlieferung.artikel.kategorie !== "Eier") {
+        return NextResponse.json(
+          { error: "Die gewählte Anlieferung betrifft keinen Artikel der Kategorie „Eier“" },
+          { status: 400 },
+        );
+      }
+    }
 
     let datum = new Date();
     if (body.datum) {
@@ -95,7 +111,12 @@ export async function POST(req: NextRequest) {
       if (p.legedatum && isNaN(p.legedatum.getTime())) {
         return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
       }
+      if (!istGueltigerErzeugercode(p.erzeugercode)) {
+        return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${p.erzeugercode}“` }, { status: 400 });
+      }
     }
+
+    const me = await getCurrentUser();
 
     const sortierung = await prisma.$transaction(async (tx) => {
       const s = await tx.eierSortierung.create({
@@ -103,7 +124,7 @@ export async function POST(req: NextRequest) {
           datum,
           anlieferungId,
           notiz: typeof body.notiz === "string" && body.notiz.trim() ? body.notiz.trim() : null,
-          erstelltVon: typeof body.erstelltVon === "string" && body.erstelltVon.trim() ? body.erstelltVon.trim() : null,
+          erstelltVon: me?.benutzername ?? null,
           positionen: { create: positionen },
         },
         include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },

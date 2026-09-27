@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDatum, formatEuro } from "@/lib/utils";
 import { Kunde, KundeNotiz, Artikel, Field, InfoRow, NaechsterBesuchInfo } from "../_shared";
-import { HALTUNGSFORMEN, haltungsformLabel } from "@/lib/auswahllisten";
+import { HALTUNGSFORMEN, haltungsformLabel, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import KontakteTab from "./KontakteTab";
 import * as Sentry from "@sentry/nextjs";
 import { useModulAktiv } from "@/lib/modul-context";
@@ -158,6 +158,10 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Name ist erforderlich."); return; }
+    if (!istGueltigerErzeugercode(form.erzeugercode)) {
+      setError("Erzeugercode-Format ungültig — erwartet z.B. 1-DE-0357701.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -608,6 +612,11 @@ export default function StammdatenTab({ kunde, onRefresh }: { kunde: Kunde; onRe
                 placeholder="z.B. 1-DE-0357701"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
+              {form.erzeugercode && !istGueltigerErzeugercode(form.erzeugercode) && (
+                <p className="text-xs text-orange-600 mt-0.5">
+                  ⚠ Format ungültig — erwartet &lt;Haltungsform 0-3&gt;-&lt;Land&gt;-&lt;Betriebsnummer&gt;, z.B. 1-DE-0357701
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Haltungsform</label>
