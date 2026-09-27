@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
 
@@ -20,6 +20,7 @@ interface Anlieferung {
   datum: string;
   menge: number;
   kunde: { id: number; name: string; firma: string | null; erzeugercode: string | null };
+  artikel: { id: number; name: string; kategorie: string };
 }
 
 type Position = {
@@ -49,6 +50,7 @@ export default function EiersortierungNeuPage() {
   const [positionen, setPositionen] = useState<Position[]>([leerePosition()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [anlieferungenHinweis, setAnlieferungenHinweis] = useState("");
 
   useEffect(() => {
     fetch("/api/artikel?limit=5000&relations=false")
@@ -56,12 +58,28 @@ export default function EiersortierungNeuPage() {
       .then((d) => setArtikelList(Array.isArray(d) ? d : []))
       .catch((err) => Sentry.captureException(err));
     fetch("/api/anlieferungen")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) {
+          setAnlieferungenHinweis(
+            r.status === 403
+              ? "Anlieferungen konnten nicht geladen werden — Modul „Erzeugerabrechnung“ ist deaktiviert."
+              : "Anlieferungen konnten nicht geladen werden.",
+          );
+          return [];
+        }
+        return r.json();
+      })
       .then((d) => setAnlieferungenList(Array.isArray(d) ? d : []))
-      .catch((err) => Sentry.captureException(err));
+      .catch((err) => {
+        Sentry.captureException(err);
+        setAnlieferungenHinweis("Anlieferungen konnten nicht geladen werden.");
+      });
   }, []);
 
-  const gewaehlteAnlieferung = anlieferungenList.find((a) => String(a.id) === anlieferungId);
+  // Nur Anlieferungen mit einem Eier-Artikel zur Auswahl anbieten — verhindert, dass eine
+  // Ei-Sortierung fälschlich mit einer fachfremden (z.B. Getreide-)Anlieferung verknüpft wird.
+  const eierAnlieferungenList = anlieferungenList.filter((a) => a.artikel.kategorie === "Eier");
+  const gewaehlteAnlieferung = eierAnlieferungenList.find((a) => String(a.id) === anlieferungId);
   const eierArtikelList = artikelList.filter((a) => a.kategorie === "Eier");
 
   // Übernimmt den Erzeugercode der gewählten Anlieferung nachträglich in alle Positionszeilen,
@@ -91,43 +109,70 @@ export default function EiersortierungNeuPage() {
     return berechneEierMhd(new Date(legedatum)).toLocaleDateString("de-DE");
   }
 
+  // Eine Zeile gilt als "angefangen", sobald Artikel ODER Menge gesetzt ist — eine angefangene,
+  // aber unvollständige Zeile (nur eines von beidem) wird nicht mehr stillschweigend aus dem
+  // Submit gedroppt, sondern blockiert mit einem klaren, zeilenbezogenen Fehler. Eine komplett
+  // unberührte Zeile (z.B. die initial leere erste Zeile) bleibt weiterhin ignorierbar.
+  function zeilenFehler(p: Position): string | null {
+    const angefangen = !!p.artikelId || p.menge > 0;
+    if (!angefangen) return null;
+    if (!p.artikelId) return "Artikel fehlt";
+    if (!(p.menge > 0)) return "Menge fehlt";
+    if (!istGueltigerErzeugercode(p.erzeugercode)) return "Erzeugercode-Format ungültig";
+    return null;
+  }
+
   async function handleSubmit() {
-    const gueltig = positionen.filter((p) => p.artikelId && p.menge > 0);
-    if (gueltig.length === 0) {
+    const angefangeneZeilen = positionen
+      .map((p, idx) => ({ p, idx, fehler: zeilenFehler(p) }))
+      .filter(({ p }) => !!p.artikelId || p.menge > 0);
+
+    const fehlerhafteZeile = angefangeneZeilen.find((z) => z.fehler);
+    if (fehlerhafteZeile) {
+      setError(`Zeile ${fehlerhafteZeile.idx + 1}: ${fehlerhafteZeile.fehler}`);
+      return;
+    }
+    if (angefangeneZeilen.length === 0) {
       setError("Bitte mindestens eine Position mit Artikel und Menge erfassen.");
       return;
     }
 
     setSaving(true);
     setError("");
-    const res = await fetch("/api/eiersortierung", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        datum,
-        anlieferungId: anlieferungId ? Number(anlieferungId) : undefined,
-        notiz: notiz || undefined,
-        positionen: gueltig.map((p) => ({
-          artikelId: Number(p.artikelId),
-          gueteklasse: p.gueteklasse,
-          gewichtsklasse: p.gewichtsklasse,
-          menge: Number(p.menge),
-          chargeNr: p.chargeNr.trim() || undefined,
-          legedatum: p.legedatum || undefined,
-          erzeugercode: p.erzeugercode.trim() || undefined,
-        })),
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      const d = await res.json();
-      router.push(`/eiersortierung/${d.id}`);
-    } else {
+    try {
+      const res = await fetch("/api/eiersortierung", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          datum,
+          anlieferungId: anlieferungId ? Number(anlieferungId) : undefined,
+          notiz: notiz || undefined,
+          positionen: angefangeneZeilen.map(({ p }) => ({
+            artikelId: Number(p.artikelId),
+            gueteklasse: p.gueteklasse,
+            gewichtsklasse: p.gewichtsklasse,
+            menge: Number(p.menge),
+            chargeNr: p.chargeNr.trim() || undefined,
+            legedatum: p.legedatum || undefined,
+            erzeugercode: p.erzeugercode.trim() || undefined,
+          })),
+        }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        router.push(`/eiersortierung/${d.id}`);
+        return;
+      }
       const d = await res.json().catch((err) => {
         Sentry.captureException(err);
         return {};
       });
       setError(d.error ?? "Fehler beim Speichern.");
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern — bitte erneut versuchen.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -147,7 +192,7 @@ export default function EiersortierungNeuPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Anlieferung (optional)</label>
             <SearchableSelect
-              options={anlieferungenList.map((a) => ({
+              options={eierAnlieferungenList.map((a) => ({
                 value: a.id,
                 label: `${a.nummer} · ${a.kunde.firma || a.kunde.name} · ${a.menge}`,
               }))}
@@ -155,6 +200,9 @@ export default function EiersortierungNeuPage() {
               onChange={(v) => setAnlieferungId(v)}
               placeholder="-- keine, direkt aus eigener Erzeugung --"
             />
+            {anlieferungenHinweis && (
+              <p className="text-xs text-amber-700 mt-1">{anlieferungenHinweis}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Datum</label>
@@ -214,6 +262,7 @@ export default function EiersortierungNeuPage() {
                       <label className="block text-xs font-medium text-gray-500 mb-1">Menge</label>
                       <input
                         type="number"
+                        min="0"
                         value={pos.menge || ""}
                         onChange={(e) => updatePosition(idx, "menge", Number(e.target.value))}
                         className={inputCls}
@@ -245,6 +294,9 @@ export default function EiersortierungNeuPage() {
                         placeholder="1-DE-0357701"
                         className={inputCls}
                       />
+                      {pos.erzeugercode && !istGueltigerErzeugercode(pos.erzeugercode) && (
+                        <p className="text-xs text-orange-600 mt-0.5">⚠ Format ungültig</p>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -203,3 +203,16 @@ export function haltungsformLabel(code: number | null | undefined): string | nul
   if (code === null || code === undefined) return null;
   return HALTUNGSFORMEN.find((h) => h.code === code)?.label ?? null;
 }
+
+// Erste Ziffer = Haltungsform (0 Bio · 1 Freiland · 2 Boden · 3 Käfig/Kleingruppe), dann
+// Länderkürzel + laufende Nummer, z.B. "1-DE-0357701". Einzige Quelle der Wahrheit für das
+// Format — vorher nur auf /eierkontrolle dupliziert, jetzt auch an den Erfassungsstellen
+// (Kunde-Stammdaten, Eiersortierung, Lieferungs-Ei-Kennzeichnung) und serverseitig genutzt.
+export const ERZEUGERCODE_FORMAT = /^[0-3]-[A-Z]{2}-\d{5,}$/;
+
+/** Ein leerer/nicht gesetzter Erzeugercode gilt als gültig (Feld ist optional) — nur ein
+ *  tatsächlich eingegebener Wert muss dem EU-Vermarktungsnorm-Format entsprechen. */
+export function istGueltigerErzeugercode(code: string | null | undefined): boolean {
+  if (!code || !code.trim()) return true;
+  return ERZEUGERCODE_FORMAT.test(code.trim());
+}

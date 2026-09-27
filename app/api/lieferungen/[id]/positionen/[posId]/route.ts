@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { istLagerrelevant } from "@/lib/utils";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
+import { getModulConfig } from "@/lib/modul-config";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -135,28 +136,35 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
   // Eierhandel-Kennzeichnung (EU-Vermarktungsnorm): analog chargeNr reine Dokumentation, auch
   // nachträglich erfassbar/korrigierbar — nicht betragsrelevant, daher nicht durch die
-  // rechnungVersendetAm-Sperre betroffen.
-  if (body.gueteklasse !== undefined) {
+  // rechnungVersendetAm-Sperre betroffen. Bei deaktiviertem Modul werden diese Felder gar nicht
+  // erst übernommen (Defense in depth gegen einen direkten API-Aufruf am ausgeblendeten
+  // Formular vorbei).
+  const eierhandelAktiv = (await getModulConfig()).eierhandel;
+  if (eierhandelAktiv && body.gueteklasse !== undefined) {
     if (body.gueteklasse !== null && !GUETEKLASSEN_KEYS.includes(body.gueteklasse)) {
       return NextResponse.json({ error: "Güteklasse ungültig (A oder B)" }, { status: 400 });
     }
     updateData.gueteklasse = body.gueteklasse || null;
   }
-  if (body.gewichtsklasse !== undefined) {
+  if (eierhandelAktiv && body.gewichtsklasse !== undefined) {
     if (body.gewichtsklasse !== null && !GEWICHTSKLASSEN_KEYS.includes(body.gewichtsklasse)) {
       return NextResponse.json({ error: "Gewichtsklasse ungültig (S, M, L oder XL)" }, { status: 400 });
     }
     updateData.gewichtsklasse = body.gewichtsklasse || null;
   }
-  if (body.legedatum !== undefined) {
+  if (eierhandelAktiv && body.legedatum !== undefined) {
     const legedatumVal = body.legedatum ? new Date(body.legedatum) : null;
     if (legedatumVal && isNaN(legedatumVal.getTime())) {
       return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
     }
     updateData.legedatum = legedatumVal;
   }
-  if (body.erzeugercode !== undefined) {
-    updateData.erzeugercode = typeof body.erzeugercode === "string" ? body.erzeugercode.trim() || null : null;
+  if (eierhandelAktiv && body.erzeugercode !== undefined) {
+    const erzeugercodeVal = typeof body.erzeugercode === "string" ? body.erzeugercode.trim() || null : null;
+    if (!istGueltigerErzeugercode(erzeugercodeVal)) {
+      return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercodeVal}“` }, { status: 400 });
+    }
+    updateData.erzeugercode = erzeugercodeVal;
   }
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: "Keine Felder zum Aktualisieren" }, { status: 400 });

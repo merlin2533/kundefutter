@@ -4,11 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
+import { HALTUNGSFORMEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 
 const FALLBACK_KATEGORIEN = ["Landwirt", "Pferdehof", "Kleintierhalter", "Großhändler", "Sonstige"];
 
 export default function NeuerKundePage() {
   const router = useRouter();
+  const eierhandelAn = useModulAktiv("eierhandel");
   const [kategorien, setKategorien] = useState<string[]>(FALLBACK_KATEGORIEN);
   const [mitarbeiter, setMitarbeiter] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -27,6 +30,8 @@ export default function NeuerKundePage() {
     ort: "",
     land: "Deutschland",
     notizen: "",
+    erzeugercode: "",
+    haltungsform: "",
   });
 
   useEffect(() => {
@@ -60,6 +65,10 @@ export default function NeuerKundePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (eierhandelAn && !istGueltigerErzeugercode(form.erzeugercode)) {
+      setError("Erzeugercode-Format ungültig — erwartet z.B. 1-DE-0357701.");
+      return;
+    }
     setError("");
     setSaving(true);
 
@@ -81,6 +90,8 @@ export default function NeuerKundePage() {
           ort: form.ort,
           land: form.land,
           notizen: form.notizen,
+          erzeugercode: eierhandelAn ? form.erzeugercode || null : undefined,
+          haltungsform: eierhandelAn && form.haltungsform !== "" ? Number(form.haltungsform) : undefined,
           kontakte: kontakte.length ? kontakte : undefined,
         }),
       });
@@ -275,6 +286,45 @@ export default function NeuerKundePage() {
             className={inputClass}
           />
         </div>
+
+        {/* Erzeugerdaten (Eierhandel) */}
+        {eierhandelAn && (
+          <div className="border-t border-gray-200 pt-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Erzeugerdaten (Eierhandel)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Erzeugercode</label>
+                <input
+                  type="text"
+                  name="erzeugercode"
+                  value={form.erzeugercode}
+                  onChange={handleChange}
+                  placeholder="z.B. 1-DE-0357701"
+                  className={inputClass}
+                />
+                {form.erzeugercode && !istGueltigerErzeugercode(form.erzeugercode) && (
+                  <p className="text-xs text-orange-600 mt-0.5">
+                    ⚠ Format ungültig — erwartet &lt;Haltungsform 0-3&gt;-&lt;Land&gt;-&lt;Betriebsnummer&gt;, z.B. 1-DE-0357701
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Haltungsform</label>
+                <select
+                  name="haltungsform"
+                  value={form.haltungsform}
+                  onChange={handleChange}
+                  className={inputClass}
+                >
+                  <option value="">— keine Angabe —</option>
+                  {HALTUNGSFORMEN.map((h) => (
+                    <option key={h.code} value={h.code}>{h.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Notizen */}
         <div>

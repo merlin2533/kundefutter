@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
 import { berechneEierMhd } from "@/lib/eier-mhd";
+import { haltungsformLabel } from "@/lib/auswahllisten";
 import * as Sentry from "@sentry/nextjs";
 
 interface Position {
@@ -41,6 +42,7 @@ export default function EiersortierungDetailPage() {
   const [sortierung, setSortierung] = useState<Sortierung | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     fetch(`/api/eiersortierung/${id}`)
@@ -51,11 +53,33 @@ export default function EiersortierungDetailPage() {
   }, [id]);
 
   async function handleDelete() {
-    if (!confirm("Diese Sortierung wirklich löschen? Der gebuchte Lagerzugang wird zurückgebucht.")) return;
+    if (
+      !confirm(
+        "Diese Sortierung wirklich löschen? Der gebuchte Lagerzugang wird zurückgebucht — falls die Ware bereits weiterverkauft wurde, kann der Bestand dadurch negativ werden.",
+      )
+    ) {
+      return;
+    }
     setDeleting(true);
-    const res = await fetch(`/api/eiersortierung/${id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (res.ok) router.push("/eiersortierung");
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/eiersortierung/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/eiersortierung");
+        return;
+      }
+      if (res.status === 404) {
+        setDeleteError("Diese Sortierung wurde bereits gelöscht.");
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setDeleteError(d.error ?? "Löschen fehlgeschlagen.");
+      }
+    } catch (err) {
+      Sentry.captureException(err);
+      setDeleteError("Löschen fehlgeschlagen — bitte erneut versuchen.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (loading) return <p className="text-sm text-gray-400">Lade…</p>;
@@ -84,6 +108,10 @@ export default function EiersortierungDetailPage() {
         </div>
       </div>
 
+      {deleteError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-6">{deleteError}</p>
+      )}
+
       {sortierung.anlieferung && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-2">Herkunft</h2>
@@ -93,7 +121,16 @@ export default function EiersortierungDetailPage() {
           {sortierung.anlieferung.kunde.erzeugercode && (
             <p className="text-xs text-gray-500 mt-1">Erzeugercode: {sortierung.anlieferung.kunde.erzeugercode}</p>
           )}
+          {haltungsformLabel(sortierung.anlieferung.kunde.haltungsform) && (
+            <p className="text-xs text-gray-500 mt-1">
+              Haltungsform: {haltungsformLabel(sortierung.anlieferung.kunde.haltungsform)}
+            </p>
+          )}
         </div>
+      )}
+
+      {sortierung.erstelltVon && (
+        <p className="text-xs text-gray-400 mb-6">Erfasst von {sortierung.erstelltVon}</p>
       )}
 
       {sortierung.notiz && (
@@ -114,25 +151,32 @@ export default function EiersortierungDetailPage() {
               <tr>
                 <th className="text-left px-4 py-2">Artikel</th>
                 <th className="text-left px-4 py-2">Güte</th>
-                <th className="text-left px-4 py-2">Gewicht</th>
+                <th className="text-left px-4 py-2 hidden sm:table-cell">Gewicht</th>
                 <th className="text-right px-4 py-2">Menge</th>
-                <th className="text-left px-4 py-2">Charge</th>
-                <th className="text-left px-4 py-2">Legedatum</th>
+                <th className="text-left px-4 py-2 hidden md:table-cell">Charge</th>
+                <th className="text-left px-4 py-2 hidden sm:table-cell">Legedatum</th>
                 <th className="text-left px-4 py-2">MHD</th>
-                <th className="text-left px-4 py-2">Erzeugercode</th>
+                <th className="text-left px-4 py-2 hidden md:table-cell">Erzeugercode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {sortierung.positionen.map((p) => (
                 <tr key={p.id}>
-                  <td className="px-4 py-2">{p.artikel.name}</td>
+                  <td className="px-4 py-2">
+                    {p.artikel.name}
+                    <div className="sm:hidden text-xs text-gray-400 mt-0.5">
+                      {p.gewichtsklasse}
+                      {p.chargeNr ? ` · Charge ${p.chargeNr}` : ""}
+                      {p.erzeugercode ? ` · ${p.erzeugercode}` : ""}
+                    </div>
+                  </td>
                   <td className="px-4 py-2">{p.gueteklasse}</td>
-                  <td className="px-4 py-2">{p.gewichtsklasse}</td>
+                  <td className="px-4 py-2 hidden sm:table-cell">{p.gewichtsklasse}</td>
                   <td className="px-4 py-2 text-right">{p.menge} {p.artikel.einheit}</td>
-                  <td className="px-4 py-2">{p.chargeNr || "—"}</td>
-                  <td className="px-4 py-2">{p.legedatum ? formatDatum(p.legedatum) : "—"}</td>
+                  <td className="px-4 py-2 hidden md:table-cell">{p.chargeNr || "—"}</td>
+                  <td className="px-4 py-2 hidden sm:table-cell">{p.legedatum ? formatDatum(p.legedatum) : "—"}</td>
                   <td className="px-4 py-2">{mhdVon(p.legedatum) ?? "—"}</td>
-                  <td className="px-4 py-2">{p.erzeugercode || "—"}</td>
+                  <td className="px-4 py-2 hidden md:table-cell">{p.erzeugercode || "—"}</td>
                 </tr>
               ))}
             </tbody>

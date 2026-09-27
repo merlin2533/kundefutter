@@ -5,7 +5,7 @@ import Link from "next/link";
 import { formatEuro, formatDatum, addTage, formatMenge, rundeKaufmaennisch } from "@/lib/utils";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
-import { berechneEierMhd } from "@/lib/eier-mhd";
+import { eierKennzeichnungZeile } from "@/lib/eier-mhd";
 import DokumentFooter from "@/components/DokumentFooter";
 import EmailVersandModal, { EmailKontakt } from "@/components/EmailVersandModal";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
@@ -1262,17 +1262,11 @@ export default function RechnungPrintPage() {
             {p.notiz && p.notiz.trim().length > 0 && (
               <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>{p.notiz}</div>
             )}
-            {p.gueteklasse && (() => {
-              const teile = [
-                `Güteklasse ${p.gueteklasse}`,
-                p.gewichtsklasse ? `Gewichtsklasse ${p.gewichtsklasse}` : null,
-                p.erzeugercode ? `Erzeugercode ${p.erzeugercode}` : null,
-                p.legedatum ? `MHD ${formatDatum(berechneEierMhd(new Date(p.legedatum)))}` : null,
-              ].filter(Boolean);
-              return (
-                <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>{teile.join(" · ")}</div>
-              );
-            })()}
+            {p.gueteklasse && (
+              <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>
+                {eierKennzeichnungZeile(p)}
+              </div>
+            )}
             <div style={{ fontSize: "8pt", color: "#666", lineHeight: 1.3 }}>
               MwSt {p.mwstSatz ?? p.artikel.mwstSatz ?? 19} %
             </div>

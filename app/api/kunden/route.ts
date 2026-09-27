@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { autoGeocodeKunde } from "@/lib/geocoding";
 import { umlautSchreibweisen } from "@/lib/utils";
+import { istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
@@ -135,6 +136,9 @@ export async function POST(req: NextRequest) {
   }
   if (haltungsform !== undefined && haltungsform !== null && ![0, 1, 2, 3].includes(Number(haltungsform))) {
     return NextResponse.json({ error: "Haltungsform ungültig (0=Bio, 1=Freiland, 2=Boden, 3=Käfig/Kleingruppe)" }, { status: 400 });
+  }
+  if (!istGueltigerErzeugercode(erzeugercode)) {
+    return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercode}“` }, { status: 400 });
   }
 
   try {

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         kunde: { select: { id: true, name: true, firma: true } },
-        artikel: { select: { id: true, name: true, einheit: true } },
+        artikel: { select: { id: true, name: true, einheit: true, kategorie: true } },
         gutschrift: { select: { id: true, nummer: true, status: true } },
       },
       orderBy: { datum: "desc" },

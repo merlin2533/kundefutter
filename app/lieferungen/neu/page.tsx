@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput from "@/components/ChargeInput";
 import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
 import { useModulAktiv } from "@/lib/modul-context";
@@ -512,6 +512,10 @@ function NeueLieferungInner() {
       setError("Bitte alle Positionen mit einem Artikel belegen.");
       return;
     }
+    if (positionen.some((p) => !istGueltigerErzeugercode(p.erzeugercode))) {
+      setError("Erzeugercode-Format ungültig — bitte prüfen (z.B. 1-DE-0357701).");
+      return;
+    }
     if (erklaerungOk === false && !erklaerungBestaetigt) {
       setError("Bitte die Bestätigung zur Sprengstoffvorläufer-Erklärung setzen.");
       return;
@@ -972,6 +976,9 @@ function NeueLieferungInner() {
                                     <datalist id={`erzeugercodes-list-${idx}`}>
                                       {erzeugerCodes.map((c) => <option key={c} value={c} />)}
                                     </datalist>
+                                  )}
+                                  {pos.erzeugercode && !istGueltigerErzeugercode(pos.erzeugercode) && (
+                                    <p className="text-[10px] text-red-600 mt-0.5">⚠ Format ungültig — z.B. 1-DE-0357701</p>
                                   )}
                                 </div>
                               )}

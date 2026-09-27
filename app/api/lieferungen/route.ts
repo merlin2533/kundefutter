@@ -6,7 +6,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { erstelleLieferungMitPreisberechnung, LieferungValidierungsFehler } from "@/lib/lieferung";
-import { GUETEKLASSEN, GEWICHTSKLASSEN } from "@/lib/auswahllisten";
+import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
+import { getModulConfig } from "@/lib/modul-config";
 
 const GUETEKLASSEN_KEYS = GUETEKLASSEN.map((g) => g.key) as string[];
 const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
@@ -159,6 +160,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "kundeId und mindestens eine Position erforderlich" }, { status: 400 });
   }
 
+  // Eierhandel-Kennzeichnungsfelder sind nur relevant, solange das Modul aktiv ist — bei
+  // deaktiviertem Modul werden sie unten still auf undefined gesetzt statt sie zu übernehmen
+  // (Defense in depth gegen einen direkten API-Aufruf am ausgeblendeten Formular vorbei).
+  const eierhandelAktiv = (await getModulConfig()).eierhandel;
+
   // Numerische Felder robust parsen (Frontend kann Strings senden)
   const positionen: { artikelId: number; menge: number; verkaufspreis?: number; rabattProzent?: number; einkaufspreis?: number; chargeNr?: string; notiz?: string; gueteklasse?: string; gewichtsklasse?: string; legedatum?: Date; erzeugercode?: string }[] = [];
   for (const p of positionenRaw) {
@@ -183,6 +189,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
       }
     }
+    const erzeugercode = typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : undefined;
+    if (!istGueltigerErzeugercode(erzeugercode ?? null)) {
+      return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercode}“` }, { status: 400 });
+    }
     positionen.push({
       artikelId,
       menge,
@@ -191,10 +201,10 @@ export async function POST(req: NextRequest) {
       einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
       chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
       notiz: typeof p.notiz === "string" && p.notiz.trim() ? p.notiz.trim() : undefined,
-      gueteklasse: typeof p.gueteklasse === "string" && p.gueteklasse ? p.gueteklasse : undefined,
-      gewichtsklasse: typeof p.gewichtsklasse === "string" && p.gewichtsklasse ? p.gewichtsklasse : undefined,
-      legedatum: legedatumParsed,
-      erzeugercode: typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : undefined,
+      gueteklasse: eierhandelAktiv && typeof p.gueteklasse === "string" && p.gueteklasse ? p.gueteklasse : undefined,
+      gewichtsklasse: eierhandelAktiv && typeof p.gewichtsklasse === "string" && p.gewichtsklasse ? p.gewichtsklasse : undefined,
+      legedatum: eierhandelAktiv ? legedatumParsed : undefined,
+      erzeugercode: eierhandelAktiv ? erzeugercode : undefined,
     });
   }
 

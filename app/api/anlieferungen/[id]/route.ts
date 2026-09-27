@@ -97,6 +97,19 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
+    // EierSortierung.anlieferungId ist ON DELETE SET NULL (kein FK-Restrict) — ein Löschen
+    // würde die Herkunfts-Verknüpfung sonst still auf null setzen, ohne Warnung. Explizit
+    // vorher prüfen und blocken statt sich auf einen (hier gar nicht greifenden) P2003-Fehler
+    // zu verlassen.
+    const verknuepfteSortierungen = await prisma.eierSortierung.count({ where: { anlieferungId: id } });
+    if (verknuepfteSortierungen > 0) {
+      return NextResponse.json(
+        {
+          error: `Diese Anlieferung ist mit ${verknuepfteSortierungen} Ei-Sortierung(en) verknüpft und kann nicht gelöscht werden — bitte zuerst die Sortierung(en) löschen oder umhängen.`,
+        },
+        { status: 409 },
+      );
+    }
     await prisma.anlieferung.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -46,17 +46,22 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     const sortierungId = parseInt(id, 10);
     if (isNaN(sortierungId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
-    await prisma.$transaction(async (tx) => {
+    const gefunden = await prisma.$transaction(async (tx) => {
       const sortierung = await tx.eierSortierung.findUnique({
         where: { id: sortierungId },
         include: { positionen: true },
       });
-      if (!sortierung) return;
+      if (!sortierung) return false;
+
+      const artikelIds = [...new Set(sortierung.positionen.map((p) => p.artikelId))];
+      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
+      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
 
       for (const pos of sortierung.positionen) {
-        const artikel = await tx.artikel.findUnique({ where: { id: pos.artikelId } });
+        const artikel = artikelMap.get(pos.artikelId);
         if (!artikel || !istLagerrelevant(artikel.kategorie, artikel.lagerTracking)) continue;
         const neuerBestand = artikel.aktuellerBestand - pos.menge;
+        artikel.aktuellerBestand = neuerBestand;
         await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
         await tx.lagerbewegung.create({
           data: {
@@ -71,8 +76,10 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
       }
 
       await tx.eierSortierung.delete({ where: { id: sortierungId } });
+      return true;
     });
 
+    if (!gefunden) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch (err) {
     Sentry.captureException(err);
