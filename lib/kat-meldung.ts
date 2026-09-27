@@ -125,9 +125,13 @@ export function verdichteEierStatistik(zeilen: KatMeldungZeile[]): EierStatistik
     erzeugerMap.set(z.erzeugercode, e);
   }
 
+  // Rang nach mengeSortiert (Wareneingang je Erzeuger) statt der Summe aus Sortiert+Verkauft —
+  // dieselbe Eier-Menge zählt sonst doppelt (einmal beim Sortieren, einmal beim Verkauf). "—"
+  // (kein gepflegter Erzeugercode) wird ausgeschlossen, kein sinnvoller Rang-Platz für "unbekannt".
   const topErzeuger = [...erzeugerMap.entries()]
+    .filter(([erzeugercode]) => erzeugercode !== "—")
     .map(([erzeugercode, v]) => ({ erzeugercode, ...v }))
-    .sort((a, b) => (b.mengeSortiert + b.mengeVerkauft) - (a.mengeSortiert + a.mengeVerkauft))
+    .sort((a, b) => b.mengeSortiert - a.mengeSortiert)
     .slice(0, 10);
 
   return {

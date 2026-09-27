@@ -20,5 +20,27 @@
     "mwstSatz": 7,
     "aktuellerBestand": 0,
     "lagerTracking": true
+  },
+  {
+    "_key": "artikel-ei-s",
+    "artikelnummer": "EI-A-S",
+    "name": "Eier Güteklasse A, Gewichtsklasse S",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.24,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true
+  },
+  {
+    "_key": "artikel-ei-xl",
+    "artikelnummer": "EI-A-XL",
+    "name": "Eier Güteklasse A, Gewichtsklasse XL",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.36,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true
   }
 ]

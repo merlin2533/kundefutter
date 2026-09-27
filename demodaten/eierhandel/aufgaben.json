@@ -1,7 +1,8 @@
 [
   {
+    "_hinweis": "betreff/faelligAmOffsetTage hier sind nur Platzhalter — der Loader (scripts/lade-demodaten-eierhandel.ts) berechnet für diesen _key beides exakt wie pruefeMeldepflichten() (lib/meldepflichten.ts), damit der reguläre Cron keine zweite, echte Tierseuchenkasse-Aufgabe daneben anlegt.",
     "_key": "aufgabe-tierseuchenkasse",
-    "betreff": "Tierseuchenkasse-Tierzahlmeldung fällig (Demodaten)",
+    "betreff": "Tierseuchenkasse-Meldung fällig (Demodaten, wird vom Loader überschrieben)",
     "faelligAmOffsetTage": 60,
     "erledigt": false,
     "prioritaet": "hoch",

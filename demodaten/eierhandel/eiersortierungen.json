@@ -52,7 +52,7 @@
     "erstelltVon": "Demo",
     "positionen": [
       {
-        "_artikelKey": "artikel-ei-m",
+        "_artikelKey": "artikel-ei-s",
         "gueteklasse": "A",
         "gewichtsklasse": "S",
         "menge": 1800,
@@ -61,12 +61,12 @@
         "_erzeugerKundeKey": "erzeuger-boden"
       },
       {
-        "_artikelKey": "artikel-ei-m",
+        "_artikelKey": "artikel-ei-xl",
         "gueteklasse": "A",
         "gewichtsklasse": "XL",
         "menge": 600,
         "chargeNr": "CH-DEMO-EI-005",
-        "legedatumOffsetTage": -10,
+        "legedatumOffsetTage": -33,
         "_erzeugerKundeKey": "erzeuger-boden"
       }
     ]

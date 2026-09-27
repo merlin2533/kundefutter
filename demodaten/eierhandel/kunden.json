@@ -65,7 +65,7 @@
     "_rolle": "abnehmer",
     "name": "EDEKA Nordmarkt",
     "firma": "EDEKA Nordmarkt eG",
-    "kategorie": "Einzelhandel",
+    "kategorie": "Großhändler",
     "strasse": "Marktplatz 1",
     "plz": "27356",
     "ort": "Rotenburg"
@@ -75,7 +75,7 @@
     "_rolle": "abnehmer",
     "name": "Hofladen Wiesengrund",
     "firma": "Hofladen Wiesengrund",
-    "kategorie": "Einzelhandel",
+    "kategorie": "Sonstige",
     "strasse": "Wiesengrund 9",
     "plz": "27374",
     "ort": "Visselhövede"

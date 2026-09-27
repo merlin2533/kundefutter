@@ -6,7 +6,7 @@ import type { ModulKey } from "@/lib/modul-keys";
 import Link from "next/link";
 import { formatEuro, formatDatum, addTage } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
-import { berechneEierMhd } from "@/lib/eier-mhd";
+import { eierMhdStatus } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
 
 interface ChurnKunde {
@@ -967,38 +967,34 @@ function SachkundenachweiseWidget() {
 }
 
 // ─── Eier-Kontrolle Widget ─────────────────────────────────────────────────────
+// Nutzt dieselbe Quelle wie /eierkontrolle (GET /api/eierkontrolle) statt eines eigenen
+// /api/eiersortierung-Fetches — vorher zeigten Widget und Kontroll-Seite bei abweichender
+// Datenbasis unterschiedliche Zahlen, und der volle Sortierungs-/Artikel-Payload war für die
+// paar Zähler im Widget unnötig schwer.
 
-interface EierSortierungPositionDash {
-  gueteklasse: string;
-  gewichtsklasse: string;
+interface EierChargeDash {
   legedatum: string | null;
-  chargeNr: string | null;
-}
-interface EierSortierungDash {
-  id: number;
-  positionen: EierSortierungPositionDash[];
 }
 
 function EierKontrolleWidget() {
-  const [sortierungen, setSortierungen] = useState<EierSortierungDash[]>([]);
+  const [chargen, setChargen] = useState<EierChargeDash[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fehler, setFehler] = useState(false);
 
   useEffect(() => {
-    fetch("/api/eiersortierung")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => setSortierungen(Array.isArray(d) ? d : []))
-      .catch((err) => {
-        Sentry.captureException(err);
-        return setSortierungen([]);
+    fetch("/api/eierkontrolle")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Laden fehlgeschlagen"))))
+      .then((d) => setChargen(Array.isArray(d?.chargen) ? d.chargen : []))
+      .catch(() => {
+        // Netzwerk-/Serverfehler auf /api/* werden bereits automatisch von
+        // lib/fetch-reporter.ts gemeldet (siehe AGENTS.md Regel 24).
+        setFehler(true);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  const chargen = sortierungen.flatMap((s) => s.positionen);
-  const tageBisMhd = (legedatum: string | null) =>
-    legedatum ? Math.ceil((berechneEierMhd(new Date(legedatum)).getTime() - Date.now()) / 86400000) : null;
-  const abgelaufen = chargen.filter((c) => { const t = tageBisMhd(c.legedatum); return t !== null && t < 0; }).length;
-  const ablaufend = chargen.filter((c) => { const t = tageBisMhd(c.legedatum); return t !== null && t >= 0 && t <= 7; }).length;
+  const abgelaufen = chargen.filter((c) => eierMhdStatus(c.legedatum) === "abgelaufen").length;
+  const ablaufend = chargen.filter((c) => eierMhdStatus(c.legedatum) === "ablaufend").length;
   const auffaellig = abgelaufen + ablaufend;
 
   return (
@@ -1014,6 +1010,8 @@ function EierKontrolleWidget() {
       </div>
       {loading ? (
         <p className="text-sm text-gray-400">Wird geladen…</p>
+      ) : fehler ? (
+        <p className="text-sm text-red-600">Fehler beim Laden.</p>
       ) : chargen.length === 0 ? (
         <p className="text-sm text-gray-400">Noch keine Sortier-Chargen erfasst</p>
       ) : (
