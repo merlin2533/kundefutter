@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "seed": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "seed:admin": "node prisma/seed-admin.js",
+    "seed:eierhandel": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/lade-demodaten-eierhandel.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

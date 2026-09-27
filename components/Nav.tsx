@@ -47,7 +47,7 @@ const MODULE_HREFS: Record<string, string[]> = {
   "modul.agrarantraege": ["/agrarantraege", "/einstellungen/agrarantraege", "/gebietsanalyse"],
   "modul.mqtt": ["/einstellungen/mqtt"],
   "modul.nextcloud": ["/einstellungen/nextcloud"],
-  "modul.eierhandel": ["/eiersortierung", "/exporte/kat-meldung", "/meldepflichten"],
+  "modul.eierhandel": ["/eiersortierung", "/exporte/kat-meldung", "/meldepflichten", "/eierkontrolle", "/statistik/eier"],
 };
 
 
@@ -128,7 +128,9 @@ const groups: NavGroup[] = [
       { href: "/tourenplanung", label: "Tourenplanung", section: "Lieferungen" },
       { href: "/anlieferungen", label: "Erzeugerabrechnung", section: "Lieferungen" },
       { href: "/eiersortierung", label: "Ei-Sortierprotokoll", section: "Eierhandel" },
+      { href: "/eierkontrolle", label: "Eier-Kontrolle", section: "Eierhandel" },
       { href: "/exporte/kat-meldung", label: "KAT-Meldung", section: "Eierhandel" },
+      { href: "/statistik/eier", label: "Eier-Berichte", section: "Eierhandel" },
       { href: "/meldepflichten", label: "Meldepflichten", section: "Eierhandel" },
       { href: "/bestellliste", label: "Bestellliste", section: "Einkauf" },
       { href: "/bestellungen", label: "Lieferantenbestellungen", section: "Einkauf" },

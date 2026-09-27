@@ -1,0 +1,92 @@
+[
+  {
+    "_key": "sort-1",
+    "datumOffsetTage": -5,
+    "_anlieferungKey": "anl-1",
+    "notiz": "Demodaten Eierhandel [sort-1] — Sortierung Bio-Charge",
+    "erstelltVon": "Demo",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-m",
+        "gueteklasse": "A",
+        "gewichtsklasse": "M",
+        "menge": 3000,
+        "chargeNr": "CH-DEMO-EI-001",
+        "legedatumOffsetTage": -5,
+        "_erzeugerKundeKey": "erzeuger-bio"
+      },
+      {
+        "_artikelKey": "artikel-ei-m",
+        "gueteklasse": "B",
+        "gewichtsklasse": "M",
+        "menge": 500,
+        "chargeNr": "CH-DEMO-EI-002",
+        "legedatumOffsetTage": -5,
+        "_erzeugerKundeKey": "erzeuger-bio"
+      }
+    ]
+  },
+  {
+    "_key": "sort-2",
+    "datumOffsetTage": -23,
+    "_anlieferungKey": "anl-2",
+    "notiz": "Demodaten Eierhandel [sort-2] — Sortierung Freiland-Charge",
+    "erstelltVon": "Demo",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-l",
+        "gueteklasse": "A",
+        "gewichtsklasse": "L",
+        "menge": 2500,
+        "chargeNr": "CH-DEMO-EI-003",
+        "legedatumOffsetTage": -24,
+        "_erzeugerKundeKey": "erzeuger-freiland"
+      }
+    ]
+  },
+  {
+    "_key": "sort-3",
+    "datumOffsetTage": -31,
+    "_anlieferungKey": "anl-3",
+    "notiz": "Demodaten Eierhandel [sort-3] — Sortierung Bodenhaltung-Charge",
+    "erstelltVon": "Demo",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-m",
+        "gueteklasse": "A",
+        "gewichtsklasse": "S",
+        "menge": 1800,
+        "chargeNr": "CH-DEMO-EI-004",
+        "legedatumOffsetTage": -32,
+        "_erzeugerKundeKey": "erzeuger-boden"
+      },
+      {
+        "_artikelKey": "artikel-ei-m",
+        "gueteklasse": "A",
+        "gewichtsklasse": "XL",
+        "menge": 600,
+        "chargeNr": "CH-DEMO-EI-005",
+        "legedatumOffsetTage": -10,
+        "_erzeugerKundeKey": "erzeuger-boden"
+      }
+    ]
+  },
+  {
+    "_key": "sort-4",
+    "datumOffsetTage": -2,
+    "_anlieferungKey": null,
+    "notiz": "Demodaten Eierhandel [sort-4] — eigene Erzeugung, keine Anlieferung",
+    "erstelltVon": "Demo",
+    "positionen": [
+      {
+        "_artikelKey": "artikel-ei-l",
+        "gueteklasse": "B",
+        "gewichtsklasse": "L",
+        "menge": 1200,
+        "chargeNr": "CH-DEMO-EI-006",
+        "legedatumOffsetTage": -2,
+        "_erzeugerKundeKey": "erzeuger-kaefig"
+      }
+    ]
+  }
+]

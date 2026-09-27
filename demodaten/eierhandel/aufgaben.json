@@ -1,0 +1,18 @@
+[
+  {
+    "_key": "aufgabe-tierseuchenkasse",
+    "betreff": "Tierseuchenkasse-Tierzahlmeldung fällig (Demodaten)",
+    "faelligAmOffsetTage": 60,
+    "erledigt": false,
+    "prioritaet": "hoch",
+    "typ": "aufgabe"
+  },
+  {
+    "_key": "aufgabe-kat-wochenmeldung",
+    "betreff": "KAT-Wochenmeldung erfassen (Demodaten)",
+    "faelligAmOffsetTage": 2,
+    "erledigt": false,
+    "prioritaet": "normal",
+    "typ": "aufgabe"
+  }
+]

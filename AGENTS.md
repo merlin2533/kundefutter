@@ -244,18 +244,42 @@ Läuft über den bestehenden Cron-Job (`app/api/cron/route.ts`), legt `Aufgabe`-
 
 Ist `modul.eierhandel` aus, bricht der Job sofort mit `uebersprungen` ab.
 
+### Demodaten (`demodaten/eierhandel/`)
+JSON-Fixtures (Kunden, Artikel, Anlieferungen, Sortierungen, Lieferungen, Aufgaben) zum
+visuellen Durchklicken der Eierhandel-Seiten in Dev-Umgebungen. Geladen über
+`npm run seed:eierhandel` (`scripts/lade-demodaten-eierhandel.ts`), getrennt vom Haupt-Seed
+(`npm run seed`), da modulspezifisch und nicht Teil der Basis-Stammdaten — sonst würde jede
+normale Dev-DB mit Ei-Kunden geflutet. Idempotent: `Artikel.artikelnummer`/`Anlieferung.nummer`
+laufen über echtes Prisma-`upsert`, `Kunde`/`EierSortierung`/`Lieferung` haben keinen
+`@unique`-Constraint und laufen stattdessen über einen `findFirst`-Guard (Erzeugercode bzw. ein
+stabiler `[key]`-Tag im `notiz`-Feld). `legedatum`/`datum`/`faelligAm` stehen in den JSON-Dateien
+als relative Tages-Offsets (`legedatumOffsetTage` usw.), nicht als feste Daten — der Loader
+berechnet sie beim Laden, damit die MHD-Ampel-Demo auf `/eierkontrolle` nicht nach wenigen
+Wochen veraltet.
+
+**Regel: Ändern sich Felder/Modelle/Features des Eierhandel-Moduls, müssen
+`demodaten/eierhandel/*.json` und `scripts/lade-demodaten-eierhandel.ts` im selben Zug
+nachgezogen werden** — analog zur FAQ-Schema-Sync-Regel oben. Nach jeder Schema- oder
+Feature-Änderung am Modul `npm run seed:eierhandel` gegen eine Test-DB laufen lassen und
+prüfen, ob die Demodaten noch zum aktuellen Schema passen.
+
 ### Seiten & Routen
 ```
 /eiersortierung            Liste der Sortierprotokolle
 /eiersortierung/neu        Neues Protokoll (Anlieferung wählen → Ausgangschargen erfassen)
 /eiersortierung/[id]       Detail (Löschen bucht den Lagerzugang zurück)
+/eierkontrolle             Kontrolle: MHD-Ampel sortierter Chargen, Erzeugercode-Validierung
+                           (Haltungsform vs. erste Ziffer des Codes), Meldepflichten-Status
 /meldepflichten            Fristen-Tracker (Tierseuchenkasse, KAT-Wochenmeldung)
 /exporte/kat-meldung       KAT-Warenstrommeldung: Vorschau vor dem CSV-Download
+/statistik/eier            Berichte: Güte-/Gewichtsklassen-Verteilung, Top-Erzeuger
 
 /api/eiersortierung        GET, POST (bucht je Position Lagerzugang in einer $transaction)
 /api/eiersortierung/[id]   GET, DELETE
+/api/eierkontrolle         GET — aggregierte Kontroll-Daten (Chargen/Erzeuger/Meldepflichten)
 /api/exporte/kat-meldung          GET(?von,?bis) — CSV-Download
 /api/exporte/kat-meldung/vorschau GET(?von,?bis) — JSON-Vorschau vor dem Download
+/api/statistik/eier               GET(?von,?bis) — Eier-Statistik (Güte-/Gewichtsklassen, Top-Erzeuger)
 ```
 Alle Eierhandel-Routen sind mit `requireModul(config, "eierhandel")` gesperrt (403 bei
 deaktiviertem Modul) — nicht nur optisch in der Navigation. Branchenspezifische Felder in
@@ -537,6 +561,7 @@ app/
 │   ├── page.tsx                Liste der Sortiervorgänge
 │   ├── neu/page.tsx            Anlieferung wählen → klassifizierte Ausgangschargen erfassen
 │   └── [id]/page.tsx           Detail (Chargen mit Güte-/Gewichtsklasse, MHD, Erzeugercode), Löschen bucht zurück
+├── eierkontrolle/page.tsx      Kontrolle Eierhandel: MHD-Ampel, Erzeugercode-Validierung, Meldepflichten-Status
 ├── meldepflichten/page.tsx     Fristen-Tracker Eierhandel (Tierseuchenkasse, KAT-Wochenmeldung)
 ├── bestellliste/page.tsx       Bestellliste (offene Bestellpositionen je Lieferant; manuelles/diktiert
 │                               vorbereitetes Erfassen, Lieferant-Umschlüsseln, Bündeln zu Bestellung)
@@ -618,7 +643,8 @@ app/
 │   ├── lieferanten/page.tsx    Lieferanten/Einkauf-Statistik
 │   ├── lager/page.tsx          Lager-Auswertung
 │   ├── reklamationen/page.tsx  Reklamations-Statistik
-│   └── liquiditaet/page.tsx    Liquiditätsanalyse (12-Monats-Vorschau)
+│   ├── liquiditaet/page.tsx    Liquiditätsanalyse (12-Monats-Vorschau)
+│   └── eier/page.tsx           Eier-Berichte: Güte-/Gewichtsklassen-Verteilung, Top-Erzeuger (Modul `eierhandel`)
 ├── analyse/
 │   ├── abc/page.tsx            → redirect /statistik/abc
 │   ├── deckungsbeitrag/page.tsx → redirect /statistik/deckungsbeitrag
@@ -900,6 +926,9 @@ app/
 /api/exporte/datev/archivieren  POST{von,bis} — DATEV-Export zusätzlich nach Nextcloud archivieren
 /api/exporte/kat-meldung        GET(?von,?bis) — KAT-Warenstrommeldung als CSV (Modul `eierhandel`)
 /api/exporte/kat-meldung/vorschau  GET(?von,?bis) — dieselbe Aggregation als JSON für die Vorschau
+/api/eierkontrolle              GET — Kontroll-Daten für /eierkontrolle: sortierte Chargen (MHD-
+                                 Ampel), Erzeuger-Stammdaten (Erzeugercode-Validierung), Zählung
+                                 offener/überfälliger Meldepflichten (Modul `eierhandel`)
 /api/exporte/bulk               POST — Bulk-Export
 /api/exporte/bestellvorschlag   GET — Bestellvorschlag CSV/PDF
 /api/exporte/zugferd            GET?lieferungId= — ZUGFeRD/Factur-X XML
@@ -1003,6 +1032,9 @@ app/
 /api/statistik                  GET(?von,?bis,?granularitaet)
 /api/statistik/budget           GET, POST — Budgetplanung
 /api/statistik/reklamationen    GET(?von,?bis) — Reklamations-KPIs
+/api/statistik/eier             GET(?von,?bis) — Eier-Berichte: Güte-/Gewichtsklassen-Verteilung,
+                                 Top-Erzeuger (Modul `eierhandel`, nutzt dieselbe Aggregation wie
+                                 die KAT-Meldung)
 
 -- Audit / Änderungshistorie --
 /api/audit                      GET(?entitaet,?entitaetId,?aktion,?von,?bis,?limit)

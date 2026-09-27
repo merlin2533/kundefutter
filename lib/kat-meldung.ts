@@ -28,7 +28,9 @@ function isoWoche(d: Date): string {
   return `${date.getUTCFullYear()}-W${String(woche).padStart(2, "0")}`;
 }
 
-function haltungsformAusErzeugercode(erzeugercode: string | null): string | null {
+// Exportiert (statt nur modulintern), damit /eierkontrolle dieselbe "erste Ziffer des
+// Erzeugercodes"-Logik für die Format-Validierung wiederverwendet statt sie zu duplizieren.
+export function haltungsformAusErzeugercode(erzeugercode: string | null): string | null {
   if (!erzeugercode) return null;
   const code = parseInt(erzeugercode.trim().charAt(0), 10);
   return HALTUNGSFORMEN.find((h) => h.code === code)?.label ?? null;
@@ -81,4 +83,58 @@ export function buildKatMeldungCsv(zeilen: KatMeldungZeile[]): string {
     [z.woche, z.erzeugercode, z.haltungsform ?? "", z.gueteklasse, z.gewichtsklasse, z.mengeSortiert, z.mengeVerkauft].map(csvQ).join(";")
   );
   return [header, ...rows].join("\n");
+}
+
+// ─── Berichte (/statistik/eier) ────────────────────────────────────────────────
+// Nutzt dieselbe wöchentliche Aggregation wie die KAT-Meldung — keine zweite Prisma-Query.
+// Die Berichte-Seite kollabiert/gruppiert die Wochendimension je nach Ansicht selbst
+// (Güteklassen-Split, Gewichtsklassen-Verteilung, Top-Erzeuger), die Wochenauflösung bleibt
+// dabei erhalten, falls später ein Zeitverlauf gebraucht wird.
+export async function sammleEierStatistik(von: Date, bis: Date): Promise<KatMeldungZeile[]> {
+  return sammleKatMeldung(von, bis);
+}
+
+export interface EierStatistikZusammenfassung {
+  gueteklassen: { key: string; mengeSortiert: number; mengeVerkauft: number }[];
+  gewichtsklassen: { key: string; mengeSortiert: number; mengeVerkauft: number }[];
+  topErzeuger: { erzeugercode: string; haltungsform: string | null; mengeSortiert: number; mengeVerkauft: number }[];
+  summeSortiert: number;
+  summeVerkauft: number;
+}
+
+/** Verdichtet KatMeldungZeile[] (wochengenau) zu den drei Ansichten der Berichte-Seite. */
+export function verdichteEierStatistik(zeilen: KatMeldungZeile[]): EierStatistikZusammenfassung {
+  const gueteMap = new Map<string, { mengeSortiert: number; mengeVerkauft: number }>();
+  const gewichtMap = new Map<string, { mengeSortiert: number; mengeVerkauft: number }>();
+  const erzeugerMap = new Map<string, { haltungsform: string | null; mengeSortiert: number; mengeVerkauft: number }>();
+
+  for (const z of zeilen) {
+    const g = gueteMap.get(z.gueteklasse) ?? { mengeSortiert: 0, mengeVerkauft: 0 };
+    g.mengeSortiert += z.mengeSortiert;
+    g.mengeVerkauft += z.mengeVerkauft;
+    gueteMap.set(z.gueteklasse, g);
+
+    const w = gewichtMap.get(z.gewichtsklasse) ?? { mengeSortiert: 0, mengeVerkauft: 0 };
+    w.mengeSortiert += z.mengeSortiert;
+    w.mengeVerkauft += z.mengeVerkauft;
+    gewichtMap.set(z.gewichtsklasse, w);
+
+    const e = erzeugerMap.get(z.erzeugercode) ?? { haltungsform: z.haltungsform, mengeSortiert: 0, mengeVerkauft: 0 };
+    e.mengeSortiert += z.mengeSortiert;
+    e.mengeVerkauft += z.mengeVerkauft;
+    erzeugerMap.set(z.erzeugercode, e);
+  }
+
+  const topErzeuger = [...erzeugerMap.entries()]
+    .map(([erzeugercode, v]) => ({ erzeugercode, ...v }))
+    .sort((a, b) => (b.mengeSortiert + b.mengeVerkauft) - (a.mengeSortiert + a.mengeVerkauft))
+    .slice(0, 10);
+
+  return {
+    gueteklassen: [...gueteMap.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => a.key.localeCompare(b.key)),
+    gewichtsklassen: [...gewichtMap.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => a.key.localeCompare(b.key)),
+    topErzeuger,
+    summeSortiert: zeilen.reduce((s, z) => s + z.mengeSortiert, 0),
+    summeVerkauft: zeilen.reduce((s, z) => s + z.mengeVerkauft, 0),
+  };
 }

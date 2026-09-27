@@ -1,0 +1,83 @@
+[
+  {
+    "_key": "erzeuger-bio",
+    "_rolle": "erzeuger",
+    "name": "Nordmann",
+    "firma": "Bio-Hof Nordmann",
+    "kategorie": "Landwirt",
+    "strasse": "Dorfstraße 3",
+    "plz": "27367",
+    "ort": "Sottrum",
+    "erzeugercode": "0-DE-0357701",
+    "haltungsform": 0
+  },
+  {
+    "_key": "erzeuger-freiland",
+    "_rolle": "erzeuger",
+    "name": "Meyerbeer",
+    "firma": "Freilandhof Meyerbeer",
+    "kategorie": "Landwirt",
+    "strasse": "Hofweg 12",
+    "plz": "27389",
+    "ort": "Fintel",
+    "erzeugercode": "1-DE-0357702",
+    "haltungsform": 1
+  },
+  {
+    "_key": "erzeuger-boden",
+    "_rolle": "erzeuger",
+    "name": "Winkelmann",
+    "firma": "Bodenhaltung Winkelmann",
+    "kategorie": "Landwirt",
+    "strasse": "Am Stall 5",
+    "plz": "27356",
+    "ort": "Rotenburg",
+    "erzeugercode": "2-DE-0357703",
+    "haltungsform": 2
+  },
+  {
+    "_key": "erzeuger-kaefig",
+    "_rolle": "erzeuger",
+    "name": "Brandt",
+    "firma": "Legehof Brandt",
+    "kategorie": "Landwirt",
+    "strasse": "Kleingruppenweg 8",
+    "plz": "27374",
+    "ort": "Visselhövede",
+    "erzeugercode": "3-DE-0357704",
+    "haltungsform": 3
+  },
+  {
+    "_key": "erzeuger-mismatch",
+    "_rolle": "erzeuger",
+    "_hinweis": "Bewusst fehlerhaft: erzeugercode beginnt mit 0 (Bio), haltungsform ist aber 1 (Freiland) — macht die Erzeugercode-Validierung auf /eierkontrolle demonstrierbar.",
+    "name": "Lehmkuhl",
+    "firma": "Hof Lehmkuhl",
+    "kategorie": "Landwirt",
+    "strasse": "Wiesenweg 21",
+    "plz": "27383",
+    "ort": "Scheeßel",
+    "erzeugercode": "0-DE-0357705",
+    "haltungsform": 1
+  },
+  {
+    "_key": "abnehmer-edeka",
+    "_rolle": "abnehmer",
+    "name": "EDEKA Nordmarkt",
+    "firma": "EDEKA Nordmarkt eG",
+    "kategorie": "Einzelhandel",
+    "strasse": "Marktplatz 1",
+    "plz": "27356",
+    "ort": "Rotenburg"
+  },
+  {
+    "_key": "abnehmer-hofladen",
+    "_rolle": "abnehmer",
+    "name": "Hofladen Wiesengrund",
+    "firma": "Hofladen Wiesengrund",
+    "kategorie": "Einzelhandel",
+    "strasse": "Wiesengrund 9",
+    "plz": "27374",
+    "ort": "Visselhövede"
+  }
+]
