@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { naechsteAnlieferungsnummer } from "@/lib/anlieferung";
 
 export const dynamic = "force-dynamic";
 
@@ -76,22 +77,7 @@ export async function POST(req: NextRequest) {
 
     // Autonummer ANL-YYYY-NNNN with transaction to avoid race condition
     const anlieferung = await prisma.$transaction(async (tx) => {
-      const year = new Date().getFullYear();
-      const prefix = `ANL-${year}-`;
-      const setting = await tx.einstellung.findFirst({ where: { key: "letzte_anlieferungsnummer" } });
-      let letzteNummer = 0;
-      if (setting?.value) {
-        const match = setting.value.match(/ANL-\d{4}-(\d+)/);
-        if (match) letzteNummer = parseInt(match[1], 10);
-      }
-      const naechste = letzteNummer + 1;
-      const nummer = `${prefix}${String(naechste).padStart(4, "0")}`;
-
-      await tx.einstellung.upsert({
-        where: { key: "letzte_anlieferungsnummer" },
-        create: { key: "letzte_anlieferungsnummer", value: nummer },
-        update: { value: nummer },
-      });
+      const nummer = await naechsteAnlieferungsnummer(tx);
 
       const gesamtBetrag =
         preisProEinheit != null && menge != null

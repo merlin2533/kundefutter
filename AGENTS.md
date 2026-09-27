@@ -219,7 +219,9 @@ nachrechnen.** (Der frühere Export `istEierMhdAbgelaufen()` wurde in #432 als t
 entfernt; wer eine Ablauf-Ampel braucht, vergleicht `berechneEierMhd(...)` direkt.)
 
 ### Kennzeichnung auf dem Beleg
-`eierKennzeichnungZeile()` (`lib/pdfGenerator.ts`) baut aus den gesetzten Feldern
+`eierKennzeichnungZeile()` (`lib/eier-mhd.ts` — einzige Quelle der Wahrheit, genutzt von
+`lib/pdfGenerator.ts` UND den Bildschirm-Vorschauen `/lieferungen/[id]/{rechnung,lieferschein}`)
+baut aus den gesetzten Feldern
 `"Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026"`.
 Leerer String, wenn keine Güteklasse gesetzt ist (Position ist kein Ei) — es wird also
 nichts mit Platzhaltern aufgefüllt. Erscheint im server-seitigen PDF **und** in der

@@ -31,7 +31,7 @@ async function zaehleRelationen(artikelId: number) {
     gutschriftPositionen, bestellpositionen, bestellungPositionen, kontraktPositionen,
     kampagneArtikel, angebotVorlagePositionen, chargenZertifikate,
     vorbestellungPositionen, fruehbezugStaffeln, anlieferungen,
-    benachrichtigungen, einkaufStatus,
+    benachrichtigungen, einkaufStatus, eierSortierungPositionen,
   ] = await Promise.all([
     prisma.artikelInhaltsstoff.count({ where: { artikelId } }),
     prisma.artikelDokument.count({ where: { artikelId } }),
@@ -59,6 +59,7 @@ async function zaehleRelationen(artikelId: number) {
     prisma.anlieferung.count({ where: { artikelId } }),
     prisma.benachrichtigung.count({ where: { artikelId } }),
     prisma.einkaufStatus.count({ where: { artikelId } }),
+    prisma.eierSortierungPosition.count({ where: { artikelId } }),
   ]);
   return {
     inhaltsstoffe, dokumente, lieferanten, preisHistorie, jahrespreise,
@@ -67,7 +68,7 @@ async function zaehleRelationen(artikelId: number) {
     gutschriftPositionen, bestellpositionen, bestellungPositionen, kontraktPositionen,
     kampagneArtikel, angebotVorlagePositionen, chargenZertifikate,
     vorbestellungPositionen, fruehbezugStaffeln, anlieferungen,
-    benachrichtigungen, einkaufStatus,
+    benachrichtigungen, einkaufStatus, eierSortierungPositionen,
   };
 }
 
@@ -309,6 +310,11 @@ export async function POST(req: NextRequest) {
         tx.vorbestellungPosition.updateMany({ where: { artikelId: quelleId }, data: { artikelId: zielId } }),
         tx.fruehbezugsStaffel.updateMany({ where: { artikelId: quelleId }, data: { artikelId: zielId } }),
         tx.anlieferung.updateMany({ where: { artikelId: quelleId }, data: { artikelId: zielId } }),
+        // EierSortierungPosition.artikelId steht auf ON DELETE RESTRICT (Migration
+        // 20260908120000_eierhandel_modul) — ohne dieses Umhängen würde tx.artikel.delete()
+        // unten bei einem Ei-Artikel mit vorhandenen Sortier-Positionen mit einem
+        // FK-Constraint-Fehler (P2003/500er) abbrechen.
+        tx.eierSortierungPosition.updateMany({ where: { artikelId: quelleId }, data: { artikelId: zielId } }),
         // Benachrichtigung.artikelId und EinkaufStatus.artikelId haben keinen FK-Constraint
         // (kein @relation), müssen aber trotzdem mit umgehängt werden, damit alte Alerts/
         // Beschaffungsstatus nicht auf den gleich gelöschten Quell-Artikel zeigen.

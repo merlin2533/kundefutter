@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { naechsteGutschriftsnummer } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -32,22 +33,19 @@ export async function POST(_req: NextRequest, ctx: Params) {
       return NextResponse.json({ error: "Kein Preis hinterlegt — bitte zuerst Preis erfassen" }, { status: 400 });
     }
 
-    // Create Gutschrift in transaction
+    // Create Gutschrift in transaction — Nummernvergabe über denselben zentralen Zähler
+    // (system.letzteGutschriftNr) wie jede andere Gutschrift (app/api/gutschriften/route.ts,
+    // lib/gutschrift.ts, lib/bankabgleich-differenz.ts) — ein eigener findFirst-basierter Zähler
+    // hier würde mit der nächsten regulär angelegten Gutschrift kollidieren (P2002 auf
+    // nummer @unique), da beide Zähler unabhängig voneinander hochzählen.
     const gutschrift = await prisma.$transaction(async (tx) => {
-      const year = new Date().getFullYear();
-      const prefix = `GS-${year}-`;
-
-      // Get next Gutschrift number
-      const last = await tx.gutschrift.findFirst({
-        where: { nummer: { startsWith: prefix } },
-        orderBy: { nummer: "desc" },
+      const einstellung = await tx.einstellung.findUnique({ where: { key: "system.letzteGutschriftNr" } });
+      const nummer = naechsteGutschriftsnummer(einstellung?.value ?? null);
+      await tx.einstellung.upsert({
+        where: { key: "system.letzteGutschriftNr" },
+        update: { value: nummer },
+        create: { key: "system.letzteGutschriftNr", value: nummer },
       });
-      let naechste = 1;
-      if (last?.nummer) {
-        const match = last.nummer.match(/GS-\d{4}-(\d+)/);
-        if (match) naechste = parseInt(match[1], 10) + 1;
-      }
-      const nummer = `${prefix}${String(naechste).padStart(4, "0")}`;
 
       const preis = anlieferung.preisProEinheit!;
       const betrag = Math.round(preis * anlieferung.menge * 100) / 100;

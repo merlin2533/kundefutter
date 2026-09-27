@@ -189,6 +189,7 @@ export const naechsteGutschriftsnummer = (letzte: string | null) => naechsteNumm
 export const naechsteRetourennummer = (letzte: string | null) => naechsteNummer("RET", letzte);
 export const naechsteBestellungsnummer = (letzte: string | null) => naechsteNummer("BES", letzte);
 export const naechsteAngebotsnummer = (letzte: string | null, prefix = "AN") => naechsteNummer(prefix.trim() || "AN", letzte);
+export const naechsteAnlieferungsnummer = (letzte: string | null) => naechsteNummer("ANL", letzte);
 
 export function addTage(datum: Date, tage: number): Date {
   const d = new Date(datum);
