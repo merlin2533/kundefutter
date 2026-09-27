@@ -32,7 +32,7 @@ import os from "node:os";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { istLagerrelevant } from "../lib/utils";
+import { erstelleEierSortierung } from "../lib/eiersortierung";
 
 const url = process.env.DATABASE_URL ?? "file:prisma/dev.db";
 
@@ -181,10 +181,11 @@ async function main() {
   console.log(`  Anlieferungen: ${anlieferungIdByKey.size}`);
 
   // ── EierSortierungen (findFirst-Guard über [key]-Tag im notiz, kein unique-Constraint) ──
-  // Bucht je Position dieselbe Lagerbewegung wie POST /api/eiersortierung (Lagerbewegung
+  // Nutzt dieselbe erstelleEierSortierung()-Funktion wie POST /api/eiersortierung (Lagerbewegung
   // "eingang" + Artikel.aktuellerBestand-Update) — sonst bleiben die Demo-Artikel bei Bestand 0
   // und ein späteres Löschen einer Demo-Sortierung über die UI (bucht eine Rückbuchung) treibt
-  // den Bestand ins Negative.
+  // den Bestand ins Negative. Eine künftige Erzeugerabrechnungs-Kopplung o.ä. greift dadurch
+  // automatisch auch bei geseedeten Demo-Sortierungen.
   const sortierungenJson = ladeJson<EierSortierungRow[]>("eiersortierungen.json");
   let sortierungenNeu = 0;
   for (const s of sortierungenJson) {
@@ -193,54 +194,29 @@ async function main() {
     if (vorhanden) continue;
     const anlieferungId = s._anlieferungKey ? anlieferungIdByKey.get(s._anlieferungKey) ?? null : null;
 
+    const positionen = s.positionen.map((p) => {
+      const artikelId = artikelIdByKey.get(p._artikelKey);
+      if (!artikelId) throw new Error(`Sortierung ${s._key}: Artikel-Key ${p._artikelKey} nicht gefunden`);
+      const erzeugercode = p._erzeugerKundeKey ? kundeByKey.get(p._erzeugerKundeKey)?.erzeugercode ?? null : null;
+      return {
+        artikelId,
+        gueteklasse: p.gueteklasse,
+        gewichtsklasse: p.gewichtsklasse,
+        menge: p.menge,
+        chargeNr: p.chargeNr ?? null,
+        legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
+        erzeugercode,
+      };
+    });
+
     await prisma.$transaction(async (tx) => {
-      const sortierung = await tx.eierSortierung.create({
-        data: {
-          datum: tageAb(s.datumOffsetTage),
-          anlieferungId,
-          notiz: s.notiz,
-          erstelltVon: s.erstelltVon ?? null,
-          positionen: {
-            create: s.positionen.map((p) => {
-              const artikelId = artikelIdByKey.get(p._artikelKey);
-              if (!artikelId) throw new Error(`Sortierung ${s._key}: Artikel-Key ${p._artikelKey} nicht gefunden`);
-              const erzeugercode = p._erzeugerKundeKey ? kundeByKey.get(p._erzeugerKundeKey)?.erzeugercode ?? null : null;
-              return {
-                artikelId,
-                gueteklasse: p.gueteklasse,
-                gewichtsklasse: p.gewichtsklasse,
-                menge: p.menge,
-                chargeNr: p.chargeNr ?? null,
-                legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
-                erzeugercode,
-              };
-            }),
-          },
-        },
-        include: { positionen: true },
+      await erstelleEierSortierung(tx, {
+        datum: tageAb(s.datumOffsetTage),
+        anlieferungId,
+        notiz: s.notiz,
+        erstelltVon: s.erstelltVon ?? null,
+        positionen,
       });
-
-      const artikelIds = [...new Set(sortierung.positionen.map((p) => p.artikelId))];
-      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
-
-      for (const pos of sortierung.positionen) {
-        const artikel = artikelMap.get(pos.artikelId);
-        if (!artikel || !istLagerrelevant(artikel.kategorie, artikel.lagerTracking)) continue;
-        const neuerBestand = artikel.aktuellerBestand + pos.menge;
-        artikel.aktuellerBestand = neuerBestand;
-        await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
-        await tx.lagerbewegung.create({
-          data: {
-            artikelId: pos.artikelId,
-            typ: "eingang",
-            menge: pos.menge,
-            bestandNach: neuerBestand,
-            chargeNr: pos.chargeNr,
-            notiz: `Ei-Sortierung #${sortierung.id} · Güte ${pos.gueteklasse}/${pos.gewichtsklasse}${pos.chargeNr ? ` · Charge ${pos.chargeNr}` : ""} (Demodaten)`,
-          },
-        });
-      }
     });
     sortierungenNeu++;
   }

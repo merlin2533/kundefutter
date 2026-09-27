@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
-import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
-import { istLagerrelevant } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import { Sentry } from "@/lib/sentry";
+import {
+  EierSortierungValidierungsFehler,
+  validiereEierSortierungPositionen,
+  validiereAnlieferungFuerSortierung,
+  erstelleEierSortierung,
+  type EierSortierungPositionInput,
+} from "@/lib/eiersortierung";
 export const dynamic = "force-dynamic";
-
-const GUETEKLASSEN_KEYS = new Set<string>(GUETEKLASSEN.map((g) => g.key));
-const GEWICHTSKLASSEN_KEYS = new Set<string>(GEWICHTSKLASSEN.map((g) => g.key));
 
 // GET /api/eiersortierung
 export async function GET() {
@@ -58,21 +60,6 @@ export async function POST(req: NextRequest) {
     if (body.anlieferungId && (anlieferungId === null || isNaN(anlieferungId))) {
       return NextResponse.json({ error: "Ungültige anlieferungId" }, { status: 400 });
     }
-    if (anlieferungId !== null) {
-      const anlieferung = await prisma.anlieferung.findUnique({
-        where: { id: anlieferungId },
-        select: { artikel: { select: { kategorie: true } } },
-      });
-      if (!anlieferung) {
-        return NextResponse.json({ error: "Anlieferung nicht gefunden" }, { status: 400 });
-      }
-      if (anlieferung.artikel.kategorie !== "Eier") {
-        return NextResponse.json(
-          { error: "Die gewählte Anlieferung betrifft keinen Artikel der Kategorie „Eier“" },
-          { status: 400 },
-        );
-      }
-    }
 
     let datum = new Date();
     if (body.datum) {
@@ -80,7 +67,7 @@ export async function POST(req: NextRequest) {
       if (isNaN(datum.getTime())) return NextResponse.json({ error: "Ungültiges Datum" }, { status: 400 });
     }
 
-    const positionen = (body.positionen as {
+    const positionen: EierSortierungPositionInput[] = (body.positionen as {
       artikelId: unknown;
       gueteklasse: unknown;
       gewichtsklasse: unknown;
@@ -98,65 +85,35 @@ export async function POST(req: NextRequest) {
       erzeugercode: typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : null,
     }));
 
-    for (const p of positionen) {
-      if (!Number.isInteger(p.artikelId) || p.artikelId <= 0 || !Number.isFinite(p.menge) || p.menge <= 0) {
-        return NextResponse.json({ error: "Ungültige Position (artikelId/menge)" }, { status: 400 });
+    try {
+      validiereEierSortierungPositionen(positionen);
+    } catch (err) {
+      if (err instanceof EierSortierungValidierungsFehler) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
       }
-      if (!GUETEKLASSEN_KEYS.has(p.gueteklasse)) {
-        return NextResponse.json({ error: `Ungültige Güteklasse „${p.gueteklasse}“ (erlaubt: A, B)` }, { status: 400 });
-      }
-      if (!GEWICHTSKLASSEN_KEYS.has(p.gewichtsklasse)) {
-        return NextResponse.json({ error: `Ungültige Gewichtsklasse „${p.gewichtsklasse}“ (erlaubt: S, M, L, XL)` }, { status: 400 });
-      }
-      if (p.legedatum && isNaN(p.legedatum.getTime())) {
-        return NextResponse.json({ error: "Ungültiges Legedatum" }, { status: 400 });
-      }
-      if (!istGueltigerErzeugercode(p.erzeugercode)) {
-        return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${p.erzeugercode}“` }, { status: 400 });
-      }
+      throw err;
     }
 
     const me = await getCurrentUser();
 
     const sortierung = await prisma.$transaction(async (tx) => {
-      const s = await tx.eierSortierung.create({
-        data: {
-          datum,
-          anlieferungId,
-          notiz: typeof body.notiz === "string" && body.notiz.trim() ? body.notiz.trim() : null,
-          erstelltVon: me?.benutzername ?? null,
-          positionen: { create: positionen },
-        },
-        include: { positionen: { include: { artikel: { select: liefposArtikelSelect } } } },
-      });
-
-      const artikelIds = [...new Set(s.positionen.map((p) => p.artikelId))];
-      const artikelList = await tx.artikel.findMany({ where: { id: { in: artikelIds } } });
-      const artikelMap = new Map(artikelList.map((a) => [a.id, a]));
-
-      for (const pos of s.positionen) {
-        const artikel = artikelMap.get(pos.artikelId);
-        if (!artikel || !istLagerrelevant(artikel.kategorie, artikel.lagerTracking)) continue;
-        const neuerBestand = artikel.aktuellerBestand + pos.menge;
-        artikel.aktuellerBestand = neuerBestand;
-        await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
-        await tx.lagerbewegung.create({
-          data: {
-            artikelId: pos.artikelId,
-            typ: "eingang",
-            menge: pos.menge,
-            bestandNach: neuerBestand,
-            chargeNr: pos.chargeNr,
-            notiz: `Ei-Sortierung #${s.id} · Güte ${pos.gueteklasse}/${pos.gewichtsklasse}${pos.chargeNr ? ` · Charge ${pos.chargeNr}` : ""}`,
-          },
-        });
+      if (anlieferungId !== null) {
+        await validiereAnlieferungFuerSortierung(tx, anlieferungId);
       }
-
-      return s;
+      return erstelleEierSortierung(tx, {
+        datum,
+        anlieferungId,
+        notiz: typeof body.notiz === "string" && body.notiz.trim() ? body.notiz.trim() : null,
+        erstelltVon: me?.benutzername ?? null,
+        positionen,
+      });
     });
 
     return NextResponse.json(sortierung, { status: 201 });
   } catch (err) {
+    if (err instanceof EierSortierungValidierungsFehler) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     Sentry.captureException(err);
     return NextResponse.json({ error: "Fehler beim Speichern der Ei-Sortierung" }, { status: 500 });
   }
