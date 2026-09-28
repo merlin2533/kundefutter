@@ -479,7 +479,12 @@ function HeaderSearch() {
         setMobileExpanded(false);
       }
     }
-    function onScroll() {
+    function onScroll(e: Event) {
+      // Scroll-Events aus dem eigenen (scrollbaren) Ergebnis-Panel nicht als "Seite hat
+      // gescrollt" werten — sonst schließt jeder Scroll-Versuch in der Trefferliste das
+      // Dropdown sofort wieder (Scroll-Events bubbeln nicht, aber der capture-Listener auf
+      // document sieht auch verschachtelte scrollbare Container).
+      if (containerRef.current && e.target instanceof Node && containerRef.current.contains(e.target)) return;
       setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
@@ -1033,7 +1038,12 @@ function MehrDropdown({ groups, isGroupActive }: { groups: NavGroup[]; isGroupAc
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    function onScroll() {
+    function onScroll(e: Event) {
+      // Scroll-Events aus dem eigenen (scrollbaren) Panel nicht als "Seite hat gescrollt"
+      // werten — sonst schließt jeder Scroll-Versuch innerhalb der Liste das Menü sofort
+      // wieder (Scroll-Events bubbeln nicht, aber der capture-Listener auf document sieht
+      // auch verschachtelte scrollbare Container).
+      if (ref.current && e.target instanceof Node && ref.current.contains(e.target)) return;
       setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
