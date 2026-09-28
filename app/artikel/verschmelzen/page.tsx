@@ -31,6 +31,7 @@ interface ArtikelVoll {
   aktuellerBestand: number;
   lagerort: string | null;
   liefergroesse: string | null;
+  verpackungsart: string | null;
   chargePflicht: boolean;
   sprengstoffvorlaeufer: boolean;
   lagerTracking: boolean;
@@ -104,6 +105,7 @@ const EINZEL_FELDER: { key: keyof ArtikelVoll; label: string }[] = [
   { key: "mindestbestand", label: "Mindestbestand" },
   { key: "lagerort", label: "Lagerort" },
   { key: "liefergroesse", label: "Liefergröße" },
+  { key: "verpackungsart", label: "Verpackungsart" },
 ];
 const BOOL_FELDER: { key: keyof ArtikelVoll; label: string }[] = [
   { key: "chargePflicht", label: "Chargennummer Pflicht" },

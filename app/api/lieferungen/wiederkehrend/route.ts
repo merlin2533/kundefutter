@@ -192,6 +192,9 @@ export async function POST(req: NextRequest) {
             menge: bedarf.menge,
             verkaufspreis: berechneVerkaufspreis(bedarf.artikel, kundePreis),
             einkaufspreis: bevorzugterLieferant?.einkaufspreis ?? 0,
+            // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
+            // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
+            verpackungsart: bedarf.artikel.verpackungsart ?? null,
           }],
         },
       },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges, auditLog } from "@/lib/audit";
-import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
+import { istChargenpflichtKategorie, istGueltigeVerpackungsart } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const ARTIKEL_FELD_NAMEN = [
   "artikelnummer", "name", "kategorie", "unterkategorie", "einheit", "beschreibung", "notiz",
   "standardpreis", "preisStand", "mwstSatz", "mindestbestand", "lagerort", "liefergroesse",
-  "chargePflicht", "sprengstoffvorlaeufer", "lagerTracking",
+  "verpackungsart", "chargePflicht", "sprengstoffvorlaeufer", "lagerTracking",
   "ghsKlassen", "hSaetze", "pSaetze", "signalwort",
 ] as const;
 
@@ -197,6 +197,12 @@ export async function POST(req: NextRequest) {
       case "pSaetze":
       case "signalwort":
         updateData[feld] = wert ? String(wert) : null;
+        break;
+      case "verpackungsart":
+        if (!istGueltigeVerpackungsart(wert as string | null | undefined)) {
+          return NextResponse.json({ error: `Ungültige Verpackungsart „${wert}“ (erlaubt: lose, verpackt)` }, { status: 400 });
+        }
+        updateData.verpackungsart = wert ? String(wert) : null;
         break;
       case "name":
       case "artikelnummer":

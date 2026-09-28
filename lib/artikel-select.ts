@@ -72,6 +72,7 @@ export const liefposArtikelSelect = {
   einheit: true,
   mwstSatz: true,
   standardpreis: true,
+  verpackungsart: true,
 } as const;
 
 // Explicit Lieferung field list — prevents "column not found" errors when include:true

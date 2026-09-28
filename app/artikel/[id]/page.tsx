@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, Fragment, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
+import { useModulAktiv } from "@/lib/modul-context";
 import { P } from "@/lib/permissions";
 import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -176,6 +177,7 @@ function ArtikelDetailContent() {
   const { showToast } = useToast();
   const canSeeEk = usePermission(P.FELD_ARTIKEL_EINKAUFSPREIS);
   const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
@@ -1049,6 +1051,7 @@ function ArtikelDetailContent() {
                         kategorie,
                         unterkategorie: "",
                         chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKategorien) ? true : editForm.chargePflicht,
+                        verpackungsart: kategorie === "Eier" ? editForm.verpackungsart : "",
                       });
                     }}
                     className={inputCls}
@@ -1199,7 +1202,7 @@ function ArtikelDetailContent() {
                   className={inputCls}
                 />
               </div>
-              {editForm.kategorie === "Eier" && (
+              {eierhandelAn && editForm.kategorie === "Eier" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Verpackungsart <span className="text-gray-400 text-xs">(optional)</span>
@@ -1369,7 +1372,7 @@ function ArtikelDetailContent() {
                     <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Liefergröße</dt>
                     <dd className="text-sm text-gray-900">{artikel.liefergroesse || "—"}</dd>
                   </div>
-                  {artikel.kategorie === "Eier" && (
+                  {eierhandelAn && artikel.kategorie === "Eier" && (
                     <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
                       <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Verpackungsart</dt>
                       <dd className="text-sm text-gray-900">

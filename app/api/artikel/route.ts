@@ -151,7 +151,9 @@ export async function POST(req: NextRequest) {
   if (data.verpackungsart !== undefined && !istGueltigeVerpackungsart(data.verpackungsart)) {
     return NextResponse.json({ error: `Ungültige Verpackungsart „${data.verpackungsart}“ (erlaubt: lose, verpackt)` }, { status: 400 });
   }
-  if (data.verpackungsart === "") data.verpackungsart = null;
+  if (data.verpackungsart !== undefined) {
+    data.verpackungsart = data.verpackungsart ? String(data.verpackungsart) : null;
+  }
 
   try {
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);
