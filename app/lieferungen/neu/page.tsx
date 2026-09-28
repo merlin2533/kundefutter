@@ -121,6 +121,10 @@ interface KundePreisInfo {
 }
 
 interface NewPosition {
+  /** Stabiler, vom Array-Index unabhängiger Schlüssel für React `key` — verhindert, dass beim
+   *  Löschen einer Zeile eine andere Zeile die Komponenten-Instanz (inkl. internem State wie
+   *  ChargeInputs "bereits gemeldete Charge"-Merker) der gelöschten Zeile übernimmt. */
+  key: string;
   artikelId: number | "";
   menge: string;
   verkaufspreis: string;
@@ -141,6 +145,7 @@ interface NewPosition {
 const today = new Date().toISOString().split("T")[0];
 
 const emptyPosition = (): NewPosition => ({
+  key: crypto.randomUUID(),
   artikelId: "",
   menge: "1",
   verkaufspreis: "",
@@ -298,6 +303,7 @@ function NeueLieferungInner() {
                 const art = artikelData.find((a: Artikel) => a.id === pos.artikelId);
                 const vkPreis = pos.preis * (1 - pos.rabatt / 100);
                 return {
+                  key: crypto.randomUUID(),
                   artikelId: pos.artikelId,
                   menge: String(pos.menge),
                   verkaufspreis: String(Math.round(vkPreis * 100) / 100),
@@ -787,7 +793,9 @@ function NeueLieferungInner() {
                                       setPositionen((prev) => {
                                         // If last position is empty, replace it
                                         const last = prev[prev.length - 1];
+                                        const replacesLast = !!last && last.artikelId === "";
                                         const newPos = {
+                                          key: replacesLast ? last.key : crypto.randomUUID(),
                                           artikelId: ka.artikelId,
                                           menge: ka.bedarfMenge != null ? String(ka.bedarfMenge) : "1",
                                           verkaufspreis: String(vk),
@@ -800,7 +808,7 @@ function NeueLieferungInner() {
                                           legedatum: "",
                                           erzeugercode: "",
                                         };
-                                        if (last && last.artikelId === "") {
+                                        if (replacesLast) {
                                           return [...prev.slice(0, -1), newPos];
                                         }
                                         return [...prev, newPos];
@@ -898,7 +906,7 @@ function NeueLieferungInner() {
 
                     return (
                       <tr
-                        key={idx}
+                        key={pos.key}
                         className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
                       >
                         {/* Artikel */}
@@ -927,14 +935,17 @@ function NeueLieferungInner() {
                                   eierhandelAn && selectedArtikel?.kategorie === "Eier"
                                     ? (meta: ChargeMeta) => {
                                         if (meta.quelle !== "eiersortierung") return;
-                                        // Alle Felder bleiben danach weiterhin frei überschreibbar — dies ist
-                                        // nur eine Vorbefüllung aus der bereits bekannten Sortierungs-Charge.
-                                        updatePositionFields(idx, {
-                                          legedatum: meta.legedatum ? meta.legedatum.slice(0, 10) : "",
-                                          erzeugercode: meta.erzeugercode ?? "",
-                                          gueteklasse: meta.gueteklasse ?? "",
-                                          gewichtsklasse: meta.gewichtsklasse ?? "",
-                                        });
+                                        // Befüllt NUR noch leere Felder — ein bereits vom Nutzer eingetragener
+                                        // Wert bleibt unangetastet, und ein in der Sortierposition fehlender
+                                        // Wert (legedatum/erzeugercode können dort null sein) löscht kein
+                                        // bereits eingetragenes Feld. Alle vier Felder bleiben danach weiterhin
+                                        // frei überschreibbar — dies ist nur eine Vorbefüllung.
+                                        const patch: Partial<NewPosition> = {};
+                                        if (!pos.legedatum && meta.legedatum) patch.legedatum = meta.legedatum.slice(0, 10);
+                                        if (!pos.erzeugercode && meta.erzeugercode) patch.erzeugercode = meta.erzeugercode;
+                                        if (!pos.gueteklasse && meta.gueteklasse) patch.gueteklasse = meta.gueteklasse;
+                                        if (!pos.gewichtsklasse && meta.gewichtsklasse) patch.gewichtsklasse = meta.gewichtsklasse;
+                                        if (Object.keys(patch).length > 0) updatePositionFields(idx, patch);
                                       }
                                     : undefined
                                 }
