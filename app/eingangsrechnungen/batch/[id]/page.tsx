@@ -14,6 +14,7 @@ import {
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
+import { berechneFehlendeFelderEingangsrechnung } from "@/lib/eingangsrechnung-matching";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -88,21 +89,8 @@ function meldeLernkorrektur(suchtext: string, zielId: number) {
   });
 }
 
-function berechneFehlendeFelder(item: {
-  lieferantKonfidenz: Konfidenz | null;
-  nummer: string | null;
-  datum: string | null;
-  betragNetto: number | null;
-}): string[] {
-  const felder: string[] = [];
-  if (!item.lieferantKonfidenz || item.lieferantKonfidenz === "keine" || item.lieferantKonfidenz === "niedrig") {
-    felder.push("Lieferant nicht eindeutig zugeordnet");
-  }
-  if (!item.datum) felder.push("Rechnungsdatum fehlt");
-  if (item.betragNetto == null || item.betragNetto <= 0) felder.push("Betrag fehlt");
-  if (!item.nummer || !item.nummer.trim()) felder.push("Rechnungsnummer fehlt");
-  return felder;
-}
+// berechneFehlendeFelder() lebt jetzt als berechneFehlendeFelderEingangsrechnung() in
+// lib/eingangsrechnung-matching.ts (gemeinsam mit dem serverseitigen E-Mail-Rechnungseingang).
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -229,7 +217,7 @@ export default function EingangsrechnungBatchDetailPage() {
       datum: ergebnis.datum,
       betragNetto: ergebnis.betragNetto,
     };
-    const fehlendeFelder = berechneFehlendeFelder(felder);
+    const fehlendeFelder = berechneFehlendeFelderEingangsrechnung(felder);
     const entscheidung = fehlendeFelder.length === 0 ? "passt" : null;
 
     setBatch((prev) =>
@@ -309,7 +297,7 @@ export default function EingangsrechnungBatchDetailPage() {
       const items = prev.items.map((it) => {
         if (it.id !== itemId) return it;
         const neu = updater(it);
-        const mitFehlenden = { ...neu, fehlendeFelder: berechneFehlendeFelder(neu) };
+        const mitFehlenden = { ...neu, fehlendeFelder: berechneFehlendeFelderEingangsrechnung(neu) };
         aktualisiert = mitFehlenden;
         return mitFehlenden;
       });

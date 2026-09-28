@@ -34,9 +34,21 @@ const ALLOWED_PREFIXES = [
   "sicherheit.",
 ];
 
+// Jeder Key, der wie ein Geheimnis benannt ist, wird maskiert zurückgegeben — unabhängig vom
+// Prefix, unter dem er zufällig liegt. Vorher wurden nur auf "_key" endende Keys maskiert; ein
+// Prefix wie "email." (von components/EmailVersandModal.tsx u.a. für "email.cc" abgefragt) hätte
+// damit z.B. ein IMAP-Postfach-Passwort oder ein Microsoft-365-Client-Secret unter
+// "email.eingang.*" im Klartext an JEDEN eingeloggten Nutzer ausgeliefert — die Formulare selbst
+// laden solche Felder zwar nie sichtbar ins UI, das ändert aber nichts an der Netzwerk-Antwort.
+const SENSITIVE_KEY_PATTERN = /(_key|_secret|secret|passwort|password)$/i;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const prefix = searchParams.get("prefix") ?? "firma.";
+  const prefixParam = searchParams.get("prefix");
+  // Ein explizit leerer Prefix ("?prefix=") würde sonst JEDEN ALLOWED_PREFIXES-Eintrag über
+  // `p.startsWith("")` (immer true) passieren lassen und komplett ungefiltert alle Einstellungen
+  // ausliefern (bis take:100) — bewusst wie "kein Prefix" behandelt, nicht wie "firma.".
+  const prefix = prefixParam ? prefixParam : "firma.";
   if (!ALLOWED_PREFIXES.some((p) => prefix.startsWith(p) || p.startsWith(prefix))) {
     return NextResponse.json({ error: "Prefix nicht erlaubt" }, { status: 400 });
   }
@@ -48,8 +60,7 @@ export async function GET(req: NextRequest) {
     });
     const result: Record<string, string> = {};
     for (const e of einstellungen) {
-      // API-Keys maskieren
-      if (e.key.endsWith("_key") && e.value) {
+      if (SENSITIVE_KEY_PATTERN.test(e.key) && e.value) {
         result[e.key] = e.value.length > 8
           ? e.value.slice(0, 7) + "..." + e.value.slice(-4)
           : "***";

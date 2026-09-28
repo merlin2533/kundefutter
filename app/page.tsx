@@ -215,13 +215,15 @@ interface DashboardData {
 type WidgetId =
   | "kpis" | "matif" | "wiedervorlagen" | "kein_kontakt" | "benachrichtigungen" | "pegelstaende"
   | "wetter" | "besuchstermine" | "sachkundenachweise" | "sprengstoff_nachweise" | "reklamationen_kritisch"
-  | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung" | "eierhandel_kontrolle";
+  | "budget" | "angebote_pipeline" | "vorbestellungen" | "personal_abrechnung" | "eierhandel_kontrolle"
+  | "email_rechnungseingang";
 
 // `modul` blendet ein Widget aus, wenn der zugehoerige Funktionsbereich abgeschaltet ist
 // (analog MODULE_HREFS in components/Nav.tsx). Widgets ohne Eintrag sind immer verfuegbar.
 const WIDGET_DEFS: { id: WidgetId; label: string; icon: string; modul?: ModulKey }[] = [
   { id: "kpis", label: "KPI-Kacheln", icon: "📊" },
   { id: "reklamationen_kritisch", label: "Kritische Reklamationen", icon: "⚠️", modul: "reklamationen" },
+  { id: "email_rechnungseingang", label: "Rechnungs-E-Mail-Eingang", icon: "📧" },
   { id: "benachrichtigungen", label: "System-Benachrichtigungen", icon: "🔔" },
   { id: "wiedervorlagen", label: "Wiedervorlagen", icon: "🔁" },
   { id: "kein_kontakt", label: "Kein-Kontakt-Widget", icon: "📵" },
@@ -239,7 +241,7 @@ const WIDGET_DEFS: { id: WidgetId; label: string; icon: string; modul?: ModulKey
 ];
 
 const DEFAULT_WIDGETS: WidgetId[] = [
-  "kpis", "reklamationen_kritisch", "benachrichtigungen", "wiedervorlagen", "kein_kontakt",
+  "kpis", "reklamationen_kritisch", "email_rechnungseingang", "benachrichtigungen", "wiedervorlagen", "kein_kontakt",
   "sachkundenachweise", "sprengstoff_nachweise", "besuchstermine", "budget", "angebote_pipeline", "vorbestellungen",
   "matif", "wetter", "eierhandel_kontrolle",
 ];
@@ -1158,6 +1160,45 @@ const ANGEBOT_STATUS_COLOR: Record<string, string> = {
   ABGELAUFEN: "bg-gray-300",
 };
 
+// ─── Rechnungs-E-Mail-Eingang Widget ──────────────────────────────────────────
+
+interface EmailEingangZaehler {
+  zuPruefen: number;
+  offenAnzahl: number;
+  offenSummeNetto: number;
+}
+
+function EmailRechnungseingangWidget() {
+  const [zaehler, setZaehler] = useState<EmailEingangZaehler | null>(null);
+
+  useEffect(() => {
+    fetch("/api/eingangsrechnungen/email-eingang-zaehler")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: EmailEingangZaehler | null) => setZaehler(d))
+      .catch((err) => {
+        Sentry.captureException(err);
+        setZaehler(null);
+      });
+  }, []);
+
+  // Kein eigener Ladezustand nötig — die Kachel (samt umgebendem Grid, keine leere
+  // Abstandszeile) erscheint erst, sobald tatsächlich etwas zu prüfen ist (analog zur
+  // "Offene Bestellungen"-KPI-Kachel).
+  if (!zaehler || zaehler.zuPruefen === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <Link href="/eingangsrechnungen?eingang=email" className="block">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 border-l-4 border-amber-500 h-full hover:shadow-md transition-shadow">
+          <p className="text-xs sm:text-sm text-gray-500">📧 Rechnungs-E-Mail-Eingang</p>
+          <p className="text-xl sm:text-2xl font-bold mt-1">{zaehler.zuPruefen}</p>
+          <p className="text-xs mt-1 truncate text-amber-600 font-medium">zu prüfen</p>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
 function ReklamationenKritischWidget() {
   const [items, setItems] = useState<ReklamationDash[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1913,6 +1954,10 @@ export default function DashboardPage() {
           </Link>
         )}
       </div>}
+
+      {/* Rechnungs-E-Mail-Eingang — eigener, unabhängig abschaltbarer Kachel-Toggle (nicht Teil
+          der "kpis"-Gruppe), Kachel selbst erscheint nur bei tatsächlichem Prüfbedarf. */}
+      {widgetAktiv("email_rechnungseingang") && <EmailRechnungseingangWidget />}
 
       {/* Handlungsbedarf: Kritische Reklamationen + System-Benachrichtigungen */}
       {(widgetAktiv("reklamationen_kritisch") || widgetAktiv("benachrichtigungen")) && (

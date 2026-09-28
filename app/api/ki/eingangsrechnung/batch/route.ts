@@ -4,6 +4,7 @@ import { Sentry } from "@/lib/sentry";
 import { getUploadBase } from "@/lib/upload";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,18 @@ const ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".pdf"]);
 const MAX_DATEIEN = 30;
 const MAX_DATEIGROESSE = 20 * 1024 * 1024;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const quelle = searchParams.get("quelle");
+  const nurOffen = searchParams.get("offen") === "1";
+
+  const where: Prisma.KiEingangsrechnungBatchWhereInput = {};
+  if (quelle === "email" || quelle === "upload") where.quelle = quelle;
+  if (nurOffen) where.status = { in: ["offen", "verarbeitung", "bereit"] };
+
   try {
     const batches = await prisma.kiEingangsrechnungBatch.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       take: 50,
       include: { items: { select: { status: true } } },
@@ -24,6 +34,7 @@ export async function GET() {
       return {
         id: b.id,
         status: b.status,
+        quelle: b.quelle,
         notiz: b.notiz,
         createdAt: b.createdAt,
         abgeschlossenAm: b.abgeschlossenAm,

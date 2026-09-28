@@ -7,6 +7,7 @@ import { ladeFirmaDaten } from "@/lib/firma";
 import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
 import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
 import { pruefeMeldepflichten } from "@/lib/meldepflichten";
+import { verarbeiteEingehendeMails } from "@/lib/email-eingang-verarbeitung";
 import { Sentry } from "@/lib/sentry";
 
 const NEXTCLOUD_SYNC_KEY = "system.nextcloud.letzterAutoSync";
@@ -259,6 +260,29 @@ async function jobMeldepflichten(): Promise<JobResult> {
   }
 }
 
+/**
+ * Ruft den E-Mail-Rechnungseingang ab (IMAP-Postfach oder Microsoft 365), sofern unter
+ * /einstellungen/email-rechnungseingang aktiviert und vollständig konfiguriert — siehe
+ * lib/email-eingang-verarbeitung.ts für die eigentliche Verarbeitung (inkl. eigenem
+ * Mails-pro-Lauf-Deckel, deshalb hier keine zusätzliche Drosselung nötig).
+ */
+async function jobEmailRechnungseingang(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const ergebnis = await verarbeiteEingehendeMails();
+    return { job: "emailRechnungseingang", ok: ergebnis.fehler === 0, detail: { ...ergebnis }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "emailRechnungseingang",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
@@ -300,6 +324,7 @@ export async function GET(req: NextRequest) {
   results.push(await jobDigestEmail());
   results.push(await jobNextcloudSync());
   results.push(await jobMeldepflichten());
+  results.push(await jobEmailRechnungseingang());
 
   const allOk = results.every((r) => r.ok);
   await saveStatus(allOk, startedAt, results);
