@@ -27,7 +27,7 @@ interface MahnwesenEintrag {
   mahnstufe: 1 | 2 | 3;
   automatischeMahnstufe: 1 | 2 | 3;
   mahnstufeManuell: boolean;
-  letzteVersendung: { am: string; stufe: string } | null;
+  letzteVersendung: { am: string; stufe: string; kanal: "email" | "brief" } | null;
 }
 
 const STUFE_FARBEN: Record<number, string> = {
@@ -62,6 +62,7 @@ export default function MahnwesenPage() {
   const [sepaLoading, setSepaLoading] = useState(false);
   const [sepaFehler, setSepaFehler] = useState("");
   const [mahnstufeLoading, setMahnstufeLoading] = useState<number | null>(null);
+  const [postversandLoading, setPostversandLoading] = useState<number | null>(null);
 
   // E-Mail-Versand via Modal
   const [emailModalEintrag, setEmailModalEintrag] = useState<MahnwesenEintrag | null>(null);
@@ -129,6 +130,24 @@ export default function MahnwesenPage() {
       setError("Fehler beim Markieren als bezahlt.");
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function markierePostversand(eintrag: MahnwesenEintrag) {
+    setPostversandLoading(eintrag.lieferung.id);
+    try {
+      const res = await fetch("/api/mahnwesen/postversand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferungId: eintrag.lieferung.id, mahnstufe: eintrag.mahnstufe }),
+      });
+      if (!res.ok) throw new Error("Fehler");
+      await load();
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Markieren als versendet.");
+    } finally {
+      setPostversandLoading(null);
     }
   }
 
@@ -491,18 +510,19 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                         <div className="sm:hidden text-xs text-gray-400 mt-0.5">
                           {e.rechnungNr ?? `#${e.lieferung.id}`}
                         </div>
-                        {/* Letzter tatsächlicher E-Mail-Versand (via KundeAktivitaet) — Drucken/PDF
-                            hinterlassen bewusst keine Spur, da ihr Briefdatum bei jeder erneuten
-                            Erzeugung "heute" zeigt und daher kein verlässlicher Versand-Nachweis ist */}
+                        {/* Letzter tatsächlicher Versand (via KundeAktivitaet) — reiner PDF-Download/Drucken
+                            hinterlässt bewusst keine Spur, da das Briefdatum bei jeder erneuten Erzeugung
+                            "heute" zeigt; ein per Post verschickter Brief zählt erst nach explizitem Klick
+                            auf "Als versendet markieren" unten als Nachweis (typ "brief") */}
                         {e.letzteVersendung ? (
                           <div
                             className="text-xs text-green-700 mt-0.5"
-                            title={`${e.letzteVersendung.stufe} per E-Mail versendet am ${formatDatum(e.letzteVersendung.am)}`}
+                            title={`${e.letzteVersendung.stufe} ${e.letzteVersendung.kanal === "brief" ? "als Brief markiert" : "per E-Mail versendet"} am ${formatDatum(e.letzteVersendung.am)}`}
                           >
-                            ✉ zuletzt versendet {formatDatum(e.letzteVersendung.am)}
+                            {e.letzteVersendung.kanal === "brief" ? "📮" : "✉"} zuletzt versendet {formatDatum(e.letzteVersendung.am)}
                           </div>
                         ) : (
-                          <div className="text-xs text-gray-400 mt-0.5" title="Noch keine E-Mail-Versendung über den „E-Mail“-Button protokolliert (Drucken/PDF zählen nicht als Versand-Nachweis)">
+                          <div className="text-xs text-gray-400 mt-0.5" title="Noch kein Versand protokolliert — weder per „E-Mail“-Button noch über „Als versendet markieren“ (reines Drucken/PDF zählt nicht als Versand-Nachweis)">
                             ✉ noch nicht versendet
                           </div>
                         )}
@@ -581,6 +601,14 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                           >
                             PDF
                           </a>
+                          <button
+                            onClick={() => markierePostversand(e)}
+                            disabled={postversandLoading === e.lieferung.id}
+                            className="px-2 py-1 text-xs bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg font-medium transition-colors border border-amber-200 disabled:opacity-60"
+                            title="Erst NACH tatsächlichem Ausdrucken und Versenden per Post klicken — bestätigt den Versand für die Übersicht (keine E-Mail-Adresse nötig)"
+                          >
+                            {postversandLoading === e.lieferung.id ? "…" : "📮 Als versendet markieren"}
+                          </button>
                           <button
                             onClick={() => { setEmailModalEintrag(e); setEmailModalFehler(""); }}
                             className="px-2 py-1 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"

@@ -37,17 +37,18 @@ export async function GET() {
     // manuelleMahnstufe ist im include oben nicht selektierbar eingeschränkt (voller Datensatz) —
     // Prisma liefert das Feld automatisch mit, da kein explizites `select` verwendet wird.
 
-    // Letzten tatsächlichen E-Mail-Versand je Rechnung ermitteln: POST /api/exporte/mahnung/mail
-    // legt bei jedem Versand einen KundeAktivitaet-Eintrag mit betreff "<Zahlungserinnerung|Mahnung
-    // (Stufe N)>: Rechnung <rechnungNr>" an (siehe app/api/exporte/mahnung/mail/route.ts) — das ist
-    // die einzige verlässliche, nicht überschreibbare Spur eines tatsächlichen Versands (anders als
-    // das PDF/Drucken, deren Briefdatum bei jeder erneuten Erzeugung "heute" zeigt). Ein Bulk-Fetch
-    // über alle betroffenen Kunden statt N+1 Einzelabfragen.
+    // Letzten tatsächlichen Versand je Rechnung ermitteln: POST /api/exporte/mahnung/mail (E-Mail,
+    // typ "email") UND POST /api/mahnwesen/postversand (manuell bestätigter Brief/Ausdruck, typ
+    // "brief") legen je einen KundeAktivitaet-Eintrag mit betreff "<Zahlungserinnerung|Mahnung
+    // (Stufe N)>: Rechnung <rechnungNr>" an — das ist die einzige verlässliche, nicht
+    // überschreibbare Spur eines tatsächlichen Versands (anders als das PDF/Drucken selbst, deren
+    // Briefdatum bei jeder erneuten Erzeugung "heute" zeigt). Ein Bulk-Fetch über alle betroffenen
+    // Kunden statt N+1 Einzelabfragen.
     const kundeIds = [...new Set(offene.map((l) => l.kundeId))];
     const aktivitaeten = kundeIds.length
       ? await prisma.kundeAktivitaet.findMany({
-          where: { kundeId: { in: kundeIds }, typ: "email", betreff: { contains: "Rechnung " } },
-          select: { kundeId: true, betreff: true, datum: true },
+          where: { kundeId: { in: kundeIds }, typ: { in: ["email", "brief"] }, betreff: { contains: "Rechnung " } },
+          select: { kundeId: true, betreff: true, datum: true, typ: true },
           orderBy: { datum: "desc" },
         })
       : [];
@@ -59,7 +60,7 @@ export async function GET() {
       const stufe = treffer.betreff.startsWith("Zahlungserinnerung")
         ? "Zahlungserinnerung"
         : (treffer.betreff.split(":")[0] ?? "Mahnung");
-      return { am: treffer.datum, stufe };
+      return { am: treffer.datum, stufe, kanal: treffer.typ === "brief" ? "brief" as const : "email" as const };
     };
 
     const result = [];
