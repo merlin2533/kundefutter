@@ -73,7 +73,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const artikel = await prisma.artikel.findUnique({
       where: { id: artikelId },
-      select: { name: true, kategorie: true, standardpreis: true, notiz: true, mwstSatz: true, aktuellerBestand: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
+      select: { name: true, kategorie: true, standardpreis: true, notiz: true, mwstSatz: true, aktuellerBestand: true, verpackungsart: true, lieferanten: { select: { einkaufspreis: true, bevorzugt: true } } },
     });
     if (!artikel) return NextResponse.json({ error: "Artikel nicht gefunden" }, { status: 404 });
 
@@ -138,6 +138,9 @@ export async function POST(req: NextRequest, { params }: Params) {
           gewichtsklasse: gewichtsklasseVal,
           legedatum: legedatumVal,
           erzeugercode: erzeugercodeVal,
+          // Vom Artikel übernommen, nicht vom Aufrufer überschreibbar (analog mwstSatz) —
+          // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
+          verpackungsart: artikel.verpackungsart ?? null,
         },
         include: { artikel: { select: liefposArtikelSelect } },
       });

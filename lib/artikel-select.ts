@@ -15,6 +15,7 @@ export const artikelSafeSelect = {
   aktiv: true,
   lagerort: true,
   liefergroesse: true,
+  verpackungsart: true,
   createdAt: true,
   updatedAt: true,
   sprengstoffvorlaeufer: true,
@@ -48,6 +49,7 @@ export const artikelWithInhaltSelect = {
     aktiv: true,
     lagerort: true,
     liefergroesse: true,
+    verpackungsart: true,
     createdAt: true,
     updatedAt: true,
     sprengstoffvorlaeufer: true,
@@ -70,6 +72,7 @@ export const liefposArtikelSelect = {
   einheit: true,
   mwstSatz: true,
   standardpreis: true,
+  verpackungsart: true,
 } as const;
 
 // Explicit Lieferung field list — prevents "column not found" errors when include:true

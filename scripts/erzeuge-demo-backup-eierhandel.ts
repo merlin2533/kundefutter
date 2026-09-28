@@ -72,6 +72,9 @@ const MUSTER_EINSTELLUNGEN: Record<string, string> = {
   "firma.bank": "Musterbank Musterstadt",
   "firma.mwstSatz": "19",
   "firma.zahlungszielStandard": "30",
+  // Eierhandel-spezifisch (anders als lib/muster-seed.ts, das generisch für jede Branche gilt) —
+  // dieses Backup stellt gezielt einen Eierbetrieb dar, siehe Datei-Kommentar oben.
+  "firma.eierZulassungsnummer": "DE-1234",
 };
 
 async function setzeRahmendaten() {

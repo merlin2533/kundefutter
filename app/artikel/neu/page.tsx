@@ -12,8 +12,10 @@ import {
   getUnterkategorienKey,
   istChargenpflichtKategorie,
   chargenpflichtKategorienAusSettings,
+  VERPACKUNGSARTEN,
 } from "@/lib/auswahllisten";
 import { parseDezimal } from "@/lib/utils";
+import { useModulAktiv } from "@/lib/modul-context";
 
 const defaultForm = {
   name: "",
@@ -26,6 +28,7 @@ const defaultForm = {
   mwstSatz: "19",
   lagerort: "",
   liefergroesse: "",
+  verpackungsart: "",
   notiz: "",
   sprengstoffvorlaeufer: false,
   chargePflicht: false,
@@ -40,6 +43,7 @@ export default function NeuerArtikelPage() {
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   useEffect(() => {
     fetch("/api/einstellungen?prefix=system.")
@@ -210,6 +214,7 @@ export default function NeuerArtikelPage() {
                   kategorie,
                   unterkategorie: "",
                   chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKategorien) ? true : form.chargePflicht,
+                  verpackungsart: kategorie === "Eier" ? form.verpackungsart : "",
                 });
               }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
@@ -428,6 +433,25 @@ export default function NeuerArtikelPage() {
             />
           </div>
         </div>
+
+        {eierhandelAn && form.kategorie === "Eier" && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Verpackungsart{" "}
+              <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <select
+              value={form.verpackungsart}
+              onChange={(e) => setForm({ ...form, verpackungsart: e.target.value })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
+            >
+              <option value="">— keine Angabe —</option>
+              {VERPACKUNGSARTEN.map((v) => (
+                <option key={v.key} value={v.key}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

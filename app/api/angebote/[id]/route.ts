@@ -100,6 +100,9 @@ export async function PUT(req: NextRequest, ctx: Params) {
                 verkaufspreis: pos.preis * (1 - pos.rabatt / 100),
                 einkaufspreis: bevorzugterLieferantMap.get(pos.artikelId)?.einkaufspreis ?? 0,
                 rabattProzent: pos.rabatt,
+                // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
+                // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
+                verpackungsart: pos.artikel.verpackungsart ?? null,
               })),
             },
           },

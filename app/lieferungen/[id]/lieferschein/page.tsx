@@ -25,6 +25,7 @@ interface Position {
   gewichtsklasse?: string | null;
   legedatum?: string | null;
   erzeugercode?: string | null;
+  verpackungsart?: string | null;
   artikel: {
     id: number;
     name: string;
@@ -429,6 +430,7 @@ export default function LieferscheinPage() {
   const firmaOrt = firma["firma.ort"] ?? "";
   const firmaTel = firma["firma.tel"] ?? firma["firma.telefon"] ?? "";
   const firmaEmail = firma["firma.email"] ?? "";
+  const firmaEierZulassung = firma["firma.eierZulassungsnummer"] ?? "";
   return (
     <>
       <style>{`
@@ -750,7 +752,7 @@ export default function LieferscheinPage() {
                       )}
                       {pos.gueteklasse && (
                         <div style={{ fontSize: "9pt", color: "#555", marginTop: "2px" }}>
-                          {eierKennzeichnungZeile(pos)}
+                          {eierKennzeichnungZeile(pos, firmaEierZulassung)}
                         </div>
                       )}
                       {(() => {

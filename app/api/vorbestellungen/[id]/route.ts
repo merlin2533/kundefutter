@@ -136,6 +136,9 @@ async function umwandelnInLieferung(vid: number) {
             verkaufspreis: p.preis ?? p.artikel.standardpreis ?? 0,
             einkaufspreis: 0,
             rabattProzent: rabatt,
+            // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
+            // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
+            verpackungsart: p.artikel.verpackungsart ?? null,
           })),
         },
       },

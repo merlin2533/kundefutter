@@ -211,6 +211,7 @@ model Artikel {
   aktiv                 Boolean   @default(true)
   lagerort              String? // optional: storage location label
   liefergroesse         String? // Liefergröße Freitext (z.B. "25 kg Sack", "Big Bag 600 kg")
+  verpackungsart        String? // Eier: "lose" | "verpackt" — Klassifizierung ist eine Frage der Artikel-/Gebindeart, nicht der einzelnen Lieferzeile (lib/auswahllisten.ts VERPACKUNGSARTEN)
   chargePflicht         Boolean   @default(false) // Chargennummer beim Warenausgang Pflicht
   sprengstoffvorlaeufer Boolean   @default(false) // EU-VO 2019/1148: eingeschränkt abgebbar
   lagerTracking         Boolean   @default(true) // false = kein Lagerbestand (Dienstleistungen, Beratung)
@@ -500,6 +501,7 @@ model Lieferposition {
   gewichtsklasse      String? // Eier: "S" | "M" | "L" | "XL"
   legedatum           DateTime? // Eier: Legedatum — MHD = legedatum + 28 Tage (lib/eier-mhd.ts), NICHT vom Wareneingangs-/Rechnungsdatum ableitbar
   erzeugercode        String? // Eier: eingefroren bei Positionserstellung (analog mwstSatz), Ursprung Kunde.erzeugercode oder EierSortierungPosition
+  verpackungsart      String? // Eier: Snapshot aus Artikel.verpackungsart bei Positionserstellung (analog mwstSatz), nicht vom Aufrufer überschreibbar
   rabattProzent       Float   @default(0) // Mengenrabatt der angewendet wurde
   notiz               String? // Auftragsnummer / interne Notiz zur Position
   preisInterpoliert   Boolean @default(false) // true = verkaufspreis wurde aus einem anderen Jahr übernommen (kein Jahrespreis fürs Lieferjahr erfasst)

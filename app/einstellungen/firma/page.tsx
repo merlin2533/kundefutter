@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { useModulAktiv } from "@/lib/modul-context";
 
 interface FirmaSettings {
   "firma.name": string;
@@ -15,6 +16,7 @@ interface FirmaSettings {
   "firma.steuernummer": string;
   "firma.ustIdNr": string;
   "firma.oekoNummer": string;
+  "firma.eierZulassungsnummer": string;
   "firma.iban": string;
   "firma.bic": string;
   "firma.bank": string;
@@ -43,6 +45,7 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.steuernummer": "",
   "firma.ustIdNr": "",
   "firma.oekoNummer": "",
+  "firma.eierZulassungsnummer": "",
   "firma.iban": "",
   "firma.bic": "",
   "firma.bank": "",
@@ -86,6 +89,12 @@ const SECTIONS = [
       { key: "firma.steuernummer" as keyof FirmaSettings, label: "Steuernummer", placeholder: "123/456/78901" },
       { key: "firma.ustIdNr" as keyof FirmaSettings, label: "USt-IdNr.", placeholder: "DE123456789" },
       { key: "firma.oekoNummer" as keyof FirmaSettings, label: "Öko-Kontrollnummer", placeholder: "DE-ÖKO-006-12345" },
+      {
+        key: "firma.eierZulassungsnummer" as keyof FirmaSettings,
+        label: "Packstellen-Zulassungsnummer",
+        placeholder: "DE-1234",
+        modul: "eierhandel" as const,
+      },
       { key: "firma.mwstSatz" as keyof FirmaSettings, label: "Standard-MwSt (%)", type: "number", placeholder: "19" },
     ],
   },
@@ -134,6 +143,7 @@ function buildDefaultFooter(form: FirmaSettings) {
 }
 
 export default function FirmaPage() {
+  const eierhandelAktiv = useModulAktiv("eierhandel");
   const [form, setForm] = useState<FirmaSettings>(DEFAULT_VALUES);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -244,7 +254,9 @@ export default function FirmaPage() {
               <h2 className="text-sm font-semibold text-gray-700">{section.title}</h2>
             </div>
             <div className="p-5 space-y-3">
-              {section.fields.map((field) => (
+              {section.fields
+                .filter((field) => !("modul" in field) || field.modul !== "eierhandel" || eierhandelAktiv)
+                .map((field) => (
                 <div key={field.key} className="grid grid-cols-[180px_1fr] items-center gap-3">
                   <label className="text-sm font-medium text-gray-600 text-right">
                     {field.label}

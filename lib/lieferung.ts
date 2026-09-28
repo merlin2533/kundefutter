@@ -86,7 +86,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
     const artikelIds = positionen.map((p) => p.artikelId);
 
     const [alleArtikel, alleKundePreise, alleLieferanten, alleMengenrabatte, zahlungsziel] = await Promise.all([
-      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true } }),
+      tx.artikel.findMany({ where: { id: { in: artikelIds } }, select: { id: true, name: true, kategorie: true, standardpreis: true, einheit: true, mwstSatz: true, aktuellerBestand: true, mindestbestand: true, notiz: true, verpackungsart: true } }),
       tx.kundeArtikelPreis.findMany({ where: { kundeId, artikelId: { in: artikelIds } } }),
       // Alle zugeordneten Lieferanten laden (nicht nur bevorzugt) — resolveBevorzugtenEK()
       // wählt daraus den tatsächlich passenden EK (bevorzugt mit Preis > 0, sonst irgendeiner
@@ -156,6 +156,9 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
         gewichtsklasse: pos.gewichtsklasse ?? null,
         legedatum: pos.legedatum ?? null,
         erzeugercode: pos.erzeugercode ?? null,
+        // Vom Artikel übernommen, nicht vom Aufrufer überschreibbar (analog mwstSatz) — die
+        // Verpackungsart ist eine Eigenschaft der Artikel-/Gebindeart, nicht der Lieferzeile.
+        verpackungsart: artikel.verpackungsart ?? null,
       };
     });
 

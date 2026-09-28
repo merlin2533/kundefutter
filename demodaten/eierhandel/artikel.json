@@ -8,7 +8,8 @@
     "standardpreis": 0.28,
     "mwstSatz": 7,
     "aktuellerBestand": 0,
-    "lagerTracking": true
+    "lagerTracking": true,
+    "verpackungsart": "verpackt"
   },
   {
     "_key": "artikel-ei-l",
@@ -19,7 +20,8 @@
     "standardpreis": 0.32,
     "mwstSatz": 7,
     "aktuellerBestand": 0,
-    "lagerTracking": true
+    "lagerTracking": true,
+    "verpackungsart": "verpackt"
   },
   {
     "_key": "artikel-ei-s",
@@ -30,7 +32,8 @@
     "standardpreis": 0.24,
     "mwstSatz": 7,
     "aktuellerBestand": 0,
-    "lagerTracking": true
+    "lagerTracking": true,
+    "verpackungsart": "lose"
   },
   {
     "_key": "artikel-ei-xl",
@@ -41,6 +44,7 @@
     "standardpreis": 0.36,
     "mwstSatz": 7,
     "aktuellerBestand": 0,
-    "lagerTracking": true
+    "lagerTracking": true,
+    "verpackungsart": "verpackt"
   }
 ]

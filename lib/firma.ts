@@ -10,6 +10,7 @@ export interface FirmaDaten {
   steuernummer: string;
   ustIdNr?: string;
   oekoNummer?: string;
+  eierZulassungsnummer?: string;
   iban: string;
   bic: string;
   bank: string;
@@ -69,6 +70,7 @@ export async function ladeFirmaDaten(): Promise<FirmaDaten> {
     steuernummer: map.steuernummer ?? FIRMA_DEFAULTS.steuernummer,
     ustIdNr: map.ustIdNr ?? "",
     oekoNummer: map.oekoNummer ?? "",
+    eierZulassungsnummer: map.eierZulassungsnummer ?? "",
     iban: map.iban ?? FIRMA_DEFAULTS.iban,
     bic: map.bic ?? FIRMA_DEFAULTS.bic,
     bank: map.bank ?? FIRMA_DEFAULTS.bank,

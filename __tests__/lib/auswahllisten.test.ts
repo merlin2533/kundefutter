@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveKategorie, DEFAULT_ARTIKEL_KATEGORIEN, DEFAULT_UNTERKATEGORIEN } from "@/lib/auswahllisten";
+import { resolveKategorie, DEFAULT_ARTIKEL_KATEGORIEN, DEFAULT_UNTERKATEGORIEN, istGueltigeVerpackungsart } from "@/lib/auswahllisten";
 
 const KATEGORIEN = DEFAULT_ARTIKEL_KATEGORIEN;
 const UNTERKATEGORIEN = DEFAULT_UNTERKATEGORIEN;
@@ -58,5 +58,22 @@ describe("resolveKategorie", () => {
       kategorie: "Duenger",
       unterkategorie: "Schwefel",
     });
+  });
+});
+
+describe("istGueltigeVerpackungsart", () => {
+  it("akzeptiert lose und verpackt", () => {
+    expect(istGueltigeVerpackungsart("lose")).toBe(true);
+    expect(istGueltigeVerpackungsart("verpackt")).toBe(true);
+  });
+
+  it("behandelt einen leeren/nicht gesetzten Wert als gültig (Feld ist optional)", () => {
+    expect(istGueltigeVerpackungsart(null)).toBe(true);
+    expect(istGueltigeVerpackungsart(undefined)).toBe(true);
+    expect(istGueltigeVerpackungsart("")).toBe(true);
+  });
+
+  it("lehnt einen unbekannten Wert ab", () => {
+    expect(istGueltigeVerpackungsart("sonstiges")).toBe(false);
   });
 });

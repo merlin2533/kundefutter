@@ -29,26 +29,37 @@ export function eierMhdStatus(legedatum: string | null): EierMhdStatus {
 
 /**
  * Baut die Eier-Kennzeichnungszeile (EU-Vermarktungsnorm) für eine Lieferposition:
- * "Güteklasse A · Gewichtsklasse M · Erzeugercode … · MHD …", nur die tatsächlich gesetzten
- * Teile. Leerer String, wenn keine Güteklasse gesetzt ist (Position ist kein Ei) — es wird
- * also nichts mit Platzhaltern aufgefüllt. Einzige Quelle der Wahrheit für dieses Format:
- * genutzt vom server-seitigen PDF (lib/pdfGenerator.ts) UND den zwei Bildschirm-Vorschauen
- * (app/lieferungen/[id]/rechnung, .../lieferschein) — vorher an allen drei Stellen dupliziert.
- * Datumsformatierung bewusst per einfachem `toLocaleDateString("de-DE")` statt eines Imports aus
- * lib/utils.ts (formatDatum), damit dieses Modul weiterhin importfrei bleibt.
+ * "Güteklasse A · Gewichtsklasse M · Erzeugercode … · MHD … · lose Ware · Packstellen-Zulassungsnr. …",
+ * nur die tatsächlich gesetzten Teile. Leerer String, wenn keine Güteklasse gesetzt ist (Position
+ * ist kein Ei) — es wird also nichts mit Platzhaltern aufgefüllt. Einzige Quelle der Wahrheit für
+ * dieses Format: genutzt vom server-seitigen PDF (lib/pdfGenerator.ts) UND den zwei
+ * Bildschirm-Vorschauen (app/lieferungen/[id]/rechnung, .../lieferschein) — vorher an allen drei
+ * Stellen dupliziert. Datumsformatierung bewusst per einfachem `toLocaleDateString("de-DE")` statt
+ * eines Imports aus lib/utils.ts (formatDatum), damit dieses Modul weiterhin importfrei bleibt.
+ *
+ * `zulassungsnummer` (firma.eierZulassungsnummer) wird IMMER angehängt, wenn gesetzt — unabhängig
+ * von `verpackungsart` ("lose" vs. "verpackt"). Die exakte Rechtslage (Kennzeichnung auf dem
+ * Eierkarton selbst vs. Begleitdokument) ist nicht abschließend verifiziert; "immer anzeigen" ist
+ * der sichere Default, statt eine ungeprüfte Rechtsannahme hart zu verdrahten.
  */
-export function eierKennzeichnungZeile(p: {
-  gueteklasse?: string | null;
-  gewichtsklasse?: string | null;
-  erzeugercode?: string | null;
-  legedatum?: Date | string | null;
-}): string {
+export function eierKennzeichnungZeile(
+  p: {
+    gueteklasse?: string | null;
+    gewichtsklasse?: string | null;
+    erzeugercode?: string | null;
+    legedatum?: Date | string | null;
+    verpackungsart?: string | null;
+  },
+  zulassungsnummer?: string | null,
+): string {
   if (!p.gueteklasse) return "";
   const teile = [
     `Güteklasse ${p.gueteklasse}`,
     p.gewichtsklasse ? `Gewichtsklasse ${p.gewichtsklasse}` : null,
     p.erzeugercode ? `Erzeugercode ${p.erzeugercode}` : null,
     p.legedatum ? `MHD ${berechneEierMhd(new Date(p.legedatum)).toLocaleDateString("de-DE")}` : null,
+    p.verpackungsart === "lose" ? "lose Ware" : p.verpackungsart === "verpackt" ? "verpackt" : null,
+    zulassungsnummer ? `Packstellen-Zulassungsnr. ${zulassungsnummer}` : null,
   ].filter(Boolean);
   return teile.join(" · ");
 }

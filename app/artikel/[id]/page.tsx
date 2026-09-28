@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, Fragment, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
+import { useModulAktiv } from "@/lib/modul-context";
 import { P } from "@/lib/permissions";
 import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -22,6 +23,7 @@ import {
   getUnterkategorienKey,
   istChargenpflichtKategorie,
   chargenpflichtKategorienAusSettings,
+  VERPACKUNGSARTEN,
 } from "@/lib/auswahllisten";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -78,6 +80,7 @@ interface Artikel {
   aktiv: boolean;
   lagerort?: string | null;
   liefergroesse?: string | null;
+  verpackungsart?: string | null;
   sprengstoffvorlaeufer: boolean;
   chargePflicht: boolean;
   lagerTracking: boolean;
@@ -174,6 +177,7 @@ function ArtikelDetailContent() {
   const { showToast } = useToast();
   const canSeeEk = usePermission(P.FELD_ARTIKEL_EINKAUFSPREIS);
   const canSeeMarge = usePermission(P.FELD_ARTIKEL_MARGE);
+  const eierhandelAn = useModulAktiv("eierhandel");
 
   const [artikel, setArtikel] = useState<Artikel | null>(null);
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
@@ -289,6 +293,7 @@ function ArtikelDetailContent() {
       aktiv: data.aktiv,
       lagerort: data.lagerort ?? "",
       liefergroesse: data.liefergroesse ?? "",
+      verpackungsart: data.verpackungsart ?? "",
       sprengstoffvorlaeufer: data.sprengstoffvorlaeufer ?? false,
       chargePflicht: data.chargePflicht ?? false,
       lagerTracking: data.lagerTracking ?? true,
@@ -556,6 +561,7 @@ function ArtikelDetailContent() {
         aktiv: editForm.aktiv,
         lagerort: editForm.lagerort || null,
         liefergroesse: editForm.liefergroesse || null,
+        verpackungsart: editForm.verpackungsart || null,
         sprengstoffvorlaeufer: editForm.sprengstoffvorlaeufer,
         chargePflicht: chargenpflichtErzwungen || editForm.chargePflicht,
         lagerTracking: editForm.lagerTracking,
@@ -602,6 +608,7 @@ function ArtikelDetailContent() {
         notiz: artikel.notiz,
         lagerort: artikel.lagerort,
         liefergroesse: artikel.liefergroesse,
+        verpackungsart: artikel.verpackungsart,
         inhaltsstoffe: artikel.inhaltsstoffe.map((i) => ({
           name: i.name,
           menge: i.menge,
@@ -1044,6 +1051,7 @@ function ArtikelDetailContent() {
                         kategorie,
                         unterkategorie: "",
                         chargePflicht: istChargenpflichtKategorie(kategorie, chargenpflichtKategorien) ? true : editForm.chargePflicht,
+                        verpackungsart: kategorie === "Eier" ? editForm.verpackungsart : "",
                       });
                     }}
                     className={inputCls}
@@ -1194,6 +1202,23 @@ function ArtikelDetailContent() {
                   className={inputCls}
                 />
               </div>
+              {eierhandelAn && editForm.kategorie === "Eier" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Verpackungsart <span className="text-gray-400 text-xs">(optional)</span>
+                  </label>
+                  <select
+                    value={editForm.verpackungsart ?? ""}
+                    onChange={(e) => setEditForm({ ...editForm, verpackungsart: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">— keine Angabe —</option>
+                    {VERPACKUNGSARTEN.map((v) => (
+                      <option key={v.key} value={v.key}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -1347,6 +1372,14 @@ function ArtikelDetailContent() {
                     <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Liefergröße</dt>
                     <dd className="text-sm text-gray-900">{artikel.liefergroesse || "—"}</dd>
                   </div>
+                  {eierhandelAn && artikel.kategorie === "Eier" && (
+                    <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
+                      <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Verpackungsart</dt>
+                      <dd className="text-sm text-gray-900">
+                        {VERPACKUNGSARTEN.find((v) => v.key === artikel.verpackungsart)?.label ?? "—"}
+                      </dd>
+                    </div>
+                  )}
                   <div className="py-2.5 flex gap-3 items-start sm:border-b sm:border-gray-100">
                     <dt className="w-36 flex-shrink-0 text-sm text-gray-500">Abgabebeschränkung</dt>
                     <dd className="text-sm">

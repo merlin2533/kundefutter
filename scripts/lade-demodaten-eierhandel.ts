@@ -33,6 +33,7 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { erstelleEierSortierung } from "../lib/eiersortierung";
+import { istGueltigeVerpackungsart } from "../lib/auswahllisten";
 
 const url = process.env.DATABASE_URL ?? "file:prisma/dev.db";
 
@@ -74,6 +75,7 @@ interface KundeRow {
 interface ArtikelRow {
   _key: string; artikelnummer: string; name: string; kategorie: string; einheit: string;
   standardpreis: number; mwstSatz: number; aktuellerBestand: number; lagerTracking: boolean;
+  verpackungsart?: string;
 }
 interface AnlieferungRow {
   _key: string; nummer: string; datumOffsetTage: number; _kundeKey: string; _artikelKey: string;
@@ -135,7 +137,14 @@ async function main() {
   // ── Artikel (echtes upsert, artikelnummer ist @unique) ──────────────────────
   const artikelJson = ladeJson<ArtikelRow[]>("artikel.json");
   const artikelIdByKey = new Map<string, number>();
+  // Verpackungsart aus dem tatsächlichen DB-Zustand (nicht der JSON-Datei) —
+  // bei einem bereits existierenden Artikel (update: {}) bleibt der DB-Wert
+  // unverändert und kann vom JSON-Fixture abweichen (z.B. nach UI-Bearbeitung).
+  const verpackungsartByKey = new Map<string, string | null>();
   for (const a of artikelJson) {
+    if (!istGueltigeVerpackungsart(a.verpackungsart)) {
+      throw new Error(`Artikel ${a._key}: ungültige verpackungsart „${a.verpackungsart}“`);
+    }
     const row = await prisma.artikel.upsert({
       where: { artikelnummer: a.artikelnummer },
       update: {},
@@ -148,9 +157,11 @@ async function main() {
         mwstSatz: a.mwstSatz,
         aktuellerBestand: a.aktuellerBestand,
         lagerTracking: a.lagerTracking,
+        verpackungsart: a.verpackungsart ?? null,
       },
     });
     artikelIdByKey.set(a._key, row.id);
+    verpackungsartByKey.set(a._key, row.verpackungsart);
   }
   console.log(`  Artikel: ${artikelIdByKey.size}`);
 
@@ -251,6 +262,11 @@ async function main() {
               gewichtsklasse: p.gewichtsklasse,
               legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
               erzeugercode,
+              // Snapshot aus Artikel.verpackungsart, analog zur echten Lieferungserfassung
+              // (lib/lieferung.ts erstelleLieferungTransaktion()) — dieses Skript legt
+              // Lieferpositionen direkt per prisma.lieferung.create() an, dupliziert die
+              // Übernahme hier deshalb bewusst.
+              verpackungsart: verpackungsartByKey.get(p._artikelKey) ?? null,
             };
           }),
         },

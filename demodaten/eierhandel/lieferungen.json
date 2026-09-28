@@ -64,9 +64,9 @@
     "notiz": "Demodaten Eierhandel [lief-4]",
     "positionen": [
       {
-        "_artikelKey": "artikel-ei-m",
+        "_artikelKey": "artikel-ei-s",
         "menge": 1800,
-        "verkaufspreis": 0.29,
+        "verkaufspreis": 0.25,
         "mwstSatz": 7,
         "gueteklasse": "A",
         "gewichtsklasse": "S",
