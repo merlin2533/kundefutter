@@ -192,6 +192,19 @@ export const GEWICHTSKLASSEN = [
   { key: "XL", label: "XL (> 73 g)" },
 ] as const;
 
+// Lebt am Artikel (Klassifizierung "lose"/"verpackt" ist eine Frage der Artikel-/Gebindeart,
+// nicht der einzelnen Lieferzeile) — Lieferposition.verpackungsart ist nur ein bei
+// Positionserstellung eingefrorener Snapshot davon (analog mwstSatz).
+export const VERPACKUNGSARTEN = [
+  { key: "lose", label: "Lose (Schüttware)" },
+  { key: "verpackt", label: "Verpackt (Karton/Palette)" },
+] as const;
+
+export function istGueltigeVerpackungsart(wert: string | null | undefined): boolean {
+  if (!wert) return true;
+  return VERPACKUNGSARTEN.some((v) => v.key === wert);
+}
+
 export const HALTUNGSFORMEN = [
   { code: 0, label: "Bio" },
   { code: 1, label: "Freiland" },

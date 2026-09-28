@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission, requirePermission } from "@/lib/permissions";
-import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
+import { istChargenpflichtKategorie, istGueltigeVerpackungsart } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { loeseArtikelPreiseFuerJahr } from "@/lib/jahrespreis";
 import { umlautSchreibweisen } from "@/lib/utils";
@@ -148,6 +148,10 @@ export async function POST(req: NextRequest) {
   if (!data.name || typeof data.name !== "string" || !data.name.trim()) {
     return NextResponse.json({ error: "Name ist erforderlich" }, { status: 400 });
   }
+  if (data.verpackungsart !== undefined && !istGueltigeVerpackungsart(data.verpackungsart)) {
+    return NextResponse.json({ error: `Ungültige Verpackungsart „${data.verpackungsart}“ (erlaubt: lose, verpackt)` }, { status: 400 });
+  }
+  if (data.verpackungsart === "") data.verpackungsart = null;
 
   try {
     if (data.mwstSatz !== undefined) data.mwstSatz = Number(data.mwstSatz);

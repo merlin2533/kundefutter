@@ -4,7 +4,7 @@ import { auditChanges, auditLog } from "@/lib/audit";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
 import { filterArtikelFelder, P, hasPermission, requirePermission } from "@/lib/permissions";
-import { istChargenpflichtKategorie } from "@/lib/auswahllisten";
+import { istChargenpflichtKategorie, istGueltigeVerpackungsart } from "@/lib/auswahllisten";
 import { getChargenpflichtKategorien } from "@/lib/chargenpflicht";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, artikelOrdnerPfad, verschiebeOrdner } from "@/lib/nextcloud";
@@ -58,6 +58,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const { lieferanten, inhaltsstoffe } = body;
 
+  if (body.verpackungsart !== undefined && !istGueltigeVerpackungsart(body.verpackungsart)) {
+    return NextResponse.json({ error: `Ungültige Verpackungsart „${body.verpackungsart}“ (erlaubt: lose, verpackt)` }, { status: 400 });
+  }
+
   // Explicit allowlist (mass-assignment protection) with typed fields for Prisma
   const data = {
     ...(body.name !== undefined ? { name: String(body.name) } : {}),
@@ -81,6 +85,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     ...(body.signalwort !== undefined ? { signalwort: body.signalwort ? String(body.signalwort) : null } : {}),
     ...(body.lagerort !== undefined ? { lagerort: body.lagerort ? String(body.lagerort) : null } : {}),
     ...(body.liefergroesse !== undefined ? { liefergroesse: body.liefergroesse ? String(body.liefergroesse) : null } : {}),
+    ...(body.verpackungsart !== undefined ? { verpackungsart: body.verpackungsart ? String(body.verpackungsart) : null } : {}),
     ...(body.preisStand !== undefined ? { preisStand: body.preisStand ? new Date(String(body.preisStand)) : null } : {}),
   };
 

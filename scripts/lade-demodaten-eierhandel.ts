@@ -74,6 +74,7 @@ interface KundeRow {
 interface ArtikelRow {
   _key: string; artikelnummer: string; name: string; kategorie: string; einheit: string;
   standardpreis: number; mwstSatz: number; aktuellerBestand: number; lagerTracking: boolean;
+  verpackungsart?: string;
 }
 interface AnlieferungRow {
   _key: string; nummer: string; datumOffsetTage: number; _kundeKey: string; _artikelKey: string;
@@ -135,7 +136,9 @@ async function main() {
   // ── Artikel (echtes upsert, artikelnummer ist @unique) ──────────────────────
   const artikelJson = ladeJson<ArtikelRow[]>("artikel.json");
   const artikelIdByKey = new Map<string, number>();
+  const artikelByKey = new Map<string, ArtikelRow>();
   for (const a of artikelJson) {
+    artikelByKey.set(a._key, a);
     const row = await prisma.artikel.upsert({
       where: { artikelnummer: a.artikelnummer },
       update: {},
@@ -148,6 +151,7 @@ async function main() {
         mwstSatz: a.mwstSatz,
         aktuellerBestand: a.aktuellerBestand,
         lagerTracking: a.lagerTracking,
+        verpackungsart: a.verpackungsart ?? null,
       },
     });
     artikelIdByKey.set(a._key, row.id);
@@ -251,6 +255,11 @@ async function main() {
               gewichtsklasse: p.gewichtsklasse,
               legedatum: p.legedatumOffsetTage !== undefined ? tageAb(p.legedatumOffsetTage) : null,
               erzeugercode,
+              // Snapshot aus Artikel.verpackungsart, analog zur echten Lieferungserfassung
+              // (lib/lieferung.ts erstelleLieferungTransaktion()) — dieses Skript legt
+              // Lieferpositionen direkt per prisma.lieferung.create() an, dupliziert die
+              // Übernahme hier deshalb bewusst.
+              verpackungsart: artikelByKey.get(p._artikelKey)?.verpackungsart ?? null,
             };
           }),
         },

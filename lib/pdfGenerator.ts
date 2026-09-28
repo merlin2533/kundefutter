@@ -508,7 +508,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     const netto = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
     const posNotiz = typeof p.notiz === "string" ? p.notiz.trim() : "";
     const posMwstSatz = p.mwstSatz ?? p.artikel.mwstSatz ?? 19;
-    const eierZeile = eierKennzeichnungZeile(p);
+    const eierZeile = eierKennzeichnungZeile(p, FIRMA.eierZulassungsnummer);
     const artikelZeilen = [p.artikel.name];
     if (posNotiz) artikelZeilen.push(posNotiz);
     if (eierZeile) artikelZeilen.push(eierZeile);
@@ -850,7 +850,7 @@ export async function generiereLieferscheinPdf(lieferungId: number): Promise<Buf
     ? [["Pos.", "Bezeichnung", "Charge", "Menge", "Einheit"]]
     : [["Pos.", "Bezeichnung", "Menge", "Einheit"]];
   const lsBody = positionen.map((p, i) => {
-    const eierZeile = eierKennzeichnungZeile(p);
+    const eierZeile = eierKennzeichnungZeile(p, FIRMA.eierZulassungsnummer);
     const artikelZelle = eierZeile ? `${p.artikel.name}\n${eierZeile}` : p.artikel.name;
     return hasCharge
       ? [String(i + 1), artikelZelle, p.chargeNr ?? "—", p.menge.toLocaleString("de-DE"), p.artikel.einheit]

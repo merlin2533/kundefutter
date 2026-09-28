@@ -201,15 +201,18 @@ Rechtsgrundlage: EU-Vermarktungsnorm für Eier, **Del. VO (EU) 2023/2465 + DVO (
 |--------|------|-------|
 | `Kunde` | `erzeugercode String?` | Erzeugercode des Legehennenbetriebs (z.B. `1-DE-0123451`) |
 | `Kunde` | `haltungsform Int?` | 0 Bio · 1 Freiland · 2 Boden · 3 Käfig/Kleingruppe |
+| `Artikel` | `verpackungsart String?` | `lose` \| `verpackt` — lebt am Artikel (Frage der Artikel-/Gebindeart, nicht der Lieferzeile) |
 | `Lieferposition` | `gueteklasse String?` | A \| B — **bei Positionserstellung eingefroren**, analog `mwstSatz` |
 | `Lieferposition` | `gewichtsklasse String?` | S \| M \| L \| XL |
 | `Lieferposition` | `legedatum DateTime?` | Basis der MHD-Berechnung |
 | `Lieferposition` | `erzeugercode String?` | Erzeugercode der gelieferten Charge |
+| `Lieferposition` | `verpackungsart String?` | **Snapshot aus `Artikel.verpackungsart` bei Positionserstellung** (analog `mwstSatz`) — vom Aufrufer nicht überschreibbar |
 
 ### Konstanten (`lib/auswahllisten.ts`)
 `GUETEKLASSEN` (A, B), `GEWICHTSKLASSEN` (S <53 g, M 53–63 g, L 63–73 g, XL >73 g),
-`HALTUNGSFORMEN` (0–3) + `haltungsformLabel()`. Bewusst **nicht** über `Einstellung`
-konfigurierbar (anders als Artikelkategorien/Einheiten) — gesetzlich definierte Werte.
+`HALTUNGSFORMEN` (0–3) + `haltungsformLabel()`, `VERPACKUNGSARTEN` (lose, verpackt) +
+`istGueltigeVerpackungsart()`. Bewusst **nicht** über `Einstellung` konfigurierbar (anders als
+Artikelkategorien/Einheiten) — gesetzlich definierte bzw. feste Werte.
 
 ### MHD (`lib/eier-mhd.ts`)
 `berechneEierMhd(legedatum)` = **Legedatum + 28 Tage** — ausdrücklich NICHT ab Wareneingangs-
@@ -222,10 +225,14 @@ entfernt; wer eine Ablauf-Ampel braucht, vergleicht `berechneEierMhd(...)` direk
 `eierKennzeichnungZeile()` (`lib/eier-mhd.ts` — einzige Quelle der Wahrheit, genutzt von
 `lib/pdfGenerator.ts` UND den Bildschirm-Vorschauen `/lieferungen/[id]/{rechnung,lieferschein}`)
 baut aus den gesetzten Feldern
-`"Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026"`.
+`"Güteklasse A · Gewichtsklasse M · Erzeugercode 1-DE-0123451 · MHD 12.10.2026 · lose Ware · Packstellen-Zulassungsnr. DE-1234"`.
 Leerer String, wenn keine Güteklasse gesetzt ist (Position ist kein Ei) — es wird also
 nichts mit Platzhaltern aufgefüllt. Erscheint im server-seitigen PDF **und** in der
-Bildschirmvorschau von Lieferschein/Rechnung.
+Bildschirmvorschau von Lieferschein/Rechnung. Die Packstellen-Zulassungsnummer
+(`Einstellung`-Key `firma.eierZulassungsnummer`, Feld unter `/einstellungen/firma` §
+„Steuer & Registrierung") wird **immer** angehängt, wenn gesetzt — unabhängig von
+`verpackungsart` (die exakte Rechtslage lose vs. verpackt ist nicht abschließend verifiziert,
+"immer anzeigen" ist der sichere Default).
 
 ### KAT-Warenstrommeldung (`lib/kat-meldung.ts`)
 `sammleKatMeldung(von, bis)` aggregiert je **ISO-Kalenderwoche** (`"2026-W37"`),

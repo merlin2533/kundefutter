@@ -33,6 +33,7 @@ interface Position {
   gewichtsklasse?: string | null;
   legedatum?: string | null;
   erzeugercode?: string | null;
+  verpackungsart?: string | null;
   artikel: ArtikelInfo;
 }
 
@@ -739,6 +740,7 @@ export default function RechnungPrintPage() {
   const firmaSteuernr = firmaData["firma.steuernummer"] ?? firmaData["firma.steuernr"] ?? "";
   const firmaUstId = firmaData["firma.ustIdNr"] ?? "";
   const firmaOeko = firmaData["firma.oekoNummer"] ?? "";
+  const firmaEierZulassung = firmaData["firma.eierZulassungsnummer"] ?? "";
   const firmaIban = firmaData["firma.iban"] ?? "";
   const firmaBic = firmaData["firma.bic"] ?? "";
   const firmaBankname = firmaData["firma.bank"] ?? firmaData["firma.bankname"] ?? "";
@@ -1264,7 +1266,7 @@ export default function RechnungPrintPage() {
             )}
             {p.gueteklasse && (
               <div style={{ fontSize: "8.5pt", color: "#555", lineHeight: 1.3 }}>
-                {eierKennzeichnungZeile(p)}
+                {eierKennzeichnungZeile(p, firmaEierZulassung)}
               </div>
             )}
             <div style={{ fontSize: "8pt", color: "#666", lineHeight: 1.3 }}>
