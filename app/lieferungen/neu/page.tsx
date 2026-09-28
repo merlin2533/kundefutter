@@ -261,7 +261,7 @@ function NeueLieferungInner() {
       const [kr, ar, lr, mr] = await Promise.all([
         fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
         fetch("/api/artikel?limit=5000&relations=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
-        fetch("/api/lieferanten?limit=500", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
+        fetch("/api/lieferanten?limit=5000", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
         fetch("/api/mengenrabatte", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
       ]);
       let kundenData: Kunde[] = Array.isArray(kr) ? kr : [];

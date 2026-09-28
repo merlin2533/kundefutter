@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           },
         },
       },
-      take: 500,
+      take: 5000,
     });
 
     const zahlungen: SepaZahlung[] = [];

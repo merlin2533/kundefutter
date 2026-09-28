@@ -39,13 +39,13 @@ export async function GET(req: NextRequest) {
       prisma.lieferung.findMany({
         where: { rechnungNr: { not: null }, bezahltAm: null, status: { not: "storniert" } },
         select: { positionen: { select: { menge: true, verkaufspreis: true } } },
-        take: 2000,
+        take: 5000,
       }),
       // 4. Offene Verbindlichkeiten (Stichtag)
       prisma.eingangsRechnung.findMany({
         where: { status: "OFFEN" },
         select: { betrag: true },
-        take: 2000,
+        take: 5000,
       }),
       // 5. Lagerwert (Einstandspreis × Bestand)
       prisma.artikel.findMany({
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       prisma.mitarbeiter.findMany({
         where: { aktiv: true },
         select: { typ: true, grundgehalt: true, minijobPauschale: true, stundenlohn: true, wochenstunden: true },
-        take: 500,
+        take: 5000,
       }),
     ]);
 

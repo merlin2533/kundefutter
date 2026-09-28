@@ -67,7 +67,7 @@ interface BatchDetail {
 
 async function ladeAlleLieferanten(): Promise<LieferantRaw[]> {
   return fetchAlleSeiten<LieferantRaw>(async (page) => {
-    const res = await fetch(`/api/lieferanten?page=${page}&limit=500`);
+    const res = await fetch(`/api/lieferanten?page=${page}&limit=5000`);
     if (!res.ok) return null;
     const json = await res.json();
     return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };

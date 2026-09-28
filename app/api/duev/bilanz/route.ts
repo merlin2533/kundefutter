@@ -37,7 +37,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      take: 2000,
+      take: 5000,
     });
 
     const kundenMap = new Map<

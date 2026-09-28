@@ -54,7 +54,7 @@ export async function GET() {
         where: { aktiv: true, OR: [{ erzeugercode: { not: null } }, { haltungsform: { not: null } }] },
         select: { id: true, name: true, firma: true, erzeugercode: true, haltungsform: true },
         orderBy: { name: "asc" },
-        take: 500,
+        take: 5000,
       }),
       prisma.aufgabe.count({ where: meldepflichtenWhere }),
       prisma.aufgabe.count({ where: { ...meldepflichtenWhere, faelligAm: { lt: new Date() } } }),

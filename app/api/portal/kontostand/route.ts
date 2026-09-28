@@ -23,7 +23,7 @@ export async function GET() {
           select: { menge: true, verkaufspreis: true },
         },
       },
-      take: 200,
+      take: 5000,
     });
 
     const now = new Date();

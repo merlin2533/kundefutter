@@ -72,7 +72,7 @@ function EingangsrechnungenListeInner() {
   const PAGE_SIZE = 100;
 
   useEffect(() => {
-    fetch("/api/lieferanten?limit=500")
+    fetch("/api/lieferanten?limit=5000")
       .then((r) => r.json())
       .then((d) => setLieferanten(Array.isArray(d) ? d : []))
       .catch((err) => {

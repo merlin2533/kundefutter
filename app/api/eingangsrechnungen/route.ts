@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // Response ein nacktes Array (z.B. finanzen/cashflow verlässt sich darauf).
   const pageParam = searchParams.get("page");
   const usePagination = pageParam !== null;
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const limit = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
   const page = usePagination ? Math.max(1, parseInt(pageParam, 10) || 1) : 1;
 
   try {

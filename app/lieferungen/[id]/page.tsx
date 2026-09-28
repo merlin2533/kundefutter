@@ -693,7 +693,7 @@ export default function LieferungDetailPage() {
       .catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/lieferanten?limit=500")
+    fetch("/api/lieferanten?limit=5000")
       .then(r => r.ok ? r.json() : [])
       .then(d => { if (Array.isArray(d)) setLieferanten(d); })
       .catch((err) => {

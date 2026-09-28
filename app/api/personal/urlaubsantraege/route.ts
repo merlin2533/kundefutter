@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { mitarbeiter: { select: { id: true, vorname: true, nachname: true } } },
       orderBy: { von: "desc" },
-      take: 500,
+      take: 5000,
     });
 
     return NextResponse.json(antraege);

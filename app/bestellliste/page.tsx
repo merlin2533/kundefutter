@@ -126,7 +126,7 @@ export default function BestelllistePage() {
   useEffect(() => { load(); }, [statusFilter]);
 
   useEffect(() => {
-    fetch("/api/lieferanten?limit=500")
+    fetch("/api/lieferanten?limit=5000")
       .then((r) => r.json())
       .then((d) => setLieferantenListe(Array.isArray(d) ? d.map((l: { id: number; name: string }) => ({ id: l.id, name: l.name })) : []))
       .catch((err) => Sentry.captureException(err));

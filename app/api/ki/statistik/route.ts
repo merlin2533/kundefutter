@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const nutzungen = await prisma.kiNutzung.findMany({
       where: { zeitpunkt: { gte: seit } },
       orderBy: { zeitpunkt: "desc" },
-      take: 500,
+      take: 5000,
     });
 
     const gesamt = {
