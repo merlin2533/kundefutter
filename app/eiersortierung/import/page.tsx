@@ -107,6 +107,12 @@ export default function EierSortierungImportPage() {
         <Link href="/eiersortierung" className="text-sm text-gray-500 hover:text-gray-700">← Zurück zur Liste</Link>
       </div>
 
+      <div className="mb-5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        ⚠ Anders als beim Anlieferungs-Import gibt es hier keinen Duplikat-Schutz: eine bereits
+        importierte Datei ein zweites Mal hochladen bucht dieselben Mengen erneut in den
+        Lagerbestand.
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-5">
         <label className="block text-sm font-medium text-gray-700 mb-2">Datei wählen</label>
         <input

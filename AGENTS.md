@@ -362,10 +362,32 @@ und tatsächlicher Import nie auseinanderlaufen. Datumsspalten (inkl. Legedatum)
 `parseImportDatum()` (`lib/import-utils.ts`) geparst — erkennt sowohl Freitext (DD.MM.YYYY,
 YYYY-MM-DD) als auch numerische Excel-Datums-Seriencodes (eine als Datum formatierte Zelle
 liefert ohne `cellDates:true` eine reine Zahl, z.B. 45912 statt „12.09.2025" — `new
-Date(String(zahl))` würde daraus fälschlich ein Datum im Jahr 45912 bauen) und wirft bei einem
-wirklich nicht erkennbaren Wert statt stillschweigend ein unsinniges Datum zu erzeugen. Jede
+Date(String(zahl))` würde daraus fälschlich ein Datum im Jahr 45912 bauen). Liefert `null`
+statt zu werfen, sowohl wenn die Spalte fehlt als auch wenn der Wert wirklich nicht erkennbar
+ist — die aufrufende Zeilen-Parsing-Funktion (`parseAnlieferungZeile()`/
+`parseEierSortierungZeile()`) unterscheidet beide Fälle (fehlende Spalte → Fallback wie
+„heute"; vorhandener, aber ungültiger Wert → Zeile wird mit Fehlermeldung abgelehnt statt
+stillschweigend ein unsinniges Datum zu übernehmen). Ein plausibler Wertebereich (Jahr
+2000–2099 für den Seriencode) und eine Rundreise-Prüfung bei DD.MM.YYYY/ISO verhindern
+zusätzlich, dass ein bloßer Jahres-/Wochenwert als Seriencode bzw. ein ungültiger Tag wie
+„31.02." (rollt in JS sonst still auf den 03.03.) als Datum akzeptiert wird. CSV-Dateien
+werden zusätzlich mit `XLSX.read(buffer, {raw:true})` gelesen — ohne dieses Flag wandelt
+SheetJS deutsches Dezimalkomma ("1,5") und führende Nullen einer Belegnummer ("007") beim
+CSV-Parsen VOR jeder eigenen Verarbeitung in JS-Numbers um (15 bzw. 7) und unterläuft damit
+`parseNumber()`; echte `.xlsx`-Zelltypen bleiben davon unberührt. `Anlieferung.externeNr` ist
+nur je Kunde eindeutig (`@@unique([kundeId, externeNr])`) — `resolveAnlieferungRef()`
+(`lib/eiersortierung-import.ts`) prüft deshalb zuerst die global eindeutige `nummer` und meldet
+bei mehreren Kunden mit derselben `externeNr` explizit Mehrdeutigkeit, statt über `findFirst()`
+still eine falsche Anlieferung (und damit einen falschen Erzeuger) zu treffen. Jede
 Import-Zeile läuft in einer EIGENEN kurzen Transaktion statt einer einzigen über die gesamte
 Datei, damit ein großer Import nicht das Transaktions-Timeout überschreitet.
+
+**Keine Idempotenz beim `EierSortierung`-Import:** anders als beim Anlieferungs-Import (über
+`externeNr`) gibt es hier bewusst keinen Duplikat-Schutz — ein zweiter Upload derselben Datei
+bucht dieselben Mengen ein zweites Mal in den Lagerbestand. Die Quelldatei (Sortiermaschinen-
+Export) liefert keinen verlässlichen Gruppierungs-/Idempotenz-Schlüssel über mehrere Zeilen
+hinweg; dasselbe Risiko besteht identisch bei zweimaliger manueller Erfassung über
+`/eiersortierung/neu`.
 
 `Anlieferung.externeNr` ist der Idempotenz-Schlüssel: eine Zeile mit bereits vorhandener
 `externeNr` für denselben Kunden wird beim erneuten Import übersprungen statt dupliziert; ohne

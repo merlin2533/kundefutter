@@ -32,7 +32,13 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: "Keine Datei" }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const wb = XLSX.read(buffer, { type: "buffer" });
+    // raw:true — sonst wandelt SheetJS beim CSV-Parsen zahlenartigen Text VOR jeder
+    // eigenen Verarbeitung in JS-Numbers um (deutsches Dezimalkomma "1,5" -> 15, führende
+    // Nullen einer Belegnummer "007" -> 7) und unterläuft damit parseNumber()/pickCol().
+    // Bei echten .xlsx-Dateien bleiben Zahl-/Datumszellen davon unberührt (Zelltyp steht
+    // bereits in der Datei, nicht aus Text erraten) — parseImportDatum() erkennt einen
+    // echten Excel-Datums-Seriencode weiterhin korrekt.
+    const wb = XLSX.read(buffer, { type: "buffer", raw: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
 

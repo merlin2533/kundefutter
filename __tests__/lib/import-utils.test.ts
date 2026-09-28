@@ -66,4 +66,23 @@ describe("parseImportDatum", () => {
     expect(d).not.toBeNull();
     expect(d!.getFullYear()).toBe(2026);
   });
+
+  it("lehnt einen ungültigen Tag/Monat ab statt ihn stillschweigend in den Folgemonat zu rollen (31.02.)", () => {
+    expect(parseImportDatum({ Datum: "31.02.2026" }, "Datum")).toBeNull();
+    expect(parseImportDatum({ Datum: "2026-02-31" }, "Datum")).toBeNull();
+    // Ein gültiges Datum bleibt davon unberührt
+    expect(parseImportDatum({ Datum: "28.02.2026" }, "Datum")).not.toBeNull();
+  });
+
+  it("lehnt einen 3-stelligen Jahreswert ab statt ihn als Jahr 202 zu interpretieren", () => {
+    expect(parseImportDatum({ Datum: "12.09.202" }, "Datum")).toBeNull();
+  });
+
+  it("lehnt einen bloßen Jahres-/Wochenwert als Excel-Seriencode ab (Bereich ist auf plausible Jahre 2000-2099 begrenzt)", () => {
+    // "2025" läge unterhalb des plausiblen Seriencode-Bereichs (2000-01-01 = 36526) und wäre
+    // sonst fälschlich als Datum im Jahr 1905 interpretiert worden.
+    expect(parseImportDatum({ Datum: 2025 }, "Datum")).toBeNull();
+    expect(parseImportDatum({ Datum: "36525" }, "Datum")).toBeNull(); // 1999-12-31, knapp außerhalb
+    expect(parseImportDatum({ Datum: 36526 }, "Datum")).not.toBeNull(); // 2000-01-01, knapp innerhalb
+  });
 });

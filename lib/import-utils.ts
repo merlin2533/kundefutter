@@ -30,17 +30,30 @@ function pickRawCol(row: Record<string, unknown>, ...keys: string[]): unknown {
   return undefined;
 }
 
-// Excel-Serial-Datumscodes liegen typischerweise zwischen 1 (1900-01-01) und ~73000
-// (Jahr ~2099) — ein reiner Zahlenstring außerhalb dieses Bereichs ist mit hoher
-// Wahrscheinlichkeit kein Datum (z.B. eine Belegnummer), sondern ein anderer numerischer Wert.
-const EXCEL_SERIAL_MIN = 1;
-const EXCEL_SERIAL_MAX = 73000;
+// Excel-Serial-Datumscodes liegen für diese Anwendung plausibel zwischen 36526 (2000-01-01)
+// und 73050 (2099-12-31) — bewusst NICHT ab 1 (1900-01-01): ein Import-Datum vor 2000 ist für
+// dieses System nicht real, ein Bereich ab 1 würde aber z.B. einen bloßen Jahres- oder
+// Wochenwert ("2025") fälschlich als Datum (1905-07-17) statt als das erkennen, was er ist —
+// ein anderer numerischer Wert (z.B. eine Belegnummer).
+const EXCEL_SERIAL_MIN = 36526;
+const EXCEL_SERIAL_MAX = 73050;
 
 function datumAusSeriencode(n: number): Date | null {
   const parsed = XLSX.SSF.parse_date_code(n);
   if (!parsed) return null;
   const d = new Date(parsed.y, parsed.m - 1, parsed.d, parsed.H ?? 0, parsed.M ?? 0, parsed.S ?? 0);
   return isNaN(d.getTime()) ? null : d;
+}
+
+// new Date(jahr, monat0, tag) "rollt" einen ungültigen Tag/Monat stillschweigend in den
+// Folgemonat (z.B. 31.02.2026 -> 03.03.2026) statt einen Fehler zu liefern — bei einem
+// Legedatum-Import würde das unbemerkt ein falsches MHD erzeugen. Round-Trip-Prüfung: das
+// tatsächlich konstruierte Datum muss exakt den angegebenen Komponenten entsprechen.
+function gueltigesKalenderdatum(jahr: number, monatIndex: number, tag: number): Date | null {
+  const d = new Date(jahr, monatIndex, tag);
+  if (isNaN(d.getTime())) return null;
+  if (d.getFullYear() !== jahr || d.getMonth() !== monatIndex || d.getDate() !== tag) return null;
+  return d;
 }
 
 // Parst ein Datum aus einer Import-Zeile: erkennt sowohl Freitext-Formate (DD.MM.YYYY,
@@ -62,18 +75,18 @@ export function parseImportDatum(row: Record<string, unknown>, ...keys: string[]
   }
   const s = String(raw).trim();
   if (!s) return null;
-  const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+  // Jahr exakt 2- oder 4-stellig (nicht \d{2,4}) — sonst würde z.B. "12.09.202" (3-stellig,
+  // eher ein Tippfehler) unbemerkt als Jahr 202 interpretiert.
+  const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})$/);
   if (dmy) {
     const [, d, mo, y] = dmy;
     const yr = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
-    const parsedDate = new Date(yr, parseInt(mo, 10) - 1, parseInt(d, 10));
-    return isNaN(parsedDate.getTime()) ? null : parsedDate;
+    return gueltigesKalenderdatum(yr, parseInt(mo, 10) - 1, parseInt(d, 10));
   }
   const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (iso) {
     const [, y, mo, d] = iso;
-    const parsedDate = new Date(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10));
-    return isNaN(parsedDate.getTime()) ? null : parsedDate;
+    return gueltigesKalenderdatum(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10));
   }
   // Manche CSV-Exporte aus Excel verlieren die Zellformatierung und liefern den
   // Seriencode als reinen Zahlen-Text statt als Number — z.B. wenn die Quelldatei
@@ -272,15 +285,21 @@ export const ANLIEFERUNG_ALIAS = {
 // Ein Zeile = eine klassifizierte Ausgangscharge (analog der manuellen Erfassung unter
 // /eiersortierung/neu) — Artikel/Güte-/Gewichtsklasse/Menge sind Pflicht, der Rest optional.
 
+// Bewusst KEINE zu generischen Aliasse ("Gewicht" bei Gewichtsklasse, "Erzeuger" bei
+// Erzeugercode, "Beleg"/"Belegnummer" bei Anlieferung) — ein Sortiermaschinen-Export hat
+// oft eine eigene, unabhängige Belegnummer-Spalte, und ein reines "Gewicht"/"Erzeuger"
+// kollidiert leicht mit einer echten Gramm-Gewichts- bzw. Erzeugernamen-Spalte. Ein
+// falscher Treffer fällt dadurch als klare Zeilen-Fehlermeldung auf, statt still eine
+// Spalte mit anderer Bedeutung zu übernehmen.
 export const EIERSORTIERUNG_ALIAS = {
   artikel: ["Artikel", "Artikelnummer", "Produkt"],
   gueteklasse: ["Güteklasse", "Gueteklasse", "Güte", "Guete", "Klasse"],
-  gewichtsklasse: ["Gewichtsklasse", "Gewicht", "Größe", "Groesse"],
+  gewichtsklasse: ["Gewichtsklasse", "Größe", "Groesse"],
   menge: ["Menge", "Anzahl", "Stück", "Stueck"],
   datum: ["Datum", "Sortierdatum"],
-  anlieferung: ["Anlieferung", "Anlieferungsnummer", "ANL-Nr", "Beleg", "Belegnummer", "Externe Nr", "Externe-Nr"],
+  anlieferung: ["Anlieferung", "Anlieferungsnummer", "ANL-Nr", "Externe Nr", "Externe-Nr"],
   chargeNr: ["Charge", "Chargennummer", "Charge-Nr", "ChargeNr"],
   legedatum: ["Legedatum"],
-  erzeugercode: ["Erzeugercode", "Erzeuger-Code", "Erzeuger"],
+  erzeugercode: ["Erzeugercode", "Erzeuger-Code"],
   notiz: ["Notiz", "Bemerkung", "Hinweis"],
 } as const;

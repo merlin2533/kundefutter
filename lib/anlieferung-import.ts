@@ -83,14 +83,21 @@ export type AufgeloesterName = { id: number; name: string } | { error: string };
  * Fehlertext statt einer Exception zurückgegeben, damit die aufrufende Zeile sauber als
  * "fehler" statt eines 500ers markiert werden kann. */
 export async function resolveAnlieferungKunde(tx: Tx, name: string): Promise<AufgeloesterName> {
-  const exakt = await tx.kunde.findFirst({
-    where: { OR: [{ name }, { firma: name }] },
+  // Nur aktive Kunden — vermeidet sowohl einen stillen Treffer auf einen per "Löschen"
+  // (aktiv:false) entfernten Kunden als auch eine übersehene Mehrdeutigkeit, wenn nach einem
+  // Kunden-Merge noch ein inaktives Duplikat mit demselben Namen existiert.
+  const exakt = await tx.kunde.findMany({
+    where: { aktiv: true, OR: [{ name }, { firma: name }] },
     select: { id: true, name: true },
+    take: 2,
   });
-  if (exakt) return exakt;
+  if (exakt.length === 1) return exakt[0];
+  // Zwei Erzeuger mit exakt demselben Namen (z.B. Nachname "Meier") sind real möglich —
+  // ein findFirst() hätte hier still einen davon gewählt, statt die Mehrdeutigkeit zu melden.
+  if (exakt.length > 1) return { error: `Kunde/Erzeuger „${name}“ nicht eindeutig (mehrere aktive Kunden mit diesem Namen)` };
 
   const kandidaten = await tx.kunde.findMany({
-    where: { OR: [{ name: { contains: name } }, { firma: { contains: name } }] },
+    where: { aktiv: true, OR: [{ name: { contains: name } }, { firma: { contains: name } }] },
     select: { id: true, name: true },
     take: 5,
   });
@@ -103,17 +110,28 @@ export async function resolveAnlieferungKunde(tx: Tx, name: string): Promise<Auf
  * Waagen-/Sortiermaschinen-Exporten), dann exakter Name, dann ein eindeutiger
  * Teilstring-Treffer auf den Namen. */
 export async function resolveArtikelRef(tx: Tx, ref: string): Promise<AufgeloesterName> {
+  // artikelnummer ist global @unique — ein Treffer hier ist immer eindeutig, unabhängig von
+  // aktiv/inaktiv (eine importierte Zeile referenziert bewusst denselben Artikel, den der
+  // Nutzer auch über seine Artikelnummer wiederfinden würde).
   const exaktNummer = await tx.artikel.findUnique({
     where: { artikelnummer: ref },
     select: { id: true, name: true },
   });
   if (exaktNummer) return exaktNummer;
 
-  const exaktName = await tx.artikel.findFirst({ where: { name: ref }, select: { id: true, name: true } });
-  if (exaktName) return exaktName;
+  // Artikelnamen sind NICHT unique — zwei aktive Artikel mit exakt demselben Namen sind
+  // möglich (z.B. vor einer Bereinigung/einem Merge). Nur aktive Artikel berücksichtigen und
+  // bei mehr als einem Treffer die Mehrdeutigkeit melden statt still einen davon zu wählen.
+  const exaktName = await tx.artikel.findMany({
+    where: { aktiv: true, name: ref },
+    select: { id: true, name: true },
+    take: 2,
+  });
+  if (exaktName.length === 1) return exaktName[0];
+  if (exaktName.length > 1) return { error: `Artikel „${ref}“ nicht eindeutig (mehrere aktive Artikel mit diesem Namen)` };
 
   const kandidaten = await tx.artikel.findMany({
-    where: { name: { contains: ref } },
+    where: { aktiv: true, name: { contains: ref } },
     select: { id: true, name: true },
     take: 5,
   });

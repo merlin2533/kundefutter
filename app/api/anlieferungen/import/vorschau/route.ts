@@ -34,7 +34,13 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: "Keine Datei" }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const wb = XLSX.read(buffer, { type: "buffer" });
+    // raw:true — sonst wandelt SheetJS beim CSV-Parsen zahlenartigen Text VOR jeder
+    // eigenen Verarbeitung in JS-Numbers um (deutsches Dezimalkomma "1,5" -> 15, führende
+    // Nullen einer Belegnummer "007" -> 7) und unterläuft damit parseNumber()/pickCol().
+    // Bei echten .xlsx-Dateien bleiben Zahl-/Datumszellen davon unberührt (Zelltyp steht
+    // bereits in der Datei, nicht aus Text erraten) — parseImportDatum() erkennt einen
+    // echten Excel-Datums-Seriencode weiterhin korrekt.
+    const wb = XLSX.read(buffer, { type: "buffer", raw: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
 
@@ -43,6 +49,11 @@ export async function POST(req: NextRequest) {
     }
 
     const ergebnis: AnlieferungVorschauZeile[] = [];
+    // Innerhalb derselben Datei mehrfach vorkommende externeNr (z.B. eine versehentlich
+    // doppelt exportierte Zeile) darf die Vorschau nicht zweimal als "neu" zählen — der
+    // Commit legt pro externeNr+Kunde ohnehin nur die erste Zeile an (jede Zeile läuft in
+    // einer eigenen Transaktion, die zweite sieht die erste bereits als vorhanden).
+    const externeNrInDieserDatei = new Set<string>();
 
     for (let i = 0; i < rows.length; i++) {
       const zeileNr = i + 2; // Header ist Zeile 1
@@ -69,6 +80,7 @@ export async function POST(req: NextRequest) {
       let status: AnlieferungVorschauZeile["status"] = "neu";
       let grund: string | undefined;
       if (z.externeNr) {
+        const schluessel = `${kunde.id}|${z.externeNr}`;
         const vorhanden = await prisma.anlieferung.findFirst({
           where: { kundeId: kunde.id, externeNr: z.externeNr },
           select: { nummer: true },
@@ -76,6 +88,11 @@ export async function POST(req: NextRequest) {
         if (vorhanden) {
           status = "uebersprungen";
           grund = `Bereits importiert als ${vorhanden.nummer} (Beleg „${z.externeNr}“)`;
+        } else if (externeNrInDieserDatei.has(schluessel)) {
+          status = "uebersprungen";
+          grund = `Beleg „${z.externeNr}“ kommt in dieser Datei bereits in einer früheren Zeile vor`;
+        } else {
+          externeNrInDieserDatei.add(schluessel);
         }
       }
 

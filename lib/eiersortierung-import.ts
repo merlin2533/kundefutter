@@ -94,10 +94,15 @@ export type AufgeloesteAnlieferung = { id: number } | { error: string } | { none
  * Nummer zu kennen (siehe Anlieferung.externeNr-Kommentar im Schema). */
 export async function resolveAnlieferungRef(tx: Tx, ref: string | null): Promise<AufgeloesteAnlieferung> {
   if (!ref) return { none: true };
-  const treffer = await tx.anlieferung.findFirst({
-    where: { OR: [{ nummer: ref }, { externeNr: ref }] },
-    select: { id: true },
-  });
-  if (!treffer) return { error: `Anlieferung „${ref}“ nicht gefunden` };
-  return { id: treffer.id };
+  // Erst die interne nummer versuchen — die ist global @unique, ein Treffer ist also immer
+  // eindeutig. externeNr ist NUR je Kunde eindeutig (@@unique([kundeId, externeNr])); zwei
+  // verschiedene Erzeuger können denselben Wiegeschein-/Belegnummern-Wert haben, ein
+  // findFirst() über alle Kunden hinweg würde dann still den falschen Erzeuger treffen.
+  const perNummer = await tx.anlieferung.findFirst({ where: { nummer: ref }, select: { id: true } });
+  if (perNummer) return { id: perNummer.id };
+
+  const kandidaten = await tx.anlieferung.findMany({ where: { externeNr: ref }, select: { id: true }, take: 2 });
+  if (kandidaten.length === 0) return { error: `Anlieferung „${ref}“ nicht gefunden` };
+  if (kandidaten.length > 1) return { error: `Anlieferung „${ref}“ nicht eindeutig (externeNr bei mehreren Erzeugern vorhanden)` };
+  return { id: kandidaten[0].id };
 }
