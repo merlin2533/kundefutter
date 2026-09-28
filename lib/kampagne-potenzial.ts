@@ -92,13 +92,23 @@ export async function ladeKampagnePotenzial(kampagneId: number): Promise<Kampagn
   return { kampagne: { id: kampagne.id, name: kampagne.name }, kunden };
 }
 
+// Wie lib/csv.ts's esc() — bewusst auch bares \r escapen (nicht nur \n), sonst reißt eine
+// Notiz/ein Artikelname mit Windows-Zeilenumbruch die Zeile in Excel unbemerkt auf zwei auf.
 function csvQ(v: string | number): string {
   const s = String(v);
-  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** CSV der Zielkunden-Liste — für eine Mailing-Aktion außerhalb von AGRI-Office mitnehmbar. */
+/**
+ * CSV der Zielkunden-Liste — für eine Mailing-Aktion außerhalb von AGRI-Office mitnehmbar.
+ * Mit UTF-8-BOM (wie lib/datev.ts, nicht wie lib/kat-meldung.ts) — dieser Export ist explizit
+ * für den Re-Import in Excel/eine Mailing-Software gedacht (Umlaute in Kunden-/Ortsnamen sonst
+ * kaputt), nicht nur ein reines Zahlen-Dokument wie die KAT-Meldung. Zahlen bleiben bewusst mit
+ * ASCII-Punkt (kein deutsches Dezimalkomma) — entspricht der bestehenden Konvention in
+ * lib/datev.ts/lib/kat-meldung.ts, keiner der beiden formatiert Zahlen um.
+ */
 export function buildKampagnePotenzialCsv(ergebnis: KampagnePotenzialErgebnis): string {
+  const BOM = "﻿";
   const header = ["Kunde", "Firma", "Ort", "Kategorie", "Telefon", "Potenzial-Menge", "Artikel (Bedarfe)"].join(";");
   const rows = ergebnis.kunden.map((k) =>
     [
@@ -113,5 +123,5 @@ export function buildKampagnePotenzialCsv(ergebnis: KampagnePotenzialErgebnis): 
       .map(csvQ)
       .join(";"),
   );
-  return [header, ...rows].join("\n");
+  return BOM + [header, ...rows].join("\r\n");
 }

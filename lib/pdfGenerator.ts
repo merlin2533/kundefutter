@@ -1648,12 +1648,13 @@ export async function generiereKontraktPdf(kontraktId: number): Promise<Buffer> 
   ey += 6;
 
   const positionen = kontrakt.positionen;
-  const kontraktHead = [["Pos.", "Artikel", "Menge", "Abgerufen", "Rest", "Einheit"]];
+  const kontraktHead = [["Pos.", "Artikel", "Menge", "Abgerufen", "Rest", "Einheit", "Preis"]];
   const kontraktBody = positionen.map((p, i) => {
     const fmt = (n: number) => n.toLocaleString("de-DE", { maximumFractionDigits: 3 });
     const rest = Math.max(0, p.menge - p.mengeAbgerufen);
     const artikelName = `${p.artikel?.name ?? "—"}${p.artikel?.artikelnummer ? ` (${p.artikel.artikelnummer})` : ""}`;
-    return [String(i + 1), artikelName, fmt(p.menge), fmt(p.mengeAbgerufen), fmt(rest), p.einheit];
+    const preisText = p.preis != null ? `${formatEuro(p.preis)}${p.preisInterpoliert ? " *" : ""}` : "—";
+    return [String(i + 1), artikelName, fmt(p.menge), fmt(p.mengeAbgerufen), fmt(rest), p.einheit, preisText];
   });
 
   autoTable(doc, {
@@ -1666,17 +1667,26 @@ export async function generiereKontraktPdf(kontraktId: number): Promise<Buffer> 
     headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
     alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
     styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
-    columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 24 }, 3: { halign: "right", cellWidth: 24 }, 4: { halign: "right", cellWidth: 24 }, 5: { cellWidth: 22 } },
+    columnStyles: { 0: { cellWidth: 14 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { halign: "right", cellWidth: 20 }, 4: { halign: "right", cellWidth: 20 }, 5: { cellWidth: 18 }, 6: { halign: "right", cellWidth: 24 } },
   });
 
   let sumY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
 
+  if (positionen.some((p) => p.preisInterpoliert)) {
+    sumY = sicherstellenPlatz(doc, sumY, 6, footerReserve);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_LABEL);
+    doc.text("* Preis aus Jahrespreis-Gültigkeiten interpoliert, kein explizit für dieses Jahr hinterlegter Preis.", 14, sumY);
+    sumY += 6;
+  }
+
   if (kontrakt.notiz?.trim()) {
-    sumY = sicherstellenPlatz(doc, sumY, 10, footerReserve);
     doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(...COL_MUTED);
     const notizLines = doc.splitTextToSize(`Anmerkung: ${kontrakt.notiz.trim()}`, 182) as string[];
+    sumY = sicherstellenPlatz(doc, sumY, notizLines.length * 4 + 2, footerReserve);
     notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
     sumY += notizLines.length * 4 + 2;
   }

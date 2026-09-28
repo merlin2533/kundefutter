@@ -27,10 +27,22 @@ interface UstVoranmeldung {
   };
 }
 
-const today = new Date().toISOString().split("T")[0];
-const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  .toISOString()
-  .split("T")[0];
+// Lokales Datum ohne den toISOString()-Umweg über UTC bauen — sonst kippt das Ergebnis in der
+// deutschen Sommerzeit (UTC+2) auf den Vortag zurück (siehe AGENTS.md-Bugtabelle, u.a. bereits
+// für /ausgaben behoben). app/exporte/page.tsx hat denselben, hier bewusst nicht mitbehobenen
+// Fehler bei der Datumsvorbelegung — dort außerhalb des Scopes dieser Änderung.
+function heutigesDatum(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+function ersterDesMonats(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`;
+}
+const today = heutigesDatum();
+const firstOfMonth = ersterDesMonats();
 
 export default function UstVorschauPage() {
   return (
@@ -86,8 +98,11 @@ function UstVorschauInner() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-1">USt-Voranmeldungshilfe</h1>
         <p className="text-sm text-gray-500">
-          Druckbare Zusammenfassung der Kennzahlen für den gewählten Zeitraum — zum Übertragen
-          in ELSTER oder als Beleg für den Steuerberater. Ersetzt keine steuerliche Prüfung.
+          Druckbare Zusammenfassung der aus den erfassten Belegen berechneten Umsätze und
+          Vorsteuer für den gewählten Zeitraum — als Arbeitsgrundlage/Beleg für den
+          Steuerberater. Kein Ersatz für die eigentliche ELSTER-Meldung und keine steuerliche
+          Prüfung; die genaue Zuordnung zu den ELSTER-Kennzahlen des jeweiligen Formularjahres
+          obliegt dem Steuerberater.
         </p>
       </div>
 
@@ -148,8 +163,8 @@ function UstVorschauInner() {
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.einnahmen.steuerpflichtig19)}</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2 w-24 font-mono text-gray-500">KZ 66</td>
-                  <td className="px-4 py-2">davon Umsatzsteuer 19 %</td>
+                  <td className="px-4 py-2 w-24 font-mono text-gray-400">—</td>
+                  <td className="px-4 py-2">davon Umsatzsteuer 19 % (von ELSTER automatisch berechnet)</td>
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.einnahmen.steuer19)}</td>
                 </tr>
                 <tr>
@@ -158,8 +173,8 @@ function UstVorschauInner() {
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.einnahmen.steuerpflichtig7)}</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2 w-24 font-mono text-gray-500">KZ 97</td>
-                  <td className="px-4 py-2">davon Umsatzsteuer 7 %</td>
+                  <td className="px-4 py-2 w-24 font-mono text-gray-400">—</td>
+                  <td className="px-4 py-2">davon Umsatzsteuer 7 % (von ELSTER automatisch berechnet)</td>
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.einnahmen.steuer7)}</td>
                 </tr>
                 <tr>
@@ -188,7 +203,7 @@ function UstVorschauInner() {
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.vorsteuer.satz7)}</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2 w-24 font-mono text-gray-500">KZ 26</td>
+                  <td className="px-4 py-2 w-24 font-mono text-gray-400">—</td>
                   <td className="px-4 py-2 font-medium">Abziehbare Vorsteuerbeträge gesamt</td>
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.kennzahlen.KZ26_vorsteuer)}</td>
                 </tr>
@@ -203,12 +218,12 @@ function UstVorschauInner() {
             <table className="w-full text-sm">
               <tbody className="divide-y divide-gray-100">
                 <tr>
-                  <td className="px-4 py-2 w-24 font-mono text-gray-500">KZ 66/97</td>
+                  <td className="px-4 py-2 w-24 font-mono text-gray-400">—</td>
                   <td className="px-4 py-2">Umsatzsteuer gesamt</td>
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.kennzahlen.KZ66_gesamt)}</td>
                 </tr>
                 <tr>
-                  <td className="px-4 py-2 w-24 font-mono text-gray-500">KZ 26</td>
+                  <td className="px-4 py-2 w-24 font-mono text-gray-400">—</td>
                   <td className="px-4 py-2">./. Abziehbare Vorsteuer</td>
                   <td className="px-4 py-2 text-right font-medium">{formatEuro(data.kennzahlen.KZ26_vorsteuer)}</td>
                 </tr>
@@ -225,9 +240,16 @@ function UstVorschauInner() {
             </table>
           </div>
 
-          <p className="print:hidden text-xs text-gray-400 mt-4">
-            Hinweiswert-Charakter: automatisch aus den erfassten Belegen berechnet, keine
-            rechtsverbindliche Steuerberatung. Vor der Abgabe gegen die eigenen Aufzeichnungen prüfen.
+          <p className="text-xs text-gray-400 mt-4">
+            Hinweiswert-Charakter: automatisch aus den in AGRI-Office erfassten Belegen berechnet,
+            keine rechtsverbindliche Steuerberatung. Die genaue Zuordnung zu den amtlichen
+            ELSTER-Kennzahlen des jeweils gültigen Formularjahres ist hier bewusst nur für die
+            eindeutig belegbaren Kennzahlen (KZ 81, KZ 86, KZ 83) ausgewiesen; die übrigen Zeilen
+            sind unbeschriftet und müssen vom Steuerberater den passenden Kennzahlen zugeordnet
+            werden. Lieferantenrechnungen (EingangsRechnung) sind NICHT in der Vorsteuer
+            enthalten — nur bereits im Ausgabenbuch erfasste Belege und Erzeugerabrechnungen. Für
+            pauschalierende Landwirte nach §24 UStG ist die Vorsteuer-Berechnung nicht abgebildet.
+            Vor der Abgabe unbedingt gegen die eigenen Aufzeichnungen prüfen.
           </p>
         </>
       )}

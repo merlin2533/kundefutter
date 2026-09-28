@@ -1263,8 +1263,10 @@ app/
 /api/kampagnen                  GET(?aktiv), POST
 /api/kampagnen/[id]             GET, PUT, DELETE
 /api/kampagnen/[id]/artikel     GET, POST, DELETE?artikelId=
-/api/kampagnen/[id]/kunden      GET, POST — GET liefert die zugeordneten Kunden inkl. Umsatzpotenzial
-                                 (Bedarfe der Kampagnenartikel), Logik in lib/kampagne-potenzial.ts
+/api/kampagnen/[id]/kunden      GET — liefert die zugeordneten Kunden inkl. Umsatzpotenzial
+                                 (Bedarfe der Kampagnenartikel), Logik in lib/kampagne-potenzial.ts.
+                                 Zuordnung von Kunden zur Kampagne läuft über PUT /api/kampagnen/[id]
+                                 (Body-Feld kunden:[{kundeId}], volle Ersetzung), nicht über diese Route
 /api/exporte/kampagne           GET?kampagneId= — dieselbe Zielkunden-Liste als CSV-Download (für eine
                                  Mailing-Aktion außerhalb von AGRI-Office), Button auf /kampagnen/[id]
 

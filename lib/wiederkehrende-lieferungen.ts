@@ -10,9 +10,12 @@ export interface FaelligerBedarf {
   ueberfaellig: boolean;
 }
 
+// Nur aktive Kunden/Artikel berücksichtigen — sonst würde ein per "Löschen" (Soft-Delete,
+// aktiv:false) entfernter Kunde oder Artikel automatisch weiterhin Lieferungen erzeugen,
+// obwohl er in jeder anderen Ansicht der App als nicht mehr aktiv gilt.
 async function ladeAktiveBedarfeMitArtikel() {
   return prisma.kundeBedarf.findMany({
-    where: { aktiv: true },
+    where: { aktiv: true, kunde: { aktiv: true }, artikel: { aktiv: true } },
     include: { kunde: true, artikel: { select: liefposArtikelSelect } },
   });
 }
