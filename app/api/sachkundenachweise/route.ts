@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { kunde: { select: { id: true, name: true, firma: true } } },
       orderBy: [{ gueltigBis: "asc" }, { typ: "asc" }],
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(liste);
   } catch (err) {

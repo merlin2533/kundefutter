@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, ctx: Params) {
     const tiere = await prisma.kundeTier.findMany({
       where: { kundeId },
       orderBy: { erstellt: "desc" },
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(tiere);
   } catch (err) {

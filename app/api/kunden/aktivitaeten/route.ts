@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const items = await prisma.kundeAktivitaet.findMany({
       where: { kundeId: Number(kundeId) },
       orderBy: { datum: "desc" },
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(items);
   } catch (err) {

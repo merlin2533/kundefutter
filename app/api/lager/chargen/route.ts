@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
         },
-        take: 1000,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           lieferung: {
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           wareneingang: {
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           sortierung: {
@@ -321,7 +321,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           lieferung: {
@@ -341,7 +341,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           wareneingang: {
@@ -359,7 +359,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { datum: datumFilter } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           artikel: { select: { id: true, name: true, einheit: true } },
@@ -370,7 +370,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           sortierung: {

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         positionen: { include: { artikel: { select: { id: true, name: true, einheit: true, standardpreis: true } } } },
       },
       orderBy: [{ bestelldatum: "desc" }],
-      take: 500,
+      take: 5000,
     });
 
     // Lieferungsdaten für Vorgangskette nachladen (lieferungId ist kein Prisma-Relation)

@@ -168,7 +168,7 @@ export default function KundenVerschmelzenPage() {
   const [fehler, setFehler] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=1000&kontakte=false")
+    fetch("/api/kunden?limit=5000&kontakte=false")
       .then((r) => r.json())
       .then((data) => setKunden(Array.isArray(data) ? data : []))
       .catch((err) => {

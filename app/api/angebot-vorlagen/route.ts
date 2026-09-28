@@ -24,7 +24,7 @@ export async function GET() {
         },
       },
       orderBy: [{ aktiv: "desc" }, { name: "asc" }],
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(vorlagen);
   } catch (e) {

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { eierSortierungen: true } },
       },
       orderBy: { datum: "desc" },
-      take: 500,
+      take: 5000,
     });
 
     return NextResponse.json(anlieferungen);

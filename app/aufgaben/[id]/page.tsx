@@ -60,7 +60,7 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
           /* empty */
         }
       });
-    fetch("/api/kunden?limit=500&aktiv=true")
+    fetch("/api/kunden?limit=5000&aktiv=true")
       .then((r) => r.json())
       .then((d) => { const data = d as { data?: Kunde[] }; setKunden(data.data ?? []); });
   }, [id]);

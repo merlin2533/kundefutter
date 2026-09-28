@@ -30,7 +30,7 @@ function NeueAnlieferungInner() {
   const [notiz, setNotiz] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=1000")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch((err) => {

@@ -83,7 +83,7 @@ export default function SammelbestellungPage() {
     Promise.all([
       fetch("/api/artikel?limit=5000").then((r) => r.json()),
       fetch("/api/lieferanten").then((r) => r.json()),
-      fetch("/api/kunden?limit=500&aktiv=true").then((r) => r.json()),
+      fetch("/api/kunden?limit=5000&aktiv=true").then((r) => r.json()),
     ])
       .then(([artData, liefData, kundenData]) => {
         setArtikel(Array.isArray(artData) ? artData : (artData.artikel ?? []));

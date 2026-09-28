@@ -37,7 +37,7 @@ function NeuInner() {
   const [zugewiesen, setZugewiesen] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500&aktiv=true")
+    fetch("/api/kunden?limit=5000&aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : d.kunden ?? []))
       .catch((err) => {

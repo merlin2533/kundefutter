@@ -187,7 +187,7 @@ export default function NaehrstoffkalkulatorPage() {
   const [showMisch, setShowMisch] = useState(false);
 
   useEffect(() => {
-    fetch("/api/artikel?kategorie=Futter&limit=200")
+    fetch("/api/artikel?kategorie=Futter&limit=5000")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch((err) => {

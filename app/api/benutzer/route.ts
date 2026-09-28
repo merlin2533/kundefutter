@@ -42,7 +42,7 @@ export async function GET() {
     const benutzer = await prisma.benutzer.findMany({
       orderBy: { benutzername: "asc" },
       select: SELECT,
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(benutzer);
   } catch (err) {
