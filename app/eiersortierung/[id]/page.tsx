@@ -98,6 +98,9 @@ export default function EiersortierungDetailPage() {
           <Link href="/eiersortierung" className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">
             Zurück
           </Link>
+          <Link href="/eiersortierung/etiketten" className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">
+            Etiketten drucken
+          </Link>
           <button
             onClick={handleDelete}
             disabled={deleting}

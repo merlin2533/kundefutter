@@ -45,6 +45,12 @@ export default function EiersortierungListePage() {
             Import
           </Link>
           <Link
+            href="/eiersortierung/etiketten"
+            className="px-4 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium"
+          >
+            Etiketten
+          </Link>
+          <Link
             href="/eiersortierung/neu"
             className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
           >
