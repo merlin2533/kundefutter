@@ -5,11 +5,17 @@ import { sendEmail } from "@/lib/email";
 import { angebotEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 // POST /api/exporte/angebot/mail
 // Body: { angebotId: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.ANGEBOTE_BEARBEITEN);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { angebotId?: unknown; empfaenger?: unknown; cc?: unknown };
     const angebotId = Number(body.angebotId);

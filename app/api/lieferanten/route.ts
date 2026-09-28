@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { umlautSchreibweisen } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export async function GET(req: NextRequest) {
@@ -62,6 +64,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.LIEFERANTEN_ERSTELLEN);
+  if (deny) return deny;
+
   let body;
   try {
     body = await req.json();

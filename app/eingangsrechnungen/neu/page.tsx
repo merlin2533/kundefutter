@@ -229,6 +229,7 @@ function EingangsrechnungEinzelnForm() {
   const [kiHint, setKiHint] = useState("");
   const [erkannteIban, setErkannteIban] = useState<{ iban: string; bic: string | null; lieferantId: string } | null>(null);
   const [ibanSaved, setIbanSaved] = useState(false);
+  const [ibanError, setIbanError] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -409,16 +410,22 @@ function EingangsrechnungEinzelnForm() {
 
   async function handleIbanSpeichern() {
     if (!erkannteIban) return;
+    setIbanError("");
     try {
-      await fetch(`/api/lieferanten/${erkannteIban.lieferantId}`, {
+      const res = await fetch(`/api/lieferanten/${erkannteIban.lieferantId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ iban: erkannteIban.iban, bic: erkannteIban.bic }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setIbanError((d as { error?: string }).error ?? "IBAN konnte nicht gespeichert werden.");
+        return;
+      }
       setIbanSaved(true);
     } catch (err) {
       Sentry.captureException(err);
-      /* ignore */
+      setIbanError("IBAN konnte nicht gespeichert werden.");
     }
   }
 
@@ -613,6 +620,11 @@ function EingangsrechnungEinzelnForm() {
       {erkannteIban && ibanSaved && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 text-sm text-green-800">
           IBAN beim Lieferanten gespeichert.
+        </div>
+      )}
+      {ibanError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-sm text-red-800">
+          {ibanError}
         </div>
       )}
 

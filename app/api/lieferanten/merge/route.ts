@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
@@ -178,6 +180,10 @@ interface MergeBody {
 
 /** POST – Führt die Verschmelzung aus. Body: { zielLieferantId, quellLieferantIds, zielName?, confirm: true } */
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.LIEFERANTEN_LOESCHEN);
+  if (deny) return deny;
+
   let body: MergeBody = {};
   try {
     body = await req.json();

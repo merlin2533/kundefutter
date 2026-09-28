@@ -338,17 +338,22 @@ export default function EingangsrechnungBatchDetailPage() {
   async function ibanSpeichern(item: BatchItem) {
     if (!item.lieferantId || !item.kiErgebnis?.iban) return;
     try {
-      await fetch(`/api/lieferanten/${item.lieferantId}`, {
+      const res = await fetch(`/api/lieferanten/${item.lieferantId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ iban: item.kiErgebnis.iban, bic: item.kiErgebnis.bic }),
       });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert((d as { error?: string }).error ?? "IBAN konnte nicht gespeichert werden.");
+        return;
+      }
       setBatch((prev) =>
         prev ? { ...prev, items: prev.items.map((it) => (it.id === item.id ? { ...it, ibanGespeichert: true } : it)) } : prev
       );
     } catch (err) {
       Sentry.captureException(err);
-      // ignore
+      alert("IBAN konnte nicht gespeichert werden.");
     }
   }
 

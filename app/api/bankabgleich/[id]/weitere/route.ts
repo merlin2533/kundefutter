@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
 import { ladeZielFuerDifferenz } from "@/lib/bankabgleich-differenz";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -14,6 +16,10 @@ type Ctx = { params: Promise<{ id: string }> };
  * KontoumsatzWeitereZuordnung und wird hier genauso wie die Haupt-Rechnung als bezahlt markiert.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -81,6 +87,10 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
 /** Eine einzelne weitere Zuordnung wieder entfernen — macht auch deren Bezahlt-Markierung rückgängig. */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

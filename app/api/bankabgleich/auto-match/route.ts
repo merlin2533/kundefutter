@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { runNormalMatch, type ReconCandidateKind } from "@/lib/bankabgleich-matching";
 import { zuBankBuchung, ladeAlleOffenenKandidaten } from "@/lib/bankabgleich-kandidaten";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,10 @@ interface AbgleichPaar {
 }
 
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   let body: { von?: string; bis?: string; kontoBezeichnung?: string; dateToleranceDays?: number; amountTolerance?: number };
   try {
     body = await req.json();
