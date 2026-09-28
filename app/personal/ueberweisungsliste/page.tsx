@@ -138,6 +138,7 @@ function UeberweisungslisteInner() {
         </div>
       ) : (
         <div className="bg-white border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-xs text-gray-500 uppercase">
@@ -201,6 +202,7 @@ function UeberweisungslisteInner() {
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       )}
 

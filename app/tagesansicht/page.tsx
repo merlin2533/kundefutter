@@ -415,6 +415,7 @@ export default function TagesansichtPage() {
             <PegelKarte stationen={pegel} />
 
             {/* Tabelle aller Stationen */}
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-400 uppercase">
@@ -450,6 +451,7 @@ export default function TagesansichtPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

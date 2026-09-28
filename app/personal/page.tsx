@@ -152,6 +152,7 @@ export default function PersonalPage() {
             <Link href="/personal/neu" className="text-green-700 hover:underline">Ersten Mitarbeiter anlegen →</Link>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs text-gray-500 uppercase tracking-wide">
@@ -206,6 +207,7 @@ export default function PersonalPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

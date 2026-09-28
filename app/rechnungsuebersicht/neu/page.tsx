@@ -198,6 +198,7 @@ function NeueRechnungsuebersichtForm() {
               <p className="text-sm text-gray-400 italic">Dieser Kunde hat noch keine ausgestellten Rechnungen.</p>
             ) : (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -248,6 +249,7 @@ function NeueRechnungsuebersichtForm() {
                     </tr>
                   </tfoot>
                 </table>
+                </div>
               </div>
             )}
           </div>
