@@ -50,10 +50,19 @@ export async function PUT(req: NextRequest, ctx: Params) {
     const body = await req.json();
     const { datum, menge, einheit, feuchte, qualitaet, preisProEinheit, notiz } = body;
 
-    const gesamtBetrag =
-      preisProEinheit != null && menge != null
-        ? Math.round(parseFloat(String(preisProEinheit)) * parseFloat(String(menge)) * 100) / 100
-        : null;
+    // preisProEinheit/gesamtBetrag nur anfassen, wenn preisProEinheit im Body tatsächlich
+    // enthalten ist — sonst würde z.B. ein reiner Notiz-Edit den im gradierten Modus (Stage 3,
+    // Erzeugerabrechnung aus Sortierergebnis) berechneten gesamtBetrag stillschweigend auf null
+    // zurücksetzen, obwohl dieses Feld dort nicht aus preisProEinheit×menge stammt.
+    const preisImBody = Object.prototype.hasOwnProperty.call(body, "preisProEinheit");
+    const gesamtBetragUpdate = preisImBody
+      ? {
+          gesamtBetrag:
+            preisProEinheit != null && menge != null
+              ? Math.round(parseFloat(String(preisProEinheit)) * parseFloat(String(menge)) * 100) / 100
+              : null,
+        }
+      : {};
 
     const updated = await prisma.anlieferung.update({
       where: { id },
@@ -63,8 +72,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
         ...(einheit ? { einheit } : {}),
         feuchte: feuchte != null ? parseFloat(String(feuchte)) : null,
         qualitaet: qualitaet ?? null,
-        preisProEinheit: preisProEinheit != null ? parseFloat(String(preisProEinheit)) : null,
-        gesamtBetrag,
+        ...(preisImBody ? { preisProEinheit: preisProEinheit != null ? parseFloat(String(preisProEinheit)) : null } : {}),
+        ...gesamtBetragUpdate,
         notiz: notiz ?? null,
       },
       include: {
@@ -110,6 +119,24 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
         { status: 409 },
       );
     }
+
+    // Eine verknüpfte, noch nicht verbuchte Erzeuger-Gutschrift (Status OFFEN) hängt sonst mit
+    // totem anlieferungId-losem Notiztext in der Luft — Löschen erst nach Entfernen/Verbuchen der
+    // Gutschrift erlauben (analog zum Sortierung-Check oben). Eine bereits VERBUCHTE/STORNIERTE/
+    // ERSTATTETE Gutschrift blockt nicht (die Anlieferung selbst wird dafür nicht mehr gebraucht).
+    const anlieferungMitGutschrift = await prisma.anlieferung.findUnique({
+      where: { id },
+      select: { gutschrift: { select: { status: true } } },
+    });
+    if (anlieferungMitGutschrift?.gutschrift?.status === "OFFEN") {
+      return NextResponse.json(
+        {
+          error: "Diese Anlieferung hat eine noch offene Erzeuger-Gutschrift — bitte diese zuerst entfernen oder verbuchen.",
+        },
+        { status: 409 },
+      );
+    }
+
     await prisma.anlieferung.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {

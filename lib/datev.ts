@@ -355,7 +355,7 @@ export async function sammleDatevBuchungen(
   const appName = await getAppName();
 
   const einstellungen = await prisma.einstellung.findMany({
-    where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn", "datev.verrechnungskonto"] } },
+    where: { key: { in: ["datev.beraternummer", "datev.mandantennummer", "datev.sachkontenrahmen", "datev.wirtschaftsjahrBeginn", "datev.verrechnungskonto", "datev.erzeugerabrechnungKonto"] } },
   });
   const settMap = Object.fromEntries(einstellungen.map((e) => [e.key, e.value]));
   const beraternummer = settMap["datev.beraternummer"] ?? "0";
@@ -369,6 +369,12 @@ export async function sammleDatevBuchungen(
   // bleibt es beim alten Verhalten (Buchung wie normaler 0%-Umsatz), statt einen
   // ungeprüften Kontenrahmen-spezifischen Wert zu erzwingen.
   const verrechnungskontoAusgleich = settMap["datev.verrechnungskonto"]?.trim() || null;
+  // Erzeugerabrechnung (Gutschrift grund:"Erzeugerabrechnung", aus einer Anlieferung erzeugt) ist
+  // wirtschaftlich ein Wareneinkauf mit Vorsteuer (§14 Abs. 2 UStG, Gutschrift die der Käufer für
+  // den Verkäufer ausstellt) — KEIN Erlös. Ohne konfiguriertes Konto bleibt es beim alten
+  // (unkorrekten, aber unveränderten) Verhalten: Buchung wie ein normaler Erlös-Umsatz — analog
+  // zum verrechnungskontoAusgleich-Fallback oben, kein Verhaltensbruch für bestehende Exporte.
+  const erzeugerabrechnungKonto = settMap["datev.erzeugerabrechnungKonto"]?.trim() || null;
 
   const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
     prisma.lieferung.findMany({
@@ -405,6 +411,7 @@ export async function sammleDatevBuchungen(
         kundeId: true,
         nummer: true,
         datum: true,
+        grund: true,
         kunde: { select: { name: true, firma: true } },
         positionen: { select: { menge: true, preis: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } },
       },
@@ -506,21 +513,28 @@ export async function sammleDatevBuchungen(
     const datum = gs.datum;
     const kundeName = gs.kunde.firma ? `${gs.kunde.firma} ${gs.kunde.name}` : gs.kunde.name;
     const konto = String(10000 + gs.kundeId);
+    // Erzeugerabrechnung ist ein Wareneinkauf, kein Erlös — die Positionen dürfen deshalb nicht
+    // in dieselbe byMwst-Gruppierung wie ein normaler Erlös-Ausgleich (verrechnungskontoAusgleich)
+    // fallen; eine Erzeugerabrechnung-Gutschrift hat außerdem nie Ausgleichsartikel-Positionen.
+    const istErzeugerabrechnung = gs.grund === "Erzeugerabrechnung";
     const byMwst = new Map<number, number>();
     let ausgleichSumme = 0;
     for (const pos of gs.positionen) {
       const satz = pos.artikel?.mwstSatz ?? 19;
       const brutto = pos.menge * pos.preis * (1 + satz / 100);
-      if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel?.artikelnummer)) {
+      if (!istErzeugerabrechnung && verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel?.artikelnummer)) {
         ausgleichSumme += brutto;
       } else {
         byMwst.set(satz, (byMwst.get(satz) ?? 0) + brutto);
       }
     }
     for (const [satz, brutto] of byMwst.entries()) {
+      const gegenkonto = istErzeugerabrechnung && erzeugerabrechnungKonto
+        ? erzeugerabrechnungKonto
+        : erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04");
       rows.push({
         umsatz: Math.round(brutto * 100) / 100, sollHaben: "H", wkz: "EUR", konto,
-        gegenkonto: erloeseKonto(satz, kontenrahmen as "SKR03" | "SKR04"), buSchluessel: "",
+        gegenkonto, buSchluessel: "",
         belegdatum: datevBelegdatum(datum), belegfeld1: gs.nummer,
         buchungstext: `Gutschrift ${kundeName}`.substring(0, 60), beleglink: "",
         leistungsdatum: datevLeistungsdatum(datum), steuersatz: String(satz), kostenstelle: "",

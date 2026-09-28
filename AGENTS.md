@@ -244,6 +244,52 @@ Die Haltungsform wird aus der **ersten Ziffer des Erzeugercodes** abgeleitet, ni
 `Kunde.haltungsform` — die Position trägt ihren Code selbst. Aufbau bewusst analog zu
 `sammleDatevBuchungen()` (`lib/datev.ts`): **eine** Sammelfunktion für Vorschau UND CSV-Export.
 
+### Erzeugerabrechnung aus Sortierergebnis (`app/api/anlieferungen/[id]/gutschrift/route.ts`)
+Der bestehende, bereits vorhandene Gutschrift-Mechanismus einer Anlieferung (Modul
+`erzeugerabrechnung`) ist erweitert, nicht ersetzt — kein zweites, paralleles System:
+
+- **Ohne verknüpfte `EierSortierung`** (unverändertes Alt-Verhalten): eine Position aus
+  `Anlieferung.menge × preisProEinheit`.
+- **Mit mindestens einer verknüpften `EierSortierung`** (gradierter Modus): die Positionen werden
+  aus den `EierSortierungPosition`-Zeilen ALLER verknüpften Sortierungen gebildet, je Artikel
+  aggregiert (Güte-/Gewichtsklasse steckt bereits im Artikel — `EI-A-M` vs. `EI-B-M` sind
+  unterschiedliche Artikel, siehe unten). `GET .../gutschrift` liefert diese gradierten Mengen
+  inkl. Preisvorschlag je Artikel (jüngste `GutschriftPosition` mit `grund:"Erzeugerabrechnung"`
+  für denselben Kunden+Artikel — deckt Preisunterschiede nach Haltungsform ohne eigenes
+  Preis-Stammdatenmodell ab) sowie die ggf. bereits bestehende Gutschrift zum Vorbefüllen.
+- **Preis-Pflicht alles-oder-nichts:** fehlt für einen aggregierten Artikel ein gültiger Preis
+  (`POST .../gutschrift` Body `{preise:{"<artikelId>":<preis>}}`), wird die GESAMTE Aktion mit 400
+  abgelehnt (nennt den betroffenen Artikel) statt eine unvollständige Gutschrift anzulegen.
+- **Explizite Aktion, keine Automatik:** Button "Erzeugerabrechnung erstellen"/"…aktualisieren"
+  auf `/anlieferungen/[id]` — kein Hook in `POST`/`PUT`/`DELETE /api/eiersortierung`. Ist bereits
+  eine Gutschrift verknüpft (`Anlieferung.gutschriftId`) und noch `OFFEN`, ersetzt `POST` deren
+  Positionen (gleiche `nummer`, gleiche ID); ist sie `VERBUCHT`/`STORNIERT`/`ERSTATTET`, lehnt die
+  Route mit 409 ab ("manuelle Prüfung nötig") statt sie zu überschreiben.
+- **Löschverhalten:** Löschen der letzten verknüpften `EierSortierung` einer Anlieferung entfernt
+  eine dadurch leer gewordene, noch `OFFEN`e Erzeuger-Gutschrift automatisch (über
+  `loescheGutschriftMitNebenwirkungen()`, `lib/gutschrift.ts`) statt sie als leeren Beleg stehen
+  zu lassen. `DELETE /api/anlieferungen/[id]` lehnt mit 409 ab, solange eine verknüpfte,
+  noch `OFFEN`e Erzeuger-Gutschrift besteht (unabhängig davon, ob noch Sortierungen verknüpft
+  sind) — eine bereits `VERBUCHT`e Gutschrift blockt das Löschen nicht mehr.
+- **Nummernvergabe:** wie jede andere Gutschrift über den zentralen `system.letzteGutschriftNr`-
+  Zähler (`naechsteGutschriftsnummer()`), inkl. Selbstheilungsschleife gegen Altbestand.
+- **Steuerliche Buchung (§14 Abs. 2 UStG):** eine Erzeugerabrechnung ist wirtschaftlich ein
+  Wareneinkauf mit Vorsteuer, keine Erlösminderung. `Einstellung`-Key
+  `datev.erzeugerabrechnungKonto` (`/einstellungen/datev`, analog `datev.verrechnungskonto`,
+  bewusst OHNE Vorschlagswert — muss vor dem Live-Einsatz mit dem Steuerberater abgestimmt
+  werden) lenkt `sammleDatevBuchungen()` (`lib/datev.ts`) für `Gutschrift.grund ===
+  "Erzeugerabrechnung"`-Positionen auf dieses Konto statt auf das normale Erlöskonto (nur das
+  Gegenkonto wechselt, `sollHaben` bleibt "H" auf dem Kunden-/Debitorenkonto — dieselbe Zeile
+  bedeutet dadurch korrekt "Wareneinkauf", ohne die Buchungsrichtung anzufassen). Unkonfiguriert
+  bleibt es beim bisherigen Verhalten (Buchung wie ein normaler Erlös-Umsatz). Analog leitet
+  `GET /api/exporte/ust-voranmeldung` solche Positionen in einen eigenen Vorsteuer-Topf statt sie
+  wie eine normale Gutschrift von den Einnahmen abzuziehen.
+- **Güteklasse-B-Artikel:** `EI-B-{S,M,L,XL}` existieren als eigene Artikel (analog den vier
+  `EI-A-*`), da `GutschriftPosition`/`EierSortierungPosition` nur `artikelId` kennen — B-Ware
+  würde sonst im Beleg fälschlich als A-Ware erscheinen.
+- **Bekannte Einschränkung:** eine Gutschrift pro Anlieferung (`Anlieferung.gutschriftId @unique`)
+  — eine periodische Sammelabrechnung über mehrere Anlieferungen hinweg ist hier nicht abgedeckt.
+
 ### Meldepflichten-Tracker (`lib/meldepflichten.ts`)
 Läuft über den bestehenden Cron-Job (`app/api/cron/route.ts`), legt `Aufgabe`-Einträge an:
 - **Tierseuchenkasse-Tierzahlmeldung** (Stichtag 01.01., Frist 31.01.) — zielt immer auf die
@@ -707,6 +753,9 @@ app/
 ├── anlieferungen/              Erzeugerabrechnung
 │   ├── page.tsx
 │   ├── neu/page.tsx
+│   ├── [id]/page.tsx           Detail: Stammdaten, verknüpfte Ei-Sortierungen, Erzeugerabrechnung
+│   │                           (gradierte Preis-Eingabe je Artikel bei verknüpfter Sortierung,
+│   │                           sonst einfacher Modus Menge×Preis — siehe Eierhandel-Modul)
 │   └── import/page.tsx         CSV/XLS-Import: Vorschau → Commit
 ├── kampagnen/                  Marketingkampagnen mit Potenzialanalyse
 │   ├── page.tsx
@@ -1147,8 +1196,15 @@ app/
 /api/eingangsrechnungen/[id]    GET, PUT, DELETE
 /api/eingangsrechnungen/[id]/beleg  POST (Beleg-Upload, spiegelt nach Nextcloud Buchhaltung/), DELETE
 /api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
-/api/anlieferungen              GET(?lieferantId), POST
-/api/anlieferungen/[id]         GET, PUT, DELETE
+/api/anlieferungen              GET(?lieferantId,?kundeId,?artikelId,?von,?bis), POST
+/api/anlieferungen/[id]         GET, PUT, DELETE (409 bei verknüpfter Ei-Sortierung ODER offener
+                                 Erzeuger-Gutschrift — siehe Eierhandel-Modul)
+/api/anlieferungen/[id]/gutschrift  GET — Vorschau: gradierte Mengen aus verknüpften
+                                 EierSortierung(en) je Artikel + Preisvorschlag (letzte
+                                 Erzeugerabrechnung desselben Erzeugers+Artikels), plus die bereits
+                                 bestehende Gutschrift zum Vorbefüllen; POST({preise?}) — erstellt
+                                 bzw. aktualisiert die Erzeuger-Gutschrift (Details „Eierhandel-Modul"
+                                 → Erzeugerabrechnung); DELETE — Gutschrift von der Anlieferung lösen
 /api/anlieferungen/import          POST (multipart) — CSV/XLS-Import, Details siehe „Eierhandel-Modul"
 /api/anlieferungen/import/vorschau POST (multipart) — Vorschau vor dem Import
 

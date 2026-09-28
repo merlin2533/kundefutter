@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { istLagerrelevant } from "@/lib/utils";
+import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
+import { istGradierteErzeugerabrechnung } from "@/lib/anlieferung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -75,7 +77,42 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
         });
       }
 
+      const anlieferungId = sortierung.anlieferungId;
       await tx.eierSortierung.delete({ where: { id: sortierungId } });
+
+      // Wurde damit die letzte Sortierung dieser Anlieferung gelöscht, wird eine daraus (im
+      // gradierten Modus) erstellte, noch OFFENE Erzeuger-Gutschrift leer und hätte keine
+      // Grundlage mehr — statt als leerer Beleg stehen zu bleiben, wird sie mit entfernt (analog
+      // dem Lösch-Endpunkt auf .../gutschrift). Eine bereits VERBUCHTE/STORNIERTE/ERSTATTETE
+      // Gutschrift bleibt unangetastet (manuelle Prüfung nötig) — GENAUSO eine im EINFACHEN Modus
+      // (Anlieferung.menge × preisProEinheit) erstellte Gutschrift: die kann unabhängig von jeder
+      // Sortierung existieren (z.B. schon vor der ersten Sortierung angelegt) und würde sonst
+      // durch reinen Zufall — weil ihre Anlieferung zufällig gerade keine Sortierungen mehr hat —
+      // mitgelöscht, obwohl sie mit dieser Sortierung inhaltlich gar nichts zu tun hat.
+      // istGradierteErzeugerabrechnung() erkennt das am Notiz-Marker, den nur der gradierte Modus
+      // setzt (siehe lib/anlieferung.ts).
+      if (anlieferungId) {
+        const verbleibend = await tx.eierSortierungPosition.count({
+          where: { sortierung: { anlieferungId } },
+        });
+        if (verbleibend === 0) {
+          const anlieferung = await tx.anlieferung.findUnique({
+            where: { id: anlieferungId },
+            select: { gutschriftId: true },
+          });
+          if (anlieferung?.gutschriftId) {
+            const gs = await tx.gutschrift.findUnique({ where: { id: anlieferung.gutschriftId } });
+            if (gs && gs.status === "OFFEN" && istGradierteErzeugerabrechnung(gs.notiz)) {
+              await loescheGutschriftMitNebenwirkungen(tx, gs.id);
+              await tx.anlieferung.update({
+                where: { id: anlieferungId },
+                data: { gutschriftId: null, gesamtBetrag: null },
+              });
+            }
+          }
+        }
+      }
+
       return true;
     });
 

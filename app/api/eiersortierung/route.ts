@@ -13,14 +13,23 @@ import {
 } from "@/lib/eiersortierung";
 export const dynamic = "force-dynamic";
 
-// GET /api/eiersortierung
-export async function GET() {
+// GET /api/eiersortierung(?anlieferungId=)
+export async function GET(req: NextRequest) {
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
 
+    const { searchParams } = new URL(req.url);
+    const anlieferungIdStr = searchParams.get("anlieferungId");
+    const where: Record<string, unknown> = {};
+    if (anlieferungIdStr) {
+      const anlieferungId = parseInt(anlieferungIdStr, 10);
+      if (!isNaN(anlieferungId)) where.anlieferungId = anlieferungId;
+    }
+
     const liste = await prisma.eierSortierung.findMany({
+      where,
       include: {
         anlieferung: { select: { id: true, nummer: true, kunde: { select: { id: true, name: true, firma: true } } } },
         positionen: { include: { artikel: { select: liefposArtikelSelect } } },
