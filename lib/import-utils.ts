@@ -2,6 +2,7 @@
 // Spaltennamen werden case-insensitiv gematcht und Sonder-/Leerzeichen
 // gestrippt — so kann der Nutzer "VK (Standardpreis)", "vk-standardpreis"
 // oder "VK_STANDARDPREIS" gleich verwenden.
+import * as XLSX from "xlsx";
 
 export function pickCol(row: Record<string, unknown>, ...keys: string[]): string {
   const norm = (s: string) => s.toLowerCase().replace(/[\s_\-()]/g, "");
@@ -12,6 +13,93 @@ export function pickCol(row: Record<string, unknown>, ...keys: string[]): string
     if (v !== undefined && v !== null && String(v).trim() !== "") return String(v).trim();
   }
   return "";
+}
+
+// Wie pickCol(), aber liefert den ungestringifizierten Rohwert der Zelle — nötig für
+// Datumsspalten, deren Wert (ohne `cellDates:true` beim XLSX.read()) ein numerischer
+// Excel-Datums-Seriencode statt eines Textdatums sein kann; String(zahl) würde diese
+// Information für parseImportDatum() unwiderruflich verlieren.
+function pickRawCol(row: Record<string, unknown>, ...keys: string[]): unknown {
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_\-()]/g, "");
+  const lookup: Record<string, unknown> = {};
+  for (const k of Object.keys(row)) lookup[norm(k)] = row[k];
+  for (const key of keys) {
+    const v = lookup[norm(key)];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  }
+  return undefined;
+}
+
+// Excel-Serial-Datumscodes liegen für diese Anwendung plausibel zwischen 36526 (2000-01-01)
+// und 73050 (2099-12-31) — bewusst NICHT ab 1 (1900-01-01): ein Import-Datum vor 2000 ist für
+// dieses System nicht real, ein Bereich ab 1 würde aber z.B. einen bloßen Jahres- oder
+// Wochenwert ("2025") fälschlich als Datum (1905-07-17) statt als das erkennen, was er ist —
+// ein anderer numerischer Wert (z.B. eine Belegnummer).
+const EXCEL_SERIAL_MIN = 36526;
+const EXCEL_SERIAL_MAX = 73050;
+
+function datumAusSeriencode(n: number): Date | null {
+  const parsed = XLSX.SSF.parse_date_code(n);
+  if (!parsed) return null;
+  const d = new Date(parsed.y, parsed.m - 1, parsed.d, parsed.H ?? 0, parsed.M ?? 0, parsed.S ?? 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// new Date(jahr, monat0, tag) "rollt" einen ungültigen Tag/Monat stillschweigend in den
+// Folgemonat (z.B. 31.02.2026 -> 03.03.2026) statt einen Fehler zu liefern — bei einem
+// Legedatum-Import würde das unbemerkt ein falsches MHD erzeugen. Round-Trip-Prüfung: das
+// tatsächlich konstruierte Datum muss exakt den angegebenen Komponenten entsprechen.
+function gueltigesKalenderdatum(jahr: number, monatIndex: number, tag: number): Date | null {
+  const d = new Date(jahr, monatIndex, tag);
+  if (isNaN(d.getTime())) return null;
+  if (d.getFullYear() !== jahr || d.getMonth() !== monatIndex || d.getDate() !== tag) return null;
+  return d;
+}
+
+// Parst ein Datum aus einer Import-Zeile: erkennt sowohl Freitext-Formate (DD.MM.YYYY,
+// YYYY-MM-DD) als auch numerische Excel-Datums-Seriencodes, wie sie XLSX.utils.sheet_to_json()
+// OHNE `cellDates:true` für eine als Datum formatierte Excel-Zelle liefert (eine reine Zahl,
+// z.B. 45912 statt "12.09.2025"). `new Date(String(zahl))` würde daraus fälschlich ein Datum
+// im Jahr 45912 konstruieren, statt zu erkennen, dass es sich um einen Seriencode handelt —
+// kritisch bei einem Legedatum-Import, da es das MHD bestimmt (lib/eier-mhd.ts
+// berechneEierMhd()). Liefert `null` bei fehlendem ODER nicht erkennbarem Wert — der Aufrufer
+// muss beide Fälle unterscheiden (Spalte fehlt vs. Wert ist ungültig).
+export function parseImportDatum(row: Record<string, unknown>, ...keys: string[]): Date | null {
+  const raw = pickRawCol(row, ...keys);
+  if (raw === undefined) return null;
+  if (raw instanceof Date) {
+    return isNaN(raw.getTime()) ? null : raw;
+  }
+  if (typeof raw === "number") {
+    return raw >= EXCEL_SERIAL_MIN && raw <= EXCEL_SERIAL_MAX ? datumAusSeriencode(raw) : null;
+  }
+  const s = String(raw).trim();
+  if (!s) return null;
+  // Jahr exakt 2- oder 4-stellig (nicht \d{2,4}) — sonst würde z.B. "12.09.202" (3-stellig,
+  // eher ein Tippfehler) unbemerkt als Jahr 202 interpretiert. Optionaler Zeitanteil (Leer-
+  // zeichen oder "T" getrennt) wird toleriert und ignoriert — seit raw:true beim CSV-Lesen
+  // (siehe die vier Import-Routen) landet z.B. "12.09.2026 08:30:00" aus einer Waagen-/
+  // Sortiermaschinen-Exportzeile hier als Text statt als von SheetJS bereits aufgelöster
+  // Seriencode; ohne diesen Zusatz würde eine ganz normale Uhrzeitangabe die Zeile ablehnen.
+  const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (dmy) {
+    const [, d, mo, y] = dmy;
+    const yr = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
+    return gueltigesKalenderdatum(yr, parseInt(mo, 10) - 1, parseInt(d, 10));
+  }
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (iso) {
+    const [, y, mo, d] = iso;
+    return gueltigesKalenderdatum(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10));
+  }
+  // Manche CSV-Exporte aus Excel verlieren die Zellformatierung und liefern den
+  // Seriencode als reinen Zahlen-Text statt als Number — z.B. wenn die Quelldatei
+  // erst nach CSV konvertiert und dann hier hochgeladen wird.
+  if (/^\d{4,6}$/.test(s)) {
+    const n = parseInt(s, 10);
+    if (n >= EXCEL_SERIAL_MIN && n <= EXCEL_SERIAL_MAX) return datumAusSeriencode(n);
+  }
+  return null;
 }
 
 // Normalisiert einen Artikelnamen für den Duplikat-Abgleich beim Import:
@@ -178,4 +266,47 @@ export const KUNDEN_ALIAS = {
   ustIdNr: ["USt-IdNr.", "USt-ID", "USt Identifikationsnummer", "Umsatzsteuer-ID", "UID"],
   zahlungsziel: ["Zahlungsziel", "Zahlungsbedingungscode", "Zahlungsbedingung", "Nettotagezahl"],
   betriebsnummer: ["Betriebsnummer", "Betriebs-Nr.", "VVVO"],
+} as const;
+
+// ── Spalten-Aliasse für Anlieferungs-Import-Vorlagen (Erzeugerabrechnung) ───
+// Kunde/Erzeuger und Artikel werden per Name/Artikelnummer aufgelöst (keine internen IDs
+// in der Quelldatei erwartet). Reihenfolge bestimmt Priorität — der erste Treffer gewinnt.
+
+export const ANLIEFERUNG_ALIAS = {
+  kunde: ["Erzeuger", "Kunde", "Lieferant", "Name"],
+  artikel: ["Artikel", "Artikelnummer", "Produkt", "Ware"],
+  datum: ["Datum", "Anlieferungsdatum", "Lieferdatum"],
+  menge: ["Menge", "Gewicht", "Liefermenge"],
+  einheit: ["Einheit", "ME", "Mengeneinheit"],
+  feuchte: ["Feuchte", "Restfeuchte", "Feuchtigkeit"],
+  qualitaet: ["Qualität", "Qualitaet", "Güte", "Guete"],
+  preisProEinheit: ["Preis", "Preis/Einheit", "Preis pro Einheit", "Preis je Einheit", "EK-Preis"],
+  notiz: ["Notiz", "Bemerkung", "Hinweis"],
+  externeNr: ["Belegnummer", "Beleg-Nr", "Externe Nr", "Externe-Nr", "Wiegescheinnummer", "Wiegeschein-Nr"],
+} as const;
+
+// ── Spalten-Aliasse für EierSortierung-Import-Vorlagen (Sortiermaschinen-Export) ──
+// Ein Zeile = eine klassifizierte Ausgangscharge (analog der manuellen Erfassung unter
+// /eiersortierung/neu) — Artikel/Güte-/Gewichtsklasse/Menge sind Pflicht, der Rest optional.
+
+// Bewusst KEINE zu generischen Aliasse ("Gewicht" bei Gewichtsklasse, "Erzeuger" bei
+// Erzeugercode, "Beleg"/"Belegnummer" bei Anlieferung) — ein Sortiermaschinen-Export hat oft
+// eine eigene, unabhängige Belegnummer-Spalte, und ein reines "Gewicht"/"Erzeuger" kollidiert
+// leicht mit einer echten Gramm-Gewichts- bzw. Erzeugernamen-Spalte. Bei den PFLICHTFELDERN
+// (gueteklasse, gewichtsklasse) fällt ein solcher Fehltreffer als klare Zeilen-Fehlermeldung
+// auf; bei den optionalen Feldern (anlieferung, erzeugercode) wird eine unter einem entfernten
+// Alias benannte Spalte dagegen wie jede andere unbekannte Spalte still ignoriert (Zeile bleibt
+// gültig, das Feld bleibt leer) — eine Quelldatei, die z.B. "Belegnummer" für die
+// Anlieferungs-Referenz nutzt, muss die Spalte auf "Anlieferung"/"Externe Nr" umbenennen.
+export const EIERSORTIERUNG_ALIAS = {
+  artikel: ["Artikel", "Artikelnummer", "Produkt"],
+  gueteklasse: ["Güteklasse", "Gueteklasse", "Güte", "Guete", "Klasse"],
+  gewichtsklasse: ["Gewichtsklasse", "Größe", "Groesse"],
+  menge: ["Menge", "Anzahl", "Stück", "Stueck"],
+  datum: ["Datum", "Sortierdatum"],
+  anlieferung: ["Anlieferung", "Anlieferungsnummer", "ANL-Nr", "Externe Nr", "Externe-Nr"],
+  chargeNr: ["Charge", "Chargennummer", "Charge-Nr", "ChargeNr"],
+  legedatum: ["Legedatum"],
+  erzeugercode: ["Erzeugercode", "Erzeuger-Code"],
+  notiz: ["Notiz", "Bemerkung", "Hinweis"],
 } as const;

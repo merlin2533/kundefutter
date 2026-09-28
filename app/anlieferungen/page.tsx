@@ -96,14 +96,24 @@ function AnlieferungenInner() {
           <h1 className="text-2xl font-bold text-gray-900">Erzeugerabrechnung</h1>
           <p className="text-sm text-gray-500 mt-0.5">Anlieferungen von Kunden erfassen und abrechnen</p>
         </div>
-        <Link
-          href="/anlieferungen/neu"
-          title="Neue Anlieferung"
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          <span className="hidden sm:inline">Neue Anlieferung</span>
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/anlieferungen/import"
+            title="Anlieferungen importieren"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16V4m0 0L8 8m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" /></svg>
+            <span className="hidden sm:inline">Import</span>
+          </Link>
+          <Link
+            href="/anlieferungen/neu"
+            title="Neue Anlieferung"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <span className="hidden sm:inline">Neue Anlieferung</span>
+          </Link>
+        </div>
       </div>
 
       {/* Filter */}

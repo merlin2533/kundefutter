@@ -1854,6 +1854,10 @@ model Anlieferung {
   preisProEinheit Float?
   gesamtBetrag    Float?
   notiz           String?
+  externeNr       String? // Idempotenz-Schlüssel für den CSV/XLS-Import (z.B. Belegnummer der
+  // Waage/Sortiermaschine) — ermöglicht, denselben Import wiederholt einzuspielen ohne
+  // Duplikate, UND später eine Anlieferung per externeNr zu referenzieren, ohne die intern
+  // vergebene `nummer` zu kennen (siehe app/api/eiersortierung/import)
   gutschriftId    Int?     @unique // verknüpfte Gutschrift wenn erstellt
   createdAt       DateTime @default(now())
 
@@ -1863,6 +1867,7 @@ model Anlieferung {
 
   eierSortierungen EierSortierung[]
 
+  @@unique([kundeId, externeNr])
   @@index([kundeId])
   @@index([datum])
 }

@@ -80,6 +80,7 @@ interface ArtikelRow {
 interface AnlieferungRow {
   _key: string; nummer: string; datumOffsetTage: number; _kundeKey: string; _artikelKey: string;
   menge: number; einheit: string; preisProEinheit?: number; gesamtBetrag?: number; notiz?: string;
+  externeNr?: string;
 }
 interface EierSortierungPositionRow {
   _artikelKey: string; gueteklasse: string; gewichtsklasse: string; menge: number;
@@ -185,6 +186,7 @@ async function main() {
         preisProEinheit: a.preisProEinheit ?? null,
         gesamtBetrag: a.gesamtBetrag ?? null,
         notiz: a.notiz ?? null,
+        externeNr: a.externeNr ?? null,
       },
     });
     anlieferungIdByKey.set(a._key, row.id);

@@ -37,12 +37,20 @@ export default function EiersortierungListePage() {
     <div>
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">Ei-Sortierprotokoll</h1>
-        <Link
-          href="/eiersortierung/neu"
-          className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
-        >
-          + Neue Sortierung
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/eiersortierung/import"
+            className="px-4 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium"
+          >
+            Import
+          </Link>
+          <Link
+            href="/eiersortierung/neu"
+            className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 text-white rounded-lg font-medium"
+          >
+            + Neue Sortierung
+          </Link>
+        </div>
       </div>
 
       {loading ? (

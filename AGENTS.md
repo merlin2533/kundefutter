@@ -318,25 +318,95 @@ prüfen, ob die Demodaten noch zum aktuellen Schema passen.
 ```
 /eiersortierung            Liste der Sortierprotokolle
 /eiersortierung/neu        Neues Protokoll (Anlieferung wählen → Ausgangschargen erfassen)
+/eiersortierung/import     CSV/XLS-Import (Sortiermaschinen-Export): Vorschau → Commit
 /eiersortierung/[id]       Detail (Löschen bucht den Lagerzugang zurück)
 /eierkontrolle             Kontrolle: MHD-Ampel sortierter Chargen, Erzeugercode-Validierung
                            (Haltungsform vs. erste Ziffer des Codes), Meldepflichten-Status
 /meldepflichten            Fristen-Tracker (Tierseuchenkasse, KAT-Wochenmeldung)
 /exporte/kat-meldung       KAT-Warenstrommeldung: Vorschau vor dem CSV-Download
 /statistik/eier            Berichte: Güte-/Gewichtsklassen-Verteilung, Top-Erzeuger
+/anlieferungen/import      CSV/XLS-Import für Anlieferungen (Erzeugerabrechnung, Modul
+                           `erzeugerabrechnung` — NICHT `eierhandel`, siehe unten)
 
 /api/eiersortierung        GET, POST (bucht je Position Lagerzugang in einer $transaction)
 /api/eiersortierung/[id]   GET, DELETE
+/api/eiersortierung/import          POST (multipart) — Commit, eine Zeile = eine EierSortierung
+                                     mit einer Position, nutzt `erstelleEierSortierung()`
+/api/eiersortierung/import/vorschau POST (multipart) — Vorschau ohne DB-Schreibzugriff, gleiche
+                                     Parsing-/Auflösungslogik wie der Commit (`lib/eiersortierung-import.ts`)
 /api/eierkontrolle         GET — aggregierte Kontroll-Daten (Chargen/Erzeuger/Meldepflichten)
 /api/exporte/kat-meldung          GET(?von,?bis) — CSV-Download
 /api/exporte/kat-meldung/vorschau GET(?von,?bis) — JSON-Vorschau vor dem Download
 /api/statistik/eier               GET(?von,?bis) — Eier-Statistik (Güte-/Gewichtsklassen, Top-Erzeuger)
+/api/anlieferungen/import          POST (multipart) — Commit, Modul `erzeugerabrechnung`
+/api/anlieferungen/import/vorschau POST (multipart) — Vorschau, `lib/anlieferung-import.ts`
 ```
 Alle Eierhandel-Routen sind mit `requireModul(config, "eierhandel")` gesperrt (403 bei
 deaktiviertem Modul) — nicht nur optisch in der Navigation. Branchenspezifische Felder in
 geteilten Formularen (Eier-Kennzeichnung in `/lieferungen/neu`, Erzeugerdaten im Kunden-
 Stammdaten-Tab) sind zusätzlich clientseitig hinter dem Modul-Flag versteckt; die Regeln dazu
 stehen im Abschnitt „Modul-System".
+
+**Achtung Modul-Zuordnung beim Anlieferungs-Import:** `Anlieferung` ist KEIN Eierhandel-exklusives
+Modell (Erzeugerabrechnung deckt auch andere Rohstoffe ab) — `/anlieferungen/import` und
+`/api/anlieferungen/import(/vorschau)` sind deshalb konsequent hinter `requireModul(config,
+"erzeugerabrechnung")` gesperrt, nicht `"eierhandel"` (identisch zu den bereits bestehenden
+`/anlieferungen`-Routen). Der Artikel-Import in dieser Route prüft dementsprechend NICHT auf
+Kategorie „Eier". Der `EierSortierung`-Import hängt dagegen korrekt an `"eierhandel"`.
+
+Beide Import-Features folgen dem projektweiten Vorschau-dann-Commit-Muster (analog
+`/api/artikel/import(/vorschau)`): dieselbe Datei wird vom Frontend zweimal hochgeladen (erst
+Vorschau, nach Bestätigung der Commit), beide Routen teilen sich dieselbe Parsing-/
+Auflösungslogik (`lib/anlieferung-import.ts` bzw. `lib/eiersortierung-import.ts`), damit Vorschau
+und tatsächlicher Import nie auseinanderlaufen. Datumsspalten (inkl. Legedatum) werden über
+`parseImportDatum()` (`lib/import-utils.ts`) geparst — erkennt sowohl Freitext (DD.MM.YYYY,
+YYYY-MM-DD) als auch numerische Excel-Datums-Seriencodes (eine als Datum formatierte Zelle
+liefert ohne `cellDates:true` eine reine Zahl, z.B. 45912 statt „12.09.2025" — `new
+Date(String(zahl))` würde daraus fälschlich ein Datum im Jahr 45912 bauen). Liefert `null`
+statt zu werfen, sowohl wenn die Spalte fehlt als auch wenn der Wert wirklich nicht erkennbar
+ist — die aufrufende Zeilen-Parsing-Funktion (`parseAnlieferungZeile()`/
+`parseEierSortierungZeile()`) unterscheidet beide Fälle (fehlende Spalte → Fallback wie
+„heute"; vorhandener, aber ungültiger Wert → Zeile wird mit Fehlermeldung abgelehnt statt
+stillschweigend ein unsinniges Datum zu übernehmen). Ein plausibler Wertebereich (Jahr
+2000–2099 für den Seriencode) und eine Rundreise-Prüfung bei DD.MM.YYYY/ISO verhindern
+zusätzlich, dass ein bloßer Jahres-/Wochenwert als Seriencode bzw. ein ungültiger Tag wie
+„31.02." (rollt in JS sonst still auf den 03.03.) als Datum akzeptiert wird. CSV-Dateien
+werden zusätzlich mit `XLSX.read(buffer, {raw:true})` gelesen — ohne dieses Flag wandelt
+SheetJS deutsches Dezimalkomma ("1,5") und führende Nullen einer Belegnummer ("007") beim
+CSV-Parsen VOR jeder eigenen Verarbeitung in JS-Numbers um (15 bzw. 7) und unterläuft damit
+`parseNumber()`; echte `.xlsx`-Zelltypen bleiben davon unberührt. `Anlieferung.externeNr` ist
+nur je Kunde eindeutig (`@@unique([kundeId, externeNr])`) — `resolveAnlieferungRef()`
+(`lib/eiersortierung-import.ts`) prüft deshalb zuerst die global eindeutige `nummer` und meldet
+bei mehreren Kunden mit derselben `externeNr` explizit Mehrdeutigkeit, statt über `findFirst()`
+still eine falsche Anlieferung (und damit einen falschen Erzeuger) zu treffen. Jede
+Import-Zeile läuft in einer EIGENEN kurzen Transaktion statt einer einzigen über die gesamte
+Datei, damit ein großer Import nicht das Transaktions-Timeout überschreitet.
+
+**Keine Idempotenz beim `EierSortierung`-Import:** anders als beim Anlieferungs-Import (über
+`externeNr`) gibt es hier bewusst keinen Duplikat-Schutz — ein zweiter Upload derselben Datei
+bucht dieselben Mengen ein zweites Mal in den Lagerbestand. Die Quelldatei (Sortiermaschinen-
+Export) liefert keinen verlässlichen Gruppierungs-/Idempotenz-Schlüssel über mehrere Zeilen
+hinweg; dasselbe Risiko besteht identisch bei zweimaliger manueller Erfassung über
+`/eiersortierung/neu`.
+
+**Kunde-/Artikel-Auflösung berücksichtigt nur aktive Datensätze.** `resolveAnlieferungKunde()`/
+`resolveArtikelRef()` (`lib/anlieferung-import.ts`) filtern auf `aktiv: true` — ein exakter
+Namenstreffer, der nur unter inaktiven (per "Löschen" entfernten) Kunden/Artikeln existiert,
+wird NICHT stillschweigend gegen einen namentlich ähnlichen, aber anderen aktiven Datensatz
+ausgetauscht: die Zeile wird stattdessen explizit mit „…ist inaktiv" abgelehnt. Ebenso meldet
+ein exakter Namenstreffer auf **mehrere** aktive Kunden/Artikel (z.B. zwei Erzeuger mit
+demselben Nachnamen) explizit Mehrdeutigkeit statt über `findFirst()` still einen davon zu
+wählen — sonst könnte eine Anlieferung (und die daraus später erstellte Erzeuger-Gutschrift)
+beim falschen Erzeuger landen. `resolveAnlieferungRef()` (`lib/eiersortierung-import.ts`,
+Anlieferungs-Referenz per `nummer` ODER `externeNr`) prüft aus demselben Grund zuerst die
+global eindeutige `nummer`, bevor `externeNr` (nur je Kunde eindeutig) herangezogen wird, und
+meldet Mehrdeutigkeit, wenn dieselbe `externeNr` bei mehreren Kunden vorkommt.
+
+`Anlieferung.externeNr` ist der Idempotenz-Schlüssel: eine Zeile mit bereits vorhandener
+`externeNr` für denselben Kunden wird beim erneuten Import übersprungen statt dupliziert; ohne
+`externeNr` in der Quelldatei legt jeder Import-Lauf eine neue Anlieferung an (wie zuvor). Der
+`EierSortierung`-Import kann eine Anlieferung sowohl über ihre interne `nummer` als auch über
+`externeNr` referenzieren.
 
 ### Marketing
 Eigene Landingpage `web/eierhandel.html` (siehe Abschnitt „Marketing-Website").
@@ -454,7 +524,10 @@ Bestellung          — Lieferantenbestellungen (nummer, datum, status OFFEN/BES
 BestellungPosition  — Positionen je Bestellung (artikel, menge, mengeGeliefert, preis)
 AngebotVorlage      — Wiederverwendbare Angebotsvorlagen (name, positionen)
 AngebotVorlagePosition
-Anlieferung         — Erzeugerbis-/Abrechnung (erzeuger, datum, artikel, menge, preis)
+Anlieferung         — Erzeugerbis-/Abrechnung (erzeuger, datum, artikel, menge, preis, externeNr? —
+                      Idempotenz-Schlüssel für den CSV/XLS-Import, `@@unique([kundeId, externeNr])`;
+                      ermöglicht zusätzlich, eine Anlieferung im EierSortierung-Import per externeNr
+                      zu referenzieren, ohne die intern vergebene `nummer` zu kennen)
 ChargenZertifikat   — Zertifikate je Charge (chargeNr, typ, datei)
 Benachrichtigung    — System-Alerts (typ, text, gelesen, faelligAm)
 KundePortalZugang   — Login-Daten fürs Kunden-Portal (username, passwortHash)
@@ -611,6 +684,7 @@ app/
 ├── eiersortierung/             Ei-Sortierprotokoll (Modul `eierhandel`, Standard: aus)
 │   ├── page.tsx                Liste der Sortiervorgänge
 │   ├── neu/page.tsx            Anlieferung wählen → klassifizierte Ausgangschargen erfassen
+│   ├── import/page.tsx         CSV/XLS-Import (Sortiermaschinen-Export): Vorschau → Commit
 │   └── [id]/page.tsx           Detail (Chargen mit Güte-/Gewichtsklasse, MHD, Erzeugercode), Löschen bucht zurück
 ├── eierkontrolle/page.tsx      Kontrolle Eierhandel: MHD-Ampel, Erzeugercode-Validierung, Meldepflichten-Status
 ├── meldepflichten/page.tsx     Fristen-Tracker Eierhandel (Tierseuchenkasse, KAT-Wochenmeldung)
@@ -628,7 +702,8 @@ app/
 ├── einkaufszettel/page.tsx     Schnell-Einkaufszettel
 ├── anlieferungen/              Erzeugerabrechnung
 │   ├── page.tsx
-│   └── neu/page.tsx
+│   ├── neu/page.tsx
+│   └── import/page.tsx         CSV/XLS-Import: Vorschau → Commit
 ├── kampagnen/                  Marketingkampagnen mit Potenzialanalyse
 │   ├── page.tsx
 │   ├── neu/page.tsx
@@ -1069,6 +1144,8 @@ app/
 /api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
 /api/anlieferungen              GET(?lieferantId), POST
 /api/anlieferungen/[id]         GET, PUT, DELETE
+/api/anlieferungen/import          POST (multipart) — CSV/XLS-Import, Details siehe „Eierhandel-Modul"
+/api/anlieferungen/import/vorschau POST (multipart) — Vorschau vor dem Import
 
 -- Offene Posten --
 /api/offene-posten              GET(?mahnstufe) — aggregiert aus Lieferungen
@@ -1898,6 +1975,8 @@ ist modulabhängig).
 | `lib/kat-meldung.ts` | `sammleKatMeldung(von,bis)` + `buildKatMeldungCsv()` — wöchentliche KAT-Warenstrommeldung (Struktur analog `sammleDatevBuchungen()` in `lib/datev.ts`); zählt nur `status:"geliefert"` (stornierte Lieferungen bleiben draußen) |
 | `lib/meldepflichten.ts` | `pruefeMeldepflichten()` — legt fällige Melde-Aufgaben an (Tierseuchenkasse-Frist 31.01. → nächste bevorstehende, nicht "dieses Jahr"; wöchentliche KAT-Erinnerung nur wenn die vorherige erledigt ist). Eingebunden als Cron-Job `meldepflichten` in `app/api/cron/route.ts`, prüft `modul.eierhandel` selbst |
 | `lib/ausgleichsartikel.ts` | Zentrale, dependency-freie Liste der "Ausgleichsartikel"-Artikelnummern (`ALTE_FORDERUNG_ARTIKELNUMMER`/`GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER`/`RESTDIFFERENZ_ARTIKELNUMMER`) + `istAusgleichsArtikelnummer()` — genutzt von `lib/lieferung.ts` (erzeugt die Positionen) UND `lib/datev.ts` (muss sie im Export erkennen, um sie auf ein Verrechnungs- statt Erlöskonto zu buchen) |
+| `lib/anlieferung-import.ts` | Geteilte Parsing-/Auflösungslogik für den Anlieferungs-Import: `parseAnlieferungZeile()` (reine Funktion), `resolveAnlieferungKunde()`/`resolveArtikelRef()` (DB-Lookup per Name/Artikelnummer, exakt dann eindeutiger Teilstring-Treffer) — von Vorschau- UND Commit-Route genutzt, damit beide nie auseinanderlaufen |
+| `lib/eiersortierung-import.ts` | Analog für den EierSortierung-Import: `parseEierSortierungZeile()`, `resolveAnlieferungRef()` (löst eine Anlieferung per `nummer` ODER `externeNr` auf); re-exportiert `resolveArtikelRef` aus `lib/anlieferung-import.ts` (generischer Artikel-Resolver, kein Anlieferungs-Detail) |
 
 ## Wettbewerber-Notizen
 
