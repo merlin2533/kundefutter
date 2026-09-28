@@ -15,7 +15,7 @@
 // Treffer ließe sich ohnehin kein vollständiger Datensatz anlegen, ohne einen Lieferanten zu
 // erfinden (Projekt-Konvention: nie raten, immer explizit zur Prüfung vorlegen).
 
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile, rm } from "fs/promises";
 import path from "path";
 import { createHash } from "crypto";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +29,12 @@ import { ladeEmailEingangConfig, istEmailEingangVollstaendigKonfiguriert } from 
 import { holeImapMails, holeM365Mails, MAX_MAILS_PRO_LAUF, type EingehendeMail, type EingehendeMailAnhang } from "@/lib/email-eingang-abruf";
 
 const MAX_VERSUCHE = 3;
+// Eine Mail, deren MailImport-Zeile seit mehr als dieser Zeitspanne auf "neu" hängen geblieben
+// ist (Prozess-/Container-Neustart mitten in der Verarbeitung), wird wie "fehler" behandelt und
+// erneut versucht — sonst bliebe sie für immer als "wird gerade verarbeitet" liegen, ohne dass
+// sie je fertig wird oder erneut angefasst wird (siehe Dedupe-Prüfung in verarbeiteEingehendeMails()).
+const HAENGENGEBLIEBEN_NACH_MS = 15 * 60 * 1000;
+const GUELTIGE_MWST = [0, 7, 19];
 
 export interface EmailRechnungseingangErgebnis {
   uebersprungen?: string;
@@ -90,19 +96,31 @@ function normalisiereIban(iban: string): string {
 }
 
 /** IBAN-Treffer zuerst (deterministisch, fälschungsresistenter als ein Namensabgleich), erst
- * danach der bestehende Fuzzy-Namens-Matcher aus lib/kiMatching.ts. */
+ * danach der bestehende Fuzzy-Namens-Matcher aus lib/kiMatching.ts.
+ *
+ * E-Mail ist ein nicht vertrauenswürdiger Eingangskanal — das klassische Betrugsmuster ist eine
+ * gefälschte "unsere Bankverbindung hat sich geändert"-Rechnung. Deshalb zwei Sicherungen:
+ * (1) Teilen sich mehrere aktive Lieferanten dieselbe IBAN (z.B. Factoring), gewinnt NICHT
+ *     einfach der erste Treffer mit Konfidenz "hoch" — stattdessen auf den Namensabgleich
+ *     ausweichen, damit ein mehrdeutiger IBAN-Treffer nicht blind übernommen wird.
+ * (2) Wird der Lieferant über den Namen gefunden, aber die auf dem Beleg genannte IBAN weicht von
+ *     der beim Lieferanten hinterlegten ab, wird das über `ibanAbweichung` zurückgemeldet, statt
+ *     es stillschweigend zu ignorieren — der Aufrufer hängt daraus einen Prüfhinweis an
+ *     `fehlendeFelder`, der ein automatisches "passt" verhindert (siehe verarbeiteAnhang()). */
 export function matchLieferant(
   ergebnis: Pick<BelegKiErgebnis, "lieferant" | "iban">,
   lieferanten: LieferantFuerMatch[],
   gelernt: Map<string, number>
-): { lieferantId: number | null; konfidenz: Konfidenz } {
+): { lieferantId: number | null; konfidenz: Konfidenz; ibanAbweichung: boolean } {
   if (ergebnis.iban) {
     const gesucht = normalisiereIban(ergebnis.iban);
-    const treffer = lieferanten.find((l) => l.iban && normalisiereIban(l.iban) === gesucht);
-    if (treffer) return { lieferantId: treffer.id, konfidenz: "hoch" };
+    const treffer = lieferanten.filter((l) => l.iban && normalisiereIban(l.iban) === gesucht);
+    if (treffer.length === 1) return { lieferantId: treffer[0].id, konfidenz: "hoch", ibanAbweichung: false };
   }
   const { kunde, konfidenz } = matchKunde({ name: ergebnis.lieferant ?? "" }, lieferanten, gelernt);
-  return { lieferantId: kunde ? kunde.id : null, konfidenz: kunde ? konfidenz : "keine" };
+  if (!kunde) return { lieferantId: null, konfidenz: "keine", ibanAbweichung: false };
+  const ibanAbweichung = !!(ergebnis.iban && kunde.iban && normalisiereIban(ergebnis.iban) !== normalisiereIban(kunde.iban));
+  return { lieferantId: kunde.id, konfidenz, ibanAbweichung };
 }
 
 // ─── Ein Anhang → ein Batch-Item (oder gar keins, wenn keine Rechnung erkannt) ──────────────────
@@ -127,7 +145,11 @@ async function verarbeiteAnhang(
   // (XRechnung) läuft direkt hier hinein, ein PDF mit eingebettetem ZUGFeRD-XML ebenso.
   let ergebnis: BelegKiErgebnis | null = null;
   let kiRohtext: string | null = null;
-  let unbekanntesFormat = false;
+  // Gesetzt, wenn der Anhang zwar erkennbar eine Rechnung sein soll, aber nicht automatisch
+  // ausgewertet werden konnte (unbekanntes XML-Format ODER ein per-Anhang isolierter KI-Fehler,
+  // siehe unten) — landet dann trotzdem als Item im Eingang, ohne Datenvorschlag, rein zur
+  // manuellen Erfassung, statt den Anhang stillschweigend zu verwerfen.
+  let hinweisOhneAuswertung: string | null = null;
 
   if (typ === "xml" || typ === "pdf") {
     const xml = typ === "xml" ? anhang.buffer.toString("utf8") : extractXmlFromPdf(anhang.buffer);
@@ -141,49 +163,71 @@ async function verarbeiteAnhang(
           beschreibung: null,
           betragNetto: geparst.betragNetto,
           betragBrutto: geparst.betragBrutto,
-          mwstSatz: geparst.mwstSatz ?? 19,
+          mwstSatz: GUELTIGE_MWST.includes(geparst.mwstSatz ?? -1) ? geparst.mwstSatz! : 19,
           lieferant: geparst.lieferantName,
           iban: geparst.iban,
           bic: geparst.bic,
         };
       } else if (typ === "xml") {
-        unbekanntesFormat = true; // XML-Datei, aber kein auswertbares ZUGFeRD/CII-Format (z.B. UBL)
+        hinweisOhneAuswertung = "E-Rechnungs-Format (XML) konnte nicht automatisch ausgelesen werden — bitte Felder manuell erfassen"; // z.B. UBL statt CII
       }
     } else if (typ === "xml") {
-      unbekanntesFormat = true;
+      hinweisOhneAuswertung = "E-Rechnungs-Format (XML) konnte nicht automatisch ausgelesen werden — bitte Felder manuell erfassen";
     }
   }
 
-  if (!ergebnis && !unbekanntesFormat && typ !== "xml") {
+  if (!ergebnis && !hinweisOhneAuswertung && typ !== "xml") {
     // Kein ZUGFeRD gefunden → KI-Weg: erst günstige Typ-Klassifikation, nur bei "rechnung"
     // die teurere strukturierte Extraktion. Verhindert, dass ein zufälliges PDF (AGB,
     // Lieferschein, Datenblatt) im Mail-Anhang fälschlich als Eingangsrechnung angelegt wird.
-    const cfg = await getAiConfig("ocr");
-    if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
-    const base64 = anhang.buffer.toString("base64");
+    //
+    // Fehler HIER (Mistral-Key fehlt, OCR liefert keinen Text, Netzwerkfehler…) betreffen NUR
+    // diesen einen Anhang — ein per-Mail-`try/catch` würde sonst bei einem defekten Anhang JEDEN
+    // weiteren Anhang derselben Mail (z.B. das eigentliche Rechnungs-PDF an Index 2) ungeprüft
+    // verwerfen und den ganzen Mail-Fortschritt als "fehler" markieren, obwohl nur eine einzelne
+    // Datei betroffen war. Eine echte Mistral-429-Überlastung ist die einzige Ausnahme: die wird
+    // bewusst NICHT abgefangen, sondern bis zum Mail-Loop im Orchestrator durchgereicht, der dann
+    // den GANZEN Lauf abbricht (siehe verarbeiteEingehendeMails()).
+    try {
+      const cfg = await getAiConfig("ocr");
+      if (!cfg.mistralKey) throw new Error("Mistral API-Key nicht konfiguriert");
+      const base64 = anhang.buffer.toString("base64");
 
-    const typErkennung = await analyzeDocument(base64, PROMPTS.belegtyp, "belegtyp", cfg);
-    const typResult = typErkennung.parsed as { typ?: string; confidence?: number };
-    if (typResult.typ !== "rechnung") {
-      return { erkanntAlsRechnung: false };
+      const typErkennung = await analyzeDocument(base64, PROMPTS.belegtyp, "belegtyp", cfg);
+      const typResult = typErkennung.parsed as { typ?: string; confidence?: number };
+      if (typResult.typ !== "rechnung") {
+        return { erkanntAlsRechnung: false };
+      }
+
+      const beleg = await analyzeDocument(base64, PROMPTS.beleg, "beleg", cfg);
+      kiRohtext = beleg.raw;
+      ergebnis = parseBelegKiErgebnis(beleg.parsed as Record<string, unknown>);
+    } catch (err) {
+      if (istMistralRateLimitFehler(err)) throw err;
+      log.warn("E-Mail-Rechnungseingang: KI-Auswertung eines Anhangs fehlgeschlagen", {
+        dateiname: anhang.dateiname,
+        fehler: err instanceof Error ? err.message : String(err),
+      });
+      hinweisOhneAuswertung = "Automatische Auswertung fehlgeschlagen — bitte manuell erfassen";
     }
-
-    const beleg = await analyzeDocument(base64, PROMPTS.beleg, "beleg", cfg);
-    kiRohtext = beleg.raw;
-    ergebnis = parseBelegKiErgebnis(beleg.parsed as Record<string, unknown>);
   }
 
-  if (!ergebnis && !unbekanntesFormat) return { erkanntAlsRechnung: false };
+  if (!ergebnis && !hinweisOhneAuswertung) return { erkanntAlsRechnung: false };
 
-  // Ab hier: entweder ein per ZUGFeRD/KI ausgewertetes Ergebnis ODER ein XML, das erkennbar eine
-  // Rechnung sein soll (E-Rechnungs-Anhang), aber mit dem vorhandenen Parser nicht lesbar ist
-  // (z.B. UBL statt CII) — beides landet als Item im Eingang, damit nichts stillschweigend
-  // verloren geht; im zweiten Fall ohne Datenvorschlag, rein zur manuellen Erfassung.
+  // Ab hier: entweder ein per ZUGFeRD/KI ausgewertetes Ergebnis ODER ein Anhang, der erkennbar
+  // eine Rechnung sein soll, aber nicht automatisch ausgewertet werden konnte — beides landet als
+  // Item im Eingang, damit nichts stillschweigend verloren geht; im zweiten Fall ohne
+  // Datenvorschlag, rein zur manuellen Erfassung.
   if (!batchIdRef.id) {
     const batch = await prisma.kiEingangsrechnungBatch.create({
       data: { quelle: "email", notiz: `Aus E-Mail-Eingang: ${mail.von}${mail.betreff ? ` – ${mail.betreff}` : ""}` },
     });
     batchIdRef.id = batch.id;
+    // Sofort auf der MailImport-Zeile vermerken (nicht erst am Ende von verarbeiteMail) — bricht
+    // ein SPÄTERER Anhang derselben Mail mit einer echten Rate-Limit-Überlastung ab (throw statt
+    // Rückgabe), bleibt der Batch sonst unverknüpft und als Waise im Eingang stehen, ohne dass der
+    // nächste Wiederholversuch ihn findet und aufräumen kann (siehe raeumeUnvollstaendigenBatchAuf()).
+    await prisma.eingangsRechnungMailImport.update({ where: { id: mailImportId }, data: { batchId: batch.id } });
   }
   const batchId = batchIdRef.id;
 
@@ -198,7 +242,9 @@ async function verarbeiteAnhang(
   const filename = `${index + 1}${extFuer(typ)}`;
   await writeFile(path.join(uploadDir, filename), anhang.buffer);
 
-  if (unbekanntesFormat) {
+  if (hinweisOhneAuswertung) {
+    const felderStub = [hinweisOhneAuswertung];
+    if (dublette) felderStub.push(`Möglicherweise Dublette eines bereits importierten Anhangs (Item #${dublette.id})`);
     await prisma.kiEingangsrechnungBatchItem.create({
       data: {
         batchId,
@@ -208,18 +254,23 @@ async function verarbeiteAnhang(
         status: "analysiert",
         mailImportId,
         dateiHash,
-        fehlendeFelder: JSON.stringify(["E-Rechnungs-Format (XML) konnte nicht automatisch ausgelesen werden — bitte Felder manuell erfassen"]),
+        fehlendeFelder: JSON.stringify(felderStub),
       },
     });
     return { erkanntAlsRechnung: true };
   }
 
   const e = ergebnis!;
-  const { lieferantId, konfidenz } = matchLieferant(e, lieferantenState.lieferanten, lieferantenState.gelernt);
+  const { lieferantId, konfidenz, ibanAbweichung } = matchLieferant(e, lieferantenState.lieferanten, lieferantenState.gelernt);
   const felder = { lieferantKonfidenz: lieferantId ? konfidenz : ("keine" as Konfidenz), nummer: e.belegNr, datum: e.datum, betragNetto: e.betragNetto };
   const fehlendeFelder = berechneFehlendeFelderEingangsrechnung(felder);
   if (dublette) {
     fehlendeFelder.push(`Möglicherweise Dublette eines bereits importierten Anhangs (Item #${dublette.id})`);
+  }
+  if (ibanAbweichung) {
+    // Nie automatisch "passt" bei abweichender Bankverbindung — klassisches Betrugsmuster bei
+    // per Mail eingehenden Rechnungen ("unsere IBAN hat sich geändert").
+    fehlendeFelder.push("Bankverbindung auf dem Beleg weicht von der hinterlegten IBAN ab — vor Übernahme telefonisch beim Lieferanten verifizieren");
   }
   const entscheidung = fehlendeFelder.length === 0 ? "passt" : null;
 
@@ -264,10 +315,23 @@ async function verarbeiteMail(
     const { erkanntAlsRechnung } = await verarbeiteAnhang(mail.anhaenge[i], i, batchIdRef, mailImportId, mail, lieferantenState);
     if (erkanntAlsRechnung) erkannt++;
   }
-  if (batchIdRef.id) {
-    await prisma.eingangsRechnungMailImport.update({ where: { id: mailImportId }, data: { batchId: batchIdRef.id } });
-  }
   return erkannt;
+}
+
+/** Löscht einen unvollständigen Batch (samt Items per @relation onDelete:Cascade) und sein
+ * Upload-Verzeichnis — genutzt, bevor ein vorheriger, abgebrochener Verarbeitungsversuch derselben
+ * Mail wiederholt wird, damit der Retry nicht Dubletten-Items neben den schon vorhandenen anlegt. */
+async function raeumeUnvollstaendigenBatchAuf(batchId: number): Promise<void> {
+  try {
+    await prisma.kiEingangsrechnungBatch.delete({ where: { id: batchId } });
+  } catch (err) {
+    // Batch existiert ggf. schon nicht mehr (z.B. inzwischen manuell verworfen) — kein Problem.
+    log.warn("E-Mail-Rechnungseingang: Aufräumen eines unvollständigen Batches fehlgeschlagen", { batchId, fehler: String(err) });
+  }
+  const dir = path.join(getUploadBase(), "ki-eingangsrechnung-batch", String(batchId));
+  await rm(dir, { recursive: true, force: true }).catch((err) => {
+    log.warn("E-Mail-Rechnungseingang: Upload-Verzeichnis eines unvollständigen Batches konnte nicht gelöscht werden", { batchId, fehler: String(err) });
+  });
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
@@ -285,6 +349,14 @@ export async function verarbeiteEingehendeMails(): Promise<EmailRechnungseingang
   const cfg = await ladeEmailEingangConfig();
   if (!cfg.aktiv) return leer("E-Mail-Rechnungseingang ist deaktiviert");
   if (!istEmailEingangVollstaendigKonfiguriert(cfg)) return leer("Zugangsdaten unvollständig");
+
+  // Vorab prüfen statt erst beim ersten PDF-Anhang zu scheitern: ohne Mistral-Key würde sonst
+  // JEDE Mail mit einem nicht-ZUGFeRD-Anhang einen (KI-Anteil-)Fehlschlag produzieren, bevor der
+  // Nutzer überhaupt eine Chance hatte, den Key unter Einstellungen → KI nachzutragen. Rein
+  // ZUGFeRD-Anhänge kämen zwar auch ohne Key durch — dieser Kompromiss (lieber einmal klar
+  // "nicht konfiguriert" melden als potenziell viele Mails als "fehler" verbrennen) ist bewusst.
+  const aiCfg = await getAiConfig("ocr");
+  if (!aiCfg.mistralKey) return leer("Mistral API-Key nicht konfiguriert (Einstellungen → KI)");
 
   const postfach = cfg.provider === "imap" ? cfg.imap.user : cfg.m365.mailbox;
 
@@ -308,17 +380,39 @@ export async function verarbeiteEingehendeMails(): Promise<EmailRechnungseingang
     const bestehend = await prisma.eingangsRechnungMailImport.findUnique({
       where: { provider_postfach_messageId: { provider: cfg.provider, postfach, messageId: mail.messageId } },
     });
-    // Bereits final verarbeitet (oder als endgültig fehlgeschlagen markiert) — nur den Fortschritt
-    // bestätigen und weiter, kein erneuter (teurer) Verarbeitungsversuch.
-    if (bestehend && (bestehend.status !== "fehler" || bestehend.versuche >= MAX_VERSUCHE)) {
-      await mail.bestaetige();
-      continue;
+
+    if (bestehend) {
+      const istFinal = bestehend.status === "rechnung_erkannt" || bestehend.status === "keine_rechnung";
+      const istEndgueltigAufgegeben = bestehend.status === "fehler" && bestehend.versuche >= MAX_VERSUCHE;
+      if (istFinal || istEndgueltigAufgegeben) {
+        // Bereits final verarbeitet (oder endgültig aufgegeben) — nur den Fortschritt bestätigen
+        // und weiter, kein erneuter (teurer) Verarbeitungsversuch.
+        await mail.bestaetige();
+        continue;
+      }
+
+      const istHaengengeblieben =
+        bestehend.status === "neu" && Date.now() - bestehend.createdAt.getTime() > HAENGENGEBLIEBEN_NACH_MS;
+      if (bestehend.status === "neu" && !istHaengengeblieben) {
+        // Noch nicht lange genug auf "neu" — vermutlich verarbeitet ein anderer, gerade
+        // laufender Aufruf (Cron + manuelles "Jetzt abrufen" überschneiden sich) diese Mail
+        // bereits. Weder bestätigen (Cursor bleibt stehen, der andere Lauf bestätigt ihn) noch
+        // hier ein zweites Mal anstoßen.
+        continue;
+      }
+
+      // Retry (fehler mit verbleibenden Versuchen ODER hängengebliebenes "neu") — einen aus dem
+      // letzten, abgebrochenen Versuch evtl. stehen gebliebenen Teil-Batch zuerst aufräumen,
+      // sonst entstehen bei jedem Wiederholversuch zusätzliche Dubletten-Items im selben Eingang.
+      if (bestehend.batchId) {
+        await raeumeUnvollstaendigenBatchAuf(bestehend.batchId);
+      }
     }
 
     const importZeile = bestehend
       ? await prisma.eingangsRechnungMailImport.update({
           where: { id: bestehend.id },
-          data: { versuche: { increment: 1 } },
+          data: { versuche: { increment: 1 }, status: "neu", batchId: null, fehlerText: null },
         })
       : await prisma.eingangsRechnungMailImport.create({
           data: {
@@ -368,10 +462,14 @@ export async function verarbeiteEingehendeMails(): Promise<EmailRechnungseingang
         // Cron-Tick beginnt wieder bei genau dieser Mail.
         break;
       }
-      // Andere Fehler (z.B. eine defekte Einzeldatei) sollen nicht den ganzen Postfach-Abruf
-      // blockieren — Fortschritt trotzdem bestätigen, die Mail bleibt für die Auswertung als
-      // "fehler" im Protokoll sichtbar.
-      await mail.bestaetige();
+      // Cursor NUR bestätigen, wenn die Wiederholversuche jetzt aufgebraucht sind (endgültig
+      // aufgegeben) — sonst würde ein vorübergehender Fehler (Netzwerk, Mistral-5xx, ein zwischen-
+      // zeitlich fehlender Key) die Mail beim nächsten Lauf gar nicht mehr sehen, obwohl
+      // `versuche`/MAX_VERSUCHE eigentlich noch einen weiteren Versuch vorsehen. Bleibt die Mail
+      // unbestätigt, holt sie der nächste Lauf erneut ab (siehe Dedupe-Prüfung oben).
+      if (importZeile.versuche >= MAX_VERSUCHE) {
+        await mail.bestaetige();
+      }
     }
   }
 

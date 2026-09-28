@@ -88,6 +88,12 @@ export async function holeImapMails(
     auth: { user: cfg.user, pass: cfg.passwort },
     logger: false,
   });
+  // imapflow meldet einen Socketfehler NACH erfolgreichem Connect (z.B. Verbindungsabbruch
+  // während eines Downloads) per EventEmitter — ohne Listener wirft das, landet als
+  // uncaughtException in lib/process-error-handlers.ts und beendet dort bewusst den ganzen
+  // Node-Prozess (process.exit(1)). Ein einzelner IMAP-Verbindungsabbruch darf aber nicht den
+  // kompletten Next.js-Server mitreißen.
+  client.on("error", (err) => log.warn("E-Mail-Rechnungseingang: IMAP-Verbindungsfehler", { err: String(err) }));
 
   await client.connect();
   try {
@@ -102,8 +108,9 @@ export async function holeImapMails(
     } else {
       // Erster Lauf ODER die Mailbox wurde serverseitig neu angelegt (UIDVALIDITY-Wechsel, alte
       // UIDs bedeutungslos) — dann über das Empfangsdatum eingrenzen statt die volle Historie zu
-      // laden. `aktivSeit` ist beim Einschalten der Funktion immer gesetzt (siehe
-      // app/api/einstellungen/email-eingang/route.ts); ohne es sicherheitshalber gar nichts holen.
+      // laden. `aktivSeit` wird beim Einschalten der Funktion auf der Settings-Seite
+      // (app/einstellungen/email-rechnungseingang/page.tsx, saveAll()) automatisch auf "jetzt"
+      // gesetzt; ohne es sicherheitshalber gar nichts holen.
       if (!aktivSeit) return [];
       const gefunden = await client.search({ since: aktivSeit }, { uid: true });
       uids = Array.isArray(gefunden) ? gefunden : [];
@@ -121,7 +128,12 @@ export async function holeImapMails(
     }
 
     const ergebnis: EingehendeMail[] = [];
-    let hoechsteVerarbeiteteUid = cfg.letzteUid;
+    // Bei einem UIDVALIDITY-Wechsel sind alte UIDs bedeutungslos (die Mailbox wurde serverseitig
+    // neu aufgebaut) — der Cursor startet dann bei 0, sonst würde `bestaetige()` unten sofort
+    // wieder auf den (für die NEUE Validity viel zu hohen) alten Wert springen und dadurch jede
+    // künftige Mail mit kleinerer UID als der alte Cursor dauerhaft unsichtbar für den nächsten
+    // Lauf machen, obwohl sie nie verarbeitet wurde.
+    let hoechsteVerarbeiteteUid = uidValidityUnveraendert ? cfg.letzteUid : 0;
 
     for (const uid of zuVerarbeiten) {
       const meta = metaByUid.get(uid);
@@ -153,9 +165,13 @@ export async function holeImapMails(
       let gesamtgroesse = 0;
       for (const att of parsed.attachments) {
         if (anhaenge.length >= MAX_ANHAENGE_PRO_MAIL) break;
-        // Inline-Bilder (Signatur-Logos, cid:-Referenzen) sind praktisch nie Rechnungen — deren
-        // Analyse wäre nur unnötig teure/falsche Mistral-Aufrufe.
-        if (att.contentDisposition === "inline") continue;
+        // Per cid: im HTML-Body eingebundene Inline-Bilder (Signatur-Logos) sind praktisch nie
+        // Rechnungen — deren Analyse wäre nur unnötig teure/falsche Mistral-Aufrufe. Bewusst
+        // `related` statt `contentDisposition === "inline"`: Apple Mail verschickt echte
+        // PDF-Anhänge standardmäßig mit `Content-Disposition: inline`, obwohl sie ganz normale,
+        // herunterladbare Anhänge sind (kein cid:-Bezug) — der Content-Disposition-Header allein
+        // hätte solche Rechnungs-PDFs fälschlich verworfen.
+        if (att.related) continue;
         if (att.size > MAX_ANHANG_GROESSE) continue;
         gesamtgroesse += att.size;
         if (gesamtgroesse > MAX_MAIL_GESAMTGROESSE) break;
@@ -192,6 +208,7 @@ export async function testeImapVerbindung(cfg: EmailEingangConfig["imap"]): Prom
     auth: { user: cfg.user, pass: cfg.passwort },
     logger: false,
   });
+  client.on("error", (err) => log.warn("E-Mail-Rechnungseingang: IMAP-Verbindungstest-Fehler", { err: String(err) }));
   await client.connect();
   try {
     await client.mailboxOpen(cfg.ordner, { readOnly: true });
@@ -210,6 +227,10 @@ export async function testeImapVerbindung(cfg: EmailEingangConfig["imap"]): Prom
 // (siehe Datei-Kopfkommentar zu SSRF).
 const GRAPH_TOKEN_HOST = "https://login.microsoftonline.com";
 const GRAPH_API_HOST = "https://graph.microsoft.com/v1.0";
+// Der Cron-Request läuft sequenziell ohne eigenes Timeout (siehe docker-entrypoint.sh) — ein
+// hängender Graph-Aufruf würde sonst ALLE künftigen Cron-Jobs (Nextcloud-Sync, Meldepflichten, …)
+// unbegrenzt blockieren.
+const GRAPH_TIMEOUT_MS = 30_000;
 
 // Tenant-ID ist entweder eine GUID oder eine "contoso.onmicrosoft.com"-Domain — beides wird direkt
 // in den Token-URL-Pfad eingesetzt, daher vor der Verwendung strikt validiert.
@@ -231,6 +252,7 @@ async function holeGraphToken(cfg: EmailEingangConfig["m365"]): Promise<string> 
       client_secret: cfg.clientSecret,
       scope: "https://graph.microsoft.com/.default",
     }),
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -278,7 +300,7 @@ export async function holeM365Mails(cfg: EmailEingangConfig["m365"], aktivSeit: 
     `?$filter=${encodeURIComponent(filter)}&$orderby=receivedDateTime asc&$top=${MAX_MAILS_PRO_LAUF}` +
     `&$select=id,subject,from,receivedDateTime,internetMessageId,hasAttachments`;
 
-  const listRes = await fetch(listUrl, { headers: authHeader });
+  const listRes = await fetch(listUrl, { headers: authHeader, signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS) });
   if (!listRes.ok) {
     const body = await listRes.text().catch(() => "");
     throw new Error(`Microsoft-365-Abruf fehlgeschlagen (${listRes.status}): ${body.slice(0, 300)}`);
@@ -303,35 +325,38 @@ export async function holeM365Mails(cfg: EmailEingangConfig["m365"], aktivSeit: 
     if (msg.hasAttachments) {
       const metaRes = await fetch(
         `${GRAPH_API_HOST}/users/${mailboxPath}/messages/${msg.id}/attachments?$select=id,name,contentType,size,isInline`,
-        { headers: authHeader }
+        { headers: authHeader, signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS) }
       );
-      if (metaRes.ok) {
-        const metaJson = (await metaRes.json()) as { value?: GraphAttachmentMeta[] };
-        let gesamtgroesse = 0;
-        for (const att of metaJson.value ?? []) {
-          if (anhaenge.length >= MAX_ANHAENGE_PRO_MAIL) break;
-          if (att.isInline) continue;
-          if (att["@odata.type"] !== "#microsoft.graph.fileAttachment") continue; // z.B. keine Termin-/Kontakt-Anhänge
-          if (att.size > MAX_ANHANG_GROESSE) continue;
-          gesamtgroesse += att.size;
-          if (gesamtgroesse > MAX_MAIL_GESAMTGROESSE) break;
+      // Ein Ladefehler hier NICHT still überspringen (führte sonst dazu, dass die Mail ohne
+      // Anhänge weiterläuft, als "keine_rechnung" bestätigt wird und die eigentlich vorhandene
+      // Rechnung dauerhaft verloren geht) — stattdessen werfen, damit der Orchestrator die Mail
+      // als wiederholbaren Fehler behandelt (siehe lib/email-eingang-verarbeitung.ts).
+      if (!metaRes.ok) {
+        throw new Error(`Anhänge einer M365-Mail konnten nicht geladen werden (${metaRes.status})`);
+      }
+      const metaJson = (await metaRes.json()) as { value?: GraphAttachmentMeta[] };
+      let gesamtgroesse = 0;
+      for (const att of metaJson.value ?? []) {
+        if (anhaenge.length >= MAX_ANHAENGE_PRO_MAIL) break;
+        if (att.isInline) continue;
+        if (att["@odata.type"] !== "#microsoft.graph.fileAttachment") continue; // z.B. keine Termin-/Kontakt-Anhänge
+        if (att.size > MAX_ANHANG_GROESSE) continue;
+        gesamtgroesse += att.size;
+        if (gesamtgroesse > MAX_MAIL_GESAMTGROESSE) break;
 
-          const contentRes = await fetch(`${GRAPH_API_HOST}/users/${mailboxPath}/messages/${msg.id}/attachments/${att.id}`, {
-            headers: authHeader,
-          });
-          if (!contentRes.ok) continue;
-          const contentJson = (await contentRes.json()) as { contentBytes?: string };
-          if (!contentJson.contentBytes) continue;
-          anhaenge.push({
-            dateiname: att.name,
-            contentTypeGemeldet: att.contentType,
-            buffer: Buffer.from(contentJson.contentBytes, "base64"),
-          });
+        const contentRes = await fetch(`${GRAPH_API_HOST}/users/${mailboxPath}/messages/${msg.id}/attachments/${att.id}`, {
+          headers: authHeader,
+          signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
+        });
+        if (!contentRes.ok) {
+          throw new Error(`Anhang "${att.name}" einer M365-Mail konnte nicht geladen werden (${contentRes.status})`);
         }
-      } else {
-        log.warn("E-Mail-Rechnungseingang: Anhänge einer M365-Mail konnten nicht geladen werden", {
-          messageId: msg.id,
-          status: metaRes.status,
+        const contentJson = (await contentRes.json()) as { contentBytes?: string };
+        if (!contentJson.contentBytes) continue;
+        anhaenge.push({
+          dateiname: att.name,
+          contentTypeGemeldet: att.contentType,
+          buffer: Buffer.from(contentJson.contentBytes, "base64"),
         });
       }
     }
@@ -350,6 +375,7 @@ export async function testeM365Verbindung(cfg: EmailEingangConfig["m365"]): Prom
   const mailboxPath = pruefeMailbox(cfg.mailbox);
   const res = await fetch(`${GRAPH_API_HOST}/users/${mailboxPath}/mailFolders/inbox?$select=id`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");

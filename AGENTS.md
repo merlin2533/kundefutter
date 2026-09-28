@@ -492,19 +492,33 @@ Liquiditätsvorschau auftauchen, bevor ein Mensch sie bestätigt hat.
 
 **Verarbeitung je Anhang** (`lib/email-eingang-verarbeitung.ts`):
 1. Dateityp per Magic Bytes bestimmen (`erkenneDateityp()`) — NICHT anhand des von der Mail
-   gemeldeten Content-Type/Dateinamens (nicht vertrauenswürdig). Inline-Bilder (Signatur-Logos)
-   werden schon beim Abruf verworfen.
+   gemeldeten Content-Type/Dateinamens (nicht vertrauenswürdig). Per `cid:` im HTML-Body
+   eingebundene Inline-Bilder (Signatur-Logos, `mailparser`-Attachment-Flag `related`) werden schon
+   beim Abruf verworfen — bewusst NICHT anhand von `Content-Disposition: inline` allein, das würde
+   z.B. von Apple Mail standardmäßig auch für echte, herunterladbare PDF-Anhänge gesetzt.
 2. PDF/eigenständiges XML: zuerst ZUGFeRD/Factur-X versuchen (`lib/zugferd-parse.ts`, deterministisch,
-   kostenlos, keine Halluzination). Ein XML-Anhang, der erkennbar eine E-Rechnung sein soll, aber
-   mit dem vorhandenen (nur CII/`CrossIndustryInvoice`, kein UBL) Parser nicht lesbar ist, landet
-   trotzdem als Item im Eingang — ohne Datenvorschlag, rein zur manuellen Erfassung.
+   kostenlos, keine Halluzination; `mwstSatz` wird wie beim KI-Pfad auf 0/7/19 validiert). Ein
+   XML-Anhang, der erkennbar eine E-Rechnung sein soll, aber mit dem vorhandenen (nur CII/
+   `CrossIndustryInvoice`, kein UBL) Parser nicht lesbar ist, landet trotzdem als Item im Eingang —
+   ohne Datenvorschlag, rein zur manuellen Erfassung.
 3. Kein ZUGFeRD gefunden → KI-Weg: erst die günstige Typ-Klassifikation `PROMPTS.belegtyp`
    (nur bei `typ:"rechnung"` weiter), erst dann die teurere strukturierte Extraktion
    `PROMPTS.beleg` — verhindert, dass ein zufälliges PDF (AGB, Lieferschein, Datenblatt) im Anhang
    fälschlich als Eingangsrechnung angelegt wird. Beide Prompts/`analyzeDocument()` sind exakt die
-   bereits bestehenden aus `lib/ai.ts` — kein eigener Prompt für diese Pipeline.
-4. Lieferanten-Zuordnung: IBAN-Exakttreffer zuerst (deterministisch, fälschungsresistenter als ein
-   Name), erst danach der bestehende Fuzzy-Matcher `matchKunde()` (`lib/kiMatching.ts`).
+   bereits bestehenden aus `lib/ai.ts` — kein eigener Prompt für diese Pipeline. Ein Fehler HIER
+   (Mistral down, kein Text extrahierbar, …) betrifft NUR diesen einen Anhang — landet als Item
+   „Automatische Auswertung fehlgeschlagen — bitte manuell erfassen" statt die ganze Mail
+   (inkl. eines evtl. weiteren, funktionierenden Anhangs) als „fehler" zu verwerfen. Eine echte
+   Mistral-429-Überlastung ist die einzige Ausnahme: die wird bewusst NICHT abgefangen, sondern bis
+   zum Mail-Loop im Orchestrator durchgereicht (siehe „Idempotenz/Cursor" unten).
+4. Lieferanten-Zuordnung (`matchLieferant()`): IBAN-Exakttreffer zuerst (deterministisch,
+   fälschungsresistenter als ein Name) — aber NUR bei einem eindeutigen Treffer; teilen sich
+   mehrere aktive Lieferanten dieselbe IBAN (z.B. Factoring), weicht die Funktion stattdessen auf
+   den bestehenden Fuzzy-Matcher `matchKunde()` (`lib/kiMatching.ts`) aus. Wird der Lieferant über
+   den Namen gefunden, die Beleg-IBAN weicht aber von der hinterlegten ab, wird das als
+   `fehlendeFelder`-Hinweis „Bankverbindung weicht von der hinterlegten IBAN ab" markiert (nie
+   automatisch „passt") — E-Mail ist ein nicht vertrauenswürdiger Kanal, das klassische
+   Betrugsmuster ist eine gefälschte „unsere Bankverbindung hat sich geändert"-Rechnung.
 5. `berechneFehlendeFelderEingangsrechnung()`/`parseBelegKiErgebnis()` (`lib/eingangsrechnung-matching.ts`)
    sind dieselben Funktionen, die auch die manuelle Batch-Review-Seite
    (`app/eingangsrechnungen/batch/[id]/page.tsx`) und der manuelle `POST .../batch/[id]/analyze`-
@@ -514,15 +528,38 @@ Liquiditätsvorschau auftauchen, bevor ein Mensch sie bestätigt hat.
 (`@@unique([provider, postfach, messageId])`, Ersatz-Hash falls der Message-ID-Header fehlt).
 Bewusst KEIN „ungelesen"/`isRead`-Cursor — würde durch bloßes Öffnen der Mailbox in einem
 beliebigen Mail-Client kaputtgehen. Stattdessen ein echter Fortschritts-Cursor je Provider
-(IMAP: `email.eingang.imap.{uidvalidity,letzteUid}`; M365: `email.eingang.m365.letzterAbruf`),
-der erst NACH erfolgreicher Verarbeitung einer Mail vorrückt. Bei einer echten Mistral-429-
-Überlastung (`istMistralRateLimitFehler()`, jetzt aus `lib/ai.ts` exportiert) bricht der gesamte
-Lauf sofort ab, statt jede weitere Mail dieses Laufs ebenfalls als „fehler" zu verbrennen — der
-nächste Cron-Tick beginnt wieder bei genau dieser Mail. `email.eingang.aktivSeit` (beim
-Einschalten automatisch auf „jetzt" gesetzt) verhindert, dass ein bestehendes Postfach mit vielen
-alten Mails beim ersten Aktivieren komplett auf einen Schlag verarbeitet wird; `MAX_MAILS_PRO_LAUF`
-(10, `lib/email-eingang-abruf.ts`) deckelt zusätzlich jeden einzelnen Lauf (der Cron-Request läuft
-sequenziell ohne eigenes Timeout, siehe `docker-entrypoint.sh`).
+(IMAP: `email.eingang.imap.{uidvalidity,letzteUid}` — bei UIDVALIDITY-Wechsel startet der Cursor
+bewusst wieder bei 0, sonst blieben alle Mails mit kleinerer UID als der alte Höchstwert dauerhaft
+unsichtbar; beide Werte werden in einer `$transaction` geschrieben; M365:
+`email.eingang.m365.letzterAbruf`), der erst bestätigt (vorrückt), wenn eine Mail ENTWEDER
+erfolgreich verarbeitet ODER endgültig aufgegeben wurde (`versuche >= 3`) — ein vorübergehender
+Fehler (Netzwerk, Mistral-5xx, ein zwischenzeitlich fehlender Key) lässt den Cursor bewusst stehen,
+damit der nächste Lauf dieselbe Mail erneut aufgreift, statt sie stillschweigend zu verlieren. Ein
+zu lange auf `"neu"` hängen gebliebener Datensatz (Prozess-/Container-Neustart mitten in der
+Verarbeitung, > 15 Min.) wird beim nächsten Lauf ebenfalls wie „fehler" behandelt und erneut
+versucht (`raeumeUnvollstaendigenBatchAuf()` entfernt dabei zuerst einen aus dem abgebrochenen
+Versuch evtl. stehen gebliebenen Teil-Batch samt Dateien, damit ein Retry keine Dubletten-Items
+anlegt). Bei einer echten Mistral-429-Überlastung (`istMistralRateLimitFehler()`, aus `lib/ai.ts`
+exportiert) bricht der gesamte Lauf sofort ab (Cursor NICHT bestätigt) — der nächste Cron-Tick
+beginnt wieder bei genau dieser Mail. Vor dem eigentlichen Abruf wird zusätzlich geprüft, ob
+überhaupt ein Mistral-Key konfiguriert ist (`GET /einstellungen → KI`) — ohne Key bricht der Lauf
+sofort mit einer klaren „nicht konfiguriert"-Meldung ab, statt jede Mail mit einem
+nicht-ZUGFeRD-Anhang einzeln als „fehler" zu verbrennen. `email.eingang.aktivSeit` (beim
+Einschalten automatisch auf „jetzt" gesetzt, **aber nicht** bei einem späteren Konto-/Ordner-/
+Provider-Wechsel zurückgesetzt — bekannte Lücke, siehe Kommentar in `lib/email-eingang-config.ts`)
+verhindert, dass ein bestehendes Postfach mit vielen alten Mails beim ersten Aktivieren komplett
+auf einen Schlag verarbeitet wird; `MAX_MAILS_PRO_LAUF` (10, `lib/email-eingang-abruf.ts`) deckelt
+zusätzlich jeden einzelnen Lauf (der Cron-Request läuft sequenziell ohne eigenes Timeout, siehe
+`docker-entrypoint.sh`; alle Graph-Aufrufe haben deshalb ein eigenes 30s-Timeout).
+
+**Sicherheit — Secret-Maskierung nachgezogen:** `GET /api/einstellungen` maskierte bis zu diesem
+Feature nur auf `_key` endende Keys — ein Prefix wie `email.` (von `components/EmailVersandModal.tsx`
+u.a. für `email.cc` abgefragt) hätte `email.eingang.imap.passwort`/`email.eingang.m365.clientSecret`
+im Klartext an jeden eingeloggten Nutzer ausgeliefert. Die Maskierung greift jetzt zusätzlich für
+alle auf `passwort`/`password`/`secret` endenden Keys (`SENSITIVE_KEY_PATTERN` in
+`app/api/einstellungen/route.ts`) — nicht nur für die neuen Keys dieses Features, auch rückwirkend
+für `smtp.password`. Ein leerer `?prefix=`-Parameter wird zusätzlich abgelehnt (hätte sonst jeden
+`ALLOWED_PREFIXES`-Eintrag passieren lassen und ungefiltert alle Einstellungen ausgeliefert).
 
 **Bekannte, bewusste Lücke:** `EingangsRechnung` fließt weiterhin NICHT in den DATEV-Export
 (`lib/datev.ts`) oder die USt-Voranmeldung ein — daran ändert dieses Feature nichts. „Für den

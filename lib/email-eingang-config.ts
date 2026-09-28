@@ -17,7 +17,10 @@ export interface EmailEingangConfig {
   /** Nur Mails, die AB diesem Zeitpunkt eingegangen sind, werden verarbeitet — verhindert, dass
    * das erstmalige Aktivieren an einem bestehenden Postfach dessen komplette Historie (ggf.
    * tausende Mails) auf einen Schlag über Mistral schickt. Wird beim Einschalten automatisch auf
-   * "jetzt" gesetzt (siehe PUT-Route der Settings-Seite), nicht vom Nutzer frei wählbar. */
+   * "jetzt" gesetzt (app/einstellungen/email-rechnungseingang/page.tsx, saveAll()), nicht vom
+   * Nutzer frei wählbar. Bekannte Lücke: wird beim Wechsel von Konto/Ordner/Provider NICHT
+   * automatisch zurückgesetzt — ein Kontowechsel kann dadurch wieder weit in die Vergangenheit
+   * zurücksuchen (Folgeauftrag). */
   aktivSeit: Date | null;
   imap: {
     host: string;
@@ -104,11 +107,25 @@ async function setzeWert(key: string, value: string) {
  * je nach Provider. Wird nur bis zu der Mail vorgerückt, die tatsächlich final verarbeitet wurde
  * (siehe lib/email-eingang-verarbeitung.ts) — eine Mail mit Status "fehler" und noch nicht
  * ausgeschöpften Wiederholversuchen lässt den Cursor bewusst dort stehen, damit der nächste Lauf
- * sie erneut aus dem Postfach lädt statt sie endgültig zu verlieren. */
+ * sie erneut aus dem Postfach lädt statt sie endgültig zu verlieren.
+ *
+ * `uidvalidity` und `letzteUid` werden in EINER Transaktion geschrieben — ein Abbruch zwischen
+ * den beiden Upserts (z.B. Prozess-Neustart) dürfte sonst "neue UIDVALIDITY, aber noch alte UID"
+ * stehen lassen, wodurch der nächste Lauf denselben UID-Bereich fälschlich als "schon verarbeitet"
+ * überspringt (siehe die Absicherung in lib/email-eingang-abruf.ts, die bei UIDVALIDITY-Wechsel
+ * ohnehin bei UID 0 startet — dieselbe Garantie gilt dann auch für den persistierten Wert). */
 export async function speichereImapCursor(uidvalidity: string, letzteUid: number) {
-  await Promise.all([
-    setzeWert("email.eingang.imap.uidvalidity", uidvalidity),
-    setzeWert("email.eingang.imap.letzteUid", String(letzteUid)),
+  await prisma.$transaction([
+    prisma.einstellung.upsert({
+      where: { key: "email.eingang.imap.uidvalidity" },
+      update: { value: uidvalidity },
+      create: { key: "email.eingang.imap.uidvalidity", value: uidvalidity },
+    }),
+    prisma.einstellung.upsert({
+      where: { key: "email.eingang.imap.letzteUid" },
+      update: { value: String(letzteUid) },
+      create: { key: "email.eingang.imap.letzteUid", value: String(letzteUid) },
+    }),
   ]);
 }
 

@@ -53,4 +53,31 @@ describe("matchLieferant", () => {
     expect(ergebnis.lieferantId).toBeNull();
     expect(ergebnis.konfidenz).toBe("keine");
   });
+
+  it("wählt bei mehreren Lieferanten mit derselben IBAN keinen davon blind aus, sondern weicht auf den Namensabgleich aus", () => {
+    const geteilteIban = [
+      { id: 1, name: "Agrarhandel Mustermann", iban: "DE89370400440532013000" },
+      { id: 3, name: "Mustermann Zweigstelle", iban: "DE89370400440532013000" },
+    ];
+    // Name passt zu KEINEM der beiden — ohne die Mehrdeutigkeits-Absicherung würde der IBAN-Treffer
+    // trotzdem blind einen der beiden (z.B. den ersten im Array) als "hoch" durchwinken.
+    const ergebnis = matchLieferant({ lieferant: "Völlig unbekannter Name", iban: "DE89370400440532013000" }, geteilteIban, new Map());
+    expect(ergebnis.lieferantId).toBeNull();
+    expect(ergebnis.konfidenz).toBe("keine");
+  });
+
+  it("markiert eine vom Lieferanten-Stammdatensatz abweichende IBAN (klassisches Betrugsmuster) statt sie stillschweigend zu ignorieren", () => {
+    const ergebnis = matchLieferant(
+      { lieferant: "Agrarhandel Mustermann", iban: "DE12 0000 0000 0000 0000 99" }, // andere IBAN als hinterlegt
+      lieferanten,
+      new Map()
+    );
+    expect(ergebnis.lieferantId).toBe(1);
+    expect(ergebnis.ibanAbweichung).toBe(true);
+  });
+
+  it("meldet keine Abweichung, wenn die Beleg-IBAN mit der hinterlegten übereinstimmt", () => {
+    const ergebnis = matchLieferant({ lieferant: "Ein anderer Name", iban: "DE89 3704 0044 0532 0130 00" }, lieferanten, new Map());
+    expect(ergebnis.ibanAbweichung).toBe(false);
+  });
 });
