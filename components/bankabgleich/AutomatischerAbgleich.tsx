@@ -70,6 +70,17 @@ interface AutoMatchResponse {
 
 type Tab = "matched" | "deviations" | "bankOnly" | "candidateOnly";
 
+// Chronologisch nach Buchungsdatum sortieren (ältestes zuerst, bei Gleichstand stabil nach
+// umsatzId) — sonst kommen die Karten in der Reihenfolge, in der der Matcher sie zufällig
+// gefunden hat, was beim Abheften der Papierbelege in Datumsreihenfolge zu ständigem
+// Hin-und-her-Suchen führt.
+function nachDatumSortiert<T extends { bank: BankInfo }>(liste: T[]): T[] {
+  return [...liste].sort((a, b) => {
+    const diff = a.bank.datum.localeCompare(b.bank.datum);
+    return diff !== 0 ? diff : a.bank.umsatzId - b.bank.umsatzId;
+  });
+}
+
 async function uebernehmen(
   paar: { bank: BankInfo; kandidat: KandidatInfo; gutschriftMatch?: { id: number; nummer: string; betrag: number } },
   alsBezahltMarkieren: boolean,
@@ -143,7 +154,16 @@ export default function AutomatischerAbgleich({
         }),
       });
       if (res.ok) {
-        setErgebnis(await res.json());
+        const data: AutoMatchResponse = await res.json();
+        setErgebnis({
+          ...data,
+          matched: nachDatumSortiert(data.matched),
+          deviations: nachDatumSortiert(data.deviations),
+          bankOnly: [...data.bankOnly].sort((a, b) => {
+            const diff = a.datum.localeCompare(b.datum);
+            return diff !== 0 ? diff : a.umsatzId - b.umsatzId;
+          }),
+        });
         setTab("matched");
       } else {
         setFehler("Abgleich fehlgeschlagen.");
@@ -273,7 +293,7 @@ export default function AutomatischerAbgleich({
         setFehler("Die KI konnte keine sicheren Zuordnungen für die offenen Bankbuchungen finden.");
         return;
       }
-      setErgebnis((prev) => (prev ? { ...prev, deviations: [...prev.deviations, ...data.matches] } : prev));
+      setErgebnis((prev) => (prev ? { ...prev, deviations: nachDatumSortiert([...prev.deviations, ...data.matches]) } : prev));
       setTab("deviations");
     } finally {
       setKiLoading(false);
