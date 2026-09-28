@@ -56,7 +56,7 @@ describe("parseImportDatum", () => {
 
   it("liefert null bei einem nicht erkennbaren Wert, statt ein unsinniges Datum zu erzeugen", () => {
     expect(parseImportDatum({ Datum: "keinDatum" }, "Datum")).toBeNull();
-    // Ein Zahlenstring weit außerhalb des plausiblen Excel-Serial-Bereichs (~1899–2099)
+    // Ein Zahlenstring weit außerhalb des plausiblen Excel-Serial-Bereichs (Jahre 2000–2099)
     // ist eher eine andere numerische Angabe (z.B. eine Belegnummer) als ein Datum.
     expect(parseImportDatum({ Datum: "999999" }, "Datum")).toBeNull();
   });
@@ -84,5 +84,24 @@ describe("parseImportDatum", () => {
     expect(parseImportDatum({ Datum: 2025 }, "Datum")).toBeNull();
     expect(parseImportDatum({ Datum: "36525" }, "Datum")).toBeNull(); // 1999-12-31, knapp außerhalb
     expect(parseImportDatum({ Datum: 36526 }, "Datum")).not.toBeNull(); // 2000-01-01, knapp innerhalb
+  });
+
+  it("toleriert einen optionalen Zeitanteil bei DD.MM.YYYY und ISO (typisch für Waagen-/Sortiermaschinen-CSV-Exporte)", () => {
+    // Seit raw:true beim CSV-Lesen (siehe app/api/{anlieferungen,eiersortierung}/import*) landet
+    // z.B. "12.09.2026 08:30:00" als Text hier, statt von SheetJS bereits zu einem Seriencode
+    // aufgelöst zu werden — ohne Zeit-Toleranz würde eine ganz normale Uhrzeitangabe die Zeile
+    // fälschlich als "Datum ungültig" ablehnen.
+    const dmyMitZeit = parseImportDatum({ Datum: "12.09.2026 08:30:00" }, "Datum");
+    expect(dmyMitZeit).not.toBeNull();
+    expect(dmyMitZeit!.getFullYear()).toBe(2026);
+    expect(dmyMitZeit!.getMonth()).toBe(8);
+    expect(dmyMitZeit!.getDate()).toBe(12);
+
+    const isoMitZeit = parseImportDatum({ Datum: "2026-09-12T08:30" }, "Datum");
+    expect(isoMitZeit).not.toBeNull();
+    expect(isoMitZeit!.getDate()).toBe(12);
+
+    const dmyOhneSekunden = parseImportDatum({ Datum: "12.09.2026 08:30" }, "Datum");
+    expect(dmyOhneSekunden).not.toBeNull();
   });
 });

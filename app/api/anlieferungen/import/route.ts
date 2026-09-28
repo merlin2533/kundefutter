@@ -13,6 +13,22 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/** Erkennt einen P2002 (Unique-Constraint-Verletzung) speziell auf (kundeId, externeNr) —
+ * NICHT jeden P2002. Die betroffenen Spalten stecken je nach Treiber-Adapter unterschiedlich
+ * im Fehlerobjekt: bei anderen Prisma-Providern üblicherweise unter `meta.target`, beim hier
+ * verwendeten @prisma/adapter-libsql (SQLite) stattdessen unter
+ * `meta.driverAdapterError.cause.constraint.fields` (empirisch verifiziert) — beide Formen
+ * werden geprüft, damit die Erkennung auch bei einem künftigen Adapter-Wechsel nicht lautlos
+ * ausfällt. */
+function istExterneNrKollision(err: unknown): boolean {
+  if (!err || typeof err !== "object" || (err as { code?: string }).code !== "P2002") return false;
+  const meta = (err as { meta?: Record<string, unknown> }).meta;
+  const driverFields = (meta?.driverAdapterError as { cause?: { constraint?: { fields?: unknown } } } | undefined)
+    ?.cause?.constraint?.fields;
+  const fields = Array.isArray(driverFields) ? driverFields : Array.isArray(meta?.target) ? meta?.target : [];
+  return Array.isArray(fields) && fields.includes("externeNr");
+}
+
 // POST /api/anlieferungen/import — Commit-Schritt nach der Vorschau (.../import/vorschau).
 // Jede Zeile läuft in einer EIGENEN kurzen Transaktion (Nummernvergabe + Create) statt einer
 // einzigen Transaktion über die gesamte Datei — bei vielen Zeilen würde eine einzelne
@@ -112,8 +128,12 @@ export async function POST(req: NextRequest) {
         // zwischen dem findFirst-Vorabcheck und dem create() derselben Zeile eine echte
         // Race entstehen lassen — der DB-Unique-Index (kundeId, externeNr) verhindert dann
         // zwar zuverlässig ein Duplikat, aber als P2002-Fehler statt als "übersprungen".
-        // Für den Nutzer ist das Ergebnis identisch zum synchronen Fall (bereits importiert).
-        if ((err as { code?: string }).code === "P2002") {
+        // NUR die externeNr-Kollision so behandeln (Prüfung auf die betroffenen Spalten) —
+        // ein P2002 auf einen anderen Unique-Index (z.B. Anlieferung.nummer, etwa weil der
+        // Zähler nach einer Backup-Wiederherstellung hinter bereits vorhandenen Nummern
+        // zurückliegt) ist ein echter Fehler und darf nicht stillschweigend als "übersprungen"
+        // verschwinden.
+        if (istExterneNrKollision(err)) {
           ergebnisse.uebersprungen++;
           continue;
         }

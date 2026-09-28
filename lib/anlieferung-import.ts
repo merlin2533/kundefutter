@@ -83,9 +83,8 @@ export type AufgeloesterName = { id: number; name: string } | { error: string };
  * Fehlertext statt einer Exception zurückgegeben, damit die aufrufende Zeile sauber als
  * "fehler" statt eines 500ers markiert werden kann. */
 export async function resolveAnlieferungKunde(tx: Tx, name: string): Promise<AufgeloesterName> {
-  // Nur aktive Kunden — vermeidet sowohl einen stillen Treffer auf einen per "Löschen"
-  // (aktiv:false) entfernten Kunden als auch eine übersehene Mehrdeutigkeit, wenn nach einem
-  // Kunden-Merge noch ein inaktives Duplikat mit demselben Namen existiert.
+  // Nur aktive Kunden — vermeidet einen stillen Treffer auf einen per "Löschen" (aktiv:false)
+  // entfernten Kunden.
   const exakt = await tx.kunde.findMany({
     where: { aktiv: true, OR: [{ name }, { firma: name }] },
     select: { id: true, name: true },
@@ -95,6 +94,19 @@ export async function resolveAnlieferungKunde(tx: Tx, name: string): Promise<Auf
   // Zwei Erzeuger mit exakt demselben Namen (z.B. Nachname "Meier") sind real möglich —
   // ein findFirst() hätte hier still einen davon gewählt, statt die Mehrdeutigkeit zu melden.
   if (exakt.length > 1) return { error: `Kunde/Erzeuger „${name}“ nicht eindeutig (mehrere aktive Kunden mit diesem Namen)` };
+
+  // Kein aktiver EXAKTER Treffer — bevor auf den unschärferen Teilstring-Fallback
+  // ausgewichen wird, prüfen, ob der Name exakt auf einen INAKTIVEN Kunden passt. Sonst
+  // würde z.B. "Meier" (soft-gelöscht) still auf einen ähnlich benannten, aber anderen
+  // aktiven Kunden wie "Meierhof" ausweichen — die Anlieferung (und später die daraus
+  // erstellte Erzeuger-Gutschrift) landete dann beim falschen Erzeuger.
+  const exaktInaktiv = await tx.kunde.findFirst({
+    where: { aktiv: false, OR: [{ name }, { firma: name }] },
+    select: { id: true },
+  });
+  if (exaktInaktiv) {
+    return { error: `Kunde/Erzeuger „${name}“ ist inaktiv — bitte zuerst reaktivieren oder den Namen in der Importdatei korrigieren` };
+  }
 
   const kandidaten = await tx.kunde.findMany({
     where: { aktiv: true, OR: [{ name: { contains: name } }, { firma: { contains: name } }] },
@@ -129,6 +141,14 @@ export async function resolveArtikelRef(tx: Tx, ref: string): Promise<Aufgeloest
   });
   if (exaktName.length === 1) return exaktName[0];
   if (exaktName.length > 1) return { error: `Artikel „${ref}“ nicht eindeutig (mehrere aktive Artikel mit diesem Namen)` };
+
+  // Analog zu resolveAnlieferungKunde(): vor dem unschärferen Teilstring-Fallback prüfen, ob
+  // der Name exakt auf einen inaktiven Artikel passt, statt still auf einen namentlich
+  // ähnlichen, aber anderen aktiven Artikel auszuweichen.
+  const exaktInaktiv = await tx.artikel.findFirst({ where: { aktiv: false, name: ref }, select: { id: true } });
+  if (exaktInaktiv) {
+    return { error: `Artikel „${ref}“ ist inaktiv — bitte zuerst reaktivieren oder den Namen in der Importdatei korrigieren` };
+  }
 
   const kandidaten = await tx.artikel.findMany({
     where: { aktiv: true, name: { contains: ref } },

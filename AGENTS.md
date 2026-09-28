@@ -389,6 +389,19 @@ Export) liefert keinen verlässlichen Gruppierungs-/Idempotenz-Schlüssel über 
 hinweg; dasselbe Risiko besteht identisch bei zweimaliger manueller Erfassung über
 `/eiersortierung/neu`.
 
+**Kunde-/Artikel-Auflösung berücksichtigt nur aktive Datensätze.** `resolveAnlieferungKunde()`/
+`resolveArtikelRef()` (`lib/anlieferung-import.ts`) filtern auf `aktiv: true` — ein exakter
+Namenstreffer, der nur unter inaktiven (per "Löschen" entfernten) Kunden/Artikeln existiert,
+wird NICHT stillschweigend gegen einen namentlich ähnlichen, aber anderen aktiven Datensatz
+ausgetauscht: die Zeile wird stattdessen explizit mit „…ist inaktiv" abgelehnt. Ebenso meldet
+ein exakter Namenstreffer auf **mehrere** aktive Kunden/Artikel (z.B. zwei Erzeuger mit
+demselben Nachnamen) explizit Mehrdeutigkeit statt über `findFirst()` still einen davon zu
+wählen — sonst könnte eine Anlieferung (und die daraus später erstellte Erzeuger-Gutschrift)
+beim falschen Erzeuger landen. `resolveAnlieferungRef()` (`lib/eiersortierung-import.ts`,
+Anlieferungs-Referenz per `nummer` ODER `externeNr`) prüft aus demselben Grund zuerst die
+global eindeutige `nummer`, bevor `externeNr` (nur je Kunde eindeutig) herangezogen wird, und
+meldet Mehrdeutigkeit, wenn dieselbe `externeNr` bei mehreren Kunden vorkommt.
+
 `Anlieferung.externeNr` ist der Idempotenz-Schlüssel: eine Zeile mit bereits vorhandener
 `externeNr` für denselben Kunden wird beim erneuten Import übersprungen statt dupliziert; ohne
 `externeNr` in der Quelldatei legt jeder Import-Lauf eine neue Anlieferung an (wie zuvor). Der

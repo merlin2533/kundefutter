@@ -76,14 +76,18 @@ export function parseImportDatum(row: Record<string, unknown>, ...keys: string[]
   const s = String(raw).trim();
   if (!s) return null;
   // Jahr exakt 2- oder 4-stellig (nicht \d{2,4}) — sonst würde z.B. "12.09.202" (3-stellig,
-  // eher ein Tippfehler) unbemerkt als Jahr 202 interpretiert.
-  const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})$/);
+  // eher ein Tippfehler) unbemerkt als Jahr 202 interpretiert. Optionaler Zeitanteil (Leer-
+  // zeichen oder "T" getrennt) wird toleriert und ignoriert — seit raw:true beim CSV-Lesen
+  // (siehe die vier Import-Routen) landet z.B. "12.09.2026 08:30:00" aus einer Waagen-/
+  // Sortiermaschinen-Exportzeile hier als Text statt als von SheetJS bereits aufgelöster
+  // Seriencode; ohne diesen Zusatz würde eine ganz normale Uhrzeitangabe die Zeile ablehnen.
+  const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (dmy) {
     const [, d, mo, y] = dmy;
     const yr = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
     return gueltigesKalenderdatum(yr, parseInt(mo, 10) - 1, parseInt(d, 10));
   }
-  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (iso) {
     const [, y, mo, d] = iso;
     return gueltigesKalenderdatum(parseInt(y, 10), parseInt(mo, 10) - 1, parseInt(d, 10));
@@ -286,11 +290,14 @@ export const ANLIEFERUNG_ALIAS = {
 // /eiersortierung/neu) — Artikel/Güte-/Gewichtsklasse/Menge sind Pflicht, der Rest optional.
 
 // Bewusst KEINE zu generischen Aliasse ("Gewicht" bei Gewichtsklasse, "Erzeuger" bei
-// Erzeugercode, "Beleg"/"Belegnummer" bei Anlieferung) — ein Sortiermaschinen-Export hat
-// oft eine eigene, unabhängige Belegnummer-Spalte, und ein reines "Gewicht"/"Erzeuger"
-// kollidiert leicht mit einer echten Gramm-Gewichts- bzw. Erzeugernamen-Spalte. Ein
-// falscher Treffer fällt dadurch als klare Zeilen-Fehlermeldung auf, statt still eine
-// Spalte mit anderer Bedeutung zu übernehmen.
+// Erzeugercode, "Beleg"/"Belegnummer" bei Anlieferung) — ein Sortiermaschinen-Export hat oft
+// eine eigene, unabhängige Belegnummer-Spalte, und ein reines "Gewicht"/"Erzeuger" kollidiert
+// leicht mit einer echten Gramm-Gewichts- bzw. Erzeugernamen-Spalte. Bei den PFLICHTFELDERN
+// (gueteklasse, gewichtsklasse) fällt ein solcher Fehltreffer als klare Zeilen-Fehlermeldung
+// auf; bei den optionalen Feldern (anlieferung, erzeugercode) wird eine unter einem entfernten
+// Alias benannte Spalte dagegen wie jede andere unbekannte Spalte still ignoriert (Zeile bleibt
+// gültig, das Feld bleibt leer) — eine Quelldatei, die z.B. "Belegnummer" für die
+// Anlieferungs-Referenz nutzt, muss die Spalte auf "Anlieferung"/"Externe Nr" umbenennen.
 export const EIERSORTIERUNG_ALIAS = {
   artikel: ["Artikel", "Artikelnummer", "Produkt"],
   gueteklasse: ["Güteklasse", "Gueteklasse", "Güte", "Guete", "Klasse"],
