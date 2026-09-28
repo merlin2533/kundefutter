@@ -25,6 +25,7 @@ export async function GET() {
           select: {
             menge: true,
             verkaufspreis: true,
+            rabattProzent: true,
           },
         },
       },
@@ -33,8 +34,11 @@ export async function GET() {
     });
 
     const result = lieferungen.map((l) => {
+      // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — ohne rabattProzent
+      // einzurechnen zeigt die Rechnungsliste im Kundenportal bei jeder rabattierten Position
+      // (Mengenstaffel/manuell) einen zu hohen Betrag.
       const gesamtBetrag = l.positionen.reduce(
-        (sum, p) => sum + p.menge * p.verkaufspreis,
+        (sum, p) => sum + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100),
         0,
       );
       return {

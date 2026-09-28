@@ -20,7 +20,7 @@ export async function GET() {
         datum: true,
         rechnungDatum: true,
         positionen: {
-          select: { menge: true, verkaufspreis: true },
+          select: { menge: true, verkaufspreis: true, rabattProzent: true },
         },
       },
       take: 5000,
@@ -31,7 +31,10 @@ export async function GET() {
     let ueberfaellig = 0;
 
     for (const l of lieferungen) {
-      const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — ohne rabattProzent
+      // einzurechnen zeigt der Kontostand bei jeder rabattierten Position (Mengenstaffel/manuell)
+      // einen zu hohen offenen Betrag.
+      const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       offen += betrag;
       // Überfällig wenn Rechnungsdatum + 30 Tage in der Vergangenheit
       const basisDatum = l.rechnungDatum ?? l.datum;

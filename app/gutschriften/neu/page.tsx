@@ -109,10 +109,14 @@ function NeueGutschriftForm() {
         setLieferungId(String(lief.id));
         setPrefillInfo({ nr: lief.rechnungNr ?? `#${lief.id}`, id: lief.id });
         if (lief.positionen?.length) {
-          setPositionen(lief.positionen.map((p: { artikelId: number; menge: number; verkaufspreis: number }) => ({
+          setPositionen(lief.positionen.map((p: { artikelId: number; menge: number; verkaufspreis: number; rabattProzent?: number | null }) => ({
             artikelId: String(p.artikelId),
             menge: String(p.menge),
-            preis: String(p.verkaufspreis),
+            // GutschriftPosition kennt kein eigenes rabattProzent-Feld — verkaufspreis ist bei
+            // der Quell-Lieferung immer der Listenpreis (siehe lib/lieferung.ts), der tatsächlich
+            // berechnete Preis muss den Rabatt deshalb hier einrechnen, sonst wird bei jeder
+            // rabattierten Position (Mengenstaffel oder manuell) zu viel gutgeschrieben.
+            preis: String(p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100)),
             ruecknahme: false,
           })));
         }

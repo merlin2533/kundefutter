@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
-import { formatEuro, formatDatum, resolveBevorzugtenEK } from "@/lib/utils";
+import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -1138,7 +1138,7 @@ export default function LieferungDetailPage() {
   const istTeilauswahl = ausgewaehlteAnzahl > 0 && ausgewaehlteAnzahl < lieferung.positionen.length;
   const rechnungLabel = istTeilauswahl ? `Teilrechnung erstellen (${ausgewaehlteAnzahl})` : "Rechnung erstellen";
 
-  const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+  const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
   const gesamtEinkauf = lieferung.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
   const gesamtMarge = gesamtUmsatz - gesamtEinkauf;
   const gesamtMargePct = gesamtUmsatz > 0 ? (gesamtMarge / gesamtUmsatz) * 100 : 0;
@@ -1261,7 +1261,7 @@ export default function LieferungDetailPage() {
                   <td style={{ padding: "4px 6px", verticalAlign: "top" }}>
                     <div>{p.artikel.name}</div>
                     {(p.rabattProzent ?? 0) > 0 && (
-                      <div style={{ fontSize: "9pt", color: "#555" }}>Rabatt {p.rabattProzent}%</div>
+                      <div style={{ fontSize: "9pt", color: "#555" }}>Rabatt {formatRabattProzent(p.rabattProzent ?? 0)}%</div>
                     )}
                   </td>
                   <td style={{ padding: "4px 6px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
@@ -1990,10 +1990,11 @@ export default function LieferungDetailPage() {
           </thead>
           <tbody>
             {lieferung.positionen.map((pos) => {
-              const margeEuro = pos.menge * (pos.verkaufspreis - pos.einkaufspreis);
+              const vkNachRabatt = pos.verkaufspreis * (1 - (pos.rabattProzent ?? 0) / 100);
+              const margeEuro = pos.menge * (vkNachRabatt - pos.einkaufspreis);
               const margePct =
-                pos.verkaufspreis > 0
-                  ? ((pos.verkaufspreis - pos.einkaufspreis) / pos.verkaufspreis) * 100
+                vkNachRabatt > 0
+                  ? ((vkNachRabatt - pos.einkaufspreis) / vkNachRabatt) * 100
                   : 0;
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
@@ -2153,7 +2154,7 @@ export default function LieferungDetailPage() {
                         }
                       >
                         {pos.rabattProzent && pos.rabattProzent > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{pos.rabattProzent}%</span>
+                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{formatRabattProzent(pos.rabattProzent)}%</span>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}

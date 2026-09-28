@@ -25,6 +25,7 @@ interface Lieferung {
     menge: number;
     verkaufspreis: number;
     einkaufspreis: number;
+    rabattProzent?: number | null;
     artikel: { name: string };
   }[];
 }
@@ -288,11 +289,14 @@ export default function LieferungenPage() {
     }
   }
 
+  // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — rabattProzent muss deshalb
+  // eingerechnet werden, sonst zeigen Umsatz/Marge in der Liste bei rabattierten Positionen
+  // (Mengenstaffel/manuell) zu hohe Werte.
   function calcUmsatz(l: Lieferung) {
-    return l.positionen.reduce((sum, p) => sum + p.menge * p.verkaufspreis, 0);
+    return l.positionen.reduce((sum, p) => sum + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
   }
   function calcMarge(l: Lieferung) {
-    return l.positionen.reduce((sum, p) => sum + p.menge * (p.verkaufspreis - p.einkaufspreis), 0);
+    return l.positionen.reduce((sum, p) => sum + p.menge * (p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) - p.einkaufspreis), 0);
   }
 
   return (

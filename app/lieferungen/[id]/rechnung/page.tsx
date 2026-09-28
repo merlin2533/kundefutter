@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, formatDatum, addTage, formatMenge, rundeKaufmaennisch } from "@/lib/utils";
+import { formatEuro, formatDatum, addTage, formatMenge, rundeKaufmaennisch, formatRabattProzent } from "@/lib/utils";
 import NextcloudUploadButton from "@/components/NextcloudUploadButton";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
 import { eierKennzeichnungZeile } from "@/lib/eier-mhd";
@@ -1287,7 +1287,7 @@ export default function RechnungPrintPage() {
           </td>
           {hatRabatt && (
             <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right" }}>
-              {(p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : ""}
+              {(p.rabattProzent ?? 0) > 0 ? `${formatRabattProzent(p.rabattProzent ?? 0)} %` : ""}
             </td>
           )}
           <td style={{ padding: "3px 8px", verticalAlign: "top", textAlign: "right", fontFamily: "monospace" }}>

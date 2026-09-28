@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rundeKaufmaennisch, berechneNettoAusBrutto, ausgabeBetragsteile, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
+import { rundeKaufmaennisch, berechneNettoAusBrutto, ausgabeBetragsteile, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, formatEuro, formatPreis, formatMenge, umlautSchreibweisen, resolveBevorzugtenLieferanten, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatRabattProzent, naechsteRechnungsnummer, naechsteBestellungsnummer, sollStundenFuerDatum, parseUhrzeit, stundenZwischenUhrzeiten, stundenAusBevorzugtemTag, bevorzugtesZeitfensterFuerDatum, istBevorzugtesZeitfenster, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("rundeKaufmaennisch", () => {
   it("rundet 0,5 Cent kaufmännisch auf (nicht round-half-to-even)", () => {
@@ -324,6 +324,23 @@ describe("bestMengenstaffel / wendeMengenstaffelAn / effektiverMengenstaffelRaba
     it("liefert bei Legacy-Einträgen direkt den hinterlegten Rabattprozentsatz", () => {
       const legacy: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: null, rabattProzent: 10, aktiv: true };
       expect(effektiverMengenstaffelRabatt(20, legacy)).toBe(10);
+    });
+
+    it("rundet NICHT auf eine Nachkommastelle (Regression: doppelter Mengenstaffel-Rabatt) — der Rückweg Listenpreis × (1-Rabatt%) muss exakt den konfigurierten Staffelpreis ergeben", () => {
+      // 100 → 33,33 wäre bei der früheren 1-Nachkommastellen-Rundung (66,7 % statt 66,666...%)
+      // beim Zurückrechnen um 3 Cent daneben gelegen (100 × (1-0,667) = 33,30 statt 33,33).
+      const staffel: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: 33.33, rabattProzent: 0, aktiv: true };
+      const rabatt = effektiverMengenstaffelRabatt(100, staffel);
+      expect(rabatt).toBeCloseTo(66.67, 1);
+      expect(rundeKaufmaennisch(100 * (1 - rabatt / 100), 2)).toBe(33.33);
+    });
+  });
+
+  describe("formatRabattProzent", () => {
+    it("rundet nur für die Anzeige auf eine Nachkommastelle, ohne den Rechenwert zu verändern", () => {
+      expect(formatRabattProzent(66.666666)).toBe("66.7");
+      expect(formatRabattProzent(10)).toBe("10");
+      expect(formatRabattProzent(0)).toBe("0");
     });
   });
 });
