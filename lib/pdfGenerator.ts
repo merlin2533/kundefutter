@@ -1541,6 +1541,165 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
 }
 
 /**
+ * Kontrakt (Liefervereinbarung) als PDF, nach demselben Aufbau wie generiereAngebotPdf/
+ * generiereBestellungPdf — Empfänger ist der Kunde. Zeigt je Position Menge/bereits Abgerufen/
+ * Rest, damit der Kunde den aktuellen Abruf-Fortschritt schwarz auf weiß hat, nicht nur in der
+ * Bildschirmansicht auf /kontrakte/[id].
+ */
+export async function generiereKontraktPdf(kontraktId: number): Promise<Buffer> {
+  const kontrakt = await prisma.kontrakt.findUnique({
+    where: { id: kontraktId },
+    include: {
+      kunde: true,
+      positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+    },
+  });
+  if (!kontrakt) throw new Error(`Kontrakt ${kontraktId} nicht gefunden`);
+
+  const FIRMA = await ladeFirmaDaten();
+  const footerSpalten = await ladeFooterSpalten(FIRMA);
+  const logo = await ladeLogo();
+  const doc = new jsPDF();
+  zeichneFalzmarken(doc);
+  const footerReserve = schaetzeFooterReserve(doc, footerSpalten);
+
+  const COL_TEXT: [number, number, number] = [0, 0, 0];
+  const COL_MUTED: [number, number, number] = [85, 85, 85];
+  const COL_LABEL: [number, number, number] = [136, 136, 136];
+  const COL_BORDER_STRONG: [number, number, number] = [34, 34, 34];
+  const COL_TABLE_HEAD_BG: [number, number, number] = [245, 245, 245];
+  const COL_ROW_ALT_BG: [number, number, number] = [250, 250, 250];
+
+  const k = kontrakt.kunde;
+  const kontraktDatum = new Date(kontrakt.datum);
+  const gueltigVon = new Date(kontrakt.gueltigVon);
+  const gueltigBis = new Date(kontrakt.gueltigBis);
+
+  let logoBreiteMm = 0;
+  if (logo) {
+    try {
+      const format = logo.format.toUpperCase() === "JPG" ? "JPEG" : logo.format.toUpperCase();
+      doc.addImage(logo.dataUrl, format, 14, 14, 40, 20, undefined, "FAST");
+      logoBreiteMm = 40;
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  }
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  if (FIRMA.name) doc.text(FIRMA.name, 14, logoBreiteMm > 0 ? 40 : 20);
+
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text("Liefervereinbarung", 196, 20, { align: "right" });
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  let metaY = 27;
+  const metaLabelX = 155;
+  const metaValueX = 196;
+  const drawMetaKontrakt = (label: string, value: string, bold = false) => {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_MUTED);
+    doc.text(label, metaLabelX, metaY, { align: "right" });
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(value, metaValueX, metaY, { align: "right" });
+    metaY += 5;
+  };
+  drawMetaKontrakt("Kontraktnummer:", kontrakt.nummer, true);
+  drawMetaKontrakt("Datum:", formatDatum(kontraktDatum));
+  drawMetaKontrakt("Gültig von:", formatDatum(gueltigVon));
+  drawMetaKontrakt("Gültig bis:", formatDatum(gueltigBis));
+  if (kontrakt.status !== "AKTIV") drawMetaKontrakt("Status:", kontrakt.status, true);
+
+  const sepY = Math.max(metaY + 2, 44);
+  doc.setDrawColor(...COL_BORDER_STRONG);
+  doc.setLineWidth(0.6);
+  doc.line(14, sepY, 196, sepY);
+
+  let ey = sepY + 10;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...COL_LABEL);
+  doc.text("KUNDE", 14, ey);
+  ey += 5;
+
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(k.firma ?? k.name, 14, ey);
+  ey += 5;
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  if (k.firma) { doc.text(k.name, 14, ey); ey += 5; }
+  if (k.strasse) { doc.text(k.strasse, 14, ey); ey += 5; }
+  if (k.plz || k.ort) { doc.text([k.plz, k.ort].filter(Boolean).join(" "), 14, ey); ey += 5; }
+
+  ey += 8;
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...COL_TEXT);
+  doc.text(`Betreff: Liefervereinbarung ${kontrakt.nummer}`, 14, ey);
+  ey += 6;
+
+  const positionen = kontrakt.positionen;
+  const kontraktHead = [["Pos.", "Artikel", "Menge", "Abgerufen", "Rest", "Einheit", "Preis"]];
+  const kontraktBody = positionen.map((p, i) => {
+    const fmt = (n: number) => n.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+    const rest = Math.max(0, p.menge - p.mengeAbgerufen);
+    const artikelName = `${p.artikel?.name ?? "—"}${p.artikel?.artikelnummer ? ` (${p.artikel.artikelnummer})` : ""}`;
+    const preisText = p.preis != null ? `${formatEuro(p.preis)}${p.preisInterpoliert ? " *" : ""}` : "—";
+    return [String(i + 1), artikelName, fmt(p.menge), fmt(p.mengeAbgerufen), fmt(rest), p.einheit, preisText];
+  });
+
+  autoTable(doc, {
+    startY: ey + 2,
+    head: kontraktHead,
+    body: kontraktBody,
+    theme: "plain",
+    margin: { top: AUTOTABLE_TOP_MARGIN_FORTSETZUNG, right: 14, bottom: footerReserve, left: 14 },
+    rowPageBreak: "avoid",
+    headStyles: { fillColor: COL_TABLE_HEAD_BG, textColor: [51, 51, 51], fontStyle: "bold", lineColor: [51, 51, 51], lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: COL_ROW_ALT_BG },
+    styles: { fontSize: 9, cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, lineColor: [221, 221, 221], lineWidth: 0.1, textColor: [0, 0, 0], valign: "top" },
+    columnStyles: { 0: { cellWidth: 14 }, 1: { cellWidth: "auto" }, 2: { halign: "right", cellWidth: 20 }, 3: { halign: "right", cellWidth: 20 }, 4: { halign: "right", cellWidth: 20 }, 5: { cellWidth: 18 }, 6: { halign: "right", cellWidth: 24 } },
+  });
+
+  let sumY = (doc as JsPDFWithAutoTable).lastAutoTable.finalY + 6;
+
+  if (positionen.some((p) => p.preisInterpoliert)) {
+    sumY = sicherstellenPlatz(doc, sumY, 6, footerReserve);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...COL_LABEL);
+    doc.text("* Preis aus Jahrespreis-Gültigkeiten interpoliert, kein explizit für dieses Jahr hinterlegter Preis.", 14, sumY);
+    sumY += 6;
+  }
+
+  if (kontrakt.notiz?.trim()) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(...COL_MUTED);
+    const notizLines = doc.splitTextToSize(`Anmerkung: ${kontrakt.notiz.trim()}`, 182) as string[];
+    sumY = sicherstellenPlatz(doc, sumY, notizLines.length * 4 + 2, footerReserve);
+    notizLines.forEach((line, i) => doc.text(line, 14, sumY + i * 4));
+    sumY += notizLines.length * 4 + 2;
+  }
+
+  vervollstaendigeMehrseitigesDokument(doc, {
+    footerSpalten,
+    firmenname: FIRMA.name,
+    fortsetzungsTitel: `Liefervereinbarung ${kontrakt.nummer} – Fortsetzung`,
+  });
+  return Buffer.from(doc.output("arraybuffer"));
+}
+
+/**
  * Wie generiereRechnungPdf, aber mit eingebettetem ZUGFeRD / Factur-X XML (PDF/A-3b).
  * Gibt ein einzelnes PDF zurück, das die strukturierte E-Rechnung enthält.
  */

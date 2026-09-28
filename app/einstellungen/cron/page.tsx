@@ -38,7 +38,26 @@ const JOB_META: Record<string, { label: string; beschreibung: string; icon: stri
     icon: "🥚",
     beschreibung: "Legt fällige Meldeaufgaben an (Tierseuchenkasse-Frist 31.01., wöchentliche KAT-Warenstrommeldung) — nur bei aktivem Eierhandel-Modul",
   },
+  wiederkehrendeLieferungen: {
+    label: "Wiederkehrende Lieferungen",
+    icon: "🔁",
+    beschreibung: "Legt für fällige Bedarfspläne automatisch eine geplante Lieferung an — nur wenn unten aktiviert",
+  },
+  mahnwesenErinnerung: {
+    label: "Mahnwesen-Erinnerung",
+    icon: "⏰",
+    beschreibung: "Legt eine Aufgabe an, sobald eine überfällige Rechnung in eine höhere Mahnstufe rutscht — nur wenn unten aktiviert",
+  },
 };
+
+// Opt-in-Schalter (Standard aus) für die beiden neuen, automatisch handelnden Jobs — ohne
+// diesen Schalter würde der erste Cron-Tick nach dem jeweiligen Feature-Rollout auf einer
+// bestehenden Installation unbeaufsichtigt sämtliche bereits fälligen/überfälligen Fälle auf
+// einen Schlag verarbeiten, statt dass der Betrieb das bewusst einschaltet.
+const AKTIVIERBARE_JOBS: { key: string; jobId: "wiederkehrendeLieferungen" | "mahnwesenErinnerung" }[] = [
+  { key: "cron.wiederkehrendeLieferungen", jobId: "wiederkehrendeLieferungen" },
+  { key: "cron.mahnwesenErinnerung", jobId: "mahnwesenErinnerung" },
+];
 
 function formatDauer(ms: number) {
   if (ms < 1000) return `${ms} ms`;
@@ -49,6 +68,8 @@ export default function CronVerwaltungPage() {
   const [status, setStatus] = useState<CronStatus | null>(null);
   const [running, setRunning] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [aktivSchalter, setAktivSchalter] = useState<Record<string, boolean>>({});
+  const [speichern, setSpeichern] = useState<string | null>(null);
 
   async function ladeStatus() {
     const res = await fetch("/api/cron?status=1").catch((err) => {
@@ -62,7 +83,39 @@ export default function CronVerwaltungPage() {
     setLoading(false);
   }
 
-  useEffect(() => { ladeStatus(); }, []);
+  async function ladeAktivSchalter() {
+    const res = await fetch("/api/einstellungen?prefix=cron.").catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    });
+    if (res?.ok) {
+      const d = await res.json();
+      const naechste: Record<string, boolean> = {};
+      for (const { key } of AKTIVIERBARE_JOBS) naechste[key] = d[key] === "1";
+      setAktivSchalter(naechste);
+    }
+  }
+
+  useEffect(() => { ladeStatus(); ladeAktivSchalter(); }, []);
+
+  async function toggleAktiv(key: string, wert: boolean) {
+    setAktivSchalter((prev) => ({ ...prev, [key]: wert }));
+    setSpeichern(key);
+    const res = await fetch("/api/einstellungen", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value: wert ? "1" : "0" }),
+    }).catch((err) => {
+      Sentry.captureException(err);
+      return null;
+    });
+    if (!res?.ok) {
+      // Fehlschlag: auf den vorherigen Wert zurücksetzen, damit die Checkbox nicht
+      // einen nicht tatsächlich gespeicherten Zustand vorgaukelt.
+      setAktivSchalter((prev) => ({ ...prev, [key]: !wert }));
+    }
+    setSpeichern(null);
+  }
 
   async function jetztAusfuehren() {
     setRunning(true);
@@ -135,9 +188,10 @@ export default function CronVerwaltungPage() {
       <div className="space-y-4">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Registrierte Jobs</h2>
 
-        {(["pegelstaende", "digest", "nextcloudSync", "meldepflichten"] as const).map((jobId) => {
+        {(["pegelstaende", "digest", "nextcloudSync", "meldepflichten", "wiederkehrendeLieferungen", "mahnwesenErinnerung"] as const).map((jobId) => {
           const meta = JOB_META[jobId];
           const result = status?.jobs.find((j) => j.job === jobId);
+          const schalter = AKTIVIERBARE_JOBS.find((j) => j.jobId === jobId);
           return (
             <div key={jobId} className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex items-start justify-between gap-4">
@@ -154,6 +208,22 @@ export default function CronVerwaltungPage() {
                   </span>
                 )}
               </div>
+
+              {schalter && (
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={aktivSchalter[schalter.key] ?? false}
+                    onChange={(e) => toggleAktiv(schalter.key, e.target.checked)}
+                    disabled={speichern === schalter.key}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-gray-700">
+                    Automatischen Lauf aktivieren
+                    {speichern === schalter.key && <span className="text-gray-400 ml-1">(speichert…)</span>}
+                  </span>
+                </label>
+              )}
 
               {result && (
                 <div className="mt-4 pt-4 border-t border-gray-50 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">

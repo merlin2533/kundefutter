@@ -347,6 +347,15 @@ export default function ExportePage() {
                   )}
                 </>
               )}
+
+              {card.typ === "ust" && (
+                <Link
+                  href={`/exporte/ust-vorschau?von=${s.von}&bis=${s.bis}`}
+                  className="w-full text-center px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Druckbare Zusammenfassung ansehen
+                </Link>
+              )}
             </div>
           );
         })}

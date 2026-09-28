@@ -141,6 +141,12 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <a
+            href={`/api/exporte/kontrakt?kontraktId=${data.id}`}
+            className="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 text-sm font-medium rounded-lg transition-colors"
+          >
+            PDF
+          </a>
           {data.status === "AKTIV" && (
             <>
               <Link

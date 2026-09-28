@@ -1119,7 +1119,7 @@ app/
                                  dann `neueRechnung:{id,rechnungNr}` statt `forderung` (siehe
                                  verrechneOffeneRestdifferenz() in lib/lieferung.ts); 400 falls die gewählte
                                  Gutschrift den offenen Betrag übersteigt
-/api/lieferungen/wiederkehrend  POST — wiederkehrende Lieferungen auslösen
+/api/lieferungen/wiederkehrend  GET(?tage=30|?nurFaellig=1) — fällige Bedarfe (Vorschau), POST({bedarfIds[]}|{alleAusloesen:true}) — wiederkehrende Lieferungen auslösen; Logik geteilt mit dem Cron-Job `wiederkehrendeLieferungen` (`lib/wiederkehrende-lieferungen.ts`), der überfällige Bedarfe zusätzlich automatisch bei jedem Cron-Tick auslöst, sofern unter `/einstellungen/cron` aktiviert (Opt-in, Standard aus) — der manuelle Button auf `/lieferungen` bleibt unabhängig davon als sofortiger Weg bestehen
 
 -- Lager --
 /api/lager                      GET — Lagerübersicht (Bestände)
@@ -1213,6 +1213,9 @@ app/
                                  Bestellung eindeutig demselben Kunden zugeordnet) zusätzlich hervorgehobener
                                  Versandhinweis mit Endkunden-Adresse ("Bitte Ware direkt an unseren Kunden
                                  versenden")
+/api/exporte/kontrakt           GET?kontraktId= — Liefervereinbarung-PDF (generiereKontraktPdf() in
+                                 lib/pdfGenerator.ts, Muster wie generiereBestellungPdf()); zeigt je Position
+                                 Menge/bereits Abgerufen/Rest, Download-Button auf /kontrakte/[id]
 /api/exporte/mahnung            GET?lieferungId=&mahnstufe=1|2|3 — Mahnung/Zahlungserinnerung als PDF (DIN-5008-Geschäftsbrief, "Ihr Ansprechpartner"-Feld = aktuell angemeldeter Benutzer statt Firmenzentrale; spiegelt nach Nextcloud Kunden-Ordner "Mahnungen")
 /api/exporte/mahnung/mail       POST — Mahnung per E-Mail versenden
 /api/exporte/sammelrechnung     GET?sammelrechnungId=
@@ -1260,8 +1263,12 @@ app/
 /api/kampagnen                  GET(?aktiv), POST
 /api/kampagnen/[id]             GET, PUT, DELETE
 /api/kampagnen/[id]/artikel     GET, POST, DELETE?artikelId=
-/api/kampagnen/[id]/kunden      GET, POST
-/api/kampagnen/[id]/potenzial   GET — nicht zugeordnete Kunden mit Umsatz
+/api/kampagnen/[id]/kunden      GET — liefert die zugeordneten Kunden inkl. Umsatzpotenzial
+                                 (Bedarfe der Kampagnenartikel), Logik in lib/kampagne-potenzial.ts.
+                                 Zuordnung von Kunden zur Kampagne läuft über PUT /api/kampagnen/[id]
+                                 (Body-Feld kunden:[{kundeId}], volle Ersetzung), nicht über diese Route
+/api/exporte/kampagne           GET?kampagneId= — dieselbe Zielkunden-Liste als CSV-Download (für eine
+                                 Mailing-Aktion außerhalb von AGRI-Office), Button auf /kampagnen/[id]
 
 -- Reklamationen --
 /api/reklamationen              GET(?kundeId,?status,?prioritaet), POST
@@ -1472,6 +1479,8 @@ Globale Cmd+K / Ctrl+K Suche (Overlay). In `app/layout.tsx` eingebunden.
 - Tour-PDF: `GET /api/exporte/tour?tourname=X` (jsPDF)
 - AFIG-PDF: `GET /api/agrarantraege/pdf?kundeId=X` (jsPDF)
 - Bestellung (Lieferantenbestellung): `GET /api/exporte/bestellung?bestellungId=X` (jsPDF, `generiereBestellungPdf()`)
+- Kontrakt (Liefervereinbarung): `GET /api/exporte/kontrakt?kontraktId=X` (jsPDF, `generiereKontraktPdf()` — Positionen mit Menge/Abgerufen/Rest, Muster wie `generiereBestellungPdf()`), Download-Button auf `/kontrakte/[id]`
+- USt-Voranmeldungshilfe (Druckansicht): `/exporte/ust-vorschau/page.tsx` (Muster wie `/exporte/datev-vorschau`, `window.print()`), zeigt dieselbe JSON-Struktur wie `GET /api/exporte/ust-voranmeldung` tabellarisch mit KZ-Beschriftung — kein eigener PDF-Generator, reine Bildschirm-/Druckseite
 
 ---
 
@@ -2183,6 +2192,9 @@ ist modulabhängig).
 | `lib/ausgleichsartikel.ts` | Zentrale, dependency-freie Liste der "Ausgleichsartikel"-Artikelnummern (`ALTE_FORDERUNG_ARTIKELNUMMER`/`GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER`/`RESTDIFFERENZ_ARTIKELNUMMER`) + `istAusgleichsArtikelnummer()` — genutzt von `lib/lieferung.ts` (erzeugt die Positionen) UND `lib/datev.ts` (muss sie im Export erkennen, um sie auf ein Verrechnungs- statt Erlöskonto zu buchen) |
 | `lib/anlieferung-import.ts` | Geteilte Parsing-/Auflösungslogik für den Anlieferungs-Import: `parseAnlieferungZeile()` (reine Funktion), `resolveAnlieferungKunde()`/`resolveArtikelRef()` (DB-Lookup per Name/Artikelnummer, exakt dann eindeutiger Teilstring-Treffer) — von Vorschau- UND Commit-Route genutzt, damit beide nie auseinanderlaufen |
 | `lib/eiersortierung-import.ts` | Analog für den EierSortierung-Import: `parseEierSortierungZeile()`, `resolveAnlieferungRef()` (löst eine Anlieferung per `nummer` ODER `externeNr` auf); re-exportiert `resolveArtikelRef` aus `lib/anlieferung-import.ts` (generischer Artikel-Resolver, kein Anlieferungs-Detail) |
+| `lib/wiederkehrende-lieferungen.ts` | `ermittleFaelligeBedarfe(bis)` + `erstelleWiederkehrendeLieferungen(bedarfIds)` — einzige Quelle der Wahrheit für "welche `KundeBedarf`-Einträge sind fällig" bzw. "lege dafür Lieferungen an", genutzt von `GET`/`POST /api/lieferungen/wiederkehrend` (Vorschau bzw. manuelles Auslösen von `/lieferungen`) UND dem Cron-Job `wiederkehrendeLieferungen` (`app/api/cron/route.ts`) — vorher wurde ein fälliger Bedarf nur beim manuellen Klick auf den Button ausgelöst, jetzt zusätzlich automatisch bei jedem Cron-Tick, sofern unter `/einstellungen/cron` aktiviert (Einstellung `cron.wiederkehrendeLieferungen`, Standard "0"/aus — verhindert, dass eine bestehende Installation beim ersten Rollout unbeaufsichtigt alle bereits überfälligen Bedarfe auf einen Schlag verarbeitet). `ladeAktiveBedarfeMitArtikel()` berücksichtigt dabei nur `Kunde.aktiv`/`Artikel.aktiv` |
+| `lib/mahnwesen-erinnerung.ts` | `pruefeMahnstufenEskalation()` — legt eine `Aufgabe`-Erinnerung an, sobald eine überfällige Rechnung in eine (höhere) Mahnstufe rutscht (Fristen aus `system.mahnwesen`, gleiche Berechnung wie `GET /api/mahnwesen`); Betreff enthält Rechnungsnummer + Mahnstufen-Bezeichnung, dadurch idempotent wie `pruefeMeldepflichten()` (kein Duplikat bei unveränderter Stufe, neue Aufgabe bei Eskalation). Eingebunden als Cron-Job `mahnwesenErinnerung`, ebenfalls Opt-in über `/einstellungen/cron` (Einstellung `cron.mahnwesenErinnerung`, Standard "0"/aus — sonst würde der erste Lauf für jede bereits überfällige Rechnung sofort eine Aufgabe anlegen). Bewusst KEIN automatischer Mahnungs-Versand — nur die Erinnerung, dass eine Aktion aussteht |
+| `lib/kampagne-potenzial.ts` | `ladeKampagnePotenzial(kampagneId)` + `buildKampagnePotenzialCsv()` — Zielkunden-Liste einer Kampagne mit Umsatzpotenzial (Bedarfe der Kampagnenartikel je zugeordnetem Kunden), einzige Quelle der Wahrheit für `GET /api/kampagnen/[id]/kunden` (Bildschirm, Tab „Kunden & Potenzial") UND `GET /api/exporte/kampagne?kampagneId=` (CSV-Download-Button auf derselben Seite, für eine Mailing-Aktion außerhalb von AGRI-Office) |
 | `lib/eingangsrechnung-matching.ts` | `berechneFehlendeFelderEingangsrechnung()` (aus der Batch-Review-Seite hierher verschoben) + `parseBelegKiErgebnis()` (Normalisierung des `PROMPTS.beleg`-KI-Ergebnisses) — gemeinsam genutzt vom manuellen `POST .../batch/[id]/analyze` UND dem automatischen E-Mail-Rechnungseingang |
 | `lib/email-eingang-config.ts` | Lädt/parst die `email.eingang.*`-Einstellungen (`ladeEmailEingangConfig()`), persistiert die Abruf-Cursor (`speichereImapCursor()`/`speichereM365Cursor()`) — siehe Abschnitt „Rechnungs-E-Mail-Eingang" |
 | `lib/email-eingang-abruf.ts` | Roh-Abruf eingehender Mails: `holeImapMails()` (imapflow+mailparser) / `holeM365Mails()` (Graph-REST) liefern beide auf `EingehendeMail` normalisiert; `testeImapVerbindung()`/`testeM365Verbindung()` für den Verbindungstest |

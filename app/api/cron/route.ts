@@ -7,6 +7,8 @@ import { ladeFirmaDaten } from "@/lib/firma";
 import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
 import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
 import { pruefeMeldepflichten } from "@/lib/meldepflichten";
+import { ermittleFaelligeBedarfe, erstelleWiederkehrendeLieferungen } from "@/lib/wiederkehrende-lieferungen";
+import { pruefeMahnstufenEskalation } from "@/lib/mahnwesen-erinnerung";
 import { verarbeiteEingehendeMails } from "@/lib/email-eingang-verarbeitung";
 import { Sentry } from "@/lib/sentry";
 
@@ -264,6 +266,83 @@ async function jobMeldepflichten(): Promise<JobResult> {
 }
 
 /**
+ * `POST /api/lieferungen/wiederkehrend` (`{alleAusloesen:true}`) existierte bereits vollständig,
+ * wurde aber nur über einen manuellen Button auf `/lieferungen` ausgelöst — ein Bedarf mit
+ * abgelaufenem Intervall blieb liegen, bis jemand die Seite öffnet und klickt. Läuft wie
+ * jobMeldepflichten bei jedem Tick; `erstelleWiederkehrendeLieferungen()` legt für dieselbe
+ * fällige `bedarfId` nur dann erneut eine Lieferung an, wenn seit der letzten (nicht stornierten)
+ * Lieferung wirklich wieder ein volles Intervall vergangen ist (siehe `ermittleFaelligeBedarfe()`)
+ * — kein eigener Idempotenz-Zusatz nötig, das steckt schon in der Fälligkeitsberechnung selbst.
+ *
+ * Opt-in über `cron.wiederkehrendeLieferungen` (Einstellung, Standard "0"/aus,
+ * konfigurierbar unter /einstellungen/cron) — ein frisch aufgesetzter Betrieb hat i.d.R.
+ * `KundeBedarf`-Einträge aus einer früheren, rein manuellen Nutzung von
+ * "Wiederkehrende Lieferungen auslösen" auf /lieferungen; ohne diesen Schalter würde der
+ * erste Cron-Tick nach diesem Feature sämtliche bereits überfälligen Bedarfe auf einen Schlag
+ * automatisch zu Lieferungen machen, ohne dass der Betrieb das je bewusst eingeschaltet hätte.
+ */
+async function jobWiederkehrendeLieferungen(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const aktivRow = await prisma.einstellung.findUnique({ where: { key: "cron.wiederkehrendeLieferungen" } });
+    if (aktivRow?.value !== "1") {
+      return { job: "wiederkehrendeLieferungen", ok: true, detail: { uebersprungen: "nicht aktiviert (siehe /einstellungen/cron)" }, durationMs: Date.now() - t0 };
+    }
+    const faellig = await ermittleFaelligeBedarfe(new Date());
+    const bedarfIds = faellig.filter((f) => f.ueberfaellig).map((f) => f.bedarf.id);
+    const angelegtIds = await erstelleWiederkehrendeLieferungen(bedarfIds);
+    return {
+      job: "wiederkehrendeLieferungen",
+      ok: true,
+      detail: { faellig: bedarfIds.length, angelegt: angelegtIds.length, lieferungen: angelegtIds },
+      durationMs: Date.now() - t0,
+    };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "wiederkehrendeLieferungen",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
+/**
+ * Legt eine `Aufgabe`-Erinnerung an, sobald eine überfällige Rechnung in eine (höhere) Mahnstufe
+ * rutscht — der bestehende `cron.digest.mahnwesen`-Job (jobDigestEmail oben) listet überfällige
+ * Rechnungen nur in der täglichen Sammel-Mail auf, ohne eine Wiedervorlage/Aufgabe zu erzeugen.
+ * KEIN automatischer Versand einer Mahnung selbst — siehe pruefeMahnstufenEskalation().
+ *
+ * Opt-in über `cron.mahnwesenErinnerung` (Einstellung, Standard "0"/aus, konfigurierbar
+ * unter /einstellungen/cron) — analog zum Opt-in bei jobWiederkehrendeLieferungen: ohne
+ * Schalter würde der erste Lauf nach diesem Feature für JEDE bereits überfällige, unbezahlte
+ * Rechnung sofort eine Aufgabe anlegen (potenziell hunderte auf einmal bei einer bestehenden
+ * Installation mit gewachsenem Mahnwesen-Bestand), statt dass der Betrieb das bewusst aktiviert.
+ */
+async function jobMahnwesenErinnerung(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const aktivRow = await prisma.einstellung.findUnique({ where: { key: "cron.mahnwesenErinnerung" } });
+    if (aktivRow?.value !== "1") {
+      return { job: "mahnwesenErinnerung", ok: true, detail: { uebersprungen: "nicht aktiviert (siehe /einstellungen/cron)" }, durationMs: Date.now() - t0 };
+    }
+    const ergebnis = await pruefeMahnstufenEskalation();
+    return { job: "mahnwesenErinnerung", ok: true, detail: { ...ergebnis }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "mahnwesenErinnerung",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
+/**
  * Ruft den E-Mail-Rechnungseingang ab (IMAP-Postfach oder Microsoft 365), sofern unter
  * /einstellungen/email-rechnungseingang aktiviert und vollständig konfiguriert — siehe
  * lib/email-eingang-verarbeitung.ts für die eigentliche Verarbeitung (inkl. eigenem
@@ -327,6 +406,8 @@ export async function GET(req: NextRequest) {
   results.push(await jobDigestEmail());
   results.push(await jobNextcloudSync());
   results.push(await jobMeldepflichten());
+  results.push(await jobWiederkehrendeLieferungen());
+  results.push(await jobMahnwesenErinnerung());
   results.push(await jobEmailRechnungseingang());
 
   const allOk = results.every((r) => r.ok);
