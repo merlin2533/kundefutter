@@ -17,6 +17,7 @@ interface FirmaSettings {
   "firma.ustIdNr": string;
   "firma.oekoNummer": string;
   "firma.eierZulassungsnummer": string;
+  "firma.eierKuehlhinweis": string;
   "firma.iban": string;
   "firma.bic": string;
   "firma.bank": string;
@@ -46,6 +47,7 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.ustIdNr": "",
   "firma.oekoNummer": "",
   "firma.eierZulassungsnummer": "",
+  "firma.eierKuehlhinweis": "",
   "firma.iban": "",
   "firma.bic": "",
   "firma.bank": "",
@@ -93,6 +95,12 @@ const SECTIONS = [
         key: "firma.eierZulassungsnummer" as keyof FirmaSettings,
         label: "Packstellen-Zulassungsnummer",
         placeholder: "DE-1234",
+        modul: "eierhandel" as const,
+      },
+      {
+        key: "firma.eierKuehlhinweis" as keyof FirmaSettings,
+        label: "Kühlhinweis (Eierkarton-Etiketten)",
+        placeholder: "Nach dem Kauf kühl lagern.",
         modul: "eierhandel" as const,
       },
       { key: "firma.mwstSatz" as keyof FirmaSettings, label: "Standard-MwSt (%)", type: "number", placeholder: "19" },

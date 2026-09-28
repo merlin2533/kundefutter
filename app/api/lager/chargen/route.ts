@@ -3,6 +3,68 @@ import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
+// Analog csvQ() in lib/kat-meldung.ts — hier lokal gehalten, da dieses Format nur der
+// Chargen-Rückverfolgung dient und nicht mit dem KAT-Meldungs-Export geteilt wird.
+function csvQ(v: string | number | null | undefined): string {
+  const s = String(v ?? "");
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+type CsvLieferung = { datum: Date; chargeNr: string | null; menge: number; kunde: { name: string; firma: string | null } | null; rechnungNr: string | null; lieferungId: number; artikel?: { name: string } };
+type CsvWareneingang = { datum: Date; chargeNr: string | null; menge: number; lieferant: { name: string } | null; wareneingangId: number; artikel: { name: string } };
+type CsvEiersortierung = {
+  datum: Date; chargeNr: string | null; menge: number; sortierungId: number;
+  gueteklasse: string | null; gewichtsklasse: string | null; erzeugercode: string | null;
+  anlieferung: { nummer: string; erzeuger: { name: string; firma: string | null } | null } | null;
+  artikel: { name: string };
+};
+
+// Baut eine einheitliche Rückverfolgungs-Tabelle (Lieferung/Wareneingang/Ei-Sortierung
+// gemeinsam, chronologisch) als CSV — dient dem Prüf-/Rückverfolgungs-Nachweis
+// (Lebensmittelrecht: welche Charge kam woher, ging wohin). `artikelName` federt ab, dass die
+// Lieferungen-Zeilen im Artikel-Modus kein eigenes `artikel`-Feld tragen (der Artikel ist dort
+// bereits durch den Aufrufparameter fix).
+function buildChargenCsv(
+  data: { lieferungen: CsvLieferung[]; wareneingaenge: CsvWareneingang[]; eiersortierungen: CsvEiersortierung[] },
+  artikelName?: string
+): string {
+  const header = ["Quelle", "Datum", "Charge", "Artikel", "Menge", "Kunde/Lieferant/Erzeuger", "Referenz"].join(";");
+  const rows: { datum: string; csv: string }[] = [];
+  for (const l of data.lieferungen) {
+    const kunde = l.kunde ? (l.kunde.firma || l.kunde.name) : "";
+    const datum = l.datum.toISOString().slice(0, 10);
+    rows.push({
+      datum,
+      csv: ["Lieferung", datum, l.chargeNr ?? "", l.artikel?.name ?? artikelName ?? "", l.menge, kunde, l.rechnungNr || `Lieferung #${l.lieferungId}`]
+        .map(csvQ)
+        .join(";"),
+    });
+  }
+  for (const w of data.wareneingaenge) {
+    const datum = w.datum.toISOString().slice(0, 10);
+    rows.push({
+      datum,
+      csv: ["Wareneingang", datum, w.chargeNr ?? "", w.artikel.name, w.menge, w.lieferant?.name ?? "", `Wareneingang #${w.wareneingangId}`]
+        .map(csvQ)
+        .join(";"),
+    });
+  }
+  for (const s of data.eiersortierungen) {
+    const erzeuger = s.anlieferung?.erzeuger ? (s.anlieferung.erzeuger.firma || s.anlieferung.erzeuger.name) : "";
+    const details = [s.gueteklasse, s.gewichtsklasse].filter(Boolean).join("/");
+    const referenz = [`Sortierung #${s.sortierungId}`, s.anlieferung?.nummer, s.erzeugercode].filter(Boolean).join(" · ");
+    const datum = s.datum.toISOString().slice(0, 10);
+    rows.push({
+      datum,
+      csv: ["Ei-Sortierung", datum, s.chargeNr ?? "", `${s.artikel.name}${details ? ` (${details})` : ""}`, s.menge, erzeuger, referenz]
+        .map(csvQ)
+        .join(";"),
+    });
+  }
+  rows.sort((a, b) => a.datum.localeCompare(b.datum));
+  return "﻿" + [header, ...rows.map((r) => r.csv)].join("\n");
+}
+
 // GET /api/lager/chargen
 // Rückverfolgungs-Endpoint mit zwei Modi:
 //
@@ -12,12 +74,16 @@ export const dynamic = "force-dynamic";
 //  2) Artikel-Modus: ?artikelId=N&von=YYYY-MM-DD&bis=YYYY-MM-DD
 //     Liefert alle Kunden, die einen Artikel erhalten haben (aggregiert + Lieferpositionen).
 //     Optional: zusätzlich ?charge=X um nur Lieferungen mit dieser Charge zu erhalten.
+//
+// Beide Modi unterstützen zusätzlich ?format=csv für einen Rückverfolgungs-Nachweis als
+// CSV-Download (Lieferung/Wareneingang/Ei-Sortierung gemeinsam, chronologisch).
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const charge = searchParams.get("charge")?.trim() ?? "";
   const artikelIdRaw = searchParams.get("artikelId");
   const von = searchParams.get("von");
   const bis = searchParams.get("bis");
+  const format = searchParams.get("format");
 
   const artikelId = artikelIdRaw ? parseInt(artikelIdRaw, 10) : NaN;
   const hasArtikel = !isNaN(artikelId);
@@ -161,6 +227,46 @@ export async function GET(req: NextRequest) {
           artikel: { id: artikel.id, name: artikel.name, einheit: artikel.einheit },
         }));
 
+      // Ei-Sortierungen dieses Artikels (Erzeugerherkunft, Modul eierhandel) — dieselbe
+      // chargeNr-Verknüpfung wie bei Lieferposition/WareineingangPosition, aber ohne
+      // Wareneingang: die Charge entsteht hier durch eigene Sortierung/Erzeugung.
+      const eiersortierungPos = await prisma.eierSortierungPosition.findMany({
+        where: {
+          artikelId,
+          ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
+          ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          sortierung: {
+            select: {
+              id: true,
+              datum: true,
+              anlieferung: {
+                select: { id: true, nummer: true, kunde: { select: { id: true, name: true, firma: true } } },
+              },
+            },
+          },
+        },
+      });
+
+      const eiersortierungen = eiersortierungPos.map((p) => ({
+        id: p.id,
+        sortierungId: p.sortierung.id,
+        datum: p.sortierung.datum,
+        chargeNr: p.chargeNr,
+        menge: p.menge,
+        gueteklasse: p.gueteklasse,
+        gewichtsklasse: p.gewichtsklasse,
+        legedatum: p.legedatum,
+        erzeugercode: p.erzeugercode,
+        anlieferung: p.sortierung.anlieferung
+          ? { id: p.sortierung.anlieferung.id, nummer: p.sortierung.anlieferung.nummer, erzeuger: p.sortierung.anlieferung.kunde }
+          : null,
+        artikel: { id: artikel.id, name: artikel.name, einheit: artikel.einheit },
+      }));
+
       // Lagerbewegungen nach Charge (aktueller Bestand je Charge)
       const lagerbewByCharge = await prisma.lagerbewegung.findMany({
         where: {
@@ -181,18 +287,29 @@ export async function GET(req: NextRequest) {
         .filter((c) => c.bestand > 0)
         .sort((a, b) => b.bestand - a.bestand);
 
+      if (format === "csv") {
+        const csv = buildChargenCsv({ lieferungen, wareneingaenge, eiersortierungen }, artikel.name);
+        return new NextResponse(csv, {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": `attachment; filename="chargen-${artikel.name.replace(/[^a-z0-9]+/gi, "-")}.csv"`,
+          },
+        });
+      }
+
       return NextResponse.json({
         modus: "artikel",
         artikel,
         kunden,
         lieferungen,
         wareneingaenge,
+        eiersortierungen,
         bestandJeCharge,
       });
     }
 
     // ── Charge-Modus ────────────────────────────────────────────────────────
-    const [lieferpositionen, wareneingangPos, lagerbewegungen] = await Promise.all([
+    const [lieferpositionen, wareneingangPos, lagerbewegungen, eiersortierungPos] = await Promise.all([
       prisma.lieferposition.findMany({
         where: {
           chargeNr: { contains: charge },
@@ -242,6 +359,26 @@ export async function GET(req: NextRequest) {
           artikel: { select: { id: true, name: true, einheit: true } },
         },
       }),
+      prisma.eierSortierungPosition.findMany({
+        where: {
+          chargeNr: { contains: charge },
+          ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
+        },
+        take: 500,
+        orderBy: { id: "desc" },
+        include: {
+          sortierung: {
+            select: {
+              id: true,
+              datum: true,
+              anlieferung: {
+                select: { id: true, nummer: true, kunde: { select: { id: true, name: true, firma: true } } },
+              },
+            },
+          },
+          artikel: { select: { id: true, name: true, einheit: true } },
+        },
+      }),
     ]);
 
     const bestandJeCharge = lagerbewegungen.reduce<Record<string, { artikelId: number; artikelName: string; einheit: string; bestand: number }>>((acc, lb) => {
@@ -278,10 +415,37 @@ export async function GET(req: NextRequest) {
         artikel: p.artikel,
       }));
 
+    const eiersortierungen = eiersortierungPos.map((p) => ({
+      id: p.id,
+      sortierungId: p.sortierung.id,
+      datum: p.sortierung.datum,
+      chargeNr: p.chargeNr,
+      menge: p.menge,
+      gueteklasse: p.gueteklasse,
+      gewichtsklasse: p.gewichtsklasse,
+      legedatum: p.legedatum,
+      erzeugercode: p.erzeugercode,
+      anlieferung: p.sortierung.anlieferung
+        ? { id: p.sortierung.anlieferung.id, nummer: p.sortierung.anlieferung.nummer, erzeuger: p.sortierung.anlieferung.kunde }
+        : null,
+      artikel: p.artikel,
+    }));
+
+    if (format === "csv") {
+      const csv = buildChargenCsv({ lieferungen, wareneingaenge, eiersortierungen });
+      return new NextResponse(csv, {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="charge-${charge.replace(/[^a-z0-9]+/gi, "-")}.csv"`,
+        },
+      });
+    }
+
     return NextResponse.json({
       modus: "charge",
       wareneingaenge,
       lieferungen,
+      eiersortierungen,
       bestandJeCharge: Object.entries(bestandJeCharge).map(([key, v]) => ({ ...v, chargeNr: key.split("||")[0] })),
     });
   } catch (e) {

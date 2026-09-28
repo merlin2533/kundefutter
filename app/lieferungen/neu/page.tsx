@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
-import ChargeInput from "@/components/ChargeInput";
+import ChargeInput, { type ChargeMeta } from "@/components/ChargeInput";
 import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
 import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
@@ -453,6 +453,13 @@ function NeueLieferungInner() {
         return next;
       })
     );
+  }
+
+  // Mehrere Felder auf einmal setzen (z.B. Legedatum+Erzeugercode+Güte-/Gewichtsklasse beim
+  // Auswählen einer bekannten Ei-Sortierungs-Charge) — anders als updatePosition() ohne die
+  // artikelId-Sonderbehandlung, da hier nie der Artikel gewechselt wird.
+  function updatePositionFields(idx: number, patch: Partial<NewPosition>) {
+    setPositionen((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   }
 
   async function handleArtikelChange(idx: number, value: string | number) {
@@ -916,6 +923,21 @@ function NeueLieferungInner() {
                                 onChange={(v) => updatePosition(idx, "chargeNr", v)}
                                 einheit={selectedArtikel?.einheit}
                                 className={`w-full border rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-green-600 bg-white ${selectedArtikel?.chargePflicht && !pos.chargeNr ? "border-amber-400 bg-amber-50" : "border-gray-200"}`}
+                                onSelectCharge={
+                                  eierhandelAn && selectedArtikel?.kategorie === "Eier"
+                                    ? (meta: ChargeMeta) => {
+                                        if (meta.quelle !== "eiersortierung") return;
+                                        // Alle Felder bleiben danach weiterhin frei überschreibbar — dies ist
+                                        // nur eine Vorbefüllung aus der bereits bekannten Sortierungs-Charge.
+                                        updatePositionFields(idx, {
+                                          legedatum: meta.legedatum ? meta.legedatum.slice(0, 10) : "",
+                                          erzeugercode: meta.erzeugercode ?? "",
+                                          gueteklasse: meta.gueteklasse ?? "",
+                                          gewichtsklasse: meta.gewichtsklasse ?? "",
+                                        });
+                                      }
+                                    : undefined
+                                }
                               />
                               <input
                                 type="text"

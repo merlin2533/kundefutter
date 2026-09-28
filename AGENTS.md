@@ -320,6 +320,10 @@ prüfen, ob die Demodaten noch zum aktuellen Schema passen.
 /eiersortierung/neu        Neues Protokoll (Anlieferung wählen → Ausgangschargen erfassen)
 /eiersortierung/import     CSV/XLS-Import (Sortiermaschinen-Export): Vorschau → Commit
 /eiersortierung/[id]       Detail (Löschen bucht den Lagerzugang zurück)
+/eiersortierung/etiketten  Eierkarton-Etiketten: Sortierposition wählen → Felder (Güte-/
+                           Gewichtsklasse, Haltungsform, MHD, Erzeugercode, Eieranzahl,
+                           Kühlhinweis, Zulassungsnummer) vorbefüllt, frei überschreibbar,
+                           Druck mit lokal generiertem QR-Code (kein externer QR-Dienst)
 /eierkontrolle             Kontrolle: MHD-Ampel sortierter Chargen, Erzeugercode-Validierung
                            (Haltungsform vs. erste Ziffer des Codes), Meldepflichten-Status
 /meldepflichten            Fristen-Tracker (Tierseuchenkasse, KAT-Wochenmeldung)

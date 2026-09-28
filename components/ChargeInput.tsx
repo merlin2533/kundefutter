@@ -1,14 +1,19 @@
 "use client";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
 
-interface ChargeMeta {
+export interface ChargeMeta {
   chargeNr: string;
-  letzterWareneingang: string;
-  anzahlWareneingaenge: number;
+  quelle: "wareneingang" | "eiersortierung";
+  datum: string;
+  anzahlBuchungen: number;
   summeMenge: number;
   mhd: string | null;
   lieferant: string | null;
+  legedatum: string | null;
+  erzeugercode: string | null;
+  gueteklasse: string | null;
+  gewichtsklasse: string | null;
 }
 
 interface Props {
@@ -18,11 +23,16 @@ interface Props {
   placeholder?: string;
   className?: string;
   einheit?: string;
+  /** Wird aufgerufen, sobald der eingegebene Wert exakt einer bekannten Charge entspricht —
+   *  z.B. um Legedatum/Erzeugercode einer Ei-Sortierungs-Charge im aufrufenden Formular
+   *  automatisch vorzubefüllen. */
+  onSelectCharge?: (meta: ChargeMeta) => void;
 }
 
-// Charge-Eingabe mit Dropdown der bereits im Wareneingang erfassten Chargen
-// für den gewählten Artikel. Fällt auf reine Freitext-Eingabe zurück, wenn der
-// Artikel keine Wareneingangs-Chargen hat.
+// Charge-Eingabe mit Dropdown der bereits bekannten Chargen für den gewählten Artikel —
+// sowohl aus dem Wareneingang als auch (Eierhandel) aus eigener Sortierung/Erzeugung
+// (EierSortierungPosition, siehe GET /api/artikel/[id]/chargen). Fällt auf reine
+// Freitext-Eingabe zurück, wenn der Artikel keine bekannten Chargen hat.
 function fmtMenge(n: number) {
   return n.toLocaleString("de-DE", { maximumFractionDigits: 2 });
 }
@@ -34,11 +44,13 @@ export default function ChargeInput({
   placeholder = "Charge (optional)",
   className = "",
   einheit = "",
+  onSelectCharge,
 }: Props) {
   const reactId = useId();
   const datalistId = `chargen-${reactId.replace(/[:]/g, "")}`;
   const [chargen, setChargen] = useState<ChargeMeta[]>([]);
   const [loading, setLoading] = useState(false);
+  const gemeldeteCharge = useRef<string | null>(null);
 
   useEffect(() => {
     if (!artikelId) {
@@ -68,6 +80,17 @@ export default function ChargeInput({
   const matched = hasChargen ? chargen.find((c) => c.chargeNr === value) : undefined;
   const unknown = !!value && hasChargen && !matched;
 
+  // Meldet eine passende Charge an den Aufrufer — nur einmal je Charge (nicht bei jedem
+  // Re-Render), damit ein manuell überschriebenes Legedatum nicht bei jedem Tastendruck in
+  // einem ANDEREN Feld der Zeile wieder zurückgesetzt wird.
+  useEffect(() => {
+    if (matched && onSelectCharge && gemeldeteCharge.current !== matched.chargeNr) {
+      gemeldeteCharge.current = matched.chargeNr;
+      onSelectCharge(matched);
+    }
+    if (!matched) gemeldeteCharge.current = null;
+  }, [matched, onSelectCharge]);
+
   return (
     <div className="relative">
       <input
@@ -87,16 +110,17 @@ export default function ChargeInput({
       {hasChargen && (
         <datalist id={datalistId}>
           {chargen.map((c) => {
-            const datum = new Date(c.letzterWareneingang).toLocaleDateString("de-DE");
+            const datum = new Date(c.datum).toLocaleDateString("de-DE");
             const parts = [`${fmtMenge(c.summeMenge)}${einheit ? " " + einheit : ""}`, datum];
             if (c.lieferant) parts.push(c.lieferant);
+            if (c.erzeugercode) parts.push(c.erzeugercode);
             if (c.mhd) parts.push("MHD " + new Date(c.mhd).toLocaleDateString("de-DE"));
             return <option key={c.chargeNr} value={c.chargeNr} label={parts.join(" · ")} />;
           })}
         </datalist>
       )}
       {unknown && (
-        <div className="text-[10px] text-amber-700 mt-0.5 flex items-center gap-1.5 flex-wrap" title="Diese Charge ist nicht aus dem Wareneingang bekannt">
+        <div className="text-[10px] text-amber-700 mt-0.5 flex items-center gap-1.5 flex-wrap" title="Diese Charge ist nicht aus dem Wareneingang oder einer eigenen Sortierung bekannt">
           <span>⚠ Neue Charge (kein Wareneingang)</span>
           <a
             href={`/lager/wareneingang?artikelId=${artikelId}&chargeNr=${encodeURIComponent(value)}`}
@@ -110,7 +134,7 @@ export default function ChargeInput({
       )}
       {matched && (
         <div className="text-[10px] text-gray-500 mt-0.5">
-          WE-Menge: {fmtMenge(matched.summeMenge)}{einheit ? " " + einheit : ""}
+          {matched.quelle === "eiersortierung" ? "Sortierung" : "WE"}-Menge: {fmtMenge(matched.summeMenge)}{einheit ? " " + einheit : ""}
           {matched.mhd && <> · MHD {new Date(matched.mhd).toLocaleDateString("de-DE")}</>}
         </div>
       )}

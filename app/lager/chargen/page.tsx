@@ -29,6 +29,20 @@ interface ChargeLieferung {
   menge: number;
 }
 
+interface ChargeEiersortierung {
+  id: number;
+  sortierungId: number;
+  datum: string;
+  chargeNr: string | null;
+  menge: number;
+  gueteklasse: string | null;
+  gewichtsklasse: string | null;
+  legedatum: string | null;
+  erzeugercode: string | null;
+  anlieferung: { id: number; nummer: string; erzeuger: { id: number; name: string; firma?: string | null } | null } | null;
+  artikel: { id: number; name: string; einheit: string };
+}
+
 interface KundenAggregation {
   id: number;
   name: string;
@@ -53,6 +67,7 @@ interface ArtikelResult {
   kunden: KundenAggregation[];
   lieferungen: ChargeLieferung[];
   wareneingaenge: ChargeWareneingang[];
+  eiersortierungen: ChargeEiersortierung[];
   bestandJeCharge: BestandJeCharge[];
 }
 
@@ -60,6 +75,7 @@ interface ChargeResult {
   modus: "charge";
   wareneingaenge: ChargeWareneingang[];
   lieferungen: ChargeLieferung[];
+  eiersortierungen: ChargeEiersortierung[];
   bestandJeCharge: BestandJeCharge[];
 }
 
@@ -109,6 +125,7 @@ export default function RueckverfolgungPage() {
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
+  const [lastParams, setLastParams] = useState("");
 
   useEffect(() => {
     if (modus === "artikel" && artikelOptions.length === 0) {
@@ -141,6 +158,7 @@ export default function RueckverfolgungPage() {
     }
     if (von) params.set("von", von);
     if (bis) params.set("bis", bis);
+    setLastParams(params.toString());
 
     setSearching(true);
     setError("");
@@ -168,54 +186,13 @@ export default function RueckverfolgungPage() {
 
   const lieferungen = result?.lieferungen ?? [];
   const wareneingaenge = result?.wareneingaenge ?? [];
-  const totalFound = lieferungen.length + wareneingaenge.length;
+  const eiersortierungen = result?.eiersortierungen ?? [];
+  const totalFound = lieferungen.length + wareneingaenge.length + eiersortierungen.length;
   const kunden = result?.modus === "artikel" ? result.kunden : [];
-
-  function exportCsv() {
-    if (!result) return;
-    const rows: string[][] = [];
-    rows.push(["Datum", "Kunde", "Firma", "Artikel", "Menge", "Einheit", "Charge", "Status", "Rechnung", "Lieferung-ID"]);
-    const artikelName =
-      result.modus === "artikel" ? result.artikel.name : "";
-    const artikelEinheit =
-      result.modus === "artikel" ? result.artikel.einheit : "";
-    for (const l of lieferungen) {
-      rows.push([
-        new Date(l.datum).toLocaleDateString("de-DE"),
-        l.kunde?.name ?? "",
-        l.kunde?.firma ?? "",
-        l.artikel?.name ?? artikelName,
-        String(l.menge),
-        l.artikel?.einheit ?? artikelEinheit,
-        l.chargeNr ?? "",
-        l.status,
-        l.rechnungNr ?? "",
-        String(l.lieferungId),
-      ]);
-    }
-    const csv = rows
-      .map((r) =>
-        r
-          .map((c) => {
-            const s = String(c);
-            return /[;"\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-          })
-          .join(";")
-      )
-      .join("\r\n");
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const stamp = new Date().toISOString().slice(0, 10);
-    const fname =
-      result.modus === "artikel"
-        ? `rueckverfolgung_${result.artikel.name.replace(/[^a-z0-9]+/gi, "_")}_${stamp}.csv`
-        : `rueckverfolgung_charge_${stamp}.csv`;
-    a.download = fname;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  // Server liefert dieselbe (jetzt vollständigere, alle drei Quellen umfassende) Tabelle als
+  // CSV unter genau denselben Suchparametern — kein separater Client-seitiger CSV-Aufbau mehr
+  // nötig, der bisher Wareneingänge/Ei-Sortierungen gar nicht mit exportierte.
+  const csvHref = lastParams ? `/api/lager/chargen?${lastParams}&format=csv` : "";
 
   const artikelSelectOptions = artikelOptions.map((a) => ({
     value: String(a.id),
@@ -358,13 +335,12 @@ export default function RueckverfolgungPage() {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={exportCsv}
+              <a
+                href={csvHref}
                 className="text-sm text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 transition-colors"
               >
                 CSV exportieren
-              </button>
+              </a>
             </div>
           )}
 
@@ -495,6 +471,76 @@ export default function RueckverfolgungPage() {
                         <td className="px-4 py-2.5 font-mono text-xs hidden md:table-cell">{w.chargeNr ?? "—"}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Erzeugerherkunft (Ei-Sortierungen, Modul eierhandel) — nur wenn vorhanden */}
+          {eiersortierungen.length > 0 && (
+            <div>
+              <h2 className="text-base font-semibold text-gray-800 mb-3">
+                Erzeugerherkunft
+                <span className="ml-2 text-sm font-normal text-gray-400">({eiersortierungen.length})</span>
+              </h2>
+              <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Datum</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artikel</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Menge</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden sm:table-cell">Erzeuger</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Güte/Gewicht</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden md:table-cell">Charge</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide hidden lg:table-cell">Anlieferung</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {eiersortierungen.map((s) => {
+                      const erzeugerName = s.anlieferung?.erzeuger
+                        ? s.anlieferung.erzeuger.firma
+                          ? `${s.anlieferung.erzeuger.firma} (${s.anlieferung.erzeuger.name})`
+                          : s.anlieferung.erzeuger.name
+                        : null;
+                      const klassen = [s.gueteklasse, s.gewichtsklasse].filter(Boolean).join("/");
+                      return (
+                        <tr key={s.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5 whitespace-nowrap">{new Date(s.datum).toLocaleDateString("de-DE")}</td>
+                          <td className="px-4 py-2.5 font-medium">
+                            {s.artikel.name}
+                            <div className="sm:hidden text-xs text-gray-500 mt-0.5">
+                              {fmtMenge(s.menge)} {s.artikel.einheit}
+                              {erzeugerName && <> · {erzeugerName}</>}
+                              {klassen && <> · {klassen}</>}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 font-mono hidden sm:table-cell">{fmtMenge(s.menge)} {s.artikel.einheit}</td>
+                          <td className="px-4 py-2.5 hidden sm:table-cell">
+                            {s.anlieferung?.erzeuger ? (
+                              <Link href={`/kunden/${s.anlieferung.erzeuger.id}`} className="font-medium text-green-700 hover:underline">
+                                {erzeugerName}
+                              </Link>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                            {s.erzeugercode && <div className="text-xs text-gray-500 font-mono mt-0.5">{s.erzeugercode}</div>}
+                          </td>
+                          <td className="px-4 py-2.5 text-gray-600 hidden md:table-cell">{klassen || "—"}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs hidden md:table-cell">{s.chargeNr ?? "—"}</td>
+                          <td className="px-4 py-2.5 hidden lg:table-cell">
+                            {s.anlieferung ? (
+                              <Link href={`/anlieferungen`} className="text-xs text-green-700 hover:underline" title="Anlieferungsliste öffnen">
+                                {s.anlieferung.nummer}
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

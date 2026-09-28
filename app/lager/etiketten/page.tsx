@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
+import { type EtikettGroesse, GROESSEN } from "@/components/etiketten/etikettGroessen";
 
 interface Artikel {
   id: number;
@@ -9,14 +10,6 @@ interface Artikel {
   kategorie: string | null;
   einheit: string;
 }
-
-type EtikettGroesse = "50x30" | "70x40" | "100x50";
-
-const GROESSEN: { value: EtikettGroesse; label: string; width: string; height: string }[] = [
-  { value: "50x30", label: "50×30 mm (Standard)", width: "50mm", height: "30mm" },
-  { value: "70x40", label: "70×40 mm (Mittel)",   width: "70mm", height: "40mm" },
-  { value: "100x50", label: "100×50 mm (Groß)",   width: "100mm", height: "50mm" },
-];
 
 function qrUrl(data: string) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(data)}`;
