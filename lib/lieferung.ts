@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { ALTE_FORDERUNG_ARTIKELNUMMER, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, RESTDIFFERENZ_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
@@ -30,13 +30,15 @@ export async function ladeStandardZahlungsziel(client: Tx | typeof prisma = pris
 export interface LieferungPositionInput {
   artikelId: number;
   menge: number;
+  /** IMMER der Listenpreis (vor rabattProzent) — nie der bereits rabattierte Endpreis. Jede
+   *  Rechnungs-/PDF-/ZUGFeRD-/DATEV-/Mahnwesen-/Bankabgleich-Berechnung rechnet grundsätzlich
+   *  `verkaufspreis × (1-rabattProzent%)`; ein hier bereits rabattierter Wert würde denselben
+   *  Rabatt ein zweites Mal abziehen (siehe effektiverMengenstaffelRabatt() in lib/utils.ts). */
   verkaufspreis?: number;
-  /** Nur zu Dokumentationszwecken (Rabatt-Spalte auf Lieferschein/Rechnung) — wird NUR
-   *  übernommen, wenn `verkaufspreis` ebenfalls explizit gesetzt ist (siehe
-   *  erstelleLieferungTransaktion(): dort wird ein Mengenrabatt nur dann automatisch
-   *  berechnet UND auf den Preis angewendet, wenn der Aufrufer keinen verkaufspreis
-   *  vorgibt — sonst würde ein clientseitig bereits rabattierter Preis serverseitig ein
-   *  zweites Mal rabattiert). */
+  /** Echter, tatsächlich anzuwendender Rabattsatz (nicht nur zur Anzeige!) — wird nur
+   *  übernommen, wenn `verkaufspreis` ebenfalls explizit gesetzt ist; ist kein verkaufspreis
+   *  gesetzt, berechnet erstelleLieferungTransaktion() Listenpreis + Rabatt selbst
+   *  (Mengenstaffel-Fallback, z.B. für die KI-Batch-Erkennung ohne erkannten VK). */
   rabattProzent?: number;
   einkaufspreis?: number;
   chargeNr?: string;
@@ -124,10 +126,15 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
 
       // Ein vom Aufrufer explizit übergebener Preis gilt als bereits final (z.B. die manuelle
       // Lieferungserfassung berechnet Sonderpreis + Mengenrabatt schon clientseitig für die
-      // Live-Vorschau) — der Mengenrabatt wird dann NICHT nochmal serverseitig angewendet,
-      // sonst würde derselbe Rabatt doppelt abgezogen. Nur wenn kein Preis mitgegeben wird
-      // (z.B. KI-Batch-Erkennung ohne erkannten VK), berechnet der Server ihn inkl. Mengenrabatt
-      // selbst.
+      // Live-Vorschau) — rabattProzent wird dann unverändert übernommen, NICHT nochmal
+      // serverseitig neu berechnet. Nur wenn kein Preis mitgegeben wird (z.B. KI-Batch-Erkennung
+      // ohne erkannten VK), berechnet der Server ihn inkl. Mengenrabatt selbst.
+      //
+      // WICHTIG: `verkaufspreis` ist in BEIDEN Fällen der LISTENPREIS (vor Mengenstaffel-Rabatt),
+      // nie der bereits rabattierte Staffelpreis — jede Rechnungs-/PDF-/ZUGFeRD-/DATEV-Berechnung
+      // rechnet grundsätzlich `verkaufspreis × (1-rabattProzent%)`; ein hier gespeicherter, schon
+      // rabattierter Preis würde denselben Rabatt ein zweites Mal abziehen (siehe
+      // effektiverMengenstaffelRabatt() in lib/utils.ts).
       let verkaufspreis: number;
       let bestRabatt: number;
       if (pos.verkaufspreis !== undefined) {
@@ -136,7 +143,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
       } else {
         const basisVerkaufspreis = berechneVerkaufspreis(artikel, kundePreis);
         const staffel = bestMengenstaffel(pos.artikelId, artikel.kategorie, pos.menge, kundeId, alleMengenrabatte);
-        verkaufspreis = wendeMengenstaffelAn(basisVerkaufspreis, staffel);
+        verkaufspreis = basisVerkaufspreis;
         bestRabatt = effektiverMengenstaffelRabatt(basisVerkaufspreis, staffel);
       }
 

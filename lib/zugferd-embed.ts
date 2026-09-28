@@ -4,15 +4,16 @@
  * Bettet die Factur-X XML-Rechnung in ein bestehendes PDF als eingebettete
  * Datei ein und ergänzt die notwendigen XMP-Metadaten für PDF/A-3b-Konformität.
  *
- * Profil: Factur-X BASIC WL (urn:factur-x.eu:1p0:basicwl)
+ * Profil: siehe ZUGFERD_PROFILE_ID/ZUGFERD_CONFORMANCE_LEVEL (lib/zugferd-xml.ts) — einzige
+ * Quelle der Wahrheit, damit die hier deklarierte Konformitätsstufe nie vom Profil abweicht,
+ * das generateZugferdXml() tatsächlich in die eingebettete XML schreibt.
  * Standard: ZUGFeRD 2.3 / Factur-X 1.0
  */
 
 import { PDFDocument, AFRelationship, PDFName, PDFDict } from "pdf-lib";
+import { ZUGFERD_PROFILE_ID, ZUGFERD_CONFORMANCE_LEVEL } from "@/lib/zugferd-xml";
 
 const FACTURX_FILENAME = "factur-x.xml";
-const FACTURX_PROFILE_ID = "urn:factur-x.eu:1p0:basicwl";
-const FACTURX_CONFORMANCE = "BASIC WL";
 
 /**
  * Erzeugt das XMP-Metadaten-Dokument für PDF/A-3b + Factur-X.
@@ -50,7 +51,7 @@ function buildXmpMetadata(rechnungNr: string, datum: Date): string {
     `      <fx:DocumentType>INVOICE</fx:DocumentType>\n` +
     `      <fx:DocumentFileName>${FACTURX_FILENAME}</fx:DocumentFileName>\n` +
     `      <fx:Version>1.0</fx:Version>\n` +
-    `      <fx:ConformanceLevel>${FACTURX_CONFORMANCE}</fx:ConformanceLevel>\n` +
+    `      <fx:ConformanceLevel>${ZUGFERD_CONFORMANCE_LEVEL}</fx:ConformanceLevel>\n` +
     `    </rdf:Description>\n` +
     // PDF/A Extension Schema für Factur-X
     `    <rdf:Description rdf:about=""\n` +
@@ -125,7 +126,7 @@ export async function embedZugferdInPdf(
   const xmlBytes = Buffer.from(xmlString, "utf-8");
   await pdfDoc.attach(xmlBytes, FACTURX_FILENAME, {
     mimeType: "application/xml",
-    description: `Factur-X BASIC WL — ${FACTURX_PROFILE_ID}`,
+    description: `Factur-X ${ZUGFERD_CONFORMANCE_LEVEL} — ${ZUGFERD_PROFILE_ID}`,
     creationDate: datum,
     modificationDate: datum,
     afRelationship: AFRelationship.Alternative,

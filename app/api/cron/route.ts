@@ -9,6 +9,7 @@ import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
 import { pruefeMeldepflichten } from "@/lib/meldepflichten";
 import { ermittleFaelligeBedarfe, erstelleWiederkehrendeLieferungen } from "@/lib/wiederkehrende-lieferungen";
 import { pruefeMahnstufenEskalation } from "@/lib/mahnwesen-erinnerung";
+import { verarbeiteEingehendeMails } from "@/lib/email-eingang-verarbeitung";
 import { Sentry } from "@/lib/sentry";
 
 const NEXTCLOUD_SYNC_KEY = "system.nextcloud.letzterAutoSync";
@@ -69,7 +70,7 @@ async function jobDigestEmail(): Promise<JobResult> {
             where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
             include: {
               kunde: { select: { name: true } },
-              positionen: { select: { menge: true, verkaufspreis: true } },
+              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
             },
             take: 100,
           })
@@ -96,7 +97,10 @@ async function jobDigestEmail(): Promise<JobResult> {
       faelligAm.setHours(0, 0, 0, 0);
       if (mahnwesenHeute <= faelligAm) continue;
       const tage = Math.floor((mahnwesenHeute.getTime() - faelligAm.getTime()) / (24 * 60 * 60 * 1000));
-      const betrag = (l as { positionen: { menge: number; verkaufspreis: number }[] }).positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — rabattProzent muss deshalb
+      // eingerechnet werden, sonst zeigt das Mahnwesen-Digest bei rabattierten Positionen einen
+      // zu hohen überfälligen Betrag.
+      const betrag = (l as { positionen: { menge: number; verkaufspreis: number; rabattProzent?: number | null }[] }).positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       mahnItems.push({ kundeName: l.kunde.name, rechnungNr: (l as { rechnungNr?: string | null }).rechnungNr ?? null, betrag: Math.round(betrag * 100) / 100, tageUeberfaellig: tage });
     }
 
@@ -317,6 +321,29 @@ async function jobMahnwesenErinnerung(): Promise<JobResult> {
   }
 }
 
+/**
+ * Ruft den E-Mail-Rechnungseingang ab (IMAP-Postfach oder Microsoft 365), sofern unter
+ * /einstellungen/email-rechnungseingang aktiviert und vollständig konfiguriert — siehe
+ * lib/email-eingang-verarbeitung.ts für die eigentliche Verarbeitung (inkl. eigenem
+ * Mails-pro-Lauf-Deckel, deshalb hier keine zusätzliche Drosselung nötig).
+ */
+async function jobEmailRechnungseingang(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const ergebnis = await verarbeiteEingehendeMails();
+    return { job: "emailRechnungseingang", ok: ergebnis.fehler === 0, detail: { ...ergebnis }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "emailRechnungseingang",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
@@ -360,6 +387,7 @@ export async function GET(req: NextRequest) {
   results.push(await jobMeldepflichten());
   results.push(await jobWiederkehrendeLieferungen());
   results.push(await jobMahnwesenErinnerung());
+  results.push(await jobEmailRechnungseingang());
 
   const allOk = results.every((r) => r.ok);
   await saveStatus(allOk, startedAt, results);

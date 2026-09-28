@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, formatRabattProzent } from "@/lib/utils";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
@@ -520,7 +520,7 @@ export default function RechnungenPage() {
                                     </td>
                                     <td className="py-1 pr-4 text-right font-mono">{formatEuro(p.verkaufspreis)}</td>
                                     <td className="py-1 pr-4 text-right text-gray-500">
-                                      {p.rabattProzent > 0 ? `${p.rabattProzent} %` : "—"}
+                                      {p.rabattProzent > 0 ? `${formatRabattProzent(p.rabattProzent)} %` : "—"}
                                     </td>
                                     <td className="py-1 text-right font-mono font-medium">{formatEuro(netto)}</td>
                                   </tr>

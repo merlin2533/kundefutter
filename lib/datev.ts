@@ -386,7 +386,7 @@ export async function sammleDatevBuchungen(
         rechnungNr: true,
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } },
       },
       orderBy: { datum: "asc" },
     }),
@@ -399,7 +399,7 @@ export async function sammleDatevBuchungen(
         rechnungDatum: true,
         kunde: { select: { name: true, firma: true } },
         lieferungen: {
-          select: { positionen: { select: { menge: true, verkaufspreis: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } } },
+          select: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true, artikelnummer: true } } } } },
         },
       },
       orderBy: { rechnungDatum: "asc" },
@@ -439,7 +439,10 @@ export async function sammleDatevBuchungen(
     let ausgleichSumme = 0;
     for (const pos of lief.positionen) {
       const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
-      const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
+      // Wie berechneLieferungBrutto() (lib/lieferung-brutto.ts) — verkaufspreis ist immer der
+      // Listenpreis, rabattProzent muss deshalb hier ebenso angewendet werden, sonst bucht der
+      // Export bei jeder rabattierten Position (Mengenstaffel/manueller Rabatt) einen zu hohen Erlös.
+      const brutto = pos.menge * pos.verkaufspreis * (1 - (pos.rabattProzent ?? 0) / 100) * (1 + satz / 100);
       if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel.artikelnummer)) {
         ausgleichSumme += brutto;
       } else {
@@ -478,7 +481,7 @@ export async function sammleDatevBuchungen(
     for (const lief of sr.lieferungen) {
       for (const pos of lief.positionen) {
         const satz = pos.mwstSatz ?? pos.artikel.mwstSatz ?? 19;
-        const brutto = pos.menge * pos.verkaufspreis * (1 + satz / 100);
+        const brutto = pos.menge * pos.verkaufspreis * (1 - (pos.rabattProzent ?? 0) / 100) * (1 + satz / 100);
         if (verrechnungskontoAusgleich && istAusgleichsArtikelnummer(pos.artikel.artikelnummer)) {
           ausgleichSumme += brutto;
         } else {

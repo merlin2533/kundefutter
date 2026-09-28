@@ -32,15 +32,15 @@ export async function GET(req: NextRequest) {
     }
 
     const firma: ZugferdData["firma"] = {
-      name: firmaCfg["firma.firmenname"] ?? "",
-      strasse: firmaCfg["firma.adresse"] ?? "",
+      name: firmaCfg["firma.name"] ?? firmaCfg["firma.firmenname"] ?? "",
+      strasse: firmaCfg["firma.strasse"] ?? firmaCfg["firma.adresse"] ?? "",
       plz: firmaCfg["firma.plz"] ?? "",
       ort: firmaCfg["firma.ort"] ?? "",
-      ustIdNr: firmaCfg["firma.ustidnr"] || undefined,
-      steuernummer: firmaCfg["firma.steuernr"] || undefined,
+      ustIdNr: firmaCfg["firma.ustIdNr"] || firmaCfg["firma.ustidnr"] || undefined,
+      steuernummer: firmaCfg["firma.steuernummer"] || firmaCfg["firma.steuernr"] || undefined,
       iban: firmaCfg["firma.iban"] || undefined,
       bic: firmaCfg["firma.bic"] || undefined,
-      bank: firmaCfg["firma.bankname"] || undefined,
+      bank: firmaCfg["firma.bank"] || firmaCfg["firma.bankname"] || undefined,
     };
 
     // ── Lieferung ──────────────────────────────────────────────────────────────

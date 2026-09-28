@@ -7,6 +7,57 @@ import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
 import * as Sentry from "@sentry/nextjs";
 
+interface EmailBatch {
+  id: number;
+  notiz: string | null;
+  createdAt: string;
+  itemCount: number;
+  counts: Record<string, number>;
+}
+
+function EmailEingangPanel() {
+  const [batches, setBatches] = useState<EmailBatch[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ki/eingangsrechnung/batch?quelle=email&offen=1")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setBatches(Array.isArray(d) ? d : []))
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
+      .finally(() => setLoaded(true));
+  }, []);
+
+  if (!loaded || batches.length === 0) return null;
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-semibold text-amber-900 text-sm">📧 Aus E-Mail-Eingang zu prüfen ({batches.length})</h2>
+        <Link href="/einstellungen/email-rechnungseingang" className="text-xs text-amber-700 hover:underline">
+          Einstellungen →
+        </Link>
+      </div>
+      <div className="space-y-1.5">
+        {batches.map((b) => {
+          const offen = (b.counts.wartet ?? 0) + (b.counts.analysiert ?? 0) + (b.counts.fehler ?? 0);
+          return (
+            <Link
+              key={b.id}
+              href={`/eingangsrechnungen/batch/${b.id}`}
+              className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-sm hover:border-amber-300 border border-transparent transition-colors"
+            >
+              <span className="text-gray-700 truncate">{b.notiz ?? `Batch #${b.id}`}</span>
+              <span className="text-amber-700 font-medium shrink-0 ml-2">{offen} von {b.itemCount}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface Lieferant {
   id: number;
   name: string;
@@ -152,6 +203,8 @@ function EingangsrechnungenListeInner() {
           </Link>
         </div>
       </div>
+
+      <EmailEingangPanel />
 
       <div className="flex flex-wrap gap-3 mb-4">
         <select

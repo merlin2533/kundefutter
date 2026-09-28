@@ -105,7 +105,12 @@ export async function getAiConfig(category: ModelCategory = "language"): Promise
 // transienter Fehler bekommt eine echte Chance, sich von selbst zu lösen.
 const RATE_LIMIT_RETRY_VERZOEGERUNGEN_MS = [1000, 3000];
 
-function istMistralRateLimitFehler(err: unknown): boolean {
+// Exportiert (nicht nur intern von mitRetryBei429 genutzt), damit Aufrufer, die einen nach allen
+// Wiederholversuchen weiterhin fehlschlagenden Aufruf selbst abfangen (z.B. der E-Mail-
+// Rechnungseingang, der bei einer echten Rate-Limit-Überlastung den ganzen Lauf abbricht statt
+// jede folgende Mail einzeln als "fehler" zu verbrennen), zwischen "Mistral ist kurz überlastet"
+// und einem echten Anwendungsfehler unterscheiden können, ohne die Duck-Type-Prüfung zu duplizieren.
+export function istMistralRateLimitFehler(err: unknown): boolean {
   return (
     typeof err === "object" &&
     err !== null &&

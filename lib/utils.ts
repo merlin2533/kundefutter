@@ -103,17 +103,29 @@ export function wendeMengenstaffelAn(basisPreis: number, staffel: MengenrabattEi
     : basisPreis;
 }
 
-/** Effektiver Rabatt-Prozentsatz einer Mengenstaffel gegenüber einem Basispreis — für die
- *  "Rabatt %"-Spalte auf Lieferschein/Rechnung, unabhängig davon ob die Staffel über einen
- *  absoluten Preis oder (Legacy) direkt über einen Prozentsatz definiert ist. Negative Werte
- *  (Staffelpreis liegt über dem Basispreis) werden auf 0 gekappt — die Spalte zeigt nur echte
- *  Rabatte, keine Aufschläge. */
+/** Effektiver Rabatt-Prozentsatz einer Mengenstaffel gegenüber einem Basispreis. Wird als
+ *  `Lieferposition.rabattProzent` gespeichert und von berechneLieferungBrutto()/PDF/ZUGFeRD/DATEV
+ *  als ECHTER Faktor auf den (immer als Listenpreis gespeicherten) `verkaufspreis` angewendet
+ *  (`verkaufspreis × (1-rabattProzent%)`) — deshalb hier bewusst NICHT auf eine "hübsche"
+ *  Nachkommastelle gerundet (das war früher der Fall und führte bei Rückrechnung zu
+ *  Cent-Abweichungen vom konfigurierten absoluten Staffelpreis): nur eine Rundung gegen
+ *  Float-Rauschen, damit basisPreis × (1-rabatt%) exakt wieder staffel.preis ergibt. Für die
+ *  Anzeige („Rabatt 66,7 %") verwenden Frontend/PDF formatRabattProzent(). Negative Werte
+ *  (Staffelpreis liegt über dem Basispreis) werden auf 0 gekappt — es gibt nur echte Rabatte,
+ *  keine Aufschläge. */
 export function effektiverMengenstaffelRabatt(basisPreis: number, staffel: MengenrabattEintrag | null): number {
   if (!staffel) return 0;
   if (staffel.preis === null) return staffel.rabattProzent;
   if (basisPreis <= 0) return 0;
   const pct = ((basisPreis - staffel.preis) / basisPreis) * 100;
-  return pct > 0 ? Math.round(pct * 10) / 10 : 0;
+  return pct > 0 ? Math.round(pct * 1e6) / 1e6 : 0;
+}
+
+/** Rabatt-Prozentsatz für die Anzeige („10 %"/„66,7 %") — rundet nur zur Darstellung auf eine
+ *  Nachkommastelle, ohne den in der DB/für die Preisberechnung maßgeblichen, vollpräzisen Wert
+ *  von effektiverMengenstaffelRabatt() zu verändern. */
+export function formatRabattProzent(n: number): string {
+  return String(Math.round(n * 10) / 10);
 }
 
 export function berechneMarge(verkaufspreis: number, einkaufspreis: number) {

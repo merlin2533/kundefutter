@@ -117,6 +117,7 @@ const SECTIONS: Section[] = [
       { href: "/einstellungen/gdpr", icon: "🔐", title: "DSGVO / Datenschutz", description: "Auskunft, Datenexport und Löschung personenbezogener Daten (Art. 15–17)" },
       { href: "/einstellungen/mqtt", icon: "📡", title: "MQTT-Automatisierung", description: "Regeln für die automatische Verarbeitung eingehender MQTT-Nachrichten per KI" , modul: "mqtt" },
       { href: "/einstellungen/email-import", icon: "✉️", title: "E-Mail Import", description: "Eingehende E-Mails über Resend empfangen, lokal speichern und per KI verarbeiten" },
+      { href: "/einstellungen/email-rechnungseingang", icon: "📧", title: "Rechnungs-E-Mail-Eingang", description: "Eingangsrechnungen automatisch aus einem IMAP-Postfach oder Microsoft 365 erfassen und per KI (Mistral) auswerten" },
     ],
   },
 ];

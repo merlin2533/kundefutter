@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
-import { formatDatum, formatEuro, rundeKaufmaennisch } from "@/lib/utils";
+import { formatDatum, formatEuro, formatRabattProzent, rundeKaufmaennisch } from "@/lib/utils";
 import { ladeFirmaDaten, type FirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { erzeugeGiroCodeDataUrl } from "@/lib/girocode";
@@ -519,7 +519,7 @@ export async function generiereRechnungPdf(lieferungId: number): Promise<Buffer>
     if (hatCharge) base.push(p.chargeNr ?? "—");
     base.push(mengeStr, p.artikel.einheit, formatEuro(p.verkaufspreis));
     if (hatRabatt) {
-      base.push((p.rabattProzent ?? 0) > 0 ? `${p.rabattProzent} %` : "");
+      base.push((p.rabattProzent ?? 0) > 0 ? `${formatRabattProzent(p.rabattProzent ?? 0)} %` : "");
     }
     base.push(formatEuro(netto));
     return base;
