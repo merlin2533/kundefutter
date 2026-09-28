@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generiereGutschriftPdf } from "@/lib/pdfGenerator";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner, uploadZuBuchhaltung } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 // GET /api/exporte/gutschrift?gutschriftId=X — Gutschrift als PDF herunterladen
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  // Gutschrift ist wie Rechnung ein Finanzdokument — dieselbe Berechtigungsklasse wie
+  // exporte/rechnung (GET) statt gar keiner Prüfung.
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const gutschriftId = Number(searchParams.get("gutschriftId"));
   if (!Number.isInteger(gutschriftId) || gutschriftId <= 0) {
