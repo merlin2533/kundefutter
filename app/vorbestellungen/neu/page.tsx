@@ -38,7 +38,7 @@ function Inner() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/kunden?limit=2000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
+    fetch("/api/kunden?limit=5000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
     fetch("/api/artikel?limit=5000").then(r => r.json()).then(d => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? [])));
   }, []);
 

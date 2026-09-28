@@ -288,7 +288,7 @@ export default function TourenplanungPage() {
   useEffect(() => {
     if ((showSchnell || showBesuchForm) && kunden.length === 0) {
       Promise.all([
-        fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
+        fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false").then((r) => r.ok ? r.json() : []),
         fetch("/api/artikel?limit=5000").then((r) => r.json()),
       ]).then(([k, a]) => {
         setKunden(Array.isArray(k) ? k : []);
@@ -876,7 +876,7 @@ export default function TourenplanungPage() {
               setShowBesuchForm(!showBesuchForm);
               if (!showBesuchForm && kunden.length === 0) {
                 Promise.all([
-                  fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.ok ? r.json() : []),
+                  fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false").then((r) => r.ok ? r.json() : []),
                   fetch("/api/artikel?limit=5000").then((r) => r.json()),
                 ]).then(([k, a]) => {
                   setKunden(Array.isArray(k) ? k : []);

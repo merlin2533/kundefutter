@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         lieferung: { select: { id: true, datum: true, rechnungNr: true } },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(reklamationen);
   } catch (e) {

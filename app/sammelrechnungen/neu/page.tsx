@@ -41,7 +41,7 @@ function NeueSammelrechnungForm() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/kunden?limit=2000")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
       .then((data) => setKunden(Array.isArray(data) ? data : (data.kunden ?? [])))
       .catch((err) => {

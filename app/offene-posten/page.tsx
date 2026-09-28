@@ -42,7 +42,7 @@ function OffenePostenInner() {
     setError("");
     try {
       // Load all delivered, unpaid deliveries with invoice numbers
-      const res = await fetch("/api/lieferungen?status=geliefert&limit=1000");
+      const res = await fetch("/api/lieferungen?status=geliefert&limit=5000");
       if (!res.ok) throw new Error("Fehler beim Laden der Lieferungen");
       const lieferungen = await res.json();
       const liste = Array.isArray(lieferungen) ? lieferungen : (lieferungen.lieferungen ?? []);

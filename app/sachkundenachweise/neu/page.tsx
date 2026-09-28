@@ -36,7 +36,7 @@ function Inner() {
   const kiInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/kunden?limit=2000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
+    fetch("/api/kunden?limit=5000").then(r => r.json()).then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
   }, []);
 
   async function kiAnalysieren(file: File) {

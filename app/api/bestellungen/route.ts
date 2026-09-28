@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         bestelllisteEintraege: { select: { kundeId: true } },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      take: 5000,
     });
 
     // Streckengeschäft-Lieferort für die Listenübersicht: identische Eindeutigkeits-Logik wie
