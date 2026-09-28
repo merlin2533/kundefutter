@@ -49,19 +49,36 @@ describe("generateZugferdXml", () => {
     expect(posIdx).toBeLessThan(agreementIdx);
   });
 
-  it("Regression: NetPriceProductTradePrice ist der Preis NACH Rabatt, sodass Einzelpreis × Menge exakt LineTotalAmount ergibt", () => {
+  it("Regression: NetPriceProductTradePrice ist der Preis NACH Rabatt (3 Nachkommastellen wie formatPreis())", () => {
     const xml = generateZugferdXml(baueBeispiel());
     const parsed = parser.parse(xml);
     const items = parsed.CrossIndustryInvoice.SupplyChainTradeTransaction.IncludedSupplyChainTradeLineItem;
     expect(items).toHaveLength(2);
 
     // Position 1: 20 € Liste, 10 % Rabatt -> 18 € netto/Einheit, 3 Stück -> 54,00 €
-    expect(items[0].SpecifiedLineTradeAgreement.NetPriceProductTradePrice.ChargeAmount).toBe("18.00");
+    expect(items[0].SpecifiedLineTradeAgreement.NetPriceProductTradePrice.ChargeAmount).toBe("18.000");
     expect(items[0].SpecifiedLineTradeSettlement.SpecifiedTradeSettlementLineMonetarySummation.LineTotalAmount).toBe("54.00");
 
     // Position 2: kein Rabatt -> 5,00 €/Einheit, 2 Stück -> 10,00 €
-    expect(items[1].SpecifiedLineTradeAgreement.NetPriceProductTradePrice.ChargeAmount).toBe("5.00");
+    expect(items[1].SpecifiedLineTradeAgreement.NetPriceProductTradePrice.ChargeAmount).toBe("5.000");
     expect(items[1].SpecifiedLineTradeSettlement.SpecifiedTradeSettlementLineMonetarySummation.LineTotalAmount).toBe("10.00");
+  });
+
+  it("Regression: ein auf Cent gerundeter Einzelpreis würde bei mengenbasierter Ware den Rechnungsbetrag verfälschen — NetPriceProductTradePrice bleibt deshalb 3-stellig genau", () => {
+    // 0,285 €/kg × 20.000 kg = 5.700,00 € — mit einem auf 2 Nachkommastellen gerundeten
+    // Einzelpreis (0,29 €) wären es stattdessen 5.800,00 € (100 € Differenz).
+    const xml = generateZugferdXml({
+      rechnungNr: "RE-2026-0100",
+      datum: new Date("2026-01-10"),
+      zahlungsziel: 14,
+      firma: { name: "Musterhof GmbH", strasse: "Feldweg 1", plz: "12345", ort: "Musterstadt" },
+      kunde: { name: "Max Kunde" },
+      positionen: [{ bezeichnung: "Dünger", menge: 20000, einheit: "kg", einzelpreis: 0.285, mwstSatz: 19, rabattProzent: 0 }],
+    });
+    const parsed = parser.parse(xml);
+    const item = parsed.CrossIndustryInvoice.SupplyChainTradeTransaction.IncludedSupplyChainTradeLineItem;
+    expect(item.SpecifiedLineTradeAgreement.NetPriceProductTradePrice.ChargeAmount).toBe("0.285");
+    expect(item.SpecifiedLineTradeSettlement.SpecifiedTradeSettlementLineMonetarySummation.LineTotalAmount).toBe("5700.00");
   });
 
   it("Regression: Kopf-Summen sind korrekt gruppiert und kaufmännisch gerundet aggregiert", () => {

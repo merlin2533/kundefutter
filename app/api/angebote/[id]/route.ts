@@ -97,7 +97,12 @@ export async function PUT(req: NextRequest, ctx: Params) {
               create: angebot.positionen.map((pos) => ({
                 artikelId: pos.artikelId,
                 menge: pos.menge,
-                verkaufspreis: pos.preis * (1 - pos.rabatt / 100),
+                // verkaufspreis ist der Listenpreis (AngebotPosition.preis, siehe Live-Vorschau
+                // in app/angebote/neu/page.tsx: netto = menge×preis×(1-rabatt%)) — NICHT bereits
+                // rabattiert speichern, sonst zieht jede Rechnungs-/PDF-/ZUGFeRD-/DATEV-Berechnung
+                // (die immer verkaufspreis×(1-rabattProzent%) rechnet) denselben Rabatt doppelt ab
+                // (identischer Fehler wie bei der Mengenstaffel, siehe lib/lieferung.ts).
+                verkaufspreis: pos.preis,
                 einkaufspreis: bevorzugterLieferantMap.get(pos.artikelId)?.einkaufspreis ?? 0,
                 rabattProzent: pos.rabatt,
                 // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —

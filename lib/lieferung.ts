@@ -30,13 +30,15 @@ export async function ladeStandardZahlungsziel(client: Tx | typeof prisma = pris
 export interface LieferungPositionInput {
   artikelId: number;
   menge: number;
+  /** IMMER der Listenpreis (vor rabattProzent) — nie der bereits rabattierte Endpreis. Jede
+   *  Rechnungs-/PDF-/ZUGFeRD-/DATEV-/Mahnwesen-/Bankabgleich-Berechnung rechnet grundsätzlich
+   *  `verkaufspreis × (1-rabattProzent%)`; ein hier bereits rabattierter Wert würde denselben
+   *  Rabatt ein zweites Mal abziehen (siehe effektiverMengenstaffelRabatt() in lib/utils.ts). */
   verkaufspreis?: number;
-  /** Nur zu Dokumentationszwecken (Rabatt-Spalte auf Lieferschein/Rechnung) — wird NUR
-   *  übernommen, wenn `verkaufspreis` ebenfalls explizit gesetzt ist (siehe
-   *  erstelleLieferungTransaktion(): dort wird ein Mengenrabatt nur dann automatisch
-   *  berechnet UND auf den Preis angewendet, wenn der Aufrufer keinen verkaufspreis
-   *  vorgibt — sonst würde ein clientseitig bereits rabattierter Preis serverseitig ein
-   *  zweites Mal rabattiert). */
+  /** Echter, tatsächlich anzuwendender Rabattsatz (nicht nur zur Anzeige!) — wird nur
+   *  übernommen, wenn `verkaufspreis` ebenfalls explizit gesetzt ist; ist kein verkaufspreis
+   *  gesetzt, berechnet erstelleLieferungTransaktion() Listenpreis + Rabatt selbst
+   *  (Mengenstaffel-Fallback, z.B. für die KI-Batch-Erkennung ohne erkannten VK). */
   rabattProzent?: number;
   einkaufspreis?: number;
   chargeNr?: string;

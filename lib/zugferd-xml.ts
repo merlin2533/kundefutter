@@ -60,6 +60,13 @@ function money(n: number): string {
   return rundeKaufmaennisch(n, 2).toFixed(2);
 }
 
+/** Einzelpreis je Einheit — 3 Nachkommastellen (wie formatPreis() im übrigen Projekt), nicht auf
+ *  Cent gerundet: bei mengenbasierter Ware verfälscht ein cent-gerundeter Einzelpreis × große
+ *  Menge den Rechnungsbetrag spürbar (siehe Kommentar bei positionenBerechnet). */
+function unitPrice(n: number): string {
+  return rundeKaufmaennisch(n, 3).toFixed(3);
+}
+
 /** Prozentsatz (MwSt-Satz) — keine Geldbetrag-Rundung nötig, die Sätze (0/7/19) sind bereits exakt. */
 function fmtPercent(n: number): string {
   return n.toFixed(2);
@@ -109,12 +116,18 @@ export function generateZugferdXml(data: ZugferdData): string {
   faelligAm.setDate(faelligAm.getDate() + zahlungsziel);
 
   // Positionen mit berechneten Beträgen. netPreis = Preis je Einheit NACH Rabatt (BT-146 —
-  // "Item net price" ist per EN-16931-Definition bereits der rabattierte Einzelpreis), auf Cent
-  // gerundet — sonst weicht NetPriceProductTradePrice × Menge vom gerundeten LineTotalAmount ab.
+  // "Item net price" ist per EN-16931-Definition bereits der rabattierte Einzelpreis) — bewusst
+  // NICHT auf Cent gerundet: bei mengenbasierter Ware (z.B. 0,285 €/kg Dünger) ×  großer Menge
+  // würde ein auf 2 Nachkommastellen gerundeter Einzelpreis den tatsächlichen Rechnungsbetrag um
+  // mehrere Euro verfälschen (0,285 → 0,29 × 20.000 kg = 100 € Differenz). Stattdessen wie
+  // formatPreis() im übrigen Projekt auf 3 Nachkommastellen — genug Präzision, um Rundungsfehler
+  // bei Menge × Preis zu vermeiden, ohne beliebig lange Fließkomma-Nachkommastellen ins Dokument
+  // zu schreiben. netto (LineTotalAmount) wird direkt aus dem UNGERUNDETEN Produkt berechnet,
+  // exakt wie berechneLieferungBrutto() (lib/lieferung-brutto.ts) — der tatsächlich fällige Betrag.
   const positionenBerechnet = positionen.map((p, idx) => {
     const rabatt = p.rabattProzent ?? 0;
-    const netPreis = rundeKaufmaennisch(p.einzelpreis * (1 - rabatt / 100), 2);
-    const netto = rundeKaufmaennisch(p.menge * netPreis, 2);
+    const netPreis = rundeKaufmaennisch(p.einzelpreis * (1 - rabatt / 100), 3);
+    const netto = rundeKaufmaennisch(p.menge * p.einzelpreis * (1 - rabatt / 100), 2);
     return { ...p, idx: idx + 1, netPreis, netto };
   });
 
@@ -214,7 +227,7 @@ export function generateZugferdXml(data: ZugferdData): string {
         </ram:SpecifiedTradeProduct>
         <ram:SpecifiedLineTradeAgreement>
           <ram:NetPriceProductTradePrice>
-            <ram:ChargeAmount>${money(p.netPreis)}</ram:ChargeAmount>
+            <ram:ChargeAmount>${unitPrice(p.netPreis)}</ram:ChargeAmount>
           </ram:NetPriceProductTradePrice>
         </ram:SpecifiedLineTradeAgreement>
         <ram:SpecifiedLineTradeDelivery>

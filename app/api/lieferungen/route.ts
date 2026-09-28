@@ -193,11 +193,21 @@ export async function POST(req: NextRequest) {
     if (!istGueltigerErzeugercode(erzeugercode ?? null)) {
       return NextResponse.json({ error: `Erzeugercode-Format ungültig: „${erzeugercode}“` }, { status: 400 });
     }
+    let rabattProzent: number | undefined;
+    if (p.rabattProzent !== undefined && p.rabattProzent !== null && p.rabattProzent !== "") {
+      rabattProzent = Number(p.rabattProzent);
+      // rabattProzent fließt seit dem Mengenstaffel-Doppelrabatt-Fix direkt in
+      // verkaufspreis×(1-rabattProzent%) ein und wirkt sich damit real auf den Rechnungsbetrag
+      // aus — ungeprüft würden NaN/negative/über-100-Werte den Preis korrumpieren.
+      if (isNaN(rabattProzent) || rabattProzent < 0 || rabattProzent > 100) {
+        return NextResponse.json({ error: "Rabatt muss zwischen 0 und 100 liegen" }, { status: 400 });
+      }
+    }
     positionen.push({
       artikelId,
       menge,
       verkaufspreis: p.verkaufspreis !== undefined && p.verkaufspreis !== null && p.verkaufspreis !== "" ? Number(p.verkaufspreis) : undefined,
-      rabattProzent: p.rabattProzent !== undefined && p.rabattProzent !== null && p.rabattProzent !== "" ? Number(p.rabattProzent) : undefined,
+      rabattProzent,
       einkaufspreis: p.einkaufspreis !== undefined && p.einkaufspreis !== null && p.einkaufspreis !== "" ? Number(p.einkaufspreis) : undefined,
       chargeNr: typeof p.chargeNr === "string" && p.chargeNr ? p.chargeNr : undefined,
       notiz: typeof p.notiz === "string" && p.notiz.trim() ? p.notiz.trim() : undefined,

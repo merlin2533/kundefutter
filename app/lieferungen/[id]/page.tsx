@@ -1138,7 +1138,7 @@ export default function LieferungDetailPage() {
   const istTeilauswahl = ausgewaehlteAnzahl > 0 && ausgewaehlteAnzahl < lieferung.positionen.length;
   const rechnungLabel = istTeilauswahl ? `Teilrechnung erstellen (${ausgewaehlteAnzahl})` : "Rechnung erstellen";
 
-  const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+  const gesamtUmsatz = lieferung.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
   const gesamtEinkauf = lieferung.positionen.reduce((s, p) => s + p.menge * p.einkaufspreis, 0);
   const gesamtMarge = gesamtUmsatz - gesamtEinkauf;
   const gesamtMargePct = gesamtUmsatz > 0 ? (gesamtMarge / gesamtUmsatz) * 100 : 0;
@@ -1990,10 +1990,11 @@ export default function LieferungDetailPage() {
           </thead>
           <tbody>
             {lieferung.positionen.map((pos) => {
-              const margeEuro = pos.menge * (pos.verkaufspreis - pos.einkaufspreis);
+              const vkNachRabatt = pos.verkaufspreis * (1 - (pos.rabattProzent ?? 0) / 100);
+              const margeEuro = pos.menge * (vkNachRabatt - pos.einkaufspreis);
               const margePct =
-                pos.verkaufspreis > 0
-                  ? ((pos.verkaufspreis - pos.einkaufspreis) / pos.verkaufspreis) * 100
+                vkNachRabatt > 0
+                  ? ((vkNachRabatt - pos.einkaufspreis) / vkNachRabatt) * 100
                   : 0;
               return (
                 <tr key={pos.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">

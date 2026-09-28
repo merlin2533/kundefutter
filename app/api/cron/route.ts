@@ -67,7 +67,7 @@ async function jobDigestEmail(): Promise<JobResult> {
             where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
             include: {
               kunde: { select: { name: true } },
-              positionen: { select: { menge: true, verkaufspreis: true } },
+              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
             },
             take: 100,
           })
@@ -94,7 +94,10 @@ async function jobDigestEmail(): Promise<JobResult> {
       faelligAm.setHours(0, 0, 0, 0);
       if (mahnwesenHeute <= faelligAm) continue;
       const tage = Math.floor((mahnwesenHeute.getTime() - faelligAm.getTime()) / (24 * 60 * 60 * 1000));
-      const betrag = (l as { positionen: { menge: number; verkaufspreis: number }[] }).positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — rabattProzent muss deshalb
+      // eingerechnet werden, sonst zeigt das Mahnwesen-Digest bei rabattierten Positionen einen
+      // zu hohen überfälligen Betrag.
+      const betrag = (l as { positionen: { menge: number; verkaufspreis: number; rabattProzent?: number | null }[] }).positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       mahnItems.push({ kundeName: l.kunde.name, rechnungNr: (l as { rechnungNr?: string | null }).rechnungNr ?? null, betrag: Math.round(betrag * 100) / 100, tageUeberfaellig: tage });
     }
 
