@@ -18,6 +18,7 @@ const TYP_LABELS: Record<string, { label: string; color: string; icon: string }>
   besuch:  { label: "Besuch",  color: "bg-green-100 text-green-800",  icon: "🏠" },
   anruf:   { label: "Anruf",   color: "bg-blue-100 text-blue-800",    icon: "📞" },
   email:   { label: "E-Mail",  color: "bg-yellow-100 text-yellow-800", icon: "✉️" },
+  brief:   { label: "Brief",   color: "bg-yellow-100 text-yellow-800", icon: "📮" },
   notiz:   { label: "Notiz",   color: "bg-gray-100 text-gray-700",    icon: "📝" },
   aufgabe: { label: "Aufgabe", color: "bg-orange-100 text-orange-800", icon: "✅" },
 };
