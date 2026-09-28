@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteBestellungsnummer } from "@/lib/utils";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -14,6 +16,10 @@ type Params = { params: Promise<{ id: string }> };
 // (bestellungEmail()/generiereBestellungPdf() zeigen dabei zusätzlich einen "Versand direkt an
 // Endkunde"-Block, siehe lib/email-templates.ts/lib/pdfGenerator.ts).
 export async function POST(_req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_ERSTELLEN);
+  if (deny) return deny;
+
   const { id } = await params;
   const lieferungId = Number(id);
   if (isNaN(lieferungId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

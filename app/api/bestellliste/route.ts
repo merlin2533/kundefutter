@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { vorschlagLieferantFuerArtikel } from "@/lib/bestellvorschlag-lieferant";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 // GET /api/bestellliste?status=offen&lieferantId=X
 export async function GET(req: NextRequest) {
@@ -45,6 +47,10 @@ export async function GET(req: NextRequest) {
 // da Bestellposition.lieferantId nicht optional ist; der Lieferant lässt sich danach jederzeit
 // über PATCH ändern ("Umschlüsseln").
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_ERSTELLEN);
+  if (deny) return deny;
+
   let body: { artikelId?: unknown; menge?: unknown; einheit?: unknown; lieferantId?: unknown; notiz?: unknown };
   try {
     body = await req.json();

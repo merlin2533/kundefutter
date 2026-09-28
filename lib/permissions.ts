@@ -188,8 +188,8 @@ export const PERMISSION_META: Record<string, PermissionMeta> = {
   "a.sammelrechnungen.erstellen":  { label: "Sammelrechnungen: Anlegen",     gruppe: "Finanzen",  typ: "aktion" },
   "a.sammelrechnungen.bearbeiten": { label: "Sammelrechnungen: Bearbeiten",  gruppe: "Finanzen",  typ: "aktion" },
   "a.sammelrechnungen.loeschen":   { label: "Sammelrechnungen: Löschen",     gruppe: "Finanzen",  typ: "aktion" },
-  "a.bestellungen.erstellen":      { label: "Bestellungen: Anlegen",         gruppe: "Einkauf",   typ: "aktion" },
-  "a.bestellungen.bearbeiten":     { label: "Bestellungen: Bearbeiten (inkl. Mail, Umschlüsseln, Bündeln)", gruppe: "Einkauf", typ: "aktion" },
+  "a.bestellungen.erstellen":      { label: "Bestellungen: Anlegen (inkl. Bündeln, Bestellliste erfassen)", gruppe: "Einkauf", typ: "aktion" },
+  "a.bestellungen.bearbeiten":     { label: "Bestellungen: Bearbeiten (inkl. Mail, Umschlüsseln)", gruppe: "Einkauf", typ: "aktion" },
   "a.bestellungen.loeschen":       { label: "Bestellungen: Löschen",         gruppe: "Einkauf",   typ: "aktion" },
   "a.lieferanten.erstellen":       { label: "Lieferanten: Anlegen",          gruppe: "Artikel",   typ: "aktion" },
   "a.lieferanten.bearbeiten":      { label: "Lieferanten: Bearbeiten",       gruppe: "Artikel",   typ: "aktion" },
@@ -266,6 +266,12 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       // Seitenzugriff unter P.BODENPROBEN, siehe NAV_PERMISSION in components/Nav.tsx)
       // — diese Rolle hat P.BODENPROBEN und damit bereits Seitenzugriff, deshalb hier mit
       P.ZERTIFIZIERUNGEN_ERSTELLEN, P.ZERTIFIZIERUNGEN_BEARBEITEN, P.ZERTIFIZIERUNGEN_LOESCHEN,
+      // Adversarialer Review deckte zwei weitere, nicht domänen-typische Regressionen auf:
+      // Sammelbestellung (POST /api/bestellungen/sammel) ist von der Lieferungen-Seite aus
+      // erreichbar, die diese Rolle bereits hat; "Gutschrift wieder öffnen" (PUT
+      // /api/gutschriften/[id] {aktion:"wieder_oeffnen"}) sitzt in der Teilzahlungen-Karte
+      // auf /lieferungen/[id]. Beide waren vor Stage D ungeprüft nutzbar.
+      P.BESTELLUNGEN_ERSTELLEN, P.GUTSCHRIFTEN_BEARBEITEN,
     ],
   },
   lager: {
@@ -278,6 +284,9 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.EXPORT_LIEFERSCHEIN,
       // Backfill Stage D (siehe Kommentar bei "verkauf"): P.BESTELLUNGEN ist bereits vorhanden.
       P.BESTELLUNGEN_ERSTELLEN, P.BESTELLUNGEN_BEARBEITEN, P.BESTELLUNGEN_LOESCHEN,
+      // Siehe Kommentar bei "verkauf": Gutschrift-Reopen ist über dieselbe Lieferungen-Seite
+      // erreichbar, die diese Rolle bereits hat.
+      P.GUTSCHRIFTEN_BEARBEITEN,
     ],
   },
   fahrer: {
@@ -303,6 +312,11 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.GUTSCHRIFTEN_ERSTELLEN, P.GUTSCHRIFTEN_BEARBEITEN, P.GUTSCHRIFTEN_LOESCHEN,
       P.SAMMELRECHNUNGEN_ERSTELLEN, P.SAMMELRECHNUNGEN_BEARBEITEN, P.SAMMELRECHNUNGEN_LOESCHEN,
       P.BANKABGLEICH_IMPORT, P.BANKABGLEICH_BEARBEITEN,
+      // Adversarialer Review: das eingebettete Lieferanten-IBAN-Speichern/-Neuanlegen auf
+      // /eingangsrechnungen/neu und den Batch-Review-Seiten (PUT/POST /api/lieferanten…) ist
+      // von den bereits vorhandenen P.EINGANGSRECHNUNGEN/P.AUSGABEN-Seiten aus erreichbar,
+      // ohne dass diese Rolle die eigentliche Lieferanten-Seite hat.
+      P.LIEFERANTEN_ERSTELLEN, P.LIEFERANTEN_BEARBEITEN,
     ],
   },
   readonly: {

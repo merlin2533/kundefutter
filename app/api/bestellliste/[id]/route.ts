@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 
@@ -8,6 +10,10 @@ type Params = { params: Promise<{ id: string }> };
 
 // PATCH /api/bestellliste/[id] — Status ändern: bestellen | geliefert | stornieren | zurueck
 export async function PATCH(req: NextRequest, ctx: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -79,6 +85,10 @@ export async function PATCH(req: NextRequest, ctx: Params) {
 
 // DELETE /api/bestellliste/[id]
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_LOESCHEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
