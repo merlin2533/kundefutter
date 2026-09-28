@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import AutoMatchKarte, { type Vorschlag } from "./AutoMatchKarte";
+import AutoMatchKarte, { type Vorschlag, type WeitereAuswahl } from "./AutoMatchKarte";
 import * as Sentry from "@sentry/nextjs";
 
 type Typ = "lieferung" | "sammelrechnung" | "ausgabe" | "eingangsrechnung";
@@ -211,9 +211,35 @@ export default function AutomatischerAbgleich({
     });
   }
 
-  async function einzelUebernehmen(paar: AbgleichPaar, alsBezahltMarkieren: boolean, differenzAktion?: "gutschrift" | "forderung") {
+  async function einzelUebernehmen(
+    paar: AbgleichPaar,
+    alsBezahltMarkieren: boolean,
+    differenzAktion?: "gutschrift" | "forderung",
+    weitere?: WeitereAuswahl[]
+  ) {
     try {
       await uebernehmen(paar, alsBezahltMarkieren, paar.konfidenz != null ? "ki" : "automatisch", paar.konfidenz, differenzAktion);
+      if (weitere && weitere.length > 0) {
+        const fehlerListe: string[] = [];
+        for (const w of weitere) {
+          const res = await fetch(`/api/bankabgleich/${paar.bank.umsatzId}/weitere`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              w.typ === "lieferung"
+                ? { lieferungId: w.id, alsBezahltMarkieren }
+                : { sammelrechnungId: w.id, alsBezahltMarkieren }
+            ),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch((err) => { Sentry.captureException(err); return {}; });
+            fehlerListe.push((d as { error?: string }).error ?? "Fehler beim Hinzufügen einer weiteren Rechnung");
+          }
+        }
+        if (fehlerListe.length > 0) {
+          setFehler(`Hauptrechnung zugeordnet, aber nicht alle weiteren Rechnungen: ${fehlerListe.join("; ")}`);
+        }
+      }
       entferneAusListe(paar.bank.umsatzId);
       onUebernommen();
     } catch (err) {
@@ -401,7 +427,7 @@ export default function AutomatischerAbgleich({
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
                     gutschriftMatch={p.gutschriftMatch}
-                    onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                    onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                     onKandidatWechseln={(neu) => kandidatWechseln("matched", p.bank.umsatzId, neu)}
                   />
                 ))}
@@ -452,7 +478,7 @@ export default function AutomatischerAbgleich({
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
                     gutschriftMatch={p.gutschriftMatch}
-                    onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                    onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                     onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                   />
                 ))}
@@ -652,7 +678,7 @@ export default function AutomatischerAbgleich({
                       dayDiff={p.dayDiff}
                       skontoMatch={p.skontoMatch}
                       gutschriftMatch={p.gutschriftMatch}
-                      onUebernehmen={(bezahlt, differenzAktion) => einzelUebernehmen(p, bezahlt, differenzAktion)}
+                      onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                       onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                     />
                   );
