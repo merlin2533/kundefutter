@@ -50,10 +50,19 @@ export async function PUT(req: NextRequest, ctx: Params) {
     const body = await req.json();
     const { datum, menge, einheit, feuchte, qualitaet, preisProEinheit, notiz } = body;
 
-    const gesamtBetrag =
-      preisProEinheit != null && menge != null
-        ? Math.round(parseFloat(String(preisProEinheit)) * parseFloat(String(menge)) * 100) / 100
-        : null;
+    // preisProEinheit/gesamtBetrag nur anfassen, wenn preisProEinheit im Body tatsächlich
+    // enthalten ist — sonst würde z.B. ein reiner Notiz-Edit den im gradierten Modus (Stage 3,
+    // Erzeugerabrechnung aus Sortierergebnis) berechneten gesamtBetrag stillschweigend auf null
+    // zurücksetzen, obwohl dieses Feld dort nicht aus preisProEinheit×menge stammt.
+    const preisImBody = Object.prototype.hasOwnProperty.call(body, "preisProEinheit");
+    const gesamtBetragUpdate = preisImBody
+      ? {
+          gesamtBetrag:
+            preisProEinheit != null && menge != null
+              ? Math.round(parseFloat(String(preisProEinheit)) * parseFloat(String(menge)) * 100) / 100
+              : null,
+        }
+      : {};
 
     const updated = await prisma.anlieferung.update({
       where: { id },
@@ -63,8 +72,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
         ...(einheit ? { einheit } : {}),
         feuchte: feuchte != null ? parseFloat(String(feuchte)) : null,
         qualitaet: qualitaet ?? null,
-        preisProEinheit: preisProEinheit != null ? parseFloat(String(preisProEinheit)) : null,
-        gesamtBetrag,
+        ...(preisImBody ? { preisProEinheit: preisProEinheit != null ? parseFloat(String(preisProEinheit)) : null } : {}),
+        ...gesamtBetragUpdate,
         notiz: notiz ?? null,
       },
       include: {

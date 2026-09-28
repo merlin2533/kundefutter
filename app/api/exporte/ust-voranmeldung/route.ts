@@ -64,6 +64,14 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    // Erzeugerabrechnung-Gutschriften werden nur dann in den Vorsteuer-Topf statt in die normale
+    // Erlösminderung eingerechnet, wenn `datev.erzeugerabrechnungKonto` konfiguriert ist — exakt
+    // dasselbe Gate wie in sammleDatevBuchungen() (lib/datev.ts). Ohne diese Konsistenz würde die
+    // UStVA-Vorschau eine andere Kontierung zeigen als der tatsächlich beim Steuerberater
+    // eingereichte DATEV-Export.
+    const kontoEinstellung = await prisma.einstellung.findUnique({ where: { key: "datev.erzeugerabrechnungKonto" } });
+    const erzeugerabrechnungKontoAktiv = !!kontoEinstellung?.value?.trim();
+
     // Load Ausgaben in range for Vorsteuer
     const ausgaben = await prisma.ausgabe.findMany({
       where: { datum: { gte: von, lte: bis } },
@@ -101,11 +109,14 @@ export async function GET(req: NextRequest) {
 
     // Erzeugerabrechnung (grund "Erzeugerabrechnung") ist wirtschaftlich ein Wareneinkauf mit
     // Vorsteuer (§14 Abs. 2 UStG) — fließt deshalb NICHT als Erlösminderung ein wie eine normale
-    // Gutschrift, sondern als eigener Vorsteuer-Topf (analog den Ausgaben unten).
+    // Gutschrift, sondern als eigener Vorsteuer-Topf (analog den Ausgaben unten). Rechnet immer
+    // mit `Artikel.mwstSatz` (7 % bei Eiern) — pauschalierende Landwirte nach §24 UStG hätten
+    // stattdessen den dortigen Durchschnittssatz als abziehbare Vorsteuer; das ist hier (noch)
+    // nicht abgebildet und müsste bei Bedarf gesondert berücksichtigt werden.
     let vorsteuerErzeuger19 = 0;
     let vorsteuerErzeuger7 = 0;
     for (const gs of gutschriften) {
-      const istErzeugerabrechnung = gs.grund === "Erzeugerabrechnung";
+      const istErzeugerabrechnung = gs.grund === "Erzeugerabrechnung" && erzeugerabrechnungKontoAktiv;
       for (const pos of gs.positionen) {
         const lineNetto = pos.menge * pos.preis;
         const satz = pos.artikel?.mwstSatz ?? 19;

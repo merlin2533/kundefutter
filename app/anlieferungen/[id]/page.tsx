@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatDatum, formatMenge } from "@/lib/utils";
@@ -27,6 +27,7 @@ interface Anlieferung {
 }
 
 interface GradierteMenge {
+  key: string;
   artikelId: number;
   artikelName: string;
   gueteklasse: string;
@@ -54,10 +55,17 @@ export default function AnlieferungDetailPage() {
   const [anlieferung, setAnlieferung] = useState<Anlieferung | null>(null);
   const [gradiert, setGradiert] = useState<GradierteMenge[]>([]);
   const [sortierungen, setSortierungen] = useState<EierSortierungKurz[]>([]);
-  const [preise, setPreise] = useState<Record<number, string>>({});
+  const [preise, setPreise] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [speichern, setSpeichern] = useState(false);
+
+  // Hält fest, für welche id gerade tatsächlich geladen werden soll — verhindert, dass die
+  // Antwort eines veralteten load()-Aufrufs (z.B. schnelles Wechseln zwischen zwei Anlieferungen
+  // über die Liste, ohne dass die Seitenkomponente dabei neu gemountet wird) den bereits für die
+  // neue id begonnenen Ladezustand mit alten Daten überschreibt.
+  const aktuelleIdRef = useRef(id);
+  useEffect(() => { aktuelleIdRef.current = id; }, [id]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,37 +75,47 @@ export default function AnlieferungDetailPage() {
         fetch(`/api/anlieferungen/${id}/gutschrift`),
         fetch(`/api/eiersortierung?anlieferungId=${id}`),
       ]);
+      if (aktuelleIdRef.current !== id) return;
       if (!gRes.ok) {
         const data = await gRes.json().catch(() => ({}));
         throw new Error(data.error ?? "Fehler beim Laden");
       }
       const data = await gRes.json();
+      if (aktuelleIdRef.current !== id) return;
       setAnlieferung(data.anlieferung);
-      setGradiert(Array.isArray(data.gradiert) ? data.gradiert : []);
+      const gradiertListe: GradierteMenge[] = Array.isArray(data.gradiert) ? data.gradiert : [];
+      setGradiert(gradiertListe);
 
       if (sortRes.ok) {
         const sortData = await sortRes.json();
+        if (aktuelleIdRef.current !== id) return;
         setSortierungen(Array.isArray(sortData) ? sortData : []);
       }
 
       // Preise vorbefüllen: aus bereits bestehender OFFENER Gutschrift, sonst aus dem
       // Preisvorschlag (letzte Erzeugerabrechnung desselben Erzeugers+Artikels) — nie einen vom
       // Nutzer bereits geänderten Wert überschreiben (nur beim initialen Laden gesetzt).
+      // GutschriftPosition kennt keine Güte-/Gewichtsklasse — bei mehreren gradierten Zeilen mit
+      // demselben Artikel (siehe M2-Fix), aber unterschiedlicher Klasse, wird zusätzlich über die
+      // Menge disambiguiert; bleibt der Treffer mehrdeutig, greift der allgemeine Preisvorschlag.
       const bestehendeGutschrift = data.anlieferung?.gutschrift;
-      const initial: Record<number, string> = {};
-      for (const g of (Array.isArray(data.gradiert) ? data.gradiert : []) as GradierteMenge[]) {
+      const initial: Record<string, string> = {};
+      for (const g of gradiertListe) {
         const bestehendePos = bestehendeGutschrift?.status === "OFFEN"
-          ? bestehendeGutschrift.positionen.find((p: { artikelId: number }) => p.artikelId === g.artikelId)
+          ? bestehendeGutschrift.positionen.find(
+              (p: { artikelId: number; menge: number }) => p.artikelId === g.artikelId && p.menge === g.menge
+            )
           : null;
         const wert = bestehendePos?.preis ?? g.vorschlagPreis;
-        if (wert != null) initial[g.artikelId] = String(wert);
+        if (wert != null) initial[g.key] = String(wert);
       }
       setPreise(initial);
     } catch (e) {
+      if (aktuelleIdRef.current !== id) return;
       Sentry.captureException(e);
       setError(e instanceof Error ? e.message : "Fehler");
     } finally {
-      setLoading(false);
+      if (aktuelleIdRef.current === id) setLoading(false);
     }
   }, [id]);
 
@@ -109,7 +127,7 @@ export default function AnlieferungDetailPage() {
     setError("");
     try {
       const body = gradiert.length > 0
-        ? { preise: Object.fromEntries(gradiert.map((g) => [String(g.artikelId), Number(preise[g.artikelId])])) }
+        ? { preise: Object.fromEntries(gradiert.map((g) => [g.key, Number(preise[g.key])])) }
         : {};
       const res = await fetch(`/api/anlieferungen/${id}/gutschrift`, {
         method: "POST",
@@ -130,8 +148,20 @@ export default function AnlieferungDetailPage() {
     }
   }
 
-  async function einfacheGutschriftErstellen() {
-    if (!confirm("Gutschrift für diese Anlieferung erstellen?")) return;
+  // Gemeinsamer Klick-Handler für "erstellen"/"aktualisieren" (gradierter UND einfacher Modus).
+  // Bei einer bereits bestehenden Gutschrift wird explizit bestätigt, da "aktualisieren" ihre
+  // Positionen/den Betrag überschreibt — inkl. eines Hinweises, falls sie bereits an den Erzeuger
+  // kommuniziert oder in einem Export verwendet wurde (das System kennt dafür keinen Sperr-Status,
+  // anders als z.B. Lieferung.rechnungVersendetAm bei Rechnungen).
+  async function handleSpeichernKlick() {
+    if (anlieferung?.gutschrift) {
+      const ok = confirm(
+        "Diese Erzeugerabrechnung wird mit den aktuell eingegebenen Werten überschrieben. Wurde die bestehende Gutschrift bereits an den Erzeuger übermittelt (Ausdruck/E-Mail) oder in einem DATEV-/UStVA-Export verwendet, ändert sich dieser bereits kommunizierte Betrag nachträglich. Trotzdem aktualisieren?"
+      );
+      if (!ok) return;
+    } else if (!confirm("Gutschrift für diese Anlieferung erstellen?")) {
+      return;
+    }
     await erzeugerabrechnungSpeichern();
   }
 
@@ -164,13 +194,14 @@ export default function AnlieferungDetailPage() {
   const kannBearbeiten = !gutschrift || gutschrift.status === "OFFEN";
   const gradiertModus = gradiert.length > 0;
   const alleGradiertePreiseGueltig = gradiert.every((g) => {
-    const w = Number(preise[g.artikelId]);
+    const w = Number(preise[g.key]);
     return Number.isFinite(w) && w > 0;
   });
   const summeGradiert = gradiert.reduce((sum, g) => {
-    const w = Number(preise[g.artikelId]);
+    const w = Number(preise[g.key]);
     return sum + (Number.isFinite(w) ? w * g.menge : 0);
   }, 0);
+  const summeGebucht = gutschrift?.positionen.reduce((sum, p) => sum + p.menge * p.preis, 0) ?? 0;
 
   return (
     <div>
@@ -243,14 +274,43 @@ export default function AnlieferungDetailPage() {
           )}
         </div>
 
-        {!kannBearbeiten && (
-          <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Diese Gutschrift ist bereits {gutschrift?.status.toLowerCase()} — eine automatische Aktualisierung ist
-            nicht mehr möglich, manuelle Prüfung nötig.
+        {!kannBearbeiten && gutschrift ? (
+          <div>
+            <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Diese Gutschrift ist bereits {gutschrift.status.toLowerCase()} — die folgenden Beträge sind die
+              tatsächlich gebuchten Werte zum Zeitpunkt der Buchung, nicht das aktuelle Sortierergebnis. Eine
+              automatische Aktualisierung ist nicht mehr möglich, manuelle Prüfung nötig.
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Artikel</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Menge</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Preis</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Summe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {gutschrift.positionen.map((p, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="px-3 py-2">{p.artikel.name}</td>
+                      <td className="px-3 py-2 text-right font-mono">{formatMenge(p.menge)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{euro(p.preis)}</td>
+                      <td className="px-3 py-2 text-right font-mono">{euro(p.menge * p.preis)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                  <tr>
+                    <td colSpan={3} className="px-3 py-2 text-right font-semibold text-gray-700">Gesamt (gebucht)</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-green-700">{euro(summeGebucht)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
-        )}
-
-        {gradiertModus ? (
+        ) : gradiertModus ? (
           <>
             <div className="overflow-x-auto mb-4">
               <table className="w-full text-sm">
@@ -260,17 +320,17 @@ export default function AnlieferungDetailPage() {
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Güte</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Gewicht</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Menge</th>
-                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Preis/Stück</th>
+                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Preis/{anlieferung.einheit}</th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Summe</th>
                   </tr>
                 </thead>
                 <tbody>
                   {gradiert.map((g) => {
-                    const wert = preise[g.artikelId] ?? "";
+                    const wert = preise[g.key] ?? "";
                     const zahl = Number(wert);
                     const gueltig = Number.isFinite(zahl) && zahl > 0;
                     return (
-                      <tr key={g.artikelId} className="border-b last:border-0">
+                      <tr key={g.key} className="border-b last:border-0">
                         <td className="px-3 py-2">{g.artikelName}</td>
                         <td className="px-3 py-2">{g.gueteklasse}</td>
                         <td className="px-3 py-2">{g.gewichtsklasse}</td>
@@ -282,7 +342,7 @@ export default function AnlieferungDetailPage() {
                             min="0"
                             disabled={!kannBearbeiten}
                             value={wert}
-                            onChange={(e) => setPreise((prev) => ({ ...prev, [g.artikelId]: e.target.value }))}
+                            onChange={(e) => setPreise((prev) => ({ ...prev, [g.key]: e.target.value }))}
                             className={`w-24 text-right border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 disabled:bg-gray-50 disabled:text-gray-400 ${
                               !gueltig ? "border-red-300" : "border-gray-300"
                             }`}
@@ -306,7 +366,7 @@ export default function AnlieferungDetailPage() {
             {kannBearbeiten && (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={erzeugerabrechnungSpeichern}
+                  onClick={handleSpeichernKlick}
                   disabled={speichern || !alleGradiertePreiseGueltig}
                   className="px-4 py-2 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
                 >
@@ -341,7 +401,7 @@ export default function AnlieferungDetailPage() {
             {kannBearbeiten && anlieferung.preisProEinheit ? (
               <div className="flex items-center gap-3">
                 <button
-                  onClick={einfacheGutschriftErstellen}
+                  onClick={handleSpeichernKlick}
                   disabled={speichern}
                   className="px-4 py-2 bg-green-700 hover:bg-green-800 disabled:bg-gray-300 text-white rounded-lg text-sm font-medium transition-colors"
                 >
