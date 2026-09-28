@@ -46,5 +46,53 @@
     "aktuellerBestand": 0,
     "lagerTracking": true,
     "verpackungsart": "verpackt"
+  },
+  {
+    "_key": "artikel-ei-b-m",
+    "artikelnummer": "EI-B-M",
+    "name": "Eier Güteklasse B, Gewichtsklasse M",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.1,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true,
+    "verpackungsart": "lose"
+  },
+  {
+    "_key": "artikel-ei-b-l",
+    "artikelnummer": "EI-B-L",
+    "name": "Eier Güteklasse B, Gewichtsklasse L",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.11,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true,
+    "verpackungsart": "lose"
+  },
+  {
+    "_key": "artikel-ei-b-s",
+    "artikelnummer": "EI-B-S",
+    "name": "Eier Güteklasse B, Gewichtsklasse S",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.08,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true,
+    "verpackungsart": "lose"
+  },
+  {
+    "_key": "artikel-ei-b-xl",
+    "artikelnummer": "EI-B-XL",
+    "name": "Eier Güteklasse B, Gewichtsklasse XL",
+    "kategorie": "Eier",
+    "einheit": "Stück",
+    "standardpreis": 0.12,
+    "mwstSatz": 7,
+    "aktuellerBestand": 0,
+    "lagerTracking": true,
+    "verpackungsart": "lose"
   }
 ]

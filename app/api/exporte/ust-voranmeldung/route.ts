@@ -48,13 +48,16 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Load Gutschriften in range (as revenue reduction)
+    // Load Gutschriften in range (normalerweise Erlösminderung; Erzeugerabrechnung — grund
+    // "Erzeugerabrechnung", aus einer Anlieferung erzeugt — ist wirtschaftlich ein Wareneinkauf
+    // mit Vorsteuer statt einer Erlösminderung, siehe unten)
     const gutschriften = await prisma.gutschrift.findMany({
       where: {
         status: { not: "STORNIERT" },
         datum: { gte: von, lte: bis },
       },
       select: {
+        grund: true,
         positionen: {
           select: { menge: true, preis: true, artikel: { select: { mwstSatz: true } } },
         },
@@ -96,12 +99,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Deduct gutschriften from revenue
+    // Erzeugerabrechnung (grund "Erzeugerabrechnung") ist wirtschaftlich ein Wareneinkauf mit
+    // Vorsteuer (§14 Abs. 2 UStG) — fließt deshalb NICHT als Erlösminderung ein wie eine normale
+    // Gutschrift, sondern als eigener Vorsteuer-Topf (analog den Ausgaben unten).
+    let vorsteuerErzeuger19 = 0;
+    let vorsteuerErzeuger7 = 0;
     for (const gs of gutschriften) {
+      const istErzeugerabrechnung = gs.grund === "Erzeugerabrechnung";
       for (const pos of gs.positionen) {
         const lineNetto = pos.menge * pos.preis;
         const satz = pos.artikel?.mwstSatz ?? 19;
-        if (satz === 19) netto19 -= lineNetto;
+        if (istErzeugerabrechnung) {
+          const vorsteuer = lineNetto * (satz / 100);
+          if (satz === 19) vorsteuerErzeuger19 += vorsteuer;
+          else if (satz === 7) vorsteuerErzeuger7 += vorsteuer;
+        } else if (satz === 19) netto19 -= lineNetto;
         else if (satz === 7) netto7 -= lineNetto;
         else nettoFrei -= lineNetto;
       }
@@ -115,9 +127,9 @@ export async function GET(req: NextRequest) {
     const steuer19 = Math.round(netto19 * 0.19 * 100) / 100;
     const steuer7 = Math.round(netto7 * 0.07 * 100) / 100;
 
-    // Vorsteuer aus Ausgaben
-    let vorsteuer19 = 0;
-    let vorsteuer7 = 0;
+    // Vorsteuer aus Ausgaben + Erzeugerabrechnungen
+    let vorsteuer19 = vorsteuerErzeuger19;
+    let vorsteuer7 = vorsteuerErzeuger7;
     for (const ausg of ausgaben) {
       for (const teil of ausgabeBetragsteile(ausg)) {
         const vorsteuer = teil.netto * (teil.satz / 100);

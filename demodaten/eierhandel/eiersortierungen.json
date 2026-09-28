@@ -16,7 +16,7 @@
         "_erzeugerKundeKey": "erzeuger-bio"
       },
       {
-        "_artikelKey": "artikel-ei-m",
+        "_artikelKey": "artikel-ei-b-m",
         "gueteklasse": "B",
         "gewichtsklasse": "M",
         "menge": 500,
@@ -79,7 +79,7 @@
     "erstelltVon": "Demo",
     "positionen": [
       {
-        "_artikelKey": "artikel-ei-l",
+        "_artikelKey": "artikel-ei-b-l",
         "gueteklasse": "B",
         "gewichtsklasse": "L",
         "menge": 1200,

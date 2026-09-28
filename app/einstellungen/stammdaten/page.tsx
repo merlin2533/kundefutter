@@ -15,7 +15,7 @@ import {
 } from "@/lib/auswahllisten";
 
 const DEFAULT_NOTIZ_THEMEN = ["Info", "Wichtig", "Offener Punkt", "Erledigt", "Rückruf", "Angebot"];
-const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Sonstiges"];
+const DEFAULT_GUTSCHRIFT_GRUENDE = ["Reklamation", "Retoure", "Preiskorrektur", "Erzeugerabrechnung", "Sonstiges"];
 
 function EditableList({
   title,

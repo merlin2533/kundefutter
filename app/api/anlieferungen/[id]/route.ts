@@ -110,6 +110,24 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
         { status: 409 },
       );
     }
+
+    // Eine verknüpfte, noch nicht verbuchte Erzeuger-Gutschrift (Status OFFEN) hängt sonst mit
+    // totem anlieferungId-losem Notiztext in der Luft — Löschen erst nach Entfernen/Verbuchen der
+    // Gutschrift erlauben (analog zum Sortierung-Check oben). Eine bereits VERBUCHTE/STORNIERTE/
+    // ERSTATTETE Gutschrift blockt nicht (die Anlieferung selbst wird dafür nicht mehr gebraucht).
+    const anlieferungMitGutschrift = await prisma.anlieferung.findUnique({
+      where: { id },
+      select: { gutschrift: { select: { status: true } } },
+    });
+    if (anlieferungMitGutschrift?.gutschrift?.status === "OFFEN") {
+      return NextResponse.json(
+        {
+          error: "Diese Anlieferung hat eine noch offene Erzeuger-Gutschrift — bitte diese zuerst entfernen oder verbuchen.",
+        },
+        { status: 409 },
+      );
+    }
+
     await prisma.anlieferung.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {

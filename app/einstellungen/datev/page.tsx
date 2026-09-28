@@ -12,6 +12,7 @@ interface DatevSettings {
   "datev.kilometerpauschale": string;
   "datev.bewirtungsanteil": string;
   "datev.verrechnungskonto": string;
+  "datev.erzeugerabrechnungKonto": string;
 }
 
 const FIELDS: { key: keyof DatevSettings; label: string; description: string; type?: string; step?: string }[] = [
@@ -55,6 +56,11 @@ const FIELDS: { key: keyof DatevSettings; label: string; description: string; ty
     label: "Verrechnungskonto für Ausgleichspositionen",
     description: "Konto für „Alte Forderung“/„Gutschrift-Verrechnung“/„Restdifferenz“ (0 % MwSt, kein neuer Umsatz — sonst würden diese Positionen fälschlich als Erlös gebucht). Vorschlag 1590 (SKR03 „Verrechnungskonto“) — bitte mit dem Steuerberater abstimmen. Leer lassen, um wie bisher als normalen 0%-Umsatz zu buchen.",
   },
+  {
+    key: "datev.erzeugerabrechnungKonto",
+    label: "Konto für Erzeugerabrechnungen (Eierhandel)",
+    description: "Eine Erzeugerabrechnung ist wirtschaftlich ein Wareneinkauf mit Vorsteuer (§14 Abs. 2 UStG Gutschrift), keine Erlösminderung — Positionen mit Grund „Erzeugerabrechnung“ laufen deshalb über dieses Wareneinkaufs-/Vorsteuerkonto statt über ein Erlöskonto. Kontonummer unbedingt vor dem produktiven Einsatz mit dem Steuerberater abstimmen — kein Vorschlagswert. Leer lassen, um bis dahin wie eine normale Kunden-Gutschrift zu buchen (Erlösminderung).",
+  },
 ];
 
 const DEFAULT_VALUES: DatevSettings = {
@@ -65,6 +71,7 @@ const DEFAULT_VALUES: DatevSettings = {
   "datev.kilometerpauschale": "0.30",
   "datev.bewirtungsanteil": "70",
   "datev.verrechnungskonto": "1590",
+  "datev.erzeugerabrechnungKonto": "",
 };
 
 export default function DatevEinstellungenPage() {

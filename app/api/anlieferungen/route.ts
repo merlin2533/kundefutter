@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         kunde: { select: { id: true, name: true, firma: true } },
         artikel: { select: { id: true, name: true, einheit: true, kategorie: true } },
         gutschrift: { select: { id: true, nummer: true, status: true } },
+        _count: { select: { eierSortierungen: true } },
       },
       orderBy: { datum: "desc" },
       take: 500,

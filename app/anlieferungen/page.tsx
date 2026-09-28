@@ -19,6 +19,7 @@ interface Anlieferung {
   gesamtBetrag?: number | null;
   notiz?: string | null;
   gutschrift?: { id: number; nummer: string; status: string } | null;
+  _count?: { eierSortierungen: number };
 }
 
 function euro(n: number | null | undefined): string {
@@ -190,7 +191,11 @@ function AnlieferungenInner() {
             <tbody>
               {gefiltert.map((a) => (
                 <tr key={a.id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{a.nummer}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <Link href={`/anlieferungen/${a.id}`} className="text-gray-600 hover:text-green-700 hover:underline">
+                      {a.nummer}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDatum(a.datum)}</td>
                   <td className="px-4 py-3 font-medium">
                     <Link href={`/kunden/${a.kunde.id}`} className="hover:text-green-700 hover:underline">
@@ -221,13 +226,27 @@ function AnlieferungenInner() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {!a.gutschrift && a.preisProEinheit && (
+                      {!a.gutschrift && (a._count?.eierSortierungen ?? 0) > 0 ? (
+                        <Link
+                          href={`/anlieferungen/${a.id}`}
+                          className="text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-medium transition-colors whitespace-nowrap"
+                        >
+                          Erzeugerabrechnung →
+                        </Link>
+                      ) : !a.gutschrift && a.preisProEinheit ? (
                         <button
                           onClick={() => gutschriftErstellen(a.id)}
                           className="text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-medium transition-colors whitespace-nowrap"
                         >
                           Gutschrift
                         </button>
+                      ) : (
+                        <Link
+                          href={`/anlieferungen/${a.id}`}
+                          className="text-xs px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200 rounded font-medium transition-colors whitespace-nowrap"
+                        >
+                          Details
+                        </Link>
                       )}
                     </div>
                   </td>
