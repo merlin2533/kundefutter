@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect, artikelSafeSelect } from "@/lib/artikel-select";
 import { generateZugferdXml, ZugferdData } from "@/lib/zugferd-xml";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,12 @@ export const dynamic = "force-dynamic";
 // GET /api/exporte/zugferd?lieferungId=N
 // GET /api/exporte/zugferd?sammelrechnungId=N
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  // ZUGFeRD-XML enthält dieselben Rechnungs-/Sammelrechnungsdaten wie das PDF —
+  // sonst wäre die Prüfung auf exporte/rechnung(/sammelrechnung) über diese Route umgehbar.
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const lieferungIdStr = searchParams.get("lieferungId");
   const sammelrechnungIdStr = searchParams.get("sammelrechnungId");

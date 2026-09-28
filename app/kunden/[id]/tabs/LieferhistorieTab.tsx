@@ -4,9 +4,11 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; onRefresh: () => void }) {
+  const { showToast } = useToast();
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sammelrechnungLoading, setSammelrechnungLoading] = useState(false);
@@ -91,7 +93,10 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kundeId: kunde.id, lieferungIds: Array.from(selectedIds) }),
       });
-      if (!res.ok) throw new Error("Fehler beim Erstellen der Sammelrechnung");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Fehler beim Erstellen der Sammelrechnung");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -103,7 +108,7 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
       onRefresh();
     } catch (err) {
       Sentry.captureException(err);
-      // ignore
+      showToast(err instanceof Error ? err.message : "Fehler beim Erstellen der Sammelrechnung", "error");
     } finally {
       setSammelrechnungLoading(false);
     }

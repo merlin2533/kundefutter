@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generiereRechnungsuebersichtPdf } from "@/lib/pdfGenerator";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // GET /api/exporte/rechnungsuebersicht?id=X — Rechnungsübersicht als PDF herunterladen
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const id = Number(searchParams.get("id"));
   if (!Number.isInteger(id) || id <= 0) {
