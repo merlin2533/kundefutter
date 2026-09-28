@@ -151,7 +151,7 @@ export default function LieferantDetailPage() {
     setMergeOpen(true);
     setMergeError("");
     if (alleLieferanten.length === 0) {
-      const res = await fetch("/api/lieferanten?limit=1000");
+      const res = await fetch("/api/lieferanten?limit=5000");
       if (res.ok) {
         const data = await res.json();
         const liste: LieferantOption[] = (Array.isArray(data) ? data : [])

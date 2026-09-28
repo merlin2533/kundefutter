@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const prioritaet = searchParams.get("prioritaet");
   const faelligBis = searchParams.get("faelligBis");
 
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
+  const limit = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "200", 10) || 200));
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
 
   const where: Record<string, unknown> = {};

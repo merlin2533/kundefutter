@@ -8,7 +8,7 @@ import { Sentry } from "@/lib/sentry";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search");
-  const take = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "500", 10) || 500));
+  const take = Math.min(5000, Math.max(1, parseInt(searchParams.get("limit") ?? "5000", 10) || 5000));
 
   const where: Record<string, unknown> = { aktiv: true };
   if (search) {

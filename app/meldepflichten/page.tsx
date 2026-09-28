@@ -39,7 +39,7 @@ export default function MeldepflichtenPage() {
       setLoading(false);
       return;
     }
-    fetch("/api/aufgaben?status=offen&limit=500")
+    fetch("/api/aufgaben?status=offen&limit=5000")
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => {
         const list: AufgabeItem[] = Array.isArray(d) ? d : (d.items ?? []);

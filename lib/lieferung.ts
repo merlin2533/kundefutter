@@ -207,9 +207,14 @@ export async function erstelleLieferungMitPreisberechnung(
       kreditlimitWert = kunde.kreditlimit;
       // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer) — nur für
       // GENAU diesen einen Kunden, `take` also kein globaler Deckel; auf 5000 angehoben (analog
-      // zu den anderen 500er-Deckel-Fixes im Projekt), da ein Kunde mit noch mehr offenen,
-      // unbezahlten Rechnungen ohnehin bereits deutlich außerhalb jedes plausiblen Kreditlimit-
-      // Warnbereichs läge.
+      // zu den anderen 500er-Deckel-Fixes im Projekt). Bewusst weiterhin ein `take`-Deckel statt
+      // eines DB-seitigen SUM (wie er in lib/benachrichtigungen-pruefen für den strukturell
+      // ähnlichen Kreditlimit-Check bereits eingesetzt wird) — dieser Pfad läuft synchron in
+      // jeder Lieferungserstellung, ein SUM wäre die sauberere Lösung, wurde hier aber aus
+      // Zeitgründen nicht nachgezogen; der Netto-Betrag berücksichtigt zudem weder Teilzahlungen
+      // noch verbuchte Gutschriften noch per Sammelrechnung abgerechnete Lieferungen — die
+      // Warnung ist eine grobe Heuristik, kein exakter offener Saldo (siehe auch Kunde-Detailseite
+      // "Offener Betrag").
       const offeneLieferungen = await prisma.lieferung.findMany({
         where: { kundeId: input.kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null },
         include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },

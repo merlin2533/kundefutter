@@ -65,7 +65,7 @@ export async function POST() {
     const kundenMitKreditlimit = await prisma.kunde.findMany({
       where: { kreditlimit: { not: null }, aktiv: true },
       select: { id: true, name: true, firma: true, kreditlimit: true },
-      take: 200,
+      take: 5000,
     });
 
     for (const kunde of kundenMitKreditlimit) {
@@ -141,7 +141,7 @@ export async function POST() {
         zahlungsziel: true,
         kunde: { select: { id: true, name: true, firma: true } },
       },
-      take: 200,
+      take: 5000,
     });
 
     // Aggregiere pro Kunde
