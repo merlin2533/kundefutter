@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ausgabeBetragsteile } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  // Umsatz-/Vorsteuerzahlen — mindestens so sensibel wie der DATEV-Export, gleiche Permission.
+  const deny = requirePermission(me, P.EXPORT_DATEV);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const vonStr = searchParams.get("von");
   const bisStr = searchParams.get("bis");

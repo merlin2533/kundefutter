@@ -5,6 +5,7 @@ import { mahnungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_TEXT_EINSTELLUNG_KEY } from "@/lib/mahnwesen-config";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ export const dynamic = "force-dynamic";
 // POST /api/exporte/mahnung/mail
 // Body: { lieferungId: number; mahnstufe?: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG_MAIL);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { lieferungId?: unknown; mahnstufe?: unknown; empfaenger?: unknown; cc?: unknown };
     const lieferungId = Number(body.lieferungId);
@@ -86,7 +91,6 @@ export async function POST(req: NextRequest) {
 
     // Ansprechpartner = aktuell angemeldeter Benutzer (analog GET /api/exporte/mahnung, das
     // dieselbe Signatur auf der PDF zeigt) statt der allgemeinen Firmenzentrale.
-    const me = await getCurrentUser();
     const ansprechpartner = me
       ? await prisma.benutzer.findUnique({ where: { id: me.id }, select: { name: true } })
       : null;
