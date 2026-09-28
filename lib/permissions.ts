@@ -69,6 +69,35 @@ export const P = {
   EXPORT_BULK:              "a.export.bulk",
   EINSTELLUNGEN_BEARBEITEN: "a.einstellungen.bearbeiten",
   KI_NUTZEN:                "a.ki.nutzen",
+  GUTSCHRIFTEN_ERSTELLEN:      "a.gutschriften.erstellen",
+  GUTSCHRIFTEN_BEARBEITEN:     "a.gutschriften.bearbeiten",
+  GUTSCHRIFTEN_LOESCHEN:       "a.gutschriften.loeschen",
+  SAMMELRECHNUNGEN_ERSTELLEN:  "a.sammelrechnungen.erstellen",
+  SAMMELRECHNUNGEN_BEARBEITEN: "a.sammelrechnungen.bearbeiten",
+  SAMMELRECHNUNGEN_LOESCHEN:   "a.sammelrechnungen.loeschen",
+  BESTELLUNGEN_ERSTELLEN:      "a.bestellungen.erstellen",
+  BESTELLUNGEN_BEARBEITEN:     "a.bestellungen.bearbeiten",
+  BESTELLUNGEN_LOESCHEN:       "a.bestellungen.loeschen",
+  LIEFERANTEN_ERSTELLEN:       "a.lieferanten.erstellen",
+  LIEFERANTEN_BEARBEITEN:      "a.lieferanten.bearbeiten",
+  LIEFERANTEN_LOESCHEN:        "a.lieferanten.loeschen",
+  KAMPAGNEN_ERSTELLEN:         "a.kampagnen.erstellen",
+  KAMPAGNEN_BEARBEITEN:        "a.kampagnen.bearbeiten",
+  KAMPAGNEN_LOESCHEN:          "a.kampagnen.loeschen",
+  REKLAMATIONEN_ERSTELLEN:     "a.reklamationen.erstellen",
+  REKLAMATIONEN_BEARBEITEN:    "a.reklamationen.bearbeiten",
+  REKLAMATIONEN_LOESCHEN:      "a.reklamationen.loeschen",
+  KONTRAKTE_ERSTELLEN:         "a.kontrakte.erstellen",
+  KONTRAKTE_BEARBEITEN:        "a.kontrakte.bearbeiten",
+  KONTRAKTE_LOESCHEN:          "a.kontrakte.loeschen",
+  PSM_ERSTELLEN:               "a.psm.erstellen",
+  PSM_BEARBEITEN:              "a.psm.bearbeiten",
+  PSM_LOESCHEN:                "a.psm.loeschen",
+  ZERTIFIZIERUNGEN_ERSTELLEN:  "a.zertifizierungen.erstellen",
+  ZERTIFIZIERUNGEN_BEARBEITEN: "a.zertifizierungen.bearbeiten",
+  ZERTIFIZIERUNGEN_LOESCHEN:   "a.zertifizierungen.loeschen",
+  BANKABGLEICH_IMPORT:         "a.bankabgleich.import",
+  BANKABGLEICH_BEARBEITEN:     "a.bankabgleich.bearbeiten",
 
   // ── Felder (sensible Daten) ──────────────────────────────────────────────
   FELD_ARTIKEL_EINKAUFSPREIS:     "f.artikel.einkaufspreis",
@@ -153,6 +182,35 @@ export const PERMISSION_META: Record<string, PermissionMeta> = {
   "a.export.bulk":              { label: "Export: Massen-Export",                                  gruppe: "Export",    typ: "aktion" },
   "a.einstellungen.bearbeiten": { label: "Einstellungen: Bearbeiten",     gruppe: "System",    typ: "aktion" },
   "a.ki.nutzen":                { label: "KI: Analysefunktionen nutzen",  gruppe: "System",    typ: "aktion" },
+  "a.gutschriften.erstellen":      { label: "Gutschriften: Anlegen",         gruppe: "Finanzen",  typ: "aktion" },
+  "a.gutschriften.bearbeiten":     { label: "Gutschriften: Bearbeiten",      gruppe: "Finanzen",  typ: "aktion" },
+  "a.gutschriften.loeschen":       { label: "Gutschriften: Löschen",         gruppe: "Finanzen",  typ: "aktion" },
+  "a.sammelrechnungen.erstellen":  { label: "Sammelrechnungen: Anlegen",     gruppe: "Finanzen",  typ: "aktion" },
+  "a.sammelrechnungen.bearbeiten": { label: "Sammelrechnungen: Bearbeiten",  gruppe: "Finanzen",  typ: "aktion" },
+  "a.sammelrechnungen.loeschen":   { label: "Sammelrechnungen: Löschen",     gruppe: "Finanzen",  typ: "aktion" },
+  "a.bestellungen.erstellen":      { label: "Bestellungen: Anlegen",         gruppe: "Einkauf",   typ: "aktion" },
+  "a.bestellungen.bearbeiten":     { label: "Bestellungen: Bearbeiten (inkl. Mail, Umschlüsseln, Bündeln)", gruppe: "Einkauf", typ: "aktion" },
+  "a.bestellungen.loeschen":       { label: "Bestellungen: Löschen",         gruppe: "Einkauf",   typ: "aktion" },
+  "a.lieferanten.erstellen":       { label: "Lieferanten: Anlegen",          gruppe: "Artikel",   typ: "aktion" },
+  "a.lieferanten.bearbeiten":      { label: "Lieferanten: Bearbeiten",       gruppe: "Artikel",   typ: "aktion" },
+  "a.lieferanten.loeschen":        { label: "Lieferanten: Löschen (inkl. Verschmelzen)", gruppe: "Artikel", typ: "aktion" },
+  "a.kampagnen.erstellen":         { label: "Kampagnen: Anlegen",            gruppe: "Vertrieb",  typ: "aktion" },
+  "a.kampagnen.bearbeiten":        { label: "Kampagnen: Bearbeiten",         gruppe: "Vertrieb",  typ: "aktion" },
+  "a.kampagnen.loeschen":          { label: "Kampagnen: Löschen",            gruppe: "Vertrieb",  typ: "aktion" },
+  "a.reklamationen.erstellen":     { label: "Reklamationen: Anlegen",        gruppe: "Vertrieb",  typ: "aktion" },
+  "a.reklamationen.bearbeiten":    { label: "Reklamationen: Bearbeiten",     gruppe: "Vertrieb",  typ: "aktion" },
+  "a.reklamationen.loeschen":      { label: "Reklamationen: Löschen",        gruppe: "Vertrieb",  typ: "aktion" },
+  "a.kontrakte.erstellen":         { label: "Kontrakte: Anlegen",            gruppe: "Vertrieb",  typ: "aktion" },
+  "a.kontrakte.bearbeiten":        { label: "Kontrakte: Bearbeiten",         gruppe: "Vertrieb",  typ: "aktion" },
+  "a.kontrakte.loeschen":          { label: "Kontrakte: Löschen",            gruppe: "Vertrieb",  typ: "aktion" },
+  "a.psm.erstellen":               { label: "PSM-Ausbringung: Anlegen",      gruppe: "Agrar",     typ: "aktion" },
+  "a.psm.bearbeiten":              { label: "PSM-Ausbringung: Bearbeiten",   gruppe: "Agrar",     typ: "aktion" },
+  "a.psm.loeschen":                { label: "PSM-Ausbringung: Löschen",      gruppe: "Agrar",     typ: "aktion" },
+  "a.zertifizierungen.erstellen":  { label: "Zertifizierungen: Anlegen",     gruppe: "Agrar",     typ: "aktion" },
+  "a.zertifizierungen.bearbeiten": { label: "Zertifizierungen: Bearbeiten (inkl. Beleg-Upload)", gruppe: "Agrar", typ: "aktion" },
+  "a.zertifizierungen.loeschen":   { label: "Zertifizierungen: Löschen",     gruppe: "Agrar",     typ: "aktion" },
+  "a.bankabgleich.import":         { label: "Bankabgleich: CSV-Kontoauszug importieren", gruppe: "Finanzen", typ: "aktion" },
+  "a.bankabgleich.bearbeiten":     { label: "Bankabgleich: Zuordnen/Ändern (inkl. Auto-Abgleich, Doppelzahlung)", gruppe: "Finanzen", typ: "aktion" },
 
   // Felder (sensible Daten)
   "f.artikel.einkaufspreis":     { label: "Feld: Artikel Einkaufspreis",          gruppe: "Felder", typ: "feld" },
@@ -197,6 +255,17 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.LIEFERUNGEN_ERSTELLEN,
       P.EXPORT_LIEFERSCHEIN, P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL,
       P.FELD_KUNDE_UMSATZ, P.FELD_KUNDE_OFFENER_BETRAG,
+      // Backfill Stage D: diese Aktionen waren vorher ungeprüft nutzbar (kein
+      // requirePermission() existierte) — ohne diesen Nachtrag würde die Rolle
+      // beim Einführen der neuen Pflicht-Permissions unbemerkt Schreibzugriff
+      // auf Bereiche verlieren, deren Seitenzugriff sie bereits hat.
+      P.REKLAMATIONEN_ERSTELLEN, P.REKLAMATIONEN_BEARBEITEN, P.REKLAMATIONEN_LOESCHEN,
+      P.KONTRAKTE_ERSTELLEN, P.KONTRAKTE_BEARBEITEN, P.KONTRAKTE_LOESCHEN,
+      P.PSM_ERSTELLEN, P.PSM_BEARBEITEN, P.PSM_LOESCHEN,
+      // Zertifizierungen hat keine eigene s.*-Seiten-Permission (Nav bündelt den
+      // Seitenzugriff unter P.BODENPROBEN, siehe NAV_PERMISSION in components/Nav.tsx)
+      // — diese Rolle hat P.BODENPROBEN und damit bereits Seitenzugriff, deshalb hier mit
+      P.ZERTIFIZIERUNGEN_ERSTELLEN, P.ZERTIFIZIERUNGEN_BEARBEITEN, P.ZERTIFIZIERUNGEN_LOESCHEN,
     ],
   },
   lager: {
@@ -207,6 +276,8 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.BESTELLUNGEN,
       P.LAGER_WARENEINGANG, P.LAGER_KORREKTUR,
       P.EXPORT_LIEFERSCHEIN,
+      // Backfill Stage D (siehe Kommentar bei "verkauf"): P.BESTELLUNGEN ist bereits vorhanden.
+      P.BESTELLUNGEN_ERSTELLEN, P.BESTELLUNGEN_BEARBEITEN, P.BESTELLUNGEN_LOESCHEN,
     ],
   },
   fahrer: {
@@ -227,6 +298,11 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL, P.EXPORT_DATEV, P.EXPORT_BULK,
       P.FELD_KUNDE_UMSATZ, P.FELD_KUNDE_OFFENER_BETRAG,
       P.FELD_STATISTIK_UMSATZ, P.FELD_STATISTIK_DECKUNGSBEITRAG, P.FELD_KALKULATION,
+      // Backfill Stage D (siehe Kommentar bei "verkauf"): P.GUTSCHRIFTEN/P.SAMMELRECHNUNGEN/
+      // P.BANKABGLEICH sind bereits vorhanden.
+      P.GUTSCHRIFTEN_ERSTELLEN, P.GUTSCHRIFTEN_BEARBEITEN, P.GUTSCHRIFTEN_LOESCHEN,
+      P.SAMMELRECHNUNGEN_ERSTELLEN, P.SAMMELRECHNUNGEN_BEARBEITEN, P.SAMMELRECHNUNGEN_LOESCHEN,
+      P.BANKABGLEICH_IMPORT, P.BANKABGLEICH_BEARBEITEN,
     ],
   },
   readonly: {

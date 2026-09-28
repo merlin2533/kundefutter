@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { bestellungEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,10 @@ type Params = { params: Promise<{ id: string }> };
 // zeigt die vorgeschlagene Adresse — Lieferant.email — zur Kontrolle, bevor gesendet wird); hier
 // wird der eigentliche Versand ausgeführt und als Nachweis versendetAm/versendetAn gesetzt.
 export async function POST(req: NextRequest, ctx: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   const nId = parseInt(id, 10);
   if (isNaN(nId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

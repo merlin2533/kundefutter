@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { naechsteBestellungsnummer } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,10 @@ export async function GET(req: NextRequest) {
 
 // POST: { artikelId, lieferantId, positionen: [{kundeId, menge}] }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_ERSTELLEN);
+  if (deny) return deny;
+
   let body: {
     artikelId?: unknown;
     lieferantId?: unknown;

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 type Params = { params: Promise<{ id: string }> };
@@ -28,6 +30,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.LIEFERANTEN_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await params;
   let body;
   try {
@@ -85,6 +91,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.LIEFERANTEN_LOESCHEN);
+  if (deny) return deny;
+
   const { id } = await params;
   try {
     await prisma.lieferant.update({ where: { id: Number(id) }, data: { aktiv: false } });

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { naechsteBestellungsnummer } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -17,6 +19,10 @@ type Params = { params: Promise<{ id: string }> };
  * Body: { positionId: number, lieferantId: number }
  */
 export async function POST(req: NextRequest, ctx: Params) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BESTELLUNGEN_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   const nId = parseInt(id, 10);
   if (isNaN(nId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

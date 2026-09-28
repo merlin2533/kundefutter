@@ -4,12 +4,18 @@ import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/li
 import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, markiereSkontoGenutztFallsPassend, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
 import { loescheGutschriftMitNebenwirkungen, verbucheGutschriftGegenLieferung, GutschriftVerrechnungFehler } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -169,6 +175,10 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

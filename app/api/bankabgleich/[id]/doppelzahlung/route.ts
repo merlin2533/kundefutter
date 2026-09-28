@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { erstelleDoppelzahlungsGutschrift, type DoppelzahlungModus, type DoppelzahlungZielTyp } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,10 @@ const MODI: DoppelzahlungModus[] = ["erstatten", "verrechnen"];
  * Zahlungszuordnung im Sinne von markiereAlsBezahlt().
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.BANKABGLEICH_BEARBEITEN);
+  if (deny) return deny;
+
   const { id } = await ctx.params;
   const umsatzId = parseInt(id, 10);
   if (isNaN(umsatzId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

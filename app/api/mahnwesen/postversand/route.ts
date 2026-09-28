@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 export const dynamic = "force-dynamic";
 
 // POST /api/mahnwesen/postversand
@@ -11,6 +13,10 @@ export const dynamic = "force-dynamic";
 // selbst (ein Download beweist noch keinen tatsächlichen Versand) — bewusst ein eigener, expliziter
 // Klick, analog zu "rechnung_postversand_markieren" bei normalen Rechnungen.
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG_MAIL);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { lieferungId?: unknown; mahnstufe?: unknown };
     const lieferungId = Number(body.lieferungId);

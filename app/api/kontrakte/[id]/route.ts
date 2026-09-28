@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "kontrakte");
   if (denyModul) return denyModul;
+
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KONTRAKTE_BEARBEITEN);
+  if (deny) return deny;
 
   const { id } = await params;
   const nId = parseInt(id, 10);
@@ -92,6 +98,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "kontrakte");
   if (denyModul) return denyModul;
+
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.KONTRAKTE_LOESCHEN);
+  if (deny) return deny;
 
   const { id } = await params;
   const nId = parseInt(id, 10);
