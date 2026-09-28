@@ -98,6 +98,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     // zugekauft vs. selbst sortiert) — ein Zusammentreffen derselben chargeNr in beiden Maps
     // wäre ein Datenfehler; im unwahrscheinlichen Fall gewinnt hier bewusst die zweite Quelle
     // (EierSortierung), da deren Legedatum/Erzeugercode für die Vorbefüllung wichtiger sind.
+    // Trägt derselbe chargeNr mehrere EierSortierungPosition-Zeilen (z.B. eine Charge, die A-
+    // UND B-Ware aus derselben Anlieferung bündelt), gewinnen die Detailfelder (Güte-/
+    // Gewichtsklasse, Legedatum, Erzeugercode) der ZEITLICH NEUESTEN Zeile — exakt wie im
+    // Wareneingang-Zweig oben — statt zufällig der zuletzt in der Schleife verarbeiteten
+    // (die Zeilen kommen `orderBy:{id:"desc"}`, also chronologisch unsortiert bzgl. datum).
+    // Sonst könnte eine ältere B-Ware-Zeile eine neuere A-Ware-Zeile überschreiben und die
+    // Vorbefüllung im Lieferungs-Formular zeigt fälschlich "Güteklasse A" für B-Ware an.
     for (const r of esRows) {
       if (!r.chargeNr) continue;
       const datum = r.sortierung.datum;
@@ -106,12 +113,14 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
         existing.quelle = "eiersortierung";
         existing.anzahlBuchungen += 1;
         existing.summeMenge += r.menge;
-        existing.legedatum = r.legedatum;
-        existing.erzeugercode = r.erzeugercode;
-        existing.gueteklasse = r.gueteklasse;
-        existing.gewichtsklasse = r.gewichtsklasse;
-        if (r.legedatum) existing.mhd = berechneEierMhd(r.legedatum);
-        if (datum > existing.datum) existing.datum = datum;
+        if (datum > existing.datum) {
+          existing.datum = datum;
+          existing.legedatum = r.legedatum;
+          existing.erzeugercode = r.erzeugercode;
+          existing.gueteklasse = r.gueteklasse;
+          existing.gewichtsklasse = r.gewichtsklasse;
+          existing.mhd = r.legedatum ? berechneEierMhd(r.legedatum) : null;
+        }
       } else {
         map.set(r.chargeNr, {
           chargeNr: r.chargeNr,

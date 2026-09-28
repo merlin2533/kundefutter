@@ -10,32 +10,36 @@ function csvQ(v: string | number | null | undefined): string {
   return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-type CsvLieferung = { datum: Date; chargeNr: string | null; menge: number; kunde: { name: string; firma: string | null } | null; rechnungNr: string | null; lieferungId: number; artikel?: { name: string } };
-type CsvWareneingang = { datum: Date; chargeNr: string | null; menge: number; lieferant: { name: string } | null; wareneingangId: number; artikel: { name: string } };
+type CsvLieferung = { datum: Date; chargeNr: string | null; menge: number; status: string; kunde: { name: string; firma: string | null } | null; rechnungNr: string | null; lieferungId: number; artikel?: { name: string; einheit?: string } };
+type CsvWareneingang = { datum: Date; chargeNr: string | null; menge: number; lieferant: { name: string } | null; wareneingangId: number; artikel: { name: string; einheit: string } };
 type CsvEiersortierung = {
   datum: Date; chargeNr: string | null; menge: number; sortierungId: number;
   gueteklasse: string | null; gewichtsklasse: string | null; erzeugercode: string | null;
   anlieferung: { nummer: string; erzeuger: { name: string; firma: string | null } | null } | null;
-  artikel: { name: string };
+  artikel: { name: string; einheit: string };
 };
 
 // Baut eine einheitliche Rückverfolgungs-Tabelle (Lieferung/Wareneingang/Ei-Sortierung
 // gemeinsam, chronologisch) als CSV — dient dem Prüf-/Rückverfolgungs-Nachweis
-// (Lebensmittelrecht: welche Charge kam woher, ging wohin). `artikelName` federt ab, dass die
-// Lieferungen-Zeilen im Artikel-Modus kein eigenes `artikel`-Feld tragen (der Artikel ist dort
-// bereits durch den Aufrufparameter fix).
+// (Lebensmittelrecht: welche Charge kam woher, ging wohin). `artikelName`/`artikelEinheit`
+// federn ab, dass die Lieferungen-Zeilen im Artikel-Modus kein eigenes `artikel`-Feld tragen
+// (der Artikel ist dort bereits durch den Aufrufparameter fix). Status/Einheit sind Pflicht für
+// einen belastbaren Rückverfolgungs-Nachweis: ohne Status wirkt eine stornierte Lieferung wie
+// ein echter Warenausgang dieser Charge, ohne Einheit sind reine Zahlen bei gemischten Quellen
+// (kg vs. Stück) nicht einzuordnen (siehe Opus-Review PR #472).
 function buildChargenCsv(
   data: { lieferungen: CsvLieferung[]; wareneingaenge: CsvWareneingang[]; eiersortierungen: CsvEiersortierung[] },
-  artikelName?: string
+  artikelName?: string,
+  artikelEinheit?: string
 ): string {
-  const header = ["Quelle", "Datum", "Charge", "Artikel", "Menge", "Kunde/Lieferant/Erzeuger", "Referenz"].join(";");
+  const header = ["Quelle", "Datum", "Charge", "Artikel", "Menge", "Einheit", "Status", "Kunde/Lieferant/Erzeuger", "Referenz"].join(";");
   const rows: { datum: string; csv: string }[] = [];
   for (const l of data.lieferungen) {
     const kunde = l.kunde ? (l.kunde.firma || l.kunde.name) : "";
     const datum = l.datum.toISOString().slice(0, 10);
     rows.push({
       datum,
-      csv: ["Lieferung", datum, l.chargeNr ?? "", l.artikel?.name ?? artikelName ?? "", l.menge, kunde, l.rechnungNr || `Lieferung #${l.lieferungId}`]
+      csv: ["Lieferung", datum, l.chargeNr ?? "", l.artikel?.name ?? artikelName ?? "", l.menge, l.artikel?.einheit ?? artikelEinheit ?? "", l.status, kunde, l.rechnungNr || `Lieferung #${l.lieferungId}`]
         .map(csvQ)
         .join(";"),
     });
@@ -44,7 +48,9 @@ function buildChargenCsv(
     const datum = w.datum.toISOString().slice(0, 10);
     rows.push({
       datum,
-      csv: ["Wareneingang", datum, w.chargeNr ?? "", w.artikel.name, w.menge, w.lieferant?.name ?? "", `Wareneingang #${w.wareneingangId}`]
+      // Wareneingang hat keinen eigenen Workflow-Status (anders als Lieferung) — die Buchung
+      // ist mit dem Anlegen bereits abgeschlossen.
+      csv: ["Wareneingang", datum, w.chargeNr ?? "", w.artikel.name, w.menge, w.artikel.einheit, "gebucht", w.lieferant?.name ?? "", `Wareneingang #${w.wareneingangId}`]
         .map(csvQ)
         .join(";"),
     });
@@ -56,7 +62,7 @@ function buildChargenCsv(
     const datum = s.datum.toISOString().slice(0, 10);
     rows.push({
       datum,
-      csv: ["Ei-Sortierung", datum, s.chargeNr ?? "", `${s.artikel.name}${details ? ` (${details})` : ""}`, s.menge, erzeuger, referenz]
+      csv: ["Ei-Sortierung", datum, s.chargeNr ?? "", `${s.artikel.name}${details ? ` (${details})` : ""}`, s.menge, s.artikel.einheit, "gebucht", erzeuger, referenz]
         .map(csvQ)
         .join(";"),
     });
@@ -288,7 +294,7 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.bestand - a.bestand);
 
       if (format === "csv") {
-        const csv = buildChargenCsv({ lieferungen, wareneingaenge, eiersortierungen }, artikel.name);
+        const csv = buildChargenCsv({ lieferungen, wareneingaenge, eiersortierungen }, artikel.name, artikel.einheit);
         return new NextResponse(csv, {
           headers: {
             "Content-Type": "text/csv; charset=utf-8",

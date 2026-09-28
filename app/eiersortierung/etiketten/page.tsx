@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
 import * as Sentry from "@sentry/nextjs";
@@ -60,31 +60,13 @@ function qrPayload(f: EtikettFelder): string {
 interface EtikettProps {
   felder: EtikettFelder;
   groesse: EtikettGroesse;
+  /** Wird vom Elternteil EINMAL erzeugt (siehe dort) und an alle N gedruckten Etiketten
+   *  gleichermaßen durchgereicht — spart bis zu 100 identische QRCode.toDataURL-Aufrufe. */
+  qrSrc: string;
 }
 
-function Etikett({ felder, groesse }: EtikettProps) {
+function Etikett({ felder, groesse, qrSrc }: EtikettProps) {
   const g = EI_GROESSEN.find((x) => x.value === groesse) ?? EI_GROESSEN[0];
-  const [qrSrc, setQrSrc] = useState("");
-  const payload = qrPayload(felder);
-
-  useEffect(() => {
-    if (!payload) {
-      setQrSrc("");
-      return;
-    }
-    let cancelled = false;
-    QRCode.toDataURL(payload, { margin: 0, width: 160 })
-      .then((url) => {
-        if (!cancelled) setQrSrc(url);
-      })
-      .catch((err) => {
-        Sentry.captureException(err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [payload]);
-
   const mhd = felder.legedatum ? berechneEierMhd(new Date(felder.legedatum)) : null;
   const klein = groesse === "70x40";
 
@@ -146,6 +128,34 @@ export default function EierEtikettenPage() {
   const [groesse, setGroesse] = useState<EtikettGroesse>("70x40");
   const [generated, setGenerated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [qrResult, setQrResult] = useState<{ payload: string; src: string } | null>(null);
+
+  const qrPayloadWert = useMemo(() => qrPayload(felder), [felder]);
+
+  // QR-Code wird EINMAL hier erzeugt (statt je gedrucktem Etikett, siehe Etikett-Komponente) und
+  // an alle Kopien durchgereicht. `qrResult` hält Payload+Ergebnis zusammen, damit bei einem
+  // Payload-Wechsel kurz vor Abschluss eines älteren Aufrufs nicht kurzzeitig der FALSCHE (zu
+  // dem alten Payload gehörende) QR-Code angezeigt wird — die Ableitung unten vergleicht den
+  // gespeicherten Payload gegen den aktuellen.
+  useEffect(() => {
+    if (!qrPayloadWert) return;
+    let cancelled = false;
+    QRCode.toDataURL(qrPayloadWert, { margin: 0, width: 160 })
+      .then((url) => {
+        if (!cancelled) setQrResult({ payload: qrPayloadWert, src: url });
+      })
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [qrPayloadWert]);
+
+  const qrSrc = qrPayloadWert && qrResult?.payload === qrPayloadWert ? qrResult.src : "";
+  // true, solange ein QR-Code erzeugt werden SOLL, aber noch nicht fertig ist — verhindert ein
+  // "Drucken" ohne QR-Code, falls direkt nach "Etiketten generieren" geklickt wird.
+  const qrWirdGeneriert = qrPayloadWert !== "" && qrSrc === "";
 
   useEffect(() => {
     Promise.all([
@@ -193,7 +203,11 @@ export default function EierEtikettenPage() {
       legedatum: p.legedatum ? p.legedatum.slice(0, 10) : "",
       erzeugercode: p.erzeugercode ?? "",
       haltungsform: haltung ?? "",
-      eieranzahl: String(p.menge),
+      // Bewusst NICHT aus p.menge vorbefüllt: das ist die gesamte sortierte Menge dieser
+      // Position (in der Artikel-Einheit, z.B. kg oder Stück der ganzen Charge) — nicht die
+      // Eieranzahl EINES Kartons. Ein automatisch übernommener Wert würde auf jedem der N
+      // gedruckten, identischen Etiketten fälschlich dieselbe (viel zu hohe) Zahl zeigen.
+      eieranzahl: "",
     }));
   }
 
@@ -216,6 +230,7 @@ export default function EierEtikettenPage() {
   const inputCls = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-700";
   const kannErzeugen = !!felder.artikelName && !!felder.gueteklasse && !!felder.gewichtsklasse;
   const etiketten = kannErzeugen ? Array.from({ length: Math.min(Math.max(anzahl, 1), 100) }) : [];
+  const gewaehlteGroesse = EI_GROESSEN.find((g) => g.value === groesse) ?? EI_GROESSEN[0];
 
   return (
     <>
@@ -225,7 +240,10 @@ export default function EierEtikettenPage() {
           body { margin: 0; padding: 0; background: white; }
           .etiketten-print-area {
             display: grid !important;
-            grid-template-columns: repeat(auto-fill, minmax(70mm, 1fr));
+            /* Spaltenbreite kommt aus der --etikett-breite Custom Property (inline gesetzt,
+               passend zur gewählten Etikett-Größe) — ein fester Wert würde bei der größeren
+               100×50mm-Größe zu schmale Zellen erzeugen und Etiketten überlappen lassen. */
+            grid-template-columns: repeat(auto-fill, var(--etikett-breite, 70mm));
             gap: 2mm;
             padding: 5mm;
           }
@@ -250,8 +268,13 @@ export default function EierEtikettenPage() {
                 <button onClick={handleReset} className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">
                   Neue Konfiguration
                 </button>
-                <button onClick={handlePrint} className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium">
-                  Drucken
+                <button
+                  onClick={handlePrint}
+                  disabled={qrWirdGeneriert}
+                  title={qrWirdGeneriert ? "QR-Code wird noch erzeugt…" : undefined}
+                  className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-50"
+                >
+                  {qrWirdGeneriert ? "QR-Code wird erzeugt…" : "Drucken"}
                 </button>
               </>
             )}
@@ -367,17 +390,25 @@ export default function EierEtikettenPage() {
             <span>
               <span className="font-semibold">{etiketten.length} Etiketten</span> für <span className="font-semibold">{felder.artikelName}</span> bereit.
             </span>
-            <button onClick={handlePrint} className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium">
-              Drucken
+            <button
+              onClick={handlePrint}
+              disabled={qrWirdGeneriert}
+              title={qrWirdGeneriert ? "QR-Code wird noch erzeugt…" : undefined}
+              className="px-4 py-2 text-sm rounded-lg bg-green-800 hover:bg-green-700 text-white font-medium disabled:opacity-50"
+            >
+              {qrWirdGeneriert ? "QR-Code wird erzeugt…" : "Drucken"}
             </button>
           </div>
         )}
       </div>
 
       {generated && (
-        <div className="etiketten-print-area flex flex-wrap gap-2 mt-2">
+        <div
+          className="etiketten-print-area flex flex-wrap gap-2 mt-2"
+          style={{ "--etikett-breite": gewaehlteGroesse.width } as CSSProperties}
+        >
           {etiketten.map((_, i) => (
-            <Etikett key={i} felder={felder} groesse={groesse} />
+            <Etikett key={i} felder={felder} groesse={groesse} qrSrc={qrSrc} />
           ))}
         </div>
       )}
