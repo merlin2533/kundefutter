@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       where: { aktiv: true },
       include: { lieferanten: { include: { lieferant: true } } },
       orderBy: { name: "asc" },
-      take: 1000,
+      take: 5000,
     });
 
     const lager = artikel

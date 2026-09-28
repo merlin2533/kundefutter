@@ -110,11 +110,11 @@ function RationsInner() {
     fetch("/api/rationsberechnung?meta=1").then((r) => r.json()).then(setMeta).catch((err) => {
       Sentry.captureException(err);
     });
-    fetch("/api/kunden?limit=2000").then((r) => r.json())
+    fetch("/api/kunden?limit=5000").then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : (d?.kunden ?? []))).catch((err) => {
         Sentry.captureException(err);
       });
-    fetch("/api/artikel?kategorie=Futter&limit=500").then((r) => r.json())
+    fetch("/api/artikel?kategorie=Futter&limit=5000").then((r) => r.json())
       .then((d) => setArtikel(Array.isArray(d) ? d : (d?.artikel ?? []))).catch((err) => {
         Sentry.captureException(err);
       });

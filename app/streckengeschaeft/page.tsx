@@ -72,7 +72,7 @@ export default function StreckengeschaeftPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch("/api/lieferungen?limit=1000")
+    fetch("/api/lieferungen?limit=5000")
       .then((r) => {
         if (!r.ok) throw new Error(`Serverfehler ${r.status}`);
         return r.json();

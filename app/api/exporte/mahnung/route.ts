@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { generiereMahnungPdf } from "@/lib/pdfGenerator";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
 
 // GET /api/exporte/mahnung?lieferungId=X&mahnstufe=1|2|3 — Mahnung als PDF herunterladen
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const { searchParams } = new URL(req.url);
   const lieferungId = Number(searchParams.get("lieferungId"));
   if (!Number.isInteger(lieferungId) || lieferungId <= 0) {
@@ -30,7 +35,6 @@ export async function GET(req: NextRequest) {
 
     // Ansprechpartner = aktuell angemeldeter Benutzer (Sachbearbeiter, der die Mahnung erzeugt),
     // nicht die allgemeine Firmenzentrale — erscheint oben rechts auf dem Brief.
-    const me = await getCurrentUser();
     const ansprechpartner = me
       ? await prisma.benutzer.findUnique({ where: { id: me.id }, select: { name: true, mobil: true, email: true } })
       : null;

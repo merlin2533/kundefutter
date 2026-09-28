@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { lieferant: { select: { id: true, name: true } } },
       orderBy: { datum: "desc" },
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(ausgaben);
   } catch (err) {

@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       prisma.mitarbeiter.findMany({
         where: { aktiv: true },
         select: { id: true, vorname: true, nachname: true, typ: true },
-        take: 500,
+        take: 5000,
       }),
       prisma.gehaltsabrechnung.findMany({
         where: { monat, jahr },

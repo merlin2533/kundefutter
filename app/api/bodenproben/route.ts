@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { schlag: { select: { id: true, name: true, kundeId: true, kunde: { select: { name: true } } } } },
       orderBy: { datum: "desc" },
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(proben);
   } catch (err) {

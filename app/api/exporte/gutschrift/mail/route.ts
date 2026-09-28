@@ -4,12 +4,20 @@ import { generiereGutschriftPdf } from "@/lib/pdfGenerator";
 import { sendEmail } from "@/lib/email";
 import { gutschriftEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // POST /api/exporte/gutschrift/mail
 // Body: { gutschriftId: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  // Gutschrift ist wie Rechnung ein Finanzdokument, das per Mail an den Kunden geht —
+  // dieselbe Berechtigungsklasse wie exporte/rechnung/mail statt gar keiner Prüfung.
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG_MAIL);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { gutschriftId?: unknown; empfaenger?: unknown; cc?: unknown };
     const gutschriftId = Number(body.gutschriftId);

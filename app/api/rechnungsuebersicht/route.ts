@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       where,
       include: listInclude,
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(uebersichten);
   } catch (err) {

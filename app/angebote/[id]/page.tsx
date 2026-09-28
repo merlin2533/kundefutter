@@ -261,7 +261,7 @@ export default function AngebotDetailPage() {
     setShowVorlageModal(true);
     if (vorlageKunden.length === 0) {
       setVorlageKundenLoading(true);
-      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+      fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false")
         .then((r) => (r.ok ? r.json() : []))
         .then((d) => setVorlageKunden(Array.isArray(d) ? d : []))
         .catch((err) => {

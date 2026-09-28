@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   try {
     artikel = await prisma.artikel.findMany({
       where: { aktiv: true },
-      take: 500,
+      take: 5000,
       include: {
         // Alle Lieferanten laden (nicht nur bevorzugt) — resolveBevorzugtenLieferanten() wählt
         // unten den bevorzugten NUR wenn dort auch ein Preis gepflegt ist, sonst einen mit Preis,

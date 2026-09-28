@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { artikel: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(zertifikate);
   } catch (err) {

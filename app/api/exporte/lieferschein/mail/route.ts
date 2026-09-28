@@ -4,12 +4,18 @@ import { generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { sendEmail } from "@/lib/email";
 import { lieferscheinEmail } from "@/lib/email-templates";
 import { ladeFirmaDaten } from "@/lib/firma";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 // POST /api/exporte/lieferschein/mail
 // Body: { lieferungId: number; empfaenger?: string; cc?: string }
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_LIEFERSCHEIN);
+  if (deny) return deny;
+
   try {
     const body = (await req.json()) as { lieferungId?: unknown; empfaenger?: unknown; cc?: unknown };
     const lieferungId = Number(body.lieferungId);

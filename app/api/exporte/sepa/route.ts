@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generiereSepaXml, SepaZahlung } from "@/lib/sepa";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const isDev = process.env.NODE_ENV === "development";
+  const me = await getCurrentUser();
+  // Erzeugt eine SEPA-Zahlungsdatei aus Firmen-IBAN/BIC — vergleichbar sensibel wie der
+  // DATEV-Export, deshalb dieselbe Berechtigung statt gar keiner Prüfung.
+  const deny = requirePermission(me, P.EXPORT_DATEV);
+  if (deny) return deny;
 
   try {
     const body = await req.json();

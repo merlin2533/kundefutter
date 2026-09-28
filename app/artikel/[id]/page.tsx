@@ -351,7 +351,7 @@ function ArtikelDetailContent() {
       setLoadingMengenstaffeln(true);
       Promise.all([
         fetch(`/api/mengenrabatte?artikelId=${id}`).then((r) => r.ok ? r.json() : []),
-        fetch("/api/kunden?limit=2000").then((r) => r.ok ? r.json() : []),
+        fetch("/api/kunden?limit=5000").then((r) => r.ok ? r.json() : []),
       ])
         .then(([rabatte, kunden]) => {
           setMengenstaffeln(Array.isArray(rabatte) ? rabatte : []);

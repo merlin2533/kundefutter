@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(list);
   } catch (err) {

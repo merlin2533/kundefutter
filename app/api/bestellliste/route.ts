@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         bestellung: { select: { id: true, nummer: true } },
       },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(positionen);
   } catch (err) {

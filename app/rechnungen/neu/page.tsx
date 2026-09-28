@@ -45,7 +45,7 @@ export default function NeueRechnungPage() {
 
   // Kunden + Standard-Zahlungsziel laden
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+    fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setKunden(Array.isArray(data) ? data : []))
       .catch((err) => {

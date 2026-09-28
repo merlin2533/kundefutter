@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { naechsteRechnungsnummer } from "@/lib/utils";
 import { generiereSammelrechnungPdf } from "@/lib/pdfGenerator";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner, uploadZuBuchhaltung } from "@/lib/nextcloud";
 export const dynamic = "force-dynamic";
@@ -16,6 +18,10 @@ export const dynamic = "force-dynamic";
  * Möglichkeit, sie danach je als PDF zu sehen.
  */
 export async function GET(req: NextRequest) {
+  const me = await getCurrentUser();
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const idParam = req.nextUrl.searchParams.get("sammelrechnungId");
   const sammelrechnungId = idParam ? parseInt(idParam, 10) : NaN;
   if (isNaN(sammelrechnungId)) {
@@ -52,6 +58,12 @@ export async function GET(req: NextRequest) {
  * die PDF selbst lässt sich danach über GET oben jederzeit erneut ansehen.
  */
 export async function POST(req: NextRequest) {
+  const me = await getCurrentUser();
+  // Legt eine neue Sammelrechnung an — schreibend, dieselbe Berechtigungsklasse wie das
+  // rein lesende GET oben statt gar keiner Prüfung.
+  const deny = requirePermission(me, P.EXPORT_RECHNUNG);
+  if (deny) return deny;
+
   const body = await req.json();
   const { kundeId, lieferungIds } = body as { kundeId: number; lieferungIds: number[] };
 

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         schlag: { select: { id: true, name: true, flaeche: true } },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(list);
   } catch (err) {

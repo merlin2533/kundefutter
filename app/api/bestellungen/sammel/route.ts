@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         artikel: { select: { id: true, name: true, einheit: true, standardpreis: true } },
       },
       orderBy: { kunde: { name: "asc" } },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(bedarfe);
   } catch (err) {
