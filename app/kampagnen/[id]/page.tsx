@@ -413,6 +413,7 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
                 <div className="px-4 py-3 border-b border-gray-200">
                   <h2 className="text-base font-semibold text-gray-900">Aktionsartikel</h2>
                 </div>
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-100 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
@@ -445,6 +446,7 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </>

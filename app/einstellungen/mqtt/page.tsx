@@ -259,6 +259,7 @@ export default function MqttAutomatisierungPage() {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
@@ -318,6 +319,7 @@ export default function MqttAutomatisierungPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

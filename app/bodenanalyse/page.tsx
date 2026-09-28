@@ -271,6 +271,7 @@ export default function BodenanalyseListePage() {
 
       {gefiltert.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -413,6 +414,7 @@ export default function BodenanalyseListePage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

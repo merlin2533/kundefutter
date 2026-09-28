@@ -181,6 +181,7 @@ export default function ImportHilfePage() {
       </p>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-10">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -212,6 +213,7 @@ export default function ImportHilfePage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex items-center gap-3">
           <span className="inline-flex items-center gap-1">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-100 text-red-700 text-xs font-bold">!</span>

@@ -242,6 +242,7 @@ export default function PortalEinstellungenPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -323,6 +324,7 @@ export default function PortalEinstellungenPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
