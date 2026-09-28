@@ -7,6 +7,8 @@ import { ladeFirmaDaten } from "@/lib/firma";
 import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
 import { starteBackfillFallsMoeglich } from "@/lib/nextcloud-backfill";
 import { pruefeMeldepflichten } from "@/lib/meldepflichten";
+import { ermittleFaelligeBedarfe, erstelleWiederkehrendeLieferungen } from "@/lib/wiederkehrende-lieferungen";
+import { pruefeMahnstufenEskalation } from "@/lib/mahnwesen-erinnerung";
 import { Sentry } from "@/lib/sentry";
 
 const NEXTCLOUD_SYNC_KEY = "system.nextcloud.letzterAutoSync";
@@ -259,6 +261,62 @@ async function jobMeldepflichten(): Promise<JobResult> {
   }
 }
 
+/**
+ * `POST /api/lieferungen/wiederkehrend` (`{alleAusloesen:true}`) existierte bereits vollständig,
+ * wurde aber nur über einen manuellen Button auf `/lieferungen` ausgelöst — ein Bedarf mit
+ * abgelaufenem Intervall blieb liegen, bis jemand die Seite öffnet und klickt. Läuft wie
+ * jobMeldepflichten bei jedem Tick; `erstelleWiederkehrendeLieferungen()` legt für dieselbe
+ * fällige `bedarfId` nur dann erneut eine Lieferung an, wenn seit der letzten (nicht stornierten)
+ * Lieferung wirklich wieder ein volles Intervall vergangen ist (siehe `ermittleFaelligeBedarfe()`)
+ * — kein eigener Idempotenz-Zusatz nötig, das steckt schon in der Fälligkeitsberechnung selbst.
+ */
+async function jobWiederkehrendeLieferungen(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const faellig = await ermittleFaelligeBedarfe(new Date());
+    const bedarfIds = faellig.filter((f) => f.ueberfaellig).map((f) => f.bedarf.id);
+    const angelegtIds = await erstelleWiederkehrendeLieferungen(bedarfIds);
+    return {
+      job: "wiederkehrendeLieferungen",
+      ok: true,
+      detail: { faellig: bedarfIds.length, angelegt: angelegtIds.length, lieferungen: angelegtIds },
+      durationMs: Date.now() - t0,
+    };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "wiederkehrendeLieferungen",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
+/**
+ * Legt eine `Aufgabe`-Erinnerung an, sobald eine überfällige Rechnung in eine (höhere) Mahnstufe
+ * rutscht — der bestehende `cron.digest.mahnwesen`-Job (jobDigestEmail oben) listet überfällige
+ * Rechnungen nur in der täglichen Sammel-Mail auf, ohne eine Wiedervorlage/Aufgabe zu erzeugen.
+ * KEIN automatischer Versand einer Mahnung selbst — siehe pruefeMahnstufenEskalation().
+ */
+async function jobMahnwesenErinnerung(): Promise<JobResult> {
+  const t0 = Date.now();
+  try {
+    const ergebnis = await pruefeMahnstufenEskalation();
+    return { job: "mahnwesenErinnerung", ok: true, detail: { ...ergebnis }, durationMs: Date.now() - t0 };
+  } catch (err) {
+    Sentry.captureException(err);
+    const isDev = process.env.NODE_ENV === "development";
+    return {
+      job: "mahnwesenErinnerung",
+      ok: false,
+      error: isDev && err instanceof Error ? err.message : "Unbekannter Fehler",
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false; // Kein Secret gesetzt → immer ablehnen
@@ -300,6 +358,8 @@ export async function GET(req: NextRequest) {
   results.push(await jobDigestEmail());
   results.push(await jobNextcloudSync());
   results.push(await jobMeldepflichten());
+  results.push(await jobWiederkehrendeLieferungen());
+  results.push(await jobMahnwesenErinnerung());
 
   const allOk = results.every((r) => r.ok);
   await saveStatus(allOk, startedAt, results);

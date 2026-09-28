@@ -468,11 +468,19 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                  <h2 className="text-base font-semibold text-gray-900">
-                    {kundePotenzial.length} Kunden — sortiert nach Potenzial
-                  </h2>
-                  <p className="text-xs text-gray-400">Bedarf-Mengen der Kampagnenartikel</p>
+                <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h2 className="text-base font-semibold text-gray-900">
+                      {kundePotenzial.length} Kunden — sortiert nach Potenzial
+                    </h2>
+                    <p className="text-xs text-gray-400">Bedarf-Mengen der Kampagnenartikel</p>
+                  </div>
+                  <a
+                    href={`/api/exporte/kampagne?kampagneId=${id}`}
+                    className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    Als CSV exportieren
+                  </a>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-100 text-sm">

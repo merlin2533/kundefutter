@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { ladeKampagnePotenzial } from "@/lib/kampagne-potenzial";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 
@@ -22,65 +22,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (isNaN(nId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
 
   try {
-    const kampagne = await prisma.kampagne.findUnique({
-      where: { id: nId },
-      include: {
-        artikel: { select: { artikelId: true, sonderpreis: true } },
-        kunden: {
-          include: {
-            kunde: {
-              select: {
-                id: true,
-                name: true,
-                firma: true,
-                ort: true,
-                kategorie: true,
-                kontakte: { where: { typ: { in: ["telefon", "mobil"] } }, select: { wert: true, typ: true } },
-                bedarfe: {
-                  where: { aktiv: true },
-                  include: { artikel: { select: { id: true, name: true, einheit: true } } },
-                },
-              },
-            },
-          },
-          orderBy: { kunde: { name: "asc" } },
-        },
-      },
-    });
+    const ergebnis = await ladeKampagnePotenzial(nId);
+    if (!ergebnis) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
 
-    if (!kampagne) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-
-    const kampagneArtikelIds = new Set(kampagne.artikel.map((a) => a.artikelId));
-
-    // Enrich each customer with potential volume (matching Bedarf quantities)
-    const result = kampagne.kunden.map((kk) => {
-      const k = kk.kunde;
-      const matchingBedarfe = k.bedarfe.filter((b) => kampagneArtikelIds.has(b.artikelId));
-      const potenzialMenge = matchingBedarfe.reduce((sum, b) => sum + b.menge, 0);
-
-      return {
-        id: kk.id,
-        kundeId: k.id,
-        name: k.name,
-        firma: k.firma,
-        ort: k.ort,
-        kategorie: k.kategorie,
-        telefon: k.kontakte[0]?.wert ?? null,
-        bedarfe: matchingBedarfe.map((b) => ({
-          artikelId: b.artikelId,
-          artikelName: b.artikel.name,
-          einheit: b.artikel.einheit,
-          menge: b.menge,
-          intervallTage: b.intervallTage,
-        })),
-        potenzialMenge,
-      };
-    });
-
-    // Sort by potential (highest first)
-    result.sort((a, b) => b.potenzialMenge - a.potenzialMenge);
-
-    return NextResponse.json(result);
+    return NextResponse.json(ergebnis.kunden);
   } catch (err) {
     Sentry.captureException(err);
     console.error("Kampagnen kunden GET error:", err);
