@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
       orderBy: { datum: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(liste);
   } catch (err) {

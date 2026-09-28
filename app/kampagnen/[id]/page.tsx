@@ -123,7 +123,7 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
         Sentry.captureException(err);
         return [];
       }),
-      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch((err) => {
+      fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false").then((r) => r.json()).catch((err) => {
         Sentry.captureException(err);
         return [];
       }),

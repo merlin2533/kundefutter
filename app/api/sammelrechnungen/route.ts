@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(sammelrechnungen);
   } catch (err) {

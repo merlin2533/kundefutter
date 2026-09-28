@@ -66,7 +66,7 @@ function KampagneNeuInner() {
         Sentry.captureException(err);
         return [];
       }),
-      fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false").then((r) => r.json()).catch((err) => {
+      fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false").then((r) => r.json()).catch((err) => {
         Sentry.captureException(err);
         return [];
       }),

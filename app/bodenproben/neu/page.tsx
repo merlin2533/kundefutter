@@ -87,7 +87,7 @@ function NeuInner() {
   const [multiSaving, setMultiSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/kunden?limit=2000")
+    fetch("/api/kunden?limit=5000")
       .then(r => r.json())
       .then(d => setKunden(Array.isArray(d) ? d : (d?.kunden ?? [])));
     fetch("/api/einstellungen?prefix=system.fruchtarten")

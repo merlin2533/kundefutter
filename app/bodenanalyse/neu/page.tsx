@@ -186,7 +186,7 @@ function NeueAnalyseFormInner() {
   const [empfehlungen, setEmpfehlungen] = useState<Empfehlung[]>([]);
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500&aktiv=true")
+    fetch("/api/kunden?limit=5000&aktiv=true")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d?.kunden) ? d.kunden : Array.isArray(d) ? d : []));
   }, []);

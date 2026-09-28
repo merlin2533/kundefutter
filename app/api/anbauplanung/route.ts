@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         kunde: { select: { id: true, name: true, firma: true } },
       },
       orderBy: [{ jahr: "desc" }, { schlagId: "asc" }],
-      take: 200,
+      take: 5000,
     });
 
     return NextResponse.json(plaene);

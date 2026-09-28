@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { kunde: { select: { id: true, name: true, firma: true } } },
       orderBy: [{ ablaufdatum: "asc" }, { createdAt: "desc" }],
-      take: 200,
+      take: 5000,
     });
 
     return NextResponse.json(zertifizierungen);

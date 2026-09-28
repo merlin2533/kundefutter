@@ -138,7 +138,7 @@ function NeuesAngebotForm() {
   }
 
   useEffect(() => {
-    fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false")
+    fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch((err) => {

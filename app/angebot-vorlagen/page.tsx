@@ -76,7 +76,7 @@ export default function AngebotVorlagenPage() {
   async function loadKunden() {
     setKundenLoading(true);
     try {
-      const res = await fetch("/api/kunden?limit=500");
+      const res = await fetch("/api/kunden?limit=5000");
       if (res.ok) {
         const d = await res.json();
         setKunden(Array.isArray(d) ? d : (d.kunden ?? []));

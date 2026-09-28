@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { artikel: { select: { id: true, name: true, kategorie: true } } },
       orderBy: [{ saison: "desc" }, { bestellfrist: "asc" }],
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(liste);
   } catch (err) {

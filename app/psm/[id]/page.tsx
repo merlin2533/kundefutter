@@ -65,7 +65,7 @@ function PSMDetailInner({ id }: { id: string }) {
   });
 
   useEffect(() => {
-    fetch("/api/kunden?limit=500")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : (d.kunden ?? [])))
       .catch((err) => {

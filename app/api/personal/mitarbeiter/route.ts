@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
         bevorzugteArbeitszeiten: true,
       },
       orderBy: [{ aktiv: "desc" }, { nachname: "asc" }, { vorname: "asc" }],
-      take: 500,
+      take: 5000,
     });
 
     return NextResponse.json(mitarbeiter);

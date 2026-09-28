@@ -259,7 +259,7 @@ function NeueLieferungInner() {
       // unten) greift dann NIE, die Seite bliebe für immer auf "Lade Daten...” stehen. Der
       // Timeout erzwingt nach LADE_TIMEOUT_MS einen AbortError, den der catch-Block unten abfängt.
       const [kr, ar, lr, mr] = await Promise.all([
-        fetch("/api/kunden?aktiv=true&limit=1000&kontakte=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
+        fetch("/api/kunden?aktiv=true&limit=5000&kontakte=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
         fetch("/api/artikel?limit=5000&relations=false", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
         fetch("/api/lieferanten?limit=500", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),
         fetch("/api/mengenrabatte", { signal: AbortSignal.timeout(LADE_TIMEOUT_MS) }).then((r) => r.ok ? r.json() : []),

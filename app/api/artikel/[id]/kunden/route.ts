@@ -60,7 +60,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
           },
         },
         orderBy: { lieferung: { datum: "desc" } },
-        take: 2000,
+        take: 5000,
       }),
       prisma.vorbestellungPosition.findMany({
         where: { artikelId, vorbestellung: { status: { in: ["OFFEN", "BESTAETIGT"] } } },
@@ -78,7 +78,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
             },
           },
         },
-        take: 1000,
+        take: 5000,
       }),
       prisma.angebotPosition.findMany({
         where: { artikelId, angebot: { status: "OFFEN" } },
@@ -96,7 +96,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
             },
           },
         },
-        take: 1000,
+        take: 5000,
       }),
     ]);
 

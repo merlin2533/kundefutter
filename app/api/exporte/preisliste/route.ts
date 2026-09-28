@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
         standardpreis: true,
       },
       orderBy: [{ kategorie: "asc" }, { name: "asc" }],
-      take: 1000,
+      take: 5000,
     });
 
     // Group by category

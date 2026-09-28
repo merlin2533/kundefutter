@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         mitarbeiter: { select: { id: true, vorname: true, nachname: true, typ: true } },
       },
       orderBy: [{ jahr: "desc" }, { monat: "desc" }, { mitarbeiter: { nachname: "asc" } }],
-      take: 500,
+      take: 5000,
     });
 
     return NextResponse.json(abrechnungen);

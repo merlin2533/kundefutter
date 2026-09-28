@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         _count: { select: { kunden: true } },
       },
       orderBy: { bis: "desc" },
-      take: 200,
+      take: 5000,
     });
     return NextResponse.json(list);
   } catch (err) {

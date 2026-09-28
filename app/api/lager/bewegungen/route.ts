@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { artikel: { select: liefposArtikelSelect } },
       orderBy: { datum: "desc" },
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(bewegungen);
   } catch (e) {

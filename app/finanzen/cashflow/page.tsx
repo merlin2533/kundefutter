@@ -80,7 +80,7 @@ export default function CashflowPage() {
       setError("");
       try {
         const [lRes, eRes, sRes, aRes] = await Promise.all([
-          fetch("/api/lieferungen?status=geliefert&limit=500"),
+          fetch("/api/lieferungen?status=geliefert&limit=5000"),
           fetch("/api/eingangsrechnungen?status=OFFEN&limit=500"),
           fetch("/api/sammelrechnungen?limit=500"),
           fetch("/api/ausgaben?limit=500"),

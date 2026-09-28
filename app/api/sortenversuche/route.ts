@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         schlag: { select: { id: true, name: true } },
       },
       orderBy: [{ jahr: "desc" }, { kultur: "asc" }],
-      take: 500,
+      take: 5000,
     });
     return NextResponse.json(liste);
   } catch (err) {

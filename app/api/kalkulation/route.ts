@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { name: "asc" },
-      take: 2000,
+      take: 5000,
     });
 
     // Optional: Preise für ein bestimmtes Jahr auflösen (Jahresgültigkeiten)

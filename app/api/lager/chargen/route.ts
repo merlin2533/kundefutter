@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
         },
-        take: 1000,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           lieferung: {
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           wareneingang: {
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
           ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           sortierung: {
@@ -273,23 +273,23 @@ export async function GET(req: NextRequest) {
         artikel: { id: artikel.id, name: artikel.name, einheit: artikel.einheit },
       }));
 
-      // Lagerbewegungen nach Charge (aktueller Bestand je Charge)
-      const lagerbewByCharge = await prisma.lagerbewegung.findMany({
+      // Lagerbewegungen nach Charge (aktueller Bestand je Charge) — DB-seitige Aggregation statt
+      // take-gedeckelter Liste + In-Memory-Summe: ein take-Cap auf einer unsortierten Bewegungsliste
+      // würde bei mehr als `take` Buchungen den berechneten Bestand schlicht falsch machen (nicht
+      // nur Zeilen einer Anzeige verstecken, siehe AGENTS.md Bug-Tabelle) — deshalb hier bewusst
+      // `groupBy`/`_sum` statt eines höheren `take`-Deckels.
+      const lagerbewByCharge = await prisma.lagerbewegung.groupBy({
+        by: ["chargeNr"],
         where: {
           artikelId,
           chargeNr: { not: null },
           ...(hasCharge ? { chargeNr: { contains: charge } } : {}),
         },
-        select: { chargeNr: true, menge: true, typ: true },
-        take: 2000,
+        _sum: { menge: true },
       });
-      const chargeBestand: Record<string, number> = {};
-      for (const lb of lagerbewByCharge) {
-        if (!lb.chargeNr) continue;
-        chargeBestand[lb.chargeNr] = (chargeBestand[lb.chargeNr] ?? 0) + lb.menge;
-      }
-      const bestandJeCharge = Object.entries(chargeBestand)
-        .map(([chargeNr, bestand]) => ({ chargeNr, bestand: Math.round(bestand * 1000) / 1000 }))
+      const bestandJeCharge = lagerbewByCharge
+        .filter((lb): lb is typeof lb & { chargeNr: string } => lb.chargeNr !== null)
+        .map((lb) => ({ chargeNr: lb.chargeNr, bestand: Math.round((lb._sum.menge ?? 0) * 1000) / 1000 }))
         .filter((c) => c.bestand > 0)
         .sort((a, b) => b.bestand - a.bestand);
 
@@ -321,7 +321,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { lieferung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           lieferung: {
@@ -341,7 +341,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { wareneingang: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           wareneingang: {
@@ -359,7 +359,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { datum: datumFilter } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           artikel: { select: { id: true, name: true, einheit: true } },
@@ -370,7 +370,7 @@ export async function GET(req: NextRequest) {
           chargeNr: { contains: charge },
           ...(hasDatum ? { sortierung: { datum: datumFilter } } : {}),
         },
-        take: 500,
+        take: 5000,
         orderBy: { id: "desc" },
         include: {
           sortierung: {
