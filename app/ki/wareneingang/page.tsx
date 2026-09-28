@@ -97,7 +97,7 @@ async function ladeAlleArtikel(): Promise<Artikel[]> {
 
 async function ladeAlleLieferanten(): Promise<Lieferant[]> {
   return fetchAlleSeiten<Lieferant>(async (page) => {
-    const res = await fetch(`/api/lieferanten?page=${page}&limit=500`);
+    const res = await fetch(`/api/lieferanten?page=${page}&limit=5000`);
     if (!res.ok) return null;
     const json = await res.json();
     return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };

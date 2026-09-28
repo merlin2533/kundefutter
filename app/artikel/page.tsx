@@ -219,7 +219,7 @@ export default function ArtikelPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/lieferanten?limit=500")
+    fetch("/api/lieferanten?limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((d: unknown) => { if (Array.isArray(d)) setLieferanten(d as LieferantOption[]); })
       .catch((err) => {

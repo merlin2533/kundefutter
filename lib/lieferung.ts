@@ -205,11 +205,15 @@ export async function erstelleLieferungMitPreisberechnung(
     });
     if (kunde?.kreditlimit != null) {
       kreditlimitWert = kunde.kreditlimit;
-      // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer)
+      // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer) — nur für
+      // GENAU diesen einen Kunden, `take` also kein globaler Deckel; auf 5000 angehoben (analog
+      // zu den anderen 500er-Deckel-Fixes im Projekt), da ein Kunde mit noch mehr offenen,
+      // unbezahlten Rechnungen ohnehin bereits deutlich außerhalb jedes plausiblen Kreditlimit-
+      // Warnbereichs läge.
       const offeneLieferungen = await prisma.lieferung.findMany({
         where: { kundeId: input.kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null },
         include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },
-        take: 200,
+        take: 5000,
       });
       offenerBetrag = offeneLieferungen.reduce((sum, l) => {
         const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0);

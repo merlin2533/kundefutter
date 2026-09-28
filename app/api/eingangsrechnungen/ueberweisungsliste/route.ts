@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [{ faelligAm: "asc" }, { datum: "asc" }],
-      take: 500,
+      take: 5000,
     });
 
     const result = rechnungen.map((r) => ({

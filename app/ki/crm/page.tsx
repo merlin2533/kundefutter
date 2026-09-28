@@ -21,7 +21,7 @@ interface Kunde {
 // lassen (siehe fetchAlleSeiten in lib/kiMatching.ts).
 async function ladeAlleKunden(): Promise<Kunde[]> {
   return fetchAlleSeiten<Kunde>(async (page) => {
-    const res = await fetch(`/api/kunden?aktiv=true&page=${page}&limit=1000`);
+    const res = await fetch(`/api/kunden?aktiv=true&page=${page}&limit=5000`);
     if (!res.ok) return null;
     const json = await res.json();
     return { items: Array.isArray(json.data) ? json.data : [], total: json.total ?? 0 };
