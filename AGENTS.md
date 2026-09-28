@@ -463,6 +463,83 @@ Eigene Landingpage `web/eierhandel.html` (siehe Abschnitt „Marketing-Website")
 
 ---
 
+## Rechnungs-E-Mail-Eingang
+
+Automatischer Import von Lieferantenrechnungen aus einem Postfach — konfigurierbar unter
+`/einstellungen/email-rechnungseingang` (Einstellung-Keys `email.eingang.*`), läuft alle ~30 Min.
+als Cron-Job (`jobEmailRechnungseingang()` in `app/api/cron/route.ts`) plus manuell über den
+„Jetzt abrufen"-Button auf derselben Seite. Zwei Postfach-Typen, eine gemeinsame Pipeline
+(`lib/email-eingang-abruf.ts` liefert beide auf dieselbe `EingehendeMail`-Form normalisiert):
+
+- **IMAP-Postfach** (`imapflow` + `mailparser`) — Zugangsdaten eines bestehenden Mailservers.
+  Bewusst NICHT „SMTP" genannt: SMTP kann nur senden, zum Abholen wird IMAP gebraucht. Nur
+  Port 993/TLS, kein unverschlüsseltes IMAP im Angebot.
+- **Microsoft 365** — Graph-API mit Client-Credentials-Flow (Application-Permission `Mail.Read`,
+  Azure-Admin-Zustimmung nötig), absichtlich OHNE `@azure/msal-*`/`@microsoft/microsoft-graph-client`
+  als Abhängigkeit, nur `fetch()` gegen die beiden festen Hosts `login.microsoftonline.com` und
+  `graph.microsoft.com` (verhindert SSRF über eine frei konfigurierbare Basis-URL; Tenant-ID und
+  Postfach-Adresse werden vor dem Einsetzen in die URL validiert).
+
+**Zentrale Design-Entscheidung: keine automatisch angelegte `EingangsRechnung`.** Eine per KI
+erkannte Rechnung landet stattdessen im bereits bestehenden `KiEingangsrechnungBatch`/
+`KiEingangsrechnungBatchItem`-Mechanismus (wie beim manuellen Foto-Upload unter
+`/eingangsrechnungen/neu`) — pro Mail ein eigener Batch (`quelle:"email"`, `notiz` nennt
+Absender+Betreff). „Verbuchen" bleibt der bestehende `PUT /api/ki/eingangsrechnung/batch/[id]
+{aktion:"abschliessen"}`-Aufruf. Grund: `EingangsRechnung.lieferantId` ist Pflichtfeld (kein
+Lieferant erfinden, wenn die KI keinen sicheren Treffer findet), und eine ungeprüfte, automatisch
+erzeugte Rechnung darf nicht unbemerkt als `OFFEN` im Bankabgleich, der Überweisungsliste oder der
+Liquiditätsvorschau auftauchen, bevor ein Mensch sie bestätigt hat.
+
+**Verarbeitung je Anhang** (`lib/email-eingang-verarbeitung.ts`):
+1. Dateityp per Magic Bytes bestimmen (`erkenneDateityp()`) — NICHT anhand des von der Mail
+   gemeldeten Content-Type/Dateinamens (nicht vertrauenswürdig). Inline-Bilder (Signatur-Logos)
+   werden schon beim Abruf verworfen.
+2. PDF/eigenständiges XML: zuerst ZUGFeRD/Factur-X versuchen (`lib/zugferd-parse.ts`, deterministisch,
+   kostenlos, keine Halluzination). Ein XML-Anhang, der erkennbar eine E-Rechnung sein soll, aber
+   mit dem vorhandenen (nur CII/`CrossIndustryInvoice`, kein UBL) Parser nicht lesbar ist, landet
+   trotzdem als Item im Eingang — ohne Datenvorschlag, rein zur manuellen Erfassung.
+3. Kein ZUGFeRD gefunden → KI-Weg: erst die günstige Typ-Klassifikation `PROMPTS.belegtyp`
+   (nur bei `typ:"rechnung"` weiter), erst dann die teurere strukturierte Extraktion
+   `PROMPTS.beleg` — verhindert, dass ein zufälliges PDF (AGB, Lieferschein, Datenblatt) im Anhang
+   fälschlich als Eingangsrechnung angelegt wird. Beide Prompts/`analyzeDocument()` sind exakt die
+   bereits bestehenden aus `lib/ai.ts` — kein eigener Prompt für diese Pipeline.
+4. Lieferanten-Zuordnung: IBAN-Exakttreffer zuerst (deterministisch, fälschungsresistenter als ein
+   Name), erst danach der bestehende Fuzzy-Matcher `matchKunde()` (`lib/kiMatching.ts`).
+5. `berechneFehlendeFelderEingangsrechnung()`/`parseBelegKiErgebnis()` (`lib/eingangsrechnung-matching.ts`)
+   sind dieselben Funktionen, die auch die manuelle Batch-Review-Seite
+   (`app/eingangsrechnungen/batch/[id]/page.tsx`) und der manuelle `POST .../batch/[id]/analyze`-
+   Endpunkt nutzen — verschoben aus der Review-Seite, damit beide Wege nie auseinanderlaufen.
+
+**Idempotenz/Cursor:** `EingangsRechnungMailImport` protokolliert jede verarbeitete Mail
+(`@@unique([provider, postfach, messageId])`, Ersatz-Hash falls der Message-ID-Header fehlt).
+Bewusst KEIN „ungelesen"/`isRead`-Cursor — würde durch bloßes Öffnen der Mailbox in einem
+beliebigen Mail-Client kaputtgehen. Stattdessen ein echter Fortschritts-Cursor je Provider
+(IMAP: `email.eingang.imap.{uidvalidity,letzteUid}`; M365: `email.eingang.m365.letzterAbruf`),
+der erst NACH erfolgreicher Verarbeitung einer Mail vorrückt. Bei einer echten Mistral-429-
+Überlastung (`istMistralRateLimitFehler()`, jetzt aus `lib/ai.ts` exportiert) bricht der gesamte
+Lauf sofort ab, statt jede weitere Mail dieses Laufs ebenfalls als „fehler" zu verbrennen — der
+nächste Cron-Tick beginnt wieder bei genau dieser Mail. `email.eingang.aktivSeit` (beim
+Einschalten automatisch auf „jetzt" gesetzt) verhindert, dass ein bestehendes Postfach mit vielen
+alten Mails beim ersten Aktivieren komplett auf einen Schlag verarbeitet wird; `MAX_MAILS_PRO_LAUF`
+(10, `lib/email-eingang-abruf.ts`) deckelt zusätzlich jeden einzelnen Lauf (der Cron-Request läuft
+sequenziell ohne eigenes Timeout, siehe `docker-entrypoint.sh`).
+
+**Bekannte, bewusste Lücke:** `EingangsRechnung` fließt weiterhin NICHT in den DATEV-Export
+(`lib/datev.ts`) oder die USt-Voranmeldung ein — daran ändert dieses Feature nichts. „Für den
+Steuerberater ausgespielt" ist hier ausschließlich über die bestehende Nextcloud-Beleg-Spiegelung
+beim `abschliessen`-Aufruf abgedeckt (Ordner „Eingangsrechnungen" unter Buchhaltung), nicht über
+eine Vorsteuer-Buchung. Eine echte DATEV-/UStVA-Anbindung für Eingangsrechnungen (Kreditorenkonto,
+Sachkonto je Position) ist ein eigener, hier nicht adressierter Folgeauftrag.
+
+Dashboard-Widget „📧 Rechnungs-E-Mail-Eingang" (`app/page.tsx`, `WidgetId
+"email_rechnungseingang"`) zeigt die Anzahl noch zu prüfender Items aus E-Mail-Batches
+(`GET /api/eingangsrechnungen/email-eingang-zaehler`, aggregiert statt `findMany` — vermeidet den
+im Projekt mehrfach dokumentierten „500er-Deckel"-Bug-Typ). `/eingangsrechnungen` zeigt zusätzlich
+ein Panel „📧 Aus E-Mail-Eingang zu prüfen" mit den offenen Batches
+(`GET /api/ki/eingangsrechnung/batch?quelle=email&offen=1`).
+
+---
+
 ## Framework & Laufzeitumgebung
 
 **WICHTIG: Lies immer zuerst `node_modules/next/dist/docs/` bevor du Code schreibst.**
@@ -570,6 +647,9 @@ Zertifizierung      — Kundenzertifizierungen (typ z.B. AMA/BIO/QS, gueltigBis,
 BodenanalyseAlbrecht— Albrecht-Analysen je KundeSchlag
 Anbauplan           — Jahres-/Saisonplanung je Schlag (kultur, flaeche, saison, menge)
 EingangsRechnung    — Lieferantenrechnungen (nummer, datum, faelligAm, betrag, mwst, status OFFEN/BEZAHLT/STORNIERT, lieferantId)
+EingangsRechnungMailImport — Protokoll/Idempotenz-Log des automatischen E-Mail-Rechnungseingangs (provider,
+                      postfach, messageId @@unique, status neu/rechnung_erkannt/keine_rechnung/fehler, batchId? —
+                      siehe Abschnitt „Rechnungs-E-Mail-Eingang")
 Bestellung          — Lieferantenbestellungen (nummer, datum, status OFFEN/BESTAETIGT/TEILGELIEFERT/ABGESCHLOSSEN/STORNIERT, lieferantId, versendetAm?/versendetAn? — Nachweis, dass sie per E-Mail rausgeschickt wurde)
 BestellungPosition  — Positionen je Bestellung (artikel, menge, mengeGeliefert, preis)
 AngebotVorlage      — Wiederverwendbare Angebotsvorlagen (name, positionen)
@@ -615,6 +695,11 @@ EierSortierungPosition — klassifizierte Ausgangscharge je Sortierung (artikel,
 | `smtp.*` | SMTP-Konfiguration (host, port, secure, user, pass) |
 | `email.from` | Absender-E-Mail-Adresse |
 | `resend.api_key` | Resend API-Key |
+| `email.eingang.aktiv` | Rechnungs-E-Mail-Eingang aktiv? ("true"/"false") |
+| `email.eingang.provider` | "imap" \| "m365" |
+| `email.eingang.aktivSeit` | ISO-Zeitstempel, ab dem Mails verarbeitet werden (beim Aktivieren automatisch auf "jetzt" gesetzt) |
+| `email.eingang.imap.{host,port,user,passwort,ordner,uidvalidity,letzteUid}` | IMAP-Zugangsdaten + Abruf-Cursor |
+| `email.eingang.m365.{tenantId,clientId,clientSecret,mailbox,letzterAbruf}` | Microsoft-365/Graph-Zugangsdaten + Abruf-Cursor |
 | `system.nextcloud.serverUrl` | Nextcloud-Server-URL (WebDAV-Basis) |
 | `system.nextcloud.username` | Nextcloud-Benutzername |
 | `system.nextcloud.appPassword` | Nextcloud-App-Passwort (HTTP Basic Auth) |
@@ -898,6 +983,9 @@ app/
 │   ├── gdpr/page.tsx           DSGVO (Art. 15–17)
 │   ├── mqtt/page.tsx           MQTT-Automatisierungsregeln + KI
 │   ├── email-import/page.tsx   Eingehende E-Mails (Resend) + KI-Verarbeitung
+│   ├── email-rechnungseingang/page.tsx  Rechnungs-E-Mail-Eingang: IMAP/M365-Zugangsdaten,
+│   │                           Verbindungstest, "Jetzt abrufen", Protokoll (siehe Abschnitt
+│   │                           „Rechnungs-E-Mail-Eingang")
 │   └── cron/page.tsx           Cron-Jobs überwachen + manuell auslösen
 ├── manifest.ts
 ├── icon.tsx
@@ -1195,6 +1283,19 @@ app/
 /api/eingangsrechnungen         GET(?lieferantId,?status), POST
 /api/eingangsrechnungen/[id]    GET, PUT, DELETE
 /api/eingangsrechnungen/[id]/beleg  POST (Beleg-Upload, spiegelt nach Nextcloud Buchhaltung/), DELETE
+/api/eingangsrechnungen/zugferd-import  POST — ZUGFeRD/Factur-X-PDF direkt importieren
+/api/eingangsrechnungen/email-eingang-zaehler  GET — aggregierte Zähler fürs Dashboard-Widget/Panel
+                                 (offene KI-Batch-Items aus E-Mail + offene EingangsRechnung-Summe)
+/api/ki/eingangsrechnung/batch          GET(?quelle=email\|upload,?offen=1), POST (multipart, manueller
+                                 Foto-/Datei-Upload, Modul „Rechnungs-E-Mail-Eingang" nutzt denselben
+                                 Batch-/Item-Mechanismus serverseitig statt dieser Route)
+/api/ki/eingangsrechnung/batch/[id]     GET, PUT({aktion:"abschliessen"\|"verwerfen"})
+/api/ki/eingangsrechnung/batch/[id]/analyze       POST({itemId}) — KI-Analyse eines Items
+/api/ki/eingangsrechnung/batch/[id]/items(/[itemId])  POST, PATCH, DELETE
+/api/einstellungen/email-eingang-test   POST — Verbindungstest (IMAP/M365) der gespeicherten Konfiguration
+/api/einstellungen/email-eingang/abrufen  POST — manueller „Jetzt abrufen"-Trigger, ruft
+                                 verarbeiteEingehendeMails() identisch zum Cron-Job auf
+/api/einstellungen/email-eingang-protokoll  GET — Protokoll-Tabelle der Settings-Seite
 /api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
 /api/anlieferungen              GET(?lieferantId,?kundeId,?artikelId,?von,?bis), POST
 /api/anlieferungen/[id]         GET, PUT, DELETE (409 bei verknüpfter Ei-Sortierung ODER offener
@@ -2044,6 +2145,10 @@ ist modulabhängig).
 | `lib/ausgleichsartikel.ts` | Zentrale, dependency-freie Liste der "Ausgleichsartikel"-Artikelnummern (`ALTE_FORDERUNG_ARTIKELNUMMER`/`GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER`/`RESTDIFFERENZ_ARTIKELNUMMER`) + `istAusgleichsArtikelnummer()` — genutzt von `lib/lieferung.ts` (erzeugt die Positionen) UND `lib/datev.ts` (muss sie im Export erkennen, um sie auf ein Verrechnungs- statt Erlöskonto zu buchen) |
 | `lib/anlieferung-import.ts` | Geteilte Parsing-/Auflösungslogik für den Anlieferungs-Import: `parseAnlieferungZeile()` (reine Funktion), `resolveAnlieferungKunde()`/`resolveArtikelRef()` (DB-Lookup per Name/Artikelnummer, exakt dann eindeutiger Teilstring-Treffer) — von Vorschau- UND Commit-Route genutzt, damit beide nie auseinanderlaufen |
 | `lib/eiersortierung-import.ts` | Analog für den EierSortierung-Import: `parseEierSortierungZeile()`, `resolveAnlieferungRef()` (löst eine Anlieferung per `nummer` ODER `externeNr` auf); re-exportiert `resolveArtikelRef` aus `lib/anlieferung-import.ts` (generischer Artikel-Resolver, kein Anlieferungs-Detail) |
+| `lib/eingangsrechnung-matching.ts` | `berechneFehlendeFelderEingangsrechnung()` (aus der Batch-Review-Seite hierher verschoben) + `parseBelegKiErgebnis()` (Normalisierung des `PROMPTS.beleg`-KI-Ergebnisses) — gemeinsam genutzt vom manuellen `POST .../batch/[id]/analyze` UND dem automatischen E-Mail-Rechnungseingang |
+| `lib/email-eingang-config.ts` | Lädt/parst die `email.eingang.*`-Einstellungen (`ladeEmailEingangConfig()`), persistiert die Abruf-Cursor (`speichereImapCursor()`/`speichereM365Cursor()`) — siehe Abschnitt „Rechnungs-E-Mail-Eingang" |
+| `lib/email-eingang-abruf.ts` | Roh-Abruf eingehender Mails: `holeImapMails()` (imapflow+mailparser) / `holeM365Mails()` (Graph-REST) liefern beide auf `EingehendeMail` normalisiert; `testeImapVerbindung()`/`testeM365Verbindung()` für den Verbindungstest |
+| `lib/email-eingang-verarbeitung.ts` | Orchestrator `verarbeiteEingehendeMails()`: Dedupe, Magic-Byte-Dateityperkennung, ZUGFeRD-first, sonst KI-Klassifikation+Extraktion, Lieferanten-Matching, Anlage im `KiEingangsrechnungBatch`-Mechanismus — vom Cron-Job UND vom manuellen „Jetzt abrufen"-Button aufgerufen |
 
 ## Wettbewerber-Notizen
 

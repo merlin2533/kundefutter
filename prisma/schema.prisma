@@ -2238,6 +2238,7 @@ model KiEingangsrechnungBatch {
   id              Int       @id @default(autoincrement())
   status          String    @default("offen") // offen | verarbeitung | bereit | abgeschlossen | verworfen
   notiz           String?
+  quelle          String    @default("upload") // "upload" (manueller Foto-/Datei-Upload) | "email" (automatischer E-Mail-Eingang, siehe EingangsRechnungMailImport)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   abgeschlossenAm DateTime?
@@ -2245,6 +2246,7 @@ model KiEingangsrechnungBatch {
   items KiEingangsrechnungBatchItem[]
 
   @@index([status])
+  @@index([quelle])
 }
 
 model KiEingangsrechnungBatchItem {
@@ -2271,7 +2273,45 @@ model KiEingangsrechnungBatchItem {
   eingangsRechnungId Int? // gesetzt nach erfolgreichem Abschluss
   analysiertAm       DateTime?
   createdAt          DateTime                @default(now())
+  // Rückverweis auf die E-Mail, aus der dieses Item automatisch erzeugt wurde (nur bei
+  // batch.quelle==="email") — für die Protokoll-Anzeige in der Mail-Eingang-Einstellungsseite.
+  mailImportId Int?
+  // sha256 des Anhang-Inhalts — Dubletten-Schutz auf Belegebene (dieselbe Rechnung kommt oft
+  // mehrfach: Original + Zahlungserinnerung mit identischem PDF, oder weitergeleitet mit neuer
+  // Message-ID). Die Message-ID allein (siehe EingangsRechnungMailImport) schützt davor nicht.
+  dateiHash String?
 
   @@index([batchId])
   @@index([status])
+  @@index([mailImportId])
+  @@index([dateiHash])
+}
+
+// ─── E-MAIL-RECHNUNGSEINGANG ────────────────────────────────────────────────────
+// Protokoll/Idempotenz-Log für den automatischen Eingangsrechnungs-Mail-Import (IMAP-Postfach
+// oder Microsoft 365/Graph, siehe lib/email-eingang-*.ts). Jede verarbeitete Mail wird hier
+// genau einmal erfasst — analog zum Anlieferung.externeNr-Muster verhindert der @@unique-Index
+// aus (provider, postfach, messageId), dass ein wiederholter Poll (Cron alle 30 Min + manueller
+// "Jetzt abrufen"-Button) dieselbe Mail ein zweites Mal verarbeitet und dadurch doppelte
+// KiEingangsrechnungBatch-Items bzw. teure Mistral-Aufrufe erzeugt.
+model EingangsRechnungMailImport {
+  id             Int      @id @default(autoincrement())
+  provider       String // "imap" | "m365" — bei Kontowechsel können sich Message-IDs überschneiden
+  postfach       String // Mailbox-Adresse/Benutzer, zur eindeutigen Zuordnung bei mehreren Konten
+  messageId      String // Message-ID-Header; fehlt er (seltene, aber reale Mails), wird ein
+  // sha256(von|betreff|empfangenAm|erste Anhang-Prüfsumme) als Ersatz eingesetzt (siehe
+  // lib/email-eingang-abruf.ts ersatzMessageId())
+  von            String
+  betreff        String?
+  empfangenAm    DateTime
+  status         String    @default("neu") // neu | rechnung_erkannt | keine_rechnung | fehler
+  anhaengeAnzahl Int       @default(0)
+  fehlerText     String?
+  versuche       Int       @default(0) // erlaubt Wiederholung bei "fehler" (z.B. Mistral-429), bis max. 3
+  batchId        Int? // KiEingangsrechnungBatch mit quelle="email", der aus dieser Mail entstand
+  createdAt      DateTime  @default(now())
+
+  @@unique([provider, postfach, messageId])
+  @@index([status])
+  @@index([empfangenAm])
 }

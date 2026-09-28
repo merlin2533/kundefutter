@@ -7,13 +7,11 @@ import path from "path";
 import { analyzeDocument, getAiConfig, logError, PROMPTS } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { parseBelegKiErgebnis } from "@/lib/eingangsrechnung-matching";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const GUELTIGE_MWST = [0, 7, 19];
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function POST(req: NextRequest, ctx: Ctx) {
   const me = await getCurrentUser();
@@ -56,30 +54,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       const base64 = buffer.toString("base64");
       const result = await analyzeDocument(base64, prompt, "beleg", cfg);
       const p = result.parsed as Record<string, unknown>;
-
-      const mwstRaw = Number(p.mwstSatz);
-      const mwstSatz = GUELTIGE_MWST.includes(mwstRaw) ? mwstRaw : 19;
+      const ergebnis = parseBelegKiErgebnis(p);
 
       const updated = await prisma.kiEingangsrechnungBatchItem.update({
         where: { id: itemId },
         data: {
           status: "analysiert",
           kiRohtext: result.raw,
-          kiErgebnisJson: JSON.stringify({
-            datum: typeof p.datum === "string" && DATE_PATTERN.test(p.datum) ? p.datum : null,
-            belegNr: typeof p.belegNr === "string" ? p.belegNr : null,
-            faelligAm: typeof p.faelligAm === "string" && DATE_PATTERN.test(p.faelligAm) ? p.faelligAm : null,
-            beschreibung: typeof p.beschreibung === "string" ? p.beschreibung.substring(0, 80) : null,
-            betragNetto: typeof p.betragNetto === "number" ? Math.round(p.betragNetto * 100) / 100 : null,
-            betragBrutto: typeof p.betragBrutto === "number" ? Math.round(p.betragBrutto * 100) / 100 : null,
-            mwstSatz,
-            lieferant: typeof p.lieferant === "string" ? p.lieferant : null,
-            iban:
-              typeof p.iban === "string" && /^[A-Z]{2}[0-9A-Z]{10,30}$/.test(p.iban.replace(/\s/g, "").toUpperCase())
-                ? p.iban.replace(/\s/g, "").toUpperCase()
-                : null,
-            bic: typeof p.bic === "string" && p.bic.trim() ? p.bic.trim().toUpperCase() : null,
-          }),
+          kiErgebnisJson: JSON.stringify(ergebnis),
           fehlerText: null,
           analysiertAm: new Date(),
         },
