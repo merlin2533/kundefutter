@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
+import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
 import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { ALTE_FORDERUNG_ARTIKELNUMMER, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, RESTDIFFERENZ_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
@@ -124,10 +124,15 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
 
       // Ein vom Aufrufer explizit übergebener Preis gilt als bereits final (z.B. die manuelle
       // Lieferungserfassung berechnet Sonderpreis + Mengenrabatt schon clientseitig für die
-      // Live-Vorschau) — der Mengenrabatt wird dann NICHT nochmal serverseitig angewendet,
-      // sonst würde derselbe Rabatt doppelt abgezogen. Nur wenn kein Preis mitgegeben wird
-      // (z.B. KI-Batch-Erkennung ohne erkannten VK), berechnet der Server ihn inkl. Mengenrabatt
-      // selbst.
+      // Live-Vorschau) — rabattProzent wird dann unverändert übernommen, NICHT nochmal
+      // serverseitig neu berechnet. Nur wenn kein Preis mitgegeben wird (z.B. KI-Batch-Erkennung
+      // ohne erkannten VK), berechnet der Server ihn inkl. Mengenrabatt selbst.
+      //
+      // WICHTIG: `verkaufspreis` ist in BEIDEN Fällen der LISTENPREIS (vor Mengenstaffel-Rabatt),
+      // nie der bereits rabattierte Staffelpreis — jede Rechnungs-/PDF-/ZUGFeRD-/DATEV-Berechnung
+      // rechnet grundsätzlich `verkaufspreis × (1-rabattProzent%)`; ein hier gespeicherter, schon
+      // rabattierter Preis würde denselben Rabatt ein zweites Mal abziehen (siehe
+      // effektiverMengenstaffelRabatt() in lib/utils.ts).
       let verkaufspreis: number;
       let bestRabatt: number;
       if (pos.verkaufspreis !== undefined) {
@@ -136,7 +141,7 @@ async function erstelleLieferungTransaktion(input: ErstelleLieferungInput) {
       } else {
         const basisVerkaufspreis = berechneVerkaufspreis(artikel, kundePreis);
         const staffel = bestMengenstaffel(pos.artikelId, artikel.kategorie, pos.menge, kundeId, alleMengenrabatte);
-        verkaufspreis = wendeMengenstaffelAn(basisVerkaufspreis, staffel);
+        verkaufspreis = basisVerkaufspreis;
         bestRabatt = effektiverMengenstaffelRabatt(basisVerkaufspreis, staffel);
       }
 

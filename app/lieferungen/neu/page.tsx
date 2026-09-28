@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput, { type ChargeMeta } from "@/components/ChargeInput";
-import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, wendeMengenstaffelAn, effektiverMengenstaffelRabatt, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
+import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, effektiverMengenstaffelRabatt, formatRabattProzent, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
 import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
@@ -135,6 +135,12 @@ interface NewPosition {
    *  einer Mengenänderung neu berechnet werden; false = Nutzer hat den Preis manuell überschrieben,
    *  eine Mengenänderung fasst ihn dann nicht mehr an. */
   vkAuto: boolean;
+  /** Mengenstaffel-Rabatt auf `verkaufspreis` (der hier IMMER der Listenpreis vor Rabatt ist,
+   *  auch bei aktiver Staffel — nicht der bereits rabattierte Preis, sonst würde der Server bzw.
+   *  jede Rechnungs-/PDF-/ZUGFeRD-/DATEV-Berechnung, die `verkaufspreis × (1-rabatt%)` rechnet,
+   *  denselben Rabatt ein zweites Mal abziehen). 0, solange der Preis manuell überschrieben wurde
+   *  (vkAuto=false) — ein manuell eingegebener Preis ist bereits final, kein zusätzlicher Rabatt. */
+  rabattProzent: number;
   /** Eierhandel-Kennzeichnung (EU-Vermarktungsnorm) — nur relevant/sichtbar bei Artikel-Kategorie "Eier". */
   gueteklasse: string;
   gewichtsklasse: string;
@@ -153,6 +159,7 @@ const emptyPosition = (): NewPosition => ({
   chargeNr: "",
   notiz: "",
   vkAuto: true,
+  rabattProzent: 0,
   gueteklasse: "",
   gewichtsklasse: "",
   legedatum: "",
@@ -428,13 +435,18 @@ function NeueLieferungInner() {
             const kp = kundePreise.find((p) => p.artikelId === art.id);
             const basis = berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null);
             const staffel = findeMengenstaffel(art, Number(next.menge) || 0, kundeId, mengenrabatte);
-            next.verkaufspreis = String(wendeMengenstaffelAn(basis, staffel));
+            // Listenpreis (VOR Staffel-Rabatt) speichern, nicht wendeMengenstaffelAn()s bereits
+            // rabattierten Preis — sonst zieht jede spätere Rechnungs-/PDF-/ZUGFeRD-/DATEV-Berechnung
+            // (die immer verkaufspreis × (1-rabattProzent%) rechnet) denselben Rabatt ein zweites Mal ab.
+            next.verkaufspreis = String(basis);
+            next.rabattProzent = effektiverMengenstaffelRabatt(basis, staffel) || 0;
             next.einkaufspreis = String(resolveEK(art));
             // Artikel-Notiz durchschleifen (z.B. Abpackungshinweis)
             next.notiz = art.notiz ?? "";
             next.vkAuto = true;
           } else {
             next.verkaufspreis = "";
+            next.rabattProzent = 0;
             next.einkaufspreis = "";
             next.notiz = "";
             next.vkAuto = true;
@@ -449,11 +461,15 @@ function NeueLieferungInner() {
               const kp = kundePreise.find((kpr) => kpr.artikelId === art.id);
               const basis = berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null);
               const staffel = findeMengenstaffel(art, Number(value) || 0, kundeId, mengenrabatte);
-              next.verkaufspreis = String(wendeMengenstaffelAn(basis, staffel));
+              next.verkaufspreis = String(basis);
+              next.rabattProzent = effektiverMengenstaffelRabatt(basis, staffel) || 0;
             }
           }
         } else {
-          if (field === "verkaufspreis") next.vkAuto = false;
+          // Ein manuell eingegebener VK-Preis gilt als bereits final (analog zur Serverlogik in
+          // lib/lieferung.ts) — ein zuvor per Mengenstaffel berechneter Rabatt entfällt damit,
+          // sonst würde der jetzt frei getippte Preis nachträglich nochmal rabattiert.
+          if (field === "verkaufspreis") { next.vkAuto = false; next.rabattProzent = 0; }
           (next as unknown as Record<string, string>)[field] = String(value);
         }
         return next;
@@ -504,10 +520,11 @@ function NeueLieferungInner() {
     const n = parseFloat(s);
     return isNaN(n) ? 0 : n;
   };
-  const nettoSumme = positionen.reduce(
-    (sum, p) => sum + num(p.menge) * num(p.verkaufspreis),
-    0
-  );
+  // Netto NACH Mengenstaffel-Rabatt (verkaufspreis ist immer der Listenpreis, siehe
+  // NewPosition.rabattProzent) — dieselbe Formel wie berechneLieferungBrutto()/PDF/ZUGFeRD.
+  const positionNetto = (p: NewPosition) =>
+    num(p.menge) * num(p.verkaufspreis) * (1 - (p.rabattProzent || 0) / 100);
+  const nettoSumme = positionen.reduce((sum, p) => sum + positionNetto(p), 0);
   const ekSumme = positionen.reduce(
     (sum, p) => sum + num(p.menge) * num(p.einkaufspreis),
     0
@@ -554,18 +571,17 @@ function NeueLieferungInner() {
           istVorkasse,
           positionen: positionen.map((p) => {
             const menge = parseFloat(p.menge) || 0;
-            const art = artikel.find((a) => a.id === Number(p.artikelId));
-            const kp = art ? kundePreise.find((kpr) => kpr.artikelId === art.id) : undefined;
-            const basis = art ? berechneVerkaufspreis(art, kp ? { preis: kp.preis, rabatt: kp.rabatt } : null) : 0;
-            const staffel = findeMengenstaffel(art, menge, kundeId, mengenrabatte);
             return {
               artikelId: Number(p.artikelId),
               menge,
+              // verkaufspreis ist hier IMMER der Listenpreis (siehe NewPosition.rabattProzent-
+              // Kommentar) — der Server wendet den Mengenrabatt bei explizit übergebenem
+              // verkaufspreis nicht zusätzlich an (siehe LieferungPositionInput in lib/lieferung.ts),
+              // sondern erwartet ihn bereits korrekt in rabattProzent, das hier live aus dem
+              // Formular-State kommt statt unabhängig neu berechnet zu werden (sonst könnte ein
+              // manuell überschriebener VK-Preis fälschlich einen Staffel-Rabatt "erben").
               verkaufspreis: parseFloat(p.verkaufspreis) || 0,
-              // Für die Rabatt-Spalte auf Lieferschein/Rechnung — der VK-Preis oben ist bereits
-              // rabattiert, der Server wendet den Mengenrabatt bei explizit übergebenem
-              // verkaufspreis NICHT nochmal an (siehe LieferungPositionInput in lib/lieferung.ts).
-              rabattProzent: effektiverMengenstaffelRabatt(basis, staffel) || undefined,
+              rabattProzent: p.rabattProzent || undefined,
               einkaufspreis: parseFloat(p.einkaufspreis) || 0,
               chargeNr: p.chargeNr || undefined,
               notiz: p.notiz.trim() || undefined,
@@ -803,6 +819,7 @@ function NeueLieferungInner() {
                                           chargeNr: "",
                                           notiz: artikel.find((a) => a.id === ka.artikelId)?.notiz ?? "",
                                           vkAuto: true,
+                                          rabattProzent: 0,
                                           gueteklasse: "",
                                           gewichtsklasse: "",
                                           legedatum: "",
@@ -898,8 +915,9 @@ function NeueLieferungInner() {
                 <tbody>
                   {positionen.map((pos, idx) => {
                     const vk = num(pos.verkaufspreis);
+                    const vkNachRabatt = vk * (1 - (pos.rabattProzent || 0) / 100);
                     const ek = num(pos.einkaufspreis);
-                    const margePct = vk > 0 ? ((vk - ek) / vk) * 100 : 0;
+                    const margePct = vkNachRabatt > 0 ? ((vkNachRabatt - ek) / vkNachRabatt) * 100 : 0;
                     const selectedArtikel = artikel.find((a) => a.id === Number(pos.artikelId));
                     const hatSonderpreis = selectedArtikel != null && kundePreise.some((p) => p.artikelId === selectedArtikel.id);
                     const aktiveMengenstaffel = findeMengenstaffel(selectedArtikel, num(pos.menge), kundeId, mengenrabatte);
@@ -1062,7 +1080,7 @@ function NeueLieferungInner() {
                             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-green-700"
                           />
                           <div className="text-xs text-gray-400 text-right mt-0.5">
-                            {formatEuro(num(pos.menge) * num(pos.verkaufspreis))}
+                            {formatEuro(positionNetto(pos))}
                           </div>
                           {hatSonderpreis && (
                             <div className="text-[10px] text-green-700 text-right mt-0.5" title="Kundenspezifischer Sonderpreis wurde übernommen">
@@ -1070,8 +1088,8 @@ function NeueLieferungInner() {
                             </div>
                           )}
                           {aktiveMengenstaffel && (
-                            <div className="text-[10px] text-blue-700 text-right mt-0.5" title="Mengenstaffel für diese Menge wurde automatisch übernommen">
-                              ✓ Mengenstaffel ab {aktiveMengenstaffel.vonMenge}
+                            <div className="text-[10px] text-blue-700 text-right mt-0.5" title="Mengenstaffel für diese Menge wurde automatisch übernommen — VK-Preis zeigt den Listenpreis, der Rabatt ist bereits im Gesamt-Betrag darunter eingerechnet">
+                              ✓ Mengenstaffel ab {aktiveMengenstaffel.vonMenge}{pos.rabattProzent > 0 ? ` (−${formatRabattProzent(pos.rabattProzent)}%)` : ""}
                             </div>
                           )}
                         </td>
@@ -1080,7 +1098,7 @@ function NeueLieferungInner() {
                         <td className="px-3 py-2 text-right">
                           <MargeBadge pct={margePct} />
                           <div className="text-xs text-gray-400 mt-0.5 text-right">
-                            {formatEuro(num(pos.menge) * (num(pos.verkaufspreis) - num(pos.einkaufspreis)))}
+                            {formatEuro(num(pos.menge) * (vkNachRabatt - num(pos.einkaufspreis)))}
                           </div>
                         </td>
 

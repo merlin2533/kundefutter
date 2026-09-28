@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
-import { formatEuro, formatDatum, resolveBevorzugtenEK } from "@/lib/utils";
+import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -1261,7 +1261,7 @@ export default function LieferungDetailPage() {
                   <td style={{ padding: "4px 6px", verticalAlign: "top" }}>
                     <div>{p.artikel.name}</div>
                     {(p.rabattProzent ?? 0) > 0 && (
-                      <div style={{ fontSize: "9pt", color: "#555" }}>Rabatt {p.rabattProzent}%</div>
+                      <div style={{ fontSize: "9pt", color: "#555" }}>Rabatt {formatRabattProzent(p.rabattProzent ?? 0)}%</div>
                     )}
                   </td>
                   <td style={{ padding: "4px 6px", verticalAlign: "top", fontFamily: "monospace", fontSize: "9pt", color: "#555" }}>
@@ -2153,7 +2153,7 @@ export default function LieferungDetailPage() {
                         }
                       >
                         {pos.rabattProzent && pos.rabattProzent > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{pos.rabattProzent}%</span>
+                          <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">{formatRabattProzent(pos.rabattProzent)}%</span>
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}

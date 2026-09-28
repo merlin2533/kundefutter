@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
+import { effektiverMengenstaffelRabatt, type MengenrabattEintrag } from "@/lib/utils";
 
 describe("berechneGutschriftBrutto", () => {
   it("rechnet MwSt auf den Netto-Positionsbetrag auf (Menge × Preis × (1+MwSt%))", () => {
@@ -38,5 +39,21 @@ describe("berechneLieferungBrutto (Referenz für die gemischte Brutto-Basis)", (
       positionen: [{ menge: 1, verkaufspreis: 100, rabattProzent: 0, mwstSatz: 19 }],
     });
     expect(brutto).toBeCloseTo(119, 4);
+  });
+
+  it("Regression: Mengenstaffel-Position (verkaufspreis = Listenpreis + echter Rabatt) wird nur EINMAL rabattiert, nicht doppelt", () => {
+    // Vorher: app/lieferungen/neu/page.tsx speicherte den bereits rabattierten Staffelpreis
+    // direkt als verkaufspreis UND zusätzlich rabattProzent zur Anzeige — berechneLieferungBrutto()
+    // zog den Rabatt dann ein zweites Mal ab. Seit dem Fix ist verkaufspreis immer der
+    // Listenpreis, sodass genau EINE Anwendung von rabattProzent den korrekten Staffelpreis ergibt.
+    const listenpreis = 20;
+    const staffel: MengenrabattEintrag = { kundeId: null, artikelId: 1, kategorie: null, vonMenge: 50, preis: 18, rabattProzent: 0, aktiv: true };
+    const rabatt = effektiverMengenstaffelRabatt(listenpreis, staffel); // 10
+    const brutto = berechneLieferungBrutto({
+      positionen: [{ menge: 3, verkaufspreis: listenpreis, rabattProzent: rabatt, mwstSatz: 19 }],
+    });
+    // 3 × 18 € (Staffelpreis) × 1,19 MwSt — NICHT 3 × 20 € × 0,9 × 1,19 (das wäre nochmal falsch)
+    // und erst recht nicht 3 × 18 € × 0,9 × 1,19 (der ursprüngliche Doppelrabatt-Bug).
+    expect(brutto).toBeCloseTo(3 * 18 * 1.19, 4);
   });
 });

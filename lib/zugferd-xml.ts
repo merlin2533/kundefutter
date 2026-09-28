@@ -1,6 +1,16 @@
-// Factur-X / ZUGFeRD BASIC-WL XML Generator
-// Profil: urn:factur-x.eu:1p0:basicwl
-// Keine externen Dependencies — reines TypeScript/String-Templating
+// Factur-X / ZUGFeRD XML Generator (Rechnungen mit Positionen)
+// Profil: urn:cen.eu:en16931:2017 (EN 16931 / "COMFORT") — BASIC-WL ("Without Lines")
+// verbietet laut Spezifikation IncludedSupplyChainTradeLineItem-Elemente; da dieser
+// Generator immer Positionen ausgibt, ist EN 16931 das kleinste zulässige Profil.
+// Nur externe Abhängigkeit: rundeKaufmaennisch() aus lib/utils.ts (kein XML/PDF-Fremdpaket).
+import { rundeKaufmaennisch } from "@/lib/utils";
+
+/** GuidelineSpecifiedDocumentContextParameter-ID von generateZugferdXml() — einzige Quelle der
+ *  Wahrheit, auch für die PDF/A-3-XMP-Metadaten in lib/zugferd-embed.ts, damit XML-Inhalt und
+ *  die außen am PDF deklarierte Konformitätsstufe nie auseinanderlaufen können. */
+export const ZUGFERD_PROFILE_ID = "urn:cen.eu:en16931:2017";
+/** `fx:ConformanceLevel`-Wert laut Factur-X-Spezifikation für obiges Profil. */
+export const ZUGFERD_CONFORMANCE_LEVEL = "EN 16931";
 
 export interface ZugferdData {
   rechnungNr: string;
@@ -45,7 +55,13 @@ function esc(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function fmt2(n: number): string {
+/** Geldbetrag: kaufmännisch auf Cent gerundet (nicht `toFixed`, das nur die Anzeige kürzt, ohne rundeKaufmaennisch()s Float-Restwert-Schutz — siehe lib/utils.ts). */
+function money(n: number): string {
+  return rundeKaufmaennisch(n, 2).toFixed(2);
+}
+
+/** Prozentsatz (MwSt-Satz) — keine Geldbetrag-Rundung nötig, die Sätze (0/7/19) sind bereits exakt. */
+function fmtPercent(n: number): string {
   return n.toFixed(2);
 }
 
@@ -92,27 +108,36 @@ export function generateZugferdXml(data: ZugferdData): string {
   const faelligAm = new Date(datum);
   faelligAm.setDate(faelligAm.getDate() + zahlungsziel);
 
-  // Positionen mit berechneten Beträgen
+  // Positionen mit berechneten Beträgen. netPreis = Preis je Einheit NACH Rabatt (BT-146 —
+  // "Item net price" ist per EN-16931-Definition bereits der rabattierte Einzelpreis), auf Cent
+  // gerundet — sonst weicht NetPriceProductTradePrice × Menge vom gerundeten LineTotalAmount ab.
   const positionenBerechnet = positionen.map((p, idx) => {
     const rabatt = p.rabattProzent ?? 0;
-    const netto = p.menge * p.einzelpreis * (1 - rabatt / 100);
-    return { ...p, idx: idx + 1, netto };
+    const netPreis = rundeKaufmaennisch(p.einzelpreis * (1 - rabatt / 100), 2);
+    const netto = rundeKaufmaennisch(p.menge * netPreis, 2);
+    return { ...p, idx: idx + 1, netPreis, netto };
   });
 
-  // MwSt-Gruppen aggregieren
+  // MwSt-Gruppen aggregieren: Steuerbasis je Satz = Summe der (bereits centgerundeten)
+  // Positions-Nettobeträge; die MwSt selbst wird EINMAL aus dieser Summe berechnet (nicht aus
+  // aufsummierten, je Position vorab gerundeten Einzelsteuerbeträgen) — sonst können bei vielen
+  // Positionen Rundungsdifferenzen von mehreren Cent entstehen (BR-CO-17).
   const mwstGruppenMap = new Map<number, MwstGruppe>();
   for (const p of positionenBerechnet) {
     const existing = mwstGruppenMap.get(p.mwstSatz) ?? { satz: p.mwstSatz, basisBetrag: 0, mwstBetrag: 0 };
     existing.basisBetrag += p.netto;
-    existing.mwstBetrag += p.netto * (p.mwstSatz / 100);
     mwstGruppenMap.set(p.mwstSatz, existing);
+  }
+  for (const g of mwstGruppenMap.values()) {
+    g.basisBetrag = rundeKaufmaennisch(g.basisBetrag, 2);
+    g.mwstBetrag = rundeKaufmaennisch(g.basisBetrag * (g.satz / 100), 2);
   }
   const mwstGruppen = Array.from(mwstGruppenMap.values()).sort((a, b) => b.satz - a.satz);
 
-  const lineTotalAmount = positionenBerechnet.reduce((s, p) => s + p.netto, 0);
+  const lineTotalAmount = rundeKaufmaennisch(positionenBerechnet.reduce((s, p) => s + p.netto, 0), 2);
   const taxBasisTotalAmount = lineTotalAmount;
-  const taxTotalAmount = mwstGruppen.reduce((s, g) => s + g.mwstBetrag, 0);
-  const grandTotalAmount = taxBasisTotalAmount + taxTotalAmount;
+  const taxTotalAmount = rundeKaufmaennisch(mwstGruppen.reduce((s, g) => s + g.mwstBetrag, 0), 2);
+  const grandTotalAmount = rundeKaufmaennisch(taxBasisTotalAmount + taxTotalAmount, 2);
   const duePayableAmount = grandTotalAmount;
 
   const kundenName = esc(kunde.firma ? `${kunde.firma}` : kunde.name);
@@ -165,16 +190,18 @@ export function generateZugferdXml(data: ZugferdData): string {
     .map(
       (g) => `
         <ram:ApplicableTradeTax>
-          <ram:CalculatedAmount>${fmt2(g.mwstBetrag)}</ram:CalculatedAmount>
+          <ram:CalculatedAmount>${money(g.mwstBetrag)}</ram:CalculatedAmount>
           <ram:TypeCode>VAT</ram:TypeCode>
-          <ram:BasisAmount>${fmt2(g.basisBetrag)}</ram:BasisAmount>
+          <ram:BasisAmount>${money(g.basisBetrag)}</ram:BasisAmount>
           <ram:CategoryCode>${mwstCategory(g.satz)}</ram:CategoryCode>
-          <ram:RateApplicablePercent>${fmt2(g.satz)}</ram:RateApplicablePercent>
+          <ram:RateApplicablePercent>${fmtPercent(g.satz)}</ram:RateApplicablePercent>
         </ram:ApplicableTradeTax>`
     )
     .join("");
 
-  // Line items
+  // Line items. NetPriceProductTradePrice ist BT-146 (Einzelpreis NACH Rabatt) — dieselbe
+  // Basis, aus der LineTotalAmount berechnet wurde (netPreis × Menge = netto), sonst driften
+  // Einzelpreis und Positionssumme auseinander (siehe Kommentar bei positionenBerechnet oben).
   const lineItems = positionenBerechnet
     .map(
       (p) => `
@@ -187,7 +214,7 @@ export function generateZugferdXml(data: ZugferdData): string {
         </ram:SpecifiedTradeProduct>
         <ram:SpecifiedLineTradeAgreement>
           <ram:NetPriceProductTradePrice>
-            <ram:ChargeAmount>${fmt2(p.einzelpreis)}</ram:ChargeAmount>
+            <ram:ChargeAmount>${money(p.netPreis)}</ram:ChargeAmount>
           </ram:NetPriceProductTradePrice>
         </ram:SpecifiedLineTradeAgreement>
         <ram:SpecifiedLineTradeDelivery>
@@ -197,10 +224,10 @@ export function generateZugferdXml(data: ZugferdData): string {
           <ram:ApplicableTradeTax>
             <ram:TypeCode>VAT</ram:TypeCode>
             <ram:CategoryCode>${mwstCategory(p.mwstSatz)}</ram:CategoryCode>
-            <ram:RateApplicablePercent>${fmt2(p.mwstSatz)}</ram:RateApplicablePercent>
+            <ram:RateApplicablePercent>${fmtPercent(p.mwstSatz)}</ram:RateApplicablePercent>
           </ram:ApplicableTradeTax>
           <ram:SpecifiedTradeSettlementLineMonetarySummation>
-            <ram:LineTotalAmount>${fmt2(p.netto)}</ram:LineTotalAmount>
+            <ram:LineTotalAmount>${money(p.netto)}</ram:LineTotalAmount>
           </ram:SpecifiedTradeSettlementLineMonetarySummation>
         </ram:SpecifiedLineTradeSettlement>
       </ram:IncludedSupplyChainTradeLineItem>`
@@ -215,7 +242,7 @@ export function generateZugferdXml(data: ZugferdData): string {
 
   <rsm:ExchangedDocumentContext>
     <ram:GuidelineSpecifiedDocumentContextParameter>
-      <ram:ID>urn:factur-x.eu:1p0:basicwl</ram:ID>
+      <ram:ID>${ZUGFERD_PROFILE_ID}</ram:ID>
     </ram:GuidelineSpecifiedDocumentContextParameter>
   </rsm:ExchangedDocumentContext>
 
@@ -228,7 +255,7 @@ export function generateZugferdXml(data: ZugferdData): string {
   </rsm:ExchangedDocument>
 
   <rsm:SupplyChainTradeTransaction>
-
+${lineItems}
     <ram:ApplicableHeaderTradeAgreement>
       <ram:SellerTradeParty>
         <ram:Name>${esc(firma.name)}</ram:Name>
@@ -275,14 +302,13 @@ export function generateZugferdXml(data: ZugferdData): string {
         </ram:DueDateDateTime>
       </ram:SpecifiedTradePaymentTerms>
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-        <ram:LineTotalAmount>${fmt2(lineTotalAmount)}</ram:LineTotalAmount>
-        <ram:TaxBasisTotalAmount>${fmt2(taxBasisTotalAmount)}</ram:TaxBasisTotalAmount>
-        <ram:TaxTotalAmount currencyID="EUR">${fmt2(taxTotalAmount)}</ram:TaxTotalAmount>
-        <ram:GrandTotalAmount>${fmt2(grandTotalAmount)}</ram:GrandTotalAmount>
-        <ram:DuePayableAmount>${fmt2(duePayableAmount)}</ram:DuePayableAmount>
+        <ram:LineTotalAmount>${money(lineTotalAmount)}</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount>${money(taxBasisTotalAmount)}</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="EUR">${money(taxTotalAmount)}</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>${money(grandTotalAmount)}</ram:GrandTotalAmount>
+        <ram:DuePayableAmount>${money(duePayableAmount)}</ram:DuePayableAmount>
       </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>
-${lineItems}
   </rsm:SupplyChainTradeTransaction>
 </rsm:CrossIndustryInvoice>`;
 
@@ -378,11 +404,11 @@ export function generateZugferdXmlSimple(d: ZugferdSimpleData): string {
       <ram:PaymentReference>${esc(d.rechnungNr)}</ram:PaymentReference>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
       <ram:ApplicableTradeTax>
-        <ram:CalculatedAmount>${fmt2(mwstBetrag)}</ram:CalculatedAmount>
+        <ram:CalculatedAmount>${money(mwstBetrag)}</ram:CalculatedAmount>
         <ram:TypeCode>VAT</ram:TypeCode>
-        <ram:BasisAmount>${fmt2(d.betragNetto)}</ram:BasisAmount>
+        <ram:BasisAmount>${money(d.betragNetto)}</ram:BasisAmount>
         <ram:CategoryCode>${cat}</ram:CategoryCode>
-        <ram:RateApplicablePercent>${fmt2(d.mwstSatz)}</ram:RateApplicablePercent>
+        <ram:RateApplicablePercent>${fmtPercent(d.mwstSatz)}</ram:RateApplicablePercent>
       </ram:ApplicableTradeTax>
       <ram:SpecifiedTradePaymentTerms>
         <ram:DueDateDateTime>
@@ -390,11 +416,11 @@ export function generateZugferdXmlSimple(d: ZugferdSimpleData): string {
         </ram:DueDateDateTime>
       </ram:SpecifiedTradePaymentTerms>
       <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
-        <ram:LineTotalAmount>${fmt2(d.betragNetto)}</ram:LineTotalAmount>
-        <ram:TaxBasisTotalAmount>${fmt2(d.betragNetto)}</ram:TaxBasisTotalAmount>
-        <ram:TaxTotalAmount currencyID="EUR">${fmt2(mwstBetrag)}</ram:TaxTotalAmount>
-        <ram:GrandTotalAmount>${fmt2(brutto)}</ram:GrandTotalAmount>
-        <ram:DuePayableAmount>${fmt2(brutto)}</ram:DuePayableAmount>
+        <ram:LineTotalAmount>${money(d.betragNetto)}</ram:LineTotalAmount>
+        <ram:TaxBasisTotalAmount>${money(d.betragNetto)}</ram:TaxBasisTotalAmount>
+        <ram:TaxTotalAmount currencyID="EUR">${money(mwstBetrag)}</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>${money(brutto)}</ram:GrandTotalAmount>
+        <ram:DuePayableAmount>${money(brutto)}</ram:DuePayableAmount>
       </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
     </ram:ApplicableHeaderTradeSettlement>
 
