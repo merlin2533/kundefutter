@@ -841,6 +841,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
             if (data.ok) {
               setEmailErfolg((prev) => ({ ...prev, [lid]: `Versendet an ${empfaenger}` }));
               setEmailModalEintrag(null);
+              await load();
             } else {
               setEmailModalFehler(data.error ?? "Versand fehlgeschlagen");
             }
