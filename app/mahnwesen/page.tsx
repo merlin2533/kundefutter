@@ -74,8 +74,9 @@ export default function MahnwesenPage() {
   });
   const [cfg, setCfg] = useState<MahnwesenConfig>(DEFAULT_MAHNWESEN_CONFIG);
 
-  async function load() {
-    setLoading(true);
+  async function load(opts?: { silent?: boolean }) {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
     setError("");
     try {
       const [mahnRes, firmaRes, cfgRes] = await Promise.all([
@@ -107,7 +108,7 @@ export default function MahnwesenPage() {
       Sentry.captureException(err);
       setError("Fehler beim Laden der überfälligen Rechnungen.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -124,7 +125,7 @@ export default function MahnwesenPage() {
         body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
       });
       if (!res.ok) throw new Error("Fehler");
-      await load();
+      await load({ silent: true });
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Markieren als bezahlt.");
@@ -142,7 +143,7 @@ export default function MahnwesenPage() {
         body: JSON.stringify({ lieferungId: eintrag.lieferung.id, mahnstufe: eintrag.mahnstufe }),
       });
       if (!res.ok) throw new Error("Fehler");
-      await load();
+      await load({ silent: true });
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Markieren als versendet.");
@@ -160,7 +161,7 @@ export default function MahnwesenPage() {
         body: JSON.stringify({ manuelleMahnstufe: stufe }),
       });
       if (!res.ok) throw new Error("Fehler");
-      await load();
+      await load({ silent: true });
     } catch (err) {
       Sentry.captureException(err);
       setError("Fehler beim Anpassen der Mahnstufe.");
@@ -333,7 +334,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
           <p className="text-sm text-gray-500 mt-0.5">Überfällige Rechnungen mit automatischer Mahnstufen-Berechnung</p>
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           className="text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg px-3 py-1.5 transition-colors"
         >
           Aktualisieren
@@ -841,7 +842,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
             if (data.ok) {
               setEmailErfolg((prev) => ({ ...prev, [lid]: `Versendet an ${empfaenger}` }));
               setEmailModalEintrag(null);
-              await load();
+              await load({ silent: true });
             } else {
               setEmailModalFehler(data.error ?? "Versand fehlgeschlagen");
             }
