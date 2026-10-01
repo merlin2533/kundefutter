@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Card } from "@/components/Card";
 import type { KundeMarker } from "./GebietsMap";
-import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo-const";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Dynamic import (ssr: false) — leaflet requires browser APIs ─────────────
