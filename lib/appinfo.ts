@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import * as Sentry from "@sentry/nextjs";
 
-/** Standard-Produktname, falls keine individuelle Bezeichnung hinterlegt ist. */
-export const DEFAULT_APP_NAME = "AGRI-Office";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo-const";
+
+export { DEFAULT_APP_NAME };
 
 /**
  * Liefert den (white-label-fähigen) Anwendungsnamen für Navigation, Login und

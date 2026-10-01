@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
-import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo-const";
 import { DEFAULT_LOGO_DATA_URI } from "@/lib/default-logo";
 import * as Sentry from "@sentry/nextjs";
 

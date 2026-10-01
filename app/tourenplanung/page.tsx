@@ -5,7 +5,7 @@ import { Card } from "@/components/Card";
 import { formatDatum } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import type { WetterTag } from "@/lib/weather";
-import { DEFAULT_APP_NAME } from "@/lib/appinfo";
+import { DEFAULT_APP_NAME } from "@/lib/appinfo-const";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kontakt { typ: string; wert: string; }
