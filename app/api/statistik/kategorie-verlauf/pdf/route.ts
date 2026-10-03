@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorien, von, bis } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorien, von, bis, artikelUebersicht, gesamtProEinheit } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
@@ -37,6 +37,56 @@ export async function GET(req: NextRequest) {
     );
     doc.setTextColor(0, 0, 0);
 
+    let naechsteY = 32;
+
+    if (gesamtProEinheit.length > 0 || artikelUebersicht.length > 0) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Übersicht", 14, naechsteY);
+      naechsteY += 2;
+
+      if (gesamtProEinheit.length > 0) {
+        autoTable(doc, {
+          startY: naechsteY,
+          head: [["Gesamtmenge im Zeitraum", "Geliefert", "Offen"]],
+          body: gesamtProEinheit.map((g) => [
+            g.einheit ?? "(ohne Einheit)",
+            g.mengeGeliefert.toLocaleString("de-DE"),
+            g.mengeOffen.toLocaleString("de-DE"),
+          ]),
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [100, 149, 237] as [number, number, number], textColor: 255, fontSize: 8 },
+          margin: { left: 14, right: 14 },
+          tableWidth: 120,
+        });
+        naechsteY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (artikelUebersicht.length > 0) {
+        autoTable(doc, {
+          startY: naechsteY,
+          head: [["Artikel", "Unterkategorie", "Einheit", "Geliefert", "Offen", "Kunden"]],
+          body: artikelUebersicht.map((a) => [
+            a.artikelName,
+            a.unterkategorie ?? "",
+            a.einheit ?? "",
+            a.mengeGeliefert.toLocaleString("de-DE"),
+            a.mengeOffen.toLocaleString("de-DE"),
+            String(a.anzahlKunden),
+          ]),
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [100, 149, 237] as [number, number, number], textColor: 255, fontSize: 8 },
+          margin: { left: 14, right: 14 },
+        });
+        naechsteY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+      }
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Je Kunde", 14, naechsteY);
+      naechsteY += 2;
+    }
+
     const rows = kunden.map((k) => {
       const jahresZellen = jahre.map((j) =>
         k.eintraege
@@ -53,7 +103,7 @@ export async function GET(req: NextRequest) {
     });
 
     autoTable(doc, {
-      startY: 32,
+      startY: naechsteY,
       head: [["Kunde", "Ort", ...jahre.map((j) => String(j))]],
       body: rows,
       styles: { fontSize: 7, overflow: "linebreak", valign: "top" },

@@ -9,13 +9,42 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorien } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorien, artikelUebersicht, gesamtProEinheit } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
     });
+
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}`;
+
+    const wb = XLSX.utils.book_new();
+
+    // Übersicht-Sheet: Gesamtmenge je Einheit + Menge je Artikel — dieselben Summen wie auf dem
+    // Bildschirm (/statistik/kategorie-verlauf), aus denselben bereits gefilterten `kunden`
+    // aufgebaut wie die Pivot-Tabelle.
+    const uebersichtAoa: (string | number)[][] = [
+      [`Kategorie-Verlauf – Übersicht: ${kategorieLabel}`],
+      [],
+      ["Gesamtmenge im Zeitraum"],
+      ["Einheit", "Geliefert", "Offen"],
+      ...gesamtProEinheit.map((g) => [g.einheit ?? "(ohne Einheit)", g.mengeGeliefert, g.mengeOffen]),
+      [],
+      ["Je Artikel"],
+      ["Artikel", "Unterkategorie", "Einheit", "Geliefert", "Offen", "Kunden"],
+      ...artikelUebersicht.map((a) => [
+        a.artikelName,
+        a.unterkategorie ?? "",
+        a.einheit ?? "",
+        a.mengeGeliefert,
+        a.mengeOffen,
+        a.anzahlKunden,
+      ]),
+    ];
+    const wsUebersicht = XLSX.utils.aoa_to_sheet(uebersichtAoa);
+    wsUebersicht["!cols"] = [{ wch: 32 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsUebersicht, "Übersicht");
 
     const header = ["Kunde", "Ort", ...jahre.map((j) => String(j))];
     const rows = kunden.map((k) => {
@@ -34,13 +63,12 @@ export async function GET(req: NextRequest) {
     });
 
     const aoa = [
-      [`Kategorie-Verlauf: ${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}`],
+      [`Kategorie-Verlauf: ${kategorieLabel}`],
       [],
       header,
       ...rows,
     ];
 
-    const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"] = [{ wch: 28 }, { wch: 16 }, ...jahre.map(() => ({ wch: 32 }))];
     XLSX.utils.book_append_sheet(wb, ws, "Kategorie-Verlauf");
