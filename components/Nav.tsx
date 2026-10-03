@@ -1258,7 +1258,7 @@ export default function Nav() {
 
   if (selbstbedienung) {
     return (
-      <header className="bg-green-800 text-white shadow-md relative z-40">
+      <header className="bg-green-800 text-white shadow-md sticky top-0 z-40">
         <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
           <div className="flex-shrink-0">
             {logo ? (
@@ -1310,7 +1310,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="bg-green-800 text-white shadow-md relative z-40">
+    <header className="bg-green-800 text-white shadow-md sticky top-0 z-40">
       <div className="max-w-screen-2xl mx-auto px-4 py-2.5 flex items-center gap-2">
         {/* Logo */}
         <div className="flex-shrink-0">
