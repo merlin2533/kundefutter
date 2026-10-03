@@ -12,14 +12,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, von, bis } = await ladeKategorieVerlauf({
+    const { kunden, jahre, von, bis, artikelUebersicht, gesamtProEinheit } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
     });
-    return NextResponse.json({ kunden, jahre, von, bis });
+    return NextResponse.json({ kunden, jahre, von, bis, artikelUebersicht, gesamtProEinheit });
   } catch (err) {
     Sentry.captureException(err);
     console.error("Statistik/Kategorie-Verlauf API Fehler:", err);
