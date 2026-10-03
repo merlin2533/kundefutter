@@ -28,9 +28,27 @@ interface KundeVerlauf {
   eintraege: Eintrag[];
 }
 
+interface ArtikelSumme {
+  artikelId: number;
+  artikelName: string;
+  unterkategorie: string | null;
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+  anzahlKunden: number;
+}
+
+interface EinheitSumme {
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+}
+
 interface Data {
   kunden: KundeVerlauf[];
   jahre: number[];
+  artikelUebersicht: ArtikelSumme[];
+  gesamtProEinheit: EinheitSumme[];
 }
 
 const isoHeute = (d: Date) => d.toISOString().slice(0, 10);
@@ -213,6 +231,68 @@ export default function KategorieVerlaufPage() {
 
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>
+      )}
+
+      {/* Artikel-Übersicht: Gesamtmenge + Aufschlüsselung je Artikel über alle (gefilterten)
+          Kunden hinweg — Antwort auf "wie viel Menge habe ich von dieser Kategorie insgesamt
+          gemacht, und wovon". Aggregiert dieselben Daten wie die Kunden-Tabelle darunter, nur
+          nicht nach Kunde/Jahr aufgeschlüsselt. */}
+      {data && data.artikelUebersicht.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700 mb-2">Gesamtmenge im Zeitraum</h2>
+            <div className="flex flex-wrap gap-2">
+              {data.gesamtProEinheit.map((g) => (
+                <div key={g.einheit ?? "—"} className="flex items-center gap-2">
+                  {g.mengeGeliefert > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-green-50 text-green-800 border border-green-200 text-sm font-medium whitespace-nowrap">
+                      {g.mengeGeliefert.toLocaleString("de-DE")} {g.einheit ?? ""} geliefert
+                    </span>
+                  )}
+                  {g.mengeOffen > 0 && (
+                    <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-sm font-medium whitespace-nowrap">
+                      {g.mengeOffen.toLocaleString("de-DE")} {g.einheit ?? ""} offen
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700 mb-2">Je Artikel</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                    <th className="py-1.5 pr-4">Artikel</th>
+                    <th className="py-1.5 pr-4 text-right whitespace-nowrap">Geliefert</th>
+                    <th className="py-1.5 pr-4 text-right whitespace-nowrap">Offen</th>
+                    <th className="py-1.5 pr-4 text-right whitespace-nowrap">Kunden</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {data.artikelUebersicht.map((a) => (
+                    <tr key={a.artikelId}>
+                      <td className="py-1.5 pr-4">
+                        <Link href={`/artikel/${a.artikelId}`} className="text-green-700 hover:underline font-medium">
+                          {a.artikelName}
+                        </Link>
+                        {a.unterkategorie && <span className="text-xs text-gray-400 ml-1">({a.unterkategorie})</span>}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right text-green-700 whitespace-nowrap">
+                        {a.mengeGeliefert > 0 ? `${a.mengeGeliefert.toLocaleString("de-DE")} ${a.einheit ?? ""}` : "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right text-amber-700 whitespace-nowrap">
+                        {a.mengeOffen > 0 ? `${a.mengeOffen.toLocaleString("de-DE")} ${a.einheit ?? ""}` : "—"}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right text-gray-500">{a.anzahlKunden}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

@@ -28,6 +28,29 @@ export interface KategorieVerlaufKunde {
   eintraege: KategorieVerlaufEintrag[];
 }
 
+/** Aggregiert über alle (gefilterten) Kunden hinweg: wie viel wurde von welchem Artikel
+ *  insgesamt im Zeitraum geliefert bzw. bestellt — Antwort auf "wie viel Menge habe ich von
+ *  dieser Kategorie insgesamt gemacht, und wovon". */
+export interface KategorieVerlaufArtikelSumme {
+  artikelId: number;
+  artikelName: string;
+  unterkategorie: string | null;
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+  /** Anzahl unterschiedlicher Kunden, die diesen Artikel im Zeitraum erhalten/bestellt haben. */
+  anzahlKunden: number;
+}
+
+/** Gesamtmenge je Einheit — eine einzelne "Gesamtmenge" über mehrere Artikel hinweg ergibt nur
+ *  Sinn, wenn sie dieselbe Einheit teilen (kg vs. Stück lässt sich nicht addieren), deshalb
+ *  gruppiert statt einer einzelnen Zahl. */
+export interface KategorieVerlaufEinheitSumme {
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+}
+
 export interface KategorieVerlaufParams {
   kategorie?: string | null;
   /** Mehrfachauswahl — leer/undefined = alle Unterkategorien (kein Filter). */
@@ -46,6 +69,8 @@ export interface KategorieVerlaufResult {
   unterkategorien: string[];
   von: string;
   bis: string;
+  artikelUebersicht: KategorieVerlaufArtikelSumme[];
+  gesamtProEinheit: KategorieVerlaufEinheitSumme[];
 }
 
 export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Promise<KategorieVerlaufResult> {
@@ -148,5 +173,68 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
   const jahre: number[] = [];
   for (let j = jahrBisEffektiv; j >= jahrVonEffektiv; j--) jahre.push(j);
 
-  return { kunden, jahre, kategorie, unterkategorien, von: vonDateEffektiv.toISOString().slice(0, 10), bis: bisIso };
+  // Artikel-Übersicht aus den bereits nach kundeSuche gefilterten `kunden` aufgebaut (nicht aus
+  // den rohen `positionen`), damit die Summen immer genau das widerspiegeln, was in der
+  // Kunden-Tabelle tatsächlich angezeigt wird.
+  const artikelSummeMap = new Map<
+    number,
+    { artikelId: number; artikelName: string; unterkategorie: string | null; einheit: string | null;
+      mengeGeliefert: number; mengeOffen: number; kundenIds: Set<number> }
+  >();
+  for (const kg of kunden) {
+    for (const e of kg.eintraege) {
+      let as = artikelSummeMap.get(e.artikelId);
+      if (!as) {
+        as = {
+          artikelId: e.artikelId,
+          artikelName: e.artikelName,
+          unterkategorie: e.unterkategorie,
+          einheit: e.einheit,
+          mengeGeliefert: 0,
+          mengeOffen: 0,
+          kundenIds: new Set(),
+        };
+        artikelSummeMap.set(e.artikelId, as);
+      }
+      as.mengeGeliefert += e.mengeGeliefert;
+      as.mengeOffen += e.mengeOffen;
+      as.kundenIds.add(kg.kundeId);
+    }
+  }
+  const artikelUebersicht: KategorieVerlaufArtikelSumme[] = Array.from(artikelSummeMap.values())
+    .map((as) => ({
+      artikelId: as.artikelId,
+      artikelName: as.artikelName,
+      unterkategorie: as.unterkategorie,
+      einheit: as.einheit,
+      mengeGeliefert: as.mengeGeliefert,
+      mengeOffen: as.mengeOffen,
+      anzahlKunden: as.kundenIds.size,
+    }))
+    .sort((a, b) => (b.mengeGeliefert + b.mengeOffen) - (a.mengeGeliefert + a.mengeOffen) || a.artikelName.localeCompare(b.artikelName, "de"));
+
+  const einheitSummeMap = new Map<string, KategorieVerlaufEinheitSumme>();
+  for (const as of artikelUebersicht) {
+    const key = as.einheit ?? "";
+    let es = einheitSummeMap.get(key);
+    if (!es) {
+      es = { einheit: as.einheit, mengeGeliefert: 0, mengeOffen: 0 };
+      einheitSummeMap.set(key, es);
+    }
+    es.mengeGeliefert += as.mengeGeliefert;
+    es.mengeOffen += as.mengeOffen;
+  }
+  const gesamtProEinheit = Array.from(einheitSummeMap.values())
+    .sort((a, b) => (b.mengeGeliefert + b.mengeOffen) - (a.mengeGeliefert + a.mengeOffen));
+
+  return {
+    kunden,
+    jahre,
+    kategorie,
+    unterkategorien,
+    von: vonDateEffektiv.toISOString().slice(0, 10),
+    bis: bisIso,
+    artikelUebersicht,
+    gesamtProEinheit,
+  };
 }
