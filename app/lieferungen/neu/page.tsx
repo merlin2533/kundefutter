@@ -120,6 +120,14 @@ interface KundePreisInfo {
   rabatt: number;
 }
 
+interface DoppelbestellungTreffer {
+  lieferungId: number;
+  datum: string;
+  menge: number;
+  status: string;
+  wochenHer: number;
+}
+
 interface NewPosition {
   /** Stabiler, vom Array-Index unabhängiger Schlüssel für React `key` — verhindert, dass beim
    *  Löschen einer Zeile eine andere Zeile die Komponenten-Instanz (inkl. internem State wie
@@ -228,6 +236,9 @@ function NeueLieferungInner() {
   const [kampagneExpanded, setKampagneExpanded] = useState<Record<number, boolean>>({});
   const [kundePreise, setKundePreise] = useState<KundePreisInfo[]>([]);
   const [mengenrabatte, setMengenrabatte] = useState<MengenrabattEintrag[]>([]);
+  // Doppelbestellung-Warnung je Position (keyed by pos.key, nicht Index — Zeilen können
+  // gelöscht werden, ein Index-Mapping würde dann die falsche Zeile treffen).
+  const [doppelWarnungen, setDoppelWarnungen] = useState<Record<string, DoppelbestellungTreffer | null>>({});
 
   // Erzeugercodes bereits geladener Kunden — Autocomplete-Vorschläge für das Erzeugercode-Feld
   // bei Eier-Positionen (Kunden können im Anlieferungs-Kontext selbst als Erzeuger auftreten).
@@ -383,6 +394,44 @@ function NeueLieferungInner() {
         return setKundePreise([]);
       });
   }, [kundeId]);
+
+  // Primitiver Schlüssel aus Kunde+je Position gewähltem Artikel — als `useMemo` statt
+  // `positionen` direkt als Effekt-Dependency, aus demselben Grund wie bei
+  // `hatSprengstoffPosition` unten: `positionen` ändert sich als Objekt-Referenz bei JEDEM
+  // Tastendruck (Menge/Preis/Notiz), der Doppelbestellungs-Check soll aber nur bei einem
+  // tatsächlichen Kunden- oder Artikelwechsel neu laufen.
+  const doppelCheckSchluessel = useMemo(
+    () => positionen.map((p) => `${p.key}:${p.artikelId}`).join("|"),
+    [positionen]
+  );
+
+  // Doppelbestellung-Warnung: für jede Position mit gewähltem Artikel prüfen, ob derselbe Kunde
+  // denselben Artikel innerhalb des konfigurierten Zeitraums (Einstellung
+  // "firma.doppelbestellungWarnungWochen", Server-Default 10 Wochen) bereits bestellt hat.
+  // Bewusst nicht blockierend — reine Erinnerung, siehe lib/doppelbestellung.ts.
+  useEffect(() => {
+    if (!kundeId) { setDoppelWarnungen({}); return; }
+    let aborted = false;
+    (async () => {
+      const ziele = positionen.filter((p) => p.artikelId !== "");
+      const eintraege = await Promise.all(
+        ziele.map(async (p) => {
+          try {
+            const res = await fetch(`/api/lieferungen/doppelbestellung-check?kundeId=${kundeId}&artikelId=${p.artikelId}`);
+            if (!res.ok) return [p.key, null] as const;
+            const data = await res.json();
+            return [p.key, (data.treffer ?? null) as DoppelbestellungTreffer | null] as const;
+          } catch (err) {
+            Sentry.captureException(err);
+            return [p.key, null] as const;
+          }
+        })
+      );
+      if (!aborted) setDoppelWarnungen(Object.fromEntries(eintraege));
+    })();
+    return () => { aborted = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kundeId, doppelCheckSchluessel]);
 
   // Ob mind. eine Position einen Sprengstoffvorläufer-Artikel enthält — als eigener,
   // primitiver useMemo-Wert statt direkt `positionen` als Effekt-Dependency zu nutzen: die
@@ -937,6 +986,30 @@ function NeueLieferungInner() {
                             required
                           />
                           <LagerAmpel art={selectedArtikel} />
+                          {doppelWarnungen[pos.key] && (
+                            <div className="mt-1.5 flex items-start gap-1.5 p-2 rounded border border-amber-300 bg-amber-50 text-xs text-amber-800">
+                              <span className="leading-none">⚠</span>
+                              <span>
+                                {selectedArtikel?.name ?? "Dieser Artikel"} wurde bereits am{" "}
+                                {formatDatum(doppelWarnungen[pos.key]!.datum)} bestellt (vor{" "}
+                                {doppelWarnungen[pos.key]!.wochenHer === 1
+                                  ? "1 Woche"
+                                  : `${doppelWarnungen[pos.key]!.wochenHer} Wochen`}
+                                , {doppelWarnungen[pos.key]!.menge.toLocaleString("de-DE")}
+                                {selectedArtikel?.einheit ? ` ${selectedArtikel.einheit}` : ""}
+                                {doppelWarnungen[pos.key]!.status === "geplant" ? ", noch offen" : ""}) — bitte
+                                auf Doppelbestellung prüfen.{" "}
+                                <Link
+                                  href={`/lieferungen/${doppelWarnungen[pos.key]!.lieferungId}`}
+                                  target="_blank"
+                                  rel="noopener"
+                                  className="underline font-medium whitespace-nowrap"
+                                >
+                                  Lieferung ansehen →
+                                </Link>
+                              </span>
+                            </div>
+                          )}
                           {/* Charge field — shown below when article is selected */}
                           {pos.artikelId !== "" && (
                             <div className="mt-1.5">
