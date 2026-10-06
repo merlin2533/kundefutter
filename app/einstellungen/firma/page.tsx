@@ -23,6 +23,7 @@ interface FirmaSettings {
   "firma.bank": string;
   "firma.mwstSatz": string;
   "firma.zahlungszielStandard": string;
+  "firma.doppelbestellungWarnungWochen": string;
   "firma.email_footer_text": string;
   "firma.portal_impressum_url": string;
   "firma.datenschutz_url": string;
@@ -53,6 +54,7 @@ const DEFAULT_VALUES: FirmaSettings = {
   "firma.bank": "",
   "firma.mwstSatz": "19",
   "firma.zahlungszielStandard": "30",
+  "firma.doppelbestellungWarnungWochen": "10",
   "firma.email_footer_text": "",
   "firma.portal_impressum_url": "",
   "firma.datenschutz_url": "",
@@ -118,6 +120,18 @@ const SECTIONS = [
     title: "Zahlungskonditionen",
     fields: [
       { key: "firma.zahlungszielStandard" as keyof FirmaSettings, label: "Standard-Zahlungsziel (Tage)", type: "number", placeholder: "30" },
+    ],
+  },
+  {
+    title: "Bestellungen",
+    fields: [
+      {
+        key: "firma.doppelbestellungWarnungWochen" as keyof FirmaSettings,
+        label: "Doppelbestellung-Warnung (Wochen)",
+        type: "number",
+        placeholder: "10",
+        hint: "Bei der Artikelauswahl in /lieferungen/neu erscheint ein Hinweis, wenn derselbe Kunde denselben Artikel innerhalb dieses Zeitraums bereits bestellt hat (auch unausgeliefert). Nicht blockierend — nur eine Erinnerung.",
+      },
     ],
   },
 ];
@@ -269,13 +283,18 @@ export default function FirmaPage() {
                   <label className="text-sm font-medium text-gray-600 text-right">
                     {field.label}
                   </label>
-                  <input
-                    type={field.type ?? "text"}
-                    value={form[field.key]}
-                    onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
-                  />
+                  <div>
+                    <input
+                      type={field.type ?? "text"}
+                      value={form[field.key]}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full"
+                    />
+                    {"hint" in field && field.hint && (
+                      <p className="text-xs text-gray-400 mt-1">{field.hint}</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
