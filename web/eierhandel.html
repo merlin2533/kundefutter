@@ -7,7 +7,7 @@
 
   <!-- Primary SEO -->
   <title>AGRI-Office Eierhandel – Packstellen-Software | Sortierprotokoll, KAT-Meldung, MHD, Erzeugerabrechnung</title>
-  <meta name="description" content="AGRI-Office Eierhandel: Branchensoftware für Packstellen, Legehennenbetriebe &amp; Eier-Großhandel. Kennzeichnung nach EU-Vermarktungsnorm, Sortierprotokoll, MHD automatisch, KAT-Wochenmeldung, Erzeugerabrechnung, DATEV &amp; ZUGFeRD. 14 Tage gratis." />
+  <meta name="description" content="AGRI-Office Eierhandel: Software für Packstellen &amp; Legehennenbetriebe. Kennzeichnung nach EU-Norm, Sortierprotokoll, MHD, Etiketten, KAT-Meldung. 14 Tage gratis." />
   <meta name="keywords" content="Eierhandel Software, Packstelle Software, Legehennenbetrieb Verwaltung, Eier Sortierprotokoll, KAT Meldung Software, KAT Warenstrommeldung, Erzeugercode Kennzeichnung, EU Vermarktungsnorm Eier, Güteklasse Gewichtsklasse Eier, MHD Eier berechnen, Legedatum 28 Tage, Eierkennzeichnung Lieferschein, Tierseuchenkasse Meldung Legehennen, Erzeugerabrechnung Eier, Eier Großhandel Warenwirtschaft, Eier Rückverfolgbarkeit Charge, Packstellennummer Software, Haltungsform Bio Freiland Boden, Eier ERP Deutschland, Eiervermarktung Software, Legehennenhalter Software, Eier CRM, Eier Lieferschein Rechnung, DATEV Export Eierhandel, ZUGFeRD Eierhandel" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
@@ -94,7 +94,11 @@
       "KAT-Warenstrommeldung als CSV-Export mit Vorschau",
       "Meldepflichten-Tracker (Tierseuchenkasse, KAT-Wochenmeldung)",
       "Erzeuger-Stammdaten mit Erzeugercode und Haltungsform",
-      "Erzeugerabrechnung für den Eierankauf",
+      "Erzeugerabrechnung nach Güte- und Gewichtsklasse aus dem Sortierergebnis",
+      "Import von Sortiermaschinen-Export und Anlieferungen (CSV/XLS) mit Vorschau",
+      "Eierkarton-Etiketten mit QR-Code und Pflichtangaben",
+      "Eierkontrolle: MHD-Ampel und Erzeugercode-Prüfung",
+      "Eingangsrechnungen per E-Mail-Eingang (IMAP, Microsoft 365)",
       "Chargenrückverfolgung vom Erzeuger bis zum Kunden",
       "Lieferschein und Rechnung mit vollständiger Eier-Kennzeichnung",
       "Rationsberechnung für Legehennenfutter",
@@ -177,6 +181,22 @@
     },
     {
       "@type": "Question",
+      "name": "Kann ich Eierkarton-Etiketten drucken?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ja. Sie wählen eine Sortierposition, und AGRI-Office befüllt das Etikett mit Güte- und Gewichtsklasse, Haltungsform (aus dem Erzeugercode), Erzeugercode, MHD, Chargennummer und Packstellen-Zulassungsnummer; dazu kommt Ihr hinterlegter Kühlhinweis. Die Eieranzahl je Karton tragen Sie ein. Jedes Feld lässt sich vor dem Druck überschreiben. Der QR-Code wird lokal erzeugt, es wird kein externer Dienst angefragt. Etikettengrößen, auf die die Pflichtangaben nicht passen, sind bewusst nicht im Angebot."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Wie funktioniert die Erzeugerabrechnung nach Güteklasse?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ist einer Anlieferung ein Sortierprotokoll zugeordnet, bildet AGRI-Office die Positionen der Gutschrift aus dem Sortierergebnis — je Güte- und Gewichtsklasse eine Zeile. Sie tragen den Preis je Klasse ein, als Vorschlag dient der Preis der letzten Abrechnung desselben Erzeugers. Fehlt für eine Klasse ein Preis, wird keine unvollständige Gutschrift angelegt. Im DATEV-Export lässt sich die Erzeugerabrechnung auf ein eigenes Wareneinkaufskonto buchen, das Konto stimmen Sie mit Ihrem Steuerberater ab."
+      }
+    },
+    {
+      "@type": "Question",
       "name": "Wie wird das Mindesthaltbarkeitsdatum berechnet?",
       "acceptedAnswer": {
         "@type": "Answer",
@@ -228,7 +248,7 @@
       "name": "Ersetzt AGRI-Office meine Sortiermaschine?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Nein — und das ist bewusst so. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine tragen Sie als Sortierprotokoll ein. Eine direkte Maschinenanbindung ist im Enterprise-Tarif als individuelle Schnittstelle möglich — sprechen Sie uns an."
+        "text": "Nein — und das ist bewusst so. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine erfassen Sie als Sortierprotokoll. Den Export Ihrer Maschine (CSV oder Excel) können Sie als Sortierprotokoll importieren, mit Vorschau vor dem Übernehmen. Eine direkte Maschinenanbindung ist im Enterprise-Tarif als individuelle Schnittstelle möglich — sprechen Sie uns an."
       }
     },
     {
@@ -1089,6 +1109,7 @@
           <li>Erzeugercode je Position</li>
           <li>Legedatum mit MHD-Vorschau</li>
           <li>Druck im PDF <em>und</em> in der Bildschirmvorschau</li>
+          <li>Zulassungsnummer der Packstelle und „lose Ware“ auf dem Beleg</li>
         </ul>
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
@@ -1110,11 +1131,13 @@
           <li>Chargennummer, Legedatum, Erzeugercode</li>
           <li>Lagerzugang wird automatisch gebucht</li>
           <li>Erzeugercode wird aus der Anlieferung übernommen</li>
+          <li>Import aus dem Export Ihrer Sortiermaschine (CSV/XLS)</li>
         </ul>
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
-          <p><strong>Der Knackpunkt im Eierhandel:</strong> Eingang und Ausgang sind nicht dieselbe Ware. Aus einer Partie werden mehrere Handelsklassen — und genau dieser Schnitt ist es, den Rückverfolgbarkeit und KAT-Meldung dokumentiert brauchen.</p>
-          <p><strong>Notizfeld je Protokoll:</strong> Bruch, Schmutzeier, Aussortierung — was auffällt, steht am Protokoll und nicht auf einem Zettel.</p>
+          <p><strong>Der Knackpunkt:</strong> Eingang und Ausgang sind nicht dieselbe Ware. Aus einer Partie werden mehrere Handelsklassen — diesen Schnitt brauchen Rückverfolgbarkeit und KAT-Meldung.</p>
+          <p><strong>Import mit Vorschau:</strong> Sie laden die Datei Ihrer Sortiermaschine hoch, sehen jede Zeile samt Fehlern vorab und übernehmen sie erst dann.</p>
+          <p><strong>Notizfeld je Protokoll:</strong> Bruch, Schmutzeier, Aussortierung — steht am Protokoll.</p>
           <a href="#ablauf">Ablauf ansehen →</a>
         </div>
       </div>
@@ -1189,15 +1212,79 @@
         <ul>
           <li>Erzeugercode je Betrieb hinterlegt</li>
           <li>Haltungsform 0–3: Bio, Freiland, Boden, Käfig</li>
-          <li>Anlieferungen je Erzeuger erfassen</li>
-          <li>Erzeugerabrechnung und Gutschrift</li>
+          <li>Anlieferungen erfassen oder per CSV/XLS importieren</li>
+          <li>Erzeugerabrechnung nach Güte- und Gewichtsklasse</li>
+          <li>Preisvorschlag aus der letzten Abrechnung</li>
           <li>Code wandert automatisch in die Sortierung</li>
         </ul>
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
-          <p><strong>Einmal pflegen, überall richtig:</strong> Wählen Sie beim Sortierprotokoll eine Anlieferung, übernimmt AGRI-Office den Erzeugercode in alle Positionszeilen, die noch keinen haben.</p>
-          <p><strong>Haltungsform aus dem Code:</strong> Die erste Ziffer des Erzeugercodes bestimmt die Haltungsform — die KAT-Meldung leitet sie daraus selbst ab.</p>
+          <p><strong>Abrechnung nach Sortierergebnis:</strong> Aus dem Protokoll entstehen die Mengen je Klasse, Sie tragen den Preis je Klasse ein. Fehlt ein Preis, legt AGRI-Office gar keine halbe Gutschrift an.</p>
+          <p><strong>Als Einkauf gebucht:</strong> Im DATEV-Export lässt sich die Erzeugerabrechnung auf ein eigenes Wareneinkaufskonto lenken — ein Einkauf mit Vorsteuer, kein Erlös.</p>
           <a href="#kontakt">Erzeugerverwaltung ansehen →</a>
+        </div>
+      </div>
+
+      <!-- Etiketten -->
+      <div class="feature-card animate-on-scroll delay-1">
+        <span class="neu-badge">NEU</span>
+        <div class="feature-icon yolk">🏷️</div>
+        <h3>Eierkarton-Etiketten mit QR-Code</h3>
+        <p>Aus der Sortierposition wird das Etikett: Klassen, Haltungsform, Erzeugercode, MHD, Charge und Zulassungsnummer sind vorbefüllt — drucken, fertig.</p>
+        <ul>
+          <li>Felder aus der Sortierposition vorbefüllt</li>
+          <li>Jedes Feld vor dem Druck überschreibbar</li>
+          <li>Eieranzahl und Kühlhinweis (Standardtext einstellbar)</li>
+          <li>QR-Code lokal erzeugt, kein externer Dienst</li>
+          <li>Nur Etikettengrößen, auf die die Pflichtangaben passen</li>
+        </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Dieselben Daten wie der Beleg:</strong> Etikett und Lieferschein ziehen aus derselben Sortier-Charge — Sie tippen nichts doppelt ab.</p>
+          <p><strong>Bewusst keine Mini-Größe:</strong> 50 × 30 mm fehlt im Angebot, weil die Pflichtangaben dort nicht mehr lesbar passen.</p>
+          <a href="#kennzeichnung">Kennzeichnung ansehen →</a>
+        </div>
+      </div>
+
+      <!-- Kontrolle & Berichte -->
+      <div class="feature-card animate-on-scroll delay-2">
+        <span class="neu-badge">NEU</span>
+        <div class="feature-icon amber">✅</div>
+        <h3>Eierkontrolle &amp; Berichte</h3>
+        <p>Die Kontrollseite zeigt, was im Lager abläuft und was nicht stimmt: MHD-Ampel, Prüfung der Erzeugercodes und Stand der Meldepflichten. Berichte ergänzen die Auswertung.</p>
+        <ul>
+          <li>MHD-Ampel für sortierte Chargen</li>
+          <li>Erzeugercode gegen Haltungsform geprüft</li>
+          <li>Offene und überfällige Meldepflichten</li>
+          <li>Verteilung nach Güte- und Gewichtsklasse</li>
+          <li>Top-Erzeuger im gewählten Zeitraum</li>
+        </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Fehler vor dem Beleg finden:</strong> Steht ein Betrieb als Freiland, sein Code beginnt aber mit 2, fällt das auf der Kontrollseite auf — nicht erst bei der KAT-Meldung.</p>
+          <p><strong>Eine Rechnung für alles:</strong> Die Berichte nutzen dieselbe Aggregation wie die KAT-Meldung, die Zahlen laufen nicht auseinander.</p>
+          <a href="#meldungen">Meldungen ansehen →</a>
+        </div>
+      </div>
+
+      <!-- Rechnungseingang -->
+      <div class="feature-card animate-on-scroll delay-3">
+        <span class="neu-badge">NEU</span>
+        <div class="feature-icon blue">📧</div>
+        <h3>Eingangsrechnungen per E-Mail</h3>
+        <p>Rechnungen von Futter-, Verpackungs- und Zubehörlieferanten holt AGRI-Office aus Ihrem Postfach, liest sie und legt sie zur Prüfung vor — gebucht wird erst nach Ihrem Okay.</p>
+        <ul>
+          <li>IMAP-Postfach oder Microsoft 365</li>
+          <li>ZUGFeRD zuerst, sonst KI-Erkennung</li>
+          <li>Lieferant per IBAN zugeordnet</li>
+          <li>Abweichende IBAN wird markiert</li>
+          <li>Prüfliste direkt im Dashboard</li>
+        </ul>
+        <div class="feature-expand-hint">▼ Details anzeigen</div>
+        <div class="feature-details">
+          <p><strong>Nichts passiert unbemerkt:</strong> Eine erkannte Rechnung landet in der Prüfliste, nicht als fertige Buchung. Ist der Lieferant unklar, wird keiner erfunden.</p>
+          <p><strong>Schutz vor Fake-Rechnungen:</strong> Weicht die IBAN von der hinterlegten ab — das klassische „Unsere Bankverbindung hat sich geändert“ —, wird das ausdrücklich markiert.</p>
+          <a href="#kontakt">Finanzen ansehen →</a>
         </div>
       </div>
 
@@ -1209,6 +1296,7 @@
         <ul>
           <li>Echtzeit-Bestände mit Mindestbestand-Ampel</li>
           <li>Chargenrückverfolgung vorwärts und rückwärts</li>
+          <li>Erzeugerherkunft je Charge, CSV-Export</li>
           <li>Chargen-Zertifikate als Datei je Charge</li>
           <li>Lagerorte, Umbuchungen, Inventur</li>
           <li>„Wer hat diese Charge bekommen?“ auf einen Klick</li>
@@ -1216,7 +1304,7 @@
         <div class="feature-expand-hint">▼ Details anzeigen</div>
         <div class="feature-details">
           <p><strong>Für den Ernstfall gebaut:</strong> Kommt es zu einer Beanstandung, ist die Frage immer dieselbe — welche Charge ging an wen. Die Antwort steht in AGRI-Office, nicht im Ordner.</p>
-          <p><strong>Inventur integriert:</strong> Gezählt gegen erwartet, Differenzen werden als Lagerbewegung sauber verbucht.</p>
+          <p><strong>Sortier-Chargen sind bekannt:</strong> Beim Erfassen einer Lieferung erkennt AGRI-Office eine Charge aus dem Sortierprotokoll und übernimmt Legedatum, Erzeugercode und Klassen in die Position.</p>
           <a href="#kontakt">Lager ansehen →</a>
         </div>
       </div>
@@ -1341,13 +1429,13 @@
       <div class="how-step animate-on-scroll delay-1">
         <div class="how-num">1</div>
         <h3>Anlieferung erfassen</h3>
-        <p>Partie vom Erzeuger buchen — Menge, Datum, Betrieb. Erzeugercode und Haltungsform kommen aus den Stammdaten.</p>
+        <p>Partie vom Erzeuger buchen oder aus einer Datei importieren — Menge, Datum, Betrieb. Erzeugercode und Haltungsform kommen aus den Stammdaten.</p>
         <span class="how-badge">Erzeugerabrechnung</span>
       </div>
       <div class="how-step animate-on-scroll delay-2">
         <div class="how-num">2</div>
         <h3>Sortieren &amp; klassifizieren</h3>
-        <p>Das Ergebnis Ihrer Sortiermaschine als Protokoll eintragen: je Ausgangscharge Güteklasse, Gewichtsklasse, Menge, Legedatum.</p>
+        <p>Das Ergebnis Ihrer Sortiermaschine als Protokoll eintragen oder den Export importieren: je Ausgangscharge Güteklasse, Gewichtsklasse, Menge, Legedatum.</p>
         <span class="how-badge">Lagerzugang automatisch</span>
       </div>
       <div class="how-step animate-on-scroll delay-3">
@@ -1464,6 +1552,10 @@
           <div class="check-item">
             <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
             <p><strong>Rückwärts und vorwärts:</strong> Von der Charge zum Kunden und vom Kunden zurück zum Erzeuger — beide Richtungen stehen auf Knopfdruck bereit.</p>
+          </div>
+          <div class="check-item">
+            <div class="check-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3"><path d="M2 6l3 3 5-5"/></svg></div>
+            <p><strong>Import aus der Sortiermaschine:</strong> Den CSV- oder Excel-Export laden Sie mit Vorschau hoch. Dieselbe Datei zweimal hochgeladen bucht zweimal — deshalb sehen Sie vor dem Übernehmen jede Zeile.</p>
           </div>
         </div>
         <a href="#kontakt" class="btn btn-primary">Sortierprotokoll ansehen →</a>
@@ -1830,6 +1922,26 @@
 
       <div class="faq-item animate-on-scroll">
         <div class="faq-question" onclick="toggleFaq(this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter')toggleFaq(this)">
+          <span>Kann ich Eierkarton-Etiketten drucken?</span>
+          <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">
+          Ja. Sie wählen eine Sortierposition, und AGRI-Office befüllt das Etikett mit Güte- und Gewichtsklasse, Haltungsform (aus dem Erzeugercode), Erzeugercode, MHD, Chargennummer und Packstellen-Zulassungsnummer; dazu kommt Ihr hinterlegter Kühlhinweis. Die Eieranzahl je Karton tragen Sie ein. Jedes Feld lässt sich vor dem Druck überschreiben. Der QR-Code wird lokal erzeugt, es wird kein externer Dienst angefragt. Etikettengrößen, auf die die Pflichtangaben nicht passen, sind bewusst nicht im Angebot.
+        </div></div>
+      </div>
+
+      <div class="faq-item animate-on-scroll">
+        <div class="faq-question" onclick="toggleFaq(this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter')toggleFaq(this)">
+          <span>Wie funktioniert die Erzeugerabrechnung nach Güteklasse?</span>
+          <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
+        </div>
+        <div class="faq-answer"><div class="faq-answer-inner">
+          Ist einer Anlieferung ein Sortierprotokoll zugeordnet, bildet AGRI-Office die Positionen der Gutschrift aus dem Sortierergebnis — je Güte- und Gewichtsklasse eine Zeile. Sie tragen den Preis je Klasse ein, als Vorschlag dient der Preis der letzten Abrechnung desselben Erzeugers. Fehlt für eine Klasse ein Preis, wird keine unvollständige Gutschrift angelegt. Im DATEV-Export lässt sich die Erzeugerabrechnung auf ein eigenes Wareneinkaufskonto buchen, das Konto stimmen Sie mit Ihrem Steuerberater ab.
+        </div></div>
+      </div>
+
+      <div class="faq-item animate-on-scroll">
+        <div class="faq-question" onclick="toggleFaq(this)" role="button" tabindex="0" onkeypress="if(event.key==='Enter')toggleFaq(this)">
           <span>Wie wird das Mindesthaltbarkeitsdatum berechnet?</span>
           <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
         </div>
@@ -1894,7 +2006,7 @@
           <div class="faq-icon"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2v8M2 6h8"/></svg></div>
         </div>
         <div class="faq-answer"><div class="faq-answer-inner">
-          Nein — und das ist bewusst so. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine tragen Sie als Sortierprotokoll ein. Eine direkte Maschinenanbindung ist im Enterprise-Tarif als individuelle Schnittstelle möglich — sprechen Sie uns an.
+          Nein — und das ist bewusst so. AGRI-Office ist die kaufmännische und dokumentarische Seite: Es hält fest, was sortiert wurde, klassifiziert die Ausgangschargen, führt Bestand und Rückverfolgbarkeit, erzeugt Lieferschein und Rechnung mit korrekter Kennzeichnung und bereitet die Meldungen auf. Das Sortier- und Wiegeergebnis Ihrer Maschine erfassen Sie als Sortierprotokoll. Den Export Ihrer Maschine (CSV oder Excel) können Sie als Sortierprotokoll importieren, mit Vorschau vor dem Übernehmen. Eine direkte Maschinenanbindung ist im Enterprise-Tarif als individuelle Schnittstelle möglich — sprechen Sie uns an.
         </div></div>
       </div>
 

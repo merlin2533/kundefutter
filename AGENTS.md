@@ -92,7 +92,7 @@ Wettbewerbsvergleich · **Cross-Sell `#eierhandel`** · Pricing (Monats/Jahres-T
 Video · Testimonials · Blog-Teaser · FAQ (Accordion + `FAQPage`) · Kontaktformular · Footer
 
 ### Abschnitte `eierhandel.html`
-Hero · Trust-Bar · Features-Übersicht (12 Karten) · How-it-works (4 Schritte:
+Hero · Trust-Bar · Features-Übersicht (15 Karten) · How-it-works (4 Schritte:
 Anlieferung → Sortieren/Klassifizieren → Liefern/Abrechnen → Melden) ·
 Deep-Dives (`#kennzeichnung`, `#sortierung`, `#meldungen`) · **Rechtsgrundlagen-Tabelle
 `#rechtsgrundlagen`** · **Zielgruppen-Karten `#zielgruppen`** · Stats · Pricing · FAQ ·

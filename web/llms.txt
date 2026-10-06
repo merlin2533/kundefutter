@@ -128,6 +128,7 @@ Ein Betrieb, der beides handelt, lässt beide Modulgruppen aktiv und arbeitet in
 - **Ausgabenbuch**: Kategorisiert, mit Beleg-Upload (OCR via KI)
 - **DATEV-Export**: Buchungsdaten CSV für alle gängigen Buchhaltungsprogramme
 - **ZUGFeRD/Factur-X**: Pflichtstandard ab 2025
+- **Rechnungs-E-Mail-Eingang**: Lieferantenrechnungen aus IMAP-Postfach (nur TLS-verschlüsselt, Standard-Port 993) oder Microsoft 365 (Graph) automatisch abrufen; ZUGFeRD zuerst, sonst KI-Erkennung; Lieferant per IBAN zugeordnet, abweichende IBAN wird markiert; Ergebnis landet zur Prüfung in einem Batch, nicht als gebuchte Rechnung
 
 ### 11. Mobile & PWA
 - **Progressive Web App**: Installierbar ohne App Store auf iOS, Android
@@ -144,8 +145,12 @@ Rechtsgrundlage: EU-Vermarktungsnorm für Eier, Del. VO (EU) 2023/2465 und DVO (
 - **Erzeuger-Stammdaten**: Erzeugercode und Haltungsform je Betrieb (0 Bio, 1 Freiland, 2 Boden, 3 Käfig/Kleingruppe)
 - **KAT-Warenstrommeldung**: Aggregation je ISO-Kalenderwoche, Erzeugercode, Güte- und Gewichtsklasse; sortierte Eingangsmenge und abgegebene Menge getrennt; Haltungsform aus der ersten Ziffer des Erzeugercodes abgeleitet; Vorschau-Seite und CSV-Export
 - **Meldepflichten-Tracker**: Tierseuchenkasse-Tierzahlmeldung (Stichtag 01.01., Frist 31.01., zielt immer auf die nächste offene Frist) und wiederkehrende KAT-Wochenerinnerung; neue Erinnerung erst nach Erledigung der vorherigen
-- **Erzeugerabrechnung**: Anlieferungen je Erzeuger erfassen und abrechnen
-- **Rückverfolgbarkeit**: Chargensuche vorwärts (Charge → Kunde) und rückwärts (Kunde → Erzeuger)
+- **Erzeugerabrechnung**: Anlieferungen je Erzeuger erfassen (auch per CSV/XLS-Import mit Vorschau) und abrechnen; bei verknüpftem Sortierprotokoll werden die Gutschrift-Positionen je Güte-/Gewichtsklasse aus dem Sortierergebnis gebildet, Preis je Klasse mit Vorschlag aus der letzten Abrechnung; im DATEV-Export auf ein eigenes Wareneinkaufskonto lenkbar
+- **Sortiermaschinen-Import**: Export der Maschine (CSV/XLS) als Sortierprotokoll importieren, Vorschau vor dem Übernehmen
+- **Kennzeichnung ergänzt**: Packstellen-Zulassungsnummer (Einstellung Firma) und lose/verpackt (am Artikel) erscheinen auf Lieferschein und Rechnung
+- **Eierkarton-Etiketten**: aus der Sortierposition vorbefüllt (Klassen, Haltungsform, Erzeugercode, MHD, Charge, Zulassungsnummer), Kühlhinweis als hinterlegter Standardtext, Eieranzahl je Karton manuell, QR-Code lokal erzeugt
+- **Eierkontrolle & Berichte**: MHD-Ampel sortierter Chargen, Erzeugercode-Prüfung gegen Haltungsform, Meldepflichten-Status; Berichte zu Güte-/Gewichtsklassen-Verteilung und Top-Erzeugern
+- **Rückverfolgbarkeit**: Chargensuche vorwärts (Charge → Kunde) und rückwärts (Kunde → Erzeuger), inklusive Erzeugerherkunft und CSV-Export; Sortier-Chargen werden beim Erfassen einer Lieferung erkannt
 - **Betriebsart "Eierbetrieb"**: schaltet Sortenversuche, Bodenproben, PSM, Düngebedarf und Agraranträge ab; Artikelkategorien auf Eier/Futter/Analysen/Beratung; Menügruppe "Pflanze & Tier" wird zu "Eier & Futter"
 - **Nicht abgedeckt**: behördliche Registrierung der Packstelle, Steuerberatung, physische Sortier-/Wiegetechnik (Maschinenanbindung nur als Enterprise-Schnittstelle)
 
