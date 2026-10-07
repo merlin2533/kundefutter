@@ -3,6 +3,7 @@
 // Daten liefern.
 
 import { prisma } from "@/lib/prisma";
+import { resolveBevorzugtenLieferanten } from "@/lib/utils";
 
 const MAX_TAGE_SPANNE = 366 * 10; // ~10 Jahre
 
@@ -51,6 +52,22 @@ export interface KategorieVerlaufEinheitSumme {
   mengeOffen: number;
 }
 
+/** Aggregiert je (bevorzugtem) Lieferant des Artikels + Einheit — Antwort auf "welche Menge
+ *  habe ich mit welchem Lieferanten gemacht". Nach Einheit gruppiert aus demselben Grund wie
+ *  `KategorieVerlaufEinheitSumme` (kg und Stück lassen sich nicht addieren). Der Lieferant ist
+ *  der aktuell am Artikel hinterlegte bevorzugte/beste Lieferant (`resolveBevorzugtenLieferanten()`)
+ *  — kein historischer Snapshot zum Lieferzeitpunkt, da Lieferposition keinen eigenen
+ *  Lieferanten-Bezug führt. `lieferantId: null` sammelt Artikel ohne hinterlegten Lieferanten. */
+export interface KategorieVerlaufLieferantSumme {
+  lieferantId: number | null;
+  lieferantName: string;
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+  anzahlArtikel: number;
+  anzahlKunden: number;
+}
+
 export interface KategorieVerlaufParams {
   kategorie?: string | null;
   /** Mehrfachauswahl — leer/undefined = alle Unterkategorien (kein Filter). */
@@ -60,6 +77,9 @@ export interface KategorieVerlaufParams {
   /** ISO-Datum (YYYY-MM-DD), inklusive. */
   bis?: string | null;
   kundeSuche?: string | null;
+  /** Nur Artikel, deren bevorzugter/bester Lieferant (`resolveBevorzugtenLieferanten()`) diesem
+   *  Lieferanten entspricht — kein Filter, wenn leer/undefined. */
+  lieferantId?: number | null;
 }
 
 export interface KategorieVerlaufResult {
@@ -71,6 +91,7 @@ export interface KategorieVerlaufResult {
   bis: string;
   artikelUebersicht: KategorieVerlaufArtikelSumme[];
   gesamtProEinheit: KategorieVerlaufEinheitSumme[];
+  lieferantUebersicht: KategorieVerlaufLieferantSumme[];
 }
 
 export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Promise<KategorieVerlaufResult> {
@@ -110,7 +131,21 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     },
     select: {
       menge: true,
-      artikel: { select: { id: true, name: true, unterkategorie: true, einheit: true } },
+      artikel: {
+        select: {
+          id: true,
+          name: true,
+          unterkategorie: true,
+          einheit: true,
+          lieferanten: {
+            select: {
+              bevorzugt: true,
+              einkaufspreis: true,
+              lieferant: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
       lieferung: {
         select: {
           datum: true,
@@ -122,12 +157,27 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     take: 10000,
   });
 
+  const lieferantFilter = params.lieferantId && Number.isFinite(params.lieferantId) ? params.lieferantId : null;
+
+  // Je Artikel der aktuell bevorzugte/beste Lieferant (live, kein Snapshot — siehe
+  // KategorieVerlaufLieferantSumme). Einmal pro Artikel aufgelöst, damit identische Artikel über
+  // mehrere Positionen hinweg demselben Lieferanten zugeordnet bleiben.
+  const artikelLieferantMap = new Map<number, { lieferantId: number | null; lieferantName: string }>();
+
   const kundenMap = new Map<
     number,
     { kundeId: number; kundeName: string; kundeOrt: string | null; eintraege: Map<string, KategorieVerlaufEintrag> }
   >();
 
   for (const p of positionen) {
+    let lf = artikelLieferantMap.get(p.artikel.id);
+    if (!lf) {
+      const bevorzugt = resolveBevorzugtenLieferanten(p.artikel.lieferanten);
+      lf = { lieferantId: bevorzugt?.lieferant.id ?? null, lieferantName: bevorzugt?.lieferant.name ?? "— kein Lieferant hinterlegt —" };
+      artikelLieferantMap.set(p.artikel.id, lf);
+    }
+    if (lieferantFilter !== null && lf.lieferantId !== lieferantFilter) continue;
+
     const jahr = p.lieferung.datum.getUTCFullYear();
     const istGeliefert = p.lieferung.status === "geliefert";
     const k = p.lieferung.kunde;
@@ -227,6 +277,42 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
   const gesamtProEinheit = Array.from(einheitSummeMap.values())
     .sort((a, b) => (b.mengeGeliefert + b.mengeOffen) - (a.mengeGeliefert + a.mengeOffen));
 
+  // Lieferanten-Übersicht: dieselben (bereits nach kundeSuche/Lieferant gefilterten) `kunden`,
+  // gruppiert nach dem je Artikel aufgelösten bevorzugten Lieferanten + Einheit.
+  const lieferantSummeMap = new Map<
+    string,
+    { lieferantId: number | null; lieferantName: string; einheit: string | null;
+      mengeGeliefert: number; mengeOffen: number; artikelIds: Set<number>; kundenIds: Set<number> }
+  >();
+  for (const kg of kunden) {
+    for (const e of kg.eintraege) {
+      const lf = artikelLieferantMap.get(e.artikelId);
+      const lieferantId = lf?.lieferantId ?? null;
+      const lieferantName = lf?.lieferantName ?? "— kein Lieferant hinterlegt —";
+      const key = `${lieferantId ?? "none"}-${e.einheit ?? ""}`;
+      let ls = lieferantSummeMap.get(key);
+      if (!ls) {
+        ls = { lieferantId, lieferantName, einheit: e.einheit, mengeGeliefert: 0, mengeOffen: 0, artikelIds: new Set(), kundenIds: new Set() };
+        lieferantSummeMap.set(key, ls);
+      }
+      ls.mengeGeliefert += e.mengeGeliefert;
+      ls.mengeOffen += e.mengeOffen;
+      ls.artikelIds.add(e.artikelId);
+      ls.kundenIds.add(kg.kundeId);
+    }
+  }
+  const lieferantUebersicht: KategorieVerlaufLieferantSumme[] = Array.from(lieferantSummeMap.values())
+    .map((ls) => ({
+      lieferantId: ls.lieferantId,
+      lieferantName: ls.lieferantName,
+      einheit: ls.einheit,
+      mengeGeliefert: ls.mengeGeliefert,
+      mengeOffen: ls.mengeOffen,
+      anzahlArtikel: ls.artikelIds.size,
+      anzahlKunden: ls.kundenIds.size,
+    }))
+    .sort((a, b) => (b.mengeGeliefert + b.mengeOffen) - (a.mengeGeliefert + a.mengeOffen) || a.lieferantName.localeCompare(b.lieferantName, "de"));
+
   return {
     kunden,
     jahre,
@@ -236,5 +322,6 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     bis: bisIso,
     artikelUebersicht,
     gesamtProEinheit,
+    lieferantUebersicht,
   };
 }
