@@ -1,23 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { ladeKategorieVerlauf } from "@/lib/kategorie-verlauf";
+import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
-// GET /api/statistik/kategorie-verlauf/export?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...
+// GET /api/statistik/kategorie-verlauf/export?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...&lieferantId=...
 // Excel-Export der gefilterten "Kategorie-Verlauf je Kunde"-Liste (Kunde × Jahr-Pivot).
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorien, artikelUebersicht, gesamtProEinheit } = await ladeKategorieVerlauf({
+    const lieferantIdParam = searchParams.get("lieferantId");
+    const lieferantIdNum = lieferantIdParam ? parseInt(lieferantIdParam, 10) : null;
+    const lieferantId = lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null;
+    const { kunden, jahre, kategorie, unterkategorien, artikelUebersicht, gesamtProEinheit, lieferantUebersicht } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
+      lieferantId,
     });
 
-    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}`;
+    const lieferantFilterName = lieferantId
+      ? (await prisma.lieferant.findUnique({ where: { id: lieferantId }, select: { name: true } }))?.name ?? null
+      : null;
+
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}`;
 
     const wb = XLSX.utils.book_new();
 
@@ -40,6 +49,17 @@ export async function GET(req: NextRequest) {
         a.mengeGeliefert,
         a.mengeOffen,
         a.anzahlKunden,
+      ]),
+      [],
+      ["Je Lieferant"],
+      ["Lieferant", "Einheit", "Geliefert", "Offen", "Artikel", "Kunden"],
+      ...lieferantUebersicht.map((l) => [
+        l.lieferantName,
+        l.einheit ?? "",
+        l.mengeGeliefert,
+        l.mengeOffen,
+        l.anzahlArtikel,
+        l.anzahlKunden,
       ]),
     ];
     const wsUebersicht = XLSX.utils.aoa_to_sheet(uebersichtAoa);

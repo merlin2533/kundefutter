@@ -10,6 +10,7 @@ import {
   parseListSetting,
 } from "@/lib/auswahllisten";
 import MultiSelectDropdown from "@/components/MultiSelectDropdown";
+import SearchableSelect from "@/components/SearchableSelect";
 
 interface Eintrag {
   jahr: number;
@@ -44,11 +45,22 @@ interface EinheitSumme {
   mengeOffen: number;
 }
 
+interface LieferantSumme {
+  lieferantId: number | null;
+  lieferantName: string;
+  einheit: string | null;
+  mengeGeliefert: number;
+  mengeOffen: number;
+  anzahlArtikel: number;
+  anzahlKunden: number;
+}
+
 interface Data {
   kunden: KundeVerlauf[];
   jahre: number[];
   artikelUebersicht: ArtikelSumme[];
   gesamtProEinheit: EinheitSumme[];
+  lieferantUebersicht: LieferantSumme[];
 }
 
 const isoHeute = (d: Date) => d.toISOString().slice(0, 10);
@@ -60,10 +72,12 @@ export default function KategorieVerlaufPage() {
   const [von, setVon] = useState(isoHeute(new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1))));
   const [bis, setBis] = useState(isoHeute(now));
   const [kundeSuche, setKundeSuche] = useState("");
+  const [lieferantId, setLieferantId] = useState("");
 
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
   const [kategorienMap, setKategorienMap] = useState<Record<string, string[]>>({});
   const [systemSettings, setSystemSettings] = useState<Record<string, string> | null>(null);
+  const [lieferanten, setLieferanten] = useState<{ id: number; name: string }[]>([]);
 
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,6 +96,12 @@ export default function KategorieVerlaufPage() {
     fetch("/api/artikel/kategorien")
       .then((r) => (r.ok ? r.json() : {}))
       .then((d: Record<string, string[]>) => setKategorienMap(d))
+      .catch((err) => {
+        Sentry.captureException(err);
+      });
+    fetch("/api/lieferanten?limit=5000")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: { id: number; name: string }[]) => setLieferanten(Array.isArray(d) ? d : []))
       .catch((err) => {
         Sentry.captureException(err);
       });
@@ -115,6 +135,7 @@ export default function KategorieVerlaufPage() {
     try {
       const params = new URLSearchParams({ kategorie, von, bis });
       for (const u of unterkategorien) params.append("unterkategorie", u);
+      if (lieferantId) params.set("lieferantId", lieferantId);
       const res = await fetch(`/api/statistik/kategorie-verlauf?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
@@ -124,7 +145,7 @@ export default function KategorieVerlaufPage() {
     } finally {
       setLoading(false);
     }
-  }, [kategorie, unterkategorien, von, bis]);
+  }, [kategorie, unterkategorien, von, bis, lieferantId]);
 
   useEffect(() => { laden(); }, [laden]);
 
@@ -137,6 +158,7 @@ export default function KategorieVerlaufPage() {
   const exportParams = new URLSearchParams({ kategorie, von, bis });
   for (const u of unterkategorien) exportParams.append("unterkategorie", u);
   if (kundeSuche.trim()) exportParams.set("kundeSuche", kundeSuche.trim());
+  if (lieferantId) exportParams.set("lieferantId", lieferantId);
 
   return (
     <div className="space-y-6">
@@ -226,6 +248,17 @@ export default function KategorieVerlaufPage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
+        <div className="min-w-[220px]">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Lieferant</label>
+          <SearchableSelect
+            options={lieferanten.map((l) => ({ value: l.id, label: l.name }))}
+            value={lieferantId}
+            onChange={setLieferantId}
+            placeholder="Alle Lieferanten"
+            allowClear
+            clearLabel="Alle Lieferanten"
+          />
+        </div>
         {loading && <span className="text-xs text-gray-400">Lädt…</span>}
       </div>
 
@@ -292,6 +325,47 @@ export default function KategorieVerlaufPage() {
               </table>
             </div>
           </div>
+          {data.lieferantUebersicht.length > 0 && (
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700 mb-2">Je Lieferant</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+                      <th className="py-1.5 pr-4">Lieferant</th>
+                      <th className="py-1.5 pr-4 text-right whitespace-nowrap">Geliefert</th>
+                      <th className="py-1.5 pr-4 text-right whitespace-nowrap">Offen</th>
+                      <th className="py-1.5 pr-4 text-right whitespace-nowrap">Artikel</th>
+                      <th className="py-1.5 pr-4 text-right whitespace-nowrap">Kunden</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {data.lieferantUebersicht.map((l) => (
+                      <tr key={`${l.lieferantId ?? "none"}-${l.einheit ?? ""}`}>
+                        <td className="py-1.5 pr-4">
+                          {l.lieferantId ? (
+                            <Link href={`/lieferanten/${l.lieferantId}`} className="text-green-700 hover:underline font-medium">
+                              {l.lieferantName}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-400">{l.lieferantName}</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-4 text-right text-green-700 whitespace-nowrap">
+                          {l.mengeGeliefert > 0 ? `${l.mengeGeliefert.toLocaleString("de-DE")} ${l.einheit ?? ""}` : "—"}
+                        </td>
+                        <td className="py-1.5 pr-4 text-right text-amber-700 whitespace-nowrap">
+                          {l.mengeOffen > 0 ? `${l.mengeOffen.toLocaleString("de-DE")} ${l.einheit ?? ""}` : "—"}
+                        </td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">{l.anzahlArtikel}</td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">{l.anzahlKunden}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

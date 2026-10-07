@@ -3,21 +3,30 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatDatum } from "@/lib/utils";
 import { ladeKategorieVerlauf } from "@/lib/kategorie-verlauf";
+import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
-// GET /api/statistik/kategorie-verlauf/pdf?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...
+// GET /api/statistik/kategorie-verlauf/pdf?kategorie=...&unterkategorie=...&von=...&bis=...&kundeSuche=...&lieferantId=...
 // PDF-Export der gefilterten "Kategorie-Verlauf je Kunde"-Liste (Kunde × Jahr-Pivot).
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const { kunden, jahre, kategorie, unterkategorien, von, bis, artikelUebersicht, gesamtProEinheit } = await ladeKategorieVerlauf({
+    const lieferantIdParam = searchParams.get("lieferantId");
+    const lieferantIdNum = lieferantIdParam ? parseInt(lieferantIdParam, 10) : null;
+    const lieferantId = lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null;
+    const { kunden, jahre, kategorie, unterkategorien, von, bis, artikelUebersicht, gesamtProEinheit, lieferantUebersicht } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
+      lieferantId,
     });
+
+    const lieferantFilterName = lieferantId
+      ? (await prisma.lieferant.findUnique({ where: { id: lieferantId }, select: { name: true } }))?.name ?? null
+      : null;
 
     const doc = new jsPDF({ orientation: "landscape" });
     const heute = formatDatum(new Date());
@@ -29,7 +38,7 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}`;
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}`;
     doc.text(
       `Kategorie: ${kategorieLabel}   ·   Zeitraum: ${formatDatum(von)}–${formatDatum(bis)}   ·   Erstellt: ${heute}`,
       14,
@@ -73,6 +82,25 @@ export async function GET(req: NextRequest) {
             a.mengeGeliefert.toLocaleString("de-DE"),
             a.mengeOffen.toLocaleString("de-DE"),
             String(a.anzahlKunden),
+          ]),
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [100, 149, 237] as [number, number, number], textColor: 255, fontSize: 8 },
+          margin: { left: 14, right: 14 },
+        });
+        naechsteY = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+      }
+
+      if (lieferantUebersicht.length > 0) {
+        autoTable(doc, {
+          startY: naechsteY,
+          head: [["Lieferant", "Einheit", "Geliefert", "Offen", "Artikel", "Kunden"]],
+          body: lieferantUebersicht.map((l) => [
+            l.lieferantName,
+            l.einheit ?? "",
+            l.mengeGeliefert.toLocaleString("de-DE"),
+            l.mengeOffen.toLocaleString("de-DE"),
+            String(l.anzahlArtikel),
+            String(l.anzahlKunden),
           ]),
           styles: { fontSize: 8 },
           headStyles: { fillColor: [100, 149, 237] as [number, number, number], textColor: 255, fontSize: 8 },
