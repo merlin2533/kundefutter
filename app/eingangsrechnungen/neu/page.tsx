@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
 import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCameraUpload";
+import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
@@ -218,6 +219,7 @@ function EingangsrechnungNeuInner() {
 
 function EingangsrechnungEinzelnForm() {
   const router = useRouter();
+  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const kiFileInputRef = useRef<HTMLInputElement>(null);
   const [lieferanten, setLieferanten] = useState<Lieferant[]>([]);
@@ -227,9 +229,22 @@ function EingangsrechnungEinzelnForm() {
   const [zugferdHint, setZugferdHint] = useState("");
   const [kiLoading, setKiLoading] = useState(false);
   const [kiHint, setKiHint] = useState("");
+  // Die beim ZUGFeRD-/KI-Upload bereits ausgewählte Datei — wird beim Speichern
+  // automatisch als Beleg an die neue Eingangsrechnung gehängt, damit sie nicht
+  // ein zweites Mal hochgeladen werden muss.
+  const [belegFile, setBelegFile] = useState<File | null>(null);
   const [erkannteIban, setErkannteIban] = useState<{ iban: string; bic: string | null; lieferantId: string } | null>(null);
   const [ibanSaved, setIbanSaved] = useState(false);
   const [ibanError, setIbanError] = useState("");
+
+  // Dateitypen, die der Beleg-Upload-Endpunkt (/api/eingangsrechnungen/[id]/beleg)
+  // akzeptiert — eine ZUGFeRD-XML-Datei (ohne eingebettetes PDF) fällt bewusst NICHT
+  // darunter, die kann nicht als Beleg-Vorschau dienen.
+  const BELEG_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".webp"];
+  function istBelegfaehig(file: File) {
+    const name = file.name.toLowerCase();
+    return BELEG_EXTENSIONS.some((ext) => name.endsWith(ext));
+  }
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -270,6 +285,7 @@ function EingangsrechnungEinzelnForm() {
     setZugferdLoading(true);
     setZugferdHint("");
     setError("");
+    if (istBelegfaehig(file)) setBelegFile(file);
 
     try {
       const fd = new FormData();
@@ -343,6 +359,7 @@ function EingangsrechnungEinzelnForm() {
     setKiLoading(true);
     setKiHint("");
     setError("");
+    if (istBelegfaehig(file)) setBelegFile(file);
 
     try {
       const fd = new FormData();
@@ -461,6 +478,28 @@ function EingangsrechnungEinzelnForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Fehler beim Speichern");
+
+      if (belegFile) {
+        try {
+          const belegFd = new FormData();
+          belegFd.append("file", belegFile);
+          const belegRes = await fetch(`/api/eingangsrechnungen/${data.id}/beleg`, {
+            method: "POST",
+            body: belegFd,
+          });
+          if (!belegRes.ok) {
+            const belegData = await belegRes.json().catch(() => ({}));
+            toast.error(
+              (belegData as { error?: string }).error ??
+                "Beleg konnte nicht automatisch übernommen werden — bitte auf der Detailseite erneut hochladen."
+            );
+          }
+        } catch (belegErr) {
+          Sentry.captureException(belegErr);
+          toast.error("Beleg konnte nicht automatisch übernommen werden — bitte auf der Detailseite erneut hochladen.");
+        }
+      }
+
       router.push(`/eingangsrechnungen/${data.id}`);
     } catch (err) {
       Sentry.captureException(err);
@@ -625,6 +664,25 @@ function EingangsrechnungEinzelnForm() {
       {ibanError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-sm text-red-800">
           {ibanError}
+        </div>
+      )}
+
+      {belegFile && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-6 flex items-center gap-3 text-sm text-gray-700">
+          <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="flex-1 min-w-0 truncate">
+            <strong>{belegFile.name}</strong> wird beim Speichern automatisch als Beleg hinterlegt — kein erneuter Upload nötig.
+          </span>
+          <button
+            type="button"
+            onClick={() => setBelegFile(null)}
+            className="shrink-0 text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            entfernen
+          </button>
         </div>
       )}
 
