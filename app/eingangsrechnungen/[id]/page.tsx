@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import BelegVorschau from "@/components/BelegVorschau";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
@@ -368,16 +369,23 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
             )}
 
             <div className="border-t border-gray-100 pt-4">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Beleg</p>
-              {data.belegpfad ? (
-                <p className="text-sm text-green-700">📄 Beleg hochgeladen</p>
-              ) : (
-                <p className="text-sm text-gray-400">Kein Beleg hochgeladen.</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Beleg</p>
+              <BelegVorschau
+                pfad={data.belegpfad}
+                className="max-h-[70vh]"
+                emptyAction={
+                  <label className="inline-block px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 cursor-pointer">
+                    {belegUploading ? "Wird hochgeladen…" : "Beleg hochladen"}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleBelegUpload} disabled={belegUploading} />
+                  </label>
+                }
+              />
+              {data.belegpfad && (
+                <label className="inline-block mt-2 px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 cursor-pointer">
+                  {belegUploading ? "Wird hochgeladen…" : "Beleg ersetzen"}
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleBelegUpload} disabled={belegUploading} />
+                </label>
               )}
-              <label className="inline-block mt-2 px-3 py-1.5 text-xs font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200 cursor-pointer">
-                {belegUploading ? "Wird hochgeladen…" : data.belegpfad ? "Beleg ersetzen" : "Beleg hochladen"}
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleBelegUpload} disabled={belegUploading} />
-              </label>
               {belegFehler && <p className="text-xs text-red-600 mt-1">{belegFehler}</p>}
             </div>
           </div>

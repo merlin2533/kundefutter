@@ -199,6 +199,14 @@ function AusgabenContent() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Ausgabenbuch</h1>
         <div className="flex items-center gap-2">
+          <Link
+            href="/ausgaben/belege"
+            title="Beleg-Ansicht"
+            className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 px-2.5 sm:px-4 py-2 rounded hover:bg-gray-200 text-sm border border-gray-300"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 4h18a2 2 0 002-2V8a2 2 0 00-2-2h-6l-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span className="hidden sm:inline">Beleg-Ansicht</span>
+          </Link>
           <a
             href={`/api/exporte/ausgaben?von=${von}&bis=${bis}${kategorie !== "Alle" ? `&kategorie=${encodeURIComponent(kategorie)}` : ""}${buchungstyp !== "Alle" ? `&buchungstyp=${encodeURIComponent(buchungstyp)}` : ""}${zahlungsweg !== "Alle" ? `&zahlungsweg=${encodeURIComponent(zahlungsweg)}` : ""}`}
             download
