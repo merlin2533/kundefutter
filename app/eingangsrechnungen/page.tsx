@@ -187,6 +187,13 @@ function EingangsrechnungenListeInner() {
         <h1 className="text-2xl font-bold text-gray-900">Eingangsrechnungen</h1>
         <div className="flex gap-2 flex-wrap">
           <Link
+            href="/eingangsrechnungen/belege"
+            className="inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 4h18a2 2 0 002-2V8a2 2 0 00-2-2h-6l-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span className="hidden sm:inline">Beleg-Ansicht</span>
+          </Link>
+          <Link
             href="/eingangsrechnungen/ueberweisungsliste"
             className="inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
           >

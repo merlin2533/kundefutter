@@ -101,6 +101,28 @@ const nextConfig: NextConfig = {
           { key: "Service-Worker-Allowed", value: "/" },
         ],
       },
+      // Beleg-Dateien (PDF/Bild): die BelegVorschau-Komponente bindet sie als <iframe>
+      // ein (Beleg-Split-Ansichten /eingangsrechnungen/belege, /ausgaben/belege sowie
+      // die Eingangsrechnung-Detailseite) — das pauschale "X-Frame-Options: DENY" /
+      // "frame-ancestors 'none'" von oben verbietet das BROWSERSEITIG auch für den
+      // eigenen Ursprung (same-origin wird von beidem nicht automatisch ausgenommen).
+      // Hier NUR für die beiden Datei-Serving-Pfade auf "self" gelockert (neue Pfade
+      // unter /api/uploads/, alte unter /uploads/ in public/) — der Rest der App bleibt
+      // vor Clickjacking/Framing durch fremde Seiten geschützt wie zuvor.
+      {
+        source: "/api/uploads/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'") },
+        ],
+      },
+      {
+        source: "/uploads/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'") },
+        ],
+      },
     ];
   },
 };
