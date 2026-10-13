@@ -190,3 +190,29 @@ export async function oeffneGutschriftErneut(tx: Tx, gutschriftId: number): Prom
   });
   return true;
 }
+
+/**
+ * Öffnet automatisch jede VERBUCHTE Gutschrift wieder, die gegen GENAU DIESE Lieferung
+ * verrechnet wurde (verbuchtBeiLieferungId) — aufgerufen, sobald deren Rechnung storniert
+ * wird (sowohl der reine Rechnungs-Storno `aktion:"rechnung_stornieren"` als auch der volle
+ * Lieferungs-Storno `status:"storniert"`). Ohne diesen Automatismus bleibt eine Gutschrift
+ * auf eine nicht mehr gültige, stornierte Rechnung "verbraucht" — sie taucht weder als offene
+ * Gutschrift noch als Verrechnung gegen eine echte Forderung wieder auf, der Betrag ist für
+ * den Kunden faktisch verloren. Nutzt dieselbe `oeffneGutschriftErneut()` wie der manuelle
+ * "Wieder öffnen"-Button auf /gutschriften/[id] — entfernt dabei auch eine ggf. vorhandene
+ * Ausgleichsposition (nur relevant, wenn die Verrechnung über `injiziereOffeneGutschriften()`
+ * lief; die neueren "nur verbuchen, keine Position"-Pfade — Bankabgleich-Gutschrift-Erkennung,
+ * manuelles Verbuchen, Restbetrag klären — haben ohnehin keine). Bewusst NUR beim Stornieren,
+ * NICHT symmetrisch beim Aufheben eines Storno (`rechnung_storno_aufheben`) — ein automatisches
+ * erneutes Verbuchen wäre überraschende Magie; der Nutzer kann die Gutschrift danach bei Bedarf
+ * bewusst erneut über "Als verbucht markieren" zuordnen.
+ */
+export async function oeffneGutschriftenFuerStornierteLieferung(tx: Tx, lieferungId: number): Promise<void> {
+  const betroffene = await tx.gutschrift.findMany({
+    where: { verbuchtBeiLieferungId: lieferungId, status: "VERBUCHT" },
+    select: { id: true },
+  });
+  for (const g of betroffene) {
+    await oeffneGutschriftErneut(tx, g.id);
+  }
+}
