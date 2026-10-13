@@ -180,11 +180,18 @@ async function ladeEingangsrechnungKandidaten(where: Prisma.EingangsRechnungWher
   }));
 }
 
-/** Offene Kandidaten auf der Verkaufsseite (Zahlungseingänge): Lieferungen + Sammelrechnungen. */
+/** Offene Kandidaten auf der Verkaufsseite (Zahlungseingänge): Lieferungen + Sammelrechnungen.
+ * Zwei unabhängige Storno-Wege bei Lieferung müssen beide ausgeschlossen werden — beide lassen
+ * `rechnungNr` stehen und `bezahltAm` auf `null` (nie bezahlt), würden ohne diese Filter also
+ * weiterhin als offener Zuordnungsvorschlag erscheinen: (1) `rechnungStorniert` gesetzt — nur
+ * die Rechnung wurde storniert (`aktion:"rechnung_stornieren"`), die Lieferung selbst bleibt
+ * "geliefert"; (2) `status:"storniert"` — die gesamte Lieferung wurde storniert (Lagerausgang
+ * zurückgebucht), unabhängig davon, ob vorher schon eine Rechnung gestellt war. Sammelrechnung
+ * kennt kein Storno-Feld, daher dort kein Pendant nötig. */
 export async function ladeVerkaufsKandidaten(): Promise<ReconCandidate[]> {
   const limit = await ladeKandidatenLimit();
   const [lieferungKandidaten, sammelKandidaten] = await Promise.all([
-    ladeLieferungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, limit),
+    ladeLieferungKandidaten({ bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null, status: { not: "storniert" } }, limit),
     ladeSammelrechnungKandidaten({ bezahltAm: null, rechnungNr: { not: null } }, limit),
   ]);
   return [...lieferungKandidaten, ...sammelKandidaten];
@@ -214,6 +221,8 @@ export async function sucheVerkaufsKandidaten(q: string): Promise<ReconCandidate
       {
         bezahltAm: null,
         rechnungNr: { not: null },
+        rechnungStorniert: null,
+        status: { not: "storniert" },
         OR: [{ rechnungNr: { contains: q } }, { kunde: { name: { contains: q } } }],
       },
       SEARCH_LIMIT
