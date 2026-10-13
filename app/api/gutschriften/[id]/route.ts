@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
-import { loescheGutschriftMitNebenwirkungen, oeffneGutschriftErneut } from "@/lib/gutschrift";
+import {
+  loescheGutschriftMitNebenwirkungen,
+  oeffneGutschriftErneut,
+  verbucheGutschriftGegenLieferung,
+  GutschriftVerrechnungFehler,
+} from "@/lib/gutschrift";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
@@ -86,6 +91,47 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
 
+    // Manuelles "Als verbucht markieren" MIT Angabe der Rechnung, gegen die der Kunde die
+    // Gutschrift selbst abgezogen hat (z.B. mehrere Rechnungen + Gutschriften in einer
+    // Sammelüberweisung, die der Bankabgleich nicht automatisch allen passenden Rechnungen
+    // zuordnen kann) — nutzt dieselbe Verbuchungslogik wie der Bankabgleich
+    // (verbucheGutschriftGegenLieferung), damit „→ RE-…" danach identisch wie bei einer
+    // automatisch erkannten Verrechnung erscheint. Ohne lieferungId bleibt das alte Verhalten
+    // (reiner Statuswechsel ohne Verweis) erhalten.
+    if (body.status === "VERBUCHT" && body.lieferungId !== undefined && body.lieferungId !== null) {
+      const lieferungId = Number(body.lieferungId);
+      if (isNaN(lieferungId)) {
+        return NextResponse.json({ error: "Ungültige lieferungId" }, { status: 400 });
+      }
+      try {
+        await prisma.$transaction(async (tx) => {
+          await verbucheGutschriftGegenLieferung(tx, { gutschriftId: Number(id), lieferungId });
+          const extra: Record<string, unknown> = {};
+          if (body.notiz !== undefined) extra.notiz = body.notiz;
+          if (body.grund !== undefined) extra.grund = body.grund;
+          if (body.datum !== undefined) extra.datum = new Date(body.datum);
+          if (Object.keys(extra).length > 0) {
+            await tx.gutschrift.update({ where: { id: Number(id) }, data: extra });
+          }
+        });
+      } catch (err) {
+        if (err instanceof GutschriftVerrechnungFehler) {
+          return NextResponse.json({ error: err.message }, { status: 400 });
+        }
+        throw err;
+      }
+      const verbucht = await prisma.gutschrift.findUnique({
+        where: { id: Number(id) },
+        include: {
+          kunde: { include: { kontakte: true } },
+          lieferung: true,
+          verbuchtBeiLieferung: { select: { id: true, rechnungNr: true } },
+          positionen: { include: { artikel: { select: liefposArtikelSelect } } },
+        },
+      });
+      return NextResponse.json(verbucht);
+    }
+
     const ERLAUBTE_STATUS = ["OFFEN", "VERBUCHT", "STORNIERT", "ERSTATTET"];
     if (body.status && !ERLAUBTE_STATUS.includes(body.status)) {
       return NextResponse.json({ error: "Ungültiger Status" }, { status: 400 });
@@ -103,6 +149,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       include: {
         kunde: { include: { kontakte: true } },
         lieferung: true,
+        verbuchtBeiLieferung: { select: { id: true, rechnungNr: true } },
         positionen: { include: { artikel: { select: liefposArtikelSelect } } },
       },
     });

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { berechneLieferungBrutto, type LieferungFuerBrutto } from "@/lib/lieferung-brutto";
 import { GutschriftStatusBadge } from "@/components/Badge";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import * as Sentry from "@sentry/nextjs";
@@ -14,6 +15,13 @@ interface GutschriftPosition {
   preis: number;
   ruecknahme: boolean;
   artikel: { id: number; name: string; einheit: string; artikelnummer: string };
+}
+
+interface OffeneRechnung {
+  id: number;
+  rechnungNr: string | null;
+  rechnungDatum: string | null;
+  betrag: number;
 }
 
 interface Gutschrift {
@@ -50,6 +58,12 @@ export default function GutschriftDetailPage() {
   const [emailErfolg, setEmailErfolg] = useState("");
   const [emailFehler, setEmailFehler] = useState("");
 
+  // "Als verbucht markieren" mit optionaler Rechnungs-Auswahl (siehe handleVerbuchen unten)
+  const [verbuchenPanelOffen, setVerbuchenPanelOffen] = useState(false);
+  const [offeneRechnungen, setOffeneRechnungen] = useState<OffeneRechnung[]>([]);
+  const [offeneRechnungenLoading, setOffeneRechnungenLoading] = useState(false);
+  const [gewaehlteLieferungId, setGewaehlteLieferungId] = useState("");
+
   useEffect(() => {
     fetch(`/api/gutschriften/${id}`)
       .then((r) => r.json())
@@ -68,11 +82,7 @@ export default function GutschriftDetailPage() {
 
   async function handleStatusChange(newStatus: string) {
     if (!gutschrift) return;
-    const confirm_msg =
-      newStatus === "VERBUCHT"
-        ? "Gutschrift als verbucht markieren?"
-        : "Gutschrift stornieren?";
-    if (!confirm(confirm_msg)) return;
+    if (!confirm("Gutschrift stornieren?")) return;
     setSaving(true);
     setError("");
     try {
@@ -84,6 +94,73 @@ export default function GutschriftDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Fehler");
       setGutschrift(data);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // "Als verbucht markieren" — fragt optional ab, gegen welche Rechnung des Kunden der Kunde
+  // die Gutschrift selbst abgezogen hat (z.B. mehrere Rechnungen + Gutschriften in einer
+  // Sammelüberweisung, die sich im Bankabgleich nicht jeder einzelnen Rechnung automatisch
+  // zuordnen lassen). Mit Auswahl erscheint danach „→ RE-…" genau wie bei einer automatisch
+  // erkannten Verrechnung; ohne Auswahl bleibt das alte Verhalten (reiner Statuswechsel).
+  async function openVerbuchenPanel() {
+    if (!gutschrift) return;
+    setVerbuchenPanelOffen(true);
+    setGewaehlteLieferungId("");
+    setOffeneRechnungenLoading(true);
+    try {
+      const res = await fetch(`/api/lieferungen?kundeId=${gutschrift.kunde.id}&hatRechnung=true&limit=5000`);
+      const data = await res.json();
+      const liste: (LieferungFuerBrutto & {
+        id: number;
+        rechnungNr: string | null;
+        rechnungDatum: string | null;
+        rechnungStorniert: string | null;
+        status: string;
+        bezahltAm: string | null;
+      })[] = Array.isArray(data) ? data : [];
+      const offene = liste
+        .filter((l) => !l.bezahltAm && !l.rechnungStorniert && l.status !== "storniert")
+        .map((l) => ({
+          id: l.id,
+          rechnungNr: l.rechnungNr,
+          rechnungDatum: l.rechnungDatum,
+          betrag: berechneLieferungBrutto(l),
+        }));
+      setOffeneRechnungen(offene);
+    } catch (err) {
+      Sentry.captureException(err);
+      setOffeneRechnungen([]);
+    } finally {
+      setOffeneRechnungenLoading(false);
+    }
+  }
+
+  async function handleVerbuchen() {
+    if (!gutschrift) return;
+    const rechnung = offeneRechnungen.find((r) => String(r.id) === gewaehlteLieferungId);
+    const hinweis = rechnung
+      ? `Gutschrift als verbucht markieren und gegen ${rechnung.rechnungNr ?? `Rechnung ${rechnung.id}`} verrechnen?`
+      : "Gutschrift ohne Verweis auf eine Rechnung als verbucht markieren?";
+    if (!confirm(hinweis)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const body: Record<string, unknown> = { status: "VERBUCHT" };
+      if (gewaehlteLieferungId) body.lieferungId = Number(gewaehlteLieferungId);
+      const res = await fetch(`/api/gutschriften/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Fehler");
+      setGutschrift(data);
+      setVerbuchenPanelOffen(false);
     } catch (err) {
       Sentry.captureException(err);
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -203,7 +280,7 @@ export default function GutschriftDetailPage() {
           {gutschrift.status === "OFFEN" && (
             <>
               <button
-                onClick={() => handleStatusChange("VERBUCHT")}
+                onClick={openVerbuchenPanel}
                 disabled={saving}
                 className="px-3 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
               >
@@ -242,6 +319,56 @@ export default function GutschriftDetailPage() {
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
           {error}
+        </div>
+      )}
+
+      {verbuchenPanelOffen && (
+        <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-3 mb-4">
+          <p className="text-sm text-gray-700">
+            Bei welcher Rechnung dieses Kunden hat er diese Gutschrift selbst von seiner
+            Überweisung abgezogen? Nur relevant, wenn du das Verbuchen manuell nachträgst (z.B.
+            mehrere Rechnungen + Gutschriften in einer Sammelüberweisung) — beim Bankabgleich
+            selbst wird das in der Regel schon automatisch erledigt.
+          </p>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Rechnung verrechnen (optional)</label>
+            {offeneRechnungenLoading ? (
+              <p className="text-sm text-gray-400">Lade offene Rechnungen…</p>
+            ) : (
+              <select
+                value={gewaehlteLieferungId}
+                onChange={(e) => setGewaehlteLieferungId(e.target.value)}
+                className="w-full sm:w-96 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-700"
+              >
+                <option value="">— ohne Verweis auf eine Rechnung —</option>
+                {offeneRechnungen.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.rechnungNr ?? `Rechnung ${r.id}`} — {formatEuro(r.betrag)}
+                    {r.rechnungDatum ? ` (${formatDatum(r.rechnungDatum)})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+            {!offeneRechnungenLoading && offeneRechnungen.length === 0 && (
+              <p className="text-xs text-gray-400 mt-1">Keine offenen Rechnungen für diesen Kunden.</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleVerbuchen}
+              disabled={saving}
+              className="px-3 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50 transition-colors"
+            >
+              Verbuchen
+            </button>
+            <button
+              onClick={() => setVerbuchenPanelOffen(false)}
+              disabled={saving}
+              className="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
         </div>
       )}
 
