@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
-import { berechneLieferungBrutto, type LieferungFuerBrutto } from "@/lib/lieferung-brutto";
+import { berechneLieferungBrutto, berechneGutschriftBrutto, type LieferungFuerBrutto } from "@/lib/lieferung-brutto";
 import { GutschriftStatusBadge } from "@/components/Badge";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import * as Sentry from "@sentry/nextjs";
@@ -14,7 +14,7 @@ interface GutschriftPosition {
   menge: number;
   preis: number;
   ruecknahme: boolean;
-  artikel: { id: number; name: string; einheit: string; artikelnummer: string };
+  artikel: { id: number; name: string; einheit: string; artikelnummer: string; mwstSatz: number | null };
 }
 
 interface OffeneRechnung {
@@ -222,9 +222,27 @@ export default function GutschriftDetailPage() {
     }
   }
 
-  function betrag(): number {
+  function nettoBetrag(): number {
     if (!gutschrift) return 0;
     return gutschrift.positionen.reduce((sum, p) => sum + p.menge * p.preis, 0);
+  }
+
+  function bruttoBetrag(): number {
+    if (!gutschrift) return 0;
+    return berechneGutschriftBrutto(gutschrift.positionen);
+  }
+
+  // MwSt gruppiert nach Satz — analog generiereGutschriftPdf(), damit Bildschirm und PDF
+  // dieselbe Aufschlüsselung zeigen.
+  function mwstGruppen(): Map<number, number> {
+    const gruppen = new Map<number, number>();
+    if (!gutschrift) return gruppen;
+    for (const p of gutschrift.positionen) {
+      const satz = p.artikel.mwstSatz ?? 19;
+      const mwst = p.menge * p.preis * (satz / 100);
+      gruppen.set(satz, (gruppen.get(satz) ?? 0) + mwst);
+    }
+    return gruppen;
   }
 
   if (loading) return <div className="text-center py-16 text-gray-400">Lade…</div>;
@@ -454,8 +472,8 @@ export default function GutschriftDetailPage() {
             <tr>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Artikel</th>
               <th className="text-right px-4 py-3 font-medium text-gray-600">Menge</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">Preis</th>
-              <th className="text-right px-4 py-3 font-medium text-gray-600">Betrag</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-600" title="netto, zzgl. MwSt">Preis (netto)</th>
+              <th className="text-right px-4 py-3 font-medium text-gray-600" title="netto, zzgl. MwSt">Betrag (netto)</th>
               <th className="text-center px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Rücknahme</th>
             </tr>
           </thead>
@@ -464,7 +482,9 @@ export default function GutschriftDetailPage() {
               <tr key={pos.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <div className="font-medium text-gray-900">{pos.artikel.name}</div>
-                  <div className="text-xs text-gray-400">{pos.artikel.artikelnummer}</div>
+                  <div className="text-xs text-gray-400">
+                    {pos.artikel.artikelnummer} · MwSt {pos.artikel.mwstSatz ?? 19} %
+                  </div>
                   {pos.ruecknahme && (
                     <span className="sm:hidden inline-block mt-0.5 text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
                       Rücknahme
@@ -492,11 +512,31 @@ export default function GutschriftDetailPage() {
           </tbody>
           <tfoot className="border-t-2 border-gray-200">
             <tr>
+              <td colSpan={3} className="px-4 py-2 text-right text-gray-500">
+                Nettobetrag:
+              </td>
+              <td className="px-4 py-2 text-right text-gray-700">
+                {formatEuro(nettoBetrag())}
+              </td>
+              <td className="hidden sm:table-cell"></td>
+            </tr>
+            {[...mwstGruppen().entries()].map(([satz, mwst]) => (
+              <tr key={satz}>
+                <td colSpan={3} className="px-4 py-2 text-right text-gray-500">
+                  MwSt {satz} %:
+                </td>
+                <td className="px-4 py-2 text-right text-gray-700">
+                  {formatEuro(mwst)}
+                </td>
+                <td className="hidden sm:table-cell"></td>
+              </tr>
+            ))}
+            <tr>
               <td colSpan={3} className="px-4 py-3 text-right font-semibold text-gray-700">
-                Gesamt Gutschrift:
+                Gesamt Gutschrift (brutto):
               </td>
               <td className="px-4 py-3 text-right font-bold text-lg text-gray-900">
-                {formatEuro(betrag())}
+                {formatEuro(bruttoBetrag())}
               </td>
               <td className="hidden sm:table-cell"></td>
             </tr>
