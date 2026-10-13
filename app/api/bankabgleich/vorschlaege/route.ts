@@ -24,6 +24,11 @@ export interface Vorschlag {
   /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
    * Kunden berechnet wurde — der Kunde hat sie bereits selbst von der Überweisung abgezogen. */
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  /** Nur bei typ "lieferung": ALLE aktuell offenen Gutschriften desselben Kunden (nicht nur die
+   * eine, die ggf. zu gutschriftMatch passt) — für die Mehrfachauswahl im Bankabgleich, wenn eine
+   * Zahlung mehrere Rechnungen UND mehrere Gutschriften auf einmal abdeckt (z.B. Verwendungszweck
+   * "RE 1055,1061.GS 0030,0031"). Siehe ReconCandidate.offeneGutschriften. */
+  offeneGutschriften?: { id: number; nummer: string; betrag: number }[];
 }
 
 const MAX_VORSCHLAEGE = 8;
@@ -61,6 +66,7 @@ function zuVorschlag(
     wirdBezahltAm,
     skontoMatch,
     gutschriftMatch,
+    offeneGutschriften: c.offeneGutschriften,
   };
 }
 

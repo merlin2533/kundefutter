@@ -33,6 +33,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
       ignoriert,
       differenzAktion,
       gutschriftIdFuerVerrechnung,
+      gutschriftIdsFuerVerrechnung,
     } = body as {
       lieferungId?: number | null;
       sammelrechnungId?: number | null;
@@ -51,6 +52,13 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
        * sie selbst von der Überweisung abgezogen) — wird beim Übernehmen als VERBUCHT markiert,
        * ohne den offenen Rechnungsbetrag anzutasten. */
       gutschriftIdFuerVerrechnung?: number | null;
+      /** Mehrfachauswahl-Pendant zu gutschriftIdFuerVerrechnung: deckt eine Zahlung mehrere
+       * Rechnungen UND mehrere Gutschriften desselben Kunden gleichzeitig ab (manuelle Auswahl im
+       * Bankabgleich-Panel, nicht automatisch erkannt), werden hier alle gewählten Gutschriften
+       * gegen diese lieferungId verbucht — welche der ausgewählten Lieferungen den Gegenpart
+       * bildet, ist buchhalterisch irrelevant (siehe verbucheGutschriftGegenLieferung()). Nur bei
+       * lieferungId wirksam, ebenso wie das Singular-Pendant. */
+      gutschriftIdsFuerVerrechnung?: number[] | null;
     };
 
     const umsatz = await prisma.kontoumsatz.findUnique({ where: { id } });
@@ -123,6 +131,12 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
         // abgezogen, daher hier verbuchen statt sie als Fehlbetrag/Forderung misszudeuten.
         if (lieferungId && gutschriftIdFuerVerrechnung) {
           await verbucheGutschriftGegenLieferung(tx, { gutschriftId: gutschriftIdFuerVerrechnung, lieferungId });
+        }
+        // Manuelle Mehrfachauswahl mehrerer Gutschriften (siehe gutschriftIdsFuerVerrechnung oben).
+        if (lieferungId && gutschriftIdsFuerVerrechnung?.length) {
+          for (const gid of gutschriftIdsFuerVerrechnung) {
+            await verbucheGutschriftGegenLieferung(tx, { gutschriftId: gid, lieferungId });
+          }
         }
       } else if (lieferungId || sammelrechnungId) {
         // Kunde zahlt eine Rechnung in mehreren Teilbeträgen (z.B. zwei Überweisungen): die

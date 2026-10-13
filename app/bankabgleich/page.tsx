@@ -75,6 +75,9 @@ interface Vorschlag {
   wirdBezahltAm: string;
   skontoMatch: boolean;
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  /** Nur bei typ "lieferung": alle offenen Gutschriften desselben Kunden — Basis für die
+   * Mehrfachauswahl, wenn eine Zahlung mehrere Rechnungen UND mehrere Gutschriften abdeckt. */
+  offeneGutschriften?: { id: number; nummer: string; betrag: number }[];
 }
 
 function BankabgleichContent() {
@@ -114,6 +117,9 @@ function BankabgleichContent() {
   // Mehrfachauswahl von Vorschlägen (z.B. eine Zahlung deckt mehrere Rechnungen desselben
   // Kunden ab) — Key ist `${typ}:${id}`, geleert bei jedem Öffnen/Schließen/Neuladen des Panels.
   const [ausgewaehlt, setAusgewaehlt] = useState<Set<string>>(new Set());
+  // Mehrfachauswahl offener Gutschriften desselben Kunden — zusätzlich zur Rechnungsauswahl, wenn
+  // eine Zahlung mehrere Rechnungen UND mehrere bereits selbst abgezogene Gutschriften abdeckt.
+  const [ausgewaehlteGutschriften, setAusgewaehlteGutschriften] = useState<Set<number>>(new Set());
   // Doppelzahlung-Sonderfall (Kunde hat dieselbe, bereits bezahlte Rechnung nochmal überwiesen) —
   // eigenes Unter-Panel innerhalb der Zuordnungsvorschläge, siehe DoppelzahlungPanel.
   const [doppelzahlungOffen, setDoppelzahlungOffen] = useState(false);
@@ -229,6 +235,7 @@ function BankabgleichContent() {
     setSuchtext("");
     setSucheAktiv(false);
     setAusgewaehlt(new Set());
+    setAusgewaehlteGutschriften(new Set());
     setDoppelzahlungOffen(false);
     await ladeVorschlaege(umsatzId);
   }
@@ -237,6 +244,7 @@ function BankabgleichContent() {
     if (suchtext.trim().length < 2) return;
     setSucheAktiv(true);
     setAusgewaehlt(new Set());
+    setAusgewaehlteGutschriften(new Set());
     await ladeVorschlaege(umsatzId, suchtext.trim());
   }
 
@@ -250,20 +258,35 @@ function BankabgleichContent() {
     });
   }
 
+  function toggleGutschriftAuswahl(id: number) {
+    setAusgewaehlteGutschriften((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   /** Mehrere ausgewählte Rechnungen auf einmal derselben Zahlung zuordnen — die erste wird über
    * die normale Haupt-Zuordnung gesetzt, alle weiteren über /weitere (nur lieferung/sammelrechnung
-   * unterstützt, da eine Zahlung mehrere Rechnungen nur bei Kunden-Rechnungen decken kann). */
-  async function mehrereZuordnen(umsatzId: number) {
+   * unterstützt, da eine Zahlung mehrere Rechnungen nur bei Kunden-Rechnungen decken kann).
+   * `gutschriftIds` (zusätzlich ausgewählte offene Gutschriften desselben Kunden, z.B. eine
+   * Sammelüberweisung mit mehreren Rechnungen UND mehreren bereits selbst abgezogenen
+   * Gutschriften) werden gegen die ERSTE Lieferung in der Auswahl verbucht — welche der
+   * ausgewählten Lieferungen den Gegenpart bildet, ist buchhalterisch irrelevant. */
+  async function mehrereZuordnen(umsatzId: number, gutschriftIds: number[] = []) {
     const auswahl = vorschlaege.filter((v) => ausgewaehlt.has(`${v.typ}:${v.id}`));
     if (auswahl.length === 0) return;
     setZuordnungsFehler(null);
     setBulkZuordnenBusy(true);
     try {
       const [erste, ...rest] = auswahl;
+      const ersteIstLieferung = erste.typ === "lieferung";
       const primaryBody: Record<string, unknown> = {
         [ZIEL_FELD[erste.typ]]: erste.id,
         alsBezahltMarkieren: true,
         zuordnungsArt: "manuell",
+        ...(ersteIstLieferung && gutschriftIds.length ? { gutschriftIdsFuerVerrechnung: gutschriftIds } : {}),
       };
       const primaryRes = await fetch(`/api/bankabgleich/${umsatzId}`, {
         method: "PUT",
@@ -276,17 +299,27 @@ function BankabgleichContent() {
         return;
       }
 
+      // Die Gutschriften an die erste Lieferung der Auswahl hängen, sofern das nicht schon die
+      // Haupt-Zuordnung (erste) war.
+      let gutschriftenNochOffen = !ersteIstLieferung ? gutschriftIds : [];
+
       const fehler: string[] = [];
       for (const v of rest) {
         if (v.typ !== "lieferung" && v.typ !== "sammelrechnung") continue;
+        const istZielFuerGutschriften = v.typ === "lieferung" && gutschriftenNochOffen.length > 0;
         const weitereRes = await fetch(`/api/bankabgleich/${umsatzId}/weitere`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(v.typ === "lieferung" ? { lieferungId: v.id } : { sammelrechnungId: v.id }),
+          body: JSON.stringify({
+            ...(v.typ === "lieferung" ? { lieferungId: v.id } : { sammelrechnungId: v.id }),
+            ...(istZielFuerGutschriften ? { gutschriftIdsFuerVerrechnung: gutschriftenNochOffen } : {}),
+          }),
         });
         if (!weitereRes.ok) {
           const d = await weitereRes.json().catch((err) => { Sentry.captureException(err); return {}; });
           fehler.push(`${v.bezeichnung}: ${(d as { error?: string }).error ?? "Fehler"}`);
+        } else if (istZielFuerGutschriften) {
+          gutschriftenNochOffen = [];
         }
       }
 
@@ -296,6 +329,7 @@ function BankabgleichContent() {
         setOffenePanelId(null);
       }
       setAusgewaehlt(new Set());
+      setAusgewaehlteGutschriften(new Set());
       laden();
     } finally {
       setBulkZuordnenBusy(false);
@@ -306,6 +340,7 @@ function BankabgleichContent() {
     setSuchtext("");
     setSucheAktiv(false);
     setAusgewaehlt(new Set());
+    setAusgewaehlteGutschriften(new Set());
     ladeVorschlaege(umsatzId);
   }
 
@@ -700,23 +735,68 @@ function BankabgleichContent() {
                             <>
                               {ausgewaehlt.size > 0 && (() => {
                                 const auswahl = vorschlaege.filter((v) => ausgewaehlt.has(`${v.typ}:${v.id}`));
-                                const summe = auswahl.reduce((s, v) => s + v.betrag, 0);
+                                // Union der offenen Gutschriften aller ausgewählten Lieferungen (in der
+                                // Praxis derselbe Kunde, daher identische Listen — Dedupe per id
+                                // schadet aber nicht, falls doch mal mehrere Kunden gemischt wären).
+                                const gutschriftOptionen = new Map<number, { id: number; nummer: string; betrag: number }>();
+                                for (const v of auswahl) {
+                                  if (v.typ !== "lieferung") continue;
+                                  for (const g of v.offeneGutschriften ?? []) gutschriftOptionen.set(g.id, g);
+                                }
+                                const gutschriftListe = [...gutschriftOptionen.values()];
+                                // Nur Gutschriften berücksichtigen, die auch tatsächlich noch zur
+                                // Auswahl stehen (z.B. nach Abwählen der zugehörigen Lieferung).
+                                const gutschriftAuswahl = gutschriftListe.filter((g) => ausgewaehlteGutschriften.has(g.id));
+                                const rechnungSumme = auswahl.reduce((s, v) => s + v.betrag, 0);
+                                const gutschriftSumme = gutschriftAuswahl.reduce((s, g) => s + g.betrag, 0);
+                                const summe = rechnungSumme - gutschriftSumme;
                                 const diff = u.betrag - summe;
                                 const passt = Math.abs(diff) < 0.01;
                                 return (
-                                  <div className={`flex items-center justify-between flex-wrap gap-2 mb-3 px-3 py-2 rounded-lg border text-sm ${passt ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-                                    <span className={passt ? "text-green-800" : "text-amber-800"}>
-                                      {auswahl.length} Rechnung(en) ausgewählt · Summe: <strong>{formatEuro(summe)}</strong>
-                                      {!passt && <> · Differenz zur Zahlung: {formatEuro(diff)}</>}
-                                      {passt && <> · passt genau zur Zahlung ✓</>}
-                                    </span>
-                                    <button
-                                      onClick={() => mehrereZuordnen(u.id)}
-                                      disabled={bulkZuordnenBusy}
-                                      className="text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium whitespace-nowrap"
-                                    >
-                                      {bulkZuordnenBusy ? "Ordne zu…" : `${auswahl.length} Rechnungen zuordnen`}
-                                    </button>
+                                  <div className="mb-3">
+                                    <div className={`flex items-center justify-between flex-wrap gap-2 px-3 py-2 rounded-lg border text-sm ${passt ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+                                      <span className={passt ? "text-green-800" : "text-amber-800"}>
+                                        {auswahl.length} Rechnung(en) ausgewählt
+                                        {gutschriftAuswahl.length > 0 && <> · {gutschriftAuswahl.length} Gutschrift(en)</>}
+                                        {" "}· Summe: <strong>{formatEuro(summe)}</strong>
+                                        {!passt && <> · Differenz zur Zahlung: {formatEuro(diff)}</>}
+                                        {passt && <> · passt genau zur Zahlung ✓</>}
+                                      </span>
+                                      <button
+                                        onClick={() => mehrereZuordnen(u.id, gutschriftAuswahl.map((g) => g.id))}
+                                        disabled={bulkZuordnenBusy}
+                                        className="text-xs px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium whitespace-nowrap"
+                                      >
+                                        {bulkZuordnenBusy
+                                          ? "Ordne zu…"
+                                          : gutschriftAuswahl.length > 0
+                                          ? `${auswahl.length} Rechnungen + ${gutschriftAuswahl.length} Gutschrift(en) zuordnen`
+                                          : `${auswahl.length} Rechnungen zuordnen`}
+                                      </button>
+                                    </div>
+                                    {gutschriftListe.length > 0 && (
+                                      <div className="mt-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs">
+                                        <div className="text-gray-500 mb-1">
+                                          Offene Gutschrift(en) dieses Kunden — ankreuzen, wenn der Kunde sie selbst von dieser Zahlung abgezogen hat:
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {gutschriftListe.map((g) => (
+                                            <label
+                                              key={g.id}
+                                              className="flex items-center gap-1.5 px-2 py-1 rounded border border-gray-200 hover:border-green-400 cursor-pointer"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={ausgewaehlteGutschriften.has(g.id)}
+                                                onChange={() => toggleGutschriftAuswahl(g.id)}
+                                                className="rounded border-gray-300"
+                                              />
+                                              {g.nummer} ({formatEuro(g.betrag)})
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })()}
