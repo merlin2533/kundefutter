@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
 import { ladeZielFuerDifferenz } from "@/lib/bankabgleich-differenz";
+import { verbucheGutschriftGegenLieferung, GutschriftVerrechnungFehler } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
@@ -26,10 +27,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   try {
     const body = await req.json();
-    const { lieferungId, sammelrechnungId, alsBezahltMarkieren = true } = body as {
+    const { lieferungId, sammelrechnungId, alsBezahltMarkieren = true, gutschriftIdsFuerVerrechnung } = body as {
       lieferungId?: number | null;
       sammelrechnungId?: number | null;
       alsBezahltMarkieren?: boolean;
+      /** Manuelle Mehrfachauswahl im Bankabgleich-Panel (siehe PUT /api/bankabgleich/[id]): deckt
+       * eine Zahlung mehrere Rechnungen UND mehrere Gutschriften desselben Kunden gleichzeitig ab,
+       * werden hier die der Übersicht halber dieser weiteren Lieferung zugeordneten Gutschriften
+       * verbucht. Nur bei lieferungId wirksam — Sammelrechnung kennt keine Gutschrift-Verrechnung. */
+      gutschriftIdsFuerVerrechnung?: number[] | null;
     };
 
     if (!lieferungId && !sammelrechnungId) {
@@ -74,11 +80,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       if (alsBezahltMarkieren) {
         await markiereAlsBezahlt(zielTyp, zielId, umsatz.buchungsdatum, tx);
       }
+      if (zielTyp === "lieferung" && gutschriftIdsFuerVerrechnung?.length) {
+        for (const gid of gutschriftIdsFuerVerrechnung) {
+          await verbucheGutschriftGegenLieferung(tx, { gutschriftId: gid, lieferungId: zielId });
+        }
+      }
       return neu;
     });
 
     return NextResponse.json({ id: eintrag.id, typ: zielTyp, zielId, bezeichnung: neuesZiel.bezeichnung, betrag: neuesZiel.betrag, kundeId: neuesZiel.kundeId });
   } catch (err) {
+    if (err instanceof GutschriftVerrechnungFehler) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     Sentry.captureException(err);
     console.error(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });

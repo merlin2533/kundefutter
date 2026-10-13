@@ -9,6 +9,7 @@ import { isNextcloudKonfiguriert, uploadPdfToKundeOrdner } from "@/lib/nextcloud
 import { generiereRechnungPdf, generiereLieferscheinPdf } from "@/lib/pdfGenerator";
 import { artikelSafeSelect, artikelWithInhaltSelect } from "@/lib/artikel-select";
 import { rechnungsnummerVergeben, vergebeRechnungsnummerFuerLieferung, markiereLieferungGeliefertFallsGeplant, istChargeNrPflichtFuerLieferschein, injiziereAlteForderungen, injiziereOffeneGutschriften } from "@/lib/lieferung";
+import { oeffneGutschriftenFuerStornierteLieferung } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 import { log } from "@/lib/logger";
 export const dynamic = "force-dynamic";
@@ -252,6 +253,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
           await tx.lieferposition.updateMany({ where: { id: { in: zurueckgebuchtIds } }, data: { lagerBereitsGebucht: false } });
         }
       }
+      // Eine gegen diese Lieferung verbuchte Gutschrift darf nicht auf einer jetzt stornierten
+      // Rechnung "verbraucht" bleiben — siehe oeffneGutschriftenFuerStornierteLieferung().
+      await oeffneGutschriftenFuerStornierteLieferung(tx, Number(id));
     }
 
     // Nur erlaubte Felder übergeben
@@ -730,13 +734,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (!alt.rechnungNr) {
         return NextResponse.json({ error: "Für diese Lieferung existiert keine Rechnung" }, { status: 400 });
       }
-      const updated = await prisma.lieferung.update({
-        where: { id: numId },
-        data: { rechnungStorniert: stornieren ? new Date() : null },
-        include: {
-          kunde: { include: { kontakte: true } },
-          positionen: { include: { artikel: { select: artikelSafeSelect } } },
-        },
+      const updated = await prisma.$transaction(async (tx) => {
+        const l = await tx.lieferung.update({
+          where: { id: numId },
+          data: { rechnungStorniert: stornieren ? new Date() : null },
+          include: {
+            kunde: { include: { kontakte: true } },
+            positionen: { include: { artikel: { select: artikelSafeSelect } } },
+          },
+        });
+        // Siehe oeffneGutschriftenFuerStornierteLieferung() — bewusst nur beim Stornieren,
+        // nicht symmetrisch beim Aufheben.
+        if (stornieren) await oeffneGutschriftenFuerStornierteLieferung(tx, numId);
+        return l;
       });
       void auditLog({
         entitaet: "Lieferung",

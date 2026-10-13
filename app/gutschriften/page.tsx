@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
+import { berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
 import { GutschriftStatusBadge } from "@/components/Badge";
 import * as Sentry from "@sentry/nextjs";
 
@@ -9,6 +10,7 @@ interface GutschriftPosition {
   menge: number;
   preis: number;
   ruecknahme?: boolean;
+  artikel?: { mwstSatz: number | null } | null;
 }
 
 interface Gutschrift {
@@ -83,7 +85,7 @@ export default function GutschriftenPage() {
   }, [filtersLoaded, statusFilter, vonFilter, bisFilter, search]);
 
   function betrag(gs: Gutschrift): number {
-    return gs.positionen.reduce((sum, p) => sum + p.menge * p.preis, 0);
+    return berechneGutschriftBrutto(gs.positionen);
   }
 
   const filtered = gutschriften.filter((gs) => {
@@ -192,7 +194,7 @@ export default function GutschriftenPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Datum</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Kunde</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Grund</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">Betrag</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600 hidden sm:table-cell" title="inkl. MwSt">Betrag (brutto)</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
