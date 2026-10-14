@@ -28,6 +28,7 @@ export interface Vorschlag extends KandidatInfo {
   wirdBezahltAm: string;
   skontoMatch: boolean;
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  teilzahlungMatch?: boolean;
 }
 
 export interface WeitereAuswahl {
@@ -46,6 +47,7 @@ export interface AutoMatchKarteProps {
   kiBegruendung?: string;
   skontoMatch?: boolean;
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  teilzahlungMatch?: boolean;
   onUebernehmen: (
     alsBezahlt: boolean,
     differenzAktion?: "gutschrift" | "forderung",
@@ -72,6 +74,7 @@ export default function AutoMatchKarte({
   kiBegruendung,
   skontoMatch,
   gutschriftMatch,
+  teilzahlungMatch,
   onUebernehmen,
   onKandidatWechseln,
 }: AutoMatchKarteProps) {
@@ -139,6 +142,7 @@ export default function AutoMatchKarte({
         bankBetrag={bank.betrag}
         skontoMatch={skontoMatch}
         gutschriftMatch={gutschriftMatch}
+        teilzahlungMatch={teilzahlungMatch}
         onUebernehmen={(alsBezahlt, differenzAktion) =>
           onUebernehmen(alsBezahlt, differenzAktion, zusatzAusgewaehlt.size > 0 ? [...zusatzAusgewaehlt.values()].map((v) => ({ typ: v.typ as "lieferung" | "sammelrechnung", id: v.id })) : undefined)
         }

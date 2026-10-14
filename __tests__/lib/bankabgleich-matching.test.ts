@@ -303,3 +303,93 @@ describe("Gutschrift-Erkennung — bestimmeBetragsabweichung / runNormalMatch / 
     expect(ranked[0].amountDiff).toBeCloseTo(0, 5);
   });
 });
+
+describe("Teilzahlung-Erkennung — bestimmeBetragsabweichung / runNormalMatch / rankCandidatesForBank", () => {
+  // Realer gemeldeter Fall: Rechnung über 548,91 €, Kunde hat bereits 362,70 € per vorheriger
+  // Teilzahlung überwiesen — jetzt trifft die Restzahlung über 186,21 € ein.
+  it("bestimmeBetragsabweichung erkennt den Bankbetrag als Restbetrag nach bereits erfasster Teilzahlung", () => {
+    const candidate: ReconCandidate = {
+      kind: "lieferung",
+      id: 1,
+      date: "2026-09-02",
+      amount: 548.91,
+      description: "",
+      counterparty: "",
+      teilzahlungenSumme: 362.7,
+    };
+    const r = bestimmeBetragsabweichung(candidate, 186.21);
+    expect(r.amountDiff).toBeCloseTo(0, 5);
+    expect(r.teilzahlungMatch).toBe(true);
+    expect(r.skontoMatch).toBe(false);
+    expect(r.gutschriftMatch).toBeUndefined();
+  });
+
+  it("bestimmeBetragsabweichung markiert teilzahlungMatch NICHT, wenn der Bankbetrag nicht zum Restbetrag passt (echter Fehlbetrag)", () => {
+    const candidate: ReconCandidate = {
+      kind: "lieferung",
+      id: 1,
+      date: "2026-09-02",
+      amount: 548.91,
+      description: "",
+      counterparty: "",
+      teilzahlungenSumme: 362.7,
+    };
+    const r = bestimmeBetragsabweichung(candidate, 100);
+    expect(r.teilzahlungMatch).toBeUndefined();
+    // Der Rest-Betrag (186,21 €) liegt zwar näher an 100 € als der volle Betrag, aber außerhalb
+    // der Erkennungstoleranz — wie bei der Gutschrift-Erkennung bleibt es dann beim vollen
+    // Betrag, statt einen nicht plausibel erklärten Fehlbetrag kleinzurechnen.
+    expect(r.amountDiff).toBeCloseTo(448.91, 2);
+  });
+
+  it("bestimmeBetragsabweichung ignoriert teilzahlungenSumme, wenn nicht gesetzt oder 0", () => {
+    const candidate: ReconCandidate = { kind: "lieferung", id: 1, date: "2026-09-02", amount: 548.91, description: "", counterparty: "" };
+    const r = bestimmeBetragsabweichung(candidate, 186.21);
+    expect(r.amountDiff).toBeCloseTo(362.7, 2);
+    expect(r.teilzahlungMatch).toBeUndefined();
+  });
+
+  it("runNormalMatch erkennt die exakte Restzahlung als sicheren Treffer (Pass 1), nicht als Abweichung", () => {
+    const bank: BankBuchung[] = [
+      { id: 1, date: "2026-09-05", amount: 186.21, purpose: "Restzahlung Rechnung 749", name: "Testhof Müller" },
+    ];
+    const candidates: ReconCandidate[] = [
+      {
+        kind: "lieferung",
+        id: 1,
+        date: "2026-09-02",
+        amount: 548.91,
+        description: "Lieferung",
+        counterparty: "Testhof Müller",
+        receiptNumber: "RE-2026-0749",
+        teilzahlungenSumme: 362.7,
+      },
+    ];
+    const result = runNormalMatch(bank, candidates);
+    expect(result.matched).toHaveLength(1);
+    expect(result.deviations).toHaveLength(0);
+    expect(result.matched[0].teilzahlungMatch).toBe(true);
+    expect(result.matched[0].amountDiff).toBeCloseTo(0, 5);
+  });
+
+  it("rankCandidatesForBank rankt den Teilzahlungs-Treffer vor einem betraglich näheren, aber unpassenden Kandidaten", () => {
+    const bank: BankBuchung = { id: 1, date: "2026-09-10", amount: 186.21, purpose: "Restzahlung Rechnung 749", name: "Testhof Müller" };
+    const candidates: ReconCandidate[] = [
+      {
+        kind: "lieferung",
+        id: 1,
+        date: "2026-09-02",
+        amount: 548.91,
+        description: "Lieferung",
+        counterparty: "Testhof Müller",
+        receiptNumber: "RE-2026-0749",
+        teilzahlungenSumme: 362.7,
+      },
+      { kind: "lieferung", id: 2, date: "2026-09-02", amount: 190, description: "Andere Lieferung", counterparty: "Anderer Kunde" },
+    ];
+    const ranked = rankCandidatesForBank(bank, candidates);
+    expect(ranked[0].candidate.id).toBe(1);
+    expect(ranked[0].teilzahlungMatch).toBe(true);
+    expect(ranked[0].amountDiff).toBeCloseTo(0, 5);
+  });
+});

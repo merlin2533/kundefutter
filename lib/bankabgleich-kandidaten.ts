@@ -59,12 +59,22 @@ export function zuBankBuchung(u: KontoumsatzFuerMatching): BankBuchung {
 const LIEFERUNG_INCLUDE = {
   kunde: { select: { name: true } },
   positionen: { include: { artikel: { select: { mwstSatz: true } } } },
+  teilzahlungen: { select: { betrag: true } },
 } satisfies Prisma.LieferungInclude;
 
 const SAMMELRECHNUNG_INCLUDE = {
   kunde: { select: { name: true } },
   lieferungen: { include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } } },
+  teilzahlungen: { select: { betrag: true } },
 } satisfies Prisma.SammelrechnungInclude;
+
+/** Summe bereits erfasster Teilzahlungen — undefined wenn keine vorhanden (statt 0), damit
+ * bestimmeBetragsabweichung() den Zweig gar nicht erst betritt. */
+function teilzahlungenSumme(teilzahlungen: { betrag: number }[]): number | undefined {
+  if (teilzahlungen.length === 0) return undefined;
+  const summe = teilzahlungen.reduce((s, t) => s + t.betrag, 0);
+  return summe > 0 ? summe : undefined;
+}
 
 /** Betrag nach Abzug des hinterlegten Skonto-Prozentsatzes — undefined wenn kein Skonto gepflegt
  * ist. Skonto-Tage/-Frist spielen hier bewusst keine Rolle: der Bankabgleich soll die Zahlung
@@ -117,6 +127,7 @@ async function ladeLieferungKandidaten(where: Prisma.LieferungWhereInput, take: 
       receiptNumber: l.rechnungNr ?? undefined,
       skontoAmount: skontoBetrag(amount, l.skontoProzent),
       offeneGutschriften: gutschriftenProKunde.get(l.kundeId),
+      teilzahlungenSumme: teilzahlungenSumme(l.teilzahlungen),
     };
   });
 }
@@ -139,6 +150,7 @@ async function ladeSammelrechnungKandidaten(where: Prisma.SammelrechnungWhereInp
       counterparty: s.kunde.name,
       receiptNumber: s.rechnungNr ?? undefined,
       skontoAmount: skontoBetrag(amount, s.skontoProzent),
+      teilzahlungenSumme: teilzahlungenSumme(s.teilzahlungen),
     };
   });
 }

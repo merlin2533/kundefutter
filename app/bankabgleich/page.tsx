@@ -75,6 +75,7 @@ interface Vorschlag {
   wirdBezahltAm: string;
   skontoMatch: boolean;
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  teilzahlungMatch?: boolean;
   /** Nur bei typ "lieferung": alle offenen Gutschriften desselben Kunden — Basis für die
    * Mehrfachauswahl, wenn eine Zahlung mehrere Rechnungen UND mehrere Gutschriften abdeckt. */
   offeneGutschriften?: { id: number; nummer: string; betrag: number }[];
@@ -816,6 +817,7 @@ function BankabgleichContent() {
                                     bankBetrag={u.betrag}
                                     skontoMatch={v.skontoMatch}
                                     gutschriftMatch={v.gutschriftMatch}
+                                    teilzahlungMatch={v.teilzahlungMatch}
                                     onUebernehmen={(alsBezahlt, differenzAktion) => zuordnen(u.id, v, alsBezahlt, differenzAktion)}
                                     selected={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? ausgewaehlt.has(`${v.typ}:${v.id}`) : undefined}
                                     onToggleSelect={(v.typ === "lieferung" || v.typ === "sammelrechnung") ? () => toggleAuswahl(v) : undefined}
