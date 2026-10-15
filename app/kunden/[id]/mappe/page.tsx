@@ -11,7 +11,7 @@ interface Sonderpreis { id: number; preis: number; rabatt: number; artikel: { na
 interface Lieferposition { menge: number; verkaufspreis: number; artikel: { name: string; einheit: string } }
 interface Lieferung {
   id: number; datum: string; status: string; rechnungNr?: string | null; rechnungDatum?: string | null;
-  bezahltAm?: string | null; zahlungsziel?: number | null;
+  bezahltAm?: string | null; rechnungStorniert?: string | null; zahlungsziel?: number | null;
   positionen: Lieferposition[];
 }
 interface Aktivitaet { id: number; datum: string; typ: string; betreff: string; inhalt?: string | null; erledigt: boolean }
@@ -68,7 +68,9 @@ export default function KundenmappePage() {
   if (!kunde) return <p className="p-8 text-gray-600">Kunde nicht gefunden.</p>;
 
   const heute = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const geliefert = kunde.lieferungen.filter((l) => l.status === "geliefert");
+  // Eine stornierte Rechnung ist kein Umsatz und keine offene Forderung mehr (analog
+  // LieferhistorieTab.tsx) — ein Rechnungs-Storno setzt l.status NICHT auf "storniert".
+  const geliefert = kunde.lieferungen.filter((l) => l.status === "geliefert" && !l.rechnungStorniert);
   const gesamtUmsatz = geliefert.reduce((s, l) => s + total(l), 0);
   const offenBetrag = geliefert.filter((l) => !l.bezahltAm).reduce((s, l) => s + total(l), 0);
   const offeneRechnungen = geliefert.filter((l) => l.rechnungNr && !l.bezahltAm);

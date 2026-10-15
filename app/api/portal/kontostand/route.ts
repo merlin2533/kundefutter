@@ -15,6 +15,7 @@ export async function GET() {
         status: { not: "storniert" },
         rechnungNr: { not: null },
         bezahltAm: null,
+        rechnungStorniert: null,
       },
       select: {
         datum: true,

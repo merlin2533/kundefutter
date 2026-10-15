@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
           status: "geliefert",
           bezahltAm: null,
           rechnungNr: { not: null },
+          rechnungStorniert: null,
         },
         select: { id: true, kundeId: true, positionen: { select: { menge: true, verkaufspreis: true } } },
       }),

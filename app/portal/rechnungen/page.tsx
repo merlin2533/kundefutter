@@ -11,6 +11,7 @@ interface Rechnung {
   rechnungDatum: string | null;
   status: string;
   bezahlt: boolean;
+  storniert: boolean;
   gesamtBetrag: number;
 }
 
@@ -66,11 +67,13 @@ export default function PortalRechnungenPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${
-                      r.bezahlt
+                      r.storniert
+                        ? "bg-gray-100 text-gray-500"
+                        : r.bezahlt
                         ? "bg-green-100 text-green-700"
                         : "bg-amber-100 text-amber-700"
                     }`}>
-                      {r.bezahlt ? "Bezahlt" : "Offen"}
+                      {r.storniert ? "Storniert" : r.bezahlt ? "Bezahlt" : "Offen"}
                     </span>
                   </td>
                 </tr>

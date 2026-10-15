@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
             CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as summe
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
-          WHERE l.status = 'geliefert' AND l.bezahltAm IS NULL AND l.rechnungNr IS NOT NULL`
+          WHERE l.status = 'geliefert' AND l.bezahltAm IS NULL AND l.rechnungNr IS NOT NULL AND l.rechnungStorniert IS NULL`
         ),
         // Ausgaben nach Kategorie (Brutto = Netto inkl. MwSt)
         prisma.$queryRawUnsafe<AusgabeRow[]>(
