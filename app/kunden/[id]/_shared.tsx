@@ -64,6 +64,7 @@ export interface Lieferung {
   notiz?: string;
   rechnungNr?: string | null;
   rechnungDatum?: string | null;
+  rechnungStorniert?: string | null;
   bezahltAm?: string | null;
   zahlungsziel?: number | null;
   sammelrechnungId?: number | null;
