@@ -41,14 +41,25 @@ export default function EiersortierungDetailPage() {
   const router = useRouter();
   const [sortierung, setSortierung] = useState<Sortierung | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ladeFehler, setLadeFehler] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     fetch(`/api/eiersortierung/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 404) return null;
+        if (!r.ok) {
+          setLadeFehler("Sortierung konnte nicht geladen werden.");
+          return null;
+        }
+        return r.json();
+      })
       .then(setSortierung)
-      .catch((err) => Sentry.captureException(err))
+      .catch((err) => {
+        Sentry.captureException(err);
+        setLadeFehler("Sortierung konnte nicht geladen werden (Netzwerkfehler).");
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -83,7 +94,7 @@ export default function EiersortierungDetailPage() {
   }
 
   if (loading) return <p className="text-sm text-gray-400">Lade…</p>;
-  if (!sortierung) return <p className="text-sm text-red-600">Nicht gefunden.</p>;
+  if (!sortierung) return <p className="text-sm text-red-600">{ladeFehler || "Nicht gefunden."}</p>;
 
   const gesamtMenge = sortierung.positionen.reduce((sum, p) => sum + p.menge, 0);
 

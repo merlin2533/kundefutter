@@ -98,6 +98,9 @@ export const P = {
   ZERTIFIZIERUNGEN_LOESCHEN:   "a.zertifizierungen.loeschen",
   BANKABGLEICH_IMPORT:         "a.bankabgleich.import",
   BANKABGLEICH_BEARBEITEN:     "a.bankabgleich.bearbeiten",
+  EIER_SORTIERUNG_ERSTELLEN:   "a.eier.sortierung.erstellen",
+  EIER_SORTIERUNG_LOESCHEN:    "a.eier.sortierung.loeschen",
+  EXPORT_KAT:                  "a.export.kat",
 
   // ── Felder (sensible Daten) ──────────────────────────────────────────────
   FELD_ARTIKEL_EINKAUFSPREIS:     "f.artikel.einkaufspreis",
@@ -211,6 +214,9 @@ export const PERMISSION_META: Record<string, PermissionMeta> = {
   "a.zertifizierungen.loeschen":   { label: "Zertifizierungen: Löschen",     gruppe: "Agrar",     typ: "aktion" },
   "a.bankabgleich.import":         { label: "Bankabgleich: CSV-Kontoauszug importieren", gruppe: "Finanzen", typ: "aktion" },
   "a.bankabgleich.bearbeiten":     { label: "Bankabgleich: Zuordnen/Ändern (inkl. Auto-Abgleich, Doppelzahlung)", gruppe: "Finanzen", typ: "aktion" },
+  "a.eier.sortierung.erstellen":   { label: "Eierhandel: Sortierung erfassen/bearbeiten/importieren", gruppe: "Artikel", typ: "aktion" },
+  "a.eier.sortierung.loeschen":    { label: "Eierhandel: Sortierung löschen (bucht Lager zurück)", gruppe: "Artikel", typ: "aktion" },
+  "a.export.kat":                  { label: "Export: KAT-Warenstrommeldung (Eier)", gruppe: "Export", typ: "aktion" },
 
   // Felder (sensible Daten)
   "f.artikel.einkaufspreis":     { label: "Feld: Artikel Einkaufspreis",          gruppe: "Felder", typ: "feld" },
@@ -284,6 +290,8 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.EXPORT_LIEFERSCHEIN,
       // Backfill Stage D (siehe Kommentar bei "verkauf"): P.BESTELLUNGEN ist bereits vorhanden.
       P.BESTELLUNGEN_ERSTELLEN, P.BESTELLUNGEN_BEARBEITEN, P.BESTELLUNGEN_LOESCHEN,
+      // Eierhandel: Sortierung ist Lagerarbeit (Wareneingang klassifizierter Eier)
+      P.EIER_SORTIERUNG_ERSTELLEN, P.EIER_SORTIERUNG_LOESCHEN,
       // Siehe Kommentar bei "verkauf": Gutschrift-Reopen ist über dieselbe Lieferungen-Seite
       // erreichbar, die diese Rolle bereits hat.
       P.GUTSCHRIFTEN_BEARBEITEN,
@@ -304,7 +312,7 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.DASHBOARD, P.RECHNUNGEN, P.SAMMELRECHNUNGEN, P.GUTSCHRIFTEN,
       P.AUSGABEN, P.BANKABGLEICH, P.MAHNWESEN, P.STATISTIK,
       P.EINGANGSRECHNUNGEN,
-      P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL, P.EXPORT_DATEV, P.EXPORT_BULK,
+      P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL, P.EXPORT_DATEV, P.EXPORT_BULK, P.EXPORT_KAT,
       P.FELD_KUNDE_UMSATZ, P.FELD_KUNDE_OFFENER_BETRAG,
       P.FELD_STATISTIK_UMSATZ, P.FELD_STATISTIK_DECKUNGSBEITRAG, P.FELD_KALKULATION,
       // Backfill Stage D (siehe Kommentar bei "verkauf"): P.GUTSCHRIFTEN/P.SAMMELRECHNUNGEN/

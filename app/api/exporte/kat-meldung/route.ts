@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sammleKatMeldung, buildKatMeldungCsv } from "@/lib/kat-meldung";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,9 @@ export async function GET(req: NextRequest) {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EXPORT_KAT);
+    if (denyPerm) return denyPerm;
 
     const { searchParams } = new URL(req.url);
     const vonStr = searchParams.get("von");

@@ -48,7 +48,7 @@ export async function GET() {
           erzeugercode: true,
         },
         orderBy: { legedatum: "desc" },
-        take: 500,
+        take: 5000,
       }),
       prisma.kunde.findMany({
         where: { aktiv: true, OR: [{ erzeugercode: { not: null } }, { haltungsform: { not: null } }] },

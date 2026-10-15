@@ -111,6 +111,17 @@ function KatMeldungInner() {
             <span>Sortiert gesamt: {data.summeSortiert}</span>
             <span>Verkauft gesamt: {data.summeVerkauft}</span>
           </div>
+          {(() => {
+            const ohneCode = data.zeilen.filter((z) => z.erzeugercode === "—");
+            if (ohneCode.length === 0) return null;
+            const menge = ohneCode.reduce((sum, z) => sum + z.mengeSortiert + z.mengeVerkauft, 0);
+            return (
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-4">
+                ⚠ {ohneCode.length} Zeile(n) ({menge} Stück) ohne Erzeugercode — in der Meldung erscheint dafür „—“.
+                Erzeugercode an der Sortierposition bzw. am Erzeuger-Kunden nachtragen, bevor die Meldung abgegeben wird.
+              </p>
+            );
+          })()}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase">

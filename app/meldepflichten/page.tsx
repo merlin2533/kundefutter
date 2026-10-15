@@ -33,6 +33,7 @@ export default function MeldepflichtenPage() {
   const eierhandelAn = useModulAktiv("eierhandel");
   const [items, setItems] = useState<AufgabeItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fehler, setFehler] = useState("");
 
   useEffect(() => {
     if (!eierhandelAn) {
@@ -40,12 +41,21 @@ export default function MeldepflichtenPage() {
       return;
     }
     fetch("/api/aufgaben?status=offen&limit=5000")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) {
+          setFehler("Meldepflichten konnten nicht geladen werden.");
+          return [];
+        }
+        return r.json();
+      })
       .then((d) => {
         const list: AufgabeItem[] = Array.isArray(d) ? d : (d.items ?? []);
         setItems(list.filter((a) => istEierhandelMeldung(a.betreff)));
       })
-      .catch((err) => Sentry.captureException(err))
+      .catch((err) => {
+        Sentry.captureException(err);
+        setFehler("Meldepflichten konnten nicht geladen werden (Netzwerkfehler).");
+      })
       .finally(() => setLoading(false));
   }, [eierhandelAn]);
 
@@ -71,6 +81,8 @@ export default function MeldepflichtenPage() {
 
       {loading ? (
         <p className="text-sm text-gray-400">Lade…</p>
+      ) : fehler ? (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-4 py-3">{fehler}</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-gray-400 italic">Aktuell keine offene Meldepflicht.</p>
       ) : (

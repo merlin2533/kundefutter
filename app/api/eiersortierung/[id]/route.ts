@@ -5,6 +5,8 @@ import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { istLagerrelevant } from "@/lib/utils";
 import { loescheGutschriftMitNebenwirkungen } from "@/lib/gutschrift";
 import { istGradierteErzeugerabrechnung } from "@/lib/anlieferung";
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,9 @@ export async function DELETE(_req: NextRequest, ctx: Params) {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EIER_SORTIERUNG_LOESCHEN);
+    if (denyPerm) return denyPerm;
 
     const { id } = await ctx.params;
     const sortierungId = parseInt(id, 10);

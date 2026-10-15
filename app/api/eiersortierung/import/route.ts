@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { getCurrentUser } from "@/lib/auth";
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EIER_SORTIERUNG_ERSTELLEN);
+    if (denyPerm) return denyPerm;
 
     const form = await req.formData();
     const file = form.get("file") as File | null;
