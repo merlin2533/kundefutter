@@ -3,7 +3,7 @@ import { bestaetige } from "@/lib/dialog";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatEuro, formatDatum, formatRabattProzent, heuteIso } from "@/lib/utils";
+import { formatEuro, formatDatum, formatRabattProzent, heuteIso, scrollZuElement } from "@/lib/utils";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
@@ -587,8 +587,8 @@ export default function RechnungenPage() {
 
       {/* Zahlung buchen Dialog */}
       {buchungId !== null && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+        <div ref={scrollZuElement} className="my-4 flex justify-center">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 w-full max-w-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Zahlung buchen</h2>
             <label className="block text-sm font-medium text-gray-700 mb-1">Zahlungsdatum</label>
             <input

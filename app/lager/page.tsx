@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { LagerBadge } from "@/components/Badge";
-import { formatEuro, formatDatum, lagerStatus, istLagerrelevant, resolveBevorzugtenLieferanten } from "@/lib/utils";
+import { formatEuro, formatDatum, lagerStatus, istLagerrelevant, resolveBevorzugtenLieferanten, scrollZuElement } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -484,8 +484,8 @@ export default function LagerPage() {
 
       {/* ── Korrektur Modal (small inline, kept as quick action) ──────────────── */}
       {korrekturArtikel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+        <div ref={scrollZuElement} className="my-4 flex justify-center">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 w-full max-w-sm p-6">
             <h2 className="text-lg font-bold mb-1">Bestandskorrektur</h2>
             <p className="text-sm text-gray-500 mb-5">{korrekturArtikel.name}</p>
             <div className="space-y-4">

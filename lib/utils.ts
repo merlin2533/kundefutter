@@ -616,3 +616,10 @@ export function heuteIso(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
+
+/** Stabile Ref-Callback-Funktion: scrollt ein beim Einblenden gemountetes Inline-Panel ins Bild.
+ *  Bewusst eine Modul-Funktion (stabile Referenz) — ein Inline-Lambda würde bei jedem Render
+ *  erneut aufgerufen und bei jedem Tastendruck scrollen. */
+export function scrollZuElement(el: HTMLElement | null): void {
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+}

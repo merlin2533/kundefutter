@@ -6,7 +6,7 @@ import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { useModulAktiv } from "@/lib/modul-context";
 import { P } from "@/lib/permissions";
-import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten } from "@/lib/utils";
+import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten, scrollZuElement } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
@@ -1737,8 +1737,8 @@ function ArtikelDetailContent() {
           </div>
 
           {showLiefModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <div ref={scrollZuElement} className="my-4 flex justify-center">
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 w-full max-w-lg p-6">
                 <h2 className="text-lg font-bold mb-5">{editingLiefId !== null ? "Lieferant bearbeiten" : "Lieferant hinzufügen"}</h2>
                 <div className="space-y-4">
                   {liefError && (

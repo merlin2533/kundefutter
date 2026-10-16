@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, scrollZuElement } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 import { useToast } from "@/components/ToastProvider";
 
@@ -451,8 +451,8 @@ export default function AgrarantraegeePage() {
 
       {/* Verknüpfen-Modal */}
       {linkItem && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div ref={scrollZuElement} className="my-4 flex justify-center">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 w-full max-w-md p-6">
             <h2 className="text-lg font-semibold mb-1">Mit Kunden verknüpfen</h2>
             <p className="text-sm text-gray-500 mb-4">{linkItem.name}</p>
 
