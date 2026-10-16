@@ -37,14 +37,23 @@ export async function GET() {
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
-    prisma.lieferung.findMany({
-      where: { status: "geliefert", datum: { gte: monatsAnfang } },
-      include: { positionen: true },
-    }),
-    prisma.lieferung.findMany({
-      where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
-      include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, einkaufspreis: true } } },
-    }),
+    // Aggregation in der Datenbank statt alle Monatslieferungen samt Positionen zu laden
+    prisma.$queryRawUnsafe<{ kundeId: number; umsatz: number | null; db: number | null }[]>(
+      `SELECT l.kundeId AS kundeId,
+              CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) AS umsatz,
+              CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) AS db
+       FROM Lieferposition lp JOIN Lieferung l ON l.id = lp.lieferungId
+       WHERE l.status = 'geliefert' AND l.datum >= ?
+       GROUP BY l.kundeId`,
+      monatsAnfang,
+    ),
+    prisma.$queryRawUnsafe<{ umsatz: number | null; db: number | null }[]>(
+      `SELECT CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) AS umsatz,
+              CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) AS db
+       FROM Lieferposition lp JOIN Lieferung l ON l.id = lp.lieferungId
+       WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum <= ?`,
+      vorMonatAnfang, vorMonatEnde,
+    ),
     // Nur kritische Artikel laden (Bestand <= Mindestbestand ODER <= 0),
     // nicht alle aktiven Artikel. Spart RAM + Query-Zeit bei großem Katalog.
     prisma.$queryRawUnsafe<
@@ -177,19 +186,8 @@ export async function GET() {
     prisma.bestellposition.count({ where: { status: { in: ["bestellt", "teilgeliefert"] } } }),
   ]);
 
-  const umsatzMonat = geliefertDiesenMonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
-  }, 0);
-
-  const deckungsbeitragMonat = geliefertDiesenMonat.reduce((sum, l) => {
-    return (
-      sum +
-      l.positionen.reduce(
-        (s, p) => s + p.menge * (p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) - p.einkaufspreis),
-        0
-      )
-    );
-  }, 0);
+  const umsatzMonat = geliefertDiesenMonat.reduce((sum, r) => sum + (r.umsatz ?? 0), 0);
+  const deckungsbeitragMonat = geliefertDiesenMonat.reduce((sum, r) => sum + (r.db ?? 0), 0);
 
   // lagerArtikel enthält bereits nur kritische Artikel (DB-seitig gefiltert + sortiert).
   const lagerAlarmArtikel = lagerArtikel
@@ -215,12 +213,11 @@ export async function GET() {
   });
   const kundeNameMap = new Map(topKundenEntities.map((k) => [k.id, k.name]));
 
-  // Umsatz aus bereits geladenen geliefertDiesenMonat berechnen
+  // Umsatz je Kunde aus der SQL-Aggregation
   const kundeUmsatzMap = new Map<number, number>();
-  for (const l of geliefertDiesenMonat) {
-    if (!topKundenIds.includes(l.kundeId)) continue;
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
-    kundeUmsatzMap.set(l.kundeId, (kundeUmsatzMap.get(l.kundeId) ?? 0) + total);
+  for (const r of geliefertDiesenMonat) {
+    if (!topKundenIds.includes(r.kundeId)) continue;
+    kundeUmsatzMap.set(r.kundeId, r.umsatz ?? 0);
   }
 
   const topKundenMitNamen = topKunden.map((k) => ({
@@ -294,13 +291,8 @@ export async function GET() {
   }));
 
   // Umsatz + Deckungsbeitrag Vormonat
-  const umsatzVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
-  }, 0);
-
-  const deckungsbeitragVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * (p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) - p.einkaufspreis), 0);
-  }, 0);
+  const umsatzVormonat = geliefertVormonat[0]?.umsatz ?? 0;
+  const deckungsbeitragVormonat = geliefertVormonat[0]?.db ?? 0;
 
   // Fällige Rechnungen: berechne Betrag und Überfälligkeit je Rechnung
   const heuteStart = new Date(heute);
