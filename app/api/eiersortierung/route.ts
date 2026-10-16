@@ -10,7 +10,7 @@ import {
   validiereEierSortierungPositionen,
   validiereAnlieferungFuerSortierung,
   erstelleEierSortierung,
-  type EierSortierungPositionInput,
+  parsePositionenInput,
 } from "@/lib/eiersortierung";
 export const dynamic = "force-dynamic";
 
@@ -80,23 +80,7 @@ export async function POST(req: NextRequest) {
       if (isNaN(datum.getTime())) return NextResponse.json({ error: "Ungültiges Datum" }, { status: 400 });
     }
 
-    const positionen: EierSortierungPositionInput[] = (body.positionen as {
-      artikelId: unknown;
-      gueteklasse: unknown;
-      gewichtsklasse: unknown;
-      menge: unknown;
-      chargeNr?: unknown;
-      legedatum?: unknown;
-      erzeugercode?: unknown;
-    }[]).map((p) => ({
-      artikelId: Number(p.artikelId),
-      gueteklasse: typeof p.gueteklasse === "string" ? p.gueteklasse.trim().toUpperCase() : "",
-      gewichtsklasse: typeof p.gewichtsklasse === "string" ? p.gewichtsklasse.trim().toUpperCase() : "",
-      menge: Number(p.menge),
-      chargeNr: typeof p.chargeNr === "string" && p.chargeNr.trim() ? p.chargeNr.trim() : null,
-      legedatum: typeof p.legedatum === "string" && p.legedatum.trim() ? new Date(p.legedatum) : null,
-      erzeugercode: typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : null,
-    }));
+    const positionen = parsePositionenInput(body.positionen);
 
     try {
       validiereEierSortierungPositionen(positionen);
