@@ -80,13 +80,14 @@ export async function POST(req: NextRequest) {
       }
 
       // Betrag berechnen: Summe der Positionen (Menge × Verkaufspreis inkl. MwSt)
-      const betrag = lief.positionen.reduce((sum, pos) => {
+      const betragRoh = lief.positionen.reduce((sum, pos) => {
         const preis = pos.verkaufspreis ?? 0;
         const rabatt = pos.rabattProzent ?? 0;
         const mwst = pos.mwstSatz ?? pos.artikel?.mwstSatz ?? 19;
         const netto = preis * (1 - rabatt / 100);
         return sum + pos.menge * netto * (1 + mwst / 100);
       }, 0);
+      const betrag = Math.round(betragRoh * 100) / 100;
 
       if (betrag <= 0) {
         uebersprungen.push(

@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     sheetName = "Lieferhistorie";
     const where: Record<string, unknown> = { status: "geliefert" };
     if (kundeId) where.kundeId = Number(kundeId);
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const lieferungen = await prisma.lieferung.findMany({
       where,
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
   if (typ === "bewegungen") {
     sheetName = "Lagerbewegungen";
     const where: Record<string, unknown> = {};
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const bewegungen = await prisma.lagerbewegung.findMany({
       where,
@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
   if (typ === "margen") {
     sheetName = "Margen";
     const where: Record<string, unknown> = { status: "geliefert" };
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const lieferungen = await prisma.lieferung.findMany({
       where,

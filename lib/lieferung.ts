@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { berechneVerkaufspreis, naechsteRechnungsnummer, istLagerrelevant, bestMengenstaffel, effektiverMengenstaffelRabatt, formatEuro, rundeKaufmaennisch, resolveBevorzugtenEK } from "@/lib/utils";
 import { artikelSafeSelect } from "@/lib/artikel-select";
-import { berechneLieferungBrutto, berechneGutschriftBrutto } from "@/lib/lieferung-brutto";
+import { berechneLieferungBrutto, berechneGutschriftBrutto, berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { ALTE_FORDERUNG_ARTIKELNUMMER, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, RESTDIFFERENZ_ARTIKELNUMMER } from "@/lib/ausgleichsartikel";
 import { Sentry } from "@/lib/sentry";
 
@@ -212,25 +212,19 @@ export async function erstelleLieferungMitPreisberechnung(
     });
     if (kunde?.kreditlimit != null) {
       kreditlimitWert = kunde.kreditlimit;
-      // Offene Lieferungen (geliefert, noch nicht bezahlt, mit Rechnungsnummer) — nur für
-      // GENAU diesen einen Kunden, `take` also kein globaler Deckel; auf 5000 angehoben (analog
-      // zu den anderen 500er-Deckel-Fixes im Projekt). Bewusst weiterhin ein `take`-Deckel statt
-      // eines DB-seitigen SUM (wie er in lib/benachrichtigungen-pruefen für den strukturell
-      // ähnlichen Kreditlimit-Check bereits eingesetzt wird) — dieser Pfad läuft synchron in
-      // jeder Lieferungserstellung, ein SUM wäre die sauberere Lösung, wurde hier aber aus
-      // Zeitgründen nicht nachgezogen; der Netto-Betrag berücksichtigt zudem weder Teilzahlungen
-      // noch verbuchte Gutschriften noch per Sammelrechnung abgerechnete Lieferungen — die
-      // Warnung ist eine grobe Heuristik, kein exakter offener Saldo (siehe auch Kunde-Detailseite
-      // "Offener Betrag").
+      // Offene Rechnungen dieses Kunden (brutto abzüglich bereits erfasster Teilzahlungen);
+      // `take` nur für genau diesen einen Kunden. Per Sammelrechnung abgerechnete Lieferungen
+      // haben keine eigene Rechnungsnummer und fehlen hier bewusst — grobe Heuristik, kein
+      // exakter Saldo (siehe Kunde-Detailseite "Offener Betrag").
       const offeneLieferungen = await prisma.lieferung.findMany({
         where: { kundeId: input.kundeId, bezahltAm: null, status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null },
-        include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } } },
+        select: {
+          teilzahlungen: { select: { betrag: true } },
+          positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
+        },
         take: 5000,
       });
-      offenerBetrag = offeneLieferungen.reduce((sum, l) => {
-        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - p.rabattProzent / 100), 0);
-        return sum + netto;
-      }, 0);
+      offenerBetrag = offeneLieferungen.reduce((sum, l) => sum + berechneOffenenBetrag(l), 0);
       if (offenerBetrag > kreditlimitWert) {
         kreditlimitWarnung = true;
       }
