@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -67,6 +69,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/aufgaben
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUFGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const body = await req.json();
     const { betreff, beschreibung, faelligAm, prioritaet, tags, typ, kundeId } = body;

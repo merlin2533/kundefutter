@@ -1,6 +1,7 @@
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { verifySession, SESSION_COOKIE, getCurrentUser } from "@/lib/auth";
 import {
   getSachkonto,
   BUCHUNGSTYPEN,
@@ -62,6 +63,9 @@ async function getKontenrahmen() {
 }
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUSGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const token = req.cookies.get(SESSION_COOKIE)?.value;
     const session = token ? await verifySession(token) : null;

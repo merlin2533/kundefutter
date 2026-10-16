@@ -109,8 +109,8 @@ export default function PortalEinstellungenPage() {
   }
 
   async function handleResetPasswort(id: number) {
-    if (!neuesPasswort || neuesPasswort.length < 6) {
-      alert("Passwort mind. 6 Zeichen");
+    if (!neuesPasswort || neuesPasswort.length < 8) {
+      alert("Passwort mind. 8 Zeichen");
       return;
     }
     setResetSaving(true);
@@ -300,7 +300,7 @@ export default function PortalEinstellungenPage() {
                             type="password"
                             value={neuesPasswort}
                             onChange={(e) => setNeuesPasswort(e.target.value)}
-                            placeholder="Neues Passwort (mind. 6 Zeichen)"
+                            placeholder="Neues Passwort (mind. 8 Zeichen)"
                             className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white w-64"
                           />
                           <button

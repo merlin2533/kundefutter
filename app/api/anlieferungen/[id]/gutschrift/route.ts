@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -137,6 +139,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 // Kombination — alles oder nichts, siehe unten); ohne verknüpfte Sortierung bleibt der bisherige
 // einfache Modus (Anlieferung.menge × preisProEinheit) unverändert erhalten.
 export async function POST(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_WARENEINGANG, P.GUTSCHRIFTEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const denyModul = await pruefeModul();
   if (denyModul) return denyModul;
 
@@ -313,6 +318,9 @@ class BereitsVerknuepftFehler extends Error {}
 // STORNIERTE/ERSTATTETE Gutschrift wird NICHT automatisch entfernt (409) — dort ist manuelle
 // Prüfung nötig, analog zum Update-Pfad oben.
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_WARENEINGANG, P.GUTSCHRIFTEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const denyModul = await pruefeModul();
   if (denyModul) return denyModul;
 

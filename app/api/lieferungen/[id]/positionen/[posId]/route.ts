@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { istLagerrelevant } from "@/lib/utils";
@@ -14,6 +16,9 @@ const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 type Ctx = { params: Promise<{ id: string; posId: string }> };
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id, posId } = await ctx.params;
   const lieferungId = parseInt(id, 10);
   const positionId = parseInt(posId, 10);
@@ -79,6 +84,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id, posId } = await ctx.params;
   const lieferungId = parseInt(id, 10);
   const positionId = parseInt(posId, 10);

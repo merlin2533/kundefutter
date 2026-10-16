@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ladeStandardZahlungsziel } from "@/lib/lieferung";
@@ -49,6 +51,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 // Body kann enthalten: status, notiz, lieferdatum, bestellfrist, rabattProzent
 // Spezial-Aktion: { aktion: "umwandeln" } → wandelt in Lieferung um
 export async function PUT(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.VORBESTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "fruehbezug");
   if (denyModul) return denyModul;
@@ -91,6 +96,9 @@ export async function PUT(req: NextRequest, ctx: Params) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.VORBESTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "fruehbezug");
   if (denyModul) return denyModul;

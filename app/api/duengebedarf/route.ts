@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
@@ -270,6 +272,9 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/duengebedarf?id=X
 export async function DELETE(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.DUENGEBEDARF_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;

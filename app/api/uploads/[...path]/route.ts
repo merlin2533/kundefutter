@@ -24,6 +24,13 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Ungültiger Pfad" }, { status: 400 });
   }
 
+  // Gehaltsabrechnungen werden ausschließlich über die eigene, pro Datensatz geprüfte
+  // Route /api/personal/abrechnungen/[id]/beleg ausgeliefert — nie über diesen generischen
+  // Endpunkt (der jedem eingeloggten Nutzer jede Datei unter uploads/ liefert).
+  if (segments[0] === "personal-abrechnungen") {
+    return NextResponse.json({ error: "Zugriff verweigert" }, { status: 403 });
+  }
+
   const base = getUploadBase();
   const relative = segments.join("/");
   const filePath = path.join(base, relative);

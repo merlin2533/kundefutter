@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
@@ -9,6 +11,9 @@ export const dynamic = "force-dynamic";
 // POST /api/exporte/besuchserinnerung/mail
 // Body: { aktivitaetId: number; empfaenger?: string }
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.BESUCHSTERMINE_BEARBEITEN, P.KUNDEN_BEARBEITEN]);
+  if (__deny) return __deny;
   try {
     const body = (await req.json()) as { aktivitaetId?: unknown; empfaenger?: unknown };
     const aktivitaetId = Number(body.aktivitaetId);

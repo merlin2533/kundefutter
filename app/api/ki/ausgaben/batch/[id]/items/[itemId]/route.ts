@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -14,6 +16,9 @@ const GUELTIGE_ENTSCHEIDUNG = ["passt", "passt_nicht"];
 const GUELTIGE_MWST = [0, 7, 19];
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUSGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr, itemId: itemIdStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   const itemId = parseInt(itemIdStr, 10);
@@ -106,6 +111,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUSGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr, itemId: itemIdStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   const itemId = parseInt(itemIdStr, 10);

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
@@ -35,6 +37,9 @@ export async function GET() {
 
 // POST: Excel-Datei hochladen und Vorschau zurückgeben
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.KUNDEN_ERSTELLEN);
+  if (__deny) return __deny;
   const formData = await req.formData();
   const file = formData.get("file") as File;
 
@@ -145,6 +150,9 @@ export async function POST(req: NextRequest) {
 
 // PUT: Bestätigte Kunden anlegen
 export async function PUT(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.KUNDEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { kunden } = await req.json() as {
     kunden: {
       name: string;

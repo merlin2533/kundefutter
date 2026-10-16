@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { NUTZUNGSARTEN, type TierartKey } from "@/lib/tierbedarf";
@@ -34,6 +36,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 
 // POST /api/kunden/[id]/tiere
 export async function POST(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "rationsberechnung");
   if (denyModul) return denyModul;
@@ -93,6 +98,9 @@ export async function POST(req: NextRequest, ctx: Params) {
 
 // PUT /api/kunden/[id]/tiere?tierId=X
 export async function PUT(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "rationsberechnung");
   if (denyModul) return denyModul;
@@ -140,6 +148,9 @@ export async function PUT(req: NextRequest, ctx: Params) {
 
 // DELETE /api/kunden/[id]/tiere?tierId=X
 export async function DELETE(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "rationsberechnung");
   if (denyModul) return denyModul;

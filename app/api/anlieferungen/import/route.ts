@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +36,9 @@ function istExterneNrKollision(err: unknown): boolean {
 // einzigen Transaktion über die gesamte Datei — bei vielen Zeilen würde eine einzelne
 // interaktive Prisma-Transaktion sonst das Standard-Timeout überschreiten.
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_WARENEINGANG, P.GUTSCHRIFTEN_ERSTELLEN]);
+  if (__deny) return __deny;
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "erzeugerabrechnung");

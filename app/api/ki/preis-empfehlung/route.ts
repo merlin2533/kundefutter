@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -5,6 +7,9 @@ import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.KI_NUTZEN);
+  if (__deny) return __deny;
   try {
     const body = await req.json();
     const { kundeId, artikelId, menge } = body as {

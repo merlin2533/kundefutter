@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +17,9 @@ const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id } = await params;
   const lieferungId = parseInt(id, 10);
   if (isNaN(lieferungId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

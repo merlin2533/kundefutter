@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncKundePreis } from "@/lib/jahrespreis";
@@ -38,6 +40,9 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -87,6 +92,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

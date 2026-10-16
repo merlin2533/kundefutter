@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -19,6 +21,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const body = (await req.json()) as {
       name?: string;

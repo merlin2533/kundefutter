@@ -5,6 +5,8 @@ import { createInterface } from "readline";
 import { Readable } from "stream";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
+import path from "path";
+import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
@@ -346,9 +348,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "url fehlt im Request-Body" }, { status: 400 });
     }
 
+    // Nur https-URLs (kein file:/http:/interne Adressen über Klartext), mit Timeout.
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return NextResponse.json({ error: "Ungültige URL" }, { status: 400 });
+    }
+    if (parsedUrl.protocol !== "https:") {
+      return NextResponse.json({ error: "Nur https-URLs sind erlaubt" }, { status: 400 });
+    }
+
     let fetchResponse: Response;
     try {
-      fetchResponse = await fetch(url, { headers: { "Accept-Encoding": "gzip, deflate" } });
+      fetchResponse = await fetch(parsedUrl, {
+        headers: { "Accept-Encoding": "gzip, deflate" },
+        signal: AbortSignal.timeout(60_000),
+      });
     } catch (e) {
       Sentry.captureException(e);
       return NextResponse.json({ error: `Fetch-Fehler: ${String(e)}` }, { status: 502 });
@@ -377,6 +393,13 @@ export async function POST(req: NextRequest) {
     }
     if (!filePath.startsWith("/")) {
       return NextResponse.json({ error: "path muss ein absoluter Pfad sein (beginnt mit /)" }, { status: 400 });
+    }
+
+    // Allowlist: nur Dateien unterhalb des Upload-Verzeichnisses (kein /etc/passwd o.ä.).
+    const resolvedFile = path.resolve(filePath);
+    const erlaubteBasis = path.resolve(getUploadBase());
+    if (!resolvedFile.startsWith(erlaubteBasis + path.sep)) {
+      return NextResponse.json({ error: "Pfad muss unterhalb des Upload-Verzeichnisses liegen" }, { status: 400 });
     }
 
     try {

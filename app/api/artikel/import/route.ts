@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +13,9 @@ export const dynamic = "force-dynamic";
 
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_ERSTELLEN);
+  if (__deny) return __deny;
   let formData: FormData;
   try {
     formData = await req.formData();

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveBevorzugtenLieferanten } from "@/lib/utils";
@@ -250,6 +252,9 @@ export async function GET() {
 //         positionen: [{ quelle, positionId, artikelId, lieferantId?, menge, einheit? }],
 //         bestelltAm?, notiz? }
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.BESTELLUNGEN_ERSTELLEN, P.LAGER_WARENEINGANG]);
+  if (__deny) return __deny;
   try {
     const body = await req.json();
     const aktion = body?.aktion;

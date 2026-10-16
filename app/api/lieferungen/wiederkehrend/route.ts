@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { addTage } from "@/lib/utils";
 import { ermittleFaelligeBedarfe, erstelleWiederkehrendeLieferungen } from "@/lib/wiederkehrende-lieferungen";
@@ -31,6 +33,9 @@ export async function GET(req: NextRequest) {
 //       { alleAusloesen: true }           – alle fälligen Bedarfe anlegen
 //       { ids: number[] }                 – Alias für bedarfIds
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   let body;
   try {
     body = await req.json();

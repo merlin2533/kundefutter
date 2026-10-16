@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 
@@ -24,15 +25,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "E-Mail Import deaktiviert" }, { status: 403 });
     }
 
+    // Svix-Signaturprüfung (Resend): HMAC-SHA256 über "<id>.<timestamp>.<body>" mit dem
+    // base64-dekodierten Secret ("whsec_…"). Ohne konfiguriertes Secret wird abgelehnt —
+    // sonst könnte jeder anonyme Aufrufer Benachrichtigungen erzeugen.
     const secret = secretSetting?.value?.trim();
-    if (secret) {
-      const signature = req.headers.get("svix-signature") ?? req.headers.get("x-resend-signature");
-      if (!signature || !signature.includes(secret.slice(0, 8))) {
-        return NextResponse.json({ error: "Ungültige Signatur" }, { status: 401 });
-      }
+    if (!secret) {
+      return NextResponse.json({ error: "Webhook-Secret nicht konfiguriert" }, { status: 401 });
+    }
+    const rawBody = await req.text();
+    const svixId = req.headers.get("svix-id") ?? "";
+    const svixTs = req.headers.get("svix-timestamp") ?? "";
+    const svixSig = req.headers.get("svix-signature") ?? "";
+    const tsNum = Number(svixTs);
+    if (!svixId || !svixSig || !Number.isFinite(tsNum) || Math.abs(Date.now() / 1000 - tsNum) > 300) {
+      return NextResponse.json({ error: "Ungültige Signatur" }, { status: 401 });
+    }
+    const keyBuf = Buffer.from(secret.startsWith("whsec_") ? secret.slice(6) : secret, "base64");
+    const expected = crypto.createHmac("sha256", keyBuf).update(`${svixId}.${svixTs}.${rawBody}`).digest("base64");
+    const expBuf = Buffer.from(expected);
+    const ok = svixSig.split(" ").some((part) => {
+      const sig = part.split(",")[1] ?? "";
+      const sigBuf = Buffer.from(sig);
+      return sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    });
+    if (!ok) {
+      return NextResponse.json({ error: "Ungültige Signatur" }, { status: 401 });
     }
 
-    const body = (await req.json()) as ResendInboundPayload;
+    const body = JSON.parse(rawBody) as ResendInboundPayload;
     const source = sourceSetting?.value?.trim() ?? "";
     const aktion = aktionSetting?.value ?? "benachrichtigung";
 
