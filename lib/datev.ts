@@ -378,7 +378,7 @@ export async function sammleDatevBuchungen(
 
   const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
     prisma.lieferung.findMany({
-      where: { status: "geliefert", rechnungNr: { not: null }, datum: { gte: von, lte: bis } },
+      where: { status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null, datum: { gte: von, lte: bis } },
       select: {
         id: true,
         kundeId: true,

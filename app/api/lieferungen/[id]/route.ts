@@ -581,7 +581,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (aktion === "rechnung_erstellen") {
     try {
       const lieferung = await prisma.$transaction(async (tx) => {
-        const bestehende = await tx.lieferung.findUniqueOrThrow({ where: { id: Number(id) }, select: { kundeId: true } });
+        const bestehende = await tx.lieferung.findUniqueOrThrow({ where: { id: Number(id) }, select: { kundeId: true, status: true } });
+        if (bestehende.status === "storniert") {
+          throw new Error("Stornierte Lieferung kann nicht in Rechnung gestellt werden");
+        }
         // Noch offene "alte Forderungen" (Restdifferenz aus Unterzahlung) und offene
         // Gutschriften (z.B. Überzahlung) dieses Kunden automatisch als Position mit
         // aufnehmen, bevor die Rechnung nummeriert wird.
