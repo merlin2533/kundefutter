@@ -41,7 +41,7 @@ COPY --from=builder /app/node_modules/@libsql ./node_modules/@libsql
 
 # Install Prisma CLI + Geo-Proxy-Abhängigkeiten
 COPY package.json package-lock.json ./
-RUN npm install --ignore-scripts --no-fund --no-audit prisma dotenv geoip-lite && \
+RUN npm install --ignore-scripts --no-fund --no-audit "prisma@~7.8.0" "dotenv@^17.4.2" "geoip-lite@^1.4.0" && \
     chown -R nextjs:nodejs /app/node_modules/.prisma \
                            /app/node_modules/@prisma \
                            /app/node_modules/prisma
