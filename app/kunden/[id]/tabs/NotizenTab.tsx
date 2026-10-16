@@ -29,7 +29,7 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
     fetch(`/api/kunden/${kundeId}/notizen`)
       .then((r) => r.json())
       .then((data) => {
-        setNotizen(data);
+        setNotizen(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
@@ -115,7 +115,7 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
         // Revert: re-fetch to restore
         fetch(`/api/kunden/${kundeId}/notizen`)
           .then((r) => r.json())
-          .then(setNotizen)
+          .then((d) => setNotizen(Array.isArray(d) ? d : []))
           .catch((err) => {
             Sentry.captureException(err);
           });
@@ -125,7 +125,7 @@ export default function NotizenTab({ kundeId }: { kundeId: number }) {
       Sentry.captureException(err);
       fetch(`/api/kunden/${kundeId}/notizen`)
         .then((r) => r.json())
-        .then(setNotizen)
+        .then((d) => setNotizen(Array.isArray(d) ? d : []))
         .catch((err) => {
           Sentry.captureException(err);
         });

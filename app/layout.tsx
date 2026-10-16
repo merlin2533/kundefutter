@@ -6,6 +6,7 @@ import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistratio
 import { InstallPrompt } from "@/components/InstallPrompt";
 import SearchPalette from "@/components/SearchPalette";
 import { ToastProvider } from "@/components/ToastProvider";
+import DialogHost from "@/components/DialogHost";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 import { getAppName } from "@/lib/appinfo";
 import { getCurrentUser } from "@/lib/auth";
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Nav />
           <Breadcrumbs />
           <ToastProvider>
+            <DialogHost />
             <main className="flex-1 p-4 md:p-6 max-w-screen-2xl mx-auto w-full">
               {children}
             </main>

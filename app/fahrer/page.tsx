@@ -1,4 +1,5 @@
 "use client";
+import { melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { formatDatum } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
@@ -112,7 +113,7 @@ export default function FahrerCockpit() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(d.error ?? "Fehler beim Aktualisieren des Status");
+        void melde(d.error ?? "Fehler beim Aktualisieren des Status");
         return;
       }
       setSuccessId(id);
@@ -122,7 +123,7 @@ export default function FahrerCockpit() {
       }, 1200);
     } catch (err) {
       Sentry.captureException(err);
-      alert("Netzwerkfehler – bitte nochmal versuchen");
+      void melde("Netzwerkfehler – bitte nochmal versuchen");
     } finally {
       setUpdatingId(null);
     }

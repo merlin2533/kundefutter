@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useState } from "react";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -69,7 +70,7 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
   }
 
   async function handleDelete(id: number, label: string) {
-    if (!confirm(`Staffelpreis „${label}“ wirklich löschen?`)) return;
+    if (!await bestaetige(`Staffelpreis „${label}“ wirklich löschen?`)) return;
     setDeletingId(id);
     await onDelete(id);
     setDeletingId(null);

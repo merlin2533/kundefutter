@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -66,6 +68,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/bodenanalyse
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.BODENPROBEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "bodenproben");
@@ -160,6 +165,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/bodenanalyse?id=X
 export async function DELETE(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.BODENPROBEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;

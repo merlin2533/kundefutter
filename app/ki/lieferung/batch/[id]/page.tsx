@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -570,7 +571,7 @@ export default function KiLieferungBatchDetailPage() {
   }
 
   async function verwerfen() {
-    if (!confirm("Batch inkl. aller hochgeladenen Fotos unwiderruflich verwerfen?")) return;
+    if (!await bestaetige("Batch inkl. aller hochgeladenen Fotos unwiderruflich verwerfen?")) return;
     setDiscarding(true);
     try {
       const res = await fetch(`/api/ki/lieferung/batch/${batchId}`, {

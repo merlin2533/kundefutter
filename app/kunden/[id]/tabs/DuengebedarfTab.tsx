@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -168,7 +169,7 @@ export default function DuengebedarfTab({ kundeId }: { kundeId: number }) {
   }
 
   async function loeschen(id: number) {
-    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
+    if (!await bestaetige("Diesen Eintrag wirklich löschen?")) return;
     setDeleting(id);
     try {
       await fetch(`/api/duengebedarf?id=${id}`, { method: "DELETE" });

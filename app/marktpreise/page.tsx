@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { Card } from "@/components/Card";
@@ -33,7 +34,7 @@ function MatifChart({
     text: string;
   } | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
 
   // Verlauf je Produkt auf Zeitraum begrenzen
   const cutoffDatum = (() => {

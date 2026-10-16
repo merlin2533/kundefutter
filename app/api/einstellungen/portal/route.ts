@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
     const { benutzername, passwort } = body as { benutzername?: string; passwort?: string };
     if (!benutzername?.trim()) return NextResponse.json({ error: "Benutzername erforderlich" }, { status: 400 });
-    if (!passwort || passwort.length < 6) return NextResponse.json({ error: "Passwort mind. 6 Zeichen" }, { status: 400 });
+    if (!passwort || passwort.length < 8) return NextResponse.json({ error: "Passwort mind. 8 Zeichen" }, { status: 400 });
 
     const kunde = await prisma.kunde.findUnique({ where: { id: kundeId } });
     if (!kunde) return NextResponse.json({ error: "Kunde nicht gefunden" }, { status: 404 });
@@ -85,8 +85,8 @@ export async function PUT(req: NextRequest) {
 
     if (body.aktiv !== undefined) data.aktiv = Boolean(body.aktiv);
     if (body.passwort) {
-      if (String(body.passwort).length < 6) {
-        return NextResponse.json({ error: "Passwort mind. 6 Zeichen" }, { status: 400 });
+      if (String(body.passwort).length < 8) {
+        return NextResponse.json({ error: "Passwort mind. 8 Zeichen" }, { status: 400 });
       }
       data.passwortHash = await bcrypt.hash(String(body.passwort), 10);
     }

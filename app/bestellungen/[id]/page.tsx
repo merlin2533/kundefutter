@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
@@ -358,7 +359,7 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
           )}
           {canStornieren && (
             <button
-              onClick={() => { if (confirm("Bestellung wirklich stornieren?")) handleStatusChange("stornieren"); }}
+              onClick={async () => { if (await bestaetige("Bestellung wirklich stornieren?")) handleStatusChange("stornieren"); }}
               disabled={saving}
               className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >

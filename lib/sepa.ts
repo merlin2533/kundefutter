@@ -30,7 +30,9 @@ export function generiereSepaXml(
   const pmtInfId = `PMT-${Date.now()}`;
   const creDtTm = new Date().toISOString().replace(/\.\d{3}Z$/, "");
   const nbOfTxs = zahlungen.length;
-  const ctrlSum = zahlungen.reduce((s, z) => s + z.betrag, 0).toFixed(2);
+  // CtrlSum aus den auf Cent gerundeten Einzelbeträgen bilden (Float-Summen driften sonst ab,
+  // die Bank lehnt die Datei bei Abweichung zur Summe der Einzelbeträge ab).
+  const ctrlSum = (zahlungen.reduce((s, z) => s + Math.round(z.betrag * 100), 0) / 100).toFixed(2);
   const ibanAbs = ibanNormalisieren(absenderIban);
 
   const txLines = zahlungen

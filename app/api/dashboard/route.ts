@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lagerStatus, addTage } from "@/lib/utils";
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export async function GET() {
     topKunden,
     faelligNaechste14Tage,
     offeneRechnungenListe,
+    offeneRechnungenAnzahl,
     alleBedarfe,
     wiedervorlagenRaw,
     aktivKunden,
@@ -35,14 +37,23 @@ export async function GET() {
   ] = await Promise.all([
     prisma.kunde.count({ where: { aktiv: true } }),
     prisma.lieferung.count({ where: { status: "geplant" } }),
-    prisma.lieferung.findMany({
-      where: { status: "geliefert", datum: { gte: monatsAnfang } },
-      include: { positionen: true },
-    }),
-    prisma.lieferung.findMany({
-      where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
-      include: { positionen: { select: { menge: true, verkaufspreis: true, einkaufspreis: true } } },
-    }),
+    // Aggregation in der Datenbank statt alle Monatslieferungen samt Positionen zu laden
+    prisma.$queryRawUnsafe<{ kundeId: number; umsatz: number | null; db: number | null }[]>(
+      `SELECT l.kundeId AS kundeId,
+              CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) AS umsatz,
+              CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) AS db
+       FROM Lieferposition lp JOIN Lieferung l ON l.id = lp.lieferungId
+       WHERE l.status = 'geliefert' AND l.datum >= ?
+       GROUP BY l.kundeId`,
+      monatsAnfang,
+    ),
+    prisma.$queryRawUnsafe<{ umsatz: number | null; db: number | null }[]>(
+      `SELECT CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) AS umsatz,
+              CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) AS db
+       FROM Lieferposition lp JOIN Lieferung l ON l.id = lp.lieferungId
+       WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum <= ?`,
+      vorMonatAnfang, vorMonatEnde,
+    ),
     // Nur kritische Artikel laden (Bestand <= Mindestbestand ODER <= 0),
     // nicht alle aktiven Artikel. Spart RAM + Query-Zeit bei großem Katalog.
     prisma.$queryRawUnsafe<
@@ -81,9 +92,14 @@ export async function GET() {
         zahlungsziel: true,
         kundeId: true,
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        teilzahlungen: { select: { betrag: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
       },
+      orderBy: { datum: "asc" },
       take: 100,
+    }),
+    prisma.lieferung.count({
+      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
     }),
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
@@ -161,7 +177,7 @@ export async function GET() {
         datum: true,
         kundeId: true,
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
       },
       orderBy: { datum: "asc" },
       take: 20,
@@ -170,19 +186,8 @@ export async function GET() {
     prisma.bestellposition.count({ where: { status: { in: ["bestellt", "teilgeliefert"] } } }),
   ]);
 
-  const umsatzMonat = geliefertDiesenMonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-  }, 0);
-
-  const deckungsbeitragMonat = geliefertDiesenMonat.reduce((sum, l) => {
-    return (
-      sum +
-      l.positionen.reduce(
-        (s, p) => s + p.menge * (p.verkaufspreis - p.einkaufspreis),
-        0
-      )
-    );
-  }, 0);
+  const umsatzMonat = geliefertDiesenMonat.reduce((sum, r) => sum + (r.umsatz ?? 0), 0);
+  const deckungsbeitragMonat = geliefertDiesenMonat.reduce((sum, r) => sum + (r.db ?? 0), 0);
 
   // lagerArtikel enthält bereits nur kritische Artikel (DB-seitig gefiltert + sortiert).
   const lagerAlarmArtikel = lagerArtikel
@@ -198,7 +203,7 @@ export async function GET() {
 
   const lagerAlarme = lagerAlarmArtikel.length;
 
-  const offeneRechnungen = offeneRechnungenListe.length;
+  const offeneRechnungen = offeneRechnungenAnzahl;
 
   // Top-Kunden mit Namen anreichern (aus bereits geladenen Daten berechnen)
   const topKundenIds = topKunden.map((k) => k.kundeId);
@@ -208,12 +213,11 @@ export async function GET() {
   });
   const kundeNameMap = new Map(topKundenEntities.map((k) => [k.id, k.name]));
 
-  // Umsatz aus bereits geladenen geliefertDiesenMonat berechnen
+  // Umsatz je Kunde aus der SQL-Aggregation
   const kundeUmsatzMap = new Map<number, number>();
-  for (const l of geliefertDiesenMonat) {
-    if (!topKundenIds.includes(l.kundeId)) continue;
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-    kundeUmsatzMap.set(l.kundeId, (kundeUmsatzMap.get(l.kundeId) ?? 0) + total);
+  for (const r of geliefertDiesenMonat) {
+    if (!topKundenIds.includes(r.kundeId)) continue;
+    kundeUmsatzMap.set(r.kundeId, r.umsatz ?? 0);
   }
 
   const topKundenMitNamen = topKunden.map((k) => ({
@@ -287,13 +291,8 @@ export async function GET() {
   }));
 
   // Umsatz + Deckungsbeitrag Vormonat
-  const umsatzVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
-  }, 0);
-
-  const deckungsbeitragVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * (p.verkaufspreis - p.einkaufspreis), 0);
-  }, 0);
+  const umsatzVormonat = geliefertVormonat[0]?.umsatz ?? 0;
+  const deckungsbeitragVormonat = geliefertVormonat[0]?.db ?? 0;
 
   // Fällige Rechnungen: berechne Betrag und Überfälligkeit je Rechnung
   const heuteStart = new Date(heute);
@@ -304,7 +303,7 @@ export async function GET() {
     const faelligDatum = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
     faelligDatum.setHours(0, 0, 0, 0);
     const ueberfaelligTage = Math.max(0, Math.floor((heuteStart.getTime() - faelligDatum.getTime()) / (24 * 60 * 60 * 1000)));
-    const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    const betrag = berechneOffenenBetrag(l);
     return {
       id: l.id,
       rechnungNr: l.rechnungNr,
@@ -416,7 +415,7 @@ export async function GET() {
     datum: l.datum.toISOString(),
     kundeId: l.kundeId,
     kundeName: l.kunde ? (l.kunde.firma ?? l.kunde.name) : "?",
-    betrag: Math.round(l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0) * 100) / 100,
+    betrag: Math.round(l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0) * 100) / 100,
     tageOhneRechnung: Math.floor((heute.getTime() - new Date(l.datum).getTime()) / (24 * 60 * 60 * 1000)),
   }));
 

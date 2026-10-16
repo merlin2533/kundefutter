@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import React, { useState } from "react";
 import { formatEuro } from "@/lib/utils";
@@ -73,7 +74,7 @@ export default function JahrespreiseManager({ eintraege, preisLabel, showRabatt,
   }
 
   async function handleDelete(jahr: number) {
-    if (!confirm(`Jahrespreis für ${jahr} wirklich löschen?`)) return;
+    if (!await bestaetige(`Jahrespreis für ${jahr} wirklich löschen?`)) return;
     setDeletingJahr(jahr);
     await onDelete(jahr);
     setDeletingJahr(null);

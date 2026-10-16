@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -7,6 +9,9 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EINSTELLUNGEN_BEARBEITEN, P.EXPORT_DATEV]);
+  if (__deny) return __deny;
   const { id } = await ctx.params;
   const zielId = parseInt(id, 10);
   if (isNaN(zielId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -47,6 +52,9 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EINSTELLUNGEN_BEARBEITEN, P.EXPORT_DATEV]);
+  if (__deny) return __deny;
   const { id } = await ctx.params;
   const zielId = parseInt(id, 10);
   if (isNaN(zielId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

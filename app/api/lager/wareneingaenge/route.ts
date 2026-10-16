@@ -64,10 +64,13 @@ export async function POST(req: NextRequest) {
     einkaufspreis: Number(p.einkaufspreis ?? 0),
     chargeNr: typeof p.chargeNr === "string" && p.chargeNr.trim() ? p.chargeNr.trim() : null,
     bestellpositionId: p.bestellpositionId ? parseInt(String(p.bestellpositionId), 10) : null,
-  })).filter((p) => Number.isInteger(p.artikelId) && p.artikelId > 0 && Number.isFinite(p.menge) && p.menge > 0);
+  }));
 
-  if (positionen.length === 0) {
-    return NextResponse.json({ error: "Keine gültigen Positionen" }, { status: 400 });
+  // Ungültige Zeilen nicht stillschweigend verwerfen: sonst wird ein Teil der Lieferung
+  // gebucht und der Rest verschwindet ohne Meldung.
+  const gueltig = positionen.filter((p) => Number.isInteger(p.artikelId) && p.artikelId > 0 && Number.isFinite(p.menge) && p.menge > 0 && Number.isFinite(p.einkaufspreis) && p.einkaufspreis >= 0);
+  if (gueltig.length === 0 || gueltig.length !== positionen.length) {
+    return NextResponse.json({ error: "Mindestens eine Position ist ungültig (Artikel, Menge > 0, Einkaufspreis ≥ 0 prüfen)" }, { status: 400 });
   }
 
   try {
@@ -109,12 +112,13 @@ export async function POST(req: NextRequest) {
       for (const pos of we.positionen) {
         const artikel = artikelMap.get(pos.artikelId);
         if (!artikel) continue;
-        const neuerBestand = artikel.aktuellerBestand + pos.menge;
-        artikel.aktuellerBestand = neuerBestand;
-        await tx.artikel.update({
+        // Atomares Inkrement statt Lesen-Rechnen-Schreiben (Lost Update bei parallelen Buchungen)
+        const aktualisiert = await tx.artikel.update({
           where: { id: pos.artikelId },
-          data: { aktuellerBestand: neuerBestand },
+          data: { aktuellerBestand: { increment: pos.menge } },
+          select: { aktuellerBestand: true },
         });
+        const neuerBestand = aktualisiert.aktuellerBestand;
         await tx.lagerbewegung.create({
           data: {
             artikelId: pos.artikelId,

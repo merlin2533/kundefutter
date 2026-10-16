@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
@@ -34,6 +36,9 @@ function istExterneNrKollision(err: unknown): boolean {
 // einzigen Transaktion über die gesamte Datei — bei vielen Zeilen würde eine einzelne
 // interaktive Prisma-Transaktion sonst das Standard-Timeout überschreiten.
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_WARENEINGANG, P.GUTSCHRIFTEN_ERSTELLEN]);
+  if (__deny) return __deny;
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "erzeugerabrechnung");
@@ -65,6 +70,12 @@ export async function POST(req: NextRequest) {
       created: [],
     };
 
+    // Auflösung je Name/Referenz nur einmal pro Import (viele Zeilen nennen denselben Erzeuger/Artikel)
+    type KundeErg = Awaited<ReturnType<typeof resolveAnlieferungKunde>>;
+    type ArtikelErg = Awaited<ReturnType<typeof resolveArtikelRef>>;
+    const kundeCache = new Map<string, KundeErg>();
+    const artikelCache = new Map<string, ArtikelErg>();
+
     for (let i = 0; i < rows.length; i++) {
       const zeileNr = i + 2;
       const geparst = parseAnlieferungZeile(rows[i], zeileNr);
@@ -76,9 +87,11 @@ export async function POST(req: NextRequest) {
 
       try {
         const result = await prisma.$transaction(async (tx) => {
-          const kunde = await resolveAnlieferungKunde(tx, z.kundeName);
+          let kunde = kundeCache.get(z.kundeName);
+          if (!kunde) { kunde = await resolveAnlieferungKunde(tx, z.kundeName); kundeCache.set(z.kundeName, kunde); }
           if ("error" in kunde) throw new AnlieferungImportZeilenFehler(kunde.error);
-          const artikel = await resolveArtikelRef(tx, z.artikelRef);
+          let artikel = artikelCache.get(z.artikelRef);
+          if (!artikel) { artikel = await resolveArtikelRef(tx, z.artikelRef); artikelCache.set(z.artikelRef, artikel); }
           if ("error" in artikel) throw new AnlieferungImportZeilenFehler(artikel.error);
 
           if (z.externeNr) {

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -165,7 +166,7 @@ function EingangsrechnungenListeInner() {
   const brutto = (r: Eingangsrechnung) => r.betrag * (1 + r.mwst / 100);
 
   async function handleBezahlen(id: number) {
-    if (!confirm("Rechnung als bezahlt markieren?")) return;
+    if (!await bestaetige("Rechnung als bezahlt markieren?")) return;
     setBezahlenId(id);
     try {
       const res = await fetch(`/api/eingangsrechnungen/${id}`, {

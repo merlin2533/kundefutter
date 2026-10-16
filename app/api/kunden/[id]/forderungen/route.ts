@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -30,6 +32,9 @@ export async function GET(req: NextRequest, { params }: Params) {
 // Bankabgleich) — wird automatisch auf die nächste Rechnung dieses Kunden übernommen
 // (siehe injiziereAlteForderungen() in lib/lieferung.ts, aufgerufen bei rechnung_erstellen).
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   let body;
   try {
@@ -69,6 +74,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 // DELETE ?forderungId=: nur solange noch nicht erledigt (sonst steckt sie bereits in
 // einer Rechnung und darf nicht rückwirkend verschwinden).
 export async function DELETE(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   const forderungIdRaw = req.nextUrl.searchParams.get("forderungId");
   const forderungId = forderungIdRaw ? parseInt(forderungIdRaw, 10) : NaN;

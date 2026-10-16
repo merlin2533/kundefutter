@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
 import { Kunde, Lieferung, statusBadge, lieferungTotal } from "../_shared";
 import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
@@ -107,7 +107,7 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sammelrechnung-${kunde.name}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `sammelrechnung-${kunde.name}-${heuteIso()}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
       setSelectedIds(new Set());

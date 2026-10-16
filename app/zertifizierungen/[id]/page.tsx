@@ -1,4 +1,5 @@
 "use client";
+import { melde } from "@/lib/dialog";
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -122,7 +123,7 @@ export default function ZertifizierungDetailPage() {
         method: "POST",
         body: fd,
       });
-      if (!res.ok) { alert("Upload fehlgeschlagen"); return; }
+      if (!res.ok) { void melde("Upload fehlgeschlagen"); return; }
       const d = await res.json();
       setZ((prev) => prev ? { ...prev, belegpfad: d.belegpfad, belegname: d.belegname } : prev);
     } finally {

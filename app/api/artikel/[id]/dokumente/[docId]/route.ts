@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readFile, unlink } from "fs/promises";
@@ -45,6 +47,9 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { docId } = await params;
   const docIdNum = parseInt(docId, 10);
   if (isNaN(docIdNum)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

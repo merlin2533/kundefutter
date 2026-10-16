@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -124,7 +125,7 @@ export default function SchlagkarteiTab({ kundeId, lat, lng }: { kundeId: number
         setAiResult({ imported: 0, skipped: 0, error: "Keine Schläge erkannt" });
         return;
       }
-      if (!confirm(`${erkannt.length} Schläge erkannt — alle für diesen Kunden anlegen?`)) {
+      if (!await bestaetige(`${erkannt.length} Schläge erkannt — alle für diesen Kunden anlegen?`)) {
         setAiResult({ imported: 0, skipped: erkannt.length });
         return;
       }

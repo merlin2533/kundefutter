@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
@@ -32,6 +34,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/chargen-zertifikate (multipart/form-data)
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_KORREKTUR, P.LAGER_WARENEINGANG]);
+  if (__deny) return __deny;
   try {
     const fd = await req.formData();
     const chargeNr = (fd.get("chargeNr") as string | null)?.trim() ?? "";

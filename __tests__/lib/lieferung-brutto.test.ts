@@ -57,3 +57,21 @@ describe("berechneLieferungBrutto (Referenz für die gemischte Brutto-Basis)", (
     expect(brutto).toBeCloseTo(3 * 18 * 1.19, 4);
   });
 });
+
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
+
+describe("berechneOffenenBetrag", () => {
+  const pos = [{ menge: 10, verkaufspreis: 10, rabattProzent: 0, mwstSatz: 19 }];
+  it("ist Brutto ohne Teilzahlungen", () => {
+    expect(berechneOffenenBetrag({ positionen: pos })).toBe(119);
+  });
+  it("zieht Teilzahlungen ab", () => {
+    expect(berechneOffenenBetrag({ positionen: pos, teilzahlungen: [{ betrag: 50 }, { betrag: 19 }] })).toBe(50);
+  });
+  it("wird nie negativ", () => {
+    expect(berechneOffenenBetrag({ positionen: pos, teilzahlungen: [{ betrag: 200 }] })).toBe(0);
+  });
+  it("rundet kaufmännisch auf Cent", () => {
+    expect(berechneOffenenBetrag({ positionen: [{ menge: 1, verkaufspreis: 0.333, rabattProzent: 0, mwstSatz: 0 }] })).toBe(0.33);
+  });
+});

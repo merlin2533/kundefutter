@@ -1,3 +1,4 @@
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { parseZugferdXml, extractXmlFromPdf } from "@/lib/zugferd-parse";
@@ -10,6 +11,9 @@ export const dynamic = "force-dynamic";
 // Akzeptiert: multipart/form-data mit Feld "file" (XML oder PDF)
 // Gibt geparste Felder zurück — speichert NICHT selbst
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINGANGSRECHNUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 

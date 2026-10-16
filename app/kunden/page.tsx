@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useScrollRestoration } from "@/lib/useScrollRestoration";
@@ -116,7 +117,7 @@ export default function KundenPage() {
   useScrollRestoration(!loading && kunden.length > 0);
 
   async function deleteKunde(id: number, name: string) {
-    if (!confirm(`Kunde "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    if (!await bestaetige(`Kunde "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/kunden/${id}`, { method: "DELETE" });
@@ -125,7 +126,7 @@ export default function KundenPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(err.error ?? "Fehler beim Löschen");
+        void melde(err.error ?? "Fehler beim Löschen");
         return;
       }
       setKunden((prev) => prev.filter((k) => k.id !== id));

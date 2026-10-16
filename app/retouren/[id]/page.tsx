@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -45,7 +46,7 @@ export default function RetoureDetailPage() {
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function stornieren() {
-    if (!confirm("Retoure stornieren? Der Lagerbestand wird zurückgebucht und die Lieferantengutschrift aufgehoben.")) return;
+    if (!await bestaetige("Retoure stornieren? Der Lagerbestand wird zurückgebucht und die Lieferantengutschrift aufgehoben.")) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/retouren/${id}`, {
@@ -63,7 +64,7 @@ export default function RetoureDetailPage() {
       await load();
     } catch (e) {
       Sentry.captureException(e);
-      alert(e instanceof Error ? e.message : "Fehler");
+      void melde(e instanceof Error ? e.message : "Fehler");
     } finally {
       setBusy(false);
     }

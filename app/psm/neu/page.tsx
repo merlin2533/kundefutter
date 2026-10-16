@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -34,7 +35,7 @@ function PSMNeuInner() {
   const [error, setError] = useState("");
   const [kundeGeo, setKundeGeo] = useState<{ lat: number; lng: number } | null>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
 
   const [form, setForm] = useState({
     kundeId: searchParams.get("kundeId") ?? "",

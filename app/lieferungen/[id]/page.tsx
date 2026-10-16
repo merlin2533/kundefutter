@@ -1,10 +1,11 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
-import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent } from "@/lib/utils";
+import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent, heuteIso } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -214,7 +215,7 @@ export default function LieferungDetailPage() {
   const [tzLoading, setTzLoading] = useState(false);
   const [showAddTz, setShowAddTz] = useState(false);
   const [tzBetrag, setTzBetrag] = useState("");
-  const [tzDatum, setTzDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tzDatum, setTzDatum] = useState(() => heuteIso());
   const [tzNotiz, setTzNotiz] = useState("");
   const [tzSaving, setTzSaving] = useState(false);
   const [tzError, setTzError] = useState("");
@@ -399,7 +400,7 @@ export default function LieferungDetailPage() {
       setShowAddTz(false);
       setTzBetrag("");
       setTzNotiz("");
-      setTzDatum(new Date().toISOString().slice(0, 10));
+      setTzDatum(heuteIso());
       await loadTeilzahlungen();
     } catch (e) {
       Sentry.captureException(e);
@@ -410,7 +411,7 @@ export default function LieferungDetailPage() {
   }
 
   async function deleteTeilzahlung(tzId: number) {
-    if (!confirm("Teilzahlung wirklich löschen?")) return;
+    if (!await bestaetige("Teilzahlung wirklich löschen?")) return;
     try {
       const res = await fetch(`/api/teilzahlungen/${tzId}`, { method: "DELETE" });
       if (!res.ok) {
@@ -418,7 +419,7 @@ export default function LieferungDetailPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert((d as { error?: string }).error ?? "Fehler beim Löschen.");
+        void melde((d as { error?: string }).error ?? "Fehler beim Löschen.");
         return;
       }
       await loadTeilzahlungen();
@@ -506,7 +507,7 @@ export default function LieferungDetailPage() {
   // beiden Stellen, damit z.B. eine mit dem alten Netto-statt-Brutto-Fehler falsch berechnete
   // Verrechnung korrigiert und neu erfasst werden kann.
   async function handleGutschriftReopen(gutschriftId: number) {
-    if (!confirm("Diese Gutschrift wieder öffnen? Sie steht danach erneut zur Auswahl bei „Restbetrag klären“.")) return;
+    if (!await bestaetige("Diese Gutschrift wieder öffnen? Sie steht danach erneut zur Auswahl bei „Restbetrag klären“.")) return;
     setRestdiffUndoKey(`gs-${gutschriftId}`);
     try {
       const res = await fetch(`/api/gutschriften/${gutschriftId}`, {
@@ -519,13 +520,13 @@ export default function LieferungDetailPage() {
           Sentry.captureException(err);
           return {};
         });
-        alert((d as { error?: string }).error ?? "Wieder öffnen fehlgeschlagen.");
+        void melde((d as { error?: string }).error ?? "Wieder öffnen fehlgeschlagen.");
         return;
       }
       await load();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Wieder öffnen fehlgeschlagen.");
+      void melde("Wieder öffnen fehlgeschlagen.");
     } finally {
       setRestdiffUndoKey(null);
     }
@@ -533,7 +534,7 @@ export default function LieferungDetailPage() {
 
   async function handleForderungLoeschen(forderungId: number) {
     if (!lieferung) return;
-    if (!confirm("Diese Restforderung wirklich löschen?")) return;
+    if (!await bestaetige("Diese Restforderung wirklich löschen?")) return;
     setRestdiffUndoKey(`fo-${forderungId}`);
     try {
       const res = await fetch(`/api/kunden/${lieferung.kunde.id}/forderungen?forderungId=${forderungId}`, {
@@ -544,13 +545,13 @@ export default function LieferungDetailPage() {
           Sentry.captureException(err);
           return {};
         });
-        alert((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
+        void melde((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
         return;
       }
       await load();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Löschen fehlgeschlagen.");
+      void melde("Löschen fehlgeschlagen.");
     } finally {
       setRestdiffUndoKey(null);
     }
@@ -569,7 +570,7 @@ export default function LieferungDetailPage() {
     const raw = rabattEditValue.trim().replace(",", ".");
     const neu = parseFloat(raw);
     if (isNaN(neu) || neu < 0 || neu > 100) {
-      alert("Rabatt muss zwischen 0 und 100 liegen");
+      void melde("Rabatt muss zwischen 0 und 100 liegen");
       return;
     }
     setRabattSavingId(posId);
@@ -584,7 +585,7 @@ export default function LieferungDetailPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(d.error ?? "Fehler beim Speichern");
+        void melde(d.error ?? "Fehler beim Speichern");
         return;
       }
       setRabattEditId(null);
@@ -605,7 +606,7 @@ export default function LieferungDetailPage() {
         Sentry.captureException(err);
         return ({});
       });
-      alert(d.error ?? "Fehler beim Speichern");
+      void melde(d.error ?? "Fehler beim Speichern");
       return;
     }
     onDone();
@@ -757,7 +758,7 @@ export default function LieferungDetailPage() {
   }
 
   async function deletePos(posId: number) {
-    if (!confirm("Position wirklich löschen?")) return;
+    if (!await bestaetige("Position wirklich löschen?")) return;
     try {
       const res = await fetch(`/api/lieferungen/${id}/positionen/${posId}`, { method: "DELETE" });
       if (!res.ok) {
@@ -2054,11 +2055,11 @@ export default function LieferungDetailPage() {
                           value={mengeEditValue}
                           onChange={(e) => setMengeEditValue(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { alert("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); } else if (e.key === "Escape") setMengeEditId(null);
+                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { void melde("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); } else if (e.key === "Escape") setMengeEditId(null);
                           }}
                           className="w-20 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
                         />
-                        <button onClick={() => { const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { alert("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); }} disabled={mengeSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{mengeSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => { const v = parseFloat(mengeEditValue.replace(",", ".")); if (isNaN(v) || v <= 0) { void melde("Menge muss größer als 0 sein"); return; } setMengeSavingId(pos.id); commitPosField(pos.id, "menge", v, () => setMengeEditId(null)).finally(() => setMengeSavingId(null)); }} disabled={mengeSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{mengeSavingId === pos.id ? "…" : "✓"}</button>
                         <button onClick={() => setMengeEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (
@@ -2080,11 +2081,11 @@ export default function LieferungDetailPage() {
                           value={vkEditValue}
                           onChange={(e) => setVkEditValue(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { alert("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); } else if (e.key === "Escape") setVkEditId(null);
+                            if (e.key === "Enter") { e.preventDefault(); const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { void melde("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); } else if (e.key === "Escape") setVkEditId(null);
                           }}
                           className="w-24 border border-gray-300 rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-green-600"
                         />
-                        <button onClick={() => { const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { alert("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); }} disabled={vkSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{vkSavingId === pos.id ? "…" : "✓"}</button>
+                        <button onClick={() => { const v = parseFloat(vkEditValue.replace(",", ".")); if (isNaN(v) || v < 0) { void melde("Verkaufspreis ungültig"); return; } setVkSavingId(pos.id); commitPosField(pos.id, "verkaufspreis", v, () => setVkEditId(null)).finally(() => setVkSavingId(null)); }} disabled={vkSavingId === pos.id} className="text-green-700 hover:text-green-900 text-xs font-medium">{vkSavingId === pos.id ? "…" : "✓"}</button>
                         <button onClick={() => setVkEditId(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
                       </div>
                     ) : (

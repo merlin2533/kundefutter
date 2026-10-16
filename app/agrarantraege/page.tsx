@@ -1,8 +1,9 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, scrollZuElement } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 interface AntragEmpfaenger {
   id: number;
@@ -58,6 +59,7 @@ function MassnahmenBadges({ json }: { json: string | null }) {
 }
 
 export default function AgrarantraegeePage() {
+  const toast = useToast();
   const [items, setItems] = useState<AntragEmpfaenger[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -118,17 +120,19 @@ export default function AgrarantraegeePage() {
   async function handleLink(kundeId: number | null) {
     if (!linkItem) return;
     setLinkSaving(true);
-    await fetch(`/api/agrarantraege?id=${linkItem.id}`, {
+    const linkRes = await fetch(`/api/agrarantraege?id=${linkItem.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kundeId }),
     });
-    if (updateFlaeche && kundeId && linkItem.egflGesamt > 0) {
-      await fetch(`/api/kunden/${kundeId}`, {
+    if (!linkRes.ok) toast.error("Verknüpfung konnte nicht gespeichert werden");
+    if (linkRes.ok && updateFlaeche && kundeId && linkItem.egflGesamt > 0) {
+      const flRes = await fetch(`/api/kunden/${kundeId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flaeche: Math.round(linkItem.egflGesamt / 280) }),
       });
+      if (!flRes.ok) toast.error("Fläche des Kunden konnte nicht aktualisiert werden");
     }
     setLinkItem(null);
     setLinkSaving(false);
@@ -447,8 +451,8 @@ export default function AgrarantraegeePage() {
 
       {/* Verknüpfen-Modal */}
       {linkItem && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+        <div ref={scrollZuElement} className="my-4 flex justify-center">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 w-full max-w-md p-6">
             <h2 className="text-lg font-semibold mb-1">Mit Kunden verknüpfen</h2>
             <p className="text-sm text-gray-500 mb-4">{linkItem.name}</p>
 

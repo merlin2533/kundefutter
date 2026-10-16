@@ -46,34 +46,34 @@ export async function markiereAlsBezahlt(zielTyp: ZielTyp, zielId: number, datum
  * Buchungsdatum dieses Umsatzes markiert wurde (sonst könnte ein zwischenzeitlich anders
  * gesetzter Bezahlt-Status fälschlich gelöscht werden).
  */
-export async function macheBezahltRueckgaengig(zielTyp: ZielTyp, zielId: number, buchungsdatum: Date): Promise<void> {
+export async function macheBezahltRueckgaengig(zielTyp: ZielTyp, zielId: number, buchungsdatum: Date, client: Client = prisma): Promise<void> {
   const t = buchungsdatum.getTime();
   switch (zielTyp) {
     case "lieferung": {
-      const l = await prisma.lieferung.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
+      const l = await client.lieferung.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
       if (l?.bezahltAm && l.bezahltAm.getTime() === t) {
-        await prisma.lieferung.update({ where: { id: zielId }, data: { bezahltAm: null } });
+        await client.lieferung.update({ where: { id: zielId }, data: { bezahltAm: null } });
       }
       break;
     }
     case "sammelrechnung": {
-      const s = await prisma.sammelrechnung.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
+      const s = await client.sammelrechnung.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
       if (s?.bezahltAm && s.bezahltAm.getTime() === t) {
-        await prisma.sammelrechnung.update({ where: { id: zielId }, data: { bezahltAm: null } });
+        await client.sammelrechnung.update({ where: { id: zielId }, data: { bezahltAm: null } });
       }
       break;
     }
     case "ausgabe": {
-      const a = await prisma.ausgabe.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
+      const a = await client.ausgabe.findUnique({ where: { id: zielId }, select: { bezahltAm: true } });
       if (a?.bezahltAm && a.bezahltAm.getTime() === t) {
-        await prisma.ausgabe.update({ where: { id: zielId }, data: { bezahltAm: null } });
+        await client.ausgabe.update({ where: { id: zielId }, data: { bezahltAm: null } });
       }
       break;
     }
     case "eingangsrechnung": {
-      const r = await prisma.eingangsRechnung.findUnique({ where: { id: zielId }, select: { zahlungsDatum: true, status: true } });
+      const r = await client.eingangsRechnung.findUnique({ where: { id: zielId }, select: { zahlungsDatum: true, status: true } });
       if (r?.status === "BEZAHLT" && r.zahlungsDatum && r.zahlungsDatum.getTime() === t) {
-        await prisma.eingangsRechnung.update({ where: { id: zielId }, data: { zahlungsDatum: null, status: "OFFEN" } });
+        await client.eingangsRechnung.update({ where: { id: zielId }, data: { zahlungsDatum: null, status: "OFFEN" } });
       }
       break;
     }

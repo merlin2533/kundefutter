@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { formatDatum, formatEuro } from "@/lib/utils";
+import { formatDatum, formatEuro, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Buchung {
@@ -29,7 +29,7 @@ interface VorschauResponse {
   summeProKonto: KontoSumme[];
 }
 
-const today = new Date().toISOString().split("T")[0];
+const today = heuteIso();
 const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .toISOString()
   .split("T")[0];

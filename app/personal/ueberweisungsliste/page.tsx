@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -47,7 +48,7 @@ function UeberweisungslisteInner() {
   async function handleBulkAuszahlen() {
     const abgerechnet = eintraege.filter((e) => e.status === "ABGERECHNET");
     if (abgerechnet.length === 0) return;
-    if (!confirm(`${abgerechnet.length} Abrechnungen als 'Ausgezahlt' markieren?`)) return;
+    if (!await bestaetige(`${abgerechnet.length} Abrechnungen als 'Ausgezahlt' markieren?`)) return;
     setActionLoading(true);
     setError("");
     for (const e of abgerechnet) {

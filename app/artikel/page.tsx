@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -187,7 +188,7 @@ export default function ArtikelPage() {
 
   async function handleBulkDelete() {
     if (selected.size === 0) return;
-    if (!confirm(`${selected.size} Artikel wirklich löschen?`)) return;
+    if (!await bestaetige(`${selected.size} Artikel wirklich löschen?`)) return;
     setBulkDeleting(true);
     const errors: string[] = [];
     for (const id of selected) {
@@ -202,7 +203,7 @@ export default function ArtikelPage() {
     }
     setBulkDeleting(false);
     setSelected(new Set());
-    if (errors.length > 0) alert(errors.join("\n"));
+    if (errors.length > 0) void melde(errors.join("\n"));
     load(page);
   }
 
@@ -766,7 +767,7 @@ export default function ArtikelPage() {
                                 Sentry.captureException(err);
                                 return ({});
                               });
-                              alert(d.error ?? "Duplizieren fehlgeschlagen");
+                              void melde(d.error ?? "Duplizieren fehlgeschlagen");
                             }
                           }}
                           className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -777,13 +778,13 @@ export default function ArtikelPage() {
                         <button
                           onClick={async (e) => {
                             e.stopPropagation();
-                            if (!confirm(`"${a.name}" wirklich löschen?`)) return;
+                            if (!await bestaetige(`"${a.name}" wirklich löschen?`)) return;
                             const res = await fetch(`/api/artikel/${a.id}`, { method: "DELETE" });
                             if (res.ok) load(page);
                             else { const d = await res.json().catch((err) => {
                               Sentry.captureException(err);
                               return ({});
-                            }); alert(d.error ?? "Löschen fehlgeschlagen"); }
+                            }); void melde(d.error ?? "Löschen fehlgeschlagen"); }
                           }}
                           className="text-red-400 hover:text-red-600 transition-colors"
                           title="Löschen"

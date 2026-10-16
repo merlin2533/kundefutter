@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { pickCol, parseNumber } from "@/lib/import-utils";
@@ -17,6 +19,9 @@ export const dynamic = "force-dynamic";
 //
 // Schlag wird per Name innerhalb eines (optionalen) Kunden gesucht.
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.BODENPROBEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "bodenproben");

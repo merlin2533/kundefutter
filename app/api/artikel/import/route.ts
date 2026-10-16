@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +13,9 @@ export const dynamic = "force-dynamic";
 
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_ERSTELLEN);
+  if (__deny) return __deny;
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -58,6 +63,7 @@ export async function POST(req: NextRequest) {
   // mit demselben Namen sich ebenfalls gegenseitig als "aktualisieren" statt
   // Duplikat erkennen.
   const bestehendeArtikel = await prisma.artikel.findMany({ select: { id: true, name: true, artikelnummer: true } });
+  const lieferantIdCache = new Map<string, number>();
   const artikelIdByNormName = new Map<string, number>(
     bestehendeArtikel.map((a) => [normalizeArtikelName(a.name), a.id])
   );
@@ -127,8 +133,16 @@ export async function POST(req: NextRequest) {
 
         let lieferantId: number | null = null;
         if (lieferantName) {
-          const bestehend = await tx.lieferant.findFirst({ where: { name: lieferantName } });
-          lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
+          const cached = lieferantIdCache.get(lieferantName);
+          if (cached) {
+            lieferantId = cached;
+          } else {
+            const bestehend = await tx.lieferant.findFirst({ where: { name: lieferantName } });
+            lieferantId = bestehend?.id ?? (await tx.lieferant.create({ data: { name: lieferantName } })).id;
+            // Nur bereits bestehende Lieferanten cachen — ein in dieser Transaktion neu angelegter
+            // könnte bei einem späteren Rollback der Zeile gar nicht existieren.
+            if (bestehend) lieferantIdCache.set(lieferantName, bestehend.id);
+          }
         }
 
         // Duplikat-Check: Artikel mit gleichem (normalisiertem) Namen ODER gleicher Artikelnummer

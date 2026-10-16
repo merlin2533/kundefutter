@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -133,7 +134,7 @@ function NeueAnalyseFormInner() {
   const [schlagError, setSchlagError] = useState("");
 
   // Basisdaten
-  const [datum, setDatum] = useState(() => new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(() => heuteIso());
   const [probenId, setProbenId] = useState("");
   const [kultur, setKultur] = useState("");
   const [tiefe, setTiefe] = useState("");

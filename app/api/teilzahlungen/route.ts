@@ -1,6 +1,9 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
+import { berechneOffenenBetrag, berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -37,6 +40,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EXPORT_RECHNUNG, P.BANKABGLEICH_BEARBEITEN, P.LIEFERUNGEN_ERSTELLEN]);
+  if (__deny) return __deny;
   let body: unknown;
   try {
     body = await req.json();
@@ -65,14 +71,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültiges Datum" }, { status: 400 });
 
   try {
-    const teilzahlung = await prisma.teilzahlung.create({
-      data: {
-        ...(lieferungId ? { lieferungId } : {}),
-        ...(sammelrechnungId ? { sammelrechnungId } : {}),
-        betrag,
-        datum,
-        notiz,
-      },
+    const teilzahlung = await prisma.$transaction(async (tx) => {
+      const tz = await tx.teilzahlung.create({
+        data: {
+          ...(lieferungId ? { lieferungId } : {}),
+          ...(sammelrechnungId ? { sammelrechnungId } : {}),
+          betrag,
+          datum,
+          notiz,
+        },
+      });
+      // Decken die Teilzahlungen die Rechnung vollständig ab, gilt sie als bezahlt —
+      // sonst bliebe sie in Mahnwesen/Offene Posten stehen, obwohl nichts mehr offen ist.
+      if (lieferungId) {
+        const l = await tx.lieferung.findUnique({
+          where: { id: lieferungId },
+          select: {
+            bezahltAm: true, rechnungNr: true,
+            teilzahlungen: { select: { betrag: true } },
+            positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
+          },
+        });
+        if (l && l.rechnungNr && !l.bezahltAm && berechneOffenenBetrag(l) <= 0.005) {
+          await tx.lieferung.update({ where: { id: lieferungId }, data: { bezahltAm: datum } });
+        }
+      } else if (sammelrechnungId) {
+        const sr = await tx.sammelrechnung.findUnique({
+          where: { id: sammelrechnungId },
+          select: {
+            bezahltAm: true,
+            teilzahlungen: { select: { betrag: true } },
+            lieferungen: { select: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } } } },
+          },
+        });
+        if (sr && !sr.bezahltAm) {
+          const brutto = berechneSammelrechnungBrutto(sr);
+          const bezahlt = sr.teilzahlungen.reduce((a, t) => a + t.betrag, 0);
+          if (brutto - bezahlt <= 0.005) {
+            await tx.sammelrechnung.update({ where: { id: sammelrechnungId }, data: { bezahltAm: datum } });
+          }
+        }
+      }
+      return tz;
     });
     return NextResponse.json(teilzahlung, { status: 201 });
   } catch (err) {

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
@@ -84,7 +85,7 @@ export default function MqttAutomatisierungPage() {
   }
 
   async function loeschen(id: number) {
-    if (!confirm("Regel wirklich löschen?")) return;
+    if (!await bestaetige("Regel wirklich löschen?")) return;
     await fetch(`/api/mqtt-regeln/${id}`, { method: "DELETE" });
     await laden();
   }
@@ -114,7 +115,7 @@ export default function MqttAutomatisierungPage() {
       await laden();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Ungültiges JSON-Format");
+      void melde("Ungültiges JSON-Format");
     }
     e.target.value = "";
   }

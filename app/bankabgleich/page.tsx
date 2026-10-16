@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -376,7 +377,7 @@ function BankabgleichContent() {
   }
 
   async function zuordnungAufheben(umsatzId: number) {
-    if (!confirm("Zuordnung wirklich aufheben? Falls dadurch als bezahlt markiert, wird die Rechnung wieder als offen geführt.")) return;
+    if (!await bestaetige("Zuordnung wirklich aufheben? Falls dadurch als bezahlt markiert, wird die Rechnung wieder als offen geführt.")) return;
     await fetch(`/api/bankabgleich/${umsatzId}`, { method: "DELETE" });
     laden();
   }

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
@@ -93,7 +94,7 @@ export default function BodenprobenSeite() {
   }, [proben, filterLabor, filterSchlag, filterKunde]);
 
   async function loeschen(id: number) {
-    if (!confirm("Bodenprobe wirklich löschen?")) return;
+    if (!await bestaetige("Bodenprobe wirklich löschen?")) return;
     const r = await fetch(`/api/bodenproben?id=${id}`, { method: "DELETE" });
     if (r.ok) setProben(proben.filter(p => p.id !== id));
   }

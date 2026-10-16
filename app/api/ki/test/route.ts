@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { testConnection, getAiConfig } from "@/lib/ai";
 import { Sentry } from "@/lib/sentry";
@@ -11,6 +13,9 @@ export const dynamic = "force-dynamic";
 // vorher speichern (siehe app/einstellungen/ki/page.tsx handleTest), damit
 // ein frisch eingegebener Key hier bereits als aktueller DB-Wert ankommt.
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.KI_NUTZEN);
+  if (__deny) return __deny;
   try {
     const body = await req.json().catch((err) => {
       Sentry.captureException(err);

@@ -378,7 +378,16 @@ export async function sammleDatevBuchungen(
 
   const [lieferungen, sammelrechnungen, gutschriften, ausgaben] = await Promise.all([
     prisma.lieferung.findMany({
-      where: { status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null, datum: { gte: von, lte: bis } },
+      // Zeitraum nach Rechnungsdatum (= Belegdatum der Buchung), nur ohne Rechnungsdatum
+      // ersatzweise nach Lieferdatum — sonst landet eine Rechnung in einer anderen Periode,
+      // als ihr Belegdatum ausweist (Sammelrechnungen filtern bereits nach rechnungDatum).
+      where: {
+        status: "geliefert", rechnungNr: { not: null }, rechnungStorniert: null,
+        OR: [
+          { rechnungDatum: { gte: von, lte: bis } },
+          { rechnungDatum: null, datum: { gte: von, lte: bis } },
+        ],
+      },
       select: {
         id: true,
         kundeId: true,
@@ -586,6 +595,15 @@ export async function sammleDatevBuchungen(
         kostenstelle: ausg.kostenstelle ?? "",
         datum: ausg.datum, herkunft: "Ausgabe",
       });
+    }
+  }
+
+  // DATEV erwartet vorzeichenlose Beträge: negative Summen (z.B. Gutschrift-Verrechnung ohne
+  // konfiguriertes Verrechnungskonto) als Gegenbuchung mit vertauschtem Soll/Haben ausweisen.
+  for (const r of rows) {
+    if (r.umsatz < 0) {
+      r.umsatz = Math.abs(r.umsatz);
+      r.sollHaben = r.sollHaben === "S" ? "H" : "S";
     }
   }
 

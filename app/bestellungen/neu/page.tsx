@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -39,7 +40,7 @@ function BestellungNeuInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
 
   const [lieferantId, setLieferantId] = useState("");
   const [datum, setDatum] = useState(today);

@@ -88,7 +88,7 @@ export async function GET() {
       select: {
         kundeId: true,
         datum: true,
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
       },
     });
 
@@ -101,7 +101,7 @@ export async function GET() {
       },
       select: {
         kundeId: true,
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
       },
     });
 
@@ -117,14 +117,14 @@ export async function GET() {
     // Liefervolumen je Kunde (letzte 3 Monate)
     const vol3MMap = new Map<number, number>();
     for (const l of lieferungen3M) {
-      const summe = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      const summe = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       vol3MMap.set(l.kundeId, (vol3MMap.get(l.kundeId) ?? 0) + summe);
     }
 
     // Liefervolumen je Kunde (3-6 Monate davor)
     const vol6MMap = new Map<number, number>();
     for (const l of lieferungen6M) {
-      const summe = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      const summe = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       vol6MMap.set(l.kundeId, (vol6MMap.get(l.kundeId) ?? 0) + summe);
     }
 

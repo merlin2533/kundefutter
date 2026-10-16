@@ -1,11 +1,12 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, Fragment, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { LagerBadge, MargeBadge } from "@/components/Badge";
 import { usePermission } from "@/lib/user-context";
 import { useModulAktiv } from "@/lib/modul-context";
 import { P } from "@/lib/permissions";
-import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten } from "@/lib/utils";
+import { formatEuro, formatPreis, formatDatum, lagerStatus, parseDezimal, resolveBevorzugtenLieferanten, scrollZuElement } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import NextcloudOrdner from "@/components/NextcloudOrdner";
 import ArtikelKundenUebersicht from "@/components/ArtikelKundenUebersicht";
@@ -582,7 +583,7 @@ function ArtikelDetailContent() {
 
   // ── Artikel löschen ────────────────────────────────────────────────────────
   async function deleteArtikel() {
-    if (!confirm("Artikel wirklich löschen? Er wird als inaktiv markiert.")) return;
+    if (!await bestaetige("Artikel wirklich löschen? Er wird als inaktiv markiert.")) return;
     setDeleting(true);
     const res = await fetch(`/api/artikel/${id}`, { method: "DELETE" });
     setDeleting(false);
@@ -1681,7 +1682,7 @@ function ArtikelDetailContent() {
                           )}
                           <button
                             onClick={async () => {
-                              if (!confirm(`Lieferant „${l.lieferant.name}" von diesem Artikel entfernen?`)) return;
+                              if (!await bestaetige(`Lieferant „${l.lieferant.name}" von diesem Artikel entfernen?`)) return;
                               const res = await fetch(`/api/artikel/${artikel.id}/lieferanten/${l.lieferantId}`, { method: "DELETE" });
                               if (res.ok) {
                                 setArtikel({ ...artikel, lieferanten: artikel.lieferanten.filter((x) => x.id !== l.id) });
@@ -1690,7 +1691,7 @@ function ArtikelDetailContent() {
                                   Sentry.captureException(err);
                                   return ({});
                                 }) as { error?: string };
-                                alert(d.error ?? "Löschen fehlgeschlagen");
+                                void melde(d.error ?? "Löschen fehlgeschlagen");
                               }
                             }}
                             title="Lieferant entfernen"
@@ -1736,8 +1737,8 @@ function ArtikelDetailContent() {
           </div>
 
           {showLiefModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <div ref={scrollZuElement} className="my-4 flex justify-center">
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 w-full max-w-lg p-6">
                 <h2 className="text-lg font-bold mb-5">{editingLiefId !== null ? "Lieferant bearbeiten" : "Lieferant hinzufügen"}</h2>
                 <div className="space-y-4">
                   {liefError && (
@@ -2016,7 +2017,7 @@ function ArtikelDetailContent() {
                           </a>
                           <button
                             onClick={async () => {
-                              if (!confirm(`Dokument "${d.name}" wirklich löschen?`)) return;
+                              if (!await bestaetige(`Dokument "${d.name}" wirklich löschen?`)) return;
                               const res = await fetch(`/api/artikel/${id}/dokumente/${d.id}`, { method: "DELETE" });
                               if (res.ok) fetchArtikel();
                             }}

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -189,7 +190,7 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
   }
 
   async function handleDelete() {
-    if (!id || !confirm(`Eingangsrechnung "${data?.nummer}" wirklich löschen?`)) return;
+    if (!id || !await bestaetige(`Eingangsrechnung "${data?.nummer}" wirklich löschen?`)) return;
     setDeleting(true);
     try {
       await fetch(`/api/eingangsrechnungen/${id}`, { method: "DELETE" });
@@ -229,7 +230,7 @@ export default function EingangsrechnungDetailPage({ params }: { params: Promise
             <div className="flex gap-2 flex-wrap">
               {data.status === "OFFEN" && (
                 <button
-                  onClick={() => { if (confirm("Rechnung als bezahlt markieren?")) handleAktion("bezahlen"); }}
+                  onClick={async () => { if (await bestaetige("Rechnung als bezahlt markieren?")) handleAktion("bezahlen"); }}
                   disabled={saving}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
                 >

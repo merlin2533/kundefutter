@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
@@ -70,7 +71,7 @@ export default function EinkaufszettelPage() {
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [bestelldatum, setBestelldatum] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [bestelldatum, setBestelldatum] = useState<string>(() => heuteIso());
 
   async function load() {
     setLoading(true);

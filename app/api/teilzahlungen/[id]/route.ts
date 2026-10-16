@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -6,6 +8,9 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EXPORT_RECHNUNG, P.BANKABGLEICH_BEARBEITEN, P.LIEFERUNGEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

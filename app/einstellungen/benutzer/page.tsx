@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -59,7 +60,7 @@ export default function BenutzerListePage() {
   }, [laden]);
 
   async function loeschen(id: number, name: string) {
-    if (!confirm(`Benutzer „${name}" wirklich löschen?`)) return;
+    if (!await bestaetige(`Benutzer „${name}" wirklich löschen?`)) return;
     try {
       const res = await fetch(`/api/benutzer/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -67,13 +68,13 @@ export default function BenutzerListePage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(data?.error ?? "Löschen fehlgeschlagen");
+        void melde(data?.error ?? "Löschen fehlgeschlagen");
         return;
       }
       laden();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Netzwerkfehler");
+      void melde("Netzwerkfehler");
     }
   }
 

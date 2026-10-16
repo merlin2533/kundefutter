@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUploadBase } from "@/lib/upload";
@@ -10,6 +12,9 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINGANGSRECHNUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -88,6 +93,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINGANGSRECHNUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

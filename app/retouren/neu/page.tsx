@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, resolveBevorzugtenEK } from "@/lib/utils";
+import { formatEuro, resolveBevorzugtenEK, heuteIso } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
 
@@ -55,7 +55,7 @@ function NeueRetoureForm() {
   const [artikel, setArtikel] = useState<Artikel[]>([]);
 
   const [lieferantId, setLieferantId] = useState(preselectedLieferantId);
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [grund, setGrund] = useState("Kommission");
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<Position[]>([

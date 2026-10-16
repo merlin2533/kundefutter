@@ -32,7 +32,8 @@ export async function GET() {
          l.rechnungDatum,
          l.datum,
          l.zahlungsziel,
-         CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) AS summe
+         MAX(0, CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) * (1 + lp.mwstSatz / 100.0)) AS REAL)
+           - COALESCE((SELECT SUM(t.betrag) FROM Teilzahlung t WHERE t.lieferungId = l.id), 0)) AS summe
        FROM Lieferung l
        JOIN Kunde k ON k.id = l.kundeId
        JOIN Lieferposition lp ON lp.lieferungId = l.id

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { istLagerrelevant } from "@/lib/utils";
@@ -14,6 +16,9 @@ const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 type Ctx = { params: Promise<{ id: string; posId: string }> };
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id, posId } = await ctx.params;
   const lieferungId = parseInt(id, 10);
   const positionId = parseInt(posId, 10);
@@ -79,6 +84,9 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id, posId } = await ctx.params;
   const lieferungId = parseInt(id, 10);
   const positionId = parseInt(posId, 10);
@@ -174,7 +182,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
     const pos = await prisma.lieferposition.findUnique({
       where: { id: positionId },
-      select: { lieferungId: true, artikelId: true, lieferung: { select: { rechnungNr: true, rechnungVersendetAm: true } } },
+      select: {
+        lieferungId: true, artikelId: true, menge: true, lagerBereitsGebucht: true,
+        artikel: { select: { kategorie: true } },
+        lieferung: { select: { rechnungNr: true, rechnungVersendetAm: true, rechnungStorniert: true, status: true, istStreckengeschaeft: true } },
+      },
     });
     if (!pos || pos.lieferungId !== lieferungId) {
       return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
@@ -185,6 +197,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     // weiter unten — Charge ist oft erst nach Rechnungsstellung bekannt).
     const betragsrelevant = updateData.verkaufspreis !== undefined || updateData.einkaufspreis !== undefined
       || updateData.menge !== undefined || updateData.rabattProzent !== undefined;
+    if (betragsrelevant && (pos.lieferung.status === "storniert" || pos.lieferung.rechnungStorniert)) {
+      return NextResponse.json({ error: "Bei stornierten Lieferungen/Rechnungen können Menge, Preis und Rabatt nicht geändert werden." }, { status: 400 });
+    }
     if (betragsrelevant && pos.lieferung.rechnungVersendetAm) {
       return NextResponse.json({ error: "Diese Rechnung wurde bereits versendet — Menge, Preis und Rabatt dürfen nicht mehr geändert werden." }, { status: 400 });
     }
@@ -199,6 +214,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       // zu dieser Position gibt.
       if (updateData.menge !== undefined) {
         await syncStreckenbestellungMenge(tx, lieferungId, pos.artikelId, updateData.menge);
+        // War für die Position der Lagerausgang bereits gebucht, die Differenz nachbuchen —
+        // sonst weicht der Bestand nach einer Mengenkorrektur dauerhaft von der Realität ab.
+        const delta = updateData.menge - pos.menge;
+        if (delta !== 0 && pos.lagerBereitsGebucht && !pos.lieferung.istStreckengeschaeft && istLagerrelevant(pos.artikel.kategorie)) {
+          const art = await tx.artikel.update({
+            where: { id: pos.artikelId },
+            data: { aktuellerBestand: { decrement: delta } },
+            select: { aktuellerBestand: true },
+          });
+          await tx.lagerbewegung.create({
+            data: { artikelId: pos.artikelId, typ: delta > 0 ? "ausgang" : "eingang", menge: -delta, bestandNach: art.aktuellerBestand, lieferungId },
+          });
+        }
       }
       return result;
     });

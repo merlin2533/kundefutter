@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -13,6 +15,9 @@ type Ctx = { params: Promise<{ id: string; itemId: string }> };
 const GUELTIGE_ENTSCHEIDUNG = ["passt", "passt_nicht"];
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id: idStr, itemId: itemIdStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   const itemId = parseInt(itemIdStr, 10);
@@ -60,6 +65,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id: idStr, itemId: itemIdStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   const itemId = parseInt(itemIdStr, 10);

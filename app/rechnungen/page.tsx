@@ -1,8 +1,9 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatEuro, formatDatum, formatRabattProzent } from "@/lib/utils";
+import { formatEuro, formatDatum, formatRabattProzent, heuteIso, scrollZuElement } from "@/lib/utils";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
@@ -82,7 +83,7 @@ export default function RechnungenPage() {
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [buchungId, setBuchungId] = useState<number | null>(null);
-  const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [buchungDatum, setBuchungDatum] = useState(heuteIso());
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [istAdmin, setIstAdmin] = useState(false);
   const [loeschRechnung, setLoeschRechnung] = useState<Rechnung | null>(null);
@@ -168,11 +169,15 @@ export default function RechnungenPage() {
 
   async function buchungSpeichern(id: number) {
     try {
-      await fetch(`/api/lieferungen/${id}`, {
+      const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: buchungDatum }),
       });
+      if (!res.ok) {
+        setFetchError(`Zahlung konnte nicht gebucht werden (Fehler ${res.status})`);
+        return;
+      }
       setBuchungId(null);
       load();
     } catch (err) {
@@ -182,13 +187,17 @@ export default function RechnungenPage() {
   }
 
   async function zahlungLoesen(id: number) {
-    if (!window.confirm("Zahlung wirklich als nicht bezahlt markieren?")) return;
+    if (!await bestaetige("Zahlung wirklich als nicht bezahlt markieren?")) return;
     try {
-      await fetch(`/api/lieferungen/${id}`, {
+      const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: null }),
       });
+      if (!res.ok) {
+        setFetchError(`Zahlung konnte nicht zurückgenommen werden (Fehler ${res.status})`);
+        return;
+      }
       load();
     } catch (err) {
       Sentry.captureException(err);
@@ -463,7 +472,7 @@ export default function RechnungenPage() {
                             <button
                               onClick={() => {
                                 setBuchungId(r.id);
-                                setBuchungDatum(new Date().toISOString().slice(0, 10));
+                                setBuchungDatum(heuteIso());
                               }}
                               className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
                               title="Zahlung buchen"
@@ -578,8 +587,8 @@ export default function RechnungenPage() {
 
       {/* Zahlung buchen Dialog */}
       {buchungId !== null && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+        <div ref={scrollZuElement} className="my-4 flex justify-center">
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 w-full max-w-sm">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Zahlung buchen</h2>
             <label className="block text-sm font-medium text-gray-700 mb-1">Zahlungsdatum</label>
             <input

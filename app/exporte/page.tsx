@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { formatDatum } from "@/lib/utils";
+import { formatDatum, heuteIso } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
 import { useModulAktiv } from "@/lib/modul-context";
@@ -68,7 +68,7 @@ const EXPORTS: ExportCard[] = [
   },
 ];
 
-const today = new Date().toISOString().split("T")[0];
+const today = heuteIso();
 const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   .toISOString()
   .split("T")[0];
@@ -161,7 +161,7 @@ export default function ExportePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `massenexport-${bulkTyp}-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download = `massenexport-${bulkTyp}-${heuteIso()}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -203,7 +203,7 @@ export default function ExportePage() {
       const contentDisposition = res.headers.get("content-disposition");
       let filename: string;
       if (card.typ === "datev") filename = `datev-buchungsstapel.csv`;
-      else if (card.typ === "ust") filename = `ust-voranmeldung-${new Date().toISOString().slice(0, 10)}.json`;
+      else if (card.typ === "ust") filename = `ust-voranmeldung-${heuteIso()}.json`;
       else filename = `${card.typ}-export.csv`;
       if (contentDisposition) {
         const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);

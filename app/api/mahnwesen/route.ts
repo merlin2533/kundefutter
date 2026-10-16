@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseMahnwesenConfig } from "@/lib/mahnwesen-config";
-import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export async function GET() {
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
       include: {
         kunde: { select: { id: true, name: true, firma: true, kontakte: { where: { typ: "email" } } } },
+        teilzahlungen: { select: { betrag: true } },
         positionen: {
           select: {
             menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true,
@@ -83,7 +84,8 @@ export async function GET() {
       if (l.manuelleMahnstufe === null && tageUeberfaellig < cfg.stufe1Tage) continue;
       const stufe = (l.manuelleMahnstufe ?? automatischeStufe) as 1 | 2 | 3;
 
-      const betrag = berechneLieferungBrutto({ positionen: l.positionen });
+      const betrag = berechneOffenenBetrag({ positionen: l.positionen, teilzahlungen: l.teilzahlungen });
+      if (betrag <= 0) continue; // durch Teilzahlungen vollständig gedeckt
 
       result.push({
         lieferung: { id: l.id, datum: l.datum, notiz: l.notiz },

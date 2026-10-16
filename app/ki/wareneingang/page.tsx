@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import CameraUpload from "@/components/CameraUpload";
-import { lagerStatus } from "@/lib/utils";
+import { lagerStatus, heuteIso } from "@/lib/utils";
 import {
   matchArtikel as matchArtikelGelernt,
   normalisiereSuchtext,
@@ -286,7 +286,7 @@ function KiWareneingangWizard() {
 
   // Step 3
   const [lieferantId, setLieferantId] = useState<string>("");
-  const [datum, setDatum] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState<string>(() => heuteIso());
   const [notiz, setNotiz] = useState<string>("");
   const [positionen, setPositionen] = useState<MatchedPosition[]>([]);
 

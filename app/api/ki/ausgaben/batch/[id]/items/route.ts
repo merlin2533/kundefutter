@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -14,6 +16,9 @@ const MAX_DATEIGROESSE = 20 * 1024 * 1024;
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUSGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr } = await ctx.params;
   const batchId = parseInt(idStr, 10);
   if (isNaN(batchId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setAktiverEinkaufspreis } from "@/lib/einkaufspreisverlauf";
@@ -36,6 +38,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 }
 
 export async function POST(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { id, lieferantId } = await ctx.params;
   const artikelId = parseInt(id, 10);
   const lId = parseInt(lieferantId, 10);

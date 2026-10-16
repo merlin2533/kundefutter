@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,7 +16,7 @@ export default function NeuerMitarbeiterPage() {
     vorname: "",
     nachname: "",
     typ: "festgehalt",
-    eintrittsdatum: new Date().toISOString().split("T")[0],
+    eintrittsdatum: heuteIso(),
     austrittsdatum: "",
     email: "",
     telefon: "",

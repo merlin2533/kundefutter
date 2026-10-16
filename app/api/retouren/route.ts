@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { naechsteRetourennummer, istLagerrelevant } from "@/lib/utils";
@@ -37,6 +39,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_KORREKTUR, P.LAGER_WARENEINGANG]);
+  if (__deny) return __deny;
   let body;
   try {
     body = await req.json();

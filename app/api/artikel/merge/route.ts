@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges, auditLog } from "@/lib/audit";
@@ -149,6 +151,9 @@ export async function GET(req: NextRequest) {
 
 /** POST { zielId, quelleId, felder } — führt Quell- in Ziel-Artikel zusammen und löscht die Quelle danach. */
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_LOESCHEN);
+  if (__deny) return __deny;
   let body;
   try {
     body = await req.json();

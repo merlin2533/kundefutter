@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditLog } from "@/lib/audit";
@@ -63,6 +65,9 @@ export async function GET() {
 
 /** POST – Bereinigung ausführen. Body: { confirm: true } */
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_LOESCHEN);
+  if (__deny) return __deny;
   let body: { confirm?: boolean } = {};
   try { body = await req.json(); } catch (err) {
     Sentry.captureException(err); /* ignore */ }

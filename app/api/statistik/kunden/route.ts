@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<Row[]>(
         `SELECT
            k.id as kundeId, k.name, k.firma, k.kategorie,
-           CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
-           CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as marge,
+           CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
+           CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) as marge,
            COUNT(DISTINCT l.id) as anzahl,
            MAX(l.datum) as letzteLieferung
          FROM Kunde k

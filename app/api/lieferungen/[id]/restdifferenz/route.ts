@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verrechneOffeneRestdifferenz, RestdifferenzValidierungsFehler } from "@/lib/lieferung";
@@ -15,6 +17,9 @@ type Params = { params: Promise<{ id: string }> };
 // injiziereAlteForderungen() in lib/lieferung.ts) oder als eigenständige neue Rechnung mit
 // genau einer Position gestellt (modus "neue_rechnung").
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EXPORT_RECHNUNG, P.BANKABGLEICH_BEARBEITEN, P.LIEFERUNGEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id } = await params;
   const nId = parseInt(id, 10);
   if (isNaN(nId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

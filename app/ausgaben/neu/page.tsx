@@ -5,7 +5,7 @@ import Link from "next/link";
 import CameraUpload from "@/components/CameraUpload";
 import MultiCameraUpload, { type AusgewaehlteDatei } from "@/components/MultiCameraUpload";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE, BUCHUNGSTYP_KONTEN_SKR03, BUCHUNGSTYP_KONTEN_SKR04, SACHKONTEN_SKR03, SACHKONTEN_SKR04, KILOMETERPAUSCHALE_EUR, type Buchungstyp } from "@/lib/datev";
-import { formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile } from "@/lib/utils";
+import { formatEuro, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
@@ -239,7 +239,7 @@ function AusgabeEinzelnForm({ offeneBatches }: { offeneBatches: number }) {
   const [fehler, setFehler] = useState("");
   const [loginUser, setLoginUser] = useState("");
 
-  const heute = new Date().toISOString().slice(0, 10);
+  const heute = heuteIso();
   const [datum, setDatum] = useState(heute);
   const [belegNr, setBelegNr] = useState("");
   const [beschreibung, setBeschreibung] = useState("");

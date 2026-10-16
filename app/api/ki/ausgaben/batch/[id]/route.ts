@@ -1,3 +1,4 @@
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -113,6 +114,9 @@ async function uebernehmeBelegDatei(ausgabeId: number, quellPfad: string, beschr
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.AUSGABEN_BEARBEITEN);
+  if (__deny) return __deny;
   const { id: idStr } = await ctx.params;
   const id = parseInt(idStr, 10);
   if (isNaN(id)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

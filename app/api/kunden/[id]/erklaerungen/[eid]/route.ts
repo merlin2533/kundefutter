@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -6,6 +8,9 @@ export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string; eid: string }> };
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const { id, eid } = await params;
   const kundeId = parseInt(id, 10);
   const erklaerungId = parseInt(eid, 10);

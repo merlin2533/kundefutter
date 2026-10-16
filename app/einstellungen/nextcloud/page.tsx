@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -131,7 +132,7 @@ export default function NextcloudEinstellungenPage() {
   }
 
   async function trennen() {
-    if (!confirm("Nextcloud-Verbindung wirklich trennen? Der Abgleich wird damit deaktiviert.")) return;
+    if (!await bestaetige("Nextcloud-Verbindung wirklich trennen? Der Abgleich wird damit deaktiviert.")) return;
     await fetch("/api/einstellungen", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: "system.nextcloud.appPassword", value: "" }) });
     // Status der einmaligen Datenübernahme zurücksetzen — beim Trennen und erneuten
     // Verbinden (auch mit einer anderen Nextcloud-Instanz) soll die Übernahme wieder

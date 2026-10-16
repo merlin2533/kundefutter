@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       prisma.$queryRawUnsafe<Row[]>(
         `SELECT
           l.kundeId, k.name, k.firma,
-          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
         FROM Lieferung l
         JOIN Lieferposition lp ON lp.lieferungId = l.id
         JOIN Kunde k ON k.id = l.kundeId
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       : await prisma.$queryRawUnsafe<Row[]>(
           `SELECT
             l.kundeId, k.name, k.firma,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           JOIN Kunde k ON k.id = l.kundeId

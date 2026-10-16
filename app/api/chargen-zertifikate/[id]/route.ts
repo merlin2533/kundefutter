@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveUploadPath } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
@@ -44,6 +46,9 @@ export async function GET(req: NextRequest, ctx: Params) {
 
 // DELETE /api/chargen-zertifikate/[id]
 export async function DELETE(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.LAGER_KORREKTUR, P.LAGER_WARENEINGANG]);
+  if (__deny) return __deny;
   const { id } = await ctx.params;
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

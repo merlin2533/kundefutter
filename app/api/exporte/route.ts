@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     sheetName = "Lieferhistorie";
     const where: Record<string, unknown> = { status: "geliefert" };
     if (kundeId) where.kundeId = Number(kundeId);
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const lieferungen = await prisma.lieferung.findMany({
       where,
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
           Einkaufspreis: p.einkaufspreis,
           "Marge €": margeEuro,
           "Marge %": margeProzent,
-          Umsatz: Math.round(p.menge * p.verkaufspreis * 100) / 100,
+          Umsatz: Math.round(p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * 100) / 100,
           Rechnungsnummer: l.rechnungNr ?? "",
         });
       }
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest) {
   if (typ === "bewegungen") {
     sheetName = "Lagerbewegungen";
     const where: Record<string, unknown> = {};
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const bewegungen = await prisma.lagerbewegung.findMany({
       where,
@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
   if (typ === "margen") {
     sheetName = "Margen";
     const where: Record<string, unknown> = { status: "geliefert" };
-    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(bis) }) };
+    if (von || bis) where.datum = { ...(von && { gte: new Date(von) }), ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }) };
 
     const lieferungen = await prisma.lieferung.findMany({
       where,
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
         kundenMargen[l.kundeId] = { name: l.kunde.name, umsatz: 0, einkauf: 0, marge: 0 };
       }
       for (const p of l.positionen) {
-        const umsatz = p.menge * p.verkaufspreis;
+        const umsatz = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
         const einkauf = p.menge * p.einkaufspreis;
         kundenMargen[l.kundeId].umsatz += umsatz;
         kundenMargen[l.kundeId].einkauf += einkauf;

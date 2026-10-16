@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -70,7 +71,7 @@ export default function DetailPage() {
   }
 
   async function loeschen() {
-    if (!confirm("Versuch wirklich löschen?")) return;
+    if (!await bestaetige("Versuch wirklich löschen?")) return;
     const r = await fetch(`/api/sortenversuche/${id}`, { method: "DELETE" });
     if (r.ok) {
       toast.success("Gelöscht");

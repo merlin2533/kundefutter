@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { FUTTERWERTE, FUTTERGRUPPEN, type Futterwert } from "@/lib/futterwerte";
@@ -38,6 +40,9 @@ export async function GET() {
 
 // PUT /api/futterwerte — benutzerdefinierte Einträge speichern (komplette Liste)
 export async function PUT(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "rationsberechnung");
   if (denyModul) return denyModul;

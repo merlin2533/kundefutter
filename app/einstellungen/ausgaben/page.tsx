@@ -18,11 +18,12 @@ const DEFAULT_KATEGORIEN = [
 ];
 
 async function saveKey(key: string, value: string) {
-  await fetch("/api/einstellungen", {
+  const res = await fetch("/api/einstellungen", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, value }),
   });
+  if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
 }
 
 export default function AusgabenEinstellungenPage() {
@@ -121,9 +122,18 @@ export default function AusgabenEinstellungenPage() {
 
   // ── Sachkonten ────────────────────────────────────────────────────────────
   async function handleSaveSachkonten() {
-    await saveKey("ausgaben.sachkonten", JSON.stringify(sachkontoMap));
-    setSachkontoSaved(true);
-    setTimeout(() => setSachkontoSaved(false), 2000);
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveKey("ausgaben.sachkonten", JSON.stringify(sachkontoMap));
+      setSachkontoSaved(true);
+      setTimeout(() => setSachkontoSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
+    finally { setSaving(false); }
   }
 
   // ── Kostenstellen ─────────────────────────────────────────────────────────
@@ -135,16 +145,34 @@ export default function AusgabenEinstellungenPage() {
   }
 
   async function handleSaveKostenstellen() {
-    await saveKey("ausgaben.kostenstellen", JSON.stringify(kostenstellen));
-    setKostenstelleSaved(true);
-    setTimeout(() => setKostenstelleSaved(false), 2000);
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveKey("ausgaben.kostenstellen", JSON.stringify(kostenstellen));
+      setKostenstelleSaved(true);
+      setTimeout(() => setKostenstelleSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
+    finally { setSaving(false); }
   }
 
   // ── Gegenkonten ───────────────────────────────────────────────────────────
   async function handleSaveGegenkonten() {
-    await saveKey("ausgaben.gegenkonten", JSON.stringify(gegenkonten));
-    setGegenkonteSaved(true);
-    setTimeout(() => setGegenkonteSaved(false), 2000);
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await saveKey("ausgaben.gegenkonten", JSON.stringify(gegenkonten));
+      setGegenkonteSaved(true);
+      setTimeout(() => setGegenkonteSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
+    finally { setSaving(false); }
   }
 
   if (loading) {
@@ -240,7 +268,7 @@ export default function AusgabenEinstellungenPage() {
           werden unabhängig von dieser Tabelle automatisch gesetzt.
         </p>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveSachkonten}
+          <button type="button" disabled={saving} onClick={handleSaveSachkonten}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {sachkontoSaved ? "✓ Gespeichert" : "Speichern"}
           </button>
@@ -279,7 +307,7 @@ export default function AusgabenEinstellungenPage() {
           </button>
         </div>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveKostenstellen}
+          <button type="button" disabled={saving} onClick={handleSaveKostenstellen}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {kostenstelleSaved ? "✓ Gespeichert" : "Speichern"}
           </button>
@@ -312,7 +340,7 @@ export default function AusgabenEinstellungenPage() {
           SKR04: Bar=1600, Bank=1800, Privat=2110
         </p>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveGegenkonten}
+          <button type="button" disabled={saving} onClick={handleSaveGegenkonten}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {gegenkonteSaved ? "✓ Gespeichert" : "Speichern"}
           </button>

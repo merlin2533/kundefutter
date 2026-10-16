@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { artikelSafeSelect } from "@/lib/artikel-select";
@@ -8,6 +10,9 @@ export const dynamic = "force-dynamic";
 
 // POST: Excel-Datei hochladen und Einkaufspreise vorschlagen
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const formData = await req.formData();
   const file = formData.get("file") as File;
   const lieferantId = Number(formData.get("lieferantId"));
@@ -97,6 +102,9 @@ export async function POST(req: NextRequest) {
 
 // PUT: Bestätigte Preise übernehmen
 export async function PUT(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const isDev = process.env.NODE_ENV === "development";
   try {
     const { updates } = await req.json();

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
@@ -80,7 +81,7 @@ export default function ForderungenTab({ kundeId }: { kundeId: number }) {
   }
 
   async function handleDelete(forderungId: number) {
-    if (!confirm("Diese Forderung wirklich löschen?")) return;
+    if (!await bestaetige("Diese Forderung wirklich löschen?")) return;
     setDeleting(forderungId);
     try {
       const res = await fetch(`/api/kunden/${kundeId}/forderungen?forderungId=${forderungId}`, { method: "DELETE" });
@@ -89,7 +90,7 @@ export default function ForderungenTab({ kundeId }: { kundeId: number }) {
           Sentry.captureException(err);
           return ({});
         });
-        alert((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
+        void melde((d as { error?: string }).error ?? "Löschen fehlgeschlagen.");
         return;
       }
       load();

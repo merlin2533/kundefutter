@@ -45,7 +45,7 @@ export async function GET(request: Request) {
           COALESCE(a.kategorie, 'Sonstige') as kategorie,
           a.id as artikelId,
           a.name as artikelName,
-          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
         FROM Lieferung l
         JOIN Lieferposition lp ON lp.lieferungId = l.id
         JOIN Artikel a ON a.id = lp.artikelId

@@ -153,6 +153,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
         }
       }
 
+      // Wird die Bestellung storniert, gehen die zugehörigen Bestellliste-Positionen wieder
+      // auf "offen" und lösen sich von der Bestellung — sonst blieben sie als "bestellt"
+      // stehen und tauchten nirgends mehr als zu bestellen auf.
+      if (data.status === "STORNIERT") {
+        await tx.bestellposition.updateMany({
+          where: { bestellungId: nId, status: { in: ["bestellt", "teilgeliefert"] } },
+          data: { status: "offen", bestellungId: null },
+        });
+      }
       return tx.bestellung.update({
         where: { id: nId },
         data,
@@ -211,7 +220,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (record.status !== "OFFEN") {
       return NextResponse.json({ error: "Nur Bestellungen mit Status OFFEN können gelöscht werden" }, { status: 400 });
     }
-    await prisma.bestellung.delete({ where: { id: nId } });
+    // Bestellliste-Positionen zurück auf "offen" setzen, bevor die Bestellung verschwindet
+    await prisma.$transaction([
+      prisma.bestellposition.updateMany({
+        where: { bestellungId: nId },
+        data: { status: "offen", bestellungId: null },
+      }),
+      prisma.bestellung.delete({ where: { id: nId } }),
+    ]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     Sentry.captureException(err);
