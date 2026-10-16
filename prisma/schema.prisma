@@ -513,6 +513,7 @@ model Lieferposition {
 
   @@index([lieferungId])
   @@index([artikelId])
+  @@index([chargeNr])
 }
 
 // ─── WARENEINGANG ─────────────────────────────────────────────────────────────
@@ -581,6 +582,9 @@ model Lagerbewegung {
   @@index([artikelId, datum])
   @@index([typ])
   @@index([retoureId])
+  @@index([lieferungId])
+  @@index([wareneingangId])
+  @@index([chargeNr])
 }
 
 // ─── RETOUREN (Lieferantenrückgaben) ──────────────────────────────────────────
