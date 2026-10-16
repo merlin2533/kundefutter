@@ -61,3 +61,19 @@ export function berechneOffenenBetrag(l: LieferungFuerBrutto & { teilzahlungen?:
   const bezahlt = (l.teilzahlungen ?? []).reduce((s, t) => s + t.betrag, 0);
   return Math.max(0, Math.round((berechneLieferungBrutto(l) - bezahlt) * 100) / 100);
 }
+
+/**
+ * Entscheidet nach dem Löschen einer Teilzahlung, ob "bezahlt" zurückgenommen wird.
+ * Nur wenn bezahltAm genau von dieser Teilzahlung gesetzt wurde (gleiches Datum), keine
+ * Bankabgleich-Zuordnung existiert und die Rechnung wieder offen ist.
+ */
+export function sollBezahltZurueckgenommenWerden(p: {
+  bezahltAm: Date | null;
+  geloeschtDatum: Date;
+  hatKontoumsatz: boolean;
+  offenerBetrag: number;
+}): boolean {
+  if (!p.bezahltAm || p.hatKontoumsatz) return false;
+  if (p.bezahltAm.getTime() !== p.geloeschtDatum.getTime()) return false;
+  return p.offenerBetrag > 0.005;
+}
