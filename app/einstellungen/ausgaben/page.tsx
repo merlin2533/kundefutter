@@ -122,6 +122,8 @@ export default function AusgabenEinstellungenPage() {
 
   // ── Sachkonten ────────────────────────────────────────────────────────────
   async function handleSaveSachkonten() {
+    if (saving) return;
+    setSaving(true);
     setError(null);
     try {
       await saveKey("ausgaben.sachkonten", JSON.stringify(sachkontoMap));
@@ -131,6 +133,7 @@ export default function AusgabenEinstellungenPage() {
       Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     }
+    finally { setSaving(false); }
   }
 
   // ── Kostenstellen ─────────────────────────────────────────────────────────
@@ -142,6 +145,8 @@ export default function AusgabenEinstellungenPage() {
   }
 
   async function handleSaveKostenstellen() {
+    if (saving) return;
+    setSaving(true);
     setError(null);
     try {
       await saveKey("ausgaben.kostenstellen", JSON.stringify(kostenstellen));
@@ -151,10 +156,13 @@ export default function AusgabenEinstellungenPage() {
       Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     }
+    finally { setSaving(false); }
   }
 
   // ── Gegenkonten ───────────────────────────────────────────────────────────
   async function handleSaveGegenkonten() {
+    if (saving) return;
+    setSaving(true);
     setError(null);
     try {
       await saveKey("ausgaben.gegenkonten", JSON.stringify(gegenkonten));
@@ -164,6 +172,7 @@ export default function AusgabenEinstellungenPage() {
       Sentry.captureException(err);
       setError("Fehler beim Speichern.");
     }
+    finally { setSaving(false); }
   }
 
   if (loading) {
@@ -259,7 +268,7 @@ export default function AusgabenEinstellungenPage() {
           werden unabhängig von dieser Tabelle automatisch gesetzt.
         </p>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveSachkonten}
+          <button type="button" disabled={saving} onClick={handleSaveSachkonten}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {sachkontoSaved ? "✓ Gespeichert" : "Speichern"}
           </button>
@@ -298,7 +307,7 @@ export default function AusgabenEinstellungenPage() {
           </button>
         </div>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveKostenstellen}
+          <button type="button" disabled={saving} onClick={handleSaveKostenstellen}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {kostenstelleSaved ? "✓ Gespeichert" : "Speichern"}
           </button>
@@ -331,7 +340,7 @@ export default function AusgabenEinstellungenPage() {
           SKR04: Bar=1600, Bank=1800, Privat=2110
         </p>
         <div className="flex justify-end">
-          <button type="button" onClick={handleSaveGegenkonten}
+          <button type="button" disabled={saving} onClick={handleSaveGegenkonten}
             className="px-5 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
             {gegenkonteSaved ? "✓ Gespeichert" : "Speichern"}
           </button>
