@@ -65,7 +65,20 @@ export async function POST(req: NextRequest) {
       ? `${Number(menge)} ${artikel.einheit} umgebucht – ${bemerkung}`
       : `${Number(menge)} ${artikel.einheit} umgebucht`;
 
-    const bewegung = await prisma.lagerbewegung.create({
+    if (Number(menge) > artikel.aktuellerBestand) {
+      return NextResponse.json({ error: `Es sind nur ${artikel.aktuellerBestand} ${artikel.einheit} auf Lager` }, { status: 400 });
+    }
+    // Der Artikel führt nur EIN Lagerort-Label (kein Bestand je Lagerort). Wird die gesamte
+    // Menge vom aktuellen Lagerort umgebucht, wechselt das Label mit — sonst zeigte die
+    // Artikelliste weiterhin den alten Lagerort an.
+    const verschiebtAlles =
+      (artikel.lagerort ?? "").trim() === vonLagerort.trim() && Number(menge) >= artikel.aktuellerBestand;
+
+    const bewegung = await prisma.$transaction(async (tx) => {
+      if (verschiebtAlles) {
+        await tx.artikel.update({ where: { id: artikel.id }, data: { lagerort: nachLagerort.trim() } });
+      }
+      return tx.lagerbewegung.create({
       data: {
         artikelId: Number(artikelId),
         typ: "UMBUCHUNG",
@@ -78,6 +91,7 @@ export async function POST(req: NextRequest) {
       include: {
         artikel: { select: { id: true, name: true, einheit: true } },
       },
+      });
     });
 
     return NextResponse.json(bewegung, { status: 201 });

@@ -210,7 +210,7 @@ log "Geo-Proxy: extern :${PORT:-3000} → intern :${NEXT_PORT:-3001} | Erlaubt: 
   sleep 90
   log "Cron-Dispatcher gestartet (Intervall: 30 min)"
   while true; do
-    CRON_RESULT=$(curl -sf \
+    CRON_RESULT=$(curl -sf --max-time 1700 \
       ${CRON_SECRET:+-H "Authorization: Bearer ${CRON_SECRET}"} \
       "http://localhost:${PORT:-3000}/api/cron" 2>/dev/null || echo '{"ok":false}')
     if echo "$CRON_RESULT" | grep -q '"ok":true'; then
