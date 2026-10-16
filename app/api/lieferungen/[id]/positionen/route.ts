@@ -151,8 +151,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
 
       if (bereitsGeliefert && !lieferung.istStreckengeschaeft && istLagerrelevant(artikel.kategorie)) {
-        const neuerBestand = artikel.aktuellerBestand - mengeNum;
-        await tx.artikel.update({ where: { id: artikelId }, data: { aktuellerBestand: neuerBestand } });
+        // Atomares Dekrement statt Lesen-Rechnen-Schreiben: der vorab (außerhalb der
+        // Transaktion) gelesene Bestand kann zwischenzeitlich von einer parallelen Buchung
+        // verändert worden sein (Lost Update).
+        const aktualisiert = await tx.artikel.update({
+          where: { id: artikelId },
+          data: { aktuellerBestand: { decrement: mengeNum } },
+          select: { aktuellerBestand: true },
+        });
+        const neuerBestand = aktualisiert.aktuellerBestand;
         await tx.lagerbewegung.create({
           data: { artikelId, typ: "ausgang", menge: -mengeNum, bestandNach: neuerBestand, lieferungId },
         });
