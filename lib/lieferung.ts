@@ -415,7 +415,7 @@ export async function injiziereAlteForderungen(tx: Tx, lieferungId: number, kund
 export async function injiziereOffeneGutschriften(tx: Tx, lieferungId: number, kundeId: number): Promise<void> {
   const offeneGutschriften = await tx.gutschrift.findMany({
     where: { kundeId, status: "OFFEN" },
-    include: { positionen: true },
+    include: { positionen: { include: { artikel: { select: { mwstSatz: true } } } } },
     orderBy: { createdAt: "asc" },
   });
   if (offeneGutschriften.length === 0) return;
@@ -423,7 +423,10 @@ export async function injiziereOffeneGutschriften(tx: Tx, lieferungId: number, k
   const gutschriftArtikel = await ladeOderErstelleAusgleichsArtikel(tx, GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER, "Gutschrift-Verrechnung");
 
   for (const gutschrift of offeneGutschriften) {
-    const betrag = gutschrift.positionen.reduce((s, p) => s + p.menge * p.preis, 0);
+    // Brutto verrechnen: Die Rechnung weist ihren Betrag brutto aus, die Ausgleichsposition
+    // selbst hat MwSt 0 — mit dem reinen Netto-Betrag der Gutschrift fehlte der Rechnung der
+    // MwSt-Anteil der Gutschrift im Abzug (Kunde bekam zu wenig gutgeschrieben).
+    const betrag = rundeKaufmaennisch(berechneGutschriftBrutto(gutschrift.positionen));
     if (betrag <= 0) continue;
     await tx.lieferposition.create({
       data: {

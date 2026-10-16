@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { lagerStatus, addTage } from "@/lib/utils";
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export async function GET() {
     topKunden,
     faelligNaechste14Tage,
     offeneRechnungenListe,
+    offeneRechnungenAnzahl,
     alleBedarfe,
     wiedervorlagenRaw,
     aktivKunden,
@@ -41,7 +43,7 @@ export async function GET() {
     }),
     prisma.lieferung.findMany({
       where: { status: "geliefert", datum: { gte: vorMonatAnfang, lte: vorMonatEnde } },
-      include: { positionen: { select: { menge: true, verkaufspreis: true, einkaufspreis: true } } },
+      include: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, einkaufspreis: true } } },
     }),
     // Nur kritische Artikel laden (Bestand <= Mindestbestand ODER <= 0),
     // nicht alle aktiven Artikel. Spart RAM + Query-Zeit bei großem Katalog.
@@ -81,9 +83,14 @@ export async function GET() {
         zahlungsziel: true,
         kundeId: true,
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        teilzahlungen: { select: { betrag: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
       },
+      orderBy: { datum: "asc" },
       take: 100,
+    }),
+    prisma.lieferung.count({
+      where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
     }),
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
@@ -161,7 +168,7 @@ export async function GET() {
         datum: true,
         kundeId: true,
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { select: { menge: true, verkaufspreis: true } },
+        positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
       },
       orderBy: { datum: "asc" },
       take: 20,
@@ -171,14 +178,14 @@ export async function GET() {
   ]);
 
   const umsatzMonat = geliefertDiesenMonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
   }, 0);
 
   const deckungsbeitragMonat = geliefertDiesenMonat.reduce((sum, l) => {
     return (
       sum +
       l.positionen.reduce(
-        (s, p) => s + p.menge * (p.verkaufspreis - p.einkaufspreis),
+        (s, p) => s + p.menge * (p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) - p.einkaufspreis),
         0
       )
     );
@@ -198,7 +205,7 @@ export async function GET() {
 
   const lagerAlarme = lagerAlarmArtikel.length;
 
-  const offeneRechnungen = offeneRechnungenListe.length;
+  const offeneRechnungen = offeneRechnungenAnzahl;
 
   // Top-Kunden mit Namen anreichern (aus bereits geladenen Daten berechnen)
   const topKundenIds = topKunden.map((k) => k.kundeId);
@@ -212,7 +219,7 @@ export async function GET() {
   const kundeUmsatzMap = new Map<number, number>();
   for (const l of geliefertDiesenMonat) {
     if (!topKundenIds.includes(l.kundeId)) continue;
-    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    const total = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
     kundeUmsatzMap.set(l.kundeId, (kundeUmsatzMap.get(l.kundeId) ?? 0) + total);
   }
 
@@ -288,11 +295,11 @@ export async function GET() {
 
   // Umsatz + Deckungsbeitrag Vormonat
   const umsatzVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    return sum + l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
   }, 0);
 
   const deckungsbeitragVormonat = geliefertVormonat.reduce((sum, l) => {
-    return sum + l.positionen.reduce((s, p) => s + p.menge * (p.verkaufspreis - p.einkaufspreis), 0);
+    return sum + l.positionen.reduce((s, p) => s + p.menge * (p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) - p.einkaufspreis), 0);
   }, 0);
 
   // Fällige Rechnungen: berechne Betrag und Überfälligkeit je Rechnung
@@ -304,7 +311,7 @@ export async function GET() {
     const faelligDatum = new Date(new Date(basisDatum).getTime() + tage * 24 * 60 * 60 * 1000);
     faelligDatum.setHours(0, 0, 0, 0);
     const ueberfaelligTage = Math.max(0, Math.floor((heuteStart.getTime() - faelligDatum.getTime()) / (24 * 60 * 60 * 1000)));
-    const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+    const betrag = berechneOffenenBetrag(l);
     return {
       id: l.id,
       rechnungNr: l.rechnungNr,
@@ -416,7 +423,7 @@ export async function GET() {
     datum: l.datum.toISOString(),
     kundeId: l.kundeId,
     kundeName: l.kunde ? (l.kunde.firma ?? l.kunde.name) : "?",
-    betrag: Math.round(l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0) * 100) / 100,
+    betrag: Math.round(l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0) * 100) / 100,
     tageOhneRechnung: Math.floor((heute.getTime() - new Date(l.datum).getTime()) / (24 * 60 * 60 * 1000)),
   }));
 

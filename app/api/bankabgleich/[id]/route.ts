@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { markiereAlsBezahlt, macheBezahltRueckgaengig, type ZielTyp } from "@/lib/bankabgleich-zuordnung";
-import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, markiereSkontoGenutztFallsPassend, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
-import { loescheGutschriftMitNebenwirkungen, verbucheGutschriftGegenLieferung, GutschriftVerrechnungFehler } from "@/lib/gutschrift";
+import { ladeZielFuerDifferenz, erfasseBankabgleichDifferenz, markiereSkontoGenutztFallsPassend, istSkontoBetrag, DifferenzValidierungsFehler, type DifferenzArt } from "@/lib/bankabgleich-differenz";
+import { loescheGutschriftMitNebenwirkungen, oeffneGutschriftErneut, verbucheGutschriftGegenLieferung, GutschriftVerrechnungFehler } from "@/lib/gutschrift";
 import { Sentry } from "@/lib/sentry";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { berechneLieferungBrutto, berechneSammelrechnungBrutto } from "@/lib/lieferung-brutto";
 
 export const dynamic = "force-dynamic";
 
@@ -213,42 +214,86 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
       ["ausgabe", bestehend.ausgabeId],
       ["eingangsrechnung", bestehend.eingangsRechnungId],
     ];
-    for (const [zielTyp, zielId] of ziele) {
-      if (zielId) await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum);
-    }
-    // Weitere Rechnungen (Kunde hat mehrere Rechnungen in dieser einen Überweisung beglichen)
-    // hängen an der Haupt-Zuordnung — beim Aufheben ebenfalls zurücknehmen, sonst blieben sie
-    // fälschlich als bezahlt stehen, während der Kontoumsatz selbst wieder offen ist.
-    for (const w of bestehend.weitereZuordnungen) {
-      const zielTyp: ZielTyp = w.lieferungId ? "lieferung" : "sammelrechnung";
-      const zielId = (w.lieferungId ?? w.sammelrechnungId) as number;
-      await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum);
-    }
-    await prisma.kontoumsatzWeitereZuordnung.deleteMany({ where: { kontoumsatzId: id } });
-    // Eine über "Teilzahlung erfassen" (alsBezahltMarkieren:false) angelegte Teilzahlung gehört
-    // ausschließlich zu dieser Zuordnung — beim vollständigen Aufheben ebenfalls entfernen, sonst
-    // bliebe ein bereits erhaltener Teilbetrag fälschlich auf der Rechnung stehen.
-    await prisma.teilzahlung.deleteMany({ where: { kontoumsatzId: id } });
+    const datumStr = bestehend.buchungsdatum.toLocaleDateString("de-DE");
 
-    // Über den Doppelzahlungs-Flow angelegte Gutschrift (siehe /doppelzahlung) mit allen
-    // Nebenwirkungen rückgängig machen — sonst bliebe sie als OFFEN/ERSTATTET stehen, obwohl
-    // der Kontoumsatz, der sie ausgelöst hat, gleich wieder als offen geführt wird.
-    if (bestehend.gutschriftId) {
-      await prisma.$transaction((tx) => loescheGutschriftMitNebenwirkungen(tx, bestehend.gutschriftId!));
-    }
+    // Alles atomar: halbes Aufheben (z.B. Rechnung wieder offen, aber Teilzahlung/Gutschrift
+    // noch verbucht) würde Beträge doppelt oder gar nicht wirksam lassen.
+    const aktualisiert = await prisma.$transaction(async (tx) => {
+      for (const [zielTyp, zielId] of ziele) {
+        if (zielId) await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum, tx);
+      }
+      // Weitere Rechnungen (Kunde hat mehrere Rechnungen in dieser einen Überweisung beglichen)
+      // hängen an der Haupt-Zuordnung — beim Aufheben ebenfalls zurücknehmen.
+      for (const w of bestehend.weitereZuordnungen) {
+        const zielTyp: ZielTyp = w.lieferungId ? "lieferung" : "sammelrechnung";
+        const zielId = (w.lieferungId ?? w.sammelrechnungId) as number;
+        await macheBezahltRueckgaengig(zielTyp, zielId, bestehend.buchungsdatum, tx);
+      }
+      await tx.kontoumsatzWeitereZuordnung.deleteMany({ where: { kontoumsatzId: id } });
+      // Eine über "Teilzahlung erfassen" angelegte Teilzahlung gehört ausschließlich zu dieser Zuordnung.
+      await tx.teilzahlung.deleteMany({ where: { kontoumsatzId: id } });
 
-    const aktualisiert = await prisma.kontoumsatz.update({
-      where: { id },
-      data: {
-        zugeordnet: false,
-        lieferungId: null,
-        sammelrechnungId: null,
-        ausgabeId: null,
-        eingangsRechnungId: null,
-        gutschriftId: null,
-        zuordnungsArt: null,
-        kiKonfidenz: null,
-      },
+      // Nebenwirkungen der Zuordnung auf Lieferungen/Sammelrechnungen zurücknehmen:
+      // Skonto-Markierung, beim Zuordnen erfasste Differenz (Forderung/Gutschrift) und
+      // beim Zuordnen gegengebuchte Gutschriften (ohne Ausgleichsposition auf der Rechnung).
+      const lieferungIds = [bestehend.lieferungId, ...bestehend.weitereZuordnungen.map((w) => w.lieferungId)].filter((x): x is number => !!x);
+      const sammelIds = [bestehend.sammelrechnungId, ...bestehend.weitereZuordnungen.map((w) => w.sammelrechnungId)].filter((x): x is number => !!x);
+      for (const lid of lieferungIds) {
+        const l = await tx.lieferung.findUnique({
+          where: { id: lid },
+          select: {
+            skontoGenutzt: true, skontoProzent: true,
+            positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } },
+          },
+        });
+        if (l?.skontoGenutzt && istSkontoBetrag(bestehend.betrag, berechneLieferungBrutto(l), l.skontoProzent ?? null)) {
+          await tx.lieferung.update({ where: { id: lid }, data: { skontoGenutzt: false } });
+        }
+        await tx.kundeForderung.deleteMany({
+          where: { quelleLieferungId: lid, erledigt: false, grund: { startsWith: `Unterzahlung Bankabgleich: Kontoumsatz vom ${datumStr}` } },
+        });
+        const ueberzahlungen = await tx.gutschrift.findMany({
+          where: { lieferungId: lid, status: "OFFEN", notiz: { startsWith: `Überzahlung Bankabgleich: Kontoumsatz vom ${datumStr}` } },
+          select: { id: true },
+        });
+        for (const g of ueberzahlungen) await loescheGutschriftMitNebenwirkungen(tx, g.id);
+        const verbucht = await tx.gutschrift.findMany({ where: { verbuchtBeiLieferungId: lid, status: "VERBUCHT" }, select: { id: true, nummer: true } });
+        for (const g of verbucht) {
+          const mitPosition = await tx.lieferposition.count({ where: { lieferungId: lid, notiz: { startsWith: `Gutschrift ${g.nummer}` } } });
+          if (mitPosition === 0) await oeffneGutschriftErneut(tx, g.id);
+        }
+      }
+      for (const sid of sammelIds) {
+        const sr = await tx.sammelrechnung.findUnique({
+          where: { id: sid },
+          select: {
+            skontoGenutzt: true, skontoProzent: true,
+            lieferungen: { select: { positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true, artikel: { select: { mwstSatz: true } } } } } },
+          },
+        });
+        if (sr?.skontoGenutzt && istSkontoBetrag(bestehend.betrag, berechneSammelrechnungBrutto(sr), sr.skontoProzent ?? null)) {
+          await tx.sammelrechnung.update({ where: { id: sid }, data: { skontoGenutzt: false } });
+        }
+      }
+
+      // Über den Doppelzahlungs-Flow angelegte Gutschrift mit allen Nebenwirkungen rückgängig machen.
+      if (bestehend.gutschriftId) {
+        await loescheGutschriftMitNebenwirkungen(tx, bestehend.gutschriftId);
+      }
+
+      return tx.kontoumsatz.update({
+        where: { id },
+        data: {
+          zugeordnet: false,
+          lieferungId: null,
+          sammelrechnungId: null,
+          ausgabeId: null,
+          eingangsRechnungId: null,
+          gutschriftId: null,
+          zuordnungsArt: null,
+          kiKonfidenz: null,
+        },
+      });
     });
     return NextResponse.json(aktualisiert);
   } catch (err: unknown) {

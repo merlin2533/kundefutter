@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
         `SELECT
            a.id as artikelId, a.name, a.kategorie, a.einheit,
            CAST(SUM(lp.menge) AS REAL) as menge,
-           CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
-           CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as marge,
+           CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
+           CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) as marge,
            COUNT(DISTINCT l.id) as anzahl
          FROM Artikel a
          JOIN Lieferposition lp ON lp.artikelId = a.id

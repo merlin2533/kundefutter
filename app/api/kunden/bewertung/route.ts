@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
           rechnungDatum: true,
           bezahltAm: true,
           positionen: {
-            select: { menge: true, verkaufspreis: true },
+            select: { menge: true, verkaufspreis: true, rabattProzent: true },
           },
         },
       },
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const umsatz = k.lieferungen.reduce((sum, l) => {
       return (
         sum +
-        l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0)
+        l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0)
       );
     }, 0);
     return umsatz;

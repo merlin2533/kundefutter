@@ -47,9 +47,9 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<MonatRow[]>(
           `SELECT
             strftime('%Y-%m', l.datum) as monat,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
             COUNT(DISTINCT l.id) as anzahl,
-            CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as marge
+            CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) as marge
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
             lp.artikelId,
             a.name,
             CAST(SUM(lp.menge) AS REAL) as menge,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
           FROM Lieferposition lp
           JOIN Lieferung l ON l.id = lp.lieferungId
           JOIN Artikel a ON a.id = lp.artikelId
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
           `SELECT
             l.kundeId,
             k.name,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
             COUNT(DISTINCT l.id) as anzahl
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<KatRow[]>(
           `SELECT
             COALESCE(a.kategorie, 'Sonstige') as kategorie,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
             CAST(SUM(lp.menge) AS REAL) as menge
           FROM Lieferposition lp
           JOIN Lieferung l ON l.id = lp.lieferungId
@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<SaisonRow[]>(
           `SELECT
             CAST(strftime('%m', l.datum) AS INTEGER) as monat,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?
@@ -118,8 +118,8 @@ export async function GET(req: NextRequest) {
         // KPI-Summen: Umsatz, Rohertrag/Marge, Anzahl Lieferungen
         prisma.$queryRawUnsafe<KpiRow[]>(
           `SELECT
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
-            CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as marge,
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
+            CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) as marge,
             COUNT(DISTINCT l.id) as anzahl
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<OpRow[]>(
           `SELECT
             COUNT(DISTINCT l.id) as anzahl,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as summe
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as summe
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.bezahltAm IS NULL AND l.rechnungNr IS NOT NULL AND l.rechnungStorniert IS NULL`
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
         ),
         // Umsatz im gleichen Zeitraum des Vorjahres (gesamt)
         prisma.$queryRawUnsafe<VorjahrRow[]>(
-          `SELECT CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+          `SELECT CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?`,
@@ -178,7 +178,7 @@ export async function GET(req: NextRequest) {
         prisma.$queryRawUnsafe<VorjahrMonatRow[]>(
           `SELECT
             strftime('%Y-%m', l.datum) as monat,
-            CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz
+            CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz
           FROM Lieferung l
           JOIN Lieferposition lp ON lp.lieferungId = l.id
           WHERE l.status = 'geliefert' AND l.datum >= ? AND l.datum < ?

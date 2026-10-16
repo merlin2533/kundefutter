@@ -50,3 +50,14 @@ export function berechneGutschriftBrutto(positionen: GutschriftpositionFuerBrutt
     return sum + p.menge * p.preis * (1 + mwst / 100);
   }, 0);
 }
+
+/**
+ * Noch offener Betrag einer gestellten Rechnung: Brutto abzüglich bereits erfasster
+ * Teilzahlungen (kaufmännisch gerundet, nie negativ). Einzige Quelle für Mahnwesen,
+ * Dashboard, Liquidität — verbuchte Gutschriften/Forderungen werden wie auf der
+ * Lieferungs-Detailseite bewusst nicht pauschal abgezogen (sie sind eigene Belege).
+ */
+export function berechneOffenenBetrag(l: LieferungFuerBrutto & { teilzahlungen?: { betrag: number }[] }): number {
+  const bezahlt = (l.teilzahlungen ?? []).reduce((s, t) => s + t.betrag, 0);
+  return Math.max(0, Math.round((berechneLieferungBrutto(l) - bezahlt) * 100) / 100);
+}

@@ -1,3 +1,4 @@
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseYearMonth, parseBisYearMonth } from "@/lib/utils";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
       // 1. Bezahlte Lieferungen im Zeitraum → Einnahmen
       prisma.lieferung.findMany({
         where: { bezahltAm: { gte: von, lte: bis }, status: { not: "storniert" } },
-        select: { bezahltAm: true, positionen: { select: { menge: true, verkaufspreis: true } } },
+        select: { bezahltAm: true, positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } } },
         take: 5000,
       }),
       // 2. Ausgaben im Zeitraum
@@ -38,7 +39,10 @@ export async function GET(req: NextRequest) {
       // 3. Offene Forderungen (Stichtag)
       prisma.lieferung.findMany({
         where: { rechnungNr: { not: null }, bezahltAm: null, status: { not: "storniert" }, rechnungStorniert: null },
-        select: { positionen: { select: { menge: true, verkaufspreis: true } } },
+        select: {
+          teilzahlungen: { select: { betrag: true } },
+          positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
+        },
         take: 5000,
       }),
       // 4. Offene Verbindlichkeiten (Stichtag)
@@ -70,7 +74,8 @@ export async function GET(req: NextRequest) {
     for (const l of bezahltelieferungen) {
       if (!l.bezahltAm) continue;
       const monat = l.bezahltAm.toISOString().substring(0, 7);
-      const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+      // Einnahmen netto, damit sie zu den netto geführten Ausgaben passen (Cashflow-Trend)
+      const betrag = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
       const entry = monatMap.get(monat) ?? { einnahmen: 0, ausgaben: 0 };
       entry.einnahmen += betrag;
       monatMap.set(monat, entry);
@@ -169,10 +174,7 @@ export async function GET(req: NextRequest) {
 
     // ── Bilanz (Stichtagswerte) ───────────────────────────────────────────────
 
-    const forderungGesamt = offeneForderungen.reduce(
-      (s, l) => s + l.positionen.reduce((ps, p) => ps + p.menge * p.verkaufspreis, 0),
-      0
-    );
+    const forderungGesamt = offeneForderungen.reduce((s, l) => s + berechneOffenenBetrag(l), 0);
     const verbindlichkeitGesamt = offeneVerbindlichkeiten.reduce((s, e) => s + e.betrag, 0);
     const lagerwert = artikel.reduce((s, a) => s + a.aktuellerBestand * a.standardpreis, 0);
     const aktivaGesamt = forderungGesamt + lagerwert;

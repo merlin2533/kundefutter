@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
         `SELECT k.id as kundeId, k.name, k.firma,
                 MAX(ka.datum) as letzteAktivitaet,
                 CAST(COALESCE((
-                  SELECT SUM(lp.menge * lp.verkaufspreis)
+                  SELECT SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0))
                   FROM Lieferung l
                   JOIN Lieferposition lp ON lp.lieferungId = l.id
                   WHERE l.kundeId = k.id AND l.status = 'geliefert' AND l.datum >= ?

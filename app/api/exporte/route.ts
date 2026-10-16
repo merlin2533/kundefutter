@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
           Einkaufspreis: p.einkaufspreis,
           "Marge €": margeEuro,
           "Marge %": margeProzent,
-          Umsatz: Math.round(p.menge * p.verkaufspreis * 100) / 100,
+          Umsatz: Math.round(p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * 100) / 100,
           Rechnungsnummer: l.rechnungNr ?? "",
         });
       }
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
         kundenMargen[l.kundeId] = { name: l.kunde.name, umsatz: 0, einkauf: 0, marge: 0 };
       }
       for (const p of l.positionen) {
-        const umsatz = p.menge * p.verkaufspreis;
+        const umsatz = p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100);
         const einkauf = p.menge * p.einkaufspreis;
         kundenMargen[l.kundeId].umsatz += umsatz;
         kundenMargen[l.kundeId].einkauf += einkauf;
