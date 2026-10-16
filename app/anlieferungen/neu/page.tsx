@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde { id: number; name: string; firma?: string | null; }
@@ -21,7 +21,7 @@ function NeueAnlieferungInner() {
 
   const [kundeId, setKundeId] = useState(searchParams.get("kundeId") ?? "");
   const [artikelId, setArtikelId] = useState("");
-  const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState(() => heuteIso());
   const [menge, setMenge] = useState("");
   const [einheit, setEinheit] = useState("t");
   const [feuchte, setFeuchte] = useState("");

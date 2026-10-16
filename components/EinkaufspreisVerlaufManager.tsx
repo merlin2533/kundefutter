@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
 
 export interface EinkaufspreisEintrag {
   id: number;
@@ -20,7 +20,7 @@ interface Props {
 }
 
 function heute(): string {
-  return new Date().toISOString().slice(0, 10);
+  return heuteIso();
 }
 
 // Datumsgenaue Einkaufspreis-Historie je Lieferant (ArtikelLieferantPreis) — Preise ändern sich

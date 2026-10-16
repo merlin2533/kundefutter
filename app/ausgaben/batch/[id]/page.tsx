@@ -14,7 +14,7 @@ import {
   fetchAlleSeiten,
   type Konfidenz,
 } from "@/lib/kiMatching";
-import { berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile, formatEuro } from "@/lib/utils";
+import { berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile, formatEuro, heuteIso } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -242,7 +242,7 @@ export default function AusgabenBatchDetailPage() {
       ? matchKunde({ name: ergebnis.lieferant }, lieferanten, gelerntLieferant)
       : { kunde: null, konfidenz: "keine" as Konfidenz };
 
-    const heute = new Date().toISOString().slice(0, 10);
+    const heute = heuteIso();
     const felder = {
       beschreibung: ergebnis.beschreibung,
       betragNetto: ergebnis.betragNetto,

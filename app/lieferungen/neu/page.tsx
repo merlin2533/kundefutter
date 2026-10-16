@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 import ChargeInput, { type ChargeMeta } from "@/components/ChargeInput";
-import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, effektiverMengenstaffelRabatt, formatRabattProzent, formatDatum, type MengenrabattEintrag } from "@/lib/utils";
+import { berechneVerkaufspreis, resolveBevorzugtenEK, bestMengenstaffel, effektiverMengenstaffelRabatt, formatRabattProzent, formatDatum, type MengenrabattEintrag, heuteIso } from "@/lib/utils";
 import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { berechneEierMhd } from "@/lib/eier-mhd";
 import * as Sentry from "@sentry/nextjs";
@@ -156,7 +156,7 @@ interface NewPosition {
   erzeugercode: string;
 }
 
-const today = new Date().toISOString().split("T")[0];
+const today = heuteIso();
 
 const emptyPosition = (): NewPosition => ({
   key: crypto.randomUUID(),

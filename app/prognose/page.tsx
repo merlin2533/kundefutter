@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 function exportCsv(gruppen: BestellvorschlagGruppe[], mengenOverride: Record<number, number>) {
@@ -24,7 +24,7 @@ function exportCsv(gruppen: BestellvorschlagGruppe[], mengenOverride: Record<num
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `bestellvorschlag-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `bestellvorschlag-${heuteIso()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

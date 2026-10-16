@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten } from "@/lib/utils";
+import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
 
 const ARTEN = [
   { value: "arbeit", label: "Arbeit" },
@@ -19,7 +19,7 @@ export default function StundenNeuPage({ params }: Params) {
   const [maName, setMaName] = useState("");
   const [bevorzugteArbeitszeiten, setBevorzugteArbeitszeiten] = useState<string | null>(null);
   const [wochenstunden, setWochenstunden] = useState<number | null>(null);
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [manuelleStunden, setManuelleStunden] = useState("8");
   const [stundenAuto, setStundenAuto] = useState(true);
   const [manuelleVon, setManuelleVon] = useState("");

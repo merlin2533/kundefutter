@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useState, useCallback, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -20,7 +21,7 @@ interface VorschauResponse {
   summeVerkauft: number;
 }
 
-const today = new Date().toISOString().split("T")[0];
+const today = heuteIso();
 const vorEinerWoche = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
 
 export default function KatMeldungPage() {

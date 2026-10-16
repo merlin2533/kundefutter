@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
@@ -104,7 +105,7 @@ export default function UeberweisungslistePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ueberweisungsliste_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `ueberweisungsliste_${heuteIso()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

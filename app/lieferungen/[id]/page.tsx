@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { StatusBadge, MargeBadge } from "@/components/Badge";
 import ChargeInput from "@/components/ChargeInput";
-import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent } from "@/lib/utils";
+import { formatEuro, formatDatum, resolveBevorzugtenEK, formatRabattProzent, heuteIso } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import OffenePostenHinweis from "@/components/OffenePostenHinweis";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -214,7 +214,7 @@ export default function LieferungDetailPage() {
   const [tzLoading, setTzLoading] = useState(false);
   const [showAddTz, setShowAddTz] = useState(false);
   const [tzBetrag, setTzBetrag] = useState("");
-  const [tzDatum, setTzDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tzDatum, setTzDatum] = useState(() => heuteIso());
   const [tzNotiz, setTzNotiz] = useState("");
   const [tzSaving, setTzSaving] = useState(false);
   const [tzError, setTzError] = useState("");
@@ -399,7 +399,7 @@ export default function LieferungDetailPage() {
       setShowAddTz(false);
       setTzBetrag("");
       setTzNotiz("");
-      setTzDatum(new Date().toISOString().slice(0, 10));
+      setTzDatum(heuteIso());
       await loadTeilzahlungen();
     } catch (e) {
       Sentry.captureException(e);

@@ -1,13 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import {
-  MONATE_KURZ,
-  getJahreListeNum,
-  formatDatum,
-  sollStundenFuerDatum,
-  bevorzugtesZeitfensterFuerDatum,
-  stundenZwischenUhrzeiten,
-} from "@/lib/utils";
+import { MONATE_KURZ, getJahreListeNum, formatDatum, sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const MONATE = MONATE_KURZ;
@@ -54,7 +47,7 @@ export default function MeineArbeitszeitPage() {
   const [jahr, setJahr] = useState(new Date().getFullYear());
 
   // Formular
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [manuelleStunden, setManuelleStunden] = useState("8");
   const [stundenAuto, setStundenAuto] = useState(true);
   const [manuelleVon, setManuelleVon] = useState("");

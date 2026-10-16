@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,8 +24,8 @@ export default function UrlaubNeuPage({ params }: Params) {
   const router = useRouter();
   const [mitarbeiterId, setMitarbeiterId] = useState<string | null>(null);
   const [maName, setMaName] = useState("");
-  const [von, setVon] = useState(new Date().toISOString().split("T")[0]);
-  const [bis, setBis] = useState(new Date().toISOString().split("T")[0]);
+  const [von, setVon] = useState(heuteIso());
+  const [bis, setBis] = useState(heuteIso());
   const [tage, setTage] = useState("1");
   const [notiz, setNotiz] = useState("");
   const [saving, setSaving] = useState(false);

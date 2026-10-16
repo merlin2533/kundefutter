@@ -1,7 +1,7 @@
 "use client";
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
 import { DEFAULT_MAHNWESEN_CONFIG, parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, type MahnwesenConfig } from "@/lib/mahnwesen-config";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import * as Sentry from "@sentry/nextjs";
@@ -195,7 +195,7 @@ export default function MahnwesenPage() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const heute = new Date().toISOString().slice(0, 10);
+      const heute = heuteIso();
       a.href = url;
       a.download = `sepa-export-${heute}.xml`;
       document.body.appendChild(a);

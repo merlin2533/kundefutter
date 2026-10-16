@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatEuro, formatDatum, formatRabattProzent } from "@/lib/utils";
+import { formatEuro, formatDatum, formatRabattProzent, heuteIso } from "@/lib/utils";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { ErrorState } from "@/components/ErrorState";
 import RechnungLoeschenModal from "@/components/RechnungLoeschenModal";
@@ -82,7 +82,7 @@ export default function RechnungenPage() {
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [buchungId, setBuchungId] = useState<number | null>(null);
-  const [buchungDatum, setBuchungDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [buchungDatum, setBuchungDatum] = useState(heuteIso());
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [istAdmin, setIstAdmin] = useState(false);
   const [loeschRechnung, setLoeschRechnung] = useState<Rechnung | null>(null);
@@ -463,7 +463,7 @@ export default function RechnungenPage() {
                             <button
                               onClick={() => {
                                 setBuchungId(r.id);
-                                setBuchungDatum(new Date().toISOString().slice(0, 10));
+                                setBuchungDatum(heuteIso());
                               }}
                               className="p-1.5 text-green-700 hover:bg-green-50 hover:text-green-900 rounded transition-colors"
                               title="Zahlung buchen"

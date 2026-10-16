@@ -609,3 +609,10 @@ export function bevorzugtesZeitfensterFuerDatum(
   const wert = bevorzugt?.[key];
   return istBevorzugtesZeitfenster(wert) ? wert : null;
 }
+
+/** Lokales Datum von "heute" als YYYY-MM-DD (für <input type="date">). `toISOString()` rechnet
+ *  nach UTC um und liefert zwischen 0:00 und 2:00 Uhr (Sommerzeit) das Datum von gestern. */
+export function heuteIso(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}

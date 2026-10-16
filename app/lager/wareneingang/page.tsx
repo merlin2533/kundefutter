@@ -3,7 +3,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
-import { formatEuro, parseGebindegroesseKg } from "@/lib/utils";
+import { formatEuro, parseGebindegroesseKg, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferant {
@@ -55,7 +55,7 @@ function WareneingangInner() {
   const [offeneBestellungen, setOffeneBestellungen] = useState<Bestellposition[]>([]);
 
   const [lieferantId, setLieferantId] = useState(lieferantIdParam ?? "");
-  const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState(heuteIso());
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<WEPosition[]>([
     { artikelId: artikelIdParam ?? "", menge: 0, anzahlGebinde: 0, einkaufspreis: 0, chargeNr: chargeNrParam ?? "", bestellpositionId: "" },

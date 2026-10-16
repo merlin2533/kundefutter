@@ -2,7 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatDatum, formatMenge } from "@/lib/utils";
+import { formatDatum, formatMenge, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Anlieferung {
@@ -33,7 +33,7 @@ function AnlieferungenInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
   const firstOfYear = `${new Date().getFullYear()}-01-01`;
   const [von, setVon] = useState(searchParams.get("von") ?? firstOfYear);
   const [bis, setBis] = useState(searchParams.get("bis") ?? today);

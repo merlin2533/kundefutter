@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
@@ -45,7 +46,7 @@ const TYP_OPTIONS = [
 ];
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return heuteIso();
 }
 
 function Stepper({ step }: { step: Step }) {

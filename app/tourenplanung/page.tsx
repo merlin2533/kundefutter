@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
-import { formatDatum } from "@/lib/utils";
+import { formatDatum, heuteIso } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import type { WetterTag } from "@/lib/weather";
 import { DEFAULT_APP_NAME } from "@/lib/appinfo-const";
@@ -61,7 +61,7 @@ interface Besuchstermin {
   kunde: BesuchKunde;
 }
 
-function heuteISO() { return new Date().toISOString().slice(0, 10); }
+function heuteISO() { return heuteIso(); }
 
 interface TourStop {
   id: number;

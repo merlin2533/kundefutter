@@ -11,7 +11,7 @@ import KonfidenzBadge from "@/components/KonfidenzBadge";
 import DezimalInput from "@/components/DezimalInput";
 import NeuArtikelInline from "@/components/NeuArtikelInline";
 import NeuKundeInline, { type NeuKundeErgebnis } from "@/components/NeuKundeInline";
-import { lagerStatus } from "@/lib/utils";
+import { lagerStatus, heuteIso } from "@/lib/utils";
 import {
   matchArtikel,
   matchKunde,
@@ -215,7 +215,7 @@ function KiLieferungWizard({ initialEingabeModus = "bild" }: { initialEingabeMod
   const [kundKonfidenz, setKundKonfidenz] = useState<Konfidenz>("keine");
   const [showNeuKundeForm, setShowNeuKundeForm] = useState(false);
   const [positionen, setPositionen] = useState<ZuordnungsPosition[]>([]);
-  const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState(() => heuteIso());
   const [lieferStatus, setLieferStatus] = useState<"geplant" | "geliefert">("geplant");
   const [kundenSonderpreise, setKundenSonderpreise] = useState<Record<number, number>>({});
   const [savingPreisIdx, setSavingPreisIdx] = useState<number | null>(null);
