@@ -18,11 +18,12 @@ const DEFAULT_KATEGORIEN = [
 ];
 
 async function saveKey(key: string, value: string) {
-  await fetch("/api/einstellungen", {
+  const res = await fetch("/api/einstellungen", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key, value }),
   });
+  if (!res.ok) throw new Error(`Speichern fehlgeschlagen (${res.status})`);
 }
 
 export default function AusgabenEinstellungenPage() {
@@ -121,9 +122,15 @@ export default function AusgabenEinstellungenPage() {
 
   // ── Sachkonten ────────────────────────────────────────────────────────────
   async function handleSaveSachkonten() {
-    await saveKey("ausgaben.sachkonten", JSON.stringify(sachkontoMap));
-    setSachkontoSaved(true);
-    setTimeout(() => setSachkontoSaved(false), 2000);
+    setError(null);
+    try {
+      await saveKey("ausgaben.sachkonten", JSON.stringify(sachkontoMap));
+      setSachkontoSaved(true);
+      setTimeout(() => setSachkontoSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
   }
 
   // ── Kostenstellen ─────────────────────────────────────────────────────────
@@ -135,16 +142,28 @@ export default function AusgabenEinstellungenPage() {
   }
 
   async function handleSaveKostenstellen() {
-    await saveKey("ausgaben.kostenstellen", JSON.stringify(kostenstellen));
-    setKostenstelleSaved(true);
-    setTimeout(() => setKostenstelleSaved(false), 2000);
+    setError(null);
+    try {
+      await saveKey("ausgaben.kostenstellen", JSON.stringify(kostenstellen));
+      setKostenstelleSaved(true);
+      setTimeout(() => setKostenstelleSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
   }
 
   // ── Gegenkonten ───────────────────────────────────────────────────────────
   async function handleSaveGegenkonten() {
-    await saveKey("ausgaben.gegenkonten", JSON.stringify(gegenkonten));
-    setGegenkonteSaved(true);
-    setTimeout(() => setGegenkonteSaved(false), 2000);
+    setError(null);
+    try {
+      await saveKey("ausgaben.gegenkonten", JSON.stringify(gegenkonten));
+      setGegenkonteSaved(true);
+      setTimeout(() => setGegenkonteSaved(false), 2000);
+    } catch (err) {
+      Sentry.captureException(err);
+      setError("Fehler beim Speichern.");
+    }
   }
 
   if (loading) {

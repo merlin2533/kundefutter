@@ -155,6 +155,7 @@ function UstVorschauInner() {
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">Umsätze</h2>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-gray-100">
                 <tr>
@@ -184,12 +185,14 @@ function UstVorschauInner() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">Vorsteuer</h2>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-gray-100">
                 <tr>
@@ -209,12 +212,14 @@ function UstVorschauInner() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
               <h2 className="text-sm font-semibold text-gray-900">Ergebnis</h2>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-gray-100">
                 <tr>
@@ -238,6 +243,7 @@ function UstVorschauInner() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </div>
 
           <p className="text-xs text-gray-400 mt-4">

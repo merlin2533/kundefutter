@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BUCHUNGSTYPEN, ZAHLUNGSWEGE } from "@/lib/datev";
 import { formatEuro, formatDatum, berechneAusgabeNetto, berechneAusgabeMwst, berechneAusgabeBrutto, ausgabeBetragsteile } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 const FALLBACK_AUSGABEN_KAT = ["Wareneinkauf", "Betriebsbedarf", "Fahrtkosten", "Bürobedarf", "Telefon/Internet", "Versicherung", "Miete", "Personal", "Sonstige"];
 
@@ -43,6 +44,7 @@ interface Ausgabe {
 }
 
 function AusgabenContent() {
+  const toast = useToast();
   const searchParams = useSearchParams();
 
   const [ausgaben, setAusgaben] = useState<Ausgabe[]>([]);
@@ -128,13 +130,16 @@ function AusgabenContent() {
     if (selected.size === 0) return;
     if (!confirm(`${selected.size} Ausgaben als bezahlt markieren?`)) return;
     setBulkWorking(true);
+    let fehler = 0;
     for (const id of selected) {
-      await fetch(`/api/ausgaben/${id}`, {
+      const res = await fetch(`/api/ausgaben/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
       });
+      if (!res.ok) fehler++;
     }
+    if (fehler > 0) toast.error(`${fehler} von ${selected.size} Ausgaben konnten nicht aktualisiert werden`);
     setBulkWorking(false);
     setSelected(new Set());
     laden();
@@ -144,13 +149,16 @@ function AusgabenContent() {
     if (selected.size === 0 || !bulkKategorie) return;
     if (!confirm(`${selected.size} Ausgaben auf Kategorie "${bulkKategorie}" setzen?`)) return;
     setBulkWorking(true);
+    let fehler = 0;
     for (const id of selected) {
-      await fetch(`/api/ausgaben/${id}`, {
+      const res = await fetch(`/api/ausgaben/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kategorie: bulkKategorie }),
       });
+      if (!res.ok) fehler++;
     }
+    if (fehler > 0) toast.error(`${fehler} von ${selected.size} Ausgaben konnten nicht aktualisiert werden`);
     setBulkWorking(false);
     setSelected(new Set());
     setBulkKategorie("");
@@ -161,26 +169,31 @@ function AusgabenContent() {
     if (selected.size === 0) return;
     if (!confirm(`${selected.size} Ausgaben wirklich löschen?`)) return;
     setBulkWorking(true);
+    let fehler = 0;
     for (const id of selected) {
-      await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
+      if (!res.ok) fehler++;
     }
+    if (fehler > 0) toast.error(`${fehler} von ${selected.size} Ausgaben konnten nicht gelöscht werden`);
     setBulkWorking(false);
     setSelected(new Set());
     laden();
   }
 
   async function markiereAbgeschlossen(id: number) {
-    await fetch(`/api/ausgaben/${id}`, {
+    const res = await fetch(`/api/ausgaben/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bezahltAm: new Date().toISOString() }),
     });
+    if (!res.ok) toast.error("Ausgabe konnte nicht als bezahlt markiert werden");
     laden();
   }
 
   async function loeschen(id: number) {
     if (!confirm("Ausgabe wirklich löschen?")) return;
-    await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
+    if (!res.ok) toast.error("Ausgabe konnte nicht gelöscht werden");
     laden();
   }
 

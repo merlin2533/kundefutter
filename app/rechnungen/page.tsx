@@ -168,11 +168,15 @@ export default function RechnungenPage() {
 
   async function buchungSpeichern(id: number) {
     try {
-      await fetch(`/api/lieferungen/${id}`, {
+      const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: buchungDatum }),
       });
+      if (!res.ok) {
+        setFetchError(`Zahlung konnte nicht gebucht werden (Fehler ${res.status})`);
+        return;
+      }
       setBuchungId(null);
       load();
     } catch (err) {
@@ -184,11 +188,15 @@ export default function RechnungenPage() {
   async function zahlungLoesen(id: number) {
     if (!window.confirm("Zahlung wirklich als nicht bezahlt markieren?")) return;
     try {
-      await fetch(`/api/lieferungen/${id}`, {
+      const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bezahltAm: null }),
       });
+      if (!res.ok) {
+        setFetchError(`Zahlung konnte nicht zurückgenommen werden (Fehler ${res.status})`);
+        return;
+      }
       load();
     } catch (err) {
       Sentry.captureException(err);

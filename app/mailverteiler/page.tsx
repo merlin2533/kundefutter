@@ -71,8 +71,8 @@ export default function MailverteilerPage() {
   useEffect(() => {
     fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
-      .then((data: Kunde[]) => {
-        setAllKunden(data);
+      .then((data: unknown) => {
+        setAllKunden(Array.isArray(data) ? (data as Kunde[]) : []);
         setLoading(false);
       })
       .catch((err) => {

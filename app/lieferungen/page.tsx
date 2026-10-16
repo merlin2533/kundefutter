@@ -7,6 +7,7 @@ import { useScrollRestoration } from "@/lib/useScrollRestoration";
 import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 interface Lieferung {
   id: number;
@@ -53,6 +54,7 @@ function loadLieferungFilters() {
 }
 
 export default function LieferungenPage() {
+  const toast = useToast();
   const [tab, setTab] = useState<"liste" | "wiederkehrend">("liste");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
 
@@ -259,7 +261,11 @@ export default function LieferungenPage() {
     if (!confirm("Lieferung wirklich löschen?")) return;
     setDeletingId(id);
     try {
-      await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        toast.error(d?.error ?? "Lieferung konnte nicht gelöscht werden");
+      }
       await fetchLieferungen(page);
     } finally {
       setDeletingId(null);
