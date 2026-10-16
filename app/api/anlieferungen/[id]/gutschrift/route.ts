@@ -80,11 +80,21 @@ async function ladeVorschlagPreise(kundeId: number, artikelIds: number[]) {
   return ergebnis;
 }
 
+// Modul-Guard samt DB-Zugriff (getModulConfig liest Einstellung) — bewusst in try/catch, damit ein
+// DB-Fehler hier als saubere 500 + GlitchTip-Meldung endet statt als ungefangene Exception.
+async function pruefeModul(): Promise<NextResponse | null> {
+  try {
+    return requireModul(await getModulConfig(), "erzeugerabrechnung");
+  } catch (err) {
+    Sentry.captureException(err);
+    return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
+}
+
 // GET: Vorschau — gradierte Mengen aus verknüpften Sortierungen inkl. Preisvorschlag, sowie die
 // bereits bestehende Gutschrift (falls vorhanden) zum Vorbefüllen des "aktualisieren"-Formulars.
 export async function GET(_req: NextRequest, ctx: Params) {
-  const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  const denyModul = await pruefeModul();
   if (denyModul) return denyModul;
 
   const { id: idStr } = await ctx.params;
@@ -127,8 +137,7 @@ export async function GET(_req: NextRequest, ctx: Params) {
 // Kombination — alles oder nichts, siehe unten); ohne verknüpfte Sortierung bleibt der bisherige
 // einfache Modus (Anlieferung.menge × preisProEinheit) unverändert erhalten.
 export async function POST(req: NextRequest, ctx: Params) {
-  const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  const denyModul = await pruefeModul();
   if (denyModul) return denyModul;
 
   const { id: idStr } = await ctx.params;
@@ -304,8 +313,7 @@ class BereitsVerknuepftFehler extends Error {}
 // STORNIERTE/ERSTATTETE Gutschrift wird NICHT automatisch entfernt (409) — dort ist manuelle
 // Prüfung nötig, analog zum Update-Pfad oben.
 export async function DELETE(_req: NextRequest, ctx: Params) {
-  const modul = await getModulConfig();
-  const denyModul = requireModul(modul, "erzeugerabrechnung");
+  const denyModul = await pruefeModul();
   if (denyModul) return denyModul;
 
   const { id: idStr } = await ctx.params;

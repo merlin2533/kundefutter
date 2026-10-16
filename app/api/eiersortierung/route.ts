@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import {
   EierSortierungValidierungsFehler,
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EIER_SORTIERUNG_ERSTELLEN);
+    if (denyPerm) return denyPerm;
 
     let body;
     try {

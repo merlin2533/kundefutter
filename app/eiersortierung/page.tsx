@@ -24,12 +24,22 @@ interface Sortierung {
 export default function EiersortierungListePage() {
   const [liste, setListe] = useState<Sortierung[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fehler, setFehler] = useState("");
 
   useEffect(() => {
     fetch("/api/eiersortierung")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) {
+          setFehler("Sortierprotokolle konnten nicht geladen werden.");
+          return [];
+        }
+        return r.json();
+      })
       .then((d) => setListe(Array.isArray(d) ? d : []))
-      .catch((err) => Sentry.captureException(err))
+      .catch((err) => {
+        Sentry.captureException(err);
+        setFehler("Sortierprotokolle konnten nicht geladen werden (Netzwerkfehler).");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -61,6 +71,8 @@ export default function EiersortierungListePage() {
 
       {loading ? (
         <p className="text-sm text-gray-400">Lade…</p>
+      ) : fehler ? (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-4 py-3">{fehler}</p>
       ) : liste.length === 0 ? (
         <p className="text-sm text-gray-400 italic">Noch keine Sortierung erfasst.</p>
       ) : (

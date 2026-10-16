@@ -261,7 +261,7 @@ Der bestehende, bereits vorhandene Gutschrift-Mechanismus einer Anlieferung (Mod
   (`POST .../gutschrift` Body `{preise:{"<artikelId>":<preis>}}`), wird die GESAMTE Aktion mit 400
   abgelehnt (nennt den betroffenen Artikel) statt eine unvollständige Gutschrift anzulegen.
 - **Explizite Aktion, keine Automatik:** Button "Erzeugerabrechnung erstellen"/"…aktualisieren"
-  auf `/anlieferungen/[id]` — kein Hook in `POST`/`PUT`/`DELETE /api/eiersortierung`. Ist bereits
+  auf `/anlieferungen/[id]` — kein Hook in `POST`/`DELETE /api/eiersortierung`. Ist bereits
   eine Gutschrift verknüpft (`Anlieferung.gutschriftId`) und noch `OFFEN`, ersetzt `POST` deren
   Positionen (gleiche `nummer`, gleiche ID); ist sie `VERBUCHT`/`STORNIERT`/`ERSTATTET`, lehnt die
   Route mit 409 ab ("manuelle Prüfung nötig") statt sie zu überschreiben.
@@ -392,7 +392,12 @@ prüfen, ob die Demodaten noch zum aktuellen Schema passen.
 /api/anlieferungen/import/vorschau POST (multipart) — Vorschau, `lib/anlieferung-import.ts`
 ```
 Alle Eierhandel-Routen sind mit `requireModul(config, "eierhandel")` gesperrt (403 bei
-deaktiviertem Modul) — nicht nur optisch in der Navigation. Branchenspezifische Felder in
+deaktiviertem Modul) — nicht nur optisch in der Navigation. Zusätzlich berechtigungsgesperrt
+(`requirePermission`, nach `requireModul`): `a.eier.sortierung.erstellen` (POST Sortierung, Import +
+Vorschau), `a.eier.sortierung.loeschen` (DELETE Sortierung), `a.export.kat` (KAT-Meldung CSV +
+Vorschau). Lesende Routen sind nur modul-, nicht permissiongesperrt. Bestehende Rollen bekommen die
+Rechte per Migration `20261015120000_backfill_eier_permissions` (Rollen mit `a.lager.*` bzw.
+`a.export.datev`, `buero` immer). Die KAT-Vorschau warnt bei Zeilen ohne Erzeugercode („—“). Branchenspezifische Felder in
 geteilten Formularen (Eier-Kennzeichnung in `/lieferungen/neu`, Erzeugerdaten im Kunden-
 Stammdaten-Tab) sind zusätzlich clientseitig hinter dem Modul-Flag versteckt; die Regeln dazu
 stehen im Abschnitt „Modul-System".
