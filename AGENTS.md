@@ -290,6 +290,18 @@ Der bestehende, bereits vorhandene Gutschrift-Mechanismus einer Anlieferung (Mod
 - **Bekannte Einschränkung:** eine Gutschrift pro Anlieferung (`Anlieferung.gutschriftId @unique`)
   — eine periodische Sammelabrechnung über mehrere Anlieferungen hinweg ist hier nicht abgedeckt.
 
+### Sortierung bearbeiten, Rückverfolgung, FEFO
+- **Bearbeiten** (`PUT /api/eiersortierung/[id]`, Button auf `/eiersortierung/[id]`): Datum, Notiz, Menge, Charge,
+  Legedatum, Erzeugercode und das Entfernen von Positionen. Artikel und Güte-/Gewichtsklasse sind bewusst fest
+  (die Klasse steckt im Artikel). `aktualisiereEierSortierung()` (`lib/eiersortierung.ts`) bucht nur die
+  **Differenz** je Artikel (`berechneMengenDeltas()`), lehnt einen dadurch negativen Bestand ab und ist
+  gesperrt, sobald die verknüpfte Erzeuger-Gutschrift nicht mehr `OFFEN` ist. Eine schon erstellte OFFENE
+  Gutschrift wird **nicht** automatisch angepasst (Button „aktualisieren“ auf der Anlieferung). Hinweis (nicht
+  blockierend), wenn insgesamt mehr sortiert als angeliefert wurde.
+- **Rückverfolgung:** Suche per `contains` auf `chargeNr`/`erzeugercode` an `EierSortierungPosition` und `Lieferposition`
+  (nur Positionen mit `gueteklasse`), max. 1000 Treffer je Bereich.
+- **FEFO:** Hinweis in `/lieferungen/neu` bei Ei-Artikeln, entprellt; Chargen der letzten 90 Tage.
+
 ### Meldepflichten-Tracker (`lib/meldepflichten.ts`)
 Läuft über den bestehenden Cron-Job (`app/api/cron/route.ts`), legt `Aufgabe`-Einträge an:
 - **Tierseuchenkasse-Tierzahlmeldung** (Stichtag 01.01., Frist 31.01.) — zielt immer auf die
@@ -372,6 +384,8 @@ prüfen, ob die Demodaten noch zum aktuellen Schema passen.
                            Druck mit lokal generiertem QR-Code (kein externer QR-Dienst)
 /eierkontrolle             Kontrolle: MHD-Ampel sortierter Chargen, Erzeugercode-Validierung
                            (Haltungsform vs. erste Ziffer des Codes), Meldepflichten-Status
+/eierkontrolle/rueckverfolgung  Chargen-Rückverfolgung (Rückruf): Chargennummer/Erzeugercode →
+                           Sortierungen (Eingang) + belieferte Kunden/Lieferungen (Ausgang)
 /meldepflichten            Fristen-Tracker (Tierseuchenkasse, KAT-Wochenmeldung)
 /exporte/kat-meldung       KAT-Warenstrommeldung: Vorschau vor dem CSV-Download
 /statistik/eier            Berichte: Güte-/Gewichtsklassen-Verteilung, Top-Erzeuger
@@ -379,12 +393,15 @@ prüfen, ob die Demodaten noch zum aktuellen Schema passen.
                            `erzeugerabrechnung` — NICHT `eierhandel`, siehe unten)
 
 /api/eiersortierung        GET, POST (bucht je Position Lagerzugang in einer $transaction)
-/api/eiersortierung/[id]   GET, DELETE
+/api/eiersortierung/[id]   GET, PUT (Datum/Notiz/Positionen ersetzen, Lager per Differenzbuchung —
+                           409/400 bei verbuchter Gutschrift bzw. negativem Bestand), DELETE
 /api/eiersortierung/import          POST (multipart) — Commit, eine Zeile = eine EierSortierung
                                      mit einer Position, nutzt `erstelleEierSortierung()`
 /api/eiersortierung/import/vorschau POST (multipart) — Vorschau ohne DB-Schreibzugriff, gleiche
                                      Parsing-/Auflösungslogik wie der Commit (`lib/eiersortierung-import.ts`)
 /api/eierkontrolle         GET — aggregierte Kontroll-Daten (Chargen/Erzeuger/Meldepflichten)
+/api/eierkontrolle/rueckverfolgung  GET(?charge,?erzeugercode, min. 2 Zeichen) — lib/eier-rueckverfolgung.ts
+/api/eierkontrolle/fefo    GET(?artikelId,?chargeNr) — nicht blockierender FEFO-Hinweis (lib/eier-fefo.ts)
 /api/exporte/kat-meldung          GET(?von,?bis) — CSV-Download
 /api/exporte/kat-meldung/vorschau GET(?von,?bis) — JSON-Vorschau vor dem Download
 /api/statistik/eier               GET(?von,?bis) — Eier-Statistik (Güte-/Gewichtsklassen, Top-Erzeuger)
@@ -2219,6 +2236,8 @@ ist modulabhängig).
 | `lib/betriebsart-server.ts` | `getBetriebsart()` — server-seitiger Lesezugriff auf `system.betriebsart` (getrennt, damit `lib/betriebsart.ts` importfrei bleibt) |
 | `lib/nav-profil.ts` | `wendeNavProfilAn()` — reine Funktion, die die Nav-Gruppen gemäß Betriebsart umbenennt, eine Section in eine eigene Gruppe herauslöst (optional eine zweite Gruppe absorbiert) und umsortiert |
 | `lib/eier-mhd.ts` | `berechneEierMhd(legedatum)` — MHD für Eier = Legedatum + 28 Tage (EU-Vermarktungsnorm). Importfrei, client- UND serverseitig nutzbar |
+| `lib/eier-rueckverfolgung.ts` | `sucheRueckverfolgung()` (Sortierungen + Lieferungen zu Charge/Erzeugercode, Kunden-Zusammenfassung ohne stornierte) + reine Helfer `normalisiereSuche()`/`fasseKundenZusammen()` — für Rückrufe, `/eierkontrolle/rueckverfolgung` |
+| `lib/eier-fefo.ts` | FEFO (First Expired, First Out): `berechneChargenRest()` (Rest je Charge = sortiert − verkauft/geplant, da der Bestand nicht je Charge geführt wird) + `bewerteFefo()` (Hinweis bei jüngerer statt ältester Charge bzw. abgelaufener Charge); Anzeige als nicht blockierender Hinweis in `/lieferungen/neu` |
 | `lib/kat-meldung.ts` | `sammleKatMeldung(von,bis)` + `buildKatMeldungCsv()` — wöchentliche KAT-Warenstrommeldung (Struktur analog `sammleDatevBuchungen()` in `lib/datev.ts`); zählt nur `status:"geliefert"` (stornierte Lieferungen bleiben draußen) |
 | `lib/meldepflichten.ts` | `pruefeMeldepflichten()` — legt fällige Melde-Aufgaben an (Tierseuchenkasse-Frist 31.01. → nächste bevorstehende, nicht "dieses Jahr"; wöchentliche KAT-Erinnerung nur wenn die vorherige erledigt ist). Eingebunden als Cron-Job `meldepflichten` in `app/api/cron/route.ts`, prüft `modul.eierhandel` selbst |
 | `lib/ausgleichsartikel.ts` | Zentrale, dependency-freie Liste der "Ausgleichsartikel"-Artikelnummern (`ALTE_FORDERUNG_ARTIKELNUMMER`/`GUTSCHRIFT_VERRECHNUNG_ARTIKELNUMMER`/`RESTDIFFERENZ_ARTIKELNUMMER`) + `istAusgleichsArtikelnummer()` — genutzt von `lib/lieferung.ts` (erzeugt die Positionen) UND `lib/datev.ts` (muss sie im Export erkennen, um sie auf ein Verrechnungs- statt Erlöskonto zu buchen) |
