@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       }),
       // 3. Offene Forderungen (Stichtag)
       prisma.lieferung.findMany({
-        where: { rechnungNr: { not: null }, bezahltAm: null, status: { not: "storniert" } },
+        where: { rechnungNr: { not: null }, bezahltAm: null, status: { not: "storniert" }, rechnungStorniert: null },
         select: { positionen: { select: { menge: true, verkaufspreis: true } } },
         take: 5000,
       }),

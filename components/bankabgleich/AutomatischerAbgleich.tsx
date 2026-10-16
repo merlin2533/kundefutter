@@ -45,6 +45,7 @@ interface AbgleichPaar {
   begruendung?: string;
   skontoMatch: boolean;
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  teilzahlungMatch?: boolean;
 }
 interface BankOnlyItem extends BankInfo {
   naechsterKandidat: KandidatInfo | null;
@@ -202,6 +203,7 @@ export default function AutomatischerAbgleich({
                 textScore: neu.textScore,
                 skontoMatch: neu.skontoMatch,
                 gutschriftMatch: neu.gutschriftMatch,
+                teilzahlungMatch: neu.teilzahlungMatch,
                 konfidenz: undefined,
                 begruendung: undefined,
               }
@@ -427,6 +429,7 @@ export default function AutomatischerAbgleich({
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
                     gutschriftMatch={p.gutschriftMatch}
+                    teilzahlungMatch={p.teilzahlungMatch}
                     onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                     onKandidatWechseln={(neu) => kandidatWechseln("matched", p.bank.umsatzId, neu)}
                   />
@@ -478,6 +481,7 @@ export default function AutomatischerAbgleich({
                     dayDiff={p.dayDiff}
                     skontoMatch={p.skontoMatch}
                     gutschriftMatch={p.gutschriftMatch}
+                    teilzahlungMatch={p.teilzahlungMatch}
                     onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                     onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                   />
@@ -678,6 +682,7 @@ export default function AutomatischerAbgleich({
                       dayDiff={p.dayDiff}
                       skontoMatch={p.skontoMatch}
                       gutschriftMatch={p.gutschriftMatch}
+                      teilzahlungMatch={p.teilzahlungMatch}
                       onUebernehmen={(bezahlt, differenzAktion, weitere) => einzelUebernehmen(p, bezahlt, differenzAktion, weitere)}
                       onKandidatWechseln={(neu) => kandidatWechseln("deviations", p.bank.umsatzId, neu)}
                     />

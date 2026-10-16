@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Offene Rechnungen ─────────────────────────────────────────────────────
-  const offeneRechnungen = kunde.lieferungen.filter((l) => l.rechnungNr && !l.bezahltAm);
+  const offeneRechnungen = kunde.lieferungen.filter((l) => l.rechnungNr && !l.bezahltAm && !l.rechnungStorniert);
   if (offeneRechnungen.length > 0) {
     adY += 4;
     doc.setFontSize(10);

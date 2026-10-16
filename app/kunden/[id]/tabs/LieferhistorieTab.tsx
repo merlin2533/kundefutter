@@ -24,6 +24,12 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
 
   function zahlungsStatus(l: Lieferung): { label: string; cls: string } {
     if (l.status !== "geliefert") return { label: "—", cls: "text-gray-400" };
+    // Ein Rechnungs-Storno setzt NICHT l.status auf "storniert" (nur die ganze Lieferung
+    // stornieren tut das) — ohne diese Prüfung läuft eine stornierte, aber nicht bezahlte
+    // Rechnung einfach in die normale Fälligkeitsberechnung und erscheint fälschlich als
+    // "Überfällig". Muss vor "Bezahlt" geprüft werden (storniert gewinnt immer), analog zu
+    // getRechnungStatus() in app/rechnungen/page.tsx.
+    if (l.rechnungStorniert) return { label: "Storniert", cls: "text-gray-400" };
     if (l.bezahltAm) return { label: "Bezahlt", cls: "text-green-700 font-medium" };
     if (!l.rechnungNr) return { label: "Offen", cls: "text-yellow-700 font-medium" };
     const tage = l.zahlungsziel ?? 30;
@@ -136,11 +142,13 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
     return true;
   });
 
+  // Eine stornierte Rechnung ist kein Umsatz und keine offene Forderung mehr — zählt
+  // deshalb in beiden Summen nicht mit (siehe Kommentar in zahlungsStatus()).
   const gesamtBetrag = kunde.lieferungen
-    .filter((l) => l.status === "geliefert")
+    .filter((l) => l.status === "geliefert" && !l.rechnungStorniert)
     .reduce((s, l) => s + lieferungTotal(l), 0);
   const offen = kunde.lieferungen
-    .filter((l) => l.status === "geliefert" && !l.bezahltAm)
+    .filter((l) => l.status === "geliefert" && !l.rechnungStorniert && !l.bezahltAm)
     .reduce((s, l) => s + lieferungTotal(l), 0);
 
   if (kunde.lieferungen.length === 0) {
@@ -396,7 +404,7 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
 
                   {/* Zahlung */}
                   <td className="hidden sm:table-cell px-3 py-2.5">
-                    {l.status === "geliefert" ? (
+                    {l.status === "geliefert" && !l.rechnungStorniert ? (
                       <label className="flex items-center gap-1.5 cursor-pointer group">
                         <input
                           type="checkbox"
@@ -407,6 +415,8 @@ export default function LieferhistorieTab({ kunde, onRefresh }: { kunde: Kunde; 
                         />
                         <span className={`text-xs ${zStatus.cls}`}>{zStatus.label}</span>
                       </label>
+                    ) : l.rechnungStorniert ? (
+                      <span className={`text-xs ${zStatus.cls}`}>{zStatus.label}</span>
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}
