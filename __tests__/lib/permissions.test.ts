@@ -51,3 +51,18 @@ describe("requireVollePersonalRechte", () => {
     expect(requireVollePersonalRechte(baseUser())).toBeNull();
   });
 });
+
+import { requireAnyPermission } from "@/lib/permissions";
+
+describe("requireAnyPermission", () => {
+  const user = (perms: string[]) => ({ rolle: "benutzer", rolleId: 1, rolleBerechtigungen: perms, berechtigungen: [] }) as never;
+  it("lässt durch, wenn eine der Permissions vorhanden ist", () => {
+    expect(requireAnyPermission(user(["a.lager.korrektur"]), ["a.lager.wareneingang", "a.lager.korrektur"])).toBeNull();
+  });
+  it("liefert 403, wenn keine vorhanden ist", () => {
+    expect(requireAnyPermission(user(["s.lager"]), ["a.lager.korrektur"])?.status).toBe(403);
+  });
+  it("liefert 401 ohne Benutzer", () => {
+    expect(requireAnyPermission(null, ["a.lager.korrektur"])?.status).toBe(401);
+  });
+});

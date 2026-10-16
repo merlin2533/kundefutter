@@ -447,3 +447,15 @@ describe("bevorzugtesZeitfensterFuerDatum", () => {
     expect(bevorzugtesZeitfensterFuerDatum(montag, cfg)).toBeNull();
   });
 });
+
+import { heuteIso } from "@/lib/utils";
+
+describe("heuteIso", () => {
+  it("liefert das lokale Datum, nicht das UTC-Datum", () => {
+    // 1. September 00:30 lokale Zeit — toISOString() würde in UTC+2 den 31.08. liefern
+    expect(heuteIso(new Date(2026, 8, 1, 0, 30))).toBe("2026-09-01");
+  });
+  it("füllt Monat und Tag zweistellig auf", () => {
+    expect(heuteIso(new Date(2026, 0, 5, 12))).toBe("2026-01-05");
+  });
+});
