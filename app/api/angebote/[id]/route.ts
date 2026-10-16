@@ -112,6 +112,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
                 verkaufspreis: pos.preis,
                 einkaufspreis: bevorzugterLieferantMap.get(pos.artikelId)?.einkaufspreis ?? 0,
                 rabattProzent: pos.rabatt,
+                // MwSt-Satz einfrieren (sonst Schema-Default 19 % auch bei 7-%-Artikeln)
+                mwstSatz: pos.artikel.mwstSatz,
                 // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
                 // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
                 verpackungsart: pos.artikel.verpackungsart ?? null,
