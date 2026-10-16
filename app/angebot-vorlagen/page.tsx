@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -92,7 +93,7 @@ export default function AngebotVorlagenPage() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: number, name: string) {
-    if (!confirm(`Vorlage "${name}" wirklich löschen?`)) return;
+    if (!await bestaetige(`Vorlage "${name}" wirklich löschen?`)) return;
     try {
       const res = await fetch(`/api/angebot-vorlagen/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -100,13 +101,13 @@ export default function AngebotVorlagenPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert((d as { error?: string }).error ?? "Fehler beim Löschen");
+        void melde((d as { error?: string }).error ?? "Fehler beim Löschen");
         return;
       }
       await load();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Fehler beim Löschen");
+      void melde("Fehler beim Löschen");
     }
   }
 

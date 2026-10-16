@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -977,8 +978,8 @@ export default function LieferscheinPage() {
                   style={{ maxWidth: "400px", height: "150px", objectFit: "contain" }}
                 />
                 <button
-                  onClick={() => {
-                    if (confirm("Neue Unterschrift aufnehmen? Die bestehende wird überschrieben.")) {
+                  onClick={async () => {
+                    if (await bestaetige("Neue Unterschrift aufnehmen? Die bestehende wird überschrieben.")) {
                       setLieferung({ ...lieferung, unterschriftPng: null });
                       setTimeout(initCanvas, 50);
                     }

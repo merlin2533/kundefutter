@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -367,7 +368,7 @@ export default function AusgabenBatchDetailPage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        alert((d as { error?: string }).error ?? "IBAN konnte nicht gespeichert werden.");
+        void melde((d as { error?: string }).error ?? "IBAN konnte nicht gespeichert werden.");
         return;
       }
       setBatch((prev) =>
@@ -375,7 +376,7 @@ export default function AusgabenBatchDetailPage() {
       );
     } catch (err) {
       Sentry.captureException(err);
-      alert("IBAN konnte nicht gespeichert werden.");
+      void melde("IBAN konnte nicht gespeichert werden.");
     }
   }
 
@@ -425,7 +426,7 @@ export default function AusgabenBatchDetailPage() {
   }
 
   async function verwerfen() {
-    if (!confirm("Batch inkl. aller hochgeladenen Dateien unwiderruflich verwerfen?")) return;
+    if (!await bestaetige("Batch inkl. aller hochgeladenen Dateien unwiderruflich verwerfen?")) return;
     setDiscarding(true);
     try {
       const res = await fetch(`/api/ki/ausgaben/batch/${batchId}`, {

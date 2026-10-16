@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -289,7 +290,7 @@ function AnbauplanungContent() {
   }, [kundeSearch]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Anbauplan löschen?")) return;
+    if (!await bestaetige("Anbauplan löschen?")) return;
     await fetch(`/api/anbauplanung?id=${id}`, { method: "DELETE" });
     load();
   }

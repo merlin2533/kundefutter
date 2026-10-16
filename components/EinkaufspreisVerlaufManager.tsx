@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import React, { useState } from "react";
 import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
@@ -75,7 +76,7 @@ export default function EinkaufspreisVerlaufManager({ eintraege, onSave, onUpdat
   }
 
   async function handleDelete(e: EinkaufspreisEintrag) {
-    if (!confirm(`Preiseintrag vom ${formatDatum(e.datum)} wirklich löschen?`)) return;
+    if (!await bestaetige(`Preiseintrag vom ${formatDatum(e.datum)} wirklich löschen?`)) return;
     setDeletingId(e.id);
     await onDelete(e.id);
     setDeletingId(null);

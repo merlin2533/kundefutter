@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -160,7 +161,7 @@ export default function EiersortierungDetailPage() {
 
   async function handleDelete() {
     if (
-      !confirm(
+      !await bestaetige(
         "Diese Sortierung wirklich löschen? Der gebuchte Lagerzugang wird zurückgebucht — falls die Ware bereits weiterverkauft wurde, kann der Bestand dadurch negativ werden.",
       )
     ) {

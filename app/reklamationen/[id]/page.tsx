@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -185,7 +186,7 @@ export default function ReklamationDetailPage({ params }: Params) {
 
   async function handleDelete() {
     if (!rek || rekId === null) return;
-    if (!confirm(`Reklamation ${rek.nummer} wirklich löschen?`)) return;
+    if (!await bestaetige(`Reklamation ${rek.nummer} wirklich löschen?`)) return;
     try {
       const res = await fetch(`/api/reklamationen/${rekId}`, { method: "DELETE" });
       if (!res.ok) {

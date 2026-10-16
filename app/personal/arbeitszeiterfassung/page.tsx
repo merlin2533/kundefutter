@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
@@ -159,7 +160,7 @@ export default function ArbeitszeiterfassungPage() {
   async function alleBestaetigen() {
     const offen = mitarbeiterListe.filter((ma) => !rows[ma.id]?.bestehendId);
     if (offen.length === 0) return;
-    if (!confirm(`${offen.length} Mitarbeiter mit den vorgeschlagenen Stunden bestätigen?`)) return;
+    if (!await bestaetige(`${offen.length} Mitarbeiter mit den vorgeschlagenen Stunden bestätigen?`)) return;
     setBulkSaving(true);
     for (const ma of offen) {
       const row = rows[ma.id];

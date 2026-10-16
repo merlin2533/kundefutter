@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -82,7 +83,7 @@ export default function GutschriftDetailPage() {
 
   async function handleStatusChange(newStatus: string) {
     if (!gutschrift) return;
-    if (!confirm("Gutschrift stornieren?")) return;
+    if (!await bestaetige("Gutschrift stornieren?")) return;
     setSaving(true);
     setError("");
     try {
@@ -146,7 +147,7 @@ export default function GutschriftDetailPage() {
     const hinweis = rechnung
       ? `Gutschrift als verbucht markieren und gegen ${rechnung.rechnungNr ?? `Rechnung ${rechnung.id}`} verrechnen?`
       : "Gutschrift ohne Verweis auf eine Rechnung als verbucht markieren?";
-    if (!confirm(hinweis)) return;
+    if (!await bestaetige(hinweis)) return;
     setSaving(true);
     setError("");
     try {
@@ -176,7 +177,7 @@ export default function GutschriftDetailPage() {
           gutschrift.verbuchtBeiLieferung.rechnungNr ?? `Rechnung #${gutschrift.verbuchtBeiLieferung.id}`
         } verrechnet — die dortige Ausgleichsposition wird entfernt und der Rechnungsbetrag ändert sich.`
       : "";
-    if (!confirm(["Gutschrift wieder als offen markieren?", hinweis].filter(Boolean).join("\n\n"))) return;
+    if (!await bestaetige(["Gutschrift wieder als offen markieren?", hinweis].filter(Boolean).join("\n\n"))) return;
     setSaving(true);
     setError("");
     try {
@@ -210,7 +211,7 @@ export default function GutschriftDetailPage() {
       hinweise.push("Bei der Erstellung zurückgebuchte Lagerware wird wieder aus dem Bestand entfernt.");
     }
     const confirmMsg = ["Gutschrift wirklich unwiderruflich löschen?", ...hinweise].join("\n\n");
-    if (!confirm(confirmMsg)) return;
+    if (!await bestaetige(confirmMsg)) return;
     setSaving(true);
     const res = await fetch(`/api/gutschriften/${id}`, { method: "DELETE" });
     if (res.ok) {

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -103,14 +104,14 @@ export default function PortalEinstellungenPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Portal-Zugang löschen?")) return;
+    if (!await bestaetige("Portal-Zugang löschen?")) return;
     await fetch(`/api/einstellungen/portal?id=${id}`, { method: "DELETE" });
     await load();
   }
 
   async function handleResetPasswort(id: number) {
     if (!neuesPasswort || neuesPasswort.length < 8) {
-      alert("Passwort mind. 8 Zeichen");
+      void melde("Passwort mind. 8 Zeichen");
       return;
     }
     setResetSaving(true);
@@ -122,7 +123,7 @@ export default function PortalEinstellungenPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        alert(d.error ?? "Fehler");
+        void melde(d.error ?? "Fehler");
         return;
       }
       setResetId(null);

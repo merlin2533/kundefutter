@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -129,14 +130,14 @@ export default function BerechtigungenPage() {
   }
 
   async function rolleLoeschen(rolle: Rolle) {
-    if (!confirm(`Rolle „${rolle.bezeichnung}" wirklich löschen?`)) return;
+    if (!await bestaetige(`Rolle „${rolle.bezeichnung}" wirklich löschen?`)) return;
     const res = await fetch(`/api/rollen/${rolle.id}`, { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch((err) => {
         Sentry.captureException(err);
         return ({});
       });
-      alert(d?.error ?? "Löschen fehlgeschlagen");
+      void melde(d?.error ?? "Löschen fehlgeschlagen");
       return;
     }
     laden();

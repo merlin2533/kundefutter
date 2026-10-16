@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -176,7 +177,7 @@ function Inner() {
   }
 
   async function loeschenHistorie(id: number) {
-    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
+    if (!await bestaetige("Diesen Eintrag wirklich löschen?")) return;
     setDeletingId(id);
     const res = await fetch(`/api/duengebedarf?id=${id}`, { method: "DELETE" });
     setDeletingId(null);

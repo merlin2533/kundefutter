@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -128,7 +129,7 @@ function AusgabenContent() {
 
   async function handleBulkBezahlt() {
     if (selected.size === 0) return;
-    if (!confirm(`${selected.size} Ausgaben als bezahlt markieren?`)) return;
+    if (!await bestaetige(`${selected.size} Ausgaben als bezahlt markieren?`)) return;
     setBulkWorking(true);
     let fehler = 0;
     for (const id of selected) {
@@ -147,7 +148,7 @@ function AusgabenContent() {
 
   async function handleBulkKategorisieren() {
     if (selected.size === 0 || !bulkKategorie) return;
-    if (!confirm(`${selected.size} Ausgaben auf Kategorie "${bulkKategorie}" setzen?`)) return;
+    if (!await bestaetige(`${selected.size} Ausgaben auf Kategorie "${bulkKategorie}" setzen?`)) return;
     setBulkWorking(true);
     let fehler = 0;
     for (const id of selected) {
@@ -167,7 +168,7 @@ function AusgabenContent() {
 
   async function handleBulkLoeschen() {
     if (selected.size === 0) return;
-    if (!confirm(`${selected.size} Ausgaben wirklich löschen?`)) return;
+    if (!await bestaetige(`${selected.size} Ausgaben wirklich löschen?`)) return;
     setBulkWorking(true);
     let fehler = 0;
     for (const id of selected) {
@@ -191,7 +192,7 @@ function AusgabenContent() {
   }
 
   async function loeschen(id: number) {
-    if (!confirm("Ausgabe wirklich löschen?")) return;
+    if (!await bestaetige("Ausgabe wirklich löschen?")) return;
     const res = await fetch(`/api/ausgaben/${id}`, { method: "DELETE" });
     if (!res.ok) toast.error("Ausgabe konnte nicht gelöscht werden");
     laden();

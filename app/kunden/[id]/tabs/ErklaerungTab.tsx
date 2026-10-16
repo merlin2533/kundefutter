@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { heuteIso } from "@/lib/utils";
 
 import { useEffect, useState } from "react";
@@ -73,7 +74,7 @@ export default function ErklaerungTab({ kundeId }: { kundeId: number }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Erklärung löschen?")) return;
+    if (!await bestaetige("Erklärung löschen?")) return;
     const r = await fetch(`/api/kunden/${kundeId}/erklaerungen/${id}`, { method: "DELETE" });
     if (r.ok) { showToast("Gelöscht", "success"); await load(); }
   };

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -193,12 +194,12 @@ export default function AlbrechtTab({ kundeId }: { kundeId: number }) {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Analyse wirklich löschen?")) return;
+    if (!await bestaetige("Analyse wirklich löschen?")) return;
     const res = await fetch(`/api/bodenanalyse?id=${id}`, { method: "DELETE" });
     if (res.ok) {
       setAnalysen((prev) => prev.filter((a) => a.id !== id));
     } else {
-      alert("Löschen fehlgeschlagen");
+      void melde("Löschen fehlgeschlagen");
     }
   };
 

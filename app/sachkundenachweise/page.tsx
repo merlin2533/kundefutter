@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
@@ -53,7 +54,7 @@ export default function Page() {
   }, []);
 
   async function loeschen(id: number) {
-    if (!confirm("Nachweis wirklich löschen?")) return;
+    if (!await bestaetige("Nachweis wirklich löschen?")) return;
     const r = await fetch(`/api/sachkundenachweise?id=${id}`, { method: "DELETE" });
     if (r.ok) setListe(liste.filter(l => l.id !== id));
   }

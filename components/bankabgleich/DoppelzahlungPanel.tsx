@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState } from "react";
 import { formatEuro, formatDatum } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
@@ -54,7 +55,7 @@ export default function DoppelzahlungPanel({ umsatzId, bankBetrag, onErledigt }:
 
   async function anlegen() {
     if (!ausgewaehlt) return;
-    if (!confirm(
+    if (!await bestaetige(
       modus === "erstatten"
         ? `Gutschrift über ${formatEuro(bankBetrag)} für ${ausgewaehlt.kundeName} erfassen? Sie wird NICHT automatisch verrechnet — die Erstattung erfolgt separat per Überweisung.`
         : `Gutschrift über ${formatEuro(bankBetrag)} für ${ausgewaehlt.kundeName} erfassen? Sie wird automatisch in die nächste Rechnung des Kunden eingerechnet.`

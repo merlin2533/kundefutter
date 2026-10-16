@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -263,8 +264,8 @@ export default function InventurDetailPage() {
           {isOffen && (
             <>
               <button
-                onClick={() => {
-                  if (confirm("Inventur abschließen ohne Lagerkorrekturen zu buchen?")) {
+                onClick={async () => {
+                  if (await bestaetige("Inventur abschließen ohne Lagerkorrekturen zu buchen?")) {
                     handleClose(false);
                   }
                 }}
@@ -274,8 +275,8 @@ export default function InventurDetailPage() {
                 {closing ? "…" : "Abschließen"}
               </button>
               <button
-                onClick={() => {
-                  if (confirm("Inventur abschließen und Lagerkorrekturen für alle Differenzen automatisch buchen?")) {
+                onClick={async () => {
+                  if (await bestaetige("Inventur abschließen und Lagerkorrekturen für alle Differenzen automatisch buchen?")) {
                     handleClose(true);
                   }
                 }}

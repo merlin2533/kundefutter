@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -162,7 +163,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   }, [activeTab, numId]);
 
   async function handleAuszahlen(abrId: number) {
-    if (!confirm("Jetzt als ausgezahlt markieren und Ausgabe erstellen?")) return;
+    if (!await bestaetige("Jetzt als ausgezahlt markieren und Ausgabe erstellen?")) return;
     setActionLoading(true);
     setAbrError("");
     const res = await fetch(`/api/personal/abrechnungen/${abrId}`, {
@@ -207,7 +208,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   }
 
   async function handleDeleteStunde(stundeId: number) {
-    if (!confirm("Stundeneintrag löschen?")) return;
+    if (!await bestaetige("Stundeneintrag löschen?")) return;
     const res = await fetch(`/api/personal/arbeitsstunden/${stundeId}`, { method: "DELETE" });
     if (res.ok) setStunden((prev) => prev.filter((s) => s.id !== stundeId));
   }
@@ -257,7 +258,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   }
 
   async function handleDeleteAbrechnung(abrId: number) {
-    if (!confirm("Diese Abrechnung endgültig löschen?")) return;
+    if (!await bestaetige("Diese Abrechnung endgültig löschen?")) return;
     setActionLoading(true);
     setAbrError("");
     const res = await fetch(`/api/personal/abrechnungen/${abrId}`, { method: "DELETE" });
@@ -293,7 +294,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
   }
 
   async function handleBelegDelete(abrId: number) {
-    if (!confirm("Hinterlegtes PDF entfernen?")) return;
+    if (!await bestaetige("Hinterlegtes PDF entfernen?")) return;
     setBelegUploadingId(abrId);
     setAbrError("");
     const res = await fetch(`/api/personal/abrechnungen/${abrId}/beleg`, { method: "DELETE" });
@@ -311,7 +312,7 @@ function DetailContent({ mitarbeiterId }: { mitarbeiterId: string }) {
 
   async function handleDeactivate() {
     if (!ma) return;
-    if (!confirm(`Mitarbeiter ${ma.vorname} ${ma.nachname} deaktivieren?`)) return;
+    if (!await bestaetige(`Mitarbeiter ${ma.vorname} ${ma.nachname} deaktivieren?`)) return;
     const res = await fetch(`/api/personal/mitarbeiter/${numId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

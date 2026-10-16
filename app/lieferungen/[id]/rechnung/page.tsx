@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -244,7 +245,7 @@ export default function RechnungPrintPage() {
 
   async function handlePostversandMarkieren() {
     if (!lieferung?.rechnungNr) return;
-    if (!confirm(`Rechnung ${lieferung.rechnungNr} als per Post versendet markieren?\nMenge/Preis der Positionen können danach nicht mehr geändert werden.`)) return;
+    if (!await bestaetige(`Rechnung ${lieferung.rechnungNr} als per Post versendet markieren?\nMenge/Preis der Positionen können danach nicht mehr geändert werden.`)) return;
     setPostversandLoading(true);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {

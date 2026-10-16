@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -75,18 +76,18 @@ function AnlieferungenInner() {
   const gesamtBetrag = gefiltert.reduce((s, a) => s + (a.gesamtBetrag ?? 0), 0);
 
   async function gutschriftErstellen(id: number) {
-    if (!confirm("Gutschrift für diese Anlieferung erstellen?")) return;
+    if (!await bestaetige("Gutschrift für diese Anlieferung erstellen?")) return;
     try {
       const res = await fetch(`/api/anlieferungen/${id}/gutschrift`, { method: "POST" });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error ?? "Fehler beim Erstellen der Gutschrift");
+        void melde(data.error ?? "Fehler beim Erstellen der Gutschrift");
         return;
       }
       await load();
     } catch (err) {
       Sentry.captureException(err);
-      alert("Netzwerkfehler");
+      void melde("Netzwerkfehler");
     }
   }
 

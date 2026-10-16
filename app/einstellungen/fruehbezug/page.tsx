@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -60,7 +61,7 @@ export default function Page() {
     if (r.ok) laden();
   }
   async function loeschen(id: number) {
-    if (!confirm("Staffel löschen?")) return;
+    if (!await bestaetige("Staffel löschen?")) return;
     const r = await fetch(`/api/fruehbezugsstaffel?id=${id}`, { method: "DELETE" });
     if (r.ok) laden();
   }

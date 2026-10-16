@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -71,7 +72,7 @@ function PSMListeInner() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   async function handleDelete(id: number, mittel: string) {
-    if (!confirm(`PSM-Ausbringung "${mittel}" löschen?`)) return;
+    if (!await bestaetige(`PSM-Ausbringung "${mittel}" löschen?`)) return;
     setDeleting(id);
     try {
       await fetch(`/api/psm/${id}`, { method: "DELETE" });

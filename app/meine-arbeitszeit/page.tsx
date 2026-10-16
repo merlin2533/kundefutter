@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, useCallback } from "react";
 import { MONATE_KURZ, getJahreListeNum, formatDatum, sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
@@ -131,7 +132,7 @@ export default function MeineArbeitszeitPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
+    if (!await bestaetige("Diesen Eintrag wirklich löschen?")) return;
     const res = await fetch(`/api/personal/arbeitsstunden/${id}`, { method: "DELETE" });
     if (res.ok) ladeStunden();
   }

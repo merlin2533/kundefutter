@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { MONATE_KURZ, getJahreListeNum } from "@/lib/utils";
@@ -71,7 +72,7 @@ export default function AbrechnungenPage() {
   async function handleBulkAbrechnen() {
     const offene = abrechnungen.filter((a) => a.status === "OFFEN");
     if (offene.length === 0) return;
-    if (!confirm(`${offene.length} offene Abrechnungen als 'Abgerechnet' markieren?`)) return;
+    if (!await bestaetige(`${offene.length} offene Abrechnungen als 'Abgerechnet' markieren?`)) return;
     setActionLoading(true);
     for (const a of offene) {
       await fetch(`/api/personal/abrechnungen/${a.id}`, {
@@ -102,7 +103,7 @@ export default function AbrechnungenPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Diese Abrechnung endgültig löschen?")) return;
+    if (!await bestaetige("Diese Abrechnung endgültig löschen?")) return;
     setActionLoading(true);
     setError("");
     const res = await fetch(`/api/personal/abrechnungen/${id}`, { method: "DELETE" });

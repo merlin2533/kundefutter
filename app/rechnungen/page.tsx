@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -186,7 +187,7 @@ export default function RechnungenPage() {
   }
 
   async function zahlungLoesen(id: number) {
-    if (!window.confirm("Zahlung wirklich als nicht bezahlt markieren?")) return;
+    if (!await bestaetige("Zahlung wirklich als nicht bezahlt markieren?")) return;
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
         method: "PUT",

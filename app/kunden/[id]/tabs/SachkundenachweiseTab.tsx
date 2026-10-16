@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -41,13 +42,13 @@ export default function SachkundenachweiseTab({ kundeId }: { kundeId: number }) 
   useEffect(() => { load(); }, [kundeId]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Nachweis wirklich löschen?")) return;
+    if (!await bestaetige("Nachweis wirklich löschen?")) return;
     await fetch(`/api/sachkundenachweise?id=${id}`, { method: "DELETE" });
     setListe(l => l.filter(e => e.id !== id));
   }
 
   async function handleBelegDelete(id: number) {
-    if (!confirm("Dokument entfernen?")) return;
+    if (!await bestaetige("Dokument entfernen?")) return;
     await fetch(`/api/sachkundenachweise/${id}/beleg`, { method: "DELETE" });
     setListe(l => l.map(e => e.id === id ? { ...e, belegPfad: null, belegName: null } : e));
   }
@@ -66,7 +67,7 @@ export default function SachkundenachweiseTab({ kundeId }: { kundeId: number }) 
         Sentry.captureException(err);
         return ({});
       });
-      alert(err.error ?? "Upload fehlgeschlagen");
+      void melde(err.error ?? "Upload fehlgeschlagen");
     }
   }
 

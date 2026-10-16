@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -118,7 +119,7 @@ export default function AufgabeDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function deleteAufgabe() {
-    if (!confirm("Aufgabe löschen?")) return;
+    if (!await bestaetige("Aufgabe löschen?")) return;
     await fetch(`/api/aufgaben/${id}`, { method: "DELETE" });
     router.push("/aufgaben");
   }

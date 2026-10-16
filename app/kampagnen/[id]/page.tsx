@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -306,7 +307,7 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
   }
 
   async function handleDelete() {
-    if (!id || !confirm(`Kampagne "${data?.name}" wirklich löschen?`)) return;
+    if (!id || !await bestaetige(`Kampagne "${data?.name}" wirklich löschen?`)) return;
     setDeleting(true);
     try {
       await fetch(`/api/kampagnen/${id}`, { method: "DELETE" });

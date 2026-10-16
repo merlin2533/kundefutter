@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -380,7 +381,7 @@ export default function BestelllistePage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Position aus Bestellliste entfernen?")) return;
+    if (!await bestaetige("Position aus Bestellliste entfernen?")) return;
     setUpdating(id);
     await fetch(`/api/bestellliste/${id}`, { method: "DELETE" });
     setUpdating(null);

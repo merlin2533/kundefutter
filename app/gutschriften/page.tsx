@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
@@ -112,7 +113,7 @@ export default function GutschriftenPage() {
       hinweise.push("Bei der Erstellung zurückgebuchte Lagerware wird wieder aus dem Bestand entfernt.");
     }
     const confirmMsg = ["Gutschrift wirklich unwiderruflich löschen?", ...hinweise].join("\n\n");
-    if (!confirm(confirmMsg)) return;
+    if (!await bestaetige(confirmMsg)) return;
     const id = gs.id;
     setDeleting(id);
     const res = await fetch(`/api/gutschriften/${id}`, { method: "DELETE" });
@@ -120,7 +121,7 @@ export default function GutschriftenPage() {
       setGutschriften((prev) => prev.filter((g) => g.id !== id));
     } else {
       const data = await res.json();
-      alert(data.error ?? "Fehler beim Löschen");
+      void melde(data.error ?? "Fehler beim Löschen");
     }
     setDeleting(null);
   }

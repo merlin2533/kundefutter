@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { MargeBadge } from "@/components/Badge";
@@ -258,7 +259,7 @@ export default function LieferungenPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Lieferung wirklich löschen?")) return;
+    if (!await bestaetige("Lieferung wirklich löschen?")) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
@@ -273,7 +274,7 @@ export default function LieferungenPage() {
   }
 
   async function markiereGeliefert(id: number) {
-    if (!confirm("Auftrag als geliefert bestätigen und Lieferschein erstellen? Der Lagerbestand wird gebucht.")) return;
+    if (!await bestaetige("Auftrag als geliefert bestätigen und Lieferschein erstellen? Der Lagerbestand wird gebucht.")) return;
     setStatusChangingId(id);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
@@ -286,7 +287,7 @@ export default function LieferungenPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(d.error ?? "Status konnte nicht geändert werden");
+        void melde(d.error ?? "Status konnte nicht geändert werden");
         return;
       }
       await fetchLieferungen(page);

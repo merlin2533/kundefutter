@@ -1,4 +1,5 @@
 "use client";
+import { melde } from "@/lib/dialog";
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
@@ -803,7 +804,7 @@ ${firma.name || absenderzeile ? `<div class="absender">${[firma.name, absenderze
                     onClick={async () => {
                       const fullText = `${kiResult.anrede}\n\n${kiResult.text}\n\n${kiResult.gruss}`;
                       await navigator.clipboard.writeText(fullText);
-                      alert("Text in Zwischenablage kopiert");
+                      void melde("Text in Zwischenablage kopiert");
                     }}
                     className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded font-medium"
                   >

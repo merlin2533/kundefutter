@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -238,17 +239,17 @@ export default function AngebotDetailPage() {
   }
 
   async function handleAnnehmen() {
-    if (!confirm("Angebot annehmen?\n\nEs wird automatisch erstellt:\n• Lieferung (Status: geplant)\n• Rechnung mit Rechnungsnummer\n• Bestellpositionen\n\nNach Rechnungsstellung sind Preise gesperrt.")) return;
+    if (!await bestaetige("Angebot annehmen?\n\nEs wird automatisch erstellt:\n• Lieferung (Status: geplant)\n• Rechnung mit Rechnungsnummer\n• Bestellpositionen\n\nNach Rechnungsstellung sind Preise gesperrt.")) return;
     await handleUpdate({ aktion: "annehmen" });
   }
 
   async function handleAblehnen() {
-    if (!confirm("Angebot als abgelehnt markieren?")) return;
+    if (!await bestaetige("Angebot als abgelehnt markieren?")) return;
     await handleUpdate({ status: "ABGELEHNT" });
   }
 
   async function handleAbgelaufen() {
-    if (!confirm("Angebot als abgelaufen markieren?")) return;
+    if (!await bestaetige("Angebot als abgelaufen markieren?")) return;
     await handleUpdate({ status: "ABGELAUFEN" });
   }
 
@@ -304,7 +305,7 @@ export default function AngebotDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm("Angebot unwiderruflich löschen?")) return;
+    if (!await bestaetige("Angebot unwiderruflich löschen?")) return;
     try {
       const res = await fetch(`/api/angebote/${id}`, { method: "DELETE" });
       if (res.ok) {

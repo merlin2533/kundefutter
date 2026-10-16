@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Card } from "@/components/Card";
@@ -119,7 +120,7 @@ export default function BesuchstermineListPage() {
   }, [fetchTermine]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Besuchstermin wirklich löschen?")) return;
+    if (!await bestaetige("Besuchstermin wirklich löschen?")) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/besuchstermine?id=${id}`, { method: "DELETE" });
