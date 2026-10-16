@@ -39,6 +39,7 @@ export async function GET() {
        WHERE l.status = 'geliefert'
          AND l.bezahltAm IS NULL
          AND l.rechnungNr IS NOT NULL
+         AND l.rechnungStorniert IS NULL
        GROUP BY l.id, l.kundeId, k.name, k.firma,
                 l.rechnungNr, l.rechnungDatum, l.datum, l.zahlungsziel
        ORDER BY l.datum ASC

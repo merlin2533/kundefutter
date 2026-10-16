@@ -76,7 +76,7 @@ export async function POST() {
         `SELECT COALESCE(SUM(lp.menge * lp.verkaufspreis), 0) as summe
          FROM "Lieferposition" lp
          JOIN "Lieferung" l ON l.id = lp."lieferungId"
-         WHERE l."kundeId" = ? AND l.status = 'geliefert' AND l."bezahltAm" IS NULL`,
+         WHERE l."kundeId" = ? AND l.status = 'geliefert' AND l."bezahltAm" IS NULL AND l."rechnungStorniert" IS NULL`,
         kunde.id
       );
 
@@ -132,6 +132,7 @@ export async function POST() {
         bezahltAm: null,
         rechnungDatum: { lt: vierzehnTageVorHeute },
         status: "geliefert",
+        rechnungStorniert: null,
       },
       select: {
         id: true,

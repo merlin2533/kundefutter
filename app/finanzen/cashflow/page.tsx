@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
 import { formatEuro, formatDatum, berechneAusgabeBrutto } from "@/lib/utils";
+import { berechneLieferungBrutto, berechneSammelrechnungBrutto, type LieferpositionFuerBrutto } from "@/lib/lieferung-brutto";
 import * as Sentry from "@sentry/nextjs";
 
 interface Lieferung {
@@ -11,9 +12,10 @@ interface Lieferung {
   rechnungNr: string | null;
   rechnungDatum: string | null;
   bezahltAm: string | null;
-  gesamtbetrag: number;
+  rechnungStorniert: string | null;
   zahlungsziel: number | null;
   kunde: { id: number; name: string; firma: string | null } | null;
+  positionen: LieferpositionFuerBrutto[];
 }
 
 interface Eingangsrechnung {
@@ -28,13 +30,13 @@ interface Eingangsrechnung {
 
 interface Sammelrechnung {
   id: number;
-  nummer: string;
-  datum: string;
-  gesamtbetrag: number;
-  zahlungsstatus: string;
-  faelligAm: string | null;
+  rechnungNr: string | null;
+  rechnungDatum: string | null;
+  createdAt: string;
+  zahlungsziel: number | null;
   bezahltAm: string | null;
   kunde: { id: number; name: string; firma: string | null } | null;
+  lieferungen: { positionen: LieferpositionFuerBrutto[] }[];
 }
 
 interface Ausgabe {
@@ -61,6 +63,15 @@ function faelligAm(lieferung: Lieferung): Date | null {
   const basisDatum = lieferung.rechnungDatum ?? lieferung.datum;
   if (!basisDatum) return null;
   const ziel = lieferung.zahlungsziel ?? 30;
+  const d = new Date(basisDatum);
+  d.setDate(d.getDate() + ziel);
+  return d;
+}
+
+function sammelrechnungFaelligAm(s: Sammelrechnung): Date | null {
+  const basisDatum = s.rechnungDatum ?? s.createdAt;
+  if (!basisDatum) return null;
+  const ziel = s.zahlungsziel ?? 30;
   const d = new Date(basisDatum);
   d.setDate(d.getDate() + ziel);
   return d;
@@ -111,22 +122,22 @@ export default function CashflowPage() {
     load();
   }, []);
 
-  // Offene Forderungen: Lieferungen mit Rechnungsnr., nicht bezahlt
+  // Offene Forderungen: Lieferungen mit Rechnungsnr., nicht bezahlt. Eine stornierte
+  // Rechnung ist keine offene Forderung mehr (analog LieferhistorieTab.tsx) — ein
+  // Rechnungs-Storno setzt l.status nicht auf "storniert", daher eigene Prüfung nötig.
   const offeneForderungen = lieferungen.filter(
-    (l) => l.rechnungNr !== null && l.bezahltAm === null
+    (l) => l.rechnungNr !== null && l.bezahltAm === null && l.rechnungStorniert === null
   );
 
   // Offene Sammelrechnungen
-  const offeneSammel = sammelrechnungen.filter(
-    (s) => s.zahlungsstatus !== "bezahlt" && s.bezahltAm === null
-  );
+  const offeneSammel = sammelrechnungen.filter((s) => s.bezahltAm === null);
 
   const today = new Date();
 
   // Gesamtforderungen
   const forderungGesamt =
-    offeneForderungen.reduce((s, l) => s + (l.gesamtbetrag ?? 0), 0) +
-    offeneSammel.reduce((s, s2) => s + (s2.gesamtbetrag ?? 0), 0);
+    offeneForderungen.reduce((s, l) => s + berechneLieferungBrutto(l), 0) +
+    offeneSammel.reduce((s, s2) => s + berechneSammelrechnungBrutto(s2), 0);
 
   // Überfällige Forderungen
   const ueberfaelligeForderungen = offeneForderungen.filter((l) => {
@@ -134,12 +145,12 @@ export default function CashflowPage() {
     return f !== null && f < today;
   });
   const ueberfaelligSammel = offeneSammel.filter((s) => {
-    if (!s.faelligAm) return false;
-    return new Date(s.faelligAm) < today;
+    const f = sammelrechnungFaelligAm(s);
+    return f !== null && f < today;
   });
   const forderungUeberfaellig =
-    ueberfaelligeForderungen.reduce((s, l) => s + (l.gesamtbetrag ?? 0), 0) +
-    ueberfaelligSammel.reduce((s, s2) => s + (s2.gesamtbetrag ?? 0), 0);
+    ueberfaelligeForderungen.reduce((s, l) => s + berechneLieferungBrutto(l), 0) +
+    ueberfaelligSammel.reduce((s, s2) => s + berechneSammelrechnungBrutto(s2), 0);
 
   // Offene Verbindlichkeiten
   const verbindlichkeitGesamt = eingangsrechnungen.reduce(
@@ -324,7 +335,7 @@ export default function CashflowPage() {
                               )}
                             </td>
                             <td className="px-4 py-3 text-right font-mono font-semibold whitespace-nowrap">
-                              {formatEuro(l.gesamtbetrag ?? 0)}
+                              {formatEuro(berechneLieferungBrutto(l))}
                             </td>
                             <td className="px-4 py-3 text-right whitespace-nowrap text-gray-600 hidden sm:table-cell">
                               {fDate ? fDate.toLocaleDateString("de-DE") : "–"}
@@ -359,7 +370,7 @@ export default function CashflowPage() {
                         <td className="px-4 py-3 text-right font-bold text-gray-900 font-mono whitespace-nowrap">
                           {formatEuro(
                             sortedForderungen.reduce(
-                              (s, l) => s + (l.gesamtbetrag ?? 0),
+                              (s, l) => s + berechneLieferungBrutto(l),
                               0
                             )
                           )}

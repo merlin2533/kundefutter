@@ -21,6 +21,7 @@ export async function GET() {
         rechnungDatum: true,
         status: true,
         bezahltAm: true,
+        rechnungStorniert: true,
         positionen: {
           select: {
             menge: true,
@@ -48,6 +49,7 @@ export async function GET() {
         rechnungDatum: l.rechnungDatum,
         status: l.status,
         bezahlt: !!l.bezahltAm,
+        storniert: !!l.rechnungStorniert,
         gesamtBetrag,
       };
     });

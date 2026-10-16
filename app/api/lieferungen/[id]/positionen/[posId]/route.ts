@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { istLagerrelevant } from "@/lib/utils";
 import { GUETEKLASSEN, GEWICHTSKLASSEN, istGueltigerErzeugercode } from "@/lib/auswahllisten";
 import { getModulConfig } from "@/lib/modul-config";
+import { syncStreckenbestellungMenge } from "@/lib/streckenbestellung";
 import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
@@ -173,7 +174,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
     const pos = await prisma.lieferposition.findUnique({
       where: { id: positionId },
-      select: { lieferungId: true, lieferung: { select: { rechnungNr: true, rechnungVersendetAm: true } } },
+      select: { lieferungId: true, artikelId: true, lieferung: { select: { rechnungNr: true, rechnungVersendetAm: true } } },
     });
     if (!pos || pos.lieferungId !== lieferungId) {
       return NextResponse.json({ error: "Position nicht gefunden" }, { status: 404 });
@@ -187,9 +188,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (betragsrelevant && pos.lieferung.rechnungVersendetAm) {
       return NextResponse.json({ error: "Diese Rechnung wurde bereits versendet — Menge, Preis und Rabatt dürfen nicht mehr geändert werden." }, { status: 400 });
     }
-    const updated = await prisma.lieferposition.update({
-      where: { id: positionId },
-      data: updateData,
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.lieferposition.update({
+        where: { id: positionId },
+        data: updateData,
+      });
+      // Streckengeschäft: eine nachträglich korrigierte Menge zieht die beim Lieferanten
+      // einzureichende Bestellmenge mit nach, solange die Bestellung noch nicht versendet wurde
+      // (siehe lib/streckenbestellung.ts) — reiner No-op, falls es gar keine Streckenbestellung
+      // zu dieser Position gibt.
+      if (updateData.menge !== undefined) {
+        await syncStreckenbestellungMenge(tx, lieferungId, pos.artikelId, updateData.menge);
+      }
+      return result;
     });
     return NextResponse.json(updated);
   } catch (err) {

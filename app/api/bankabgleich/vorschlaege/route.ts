@@ -24,6 +24,9 @@ export interface Vorschlag {
   /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
    * Kunden berechnet wurde — der Kunde hat sie bereits selbst von der Überweisung abgezogen. */
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  /** true = amountDiff wurde gegen den Rechnungsbetrag abzüglich bereits erfasster Teilzahlung(en)
+   * berechnet — eine Restzahlung nach einer vorherigen Teilüberweisung, kein echter Fehlbetrag. */
+  teilzahlungMatch?: boolean;
   /** Nur bei typ "lieferung": ALLE aktuell offenen Gutschriften desselben Kunden (nicht nur die
    * eine, die ggf. zu gutschriftMatch passt) — für die Mehrfachauswahl im Bankabgleich, wenn eine
    * Zahlung mehrere Rechnungen UND mehrere Gutschriften auf einmal abdeckt (z.B. Verwendungszweck
@@ -51,7 +54,8 @@ function zuVorschlag(
   dayDiff: number,
   textScore: number,
   skontoMatch = false,
-  gutschriftMatch?: { id: number; nummer: string; betrag: number }
+  gutschriftMatch?: { id: number; nummer: string; betrag: number },
+  teilzahlungMatch = false
 ): Vorschlag {
   return {
     typ: c.kind,
@@ -66,6 +70,7 @@ function zuVorschlag(
     wirdBezahltAm,
     skontoMatch,
     gutschriftMatch,
+    teilzahlungMatch,
     offeneGutschriften: c.offeneGutschriften,
   };
 }
@@ -93,8 +98,8 @@ export async function GET(req: NextRequest) {
     if (q.length >= 2) {
       const treffer = await sucheKandidatenFuerBetrag(umsatz.betrag, q);
       const vorschlaege = treffer.slice(0, MAX_SUCHTREFFER).map((c) => {
-        const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, bank.amount);
-        return zuVorschlag(c, bank.date, amountDiff, daysBetween(bank.date, c.date), 0, skontoMatch, gutschriftMatch);
+        const { amountDiff, skontoMatch, gutschriftMatch, teilzahlungMatch } = bestimmeBetragsabweichung(c, bank.amount);
+        return zuVorschlag(c, bank.date, amountDiff, daysBetween(bank.date, c.date), 0, skontoMatch, gutschriftMatch, teilzahlungMatch);
       });
       return NextResponse.json(vorschlaege);
     }
@@ -118,11 +123,11 @@ export async function GET(req: NextRequest) {
       if (!bereitsVorhanden.has(key)) nummerTreffer.set(key, c);
     }
     const zusaetzlich = [...nummerTreffer.values()].map((c) => {
-      const { amountDiff, skontoMatch, gutschriftMatch } = bestimmeBetragsabweichung(c, bank.amount);
-      return { candidate: c, amountDiff, dayDiff: daysBetween(bank.date, c.date), textScore: pairTextScore(bank, c), skontoMatch, gutschriftMatch };
+      const { amountDiff, skontoMatch, gutschriftMatch, teilzahlungMatch } = bestimmeBetragsabweichung(c, bank.amount);
+      return { candidate: c, amountDiff, dayDiff: daysBetween(bank.date, c.date), textScore: pairTextScore(bank, c), skontoMatch, gutschriftMatch, teilzahlungMatch };
     });
 
-    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore, r.skontoMatch, r.gutschriftMatch));
+    const vorschlaege = [...ranked, ...zusaetzlich].map((r) => zuVorschlag(r.candidate, bank.date, r.amountDiff, r.dayDiff, r.textScore, r.skontoMatch, r.gutschriftMatch, r.teilzahlungMatch));
 
     return NextResponse.json(vorschlaege);
   } catch (err) {

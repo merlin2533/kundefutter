@@ -39,6 +39,9 @@ interface AbgleichPaar {
   /** Gesetzt, wenn amountDiff gegen den Rechnungsbetrag abzüglich einer OFFENEN Gutschrift des
    * Kunden berechnet wurde — der Kunde hat sie bereits selbst von der Überweisung abgezogen. */
   gutschriftMatch?: { id: number; nummer: string; betrag: number };
+  /** true = amountDiff wurde gegen den Rechnungsbetrag abzüglich bereits erfasster Teilzahlung(en)
+   * berechnet — eine Restzahlung nach einer vorherigen Teilüberweisung, kein echter Fehlbetrag. */
+  teilzahlungMatch: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest) {
       verwendungszweck: b.purpose,
       gegenpartei: b.name,
     });
-    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number; skontoMatch?: boolean; gutschriftMatch?: { id: number; nummer: string; betrag: number } }): AbgleichPaar => ({
+    const toPaar = (p: { bank: (typeof bankBuchungen)[number]; candidate: (typeof kandidaten)[number]; amountDiff: number; dayDiff: number; textScore?: number; skontoMatch?: boolean; gutschriftMatch?: { id: number; nummer: string; betrag: number }; teilzahlungMatch?: boolean }): AbgleichPaar => ({
       bank: toBankInfo(p.bank),
       kandidat: toKandidatInfo(p.candidate),
       amountDiff: p.amountDiff,
@@ -101,6 +104,7 @@ export async function POST(req: NextRequest) {
       wirdBezahltAm: p.bank.date,
       skontoMatch: p.skontoMatch ?? false,
       gutschriftMatch: p.gutschriftMatch,
+      teilzahlungMatch: p.teilzahlungMatch ?? false,
     });
 
     return NextResponse.json({

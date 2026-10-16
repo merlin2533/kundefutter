@@ -255,8 +255,10 @@ export default function KundeDetailPage() {
         const phone = kunde.kontakte.find((k) => k.typ === "telefon" || k.typ === "mobil");
         const email = kunde.kontakte.find((k) => k.typ === "email");
         const geliefert = kunde.lieferungen.filter((l) => l.status === "geliefert");
+        // Eine stornierte Rechnung ist keine offene Forderung mehr (analog LieferhistorieTab.tsx) —
+        // ein Rechnungs-Storno setzt l.status NICHT auf "storniert", daher eigene Prüfung nötig.
         const offeneRechnungen = geliefert
-          .filter((l) => !l.bezahltAm)
+          .filter((l) => !l.bezahltAm && !l.rechnungStorniert)
           .sort((a, b) => new Date(a.datum).getTime() - new Date(b.datum).getTime());
         const offen = offeneRechnungen.reduce((s, l) => s + lieferungTotal(l), 0);
         const letzteL = [...kunde.lieferungen].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime()).slice(0, 3);

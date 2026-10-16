@@ -67,7 +67,7 @@ async function jobDigestEmail(): Promise<JobResult> {
         : Promise.resolve([]),
       get("cron.digest.mahnwesen") === "1"
         ? prisma.lieferung.findMany({
-            where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null } },
+            where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
             include: {
               kunde: { select: { name: true } },
               positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },

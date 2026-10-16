@@ -53,6 +53,9 @@ export default function VorgangskettTab({ kundeId, lieferungen, onRefresh }: { k
 
   function lieferungStepColor(l: Lieferung) {
     if (l.status === "storniert") return "bg-red-400 border-red-400 text-white";
+    // Rechnungs-Storno (nur die Rechnung, nicht die ganze Lieferung) — eigene Farbe, damit
+    // sie nicht als "Rechnung gestellt, noch offen" (gelb) missverstanden wird.
+    if (l.rechnungStorniert) return "bg-gray-300 border-gray-300 text-white";
     if (l.bezahltAm) return "bg-green-500 border-green-500 text-white";
     if (l.rechnungNr) return "bg-yellow-400 border-yellow-400 text-white";
     if (l.status === "geliefert") return "bg-blue-400 border-blue-400 text-white";
@@ -62,6 +65,12 @@ export default function VorgangskettTab({ kundeId, lieferungen, onRefresh }: { k
   function zahlungsInfo(l: Lieferung): { label: string; cls: string; faelligText: string } {
     if (!l.rechnungNr || l.status !== "geliefert") {
       return { label: "", cls: "", faelligText: "" };
+    }
+    // Ein Rechnungs-Storno setzt NICHT l.status auf "storniert" — ohne diese Prüfung läuft eine
+    // stornierte, unbezahlte Rechnung in die normale Fälligkeitsberechnung und erscheint
+    // fälschlich als "Überfällig" (analog zum selben Fix in LieferhistorieTab.tsx).
+    if (l.rechnungStorniert) {
+      return { label: "Storniert", cls: "bg-gray-100 text-gray-500", faelligText: "" };
     }
     if (l.bezahltAm) {
       return {
