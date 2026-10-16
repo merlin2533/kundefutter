@@ -1,3 +1,4 @@
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fetchCurrentMeasurement } from "@/lib/pegelonline";
@@ -70,9 +71,12 @@ async function jobDigestEmail(): Promise<JobResult> {
             where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
             include: {
               kunde: { select: { name: true } },
-              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true } },
+              teilzahlungen: { select: { betrag: true } },
+              positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
             },
-            take: 100,
+            // älteste (am längsten überfällige) zuerst, großzügiger Deckel
+            orderBy: { datum: "asc" },
+            take: 1000,
           })
         : Promise.resolve([]),
       get("cron.digest.sachkunde") === "1"
@@ -100,7 +104,8 @@ async function jobDigestEmail(): Promise<JobResult> {
       // verkaufspreis ist der Listenpreis (siehe lib/lieferung.ts) — rabattProzent muss deshalb
       // eingerechnet werden, sonst zeigt das Mahnwesen-Digest bei rabattierten Positionen einen
       // zu hohen überfälligen Betrag.
-      const betrag = (l as { positionen: { menge: number; verkaufspreis: number; rabattProzent?: number | null }[] }).positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
+      const betrag = berechneOffenenBetrag(l as unknown as Parameters<typeof berechneOffenenBetrag>[0]);
+      if (betrag <= 0) continue;
       mahnItems.push({ kundeName: l.kunde.name, rechnungNr: (l as { rechnungNr?: string | null }).rechnungNr ?? null, betrag: Math.round(betrag * 100) / 100, tageUeberfaellig: tage });
     }
 
