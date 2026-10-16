@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { Sentry } from "@/lib/sentry";
@@ -5,6 +7,10 @@ import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     // Ein einfaches "DELETE FROM kunden_fts"/"DELETE FROM artikel_fts" scheitert bei diesen
     // external-content FTS5-Tabellen zuverlässig mit "no such column: T.kunde_id"/"T.artikel_id":

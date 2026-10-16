@@ -216,6 +216,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.$transaction(async (tx) => {
       for (const quelleId of quellIds) {
+        await tx.lieferantKontakt.updateMany({ where: { lieferantId: quelleId }, data: { lieferantId: zielId } });
         const zuordnungen = await tx.artikelLieferant.findMany({ where: { lieferantId: quelleId } });
 
         for (const z of zuordnungen) {

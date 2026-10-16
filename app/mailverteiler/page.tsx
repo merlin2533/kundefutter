@@ -69,7 +69,7 @@ export default function MailverteilerPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch("/api/kunden")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
       .then((data: Kunde[]) => {
         setAllKunden(data);

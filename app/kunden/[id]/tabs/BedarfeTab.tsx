@@ -41,7 +41,7 @@ export default function BedarfeTab({ kunde, onRefresh }: { kunde: Kunde; onRefre
   const [pArtikelId, setPArtikelId] = useState("");
 
   useEffect(() => {
-    fetch("/api/artikel?aktiv=true")
+    fetch("/api/artikel?aktiv=true&limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch((err) => {

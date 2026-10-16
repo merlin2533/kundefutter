@@ -238,6 +238,7 @@ function NeueLieferungInner() {
   const [mengenrabatte, setMengenrabatte] = useState<MengenrabattEintrag[]>([]);
   // Doppelbestellung-Warnung je Position (keyed by pos.key, nicht Index — Zeilen können
   // gelöscht werden, ein Index-Mapping würde dann die falsche Zeile treffen).
+  const [fefoHinweise, setFefoHinweise] = useState<Record<string, { stufe: "info" | "warnung" | null; hinweis: string | null } | null>>({});
   const [doppelWarnungen, setDoppelWarnungen] = useState<Record<string, DoppelbestellungTreffer | null>>({});
 
   // Erzeugercodes bereits geladener Kunden — Autocomplete-Vorschläge für das Erzeugercode-Feld
@@ -432,6 +433,39 @@ function NeueLieferungInner() {
     return () => { aborted = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kundeId, doppelCheckSchluessel]);
+
+  // FEFO-Hinweis (First Expired, First Out) für Ei-Positionen: nur Artikel+Charge als primitiver
+  // Schlüssel, damit Menge/Preis-Eingaben keinen Request auslösen; Chargen-Eingabe entprellt.
+  const fefoSchluessel = useMemo(
+    () => positionen
+      .filter((p) => p.artikelId !== "" && artikel.find((a) => a.id === Number(p.artikelId))?.kategorie === "Eier")
+      .map((p) => `${p.key}:${p.artikelId}:${p.chargeNr}`)
+      .join("|"),
+    [positionen, artikel]
+  );
+  useEffect(() => {
+    if (!eierhandelAn || !fefoSchluessel) { setFefoHinweise({}); return; }
+    let aborted = false;
+    const timer = setTimeout(async () => {
+      const ziele = fefoSchluessel.split("|").map((s) => s.split(":"));
+      const eintraege = await Promise.all(
+        ziele.map(async ([key, artikelId, ...rest]) => {
+          const chargeNr = rest.join(":");
+          try {
+            const res = await fetch(`/api/eierkontrolle/fefo?artikelId=${artikelId}&chargeNr=${encodeURIComponent(chargeNr)}`);
+            if (!res.ok) return [key, null] as const;
+            const data = await res.json();
+            return [key, data.hinweis ? { stufe: data.stufe, hinweis: data.hinweis } : null] as const;
+          } catch (err) {
+            Sentry.captureException(err);
+            return [key, null] as const;
+          }
+        })
+      );
+      if (!aborted) setFefoHinweise(Object.fromEntries(eintraege));
+    }, 400);
+    return () => { aborted = true; clearTimeout(timer); };
+  }, [eierhandelAn, fefoSchluessel]);
 
   // Ob mind. eine Position einen Sprengstoffvorläufer-Artikel enthält — als eigener,
   // primitiver useMemo-Wert statt direkt `positionen` als Effekt-Dependency zu nutzen: die
@@ -1008,6 +1042,16 @@ function NeueLieferungInner() {
                                   Lieferung ansehen →
                                 </Link>
                               </span>
+                            </div>
+                          )}
+                          {fefoHinweise[pos.key]?.hinweis && (
+                            <div className={`mt-1.5 flex items-start gap-1.5 p-2 rounded border text-xs ${
+                              fefoHinweise[pos.key]!.stufe === "warnung"
+                                ? "border-amber-300 bg-amber-50 text-amber-800"
+                                : "border-blue-200 bg-blue-50 text-blue-800"
+                            }`}>
+                              <span className="leading-none">{fefoHinweise[pos.key]!.stufe === "warnung" ? "⚠" : "ℹ"}</span>
+                              <span>{fefoHinweise[pos.key]!.hinweis}</span>
                             </div>
                           )}
                           {/* Charge field — shown below when article is selected */}

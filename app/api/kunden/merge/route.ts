@@ -265,6 +265,8 @@ export async function POST(req: NextRequest) {
       await Promise.all([
         tx.kundeKontakt.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeNotiz.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
+        tx.kundeForderung.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
+        tx.rechnungsuebersicht.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeAktivitaet.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeSchlag.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.lieferung.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),

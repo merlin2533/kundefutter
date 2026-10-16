@@ -40,10 +40,10 @@ export default function NeuerMengenrabattPage() {
   const gewaehlterArtikel = artikel.find((a) => String(a.id) === formArtikelId);
 
   useEffect(() => {
-    fetch("/api/artikel?aktiv=true")
+    fetch("/api/artikel?aktiv=true&limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []));
-    fetch("/api/kunden")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setKunden(Array.isArray(d) ? d : []));
     fetch("/api/einstellungen?prefix=system.")

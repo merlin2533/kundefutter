@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
       where: {
         status: "geliefert",
         rechnungNr: { not: null },
+        rechnungStorniert: null,
         rechnungDatum: { gte: von, lte: bis },
       },
       select: {

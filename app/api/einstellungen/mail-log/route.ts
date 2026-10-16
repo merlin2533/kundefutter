@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -5,6 +7,10 @@ export const dynamic = "force-dynamic";
 
 // GET /api/einstellungen/mail-log — Liste der letzten 200 Mails
 export async function GET() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const logs = await prisma.mailLog.findMany({
       orderBy: { zeitpunkt: "desc" },
@@ -29,6 +35,10 @@ export async function GET() {
 
 // DELETE /api/einstellungen/mail-log?id=X
 export async function DELETE(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const id = parseInt(req.nextUrl.searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
   try {

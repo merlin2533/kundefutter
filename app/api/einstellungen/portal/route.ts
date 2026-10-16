@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
@@ -6,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 // GET /api/einstellungen/portal — alle Kunden mit Portal-Zugang-Status
 export async function GET() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const zugaenge = await prisma.kundePortalZugang.findMany({
       include: {
@@ -24,6 +30,10 @@ export async function GET() {
 
 // POST /api/einstellungen/portal — neuen Zugang erstellen
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const body = await req.json();
     const kundeId = parseInt(String(body.kundeId), 10);
@@ -61,6 +71,10 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/einstellungen/portal?id=X — Zugang bearbeiten (aktiv, Passwort-Reset)
 export async function PUT(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });
@@ -94,6 +108,10 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/einstellungen/portal?id=X
 export async function DELETE(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const { searchParams } = new URL(req.url);
   const id = parseInt(searchParams.get("id") ?? "", 10);
   if (isNaN(id)) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

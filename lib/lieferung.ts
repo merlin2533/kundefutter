@@ -330,7 +330,10 @@ export async function markiereLieferungGeliefertFallsGeplant(tx: Tx, lieferungId
       if (pos.lagerBereitsGebucht) continue;
       const artikel = artikelMap.get(pos.artikelId);
       if (!artikel || !istLagerrelevant(artikel.kategorie)) continue;
+      // Bestand lokal fortschreiben: zwei Positionen desselben Artikels würden sonst beide
+      // vom ursprünglich gelesenen Bestand abziehen (Lost-Update, nur einmal abgebucht).
       const neuerBestand = artikel.aktuellerBestand - pos.menge;
+      artikel.aktuellerBestand = neuerBestand;
       await tx.artikel.update({ where: { id: pos.artikelId }, data: { aktuellerBestand: neuerBestand } });
       await tx.lagerbewegung.create({
         data: { artikelId: pos.artikelId, typ: "ausgang", menge: -pos.menge, bestandNach: neuerBestand, lieferungId },

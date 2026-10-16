@@ -223,7 +223,7 @@ export default function KampagneDetailPage({ params }: { params: Promise<{ id: s
 
   function sucheKundenNachKriterien() {
     setLoadingVorschau(true);
-    const params = new URLSearchParams({ aktiv: "true", limit: "200", kontakte: "false" });
+    const params = new URLSearchParams({ aktiv: "true", limit: "5000", kontakte: "false" });
     if (editKriterien.ort) params.set("ort", editKriterien.ort);
     if (editKriterien.plz) params.set("plz", editKriterien.plz);
     if (editKriterien.kategorie) params.set("kategorie", editKriterien.kategorie);

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { Sentry } from "@/lib/sentry";
 import { log } from "@/lib/logger";
@@ -30,6 +32,10 @@ export async function GET() {
 // GlitchTip. Liefert die Sentry-eventId zurück — taucht sie in GlitchTip
 // nicht auf, liegt es an DSN/Netzwerk/Projekt-Konfiguration, nicht am Code.
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const body = await req.json().catch((err) => {
       // Kein gültiger JSON-Body ist hier unkritisch (das Feld ist optional),

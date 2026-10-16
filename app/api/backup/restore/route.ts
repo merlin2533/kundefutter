@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
@@ -21,6 +23,10 @@ export const dynamic = "force-dynamic";
  *   - Prozess beendet sich (Docker startet automatisch neu)
  */
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const contentType = req.headers.get("content-type") ?? "";
   const backupDir = getBackupDir();
 

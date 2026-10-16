@@ -8,6 +8,12 @@ import { istGradierteErzeugerabrechnung } from "@/lib/anlieferung";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
+import {
+  EierSortierungValidierungsFehler,
+  validiereEierSortierungPositionen,
+  aktualisiereEierSortierung,
+  parsePositionenInput,
+} from "@/lib/eiersortierung";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -35,6 +41,57 @@ export async function GET(_req: NextRequest, ctx: Params) {
   } catch (err) {
     Sentry.captureException(err);
     return NextResponse.json({ error: "Datenbankfehler" }, { status: 500 });
+  }
+}
+
+// PUT /api/eiersortierung/[id] — ersetzt Datum, Notiz und Positionen; der Lagerbestand wird per
+// Differenzbuchung abgeglichen (siehe aktualisiereEierSortierung()). Die Anlieferung bleibt gleich.
+export async function PUT(req: NextRequest, ctx: Params) {
+  try {
+    const modul = await getModulConfig();
+    const denyModul = requireModul(modul, "eierhandel");
+    if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EIER_SORTIERUNG_ERSTELLEN);
+    if (denyPerm) return denyPerm;
+
+    const { id } = await ctx.params;
+    const sortierungId = parseInt(id, 10);
+    if (isNaN(sortierungId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
+
+    let body;
+    try {
+      body = await req.json();
+    } catch (err) {
+      Sentry.captureException(err);
+      return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+    }
+    if (!Array.isArray(body.positionen) || body.positionen.length === 0) {
+      return NextResponse.json({ error: "positionen erforderlich" }, { status: 400 });
+    }
+    let datum = new Date();
+    if (body.datum) {
+      datum = new Date(body.datum);
+      if (isNaN(datum.getTime())) return NextResponse.json({ error: "Ungültiges Datum" }, { status: 400 });
+    }
+
+    const positionen = parsePositionenInput(body.positionen);
+    validiereEierSortierungPositionen(positionen);
+
+    const ergebnis = await prisma.$transaction((tx) =>
+      aktualisiereEierSortierung(tx, sortierungId, {
+        datum,
+        notiz: typeof body.notiz === "string" && body.notiz.trim() ? body.notiz.trim() : null,
+        positionen,
+      }),
+    );
+    return NextResponse.json(ergebnis);
+  } catch (err) {
+    if (err instanceof EierSortierungValidierungsFehler) {
+      return NextResponse.json({ error: err.message }, { status: err.message === "Sortierung nicht gefunden" ? 404 : 400 });
+    }
+    Sentry.captureException(err);
+    return NextResponse.json({ error: "Fehler beim Speichern der Ei-Sortierung" }, { status: 500 });
   }
 }
 
