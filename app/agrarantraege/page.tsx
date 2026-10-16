@@ -110,7 +110,7 @@ export default function AgrarantraegeePage() {
     setLinkItem(item);
     setLinkSearch(item.name.split(" ").slice(0, 2).join(" "));
     setUpdateFlaeche(item.egflGesamt > 0);
-    const res = await fetch("/api/kunden");
+    const res = await fetch("/api/kunden?limit=5000");
     const data = await res.json();
     setLinkKunden(Array.isArray(data) ? data : []);
   }

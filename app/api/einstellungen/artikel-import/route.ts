@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { STAMMDATEN_GRUPPEN, ALLE_STAMMDATEN_ARTIKEL } from "@/lib/artikel-stammdaten";
@@ -13,6 +15,10 @@ export const dynamic = "force-dynamic";
  *  GET ?action=sync-inhaltsstoffe  → Inhaltsstoffe aus Stammdaten auf vorhandene Artikel übertragen
  *  GET (kein action)               → JSON-Statusübersicht */
 export async function GET(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const action = new URL(req.url).searchParams.get("action");
 
   // ── Inhaltsstoffe synchronisieren ─────────────────────────────────────────
@@ -280,6 +286,10 @@ async function importZeile(
 /** POST (JSON)      – interner Stammdaten-Import (nach Gruppe)
  *  POST (multipart) – Excel-Upload */
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const contentType = req.headers.get("content-type") ?? "";
 
   // ── Excel-Upload ───────────────────────────────────────────────────────────

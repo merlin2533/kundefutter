@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
@@ -55,6 +57,10 @@ type ZeileErgebnis = {
 // ─── GET: Vorlage oder Lieferantenliste ──────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const action = new URL(req.url).searchParams.get("action");
 
   if (action === "template") {
@@ -110,6 +116,10 @@ export async function GET(req: NextRequest) {
 // ─── POST JSON: Import anwenden ──────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const contentType = req.headers.get("content-type") ?? "";
 
   // Analyse / Vorschau

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { createInterface } from "readline";
 import { Readable } from "stream";
@@ -281,6 +283,10 @@ async function streamAndInsert(
 //   2. JSON { action: "url", url: "https://..." }
 //   3. JSON { action: "serverpath", path: "/absolute/path/to/file.csv" }
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "agrarantraege");
   if (denyModul) return denyModul;

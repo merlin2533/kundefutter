@@ -107,7 +107,7 @@ export default function ExportePage() {
   const [bulkCount, setBulkCount] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/kunden")
+    fetch("/api/kunden?limit=5000")
       .then((r) => r.json())
       .then((d) => setKunden(Array.isArray(d) ? d : []))
       .catch((err) => {

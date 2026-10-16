@@ -20,7 +20,7 @@ export default function SonderpreiseTab({ kunde, onRefresh }: { kunde: Kunde; on
   const [loadingJahrespreiseFor, setLoadingJahrespreiseFor] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/artikel?aktiv=true")
+    fetch("/api/artikel?aktiv=true&limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((d) => setArtikel(Array.isArray(d) ? d : []))
       .catch((err) => {
