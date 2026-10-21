@@ -83,7 +83,7 @@ export async function GET() {
         kunde: { select: { id: true, name: true, firma: true } },
         positionen: { select: { menge: true, verkaufspreis: true } },
       },
-      take: 100,
+      take: 5000,
     }),
     prisma.kundeBedarf.findMany({
       where: { aktiv: true },
