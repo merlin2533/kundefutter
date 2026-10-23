@@ -21,9 +21,9 @@
   "dependencies": {
     "@libsql/client": "^0.17.2",
     "@mistralai/mistralai": "^2.3.0",
-    "@prisma/adapter-libsql": "^7.6.0",
-    "@prisma/client": "^7.6.0",
-    "@sentry/nextjs": "^10.56.0",
+    "@prisma/adapter-libsql": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "@sentry/nextjs": "^10.76.2",
     "bcryptjs": "^3.0.3",
     "fast-xml-parser": "^5.3.2",
     "imapflow": "^2.1.2",
@@ -34,10 +34,10 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.7.0",
     "mailparser": "^3.9.31",
-    "next": "16.2.10",
-    "nodemailer": "^9.0.3",
+    "next": "16.4.3",
+    "nodemailer": "^10.2.1",
     "pdf-lib": "^1.17.1",
-    "prisma": "^7.6.0",
+    "prisma": "^7.10.1",
     "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -50,7 +50,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/leaflet": "^1.9.21",
     "@types/mailparser": "^3.4.6",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/nodemailer": "^8.0.1",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
@@ -61,6 +61,6 @@
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.5"
   }
 }
