@@ -95,8 +95,7 @@ export async function GET() {
         teilzahlungen: { select: { betrag: true } },
         positionen: { select: { menge: true, verkaufspreis: true, rabattProzent: true, mwstSatz: true } },
       },
-      orderBy: { datum: "asc" },
-      take: 100,
+      take: 5000,
     }),
     prisma.lieferung.count({
       where: { status: "geliefert", bezahltAm: null, rechnungNr: { not: null }, rechnungStorniert: null },
