@@ -3,6 +3,7 @@ import { heuteIso } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 interface QuellPosition {
   quelle: "vorbestellung" | "lieferung" | "angebot";
@@ -56,6 +57,7 @@ function datum(d: string): string {
 }
 
 type Filter = "offen" | "bestellt" | "alle";
+type QuelleFilter = "alle" | "vorbestellung";
 
 function loadEinkaufszettelFilters() {
   try { return JSON.parse(sessionStorage.getItem("einkaufszettel-filters") ?? "{}") as Record<string, string>; } catch (err) {
@@ -65,42 +67,49 @@ function loadEinkaufszettelFilters() {
 }
 
 export default function EinkaufszettelPage() {
+  const toast = useToast();
   const [gruppen, setGruppen] = useState<Gruppe[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("offen");
+  const [quelleFilter, setQuelleFilter] = useState<QuelleFilter>("alle");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [bestelldatum, setBestelldatum] = useState<string>(() => heuteIso());
 
-  async function load() {
+  async function load(quelle: QuelleFilter) {
     setLoading(true);
-    const res = await fetch("/api/einkaufszettel");
+    const url = quelle === "vorbestellung" ? "/api/einkaufszettel?quelle=vorbestellung" : "/api/einkaufszettel";
+    const res = await fetch(url);
     const data = res.ok ? await res.json() : [];
     setGruppen(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 
+  // Lädt bei jedem Wechsel des Quellen-Filters neu — erst, nachdem ein evtl. gespeicherter
+  // Filter wiederherstellt wurde (sonst ein unnötiger doppelter Lade-Request beim Mount).
   useEffect(() => {
-    load();
-  }, []);
+    if (!filtersLoaded) return;
+    load(quelleFilter);
+  }, [filtersLoaded, quelleFilter]);
 
   // Gespeicherte Filter erst nach dem Mount (clientseitig) wiederherstellen — hält den
   // ersten Client-Render identisch zum Server-Render und vermeidet so den Hydration-Mismatch.
   useEffect(() => {
     const f = loadEinkaufszettelFilters();
     if (f.filter) setFilter(f.filter as Filter);
+    if (f.quelleFilter === "vorbestellung") setQuelleFilter("vorbestellung");
     setFiltersLoaded(true);
   }, []);
 
   // Persist filters to sessionStorage on change (erst nach dem Wiederherstellen, sonst überschreiben wir die gespeicherten Werte)
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { sessionStorage.setItem("einkaufszettel-filters", JSON.stringify({ filter })); } catch (err) {
+    try { sessionStorage.setItem("einkaufszettel-filters", JSON.stringify({ filter, quelleFilter })); } catch (err) {
       Sentry.captureException(err);
       /* ignore */
     }
-  }, [filtersLoaded, filter]);
+  }, [filtersLoaded, filter, quelleFilter]);
 
   function toggle(key: string) {
     setExpanded((prev) => {
@@ -135,7 +144,34 @@ export default function EinkaufszettelPage() {
       }),
     });
     setBusy(false);
-    load();
+    load(quelleFilter);
+  }
+
+  // Legt eine Bestellliste-Position für diese Lieferant+Artikel-Zeile an (oder addiert auf
+  // eine bestehende, noch nicht gebündelte) und markiert die zugrunde liegenden offenen
+  // Vorbestellungen serverseitig atomar als übernommen — siehe POST /api/einkaufszettel.
+  async function uebernehmen(lieferantId: number, artikelId: number) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/einkaufszettel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aktion: "uebernehmen", lieferantId, artikelId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || "In Bestellliste übernehmen fehlgeschlagen");
+        return;
+      }
+      toast.success(
+        `${menge(data.menge)} ${data.einheit} aus ${data.anzahlVorbestellungen} Vorbestellung${
+          data.anzahlVorbestellungen !== 1 ? "en" : ""
+        } in die Bestellliste übernommen (Position #${data.bestellpositionId}).`
+      );
+      load(quelleFilter);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Zeilen je nach Filter
@@ -180,6 +216,22 @@ export default function EinkaufszettelPage() {
           )}
         </div>
         <div className="flex flex-col items-end gap-2 print-hidden">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500">Quelle:</label>
+            <div className="flex gap-1">
+              {(["alle", "vorbestellung"] as const).map((qf) => (
+                <button
+                  key={qf}
+                  onClick={() => setQuelleFilter(qf)}
+                  className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                    quelleFilter === qf ? "bg-lime-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  }`}
+                >
+                  {qf === "alle" ? "Alle" : "Nur Vorbestellungen"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-1">
             {(["offen", "bestellt", "alle"] as const).map((f) => (
               <button
@@ -299,6 +351,15 @@ export default function EinkaufszettelPage() {
                             </div>
                           </div>
                           <div className="flex flex-col gap-1 items-end shrink-0 print-hidden">
+                            {quelleFilter === "vorbestellung" && g.lieferantId > 0 && z.offeneMenge > 0 && (
+                              <button
+                                onClick={() => uebernehmen(g.lieferantId, z.artikelId)}
+                                disabled={busy}
+                                className="text-xs px-2.5 py-1 bg-lime-700 hover:bg-lime-800 text-white rounded-lg font-medium transition-colors disabled:opacity-40"
+                              >
+                                → In Bestellliste übernehmen
+                              </button>
+                            )}
                             {offenePosZeile.length > 0 && (
                               <button
                                 onClick={() => mark("bestellen", offenePosZeile, g.lieferantId)}

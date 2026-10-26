@@ -9,6 +9,34 @@ export const dynamic = "force-dynamic";
 
 const QUELLE_WHITELIST = new Set(["vorbestellung", "lieferung", "angebot"]);
 
+// Wirft `UebernahmeFehler`, um aus der $transaction in POST (aktion "uebernehmen") früh mit
+// einer sprechenden, erwarteten Fehlermeldung + eigenem Statuscode auszusteigen — ohne dass
+// das wie ein unerwarteter Fehler an Sentry gemeldet wird (siehe catch-Block dort).
+class UebernahmeFehler extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Vorbestellungs-Nummern, die in eine Bestellliste-Position übernommen wurden, stehen als
+// einzige Quelle der Wahrheit in deren `notiz` — damit eine zweite Übernahme (neue Vorbestellung
+// für denselben Lieferanten+Artikel, siehe POST) weiß, was schon drinsteckt, statt eine
+// Nummer doppelt aufzulisten oder zu überschreiben.
+function baueVorbestellungsNotiz(nummern: string[]): string {
+  return `Aus Vorbestellungen: ${nummern.join(", ")}`;
+}
+function extrahiereVorbestellungsNummern(notiz: string | null): string[] {
+  if (!notiz) return [];
+  const match = notiz.match(/^Aus Vorbestellungen: (.+)$/);
+  if (!match) return [];
+  return match[1]
+    .split(",")
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
 interface QuellPosition {
   quelle: "vorbestellung" | "lieferung" | "angebot";
   positionId: number;
@@ -24,11 +52,16 @@ interface QuellPosition {
   bestelltAm: string | null;
 }
 
-// GET /api/einkaufszettel
+// GET /api/einkaufszettel?quelle=vorbestellung
 // Aggregiert offene Auftragspositionen (Vorbestellungen, geplante Lieferungen,
 // angenommene Angebote) zum bevorzugten Lieferanten je Artikel und mischt den
-// Beschaffungsstatus (EinkaufStatus) ein.
-export async function GET() {
+// Beschaffungsstatus (EinkaufStatus) ein. `?quelle=vorbestellung` blendet die beiden
+// anderen, deutlich häufigeren Quellen komplett aus — für die Saison-Sammelbestellung
+// (viele Vorbestellungen, ein Lieferant, ein Termin) wäre die gemischte Ansicht sonst
+// zu unübersichtlich, um sie gezielt in die Bestellliste zu übernehmen (siehe POST unten).
+export async function GET(req: NextRequest) {
+  const quelleFilter = new URL(req.url).searchParams.get("quelle");
+  const nurVorbestellungen = quelleFilter === "vorbestellung";
   try {
     const [vorbestellungen, lieferungen, angebote] = await Promise.all([
       prisma.vorbestellung.findMany({
@@ -39,8 +72,11 @@ export async function GET() {
         },
         take: 1000,
       }),
+      // `where: { id: -1 }` statt eines eigenen Promise.resolve([])-Zweigs — behält für
+      // beide Fälle denselben Rückgabetyp (inkl. include) und ist auf der Primärschlüssel-
+      // Spalte faktisch kostenlos, kein echter Tabellenscan.
       prisma.lieferung.findMany({
-        where: { status: "geplant" },
+        where: nurVorbestellungen ? { id: -1 } : { status: "geplant" },
         include: {
           kunde: { select: { id: true, name: true, firma: true } },
           positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
@@ -48,7 +84,7 @@ export async function GET() {
         take: 1000,
       }),
       prisma.angebot.findMany({
-        where: { status: "ANGENOMMEN" },
+        where: nurVorbestellungen ? { id: -1 } : { status: "ANGENOMMEN" },
         include: {
           kunde: { select: { id: true, name: true, firma: true } },
           positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true } } } },
@@ -251,6 +287,7 @@ export async function GET() {
 // Body: { aktion: "bestellen" | "zuruecksetzen",
 //         positionen: [{ quelle, positionId, artikelId, lieferantId?, menge, einheit? }],
 //         bestelltAm?, notiz? }
+//      | { aktion: "uebernehmen", lieferantId, artikelId }
 export async function POST(req: NextRequest) {
   const __me = await getCurrentUser();
   const __deny = requireAnyPermission(__me, [P.BESTELLUNGEN_ERSTELLEN, P.LAGER_WARENEINGANG]);
@@ -258,9 +295,142 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const aktion = body?.aktion;
-    if (aktion !== "bestellen" && aktion !== "zuruecksetzen") {
+    if (aktion !== "bestellen" && aktion !== "zuruecksetzen" && aktion !== "uebernehmen") {
       return NextResponse.json({ error: "Ungültige Aktion" }, { status: 400 });
     }
+
+    if (aktion === "uebernehmen") {
+      // Legt eine Bestellliste-Position an (oder addiert auf eine bestehende, noch nicht zu
+      // einer formellen Bestellung gebündelte) und markiert dabei atomar alle noch offenen
+      // VorbestellungPositionen dieses Artikels als übernommen. Bewusst NUR Quelle
+      // "vorbestellung" — anders als "bestellen"/"zuruecksetzen" oben, die reine Haken-Markierung
+      // sind, legt dies einen echten Bestellliste-Eintrag an; dafür ist "Alles bestellen"
+      // (LAGER_WARENEINGANG reicht dort) zu schwach, hier gilt dieselbe engere Berechtigung wie
+      // beim manuellen Erfassen in POST /api/bestellliste.
+      const __deny2 = requirePermission(__me, P.BESTELLUNGEN_ERSTELLEN);
+      if (__deny2) return __deny2;
+
+      const lieferantId = parseInt(String(body?.lieferantId), 10);
+      const artikelId = parseInt(String(body?.artikelId), 10);
+      if (isNaN(lieferantId) || isNaN(artikelId)) {
+        return NextResponse.json({ error: "Ungültige lieferantId/artikelId" }, { status: 400 });
+      }
+
+      try {
+        const ergebnis = await prisma.$transaction(async (tx) => {
+          // Lieferant serverseitig gegen den aktuell aufgelösten bevorzugten Lieferanten
+          // prüfen (identische Logik wie in GET) — verhindert, dass ein zwischenzeitlich
+          // geänderter Lieferant die Menge beim falschen Bestellliste-Eintrag einsortiert.
+          const zuordnungen = await tx.artikelLieferant.findMany({
+            where: { artikelId },
+            include: { lieferant: { select: { id: true, name: true } } },
+          });
+          const bevorzugt = resolveBevorzugtenLieferanten(zuordnungen);
+          if (!bevorzugt || bevorzugt.lieferant.id !== lieferantId) {
+            throw new UebernahmeFehler(
+              "Der zugeordnete Lieferant für diesen Artikel hat sich geändert — bitte Seite neu laden.",
+              409
+            );
+          }
+
+          const kandidaten = await tx.vorbestellungPosition.findMany({
+            where: { artikelId, vorbestellung: { status: { in: ["OFFEN", "BESTAETIGT"] } } },
+            include: { vorbestellung: { select: { nummer: true } } },
+          });
+          if (kandidaten.length === 0) {
+            throw new UebernahmeFehler("Keine offenen Vorbestellungen für diesen Artikel.", 404);
+          }
+          const bereits = await tx.einkaufStatus.findMany({
+            where: { quelle: "vorbestellung", positionId: { in: kandidaten.map((k) => k.id) } },
+            select: { positionId: true },
+          });
+          const bereitsSet = new Set(bereits.map((b) => b.positionId));
+          const offen = kandidaten.filter((k) => !bereitsSet.has(k.id));
+          if (offen.length === 0) {
+            throw new UebernahmeFehler(
+              "Alle offenen Vorbestellungen für diesen Artikel sind bereits in der Bestellliste.",
+              409
+            );
+          }
+
+          const summeMenge = offen.reduce((s, p) => s + p.menge, 0);
+          const einheit = offen[0].einheit;
+          const nummern = Array.from(new Set(offen.map((p) => p.vorbestellung.nummer))).sort();
+
+          // Bereits offene, noch nicht gebündelte Bestellliste-Position für dieselbe
+          // Lieferant+Artikel-Kombination? → addieren. Sonst (keine, oder bereits zu einer
+          // Bestellung gebündelt/versendet) eine neue anlegen.
+          const bestehend = await tx.bestellposition.findFirst({
+            where: { lieferantId, artikelId, status: "offen", bestellungId: null },
+          });
+
+          let position;
+          if (bestehend) {
+            const alleNummern = Array.from(
+              new Set([...extrahiereVorbestellungsNummern(bestehend.notiz), ...nummern])
+            ).sort();
+            position = await tx.bestellposition.update({
+              where: { id: bestehend.id },
+              data: { menge: bestehend.menge + summeMenge, notiz: baueVorbestellungsNotiz(alleNummern) },
+            });
+          } else {
+            const artikel = await tx.artikel.findUnique({ where: { id: artikelId }, select: { einheit: true } });
+            const zuordnung = zuordnungen.find((z) => z.lieferantId === lieferantId);
+            position = await tx.bestellposition.create({
+              data: {
+                lieferantId,
+                artikelId,
+                menge: summeMenge,
+                einheit: einheit || artikel?.einheit || "kg",
+                einkaufspreis: zuordnung?.einkaufspreis ?? 0,
+                notiz: baueVorbestellungsNotiz(nummern),
+              },
+            });
+          }
+
+          await Promise.all(
+            offen.map((p) =>
+              tx.einkaufStatus.upsert({
+                where: { quelle_positionId: { quelle: "vorbestellung", positionId: p.id } },
+                create: {
+                  quelle: "vorbestellung",
+                  positionId: p.id,
+                  artikelId,
+                  lieferantId,
+                  menge: p.menge,
+                  einheit: p.einheit,
+                  bestelltAm: new Date(),
+                  notiz: `Übernommen in Bestellliste-Position #${position.id}`,
+                },
+                update: {
+                  lieferantId,
+                  menge: p.menge,
+                  einheit: p.einheit,
+                  bestelltAm: new Date(),
+                  notiz: `Übernommen in Bestellliste-Position #${position.id}`,
+                },
+              })
+            )
+          );
+
+          return {
+            bestellpositionId: position.id,
+            menge: summeMenge,
+            einheit: position.einheit,
+            anzahlVorbestellungen: nummern.length,
+            anzahlPositionen: offen.length,
+          };
+        });
+
+        return NextResponse.json({ ok: true, ...ergebnis });
+      } catch (err) {
+        if (err instanceof UebernahmeFehler) {
+          return NextResponse.json({ error: err.message }, { status: err.status });
+        }
+        throw err;
+      }
+    }
+
     const positionen = Array.isArray(body?.positionen) ? body.positionen : [];
     if (positionen.length === 0) return NextResponse.json({ error: "Keine Positionen" }, { status: 400 });
 

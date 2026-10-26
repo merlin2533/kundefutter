@@ -357,6 +357,12 @@ export default function KundeDetailPage() {
               >
                 + Neue Lieferung
               </Link>
+              <Link
+                href={`/vorbestellungen/neu?kundeId=${kunde.id}`}
+                className="w-full text-center text-xs px-3 py-1.5 bg-lime-50 hover:bg-lime-100 text-lime-800 border border-lime-200 rounded-lg font-medium transition-colors"
+              >
+                🌱 Vorbestellung
+              </Link>
               <button
                 onClick={() => { setActiveTab("CRM"); setCrmAutoOpen(true); }}
                 className="w-full text-xs px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg font-medium transition-colors"

@@ -790,7 +790,10 @@ app/
 │                     Mehr (Zertifizierungen, Sachkundenachweise, Dokumente, Erklärungen)
 │       Tiere-Tab: Tierbestand erfassen + "Ration berechnen" → /rationsberechnung
 │       Schnellübersicht-Strip: Kontakt, Adresse, Offener Betrag, Letzte Lieferung,
-│             Schnellaktionen: Neue Lieferung, CRM, PSM-Ausbringung, + Kontrakt, Preisliste, Rückruf
+│             Schnellaktionen: Neue Lieferung, Vorbestellung, CRM, PSM-Ausbringung, + Kontrakt,
+│             Preisliste, Rückruf — "Neue Lieferung" vs. "Vorbestellung" ist die explizite
+│             Entscheidung sofort liefern vs. für eine Saison-Sammelbestellung sammeln (siehe
+│             Einkaufszettel-Aktion "uebernehmen" unten)
 │   └── [id]/mappe/page.tsx     Kundenmappe HTML-Druck
 │   └── [id]/aktivitaet/page.tsx  CRM-Aktivität direkt erfassen
 ├── kundenimport/page.tsx       Erweiterter Kunden-Import (Schritt-für-Schritt UI)
@@ -1362,7 +1365,20 @@ app/
 /api/einstellungen/email-eingang/abrufen  POST — manueller „Jetzt abrufen"-Trigger, ruft
                                  verarbeiteEingehendeMails() identisch zum Cron-Job auf
 /api/einstellungen/email-eingang-protokoll  GET — Protokoll-Tabelle der Settings-Seite
-/api/einkaufszettel             GET, POST, PUT?id=, DELETE?id=
+/api/einkaufszettel             GET(?quelle=vorbestellung) — aggregiert offene Vorbestellungen +
+                                 geplante Lieferungen + angenommene Angebote je Lieferant→Artikel
+                                 (`?quelle=vorbestellung` blendet die beiden anderen, für die
+                                 Saison-Sammelbestellung zu unübersichtlichen Quellen aus);
+                                 POST({aktion:"bestellen"|"zuruecksetzen",positionen[]}) — reine
+                                 EinkaufStatus-Markierung ("schon besorgt", kein echter
+                                 Bestellliste-Eintrag), oder POST({aktion:"uebernehmen",lieferantId,
+                                 artikelId}) — legt eine Bestellliste-Position NUR aus den offenen
+                                 Vorbestellungen dieses Artikels an (addiert auf eine bestehende,
+                                 noch nicht zu einer Bestellung gebündelte Position, sonst neu) und
+                                 markiert deren VorbestellungPositionen atomar in derselben
+                                 Transaktion als übernommen — der Lückenschluss zwischen
+                                 Einkaufszettel (reine Übersicht) und der formellen
+                                 Bestellliste/Bestellung-Pipeline
 /api/anlieferungen              GET(?lieferantId,?kundeId,?artikelId,?von,?bis), POST
 /api/anlieferungen/[id]         GET, PUT, DELETE (409 bei verknüpfter Ei-Sortierung ODER offener
                                  Erzeuger-Gutschrift — siehe Eierhandel-Modul)
