@@ -122,7 +122,16 @@ export async function GET(req: NextRequest) {
 
   // Try FTS5 for Kunden and Artikel; fall back to contains if tables don't exist yet
   try {
-    const ftsQuery = q + "*";
+    // Jeder Suchbegriff wird als FTS5-Phrase in Anführungszeichen gesetzt. Ohne das deutet FTS5
+    // Zeichen wie "-" (z.B. "2026-0764" → Spaltenfilter "-0764"), ":" oder "(" als Syntax und
+    // wirft "no such column" bzw. einen Syntaxfehler (GlitchTip AGRI-23).
+    const ftsQuery =
+      q
+        .split(/\s+/)
+        .map((t) => t.replace(/"/g, ""))
+        .filter((t) => t.length > 0)
+        .map((t) => `"${t}"*`)
+        .join(" ") || `"${q.replace(/"/g, "")}"*`;
 
     const [kundenFts, artikelFts, lieferungen, angebote, aufgaben, ausgaben, chargen] = await Promise.all([
       prisma.$queryRawUnsafe<
