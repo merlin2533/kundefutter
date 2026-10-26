@@ -87,12 +87,23 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
   try {
-    // Lieferungen aus Sammelrechnung lösen
-    await prisma.lieferung.updateMany({
-      where: { sammelrechnungId: numId },
-      data: { sammelrechnungId: null },
+    // Eine bezahlte oder teilbezahlte Sammelrechnung nicht löschen (Zahlungsnachweis ginge verloren)
+    const vorhanden = await prisma.sammelrechnung.findUnique({
+      where: { id: numId },
+      select: { bezahltAm: true, _count: { select: { teilzahlungen: true } } },
     });
-    await prisma.sammelrechnung.delete({ where: { id: numId } });
+    if (!vorhanden) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+    if (vorhanden.bezahltAm || vorhanden._count.teilzahlungen > 0) {
+      return NextResponse.json(
+        { error: "Die Sammelrechnung ist bezahlt bzw. hat Teilzahlungen und kann nicht gelöscht werden" },
+        { status: 409 },
+      );
+    }
+    // Lieferungen lösen und Sammelrechnung atomar löschen
+    await prisma.$transaction([
+      prisma.lieferung.updateMany({ where: { sammelrechnungId: numId }, data: { sammelrechnungId: null } }),
+      prisma.sammelrechnung.delete({ where: { id: numId } }),
+    ]);
     return NextResponse.json({ ok: true });
   } catch (err) {
     Sentry.captureException(err);

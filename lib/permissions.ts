@@ -98,6 +98,19 @@ export const P = {
   ZERTIFIZIERUNGEN_LOESCHEN:   "a.zertifizierungen.loeschen",
   BANKABGLEICH_IMPORT:         "a.bankabgleich.import",
   BANKABGLEICH_BEARBEITEN:     "a.bankabgleich.bearbeiten",
+  EIER_SORTIERUNG_ERSTELLEN:   "a.eier.sortierung.erstellen",
+  EIER_SORTIERUNG_LOESCHEN:    "a.eier.sortierung.loeschen",
+  EXPORT_KAT:                  "a.export.kat",
+  INVENTUR_BEARBEITEN:       "a.inventur.bearbeiten",
+  AUFGABEN_BEARBEITEN:       "a.aufgaben.bearbeiten",
+  BESUCHSTERMINE_BEARBEITEN:       "a.besuchstermine.bearbeiten",
+  AUSGABEN_BEARBEITEN:       "a.ausgaben.bearbeiten",
+  EINGANGSRECHNUNGEN_BEARBEITEN:       "a.eingangsrechnungen.bearbeiten",
+  BODENPROBEN_BEARBEITEN:       "a.bodenproben.bearbeiten",
+  DUENGEBEDARF_BEARBEITEN:       "a.duengebedarf.bearbeiten",
+  VORBESTELLUNGEN_BEARBEITEN:       "a.vorbestellungen.bearbeiten",
+  SORTENVERSUCHE_BEARBEITEN:       "a.sortenversuche.bearbeiten",
+  RATIONSBERECHNUNG_BEARBEITEN:       "a.rationsberechnung.bearbeiten",
 
   // ── Felder (sensible Daten) ──────────────────────────────────────────────
   FELD_ARTIKEL_EINKAUFSPREIS:     "f.artikel.einkaufspreis",
@@ -211,6 +224,19 @@ export const PERMISSION_META: Record<string, PermissionMeta> = {
   "a.zertifizierungen.loeschen":   { label: "Zertifizierungen: Löschen",     gruppe: "Agrar",     typ: "aktion" },
   "a.bankabgleich.import":         { label: "Bankabgleich: CSV-Kontoauszug importieren", gruppe: "Finanzen", typ: "aktion" },
   "a.bankabgleich.bearbeiten":     { label: "Bankabgleich: Zuordnen/Ändern (inkl. Auto-Abgleich, Doppelzahlung)", gruppe: "Finanzen", typ: "aktion" },
+  "a.eier.sortierung.erstellen":   { label: "Eierhandel: Sortierung erfassen/bearbeiten/importieren", gruppe: "Artikel", typ: "aktion" },
+  "a.eier.sortierung.loeschen":    { label: "Eierhandel: Sortierung löschen (bucht Lager zurück)", gruppe: "Artikel", typ: "aktion" },
+  "a.export.kat":                  { label: "Export: KAT-Warenstrommeldung (Eier)", gruppe: "Export", typ: "aktion" },
+  "a.inventur.bearbeiten": { label: "Inventur: Anlegen/Bearbeiten/Löschen", gruppe: "Lager", typ: "aktion" },
+  "a.aufgaben.bearbeiten": { label: "Aufgaben / TODO: Anlegen/Bearbeiten/Löschen", gruppe: "Lieferung", typ: "aktion" },
+  "a.besuchstermine.bearbeiten": { label: "Besuchstermine: Anlegen/Bearbeiten/Löschen", gruppe: "Lieferung", typ: "aktion" },
+  "a.ausgaben.bearbeiten": { label: "Ausgabenbuch: Anlegen/Bearbeiten/Löschen", gruppe: "Finanzen", typ: "aktion" },
+  "a.eingangsrechnungen.bearbeiten": { label: "Eingangsrechnungen: Anlegen/Bearbeiten/Löschen", gruppe: "Einkauf", typ: "aktion" },
+  "a.bodenproben.bearbeiten": { label: "Bodenproben/-analyse/Anbauplanung: Anlegen/Bearbeiten/Löschen", gruppe: "Agrar", typ: "aktion" },
+  "a.duengebedarf.bearbeiten": { label: "Düngebedarf: Anlegen/Bearbeiten/Löschen", gruppe: "Agrar", typ: "aktion" },
+  "a.vorbestellungen.bearbeiten": { label: "Vorbestellungen: Anlegen/Bearbeiten/Löschen", gruppe: "Einkauf", typ: "aktion" },
+  "a.sortenversuche.bearbeiten": { label: "Sortenversuche: Anlegen/Bearbeiten/Löschen", gruppe: "Agrar", typ: "aktion" },
+  "a.rationsberechnung.bearbeiten": { label: "Rationsberechnung: Anlegen/Bearbeiten/Löschen", gruppe: "Agrar", typ: "aktion" },
 
   // Felder (sensible Daten)
   "f.artikel.einkaufspreis":     { label: "Feld: Artikel Einkaufspreis",          gruppe: "Felder", typ: "feld" },
@@ -272,6 +298,10 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       // /api/gutschriften/[id] {aktion:"wieder_oeffnen"}) sitzt in der Teilzahlungen-Karte
       // auf /lieferungen/[id]. Beide waren vor Stage D ungeprüft nutzbar.
       P.BESTELLUNGEN_ERSTELLEN, P.GUTSCHRIFTEN_BEARBEITEN,
+      // Review-Runde 2: schreibende Domänen-Routen sind jetzt gesichert.
+      P.AUFGABEN_BEARBEITEN, P.BESUCHSTERMINE_BEARBEITEN, P.BODENPROBEN_BEARBEITEN,
+      P.DUENGEBEDARF_BEARBEITEN, P.VORBESTELLUNGEN_BEARBEITEN, P.SORTENVERSUCHE_BEARBEITEN,
+      P.RATIONSBERECHNUNG_BEARBEITEN,
     ],
   },
   lager: {
@@ -284,9 +314,12 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.EXPORT_LIEFERSCHEIN,
       // Backfill Stage D (siehe Kommentar bei "verkauf"): P.BESTELLUNGEN ist bereits vorhanden.
       P.BESTELLUNGEN_ERSTELLEN, P.BESTELLUNGEN_BEARBEITEN, P.BESTELLUNGEN_LOESCHEN,
+      // Eierhandel: Sortierung ist Lagerarbeit (Wareneingang klassifizierter Eier)
+      P.EIER_SORTIERUNG_ERSTELLEN, P.EIER_SORTIERUNG_LOESCHEN,
       // Siehe Kommentar bei "verkauf": Gutschrift-Reopen ist über dieselbe Lieferungen-Seite
       // erreichbar, die diese Rolle bereits hat.
       P.GUTSCHRIFTEN_BEARBEITEN,
+      P.INVENTUR_BEARBEITEN,
     ],
   },
   fahrer: {
@@ -304,7 +337,7 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       P.DASHBOARD, P.RECHNUNGEN, P.SAMMELRECHNUNGEN, P.GUTSCHRIFTEN,
       P.AUSGABEN, P.BANKABGLEICH, P.MAHNWESEN, P.STATISTIK,
       P.EINGANGSRECHNUNGEN,
-      P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL, P.EXPORT_DATEV, P.EXPORT_BULK,
+      P.EXPORT_RECHNUNG, P.EXPORT_RECHNUNG_MAIL, P.EXPORT_DATEV, P.EXPORT_BULK, P.EXPORT_KAT,
       P.FELD_KUNDE_UMSATZ, P.FELD_KUNDE_OFFENER_BETRAG,
       P.FELD_STATISTIK_UMSATZ, P.FELD_STATISTIK_DECKUNGSBEITRAG, P.FELD_KALKULATION,
       // Backfill Stage D (siehe Kommentar bei "verkauf"): P.GUTSCHRIFTEN/P.SAMMELRECHNUNGEN/
@@ -317,6 +350,7 @@ export const ROLLE_PRESETS: Record<string, { bezeichnung: string; beschreibung: 
       // von den bereits vorhandenen P.EINGANGSRECHNUNGEN/P.AUSGABEN-Seiten aus erreichbar,
       // ohne dass diese Rolle die eigentliche Lieferanten-Seite hat.
       P.LIEFERANTEN_ERSTELLEN, P.LIEFERANTEN_BEARBEITEN,
+      P.AUSGABEN_BEARBEITEN, P.EINGANGSRECHNUNGEN_BEARBEITEN,
     ],
   },
   readonly: {
@@ -350,6 +384,18 @@ export function hasPermission(user: CurrentUser, key: string): boolean {
 export function requirePermission(user: CurrentUser | null, key: string): NextResponse | null {
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
   if (!hasPermission(user, key)) {
+    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+  }
+  return null;
+}
+
+/**
+ * Wie requirePermission, aber mindestens EINE der Permissions genügt (für Aktionen, die von
+ * mehreren Domänen aus erreichbar sind, z.B. Aufgabe anlegen aus Dashboard/CRM).
+ */
+export function requireAnyPermission(user: CurrentUser | null, keys: string[]): NextResponse | null {
+  if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
+  if (!keys.some((k) => hasPermission(user, k))) {
     return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
   return null;

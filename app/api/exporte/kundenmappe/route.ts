@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
       startY: adY,
       head: [["Rechnung-Nr.", "Lieferdatum", "Betrag (netto)", "Fällig"]],
       body: offeneRechnungen.map((l) => {
-        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
         const fällig = new Date(new Date(l.rechnungDatum ?? l.datum).getTime() + (l.zahlungsziel ?? 30) * 86400000);
         return [l.rechnungNr ?? "—", formatDatum(l.datum), formatEuro(netto), formatDatum(fällig)];
       }),
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
       head: [["Datum", "Status", "Artikel", "Betrag"]],
       body: kunde.lieferungen.map((l) => {
         const artikel = l.positionen.map((p) => `${p.menge} × ${p.artikel.name}`).join(", ");
-        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis, 0);
+        const netto = l.positionen.reduce((s, p) => s + p.menge * p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100), 0);
         return [formatDatum(l.datum), l.status, artikel.slice(0, 60) + (artikel.length > 60 ? "…" : ""), formatEuro(netto)];
       }),
       headStyles: { fillColor: [22, 101, 52], fontSize: 8 },

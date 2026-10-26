@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -46,6 +48,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/agrarantraege?id=X — Verknüpfe mit Kunden oder aktualisiere Felder
 export async function PATCH(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.EINSTELLUNGEN_BEARBEITEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "agrarantraege");
   if (denyModul) return denyModul;
@@ -70,6 +75,9 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/agrarantraege?id=X
 export async function DELETE(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.EINSTELLUNGEN_BEARBEITEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "agrarantraege");
   if (denyModul) return denyModul;

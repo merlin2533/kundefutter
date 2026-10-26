@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -44,7 +45,7 @@ export default function ZertifizierungenTab({ kundeId }: { kundeId: number }) {
   }, [kundeId]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Zertifizierung löschen?")) return;
+    if (!await bestaetige("Zertifizierung löschen?")) return;
     await fetch(`/api/zertifizierungen/${id}`, { method: "DELETE" });
     load();
   }

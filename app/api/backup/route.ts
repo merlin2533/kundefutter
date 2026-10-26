@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
@@ -7,6 +9,10 @@ import { Sentry } from "@/lib/sentry";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const backupDir = getBackupDir();
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
@@ -38,6 +44,10 @@ export async function GET() {
 }
 
 export async function POST() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const entry = await createBackup();
     return NextResponse.json(entry);
@@ -50,6 +60,10 @@ export async function POST() {
 }
 
 export async function DELETE(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const { searchParams } = new URL(req.url);
   const filename = searchParams.get("filename");
 

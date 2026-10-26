@@ -3,13 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { Sentry } from "@/lib/sentry";
 import {
   EierSortierungValidierungsFehler,
   validiereEierSortierungPositionen,
   validiereAnlieferungFuerSortierung,
   erstelleEierSortierung,
-  type EierSortierungPositionInput,
+  parsePositionenInput,
 } from "@/lib/eiersortierung";
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "eierhandel");
     if (denyModul) return denyModul;
+    const permUser = await getCurrentUser();
+    const denyPerm = requirePermission(permUser, P.EIER_SORTIERUNG_ERSTELLEN);
+    if (denyPerm) return denyPerm;
 
     let body;
     try {
@@ -76,23 +80,7 @@ export async function POST(req: NextRequest) {
       if (isNaN(datum.getTime())) return NextResponse.json({ error: "Ungültiges Datum" }, { status: 400 });
     }
 
-    const positionen: EierSortierungPositionInput[] = (body.positionen as {
-      artikelId: unknown;
-      gueteklasse: unknown;
-      gewichtsklasse: unknown;
-      menge: unknown;
-      chargeNr?: unknown;
-      legedatum?: unknown;
-      erzeugercode?: unknown;
-    }[]).map((p) => ({
-      artikelId: Number(p.artikelId),
-      gueteklasse: typeof p.gueteklasse === "string" ? p.gueteklasse.trim().toUpperCase() : "",
-      gewichtsklasse: typeof p.gewichtsklasse === "string" ? p.gewichtsklasse.trim().toUpperCase() : "",
-      menge: Number(p.menge),
-      chargeNr: typeof p.chargeNr === "string" && p.chargeNr.trim() ? p.chargeNr.trim() : null,
-      legedatum: typeof p.legedatum === "string" && p.legedatum.trim() ? new Date(p.legedatum) : null,
-      erzeugercode: typeof p.erzeugercode === "string" && p.erzeugercode.trim() ? p.erzeugercode.trim() : null,
-    }));
+    const positionen = parsePositionenInput(body.positionen);
 
     try {
       validiereEierSortierungPositionen(positionen);

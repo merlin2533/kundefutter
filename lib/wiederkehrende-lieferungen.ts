@@ -93,9 +93,19 @@ export async function erstelleWiederkehrendeLieferungen(bedarfIds: number[]): Pr
   const zahlungsziel = await ladeStandardZahlungsziel();
   const angelegtIds: number[] = [];
 
-  for (const bedarfId of bedarfIds) {
+  // Doppelte IDs entfernen und kurz zuvor automatisch angelegte Lieferungen derselben
+  // Kunde/Artikel-Kombination überspringen — verhindert Doppel-Aufträge, wenn Cron-Job und
+  // manueller Button (oder zwei Klicks) gleichzeitig auslösen.
+  const eindeutig = [...new Set(bedarfIds)];
+  const gerade = new Date(Date.now() - 2 * 60 * 1000);
+  for (const bedarfId of eindeutig) {
     const bedarf = bedarfMap.get(bedarfId);
     if (!bedarf) continue;
+    const kuerzlich = await prisma.lieferung.findFirst({
+      where: { kundeId: bedarf.kundeId, wiederkehrend: true, createdAt: { gte: gerade }, positionen: { some: { artikelId: bedarf.artikelId } } },
+      select: { id: true },
+    });
+    if (kuerzlich) continue;
 
     const kundePreis = kundePreisMap.get(`${bedarf.kundeId}|${bedarf.artikelId}`) ?? null;
     const bevorzugterLieferant = lieferantMap.get(bedarf.artikelId) ?? null;
@@ -113,6 +123,8 @@ export async function erstelleWiederkehrendeLieferungen(bedarfIds: number[]): Pr
             menge: bedarf.menge,
             verkaufspreis: berechneVerkaufspreis(bedarf.artikel, kundePreis),
             einkaufspreis: bevorzugterLieferant?.einkaufspreis ?? 0,
+            // MwSt-Satz einfrieren (sonst gilt der Schema-Default 19 % auch für 7-%-Artikel)
+            mwstSatz: bedarf.artikel.mwstSatz,
             verpackungsart: bedarf.artikel.verpackungsart ?? null,
           }],
         },

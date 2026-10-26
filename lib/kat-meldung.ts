@@ -19,7 +19,7 @@ export interface KatMeldungZeile {
 }
 
 /** ISO-8601-Wochennummer, Format "YYYY-Www" (z.B. "2026-W37"). */
-function isoWoche(d: Date): string {
+export function isoWoche(d: Date): string {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNr = (date.getUTCDay() + 6) % 7;
   date.setUTCDate(date.getUTCDate() - dayNr + 3);

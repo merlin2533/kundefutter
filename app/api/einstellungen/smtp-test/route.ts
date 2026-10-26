@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import nodemailer from "nodemailer";
@@ -6,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 
 export async function POST() {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   try {
     const smtpKeys = await prisma.einstellung.findMany({
       where: { key: { startsWith: "smtp." } },

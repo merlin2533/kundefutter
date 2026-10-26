@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -39,7 +40,7 @@ function NeuInner() {
   const [fruchtarten, setFruchtarten] = useState<string[]>([]);
 
   const [form, setForm] = useState({
-    datum: new Date().toISOString().slice(0, 10),
+    datum: heuteIso(),
     probenNr: "",
     labor: "",
     tiefe: "0-30 cm",
@@ -315,7 +316,7 @@ function NeuInner() {
     if (ungemappt > 0) { toast.error(`${ungemappt} Proben sind noch keinem Schlag zugeordnet`); return; }
     const datum = (typeof multiAuftrag?.probenahmeDatum === "string" && multiAuftrag.probenahmeDatum)
       || (typeof multiAuftrag?.berichtDatum === "string" && multiAuftrag.berichtDatum)
-      || new Date().toISOString().slice(0, 10);
+      || heuteIso();
 
     const proben = multiProben.map((p, i) => ({
       ...p,

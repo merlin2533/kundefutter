@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (von || bis) {
     const datum: Record<string, Date> = {};
     if (von) { const d = new Date(von); if (!isNaN(d.getTime())) datum.gte = d; }
-    if (bis) { const d = new Date(bis); if (!isNaN(d.getTime())) datum.lte = d; }
+    if (bis) { const d = new Date(bis); if (!isNaN(d.getTime())) { d.setHours(23, 59, 59, 999); datum.lte = d; } }
     if (Object.keys(datum).length > 0) where.datum = datum;
   }
 

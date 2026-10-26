@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -18,7 +19,7 @@ function NeuenBesuchsterminForm() {
 
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [kundeId, setKundeId] = useState(prefilledKundeId ?? "");
-  const [datum, setDatum] = useState(() => new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState(() => heuteIso());
   const [betreff, setBetreff] = useState("");
   const [notiz, setNotiz] = useState("");
   const [saving, setSaving] = useState(false);
@@ -111,7 +112,7 @@ function NeuenBesuchsterminForm() {
                 type="date"
                 value={datum}
                 onChange={(e) => setDatum(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
+                min={heuteIso()}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>

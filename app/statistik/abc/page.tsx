@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/Card";
-import { formatEuro, formatPercent } from "@/lib/utils";
+import { formatEuro, formatPercent, heuteIso } from "@/lib/utils";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import * as Sentry from "@sentry/nextjs";
 
@@ -79,7 +79,7 @@ function downloadCSV(kunden: KundeABC[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `abc-analyse-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `abc-analyse-${heuteIso()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

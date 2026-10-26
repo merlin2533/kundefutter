@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -124,7 +125,7 @@ export default function BackupPage() {
   }
 
   async function handleDelete(filename: string) {
-    if (!window.confirm("Backup wirklich löschen?")) return;
+    if (!await bestaetige("Backup wirklich löschen?")) return;
     setError(null);
     setSuccess(null);
     try {
@@ -145,7 +146,7 @@ export default function BackupPage() {
 
   async function handleRestore(filename: string) {
     if (
-      !window.confirm(
+      !await bestaetige(
         `Datenbank wirklich aus "${filename}" wiederherstellen?\n\n` +
           "Achtung: Alle Daten seit diesem Backup gehen verloren!\n" +
           "Vor dem Restore wird automatisch ein Sicherungs-Backup erstellt.\n" +
@@ -183,7 +184,7 @@ export default function BackupPage() {
       return;
     }
     if (
-      !window.confirm(
+      !await bestaetige(
         `Datenbank wirklich aus der hochgeladenen Datei "${file.name}" wiederherstellen?\n\n` +
           "Achtung: Alle aktuellen Daten werden überschrieben!\n" +
           "Vor dem Restore wird automatisch ein Sicherungs-Backup erstellt.\n" +

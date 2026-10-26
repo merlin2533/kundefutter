@@ -100,7 +100,8 @@ const MAX_RATE_LIMIT_VERSUCHE = 4;
  * führt das sonst zu vermeidbaren 429-Fehlern, obwohl die Zugangsdaten gültig sind.
  */
 async function davFetch(url: string, init: RequestInit, versuch = 1): Promise<Response> {
-  const res = await fetch(url, init);
+  // Timeout (2 Min.): ein hängender Nextcloud-Server darf Upload-/Sync-Läufe nicht endlos blockieren
+  const res = await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(120_000) });
   if (res.status === 429 && versuch < MAX_RATE_LIMIT_VERSUCHE) {
     const retryAfterSek = parseInt(res.headers.get("Retry-After") ?? "", 10);
     const wartezeitMs = Number.isFinite(retryAfterSek) && retryAfterSek > 0 ? retryAfterSek * 1000 : versuch * 1000;

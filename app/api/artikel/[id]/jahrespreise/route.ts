@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { syncArtikelStandardpreis } from "@/lib/jahrespreis";
@@ -29,6 +31,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { id } = await params;
   const artikelId = parseInt(id, 10);
   if (isNaN(artikelId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -68,6 +73,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { id } = await params;
   const artikelId = parseInt(id, 10);
   if (isNaN(artikelId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

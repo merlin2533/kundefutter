@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -60,6 +62,9 @@ export async function GET(req: NextRequest) {
 // Body: { kundeId, saison, lieferdatum?, bestellfrist?, notiz?, positionen: [{artikelId, menge, preis?, einheit?, reservieren?}] }
 // Wendet automatisch Frühbezugs-Staffeln an, wenn keine rabattProzent angegeben.
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.VORBESTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const modul = await getModulConfig();
     const denyModul = requireModul(modul, "fruehbezug");

@@ -1,8 +1,12 @@
+import { getCurrentUser } from "@/lib/auth";
+import { requirePermission, P } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { createInterface } from "readline";
 import { Readable } from "stream";
 import { createReadStream } from "fs";
 import { stat } from "fs/promises";
+import path from "path";
+import { getUploadBase } from "@/lib/upload";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getModulConfig, requireModul } from "@/lib/modul-config";
@@ -281,6 +285,10 @@ async function streamAndInsert(
 //   2. JSON { action: "url", url: "https://..." }
 //   3. JSON { action: "serverpath", path: "/absolute/path/to/file.csv" }
 export async function POST(req: NextRequest) {
+  const meGuard = await getCurrentUser();
+  const denyGuard = requirePermission(meGuard, P.EINSTELLUNGEN_BEARBEITEN);
+  if (denyGuard) return denyGuard;
+
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "agrarantraege");
   if (denyModul) return denyModul;
@@ -340,9 +348,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "url fehlt im Request-Body" }, { status: 400 });
     }
 
+    // Nur https-URLs (kein file:/http:/interne Adressen über Klartext), mit Timeout.
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return NextResponse.json({ error: "Ungültige URL" }, { status: 400 });
+    }
+    if (parsedUrl.protocol !== "https:") {
+      return NextResponse.json({ error: "Nur https-URLs sind erlaubt" }, { status: 400 });
+    }
+
     let fetchResponse: Response;
     try {
-      fetchResponse = await fetch(url, { headers: { "Accept-Encoding": "gzip, deflate" } });
+      fetchResponse = await fetch(parsedUrl, {
+        headers: { "Accept-Encoding": "gzip, deflate" },
+        signal: AbortSignal.timeout(60_000),
+      });
     } catch (e) {
       Sentry.captureException(e);
       return NextResponse.json({ error: `Fetch-Fehler: ${String(e)}` }, { status: 502 });
@@ -371,6 +393,13 @@ export async function POST(req: NextRequest) {
     }
     if (!filePath.startsWith("/")) {
       return NextResponse.json({ error: "path muss ein absoluter Pfad sein (beginnt mit /)" }, { status: 400 });
+    }
+
+    // Allowlist: nur Dateien unterhalb des Upload-Verzeichnisses (kein /etc/passwd o.ä.).
+    const resolvedFile = path.resolve(filePath);
+    const erlaubteBasis = path.resolve(getUploadBase());
+    if (!resolvedFile.startsWith(erlaubteBasis + path.sep)) {
+      return NextResponse.json({ error: "Pfad muss unterhalb des Upload-Verzeichnisses liegen" }, { status: 400 });
     }
 
     try {

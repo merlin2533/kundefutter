@@ -1,4 +1,6 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
+import { heuteIso } from "@/lib/utils";
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
@@ -17,7 +19,7 @@ export default function ErklaerungTab({ kundeId }: { kundeId: number }) {
   const [erklaerungen, setErklaerungen] = useState<SprengstoffErklaerung[]>([]);
   const [loading, setLoading] = useState(true);
   const [formJahr, setFormJahr] = useState(String(new Date().getFullYear()));
-  const [formDatum, setFormDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [formDatum, setFormDatum] = useState(heuteIso());
   const [formNotiz, setFormNotiz] = useState("");
   const [formFile, setFormFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -72,7 +74,7 @@ export default function ErklaerungTab({ kundeId }: { kundeId: number }) {
   };
 
   const del = async (id: number) => {
-    if (!confirm("Erklärung löschen?")) return;
+    if (!await bestaetige("Erklärung löschen?")) return;
     const r = await fetch(`/api/kunden/${kundeId}/erklaerungen/${id}`, { method: "DELETE" });
     if (r.ok) { showToast("Gelöscht", "success"); await load(); }
   };

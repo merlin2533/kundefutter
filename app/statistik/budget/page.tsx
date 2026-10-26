@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getBudgetJahre, MONATE_KURZ } from "@/lib/utils";
@@ -135,7 +136,7 @@ export default function BudgetPage() {
       await loadData();
     } catch (e) {
       Sentry.captureException(e);
-      alert(e instanceof Error ? e.message : "Fehler");
+      void melde(e instanceof Error ? e.message : "Fehler");
     } finally {
       setSaving(false);
       setEditingZielId(null);
@@ -146,7 +147,7 @@ export default function BudgetPage() {
   async function resetAlle() {
     if (!data) return;
     if (
-      !confirm(
+      !await bestaetige(
         `Alle Budgetziele für ${jahr} wirklich löschen?`
       )
     )

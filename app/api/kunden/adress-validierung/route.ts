@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { geocodeAdresse } from "@/lib/geocoding";
@@ -107,6 +109,9 @@ export async function GET(req: NextRequest) {
 
 // POST: Einzelnen Kunden manuell validieren (ignoriert Versuchszähler — manueller Override)
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const isDev = process.env.NODE_ENV === "development";
   try {
     const body = await req.json();

@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -67,7 +68,7 @@ function ZertifizierungContent() {
   }, [filterTyp]);
 
   async function handleDelete(id: number) {
-    if (!confirm("Zertifizierung löschen?")) return;
+    if (!await bestaetige("Zertifizierung löschen?")) return;
     await fetch(`/api/zertifizierungen/${id}`, { method: "DELETE" });
     load();
   }

@@ -72,6 +72,13 @@ export async function PUT(req: NextRequest, ctx: Params) {
         if (angebot.status !== "OFFEN") {
           throw new Error(`Angebot hat Status "${angebot.status}" und kann nicht angenommen werden`);
         }
+        // Atomar "reservieren": zwei parallele Annehmen-Aufrufe lesen beide OFFEN — nur der
+        // erste darf Lieferung/Sammelrechnung anlegen, sonst entstehen Doppel-Aufträge.
+        const reserviert = await tx.angebot.updateMany({
+          where: { id: numId, status: "OFFEN" },
+          data: { status: "ANGENOMMEN" },
+        });
+        if (reserviert.count === 0) throw new Error("Angebot wurde bereits angenommen");
 
         // Bulk-Lookup bevorzugter Lieferanten (statt N+1 per Position)
         const artikelIds = [...new Set(angebot.positionen.map((p) => p.artikelId))];
@@ -105,6 +112,8 @@ export async function PUT(req: NextRequest, ctx: Params) {
                 verkaufspreis: pos.preis,
                 einkaufspreis: bevorzugterLieferantMap.get(pos.artikelId)?.einkaufspreis ?? 0,
                 rabattProzent: pos.rabatt,
+                // MwSt-Satz einfrieren (sonst Schema-Default 19 % auch bei 7-%-Artikeln)
+                mwstSatz: pos.artikel.mwstSatz,
                 // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
                 // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
                 verpackungsart: pos.artikel.verpackungsart ?? null,
@@ -240,6 +249,16 @@ export async function PUT(req: NextRequest, ctx: Params) {
     if (status !== undefined) {
       if (!VALID_STATUS.includes(status)) {
         return NextResponse.json({ error: `Ungültiger Status: ${status}` }, { status: 400 });
+      }
+      // Annehmen legt Lieferung + Sammelrechnung an und geht nur über aktion:"annehmen";
+      // ein angenommenes Angebot darf nicht per Statuswechsel wieder geöffnet werden
+      // (erneutes Annehmen würde den Auftrag doppelt anlegen).
+      const aktuell = await prisma.angebot.findUnique({ where: { id: numId }, select: { status: true } });
+      if (status === "ANGENOMMEN" && aktuell?.status !== "ANGENOMMEN") {
+        return NextResponse.json({ error: "Angebot bitte über „Annehmen“ annehmen" }, { status: 400 });
+      }
+      if (aktuell?.status === "ANGENOMMEN" && status !== "ANGENOMMEN") {
+        return NextResponse.json({ error: "Ein angenommenes Angebot kann nicht mehr zurückgesetzt werden" }, { status: 400 });
       }
       updateData.status = status;
     }

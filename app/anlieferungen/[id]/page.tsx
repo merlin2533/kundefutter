@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -155,29 +156,29 @@ export default function AnlieferungDetailPage() {
   // anders als z.B. Lieferung.rechnungVersendetAm bei Rechnungen).
   async function handleSpeichernKlick() {
     if (anlieferung?.gutschrift) {
-      const ok = confirm(
+      const ok = await bestaetige(
         "Diese Erzeugerabrechnung wird mit den aktuell eingegebenen Werten überschrieben. Wurde die bestehende Gutschrift bereits an den Erzeuger übermittelt (Ausdruck/E-Mail) oder in einem DATEV-/UStVA-Export verwendet, ändert sich dieser bereits kommunizierte Betrag nachträglich. Trotzdem aktualisieren?"
       );
       if (!ok) return;
-    } else if (!confirm("Gutschrift für diese Anlieferung erstellen?")) {
+    } else if (!await bestaetige("Gutschrift für diese Anlieferung erstellen?")) {
       return;
     }
     await erzeugerabrechnungSpeichern();
   }
 
   async function gutschriftEntfernen() {
-    if (!confirm("Erzeuger-Gutschrift von dieser Anlieferung entfernen?")) return;
+    if (!await bestaetige("Erzeuger-Gutschrift von dieser Anlieferung entfernen?")) return;
     try {
       const res = await fetch(`/api/anlieferungen/${id}/gutschrift`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error ?? "Fehler beim Entfernen");
+        void melde(data.error ?? "Fehler beim Entfernen");
         return;
       }
       await load();
     } catch (e) {
       Sentry.captureException(e);
-      alert("Netzwerkfehler");
+      void melde("Netzwerkfehler");
     }
   }
 

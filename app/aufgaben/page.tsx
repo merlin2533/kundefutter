@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/ToastProvider";
@@ -134,7 +135,7 @@ export default function AufgabenPage() {
   }
 
   async function deleteAufgabe(id: number, betreff: string) {
-    if (!confirm(`Aufgabe "${betreff}" löschen?`)) return;
+    if (!await bestaetige(`Aufgabe "${betreff}" löschen?`)) return;
     setDeleting(id);
     await fetch(`/api/aufgaben/${id}`, { method: "DELETE" });
     setAufgaben((prev) => prev.filter((a) => a.id !== id));

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -30,6 +32,7 @@ export async function GET(req: NextRequest) {
       },
       select: {
         verkaufspreis: true,
+        rabattProzent: true,
         menge: true,
         lieferung: { select: { datum: true } },
         artikel: { select: { kategorie: true } },
@@ -39,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     // Calculate totals
     const istGesamt = lieferpositionen.reduce(
-      (sum, p) => sum + p.verkaufspreis * p.menge,
+      (sum, p) => sum + p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * p.menge,
       0
     );
 
@@ -48,14 +51,14 @@ export async function GET(req: NextRequest) {
     for (let m = 1; m <= 12; m++) monatlicheIst[m] = 0;
     for (const p of lieferpositionen) {
       const monat = new Date(p.lieferung.datum).getUTCMonth() + 1;
-      monatlicheIst[monat] = (monatlicheIst[monat] ?? 0) + p.verkaufspreis * p.menge;
+      monatlicheIst[monat] = (monatlicheIst[monat] ?? 0) + p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * p.menge;
     }
 
     // Category ist values
     const kategorieIst: Record<string, number> = {};
     for (const p of lieferpositionen) {
       const kat = p.artikel.kategorie ?? "Sonstiges";
-      kategorieIst[kat] = (kategorieIst[kat] ?? 0) + p.verkaufspreis * p.menge;
+      kategorieIst[kat] = (kategorieIst[kat] ?? 0) + p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * p.menge;
     }
 
     // Build ziele with ist-values
@@ -74,7 +77,7 @@ export async function GET(req: NextRequest) {
             const monat = new Date(p.lieferung.datum).getUTCMonth() + 1;
             return monat === z.monat && p.artikel.kategorie === z.kategorie;
           })
-          .reduce((sum, p) => sum + p.verkaufspreis * p.menge, 0);
+          .reduce((sum, p) => sum + p.verkaufspreis * (1 - (p.rabattProzent ?? 0) / 100) * p.menge, 0);
       }
       const erreichungProzent = z.zielBetrag > 0 ? (istBetrag / z.zielBetrag) * 100 : null;
       return { ...z, istBetrag, erreichungProzent };
@@ -113,6 +116,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EINSTELLUNGEN_BEARBEITEN, P.EXPORT_DATEV]);
+  if (__deny) return __deny;
   let body: {
     jahr?: unknown;
     monat?: unknown;

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface Kunde {
@@ -37,7 +37,7 @@ export default function NeueRechnungPage() {
   const [kundeId, setKundeId] = useState("");
   const [lieferungen, setLieferungen] = useState<Lieferung[]>([]);
   const [ausgewaehlt, setAusgewaehlt] = useState<number[]>([]);
-  const [rechnungDatum, setRechnungDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [rechnungDatum, setRechnungDatum] = useState(heuteIso());
   const [zahlungsziel, setZahlungsziel] = useState(30);
   const [naechsteNr, setNaechsteNr] = useState<string>("");
   const [saving, setSaving] = useState(false);

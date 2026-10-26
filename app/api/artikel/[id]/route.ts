@@ -235,7 +235,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   }
   try {
     // Prüfen ob Artikel in anderen Entitäten referenziert wird → dann nur soft-delete
-    const [lieferposCount, wareneingangCount, bewegungCount, bedarfCount, inventurCount, angebotPosCount, rabattCount, kundePreisCount] = await Promise.all([
+    const [lieferposCount, wareneingangCount, bewegungCount, bedarfCount, inventurCount, angebotPosCount, rabattCount, kundePreisCount, weitereRefs] = await Promise.all([
       prisma.lieferposition.count({ where: { artikelId } }),
       prisma.wareineingangPosition.count({ where: { artikelId } }),
       prisma.lagerbewegung.count({ where: { artikelId } }),
@@ -244,8 +244,20 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
       prisma.angebotPosition.count({ where: { artikelId } }),
       prisma.mengenrabatt.count({ where: { artikelId } }),
       prisma.kundeArtikelPreis.count({ where: { artikelId } }),
+      // Weitere Belegarten, die den Artikel referenzieren — sonst scheitert das Hard-Delete mit
+      // einem FK-Fehler (500) bzw. löscht per Cascade historische Positionen mit.
+      Promise.all([
+        prisma.bestellungPosition.count({ where: { artikelId } }),
+        prisma.bestellposition.count({ where: { artikelId } }),
+        prisma.gutschriftPosition.count({ where: { artikelId } }),
+        prisma.vorbestellungPosition.count({ where: { artikelId } }),
+        prisma.kontraktPosition.count({ where: { artikelId } }),
+        prisma.retourePosition.count({ where: { artikelId } }),
+        prisma.eierSortierungPosition.count({ where: { artikelId } }),
+        prisma.anlieferung.count({ where: { artikelId } }),
+      ]).then((c) => c.reduce((a, b) => a + b, 0)),
     ]);
-    const referenziert = lieferposCount + wareneingangCount + bewegungCount + bedarfCount + inventurCount + angebotPosCount + rabattCount + kundePreisCount > 0;
+    const referenziert = lieferposCount + wareneingangCount + bewegungCount + bedarfCount + inventurCount + angebotPosCount + rabattCount + kundePreisCount + weitereRefs > 0;
     if (referenziert) {
       // Soft-delete: nur deaktivieren, damit historische Daten erhalten bleiben
       const artikel = await prisma.artikel.update({ where: { id: artikelId }, data: { aktiv: false } });

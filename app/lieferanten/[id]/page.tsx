@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatEuro, formatDatum } from "@/lib/utils";
@@ -226,7 +227,7 @@ export default function LieferantDetailPage() {
     const quellen = effektiveQuellIds();
     if (!zielId || quellen.length === 0 || !vorschau) return;
     const namen = quellen.map((qid) => nameZu(qid)).join(", ");
-    if (!confirm(`"${namen}" wirklich mit "${zielNameInput || nameZu(zielId)}" verschmelzen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    if (!await bestaetige(`"${namen}" wirklich mit "${zielNameInput || nameZu(zielId)}" verschmelzen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     setMergeLoading(true);
     setMergeError("");
     try {
@@ -337,7 +338,7 @@ export default function LieferantDetailPage() {
 
   async function deleteLieferant() {
     if (!lieferant) return;
-    if (!confirm(`Lieferant "${lieferant.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
+    if (!await bestaetige(`Lieferant "${lieferant.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     setDeleting(true);
     const res = await fetch(`/api/lieferanten/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -347,7 +348,7 @@ export default function LieferantDetailPage() {
         Sentry.captureException(err);
         return ({});
       });
-      alert(d.error ?? "Fehler beim Löschen");
+      void melde(d.error ?? "Fehler beim Löschen");
       setDeleting(false);
     }
   }

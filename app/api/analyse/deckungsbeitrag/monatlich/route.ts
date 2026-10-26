@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const gesamtRows = await prisma.$queryRawUnsafe<GesamtRow[]>(
       `SELECT
         strftime('%Y-%m', l.datum) as monat,
-        CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+        CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
         CAST(SUM(lp.menge * lp.einkaufspreis) AS REAL) as einkauf
       FROM Lieferposition lp
       JOIN Lieferung l ON l.id = lp.lieferungId
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       `SELECT
         lp.artikelId as id,
         a.name,
-        CAST(SUM(lp.menge * (lp.verkaufspreis - lp.einkaufspreis)) AS REAL) as totalDB
+        CAST(SUM(lp.menge * (lp.verkaufspreis * (1 - lp.rabattProzent / 100.0) - lp.einkaufspreis)) AS REAL) as totalDB
       FROM Lieferposition lp
       JOIN Lieferung l ON l.id = lp.lieferungId
       JOIN Artikel a ON a.id = lp.artikelId
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
         `SELECT
           lp.artikelId,
           strftime('%Y-%m', l.datum) as monat,
-          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+          CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
           CAST(SUM(lp.menge * lp.einkaufspreis) AS REAL) as einkauf
         FROM Lieferposition lp
         JOIN Lieferung l ON l.id = lp.lieferungId
@@ -117,7 +117,7 @@ export async function GET(request: Request) {
         strftime('%Y-%m', l.datum) as monat,
         l.kundeId,
         COALESCE(k.firma, k.name) as kundeName,
-        CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+        CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
         CAST(SUM(lp.menge * lp.einkaufspreis) AS REAL) as einkauf
       FROM Lieferposition lp
       JOIN Lieferung l ON l.id = lp.lieferungId

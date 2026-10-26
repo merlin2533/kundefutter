@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -44,7 +45,7 @@ export default function DetailPage() {
   }
 
   async function umwandeln() {
-    if (!confirm("In Lieferung umwandeln?")) return;
+    if (!await bestaetige("In Lieferung umwandeln?")) return;
     const r = await fetch(`/api/vorbestellungen/${id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ aktion: "umwandeln" }),
@@ -63,7 +64,7 @@ export default function DetailPage() {
   }
 
   async function loeschen() {
-    if (!confirm("Vorbestellung löschen?")) return;
+    if (!await bestaetige("Vorbestellung löschen?")) return;
     const r = await fetch(`/api/vorbestellungen/${id}`, { method: "DELETE" });
     if (r.ok) { toast.success("Gelöscht"); router.push("/vorbestellungen"); }
   }

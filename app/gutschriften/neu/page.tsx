@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatEuro, formatDatum } from "@/lib/utils";
+import { formatEuro, formatDatum, heuteIso } from "@/lib/utils";
 import SearchableSelect from "@/components/SearchableSelect";
 import * as Sentry from "@sentry/nextjs";
 
@@ -55,7 +55,7 @@ function NeueGutschriftForm() {
   const [gutschriftGruende, setGutschriftGruende] = useState<string[]>(FALLBACK_GRUENDE);
   const [kundeId, setKundeId] = useState(preselectedKundeId);
   const [lieferungId, setLieferungId] = useState("");
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [grund, setGrund] = useState("Reklamation");
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<Position[]>([

@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -45,7 +46,7 @@ export default function EiersortierungNeuPage() {
   const [artikelList, setArtikelList] = useState<Artikel[]>([]);
   const [anlieferungenList, setAnlieferungenList] = useState<Anlieferung[]>([]);
   const [anlieferungId, setAnlieferungId] = useState("");
-  const [datum, setDatum] = useState(new Date().toISOString().slice(0, 10));
+  const [datum, setDatum] = useState(heuteIso());
   const [notiz, setNotiz] = useState("");
   const [positionen, setPositionen] = useState<Position[]>([leerePosition()]);
   const [saving, setSaving] = useState(false);
@@ -223,7 +224,7 @@ export default function EiersortierungNeuPage() {
           </div>
           {eierArtikelList.length === 0 && (
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
-              Noch kein Artikel der Kategorie „Eier" angelegt.{" "}
+              Noch kein Artikel der Kategorie „Eier“ angelegt.{" "}
               <Link href="/artikel/neu" className="underline font-medium">Jetzt anlegen →</Link>
             </p>
           )}

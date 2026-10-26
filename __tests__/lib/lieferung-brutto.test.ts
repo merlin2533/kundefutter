@@ -57,3 +57,36 @@ describe("berechneLieferungBrutto (Referenz für die gemischte Brutto-Basis)", (
     expect(brutto).toBeCloseTo(3 * 18 * 1.19, 4);
   });
 });
+
+import { berechneOffenenBetrag } from "@/lib/lieferung-brutto";
+
+describe("berechneOffenenBetrag", () => {
+  const pos = [{ menge: 10, verkaufspreis: 10, rabattProzent: 0, mwstSatz: 19 }];
+  it("ist Brutto ohne Teilzahlungen", () => {
+    expect(berechneOffenenBetrag({ positionen: pos })).toBe(119);
+  });
+  it("zieht Teilzahlungen ab", () => {
+    expect(berechneOffenenBetrag({ positionen: pos, teilzahlungen: [{ betrag: 50 }, { betrag: 19 }] })).toBe(50);
+  });
+  it("wird nie negativ", () => {
+    expect(berechneOffenenBetrag({ positionen: pos, teilzahlungen: [{ betrag: 200 }] })).toBe(0);
+  });
+  it("rundet kaufmännisch auf Cent", () => {
+    expect(berechneOffenenBetrag({ positionen: [{ menge: 1, verkaufspreis: 0.333, rabattProzent: 0, mwstSatz: 0 }] })).toBe(0.33);
+  });
+});
+
+import { sollBezahltZurueckgenommenWerden } from "@/lib/lieferung-brutto";
+describe("sollBezahltZurueckgenommenWerden", () => {
+  const d = new Date("2026-10-01");
+  const base = { bezahltAm: d, geloeschtDatum: d, hatKontoumsatz: false, offenerBetrag: 50 };
+  it("nimmt zurück, wenn von dieser Teilzahlung gesetzt und wieder offen", () => {
+    expect(sollBezahltZurueckgenommenWerden(base)).toBe(true);
+  });
+  it("nicht bei anderem Datum, Bankzuordnung, unbezahlt oder nichts offen", () => {
+    expect(sollBezahltZurueckgenommenWerden({ ...base, bezahltAm: new Date("2026-10-05") })).toBe(false);
+    expect(sollBezahltZurueckgenommenWerden({ ...base, hatKontoumsatz: true })).toBe(false);
+    expect(sollBezahltZurueckgenommenWerden({ ...base, bezahltAm: null })).toBe(false);
+    expect(sollBezahltZurueckgenommenWerden({ ...base, offenerBetrag: 0 })).toBe(false);
+  });
+});

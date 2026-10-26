@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatEuro, formatDatum } from "@/lib/utils";
@@ -123,7 +124,7 @@ export default function SammelrechnungenPage() {
   }
 
   async function loeschen(id: number) {
-    if (!confirm("Sammelrechnung löschen? Die zugeordneten Lieferungen werden nicht gelöscht.")) return;
+    if (!await bestaetige("Sammelrechnung löschen? Die zugeordneten Lieferungen werden nicht gelöscht.")) return;
     setActionLoading(id);
     try {
       const res = await fetch(`/api/sammelrechnungen/${id}`, { method: "DELETE" });

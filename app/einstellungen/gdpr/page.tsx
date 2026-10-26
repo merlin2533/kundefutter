@@ -1,4 +1,5 @@
 "use client";
+import { melde } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -59,7 +60,7 @@ export default function GdprPage() {
       URL.revokeObjectURL(url);
     } catch (err) {
       Sentry.captureException(err);
-      alert("Export fehlgeschlagen.");
+      void melde("Export fehlgeschlagen.");
     } finally {
       setExportLoading(false);
       setExportKundeId(null);

@@ -1,13 +1,7 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, useCallback } from "react";
-import {
-  MONATE_KURZ,
-  getJahreListeNum,
-  formatDatum,
-  sollStundenFuerDatum,
-  bevorzugtesZeitfensterFuerDatum,
-  stundenZwischenUhrzeiten,
-} from "@/lib/utils";
+import { MONATE_KURZ, getJahreListeNum, formatDatum, sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const MONATE = MONATE_KURZ;
@@ -54,7 +48,7 @@ export default function MeineArbeitszeitPage() {
   const [jahr, setJahr] = useState(new Date().getFullYear());
 
   // Formular
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [manuelleStunden, setManuelleStunden] = useState("8");
   const [stundenAuto, setStundenAuto] = useState(true);
   const [manuelleVon, setManuelleVon] = useState("");
@@ -138,7 +132,7 @@ export default function MeineArbeitszeitPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Diesen Eintrag wirklich löschen?")) return;
+    if (!await bestaetige("Diesen Eintrag wirklich löschen?")) return;
     const res = await fetch(`/api/personal/arbeitsstunden/${id}`, { method: "DELETE" });
     if (res.ok) ladeStunden();
   }

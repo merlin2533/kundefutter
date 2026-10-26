@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -31,13 +32,22 @@ export default function Page() {
   }
   useEffect(() => { laden(); }, []);
 
+  const [saving, setSaving] = useState(false);
+
   async function speichern(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     if (!form.bestellfrist) { toast.error("Bestellfrist erforderlich"); return; }
-    const res = await fetch("/api/fruehbezugsstaffel", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, rabattProzent: Number(form.rabattProzent) }),
-    });
+    setSaving(true);
+    let res: Response;
+    try {
+      res = await fetch("/api/fruehbezugsstaffel", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, rabattProzent: Number(form.rabattProzent) }),
+      });
+    } finally {
+      setSaving(false);
+    }
     if (res.ok) {
       toast.success("Staffel gespeichert");
       setShowForm(false);
@@ -60,7 +70,7 @@ export default function Page() {
     if (r.ok) laden();
   }
   async function loeschen(id: number) {
-    if (!confirm("Staffel löschen?")) return;
+    if (!await bestaetige("Staffel löschen?")) return;
     const r = await fetch(`/api/fruehbezugsstaffel?id=${id}`, { method: "DELETE" });
     if (r.ok) laden();
   }
@@ -107,7 +117,7 @@ export default function Page() {
               <input type="text" value={form.beschreibung} onChange={e => setForm({ ...form, beschreibung: e.target.value })} className="w-full border rounded px-3 py-2" placeholder="z.B. Frühbezugs-Aktion Saatgut" />
             </div>
             <div className="sm:col-span-3">
-              <button type="submit" className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800">Staffel speichern</button>
+              <button type="submit" disabled={saving} className="bg-green-700 text-white px-4 py-2 rounded hover:bg-green-800 disabled:opacity-50">{saving ? "Speichern…" : "Staffel speichern"}</button>
             </div>
           </form>
         </Card>

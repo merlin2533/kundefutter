@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
@@ -119,7 +120,7 @@ export default function WeitereRechnungenPanel({ umsatzId, kundeId, verwendungsz
   }
 
   async function entfernen(zuordnungId: number) {
-    if (!confirm("Diese weitere Rechnung wirklich entfernen? Falls dadurch als bezahlt markiert, wird sie wieder als offen geführt.")) return;
+    if (!await bestaetige("Diese weitere Rechnung wirklich entfernen? Falls dadurch als bezahlt markiert, wird sie wieder als offen geführt.")) return;
     setBusy(true);
     try {
       await fetch(`/api/bankabgleich/${umsatzId}/weitere?zuordnungId=${zuordnungId}`, { method: "DELETE" });

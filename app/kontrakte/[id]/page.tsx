@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatEuro } from "@/lib/utils";
@@ -156,14 +157,14 @@ export default function KontraktDetailPage({ params }: { params: Promise<{ id: s
                 + Abruf / Lieferung
               </Link>
               <button
-                onClick={() => { if (confirm("Kontrakt abschließen?")) handleAktion("abschliessen"); }}
+                onClick={async () => { if (await bestaetige("Kontrakt abschließen?")) handleAktion("abschliessen"); }}
                 disabled={saving}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >
                 Abschließen
               </button>
               <button
-                onClick={() => { if (confirm("Kontrakt wirklich stornieren?")) handleAktion("stornieren"); }}
+                onClick={async () => { if (await bestaetige("Kontrakt wirklich stornieren?")) handleAktion("stornieren"); }}
                 disabled={saving}
                 className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
               >

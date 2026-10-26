@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 import { isNextcloudKonfiguriert } from "@/lib/nextcloud";
 import { starteBackfillFallsMoeglich, resetBackfillStatus } from "@/lib/nextcloud-backfill";
@@ -12,6 +14,9 @@ export const dynamic = "force-dynamic";
  * GET /api/nextcloud/backfill/status abrufbar. 409, falls bereits ein Lauf aktiv ist.
  */
 export async function POST() {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const konfiguriert = await isNextcloudKonfiguriert();
     if (!konfiguriert) {
@@ -39,6 +44,9 @@ export async function POST() {
  * 409, falls tatsächlich noch ein aktiver (nicht verwaister) Lauf läuft.
  */
 export async function DELETE() {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.EINSTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   try {
     const result = await resetBackfillStatus();
     if (!result.ok) {

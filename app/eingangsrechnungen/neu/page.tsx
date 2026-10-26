@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -246,7 +247,7 @@ function EingangsrechnungEinzelnForm() {
     return BELEG_EXTENSIONS.some((ext) => name.endsWith(ext));
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
 
   const [lieferantId, setLieferantId] = useState("");
   const [nummer, setNummer] = useState("");

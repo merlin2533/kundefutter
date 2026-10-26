@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -31,6 +32,19 @@ interface Sortierung {
   positionen: Position[];
 }
 
+interface EditPos {
+  id: number;
+  artikelId: number;
+  gueteklasse: string;
+  gewichtsklasse: string;
+  artikelName: string;
+  einheit: string;
+  menge: string;
+  chargeNr: string;
+  legedatum: string;
+  erzeugercode: string;
+}
+
 function mhdVon(legedatum: string | null): string | null {
   if (!legedatum) return null;
   return berechneEierMhd(new Date(legedatum)).toLocaleDateString("de-DE");
@@ -41,20 +55,113 @@ export default function EiersortierungDetailPage() {
   const router = useRouter();
   const [sortierung, setSortierung] = useState<Sortierung | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ladeFehler, setLadeFehler] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [hinweis, setHinweis] = useState("");
+  const [editDatum, setEditDatum] = useState("");
+  const [editNotiz, setEditNotiz] = useState("");
+  const [editPos, setEditPos] = useState<EditPos[]>([]);
 
   useEffect(() => {
     fetch(`/api/eiersortierung/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 404) return null;
+        if (!r.ok) {
+          setLadeFehler("Sortierung konnte nicht geladen werden.");
+          return null;
+        }
+        return r.json();
+      })
       .then(setSortierung)
-      .catch((err) => Sentry.captureException(err))
+      .catch((err) => {
+        Sentry.captureException(err);
+        setLadeFehler("Sortierung konnte nicht geladen werden (Netzwerkfehler).");
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
+  function startEdit() {
+    if (!sortierung) return;
+    setEditDatum(sortierung.datum.slice(0, 10));
+    setEditNotiz(sortierung.notiz ?? "");
+    setEditPos(
+      sortierung.positionen.map((p) => ({
+        id: p.id,
+        artikelId: p.artikel.id,
+        gueteklasse: p.gueteklasse,
+        gewichtsklasse: p.gewichtsklasse,
+        artikelName: p.artikel.name,
+        einheit: p.artikel.einheit,
+        menge: String(p.menge),
+        chargeNr: p.chargeNr ?? "",
+        legedatum: p.legedatum ? p.legedatum.slice(0, 10) : "",
+        erzeugercode: p.erzeugercode ?? "",
+      })),
+    );
+    setEditError("");
+    setHinweis("");
+    setEditing(true);
+  }
+
+  function setPos(i: number, patch: Partial<EditPos>) {
+    setEditPos((list) => list.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
+  }
+
+  async function handleSave() {
+    setEditError("");
+    if (editPos.length === 0) {
+      setEditError("Mindestens eine Position nötig — zum Entfernen der ganzen Sortierung bitte „Löschen“ nutzen.");
+      return;
+    }
+    for (const p of editPos) {
+      const m = Number(p.menge.replace(",", "."));
+      if (!Number.isFinite(m) || m <= 0) {
+        setEditError(`Ungültige Menge bei ${p.artikelName}`);
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/eiersortierung/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          datum: editDatum,
+          notiz: editNotiz,
+          positionen: editPos.map((p) => ({
+            artikelId: p.artikelId,
+            gueteklasse: p.gueteklasse,
+            gewichtsklasse: p.gewichtsklasse,
+            menge: Number(p.menge.replace(",", ".")),
+            chargeNr: p.chargeNr,
+            legedatum: p.legedatum,
+            erzeugercode: p.erzeugercode,
+          })),
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEditError(d.error ?? "Speichern fehlgeschlagen.");
+        return;
+      }
+      setSortierung(d.sortierung);
+      setHinweis(d.warnung ?? "");
+      setEditing(false);
+    } catch (err) {
+      Sentry.captureException(err);
+      setEditError("Speichern fehlgeschlagen — bitte erneut versuchen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDelete() {
     if (
-      !confirm(
+      !await bestaetige(
         "Diese Sortierung wirklich löschen? Der gebuchte Lagerzugang wird zurückgebucht — falls die Ware bereits weiterverkauft wurde, kann der Bestand dadurch negativ werden.",
       )
     ) {
@@ -83,7 +190,7 @@ export default function EiersortierungDetailPage() {
   }
 
   if (loading) return <p className="text-sm text-gray-400">Lade…</p>;
-  if (!sortierung) return <p className="text-sm text-red-600">Nicht gefunden.</p>;
+  if (!sortierung) return <p className="text-sm text-red-600">{ladeFehler || "Nicht gefunden."}</p>;
 
   const gesamtMenge = sortierung.positionen.reduce((sum, p) => sum + p.menge, 0);
 
@@ -101,6 +208,11 @@ export default function EiersortierungDetailPage() {
           <Link href="/eiersortierung/etiketten" className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 font-medium">
             Etiketten drucken
           </Link>
+          {!editing && (
+            <button onClick={startEdit} className="px-4 py-2 text-sm rounded-lg border border-blue-300 text-blue-700 hover:bg-blue-50 font-medium">
+              Bearbeiten
+            </button>
+          )}
           <button
             onClick={handleDelete}
             disabled={deleting}
@@ -110,6 +222,68 @@ export default function EiersortierungDetailPage() {
           </button>
         </div>
       </div>
+
+      {hinweis && (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-6">{hinweis}</p>
+      )}
+
+      {editing && (
+        <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-4 sm:p-6 mb-6 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700">Sortierung bearbeiten</h2>
+          <p className="text-xs text-gray-500">
+            Mengenänderungen werden als Differenz im Lagerbestand gebucht. Artikel und Güte-/Gewichtsklasse sind
+            fest (die Klasse steckt im Artikel) — für andere Klassen bitte ein neues Protokoll anlegen. Eine
+            bereits erstellte Erzeuger-Gutschrift wird nicht automatisch angepasst (Button „aktualisieren“ auf der Anlieferung).
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <label className="text-sm w-full sm:w-48">
+              <span className="block text-gray-600 mb-1">Datum</span>
+              <input type="date" value={editDatum} onChange={(e) => setEditDatum(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </label>
+            <label className="text-sm flex-1 min-w-[12rem]">
+              <span className="block text-gray-600 mb-1">Notiz</span>
+              <input value={editNotiz} onChange={(e) => setEditNotiz(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            </label>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="text-left py-2 pr-3">Artikel</th>
+                  <th className="text-left py-2 pr-3">Menge</th>
+                  <th className="text-left py-2 pr-3">Charge</th>
+                  <th className="text-left py-2 pr-3">Legedatum</th>
+                  <th className="text-left py-2 pr-3">Erzeugercode</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {editPos.map((p, i) => (
+                  <tr key={p.id}>
+                    <td className="py-2 pr-3 whitespace-nowrap">{p.artikelName}</td>
+                    <td className="py-2 pr-3"><input inputMode="decimal" value={p.menge} onChange={(e) => setPos(i, { menge: e.target.value })} className="w-24 border border-gray-300 rounded px-2 py-1" /> <span className="text-xs text-gray-400">{p.einheit}</span></td>
+                    <td className="py-2 pr-3"><input value={p.chargeNr} onChange={(e) => setPos(i, { chargeNr: e.target.value })} className="w-32 border border-gray-300 rounded px-2 py-1" /></td>
+                    <td className="py-2 pr-3"><input type="date" value={p.legedatum} onChange={(e) => setPos(i, { legedatum: e.target.value })} className="border border-gray-300 rounded px-2 py-1" /></td>
+                    <td className="py-2 pr-3"><input value={p.erzeugercode} onChange={(e) => setPos(i, { erzeugercode: e.target.value })} className="w-36 border border-gray-300 rounded px-2 py-1" /></td>
+                    <td className="py-2"><button type="button" onClick={() => setEditPos((l) => l.filter((_, idx) => idx !== i))} className="text-xs text-red-600 hover:underline">entfernen</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {editError && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{editError}</p>}
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-sm bg-green-700 hover:bg-green-800 disabled:opacity-60 text-white rounded-lg font-medium">
+              {saving ? "Speichere…" : "Speichern"}
+            </button>
+            <button onClick={() => setEditing(false)} disabled={saving} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
 
       {deleteError && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-6">{deleteError}</p>

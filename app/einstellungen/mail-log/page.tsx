@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
@@ -100,7 +101,7 @@ export default function MailLogPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Mail-Log-Eintrag löschen?")) return;
+    if (!await bestaetige("Mail-Log-Eintrag löschen?")) return;
     setDeleting(id);
     try {
       await fetch(`/api/einstellungen/mail-log?id=${id}`, { method: "DELETE" });

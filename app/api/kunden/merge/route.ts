@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditChanges, auditLog } from "@/lib/audit";
@@ -132,6 +134,9 @@ export async function GET(req: NextRequest) {
 
 /** POST { zielId, quelleId, felder } — führt Quell- in Ziel-Kunde zusammen und löscht die Quelle danach. */
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.KUNDEN_LOESCHEN);
+  if (__deny) return __deny;
   let body;
   try {
     body = await req.json();
@@ -265,6 +270,8 @@ export async function POST(req: NextRequest) {
       await Promise.all([
         tx.kundeKontakt.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeNotiz.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
+        tx.kundeForderung.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
+        tx.rechnungsuebersicht.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeAktivitaet.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.kundeSchlag.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),
         tx.lieferung.updateMany({ where: { kundeId: quelleId }, data: { kundeId: zielId } }),

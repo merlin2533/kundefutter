@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
@@ -52,7 +53,7 @@ export default function InventurPage() {
   }, []);
 
   async function handleDelete(id: number) {
-    if (!confirm("Inventur wirklich löschen?")) return;
+    if (!await bestaetige("Inventur wirklich löschen?")) return;
     setDeletingId(id);
     await fetch(`/api/inventur/${id}`, { method: "DELETE" });
     setDeletingId(null);

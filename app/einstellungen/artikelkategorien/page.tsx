@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -240,7 +241,7 @@ export default function ArtikelkategorienPage() {
     const frage = count > 0
       ? `„${name}" löschen? ${count} Artikel nutzen diese Kategorie noch (bleiben unverändert).`
       : `„${name}" löschen?`;
-    if (!confirm(frage)) return;
+    if (!await bestaetige(frage)) return;
     const next = items.filter((_, i) => i !== index);
     setItems(next);
     if (istChargenpflichtig(name)) {
@@ -264,7 +265,7 @@ export default function ArtikelkategorienPage() {
     }
     const count = counts[alt] ?? 0;
     if (count > 0) {
-      const ok = confirm(`„${alt}" in „${neu}" umbenennen? ${count} Artikel werden aktualisiert.`);
+      const ok = await bestaetige(`„${alt}" in „${neu}" umbenennen? ${count} Artikel werden aktualisiert.`);
       if (!ok) return;
     }
     setSaving(true);

@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -51,6 +53,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/besuchstermine — geplanten Besuch anlegen
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.BESUCHSTERMINE_BEARBEITEN, P.KUNDEN_BEARBEITEN]);
+  if (__deny) return __deny;
   let body;
   try {
     body = await req.json();
@@ -102,6 +107,9 @@ export async function POST(req: NextRequest) {
 
 // DELETE /api/besuchstermine?id=X
 export async function DELETE(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.BESUCHSTERMINE_BEARBEITEN, P.KUNDEN_BEARBEITEN]);
+  if (__deny) return __deny;
   const { searchParams } = new URL(req.url);
   const id = Number(searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "id fehlt" }, { status: 400 });

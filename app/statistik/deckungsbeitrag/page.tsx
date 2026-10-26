@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { formatEuro, formatPercent, MONATE_KURZ } from "@/lib/utils";
+import { formatEuro, formatPercent, MONATE_KURZ, heuteIso } from "@/lib/utils";
 import Link from "next/link";
 import ZeitraumFilter from "@/components/ZeitraumFilter";
 import * as Sentry from "@sentry/nextjs";
@@ -110,7 +110,7 @@ function downloadCSV(items: DBItem[], typ: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `deckungsbeitrag-${typ}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `deckungsbeitrag-${typ}-${heuteIso()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

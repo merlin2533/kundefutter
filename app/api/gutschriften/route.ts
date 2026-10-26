@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (von || bis) {
     where.datum = {
       ...(von && { gte: new Date(von) }),
-      ...(bis && { lte: new Date(bis) }),
+      ...(bis && { lte: new Date(new Date(bis).setHours(23, 59, 59, 999)) }),
     };
   }
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { formatEuro, getJahreListeNum, MONATE_KURZ } from "@/lib/utils";
+import { formatEuro, getJahreListeNum, MONATE_KURZ, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const MONAT_LABELS = MONATE_KURZ;
@@ -167,7 +167,7 @@ function downloadCSV(data: SaisonalData) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `saisonal-auswertung-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `saisonal-auswertung-${heuteIso()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

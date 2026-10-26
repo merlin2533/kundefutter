@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { liefposArtikelSelect } from "@/lib/artikel-select";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +17,9 @@ const GEWICHTSKLASSEN_KEYS = GEWICHTSKLASSEN.map((g) => g.key) as string[];
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.LIEFERUNGEN_ERSTELLEN);
+  if (__deny) return __deny;
   const { id } = await params;
   const lieferungId = parseInt(id, 10);
   if (isNaN(lieferungId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
@@ -146,8 +151,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
 
       if (bereitsGeliefert && !lieferung.istStreckengeschaeft && istLagerrelevant(artikel.kategorie)) {
-        const neuerBestand = artikel.aktuellerBestand - mengeNum;
-        await tx.artikel.update({ where: { id: artikelId }, data: { aktuellerBestand: neuerBestand } });
+        // Atomares Dekrement statt Lesen-Rechnen-Schreiben: der vorab (außerhalb der
+        // Transaktion) gelesene Bestand kann zwischenzeitlich von einer parallelen Buchung
+        // verändert worden sein (Lost Update).
+        const aktualisiert = await tx.artikel.update({
+          where: { id: artikelId },
+          data: { aktuellerBestand: { decrement: mengeNum } },
+          select: { aktuellerBestand: true },
+        });
+        const neuerBestand = aktualisiert.aktuellerBestand;
         await tx.lagerbewegung.create({
           data: { artikelId, typ: "ausgang", menge: -mengeNum, bestandNach: neuerBestand, lieferungId },
         });

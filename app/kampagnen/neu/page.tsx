@@ -1,4 +1,5 @@
 "use client";
+import { heuteIso } from "@/lib/utils";
 import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -42,7 +43,7 @@ function KampagneNeuInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = heuteIso();
 
   const [name, setName] = useState("");
   const [beschreibung, setBeschreibung] = useState("");

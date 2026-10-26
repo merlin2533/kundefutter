@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { MargeBadge } from "@/components/Badge";
@@ -7,6 +8,7 @@ import { useScrollRestoration } from "@/lib/useScrollRestoration";
 import Pagination from "@/components/Pagination";
 import { ErrorState } from "@/components/ErrorState";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 interface Lieferung {
   id: number;
@@ -53,6 +55,7 @@ function loadLieferungFilters() {
 }
 
 export default function LieferungenPage() {
+  const toast = useToast();
   const [tab, setTab] = useState<"liste" | "wiederkehrend">("liste");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
 
@@ -256,10 +259,14 @@ export default function LieferungenPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Lieferung wirklich löschen?")) return;
+    if (!await bestaetige("Lieferung wirklich löschen?")) return;
     setDeletingId(id);
     try {
-      await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/lieferungen/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        toast.error(d?.error ?? "Lieferung konnte nicht gelöscht werden");
+      }
       await fetchLieferungen(page);
     } finally {
       setDeletingId(null);
@@ -267,7 +274,7 @@ export default function LieferungenPage() {
   }
 
   async function markiereGeliefert(id: number) {
-    if (!confirm("Auftrag als geliefert bestätigen und Lieferschein erstellen? Der Lagerbestand wird gebucht.")) return;
+    if (!await bestaetige("Auftrag als geliefert bestätigen und Lieferschein erstellen? Der Lagerbestand wird gebucht.")) return;
     setStatusChangingId(id);
     try {
       const res = await fetch(`/api/lieferungen/${id}`, {
@@ -280,7 +287,7 @@ export default function LieferungenPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(d.error ?? "Status konnte nicht geändert werden");
+        void melde(d.error ?? "Status konnte nicht geändert werden");
         return;
       }
       await fetchLieferungen(page);

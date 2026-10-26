@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { formatDatum } from "@/lib/utils";
@@ -86,7 +87,7 @@ export default function ChargenZertifikatePage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Zertifikat wirklich löschen?")) return;
+    if (!await bestaetige("Zertifikat wirklich löschen?")) return;
     setDeleting(id);
     const res = await fetch(`/api/chargen-zertifikate/${id}`, { method: "DELETE" });
     setDeleting(null);

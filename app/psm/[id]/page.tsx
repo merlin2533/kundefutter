@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -159,7 +160,7 @@ function PSMDetailInner({ id }: { id: string }) {
   }
 
   async function handleDelete() {
-    if (!confirm(`PSM-Ausbringung "${data?.mittel}" wirklich löschen?`)) return;
+    if (!await bestaetige(`PSM-Ausbringung "${data?.mittel}" wirklich löschen?`)) return;
     setDeleting(true);
     try {
       await fetch(`/api/psm/${id}`, { method: "DELETE" });

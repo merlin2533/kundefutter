@@ -51,6 +51,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/** Fachlicher Fehler (400) — Meldung ist für Nutzer bestimmt, kein Serverfehler. */
+class SammelrechnungFehler extends Error {}
+
 export async function POST(req: NextRequest) {
   const me = await getCurrentUser();
   const deny = requirePermission(me, P.SAMMELRECHNUNGEN_ERSTELLEN);
@@ -70,20 +73,37 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // Alle Lieferungen müssen existieren und diesem Kunden gehören; eine Lieferung mit
+      // eigener Einzelrechnung darf nicht zusätzlich in eine Sammelrechnung (Doppelabrechnung).
+      const gewaehlt = await tx.lieferung.findMany({
+        where: { id: { in: lieferungIds } },
+        select: { id: true, kundeId: true, rechnungNr: true },
+      });
+      if (gewaehlt.length !== new Set(lieferungIds).size) {
+        throw new SammelrechnungFehler("Mindestens eine ausgewählte Lieferung existiert nicht");
+      }
+      const fremd = gewaehlt.filter((l) => l.kundeId !== kundeId);
+      if (fremd.length > 0) {
+        throw new SammelrechnungFehler(`Lieferungen [${fremd.map((l) => l.id).join(", ")}] gehören nicht zu diesem Kunden`);
+      }
+      const mitRechnung = gewaehlt.filter((l) => l.rechnungNr);
+      if (mitRechnung.length > 0) {
+        throw new SammelrechnungFehler(`Lieferungen [${mitRechnung.map((l) => l.id).join(", ")}] haben bereits eine eigene Rechnung`);
+      }
       // Prüfen ob Lieferungen bereits eine Sammelrechnung haben
       const bereitsZugewiesen = await tx.lieferung.findMany({
         where: { id: { in: lieferungIds }, sammelrechnungId: { not: null } },
         select: { id: true },
       });
       if (bereitsZugewiesen.length > 0) {
-        throw new Error(`Lieferungen [${bereitsZugewiesen.map((l) => l.id).join(", ")}] sind bereits einer Sammelrechnung zugewiesen`);
+        throw new SammelrechnungFehler(`Lieferungen [${bereitsZugewiesen.map((l) => l.id).join(", ")}] sind bereits einer Sammelrechnung zugewiesen`);
       }
       const storniert = await tx.lieferung.findMany({
         where: { id: { in: lieferungIds }, status: "storniert" },
         select: { id: true },
       });
       if (storniert.length > 0) {
-        throw new Error(`Lieferungen [${storniert.map((l) => l.id).join(", ")}] sind storniert und können nicht abgerechnet werden`);
+        throw new SammelrechnungFehler(`Lieferungen [${storniert.map((l) => l.id).join(", ")}] sind storniert und können nicht abgerechnet werden`);
       }
 
       // Manche Betriebe markieren Lieferungen im Alltag nie explizit als "geliefert"
@@ -107,7 +127,7 @@ export async function POST(req: NextRequest) {
         tx.sammelrechnung.findFirst({ where: { rechnungNr }, select: { id: true } }),
       ]);
       if (kollisionLieferung || kollisionSammel) {
-        throw new Error(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
+        throw new SammelrechnungFehler(`Rechnungsnummer ${rechnungNr} ist bereits vergeben – bitte den Zählerstand unter Einstellungen › Nummernkreise korrigieren`);
       }
 
       await tx.einstellung.upsert({
@@ -155,8 +175,12 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     Sentry.captureException(err);
     console.error("Sammelrechnung POST error:", err);
+    // Fachliche Validierungsfehler sind für den Nutzer gedacht und werden immer angezeigt
+    if (err instanceof SammelrechnungFehler) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     const isDev = process.env.NODE_ENV === "development";
     const message = isDev && err instanceof Error ? err.message : "Interner Fehler";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

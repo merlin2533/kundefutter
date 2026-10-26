@@ -128,6 +128,7 @@ export default function EierEtikettenPage() {
   const [groesse, setGroesse] = useState<EtikettGroesse>("70x40");
   const [generated, setGenerated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [ladeFehler, setLadeFehler] = useState("");
   const [qrResult, setQrResult] = useState<{ payload: string; src: string } | null>(null);
 
   const qrPayloadWert = useMemo(() => qrPayload(felder), [felder]);
@@ -159,7 +160,10 @@ export default function EierEtikettenPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/eiersortierung").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/eiersortierung").then((r) => {
+        if (!r.ok) throw new Error(`Sortierungen: HTTP ${r.status}`);
+        return r.json();
+      }),
       fetch("/api/einstellungen?prefix=firma.").then((r) => (r.ok ? r.json() : {})),
     ])
       .then(([sorts, ein]: [Sortierung[], Record<string, string>]) => {
@@ -172,6 +176,7 @@ export default function EierEtikettenPage() {
       })
       .catch((err) => {
         Sentry.captureException(err);
+        setLadeFehler("Sortierungen konnten nicht geladen werden — Etiketten lassen sich nur manuell ausfüllen.");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -255,6 +260,9 @@ export default function EierEtikettenPage() {
       `}</style>
 
       <div className="no-print">
+        {ladeFehler && (
+          <p className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded px-4 py-3">{ladeFehler}</p>
+        )}
         <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold">Eierkarton-Etiketten</h1>

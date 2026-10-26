@@ -8,6 +8,11 @@ und das Projekt folgt der [Semantischen Versionierung](https://semver.org/lang/d
 ## [Unreleased]
 
 ### Behoben (GlitchTip-Sweep)
+- **Globale Suche (`/api/suche`) meldete bei Suchbegriffen mit Bindestrich einen Fehler und fiel auf die Ersatzsuche ohne Ranking zurück** (GlitchTip AGRI-23,
+  `SQLITE_ERROR: no such column: 0764` bei der Suche nach `2026-0764`) – der Suchbegriff wurde
+  unquotiert an `MATCH` übergeben, FTS5 las `-0764` als Spaltenfilter. Jeder Begriff wird jetzt als
+  Phrase in Anführungszeichen gesetzt (`"2026-0764"*`); Sonderzeichen wie `:` oder `(` sind damit
+  ebenfalls unkritisch.
 - **KI-JSON-Parsing meldete Fehler, obwohl ein nachgelagerter Fallback erfolgreich parste**
   (GlitchTip AGRI-1I "Unexpected non-whitespace character after JSON" und AGRI-1K "SyntaxError:
   Unexpected token '`'", `parseJsonFromText()` in `lib/ai.ts`) – Mistral hängt einer sonst

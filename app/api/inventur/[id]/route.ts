@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -36,6 +38,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.INVENTUR_BEARBEITEN);
+  if (__deny) return __deny;
   const { id } = await params;
   let body;
   try {
@@ -54,9 +59,17 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
 
+    if (inventur.status === "ABGESCHLOSSEN") {
+      return NextResponse.json({ error: "Inventur ist bereits abgeschlossen" }, { status: 409 });
+    }
+
     // Option A: update positions
     if (body.positionen) {
       const updates = body.positionen as Array<{ id: number; istBestand: number; bemerkung?: string; chargeNr?: string }>;
+      const eigeneIds = new Set(inventur.positionen.map((pos) => pos.id));
+      if (updates.some((p) => !eigeneIds.has(p.id))) {
+        return NextResponse.json({ error: "Position gehört nicht zu dieser Inventur" }, { status: 400 });
+      }
 
       await prisma.$transaction(
         updates.map((p) =>
@@ -153,6 +166,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.INVENTUR_BEARBEITEN);
+  if (__deny) return __deny;
   const { id } = await params;
 
   try {

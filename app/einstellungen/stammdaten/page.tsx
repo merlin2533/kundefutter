@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -221,7 +222,7 @@ function UnregistrierteUnterkategorien() {
     const key = `${kategorie}|${von}`;
     const zu = ziel[key];
     if (!zu) return;
-    if (!confirm(`„${von}" in „${zu}" zusammenführen? Betroffene Artikel werden auf „${zu}" umgestellt.`)) return;
+    if (!await bestaetige(`„${von}" in „${zu}" zusammenführen? Betroffene Artikel werden auf „${zu}" umgestellt.`)) return;
     setSaving(key);
     setMeldung(null);
     try {

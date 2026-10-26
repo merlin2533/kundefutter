@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setAktiverEinkaufspreis } from "@/lib/einkaufspreisverlauf";
@@ -18,6 +20,9 @@ async function findeEintrag(artikelId: number, lieferantId: number, preisId: num
 }
 
 export async function PATCH(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { id, lieferantId, preisId } = await ctx.params;
   const artikelId = parseInt(id, 10);
   const lId = parseInt(lieferantId, 10);
@@ -73,6 +78,9 @@ export async function PATCH(req: NextRequest, ctx: Params) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
   const { id, lieferantId, preisId } = await ctx.params;
   const artikelId = parseInt(id, 10);
   const lId = parseInt(lieferantId, 10);

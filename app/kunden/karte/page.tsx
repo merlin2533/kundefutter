@@ -79,7 +79,7 @@ export default function KundenKartePage() {
   const fetchKunden = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/kunden");
+      const res = await fetch("/api/kunden?limit=5000");
       const data = await res.json();
       setAlleKunden(Array.isArray(data) ? data : []);
     } finally {

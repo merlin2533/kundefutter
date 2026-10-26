@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -58,7 +59,7 @@ export default function RechnungsuebersichtDetailPage() {
 
   async function loeschen() {
     if (!uebersicht) return;
-    if (!confirm("Diese Rechnungsübersicht löschen? Die zugrundeliegenden Rechnungen bleiben unverändert erhalten.")) return;
+    if (!await bestaetige("Diese Rechnungsübersicht löschen? Die zugrundeliegenden Rechnungen bleiben unverändert erhalten.")) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/rechnungsuebersicht/${uebersicht.id}`, { method: "DELETE" });

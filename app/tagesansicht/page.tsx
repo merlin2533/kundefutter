@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
+import { useToast } from "@/components/ToastProvider";
 
 interface PegelstandEintrag {
   id: number;
@@ -85,6 +86,7 @@ function formatDatum(d: string | null) {
 }
 
 export default function TagesansichtPage() {
+  const toast = useToast();
   const [data, setData] = useState<TagesansichtData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<number | null>(null);
@@ -121,27 +123,29 @@ export default function TagesansichtPage() {
 
   async function toggleAufgabe(a: Aufgabe) {
     setToggling(a.id);
-    await fetch(`/api/aufgaben/${a.id}`, {
+    const res = await fetch(`/api/aufgaben/${a.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ erledigt: !a.erledigt }),
     });
+    if (!res.ok) toast.error("Aufgabe konnte nicht aktualisiert werden");
     await fetchData();
     setToggling(null);
   }
 
   async function erledigeAnruf(aktivitaetId: number) {
-    await fetch(`/api/kunden/aktivitaeten?id=${aktivitaetId}`, {
+    const res = await fetch(`/api/kunden/aktivitaeten?id=${aktivitaetId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ erledigt: true }),
     });
+    if (!res.ok) toast.error("Anruf konnte nicht als erledigt markiert werden");
     await fetchData();
   }
 
   async function erfasseAnruf(kundeId: number) {
     try {
-      await fetch("/api/kunden/aktivitaeten", {
+      const res = await fetch("/api/kunden/aktivitaeten", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -152,6 +156,10 @@ export default function TagesansichtPage() {
           erledigt: true,
         }),
       });
+      if (!res.ok) {
+        toast.error("Anruf konnte nicht erfasst werden");
+        return;
+      }
       setErfasst((prev) => ({ ...prev, [kundeId]: true }));
       setTimeout(() => {
         setErfasst((prev) => { const n = { ...prev }; delete n[kundeId]; return n; });

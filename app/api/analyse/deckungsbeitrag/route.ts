@@ -26,14 +26,14 @@ export async function GET(request: Request) {
           lp.artikelId as id,
           a.name,
           a.kategorie,
-          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+          CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
           CAST(SUM(lp.menge * lp.einkaufspreis) AS REAL) as einkauf,
           CAST(COALESCE((
             SELECT SUM(gp.menge * gp.preis)
             FROM GutschriftPosition gp
             JOIN Gutschrift g ON g.id = gp.gutschriftId
             WHERE gp.artikelId = lp.artikelId
-              AND g.status != 'STORNIERT'
+              AND g.status NOT IN ('STORNIERT','ERSTATTET') AND g.grund NOT IN ('Erzeugerabrechnung','Doppelzahlung')
               AND g.datum >= ? AND g.datum <= ?
           ), 0) AS REAL) as gutschriften
         FROM Lieferposition lp
@@ -65,14 +65,14 @@ export async function GET(request: Request) {
           l.kundeId as id,
           k.name,
           k.firma,
-          CAST(SUM(lp.menge * lp.verkaufspreis) AS REAL) as umsatz,
+          CAST(SUM(lp.menge * lp.verkaufspreis * (1 - lp.rabattProzent / 100.0)) AS REAL) as umsatz,
           CAST(SUM(lp.menge * lp.einkaufspreis) AS REAL) as einkauf,
           CAST(COALESCE((
             SELECT SUM(gp.menge * gp.preis)
             FROM GutschriftPosition gp
             JOIN Gutschrift g ON g.id = gp.gutschriftId
             WHERE g.kundeId = l.kundeId
-              AND g.status != 'STORNIERT'
+              AND g.status NOT IN ('STORNIERT','ERSTATTET') AND g.grund NOT IN ('Erzeugerabrechnung','Doppelzahlung')
               AND g.datum >= ? AND g.datum <= ?
           ), 0) AS REAL) as gutschriften
         FROM Lieferposition lp

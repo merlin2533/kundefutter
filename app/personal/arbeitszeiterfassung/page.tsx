@@ -1,7 +1,8 @@
 "use client";
+import { bestaetige } from "@/lib/dialog";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten } from "@/lib/utils";
+import { sollStundenFuerDatum, bevorzugtesZeitfensterFuerDatum, stundenZwischenUhrzeiten, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 const ARTEN = [
@@ -41,7 +42,7 @@ interface RowState {
 }
 
 export default function ArbeitszeiterfassungPage() {
-  const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
+  const [datum, setDatum] = useState(heuteIso());
   const [mitarbeiterListe, setMitarbeiterListe] = useState<Mitarbeiter[]>([]);
   const [rows, setRows] = useState<Record<number, RowState>>({});
   const [loading, setLoading] = useState(true);
@@ -159,7 +160,7 @@ export default function ArbeitszeiterfassungPage() {
   async function alleBestaetigen() {
     const offen = mitarbeiterListe.filter((ma) => !rows[ma.id]?.bestehendId);
     if (offen.length === 0) return;
-    if (!confirm(`${offen.length} Mitarbeiter mit den vorgeschlagenen Stunden bestätigen?`)) return;
+    if (!await bestaetige(`${offen.length} Mitarbeiter mit den vorgeschlagenen Stunden bestätigen?`)) return;
     setBulkSaving(true);
     for (const ma of offen) {
       const row = rows[ma.id];

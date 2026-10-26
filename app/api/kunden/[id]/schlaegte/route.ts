@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
@@ -31,6 +33,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 
 // POST /api/kunden/[id]/schlaegte
 export async function POST(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;
@@ -81,6 +86,9 @@ export async function POST(req: NextRequest, ctx: Params) {
 
 // DELETE /api/kunden/[id]/schlaegte?schlagId=X
 export async function DELETE(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.KUNDEN_BEARBEITEN, P.KUNDEN_ERSTELLEN]);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "bodenproben");
   if (denyModul) return denyModul;

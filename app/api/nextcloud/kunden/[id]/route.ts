@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { kundenOrdnerPfad, listeDateien, uploadDatei } from "@/lib/nextcloud";
@@ -33,6 +35,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EINSTELLUNGEN_BEARBEITEN, P.EXPORT_RECHNUNG, P.KUNDEN_BEARBEITEN]);
+  if (__deny) return __deny;
   const { id } = await ctx.params;
   const kundeId = parseInt(id, 10);
   if (isNaN(kundeId)) return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });

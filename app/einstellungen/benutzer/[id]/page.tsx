@@ -1,4 +1,5 @@
 "use client";
+import { bestaetige, melde } from "@/lib/dialog";
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -163,7 +164,7 @@ export default function BenutzerBearbeitenPage() {
 
   async function loeschen() {
     if (!id || !benutzer) return;
-    if (!confirm(`Benutzer „${benutzer.name}" wirklich löschen?`)) return;
+    if (!await bestaetige(`Benutzer „${benutzer.name}" wirklich löschen?`)) return;
     try {
       const res = await fetch(`/api/benutzer/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -171,13 +172,13 @@ export default function BenutzerBearbeitenPage() {
           Sentry.captureException(err);
           return ({});
         });
-        alert(data?.error ?? "Löschen fehlgeschlagen");
+        void melde(data?.error ?? "Löschen fehlgeschlagen");
         return;
       }
       router.push("/einstellungen/benutzer");
     } catch (err) {
       Sentry.captureException(err);
-      alert("Netzwerkfehler");
+      void melde("Netzwerkfehler");
     }
   }
 

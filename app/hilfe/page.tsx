@@ -314,6 +314,7 @@ const sections: Section[] = [
       { text: "KAT-Wochenmeldung als Export inkl. Vorschau" },
       { text: "Meldepflichten-Tracker: Tierseuchenkasse-Frist (31.01.) und wöchentliche KAT-Meldung als Aufgabe" },
       { text: "Eier-Kontrolle: MHD-Ampel, Erzeugercode-Validierung und Meldepflichten-Status an einer Stelle (/eierkontrolle)" },
+      { text: "Chargen-Rückverfolgung: zu Chargennummer oder Erzeugercode alle Sortierungen und belieferten Kunden finden — für Rückrufe (/eierkontrolle/rueckverfolgung)" },
       { text: "Eier-Berichte: Güte-/Gewichtsklassen-Verteilung und Top-Erzeuger im Zeitraum (/statistik/eier)" },
     ],
   },

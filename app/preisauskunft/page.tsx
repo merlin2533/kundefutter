@@ -64,7 +64,7 @@ export default function PreisauskunftPage() {
 
   // Load artikel options
   useEffect(() => {
-    fetch("/api/artikel")
+    fetch("/api/artikel?limit=5000")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => {
         if (Array.isArray(data)) {

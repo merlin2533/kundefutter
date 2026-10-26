@@ -2,7 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatEuro } from "@/lib/utils";
+import { formatEuro, heuteIso } from "@/lib/utils";
 import * as Sentry from "@sentry/nextjs";
 
 interface OffenerPosten {
@@ -187,7 +187,7 @@ function OffenePostenInner() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `offene-posten-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `offene-posten-${heuteIso()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -215,7 +215,7 @@ function OffenePostenInner() {
     ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Offene Posten");
-    XLSX.writeFile(wb, `offene-posten-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.writeFile(wb, `offene-posten-${heuteIso()}.xlsx`);
   }
 
   function statusColor(p: OffenerPosten): string {

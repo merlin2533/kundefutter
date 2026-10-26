@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ladeStandardZahlungsziel } from "@/lib/lieferung";
@@ -49,6 +51,9 @@ export async function GET(_req: NextRequest, ctx: Params) {
 // Body kann enthalten: status, notiz, lieferdatum, bestellfrist, rabattProzent
 // Spezial-Aktion: { aktion: "umwandeln" } → wandelt in Lieferung um
 export async function PUT(req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.VORBESTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "fruehbezug");
   if (denyModul) return denyModul;
@@ -91,6 +96,9 @@ export async function PUT(req: NextRequest, ctx: Params) {
 }
 
 export async function DELETE(_req: NextRequest, ctx: Params) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.VORBESTELLUNGEN_BEARBEITEN);
+  if (__deny) return __deny;
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "fruehbezug");
   if (denyModul) return denyModul;
@@ -117,10 +125,17 @@ async function umwandelnInLieferung(vid: number) {
   });
   if (!vb) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   if (vb.status === "UMGEWANDELT") return NextResponse.json({ error: "Bereits umgewandelt" }, { status: 400 });
+  if (vb.status === "STORNIERT") return NextResponse.json({ error: "Stornierte Vorbestellungen können nicht umgewandelt werden" }, { status: 400 });
 
   const rabatt = vb.rabattProzent ?? 0;
 
   const lieferung = await prisma.$transaction(async (tx) => {
+    // Atomar beanspruchen: zwei parallele Umwandlungen würden sonst zwei Lieferungen anlegen.
+    const beansprucht = await tx.vorbestellung.updateMany({
+      where: { id: vid, status: { notIn: ["UMGEWANDELT", "STORNIERT"] } },
+      data: { status: "UMGEWANDELT" },
+    });
+    if (beansprucht.count === 0) return null;
     const zahlungsziel = await ladeStandardZahlungsziel(tx);
     const created = await tx.lieferung.create({
       data: {
@@ -135,6 +150,9 @@ async function umwandelnInLieferung(vid: number) {
             menge: p.menge,
             verkaufspreis: p.preis ?? p.artikel.standardpreis ?? 0,
             einkaufspreis: 0,
+            // MwSt-Satz des Artikels einfrieren — ohne Angabe gilt der Schema-Default 19 %,
+            // auch bei 7-%-Artikeln (Saatgut, Futter).
+            mwstSatz: p.artikel.mwstSatz,
             rabattProzent: rabatt,
             // Vom Artikel übernommen, nicht überschreibbar (analog mwstSatz) —
             // siehe lib/lieferung.ts erstelleLieferungTransaktion() für dasselbe Muster.
@@ -150,5 +168,6 @@ async function umwandelnInLieferung(vid: number) {
     });
     return created;
   });
+  if (!lieferung) return NextResponse.json({ error: "Bereits umgewandelt" }, { status: 400 });
   return NextResponse.json({ ok: true, lieferungId: lieferung.id });
 }

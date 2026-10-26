@@ -1,3 +1,5 @@
+import { getCurrentUser } from "@/lib/auth";
+import { P, requirePermission, requireAnyPermission } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadPdfToKundeOrdner, isNextcloudKonfiguriert, listeDateienImKundenUnterordner, KundeDokumentTyp } from "@/lib/nextcloud";
@@ -18,6 +20,9 @@ const TYP_ORDNER: Record<string, KundeDokumentTyp> = {
  * Response: { success: true, nextcloudLink }
  */
 export async function POST(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requireAnyPermission(__me, [P.EINSTELLUNGEN_BEARBEITEN, P.EXPORT_RECHNUNG, P.KUNDEN_BEARBEITEN]);
+  if (__deny) return __deny;
   try {
     const konfiguriert = await isNextcloudKonfiguriert();
     if (!konfiguriert) {
