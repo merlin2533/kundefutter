@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Sentry } from "@/lib/sentry";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import { istVollstaendigeLagerortAdresse, type LagerortAdresse } from "@/lib/auswahllisten";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,32 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
     if (body.notiz !== undefined) data.notiz = body.notiz || null;
     if (body.lieferdatum !== undefined) data.lieferdatum = body.lieferdatum ? new Date(body.lieferdatum) : null;
+  }
+
+  // Lieferadresse "ans Lager" — null setzt zurück auf den Standardfall (Streckengeschäft-Erkennung
+  // bzw. keine besondere Adresse). Nur gegen bereits mit vollständiger Adresse hinterlegte Lagerorte
+  // validiert (system.lagerortAdressen), sonst würde eine Bestellung auf einen Lagerort ohne Adresse
+  // zeigen und PDF/E-Mail hätten nichts zum Anzeigen.
+  if (body.lieferLagerort !== undefined) {
+    if (body.lieferLagerort === null || body.lieferLagerort === "") {
+      data.lieferLagerort = null;
+    } else {
+      const setting = await prisma.einstellung.findUnique({ where: { key: "system.lagerortAdressen" } });
+      let adressen: LagerortAdresse[] = [];
+      try {
+        adressen = setting ? JSON.parse(setting.value) : [];
+      } catch (err) {
+        Sentry.captureException(err);
+      }
+      const treffer = adressen.find((a) => a.name === body.lieferLagerort);
+      if (!treffer || !istVollstaendigeLagerortAdresse(treffer)) {
+        return NextResponse.json(
+          { error: "Lagerort unbekannt oder ohne vollständige Adresse (siehe Einstellungen → Stammdaten)" },
+          { status: 400 }
+        );
+      }
+      data.lieferLagerort = body.lieferLagerort;
+    }
   }
 
   let neuLieferantId: number | null = null;

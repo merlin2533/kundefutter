@@ -130,6 +130,23 @@ export function resolveKategorie(
 
 export const DEFAULT_LAGERORTE: string[] = [];
 
+// Zustelladresse je Lagerort (Einstellung-Key "system.lagerortAdressen", JSON-Array). Bewusst eine
+// eigene Adresse PRO Lagerort statt einer einzigen zentralen Adresse — ein Betrieb mit mehreren
+// Standorten (Hauptlager, Außenlager) braucht unterschiedliche Lieferadressen für Bestellungen.
+// `name` referenziert den Lagerort (muss nicht zwingend in system.lagerorte registriert sein, analog
+// zu Artikel.lagerort), die übrigen Felder sind optional (ein Lagerort ohne Adresse ist für die
+// Bestellungs-Lieferadresse schlicht nicht auswählbar).
+export interface LagerortAdresse {
+  name: string;
+  strasse?: string;
+  plz?: string;
+  ort?: string;
+}
+
+export function istVollstaendigeLagerortAdresse(a: LagerortAdresse): boolean {
+  return !!(a.strasse && a.plz && a.ort);
+}
+
 export const DEFAULT_FRUCHTARTEN = [
   "Winterweizen",
   "Sommerweizen",

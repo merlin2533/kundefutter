@@ -71,6 +71,13 @@ export type BestellungVersandKunde = {
   telefon?: string | null;
 };
 
+export type BestellungLagerort = {
+  name: string;
+  strasse?: string | null;
+  plz?: string | null;
+  ort?: string | null;
+};
+
 export type BestellungMailData = {
   nummer: string;
   datum: Date;
@@ -79,8 +86,13 @@ export type BestellungMailData = {
   notiz?: string | null;
   positionen: BestellungMailPosition[];
   /** Streckengeschäft: Ware soll nicht an uns, sondern direkt an diesen Endkunden versendet
-   * werden — nur gesetzt, wenn sich die Bestellung eindeutig genau einem Kunden zuordnen lässt. */
+   * werden — nur gesetzt, wenn sich die Bestellung eindeutig genau einem Kunden zuordnen lässt.
+   * Wird vom Aufrufer bewusst nie zusammen mit `lagerort` gesetzt — eine explizit gewählte
+   * Lieferadresse "ans Lager" hat Vorrang vor der automatischen Streckengeschäft-Erkennung. */
   versandKunde?: BestellungVersandKunde | null;
+  /** Explizit gewählte Lieferadresse "ans Lager" (Bestellung.lieferLagerort), live gegen
+   * system.lagerortAdressen aufgelöst. */
+  lagerort?: BestellungLagerort | null;
   firma: FirmaDaten;
 };
 
@@ -1007,7 +1019,7 @@ export function digestEmail(data: DigestData): { subject: string; text: string; 
 // ─── Lieferantenbestellung ─────────────────────────────────────────────────────
 
 export function bestellungEmail(data: BestellungMailData): { subject: string; text: string; html: string } {
-  const { nummer, datum, lieferdatum, lieferantAnrede, notiz, positionen, versandKunde, firma } = data;
+  const { nummer, datum, lieferdatum, lieferantAnrede, notiz, positionen, versandKunde, lagerort, firma } = data;
   const subject = `Bestellung ${nummer} – ${firma.name}`;
   const anrede = lieferantAnrede?.trim()
     ? `Sehr geehrte/r ${lieferantAnrede.trim()},`
@@ -1028,6 +1040,16 @@ export function bestellungEmail(data: BestellungMailData): { subject: string; te
       ].filter((l) => l !== "")
     : [];
 
+  const lagerortZeilen = lagerort
+    ? [
+        "",
+        "*** BITTE WARE AN UNSER LAGER LIEFERN: ***",
+        lagerort.name,
+        lagerort.strasse || "",
+        [lagerort.plz, lagerort.ort].filter(Boolean).join(" "),
+      ].filter((l) => l !== "")
+    : [];
+
   const text = [
     anrede,
     "",
@@ -1037,6 +1059,7 @@ export function bestellungEmail(data: BestellungMailData): { subject: string; te
     `Bestelldatum:  ${fmtDatum(datum)}`,
     lieferdatum ? `Gewünschtes Lieferdatum: ${fmtDatum(lieferdatum)}` : "",
     ...versandKundeZeilen,
+    ...lagerortZeilen,
     "",
     ...positionen.map(posZeileText),
     notiz ? `\nAnmerkung: ${notiz}` : "",
@@ -1097,6 +1120,7 @@ export function bestellungEmail(data: BestellungMailData): { subject: string; te
           hiermit bestellen wir folgende Artikel bei Ihnen (Bestellnummer <b>${escapeHtml(nummer)}</b>${lieferdatum ? `, gewünschtes Lieferdatum <b>${fmtDatum(lieferdatum)}</b>` : ""}):
         </p>
         ${versandKunde ? `<div style="margin:0 0 20px 0;padding:12px 16px;background:${firma.primaryLight};border:2px solid ${firma.primaryColor};border-radius:4px;font-size:14px;color:${firma.primaryColor};line-height:1.6;"><b>Bitte Ware direkt an unseren Kunden versenden (Streckengeschäft):</b><br>${[escapeHtml(versandKunde.firma || versandKunde.name), versandKunde.firma ? escapeHtml(versandKunde.name) : "", versandKunde.strasse ? escapeHtml(versandKunde.strasse) : "", [versandKunde.plz, versandKunde.ort].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" "), versandKunde.telefon ? `Tel.: ${escapeHtml(versandKunde.telefon)}` : ""].filter(Boolean).join("<br>")}</div>` : ""}
+        ${lagerort ? `<div style="margin:0 0 20px 0;padding:12px 16px;background:${firma.primaryLight};border:2px solid ${firma.primaryColor};border-radius:4px;font-size:14px;color:${firma.primaryColor};line-height:1.6;"><b>Bitte Ware an unser Lager liefern:</b><br>${[escapeHtml(lagerort.name), lagerort.strasse ? escapeHtml(lagerort.strasse) : "", [lagerort.plz, lagerort.ort].filter((v): v is string => Boolean(v)).map(escapeHtml).join(" ")].filter(Boolean).join("<br>")}</div>` : ""}
         <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 20px 0;border-collapse:collapse;font-size:14px;">
           <tr>
             <th style="padding:8px 12px;background:#f9fafb;border:1px solid #e5e7eb;text-align:right;font-size:12px;color:#6b7280;">Menge</th>
