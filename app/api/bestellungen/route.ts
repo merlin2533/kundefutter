@@ -4,6 +4,7 @@ import { Sentry } from "@/lib/sentry";
 import { naechsteBestellungsnummer } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
+import type { LagerortAdresse } from "@/lib/auswahllisten";
 
 export const dynamic = "force-dynamic";
 
@@ -59,9 +60,32 @@ export async function GET(req: NextRequest) {
       : [];
     const kundeById = new Map(kunden.map((k) => [k.id, k]));
 
+    // Lagerort-Adressen nur einmal laden, falls überhaupt eine Bestellung "ans Lager" geht —
+    // eine explizit gewählte Lieferadresse hat Vorrang vor der automatischen
+    // Streckengeschäft-Erkennung (siehe lib/pdfGenerator.ts generiereBestellungPdf()). Nutzt dasselbe
+    // {name, ort}-Anzeigefeld "versandKunde" wie Streckengeschäft — ein Lagerort ist für die
+    // Listenübersicht einfach ein weiterer "Lieferort".
+    let lagerortByName = new Map<string, LagerortAdresse>();
+    if (list.some((b) => b.lieferLagerort)) {
+      const setting = await prisma.einstellung.findUnique({ where: { key: "system.lagerortAdressen" } });
+      try {
+        const adressen: LagerortAdresse[] = setting ? JSON.parse(setting.value) : [];
+        lagerortByName = new Map(adressen.map((a) => [a.name, a]));
+      } catch (err) {
+        Sentry.captureException(err);
+      }
+    }
+
     const result = list.map((b) => {
-      const kundeId = kundenIdByBestellung.get(b.id);
-      const kunde = kundeId != null ? kundeById.get(kundeId) : undefined;
+      let versandKunde: { name: string; ort: string | null } | null = null;
+      if (b.lieferLagerort) {
+        const a = lagerortByName.get(b.lieferLagerort);
+        versandKunde = { name: `Lager: ${b.lieferLagerort}`, ort: a?.ort ?? null };
+      } else {
+        const kundeId = kundenIdByBestellung.get(b.id);
+        const kunde = kundeId != null ? kundeById.get(kundeId) : undefined;
+        versandKunde = kunde ? { name: kunde.firma ?? kunde.name, ort: kunde.ort } : null;
+      }
       return {
         id: b.id,
         nummer: b.nummer,
@@ -73,7 +97,7 @@ export async function GET(req: NextRequest) {
         versendetAm: b.versendetAm,
         lieferant: b.lieferant,
         _count: b._count,
-        versandKunde: kunde ? { name: kunde.firma ?? kunde.name, ort: kunde.ort } : null,
+        versandKunde,
       };
     });
 

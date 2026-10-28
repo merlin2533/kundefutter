@@ -6,6 +6,7 @@ import { formatEuro } from "@/lib/utils";
 import EmailVersandModal from "@/components/EmailVersandModal";
 import { useToast } from "@/components/ToastProvider";
 import * as Sentry from "@sentry/nextjs";
+import { istVollstaendigeLagerortAdresse, type LagerortAdresse } from "@/lib/auswahllisten";
 
 interface BestellPosition {
   id: number;
@@ -26,6 +27,7 @@ interface Bestellung {
   notiz: string | null;
   versendetAm: string | null;
   versendetAn: string | null;
+  lieferLagerort: string | null;
   lieferantId: number;
   lieferant: {
     id: number;
@@ -86,11 +88,27 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
   const [lieferantEditOpen, setLieferantEditOpen] = useState(false);
   const [lieferantEditId, setLieferantEditId] = useState("");
   const [lieferantSaving, setLieferantSaving] = useState(false);
+  const [lagerortAdressen, setLagerortAdressen] = useState<LagerortAdresse[]>([]);
+  const [lieferzielEditOpen, setLieferzielEditOpen] = useState(false);
+  const [lieferzielEdit, setLieferzielEdit] = useState(""); // "" = an den Kunden, sonst Lagerort-Name
+  const [lieferzielSaving, setLieferzielSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/lieferanten?limit=5000")
       .then((r) => r.json())
       .then((d) => setLieferantenListe(Array.isArray(d) ? d.map((l: { id: number; name: string }) => ({ id: l.id, name: l.name })) : []))
+      .catch((err) => Sentry.captureException(err));
+    fetch("/api/einstellungen?prefix=system.")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: Record<string, string>) => {
+        if (d["system.lagerortAdressen"]) {
+          try {
+            setLagerortAdressen(JSON.parse(d["system.lagerortAdressen"]));
+          } catch (err) {
+            Sentry.captureException(err);
+          }
+        }
+      })
       .catch((err) => Sentry.captureException(err));
   }, []);
 
@@ -113,6 +131,7 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
         });
         setMengenGeliefert(mg);
         setNotizEdit(d.notiz ?? "");
+        setLieferzielEdit(d.lieferLagerort ?? "");
         setLoading(false);
       })
       .catch((err) => {
@@ -199,6 +218,35 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
       setError("Fehler beim Speichern der Notiz.");
     } finally {
       setNotizSaving(false);
+    }
+  }
+
+  async function handleSaveLieferziel() {
+    if (!id) return;
+    setLieferzielSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/bestellungen/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lieferLagerort: lieferzielEdit || null }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        showToast(d.error ?? "Lieferadresse konnte nicht gespeichert werden.", "error");
+        return;
+      }
+      setData(d);
+      setLieferzielEditOpen(false);
+      showToast(
+        lieferzielEdit ? `Lieferadresse auf Lagerort „${lieferzielEdit}" gesetzt.` : "Lieferadresse zurückgesetzt.",
+        "success"
+      );
+    } catch (err) {
+      Sentry.captureException(err);
+      showToast("Netzwerkfehler.", "error");
+    } finally {
+      setLieferzielSaving(false);
     }
   }
 
@@ -467,6 +515,98 @@ export default function BestellungDetailPage({ params }: { params: Promise<{ id:
             {notizSaved && <span className="text-xs text-green-700">✓ gespeichert</span>}
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Lieferadresse</p>
+        {!lieferzielEditOpen ? (
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <p className="text-sm text-gray-900">
+              {data.lieferLagerort ? (
+                <>
+                  An unser Lager: <span className="font-medium">{data.lieferLagerort}</span>
+                  {(() => {
+                    const a = lagerortAdressen.find((x) => x.name === data.lieferLagerort);
+                    return a ? (
+                      <span className="text-gray-500">
+                        {" — "}
+                        {[a.strasse, [a.plz, a.ort].filter(Boolean).join(" ")].filter(Boolean).join(", ")}
+                      </span>
+                    ) : null;
+                  })()}
+                </>
+              ) : (
+                <span className="text-gray-500">
+                  An unseren Kunden (automatisch erkannt, wenn Streckengeschäft — sonst keine besondere Adresse)
+                </span>
+              )}
+            </p>
+            <button
+              type="button"
+              onClick={() => setLieferzielEditOpen(true)}
+              className="text-xs text-amber-700 hover:text-amber-800 hover:underline shrink-0"
+            >
+              ändern
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                checked={lieferzielEdit === ""}
+                onChange={() => setLieferzielEdit("")}
+              />
+              An unseren Kunden (Standard / Streckengeschäft)
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                checked={lieferzielEdit !== ""}
+                onChange={() => setLieferzielEdit(lagerortAdressen.find(istVollstaendigeLagerortAdresse)?.name ?? "")}
+                disabled={!lagerortAdressen.some(istVollstaendigeLagerortAdresse)}
+              />
+              An unser Lager
+              <select
+                value={lieferzielEdit}
+                onChange={(e) => setLieferzielEdit(e.target.value)}
+                disabled={!lagerortAdressen.some(istVollstaendigeLagerortAdresse)}
+                className="text-xs border border-gray-300 rounded px-2 py-1 disabled:opacity-50"
+              >
+                <option value="" disabled>
+                  — Lagerort wählen —
+                </option>
+                {lagerortAdressen.filter(istVollstaendigeLagerortAdresse).map((a) => (
+                  <option key={a.name} value={a.name}>{a.name}</option>
+                ))}
+              </select>
+            </label>
+            {!lagerortAdressen.some(istVollstaendigeLagerortAdresse) && (
+              <p className="text-xs text-gray-400">
+                Noch kein Lagerort mit vollständiger Adresse hinterlegt — siehe{" "}
+                <Link href="/einstellungen/stammdaten" className="text-green-700 hover:underline">
+                  Einstellungen → Stammdaten
+                </Link>
+                .
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSaveLieferziel}
+                disabled={lieferzielSaving || (lieferzielEdit !== "" && !lagerortAdressen.some(istVollstaendigeLagerortAdresse))}
+                className="px-3 py-1.5 bg-green-700 hover:bg-green-800 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {lieferzielSaving ? "Speichern…" : "Speichern"}
+              </button>
+              <button
+                onClick={() => { setLieferzielEditOpen(false); setLieferzielEdit(data.lieferLagerort ?? ""); }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Positionen */}

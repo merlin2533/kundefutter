@@ -13,6 +13,7 @@ import { generateZugferdXml, type ZugferdData } from "@/lib/zugferd-xml";
 import { embedZugferdInPdf } from "@/lib/zugferd-embed";
 import { berechneLieferungBrutto } from "@/lib/lieferung-brutto";
 import { eierKennzeichnungZeile } from "@/lib/eier-mhd";
+import type { LagerortAdresse } from "@/lib/auswahllisten";
 import { parseMahnwesenConfig, mahngebuehr, berechneVerzugszinsen, MAHNUNG_BETREFF, mahnungTextBausteine, MAHNUNG_TEXT_EINSTELLUNG_KEY } from "@/lib/mahnwesen-config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1352,7 +1353,19 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
   let versandKunde:
     | { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null; kontakte: { typ: string; wert: string }[] }
     | null = null;
-  if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
+  // Eine explizit gewählte Lieferadresse "ans Lager" (bestellung.lieferLagerort) hat Vorrang vor der
+  // automatischen Streckengeschäft-Erkennung — der Nutzer hat bewusst entschieden, dass die Ware NICHT
+  // zum Kunden, sondern ins eigene Lager soll.
+  let lagerortAdresse: LagerortAdresse | null = null;
+  if (bestellung.lieferLagerort) {
+    const setting = await prisma.einstellung.findUnique({ where: { key: "system.lagerortAdressen" } });
+    try {
+      const adressen: LagerortAdresse[] = setting ? JSON.parse(setting.value) : [];
+      lagerortAdresse = adressen.find((a) => a.name === bestellung.lieferLagerort) ?? null;
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  } else if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
     versandKunde = await prisma.kunde.findUnique({
       where: { id: eindeutigeKundenIds[0] },
       select: {
@@ -1453,6 +1466,35 @@ export async function generiereBestellungPdf(bestellungId: number): Promise<Buff
   doc.setTextColor(...COL_TEXT);
   doc.text(`Betreff: Bestellung ${bestellung.nummer}`, 14, ey);
   ey += 6;
+
+  if (lagerortAdresse) {
+    ey = sicherstellenPlatz(doc, ey, 20, footerReserve);
+    const kastenX = 14;
+    const kastenBreite = 182;
+    const lagerortZeilen = [
+      "Bitte Ware an unser Lager liefern:",
+      lagerortAdresse.name,
+      ...(lagerortAdresse.strasse ? [lagerortAdresse.strasse] : []),
+      [lagerortAdresse.plz, lagerortAdresse.ort].filter(Boolean).join(" "),
+    ].filter((z) => z);
+    const kastenHoehe = 3 + lagerortZeilen.length * 4.5 + 3;
+    doc.setDrawColor(...COL_BORDER_STRONG);
+    doc.setLineWidth(0.4);
+    doc.rect(kastenX, ey, kastenBreite, kastenHoehe);
+    let vy = ey + 6;
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COL_TEXT);
+    doc.text(lagerortZeilen[0], kastenX + 4, vy);
+    vy += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    for (const zeile of lagerortZeilen.slice(1)) {
+      doc.text(zeile, kastenX + 4, vy);
+      vy += 4.5;
+    }
+    ey += kastenHoehe + 6;
+  }
 
   if (versandKunde) {
     ey = sicherstellenPlatz(doc, ey, 20, footerReserve);

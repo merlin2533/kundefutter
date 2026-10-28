@@ -1188,6 +1188,7 @@ model Bestellung {
   notiz       String?
   versendetAm DateTime? // Nachweis: wann die Bestellung per E-Mail an den Lieferanten rausgeschickt wurde
   versendetAn String? // tatsächliche Empfänger-Adresse zum Versandzeitpunkt (Lieferant.email kann sich später ändern)
+  lieferLagerort String? // gesetzt = "an unser Lager liefern" (Name aus system.lagerortAdressen, Adresse live aufgelöst); null = Standardfall (Streckengeschäft-Erkennung bzw. keine besondere Lieferadresse). Nie automatisch vorbelegt, immer manuelle Auswahl
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

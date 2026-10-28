@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -72,6 +72,12 @@ export default function KategorieVerlaufPage() {
   const [von, setVon] = useState(isoHeute(new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1))));
   const [bis, setBis] = useState(isoHeute(now));
   const [kundeSuche, setKundeSuche] = useState("");
+  const [artikelSuche, setArtikelSuche] = useState("");
+  // Entprellte Kopie, da die Artikelsuche (anders als kundeSuche, die nur clientseitig die
+  // bereits geladene Kunden-Tabelle filtert) einen echten Server-Reload auslöst — die Summen
+  // ("Gesamtmenge im Zeitraum" etc.) hängen von diesem Filter ab, nicht nur die Anzeige.
+  const [artikelSucheQuery, setArtikelSucheQuery] = useState("");
+  const artikelSucheTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lieferantId, setLieferantId] = useState("");
 
   const [kategorien, setKategorien] = useState<string[]>(DEFAULT_ARTIKEL_KATEGORIEN);
@@ -129,6 +135,14 @@ export default function KategorieVerlaufPage() {
       }));
   })();
 
+  // Tippen im Artikel-Suchfeld löst erst nach 400ms Pause einen Server-Reload aus, statt bei
+  // jedem Tastendruck.
+  useEffect(() => {
+    if (artikelSucheTimer.current) clearTimeout(artikelSucheTimer.current);
+    artikelSucheTimer.current = setTimeout(() => setArtikelSucheQuery(artikelSuche.trim()), 400);
+    return () => { if (artikelSucheTimer.current) clearTimeout(artikelSucheTimer.current); };
+  }, [artikelSuche]);
+
   const laden = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -136,6 +150,7 @@ export default function KategorieVerlaufPage() {
       const params = new URLSearchParams({ kategorie, von, bis });
       for (const u of unterkategorien) params.append("unterkategorie", u);
       if (lieferantId) params.set("lieferantId", lieferantId);
+      if (artikelSucheQuery) params.set("artikel", artikelSucheQuery);
       const res = await fetch(`/api/statistik/kategorie-verlauf?${params}`);
       if (!res.ok) { setError("Auswertung konnte nicht geladen werden."); return; }
       setData(await res.json());
@@ -145,7 +160,7 @@ export default function KategorieVerlaufPage() {
     } finally {
       setLoading(false);
     }
-  }, [kategorie, unterkategorien, von, bis, lieferantId]);
+  }, [kategorie, unterkategorien, von, bis, lieferantId, artikelSucheQuery]);
 
   useEffect(() => { laden(); }, [laden]);
 
@@ -159,6 +174,7 @@ export default function KategorieVerlaufPage() {
   for (const u of unterkategorien) exportParams.append("unterkategorie", u);
   if (kundeSuche.trim()) exportParams.set("kundeSuche", kundeSuche.trim());
   if (lieferantId) exportParams.set("lieferantId", lieferantId);
+  if (artikelSucheQuery) exportParams.set("artikel", artikelSucheQuery);
 
   return (
     <div className="space-y-6">
@@ -236,6 +252,16 @@ export default function KategorieVerlaufPage() {
             min={von}
             onChange={(e) => setBis(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Artikel suchen</label>
+          <input
+            type="text"
+            value={artikelSuche}
+            onChange={(e) => setArtikelSuche(e.target.value)}
+            placeholder="z.B. Dinkel…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
         <div className="flex-1 min-w-[180px]">
@@ -372,7 +398,8 @@ export default function KategorieVerlaufPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {kunden.length === 0 ? (
           <p className="p-6 text-sm text-gray-400">
-            Keine Lieferungen im gewählten Zeitraum{kategorie !== "alle" ? " für diese Kategorie" : ""}.
+            Keine Lieferungen im gewählten Zeitraum{kategorie !== "alle" ? " für diese Kategorie" : ""}
+            {artikelSucheQuery ? ` mit Artikel „${artikelSucheQuery}"` : ""}.
           </p>
         ) : (
           <div className="overflow-x-auto">

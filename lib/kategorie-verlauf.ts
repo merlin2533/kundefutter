@@ -3,7 +3,7 @@
 // Daten liefern.
 
 import { prisma } from "@/lib/prisma";
-import { resolveBevorzugtenLieferanten } from "@/lib/utils";
+import { resolveBevorzugtenLieferanten, umlautSchreibweisen } from "@/lib/utils";
 
 const MAX_TAGE_SPANNE = 366 * 10; // ~10 Jahre
 
@@ -80,6 +80,11 @@ export interface KategorieVerlaufParams {
   /** Nur Artikel, deren bevorzugter/bester Lieferant (`resolveBevorzugtenLieferanten()`) diesem
    *  Lieferanten entspricht — kein Filter, wenn leer/undefined. */
   lieferantId?: number | null;
+  /** Freitextsuche im Artikelnamen (z.B. "Dinkel") — die einzige Kategorie/Unterkategorie ist oft
+   *  zu grob (z.B. "Getreide" fasst alle Getreidearten zusammen), der Artikelname trägt die Sorte
+   *  aber meist im Klartext. Teilstring-Treffer, unabhängig von Groß-/Kleinschreibung (SQLite
+   *  `contains` ist dafür für ASCII bereits nativ case-insensitiv). */
+  artikelSuche?: string | null;
 }
 
 export interface KategorieVerlaufResult {
@@ -87,6 +92,7 @@ export interface KategorieVerlaufResult {
   jahre: number[];
   kategorie: string;
   unterkategorien: string[];
+  artikelSuche: string;
   von: string;
   bis: string;
   artikelUebersicht: KategorieVerlaufArtikelSumme[];
@@ -115,11 +121,14 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     ? new Date(bisDateExklusiv.getTime() - MAX_TAGE_SPANNE * 86_400_000)
     : vonDate;
 
+  const artikelSuche = params.artikelSuche?.trim() ?? "";
+
   const positionen = await prisma.lieferposition.findMany({
     where: {
       artikel: {
         ...(kategorie !== "alle" ? { kategorie } : {}),
         ...(unterkategorien.length > 0 ? { unterkategorie: { in: unterkategorien } } : {}),
+        ...(artikelSuche ? { OR: umlautSchreibweisen(artikelSuche).map((v) => ({ name: { contains: v } })) } : {}),
       },
       lieferung: {
         // "geplant" (noch nicht ausgelieferte Aufträge) mit erfassen, damit nachvollziehbar
@@ -318,6 +327,7 @@ export async function ladeKategorieVerlauf(params: KategorieVerlaufParams): Prom
     jahre,
     kategorie,
     unterkategorien,
+    artikelSuche,
     von: vonDateEffektiv.toISOString().slice(0, 10),
     bis: bisIso,
     artikelUebersicht,

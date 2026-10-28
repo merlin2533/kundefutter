@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-import { bestellungEmail } from "@/lib/email-templates";
+import { bestellungEmail, type BestellungLagerort } from "@/lib/email-templates";
+import type { LagerortAdresse } from "@/lib/auswahllisten";
 import { ladeFirmaDaten } from "@/lib/firma";
 import { getCurrentUser } from "@/lib/auth";
 import { requirePermission, P } from "@/lib/permissions";
@@ -74,7 +75,18 @@ export async function POST(req: NextRequest, ctx: Params) {
     });
     const eindeutigeKundenIds = [...new Set(bestellliste.map((b) => b.kundeId))];
     let versandKunde: { name: string; firma: string | null; strasse: string | null; plz: string | null; ort: string | null; telefon: string | null } | null = null;
-    if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
+    let lagerort: BestellungLagerort | null = null;
+    // Eine explizit gewählte Lieferadresse "ans Lager" hat Vorrang vor der automatischen
+    // Streckengeschäft-Erkennung — siehe lib/pdfGenerator.ts generiereBestellungPdf().
+    if (bestellung.lieferLagerort) {
+      const setting = await prisma.einstellung.findUnique({ where: { key: "system.lagerortAdressen" } });
+      try {
+        const adressen: LagerortAdresse[] = setting ? JSON.parse(setting.value) : [];
+        lagerort = adressen.find((a) => a.name === bestellung.lieferLagerort) ?? null;
+      } catch (e) {
+        Sentry.captureException(e);
+      }
+    } else if (bestellliste.length > 0 && eindeutigeKundenIds.length === 1 && eindeutigeKundenIds[0] != null) {
       const kunde = await prisma.kunde.findUnique({
         where: { id: eindeutigeKundenIds[0] },
         select: {
@@ -107,6 +119,7 @@ export async function POST(req: NextRequest, ctx: Params) {
         einheit: p.einheit,
       })),
       versandKunde,
+      lagerort,
       firma,
     });
 

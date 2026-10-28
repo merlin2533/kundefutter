@@ -4,6 +4,7 @@ import { bestaetige } from "@/lib/dialog";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
+import LagerortAdressenManager from "@/components/LagerortAdressenManager";
 import {
   DEFAULT_SAATGUT_KULTUREN,
   DEFAULT_EINHEITEN,
@@ -370,6 +371,7 @@ export default function StammdatenPage() {
           defaultItems={DEFAULT_LAGERORTE}
           placeholder="z.B. Halle 1"
         />
+        <LagerortAdressenManager />
         <EditableList
           title="Fruchtarten (Schlagkartei)"
           description="Fruchtarten für die Schlagkartei (Winterweizen, Raps, Mais …). Erscheinen als Vorschläge beim Anlegen von Schlägen."
