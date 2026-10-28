@@ -164,6 +164,24 @@ export default function KategorieVerlaufPage() {
 
   useEffect(() => { laden(); }, [laden]);
 
+  // Schnellauswahl-Buttons für Von/Bis — ersetzen keine eigene Jahr-Filterlogik, sondern setzen
+  // einfach die beiden bestehenden Datumsfelder. "Dieses Jahr" endet am heutigen Tag statt am
+  // 31.12., damit kein Zeitraum in der Zukunft gewählt wird.
+  const aktuellesJahr = now.getUTCFullYear();
+  const jahreSchnellauswahl = [aktuellesJahr, aktuellesJahr - 1, aktuellesJahr - 2, aktuellesJahr - 3];
+  const setzeJahr = (jahr: number) => {
+    setVon(`${jahr}-01-01`);
+    setBis(jahr === aktuellesJahr ? isoHeute(now) : `${jahr}-12-31`);
+  };
+  const setzeLetzteJahre = (anzahl: number) => {
+    setVon(`${aktuellesJahr - (anzahl - 1)}-01-01`);
+    setBis(isoHeute(now));
+  };
+  const istAktivesJahr = (jahr: number) =>
+    von === `${jahr}-01-01` && bis === (jahr === aktuellesJahr ? isoHeute(now) : `${jahr}-12-31`);
+  const istAktivLetzteJahre = (anzahl: number) =>
+    von === `${aktuellesJahr - (anzahl - 1)}-01-01` && bis === isoHeute(now);
+
   const suche = kundeSuche.trim().toLowerCase();
   const kunden = (data?.kunden ?? []).filter((k) =>
     !suche || k.kundeName.toLowerCase().includes(suche) || (k.kundeOrt ?? "").toLowerCase().includes(suche)
@@ -210,7 +228,38 @@ export default function KategorieVerlaufPage() {
       </div>
 
       {/* Filter */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-wrap items-end gap-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Schnellauswahl Zeitraum</label>
+          <div className="flex flex-wrap gap-2">
+            {jahreSchnellauswahl.map((j) => (
+              <button
+                key={j}
+                type="button"
+                onClick={() => setzeJahr(j)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  istAktivesJahr(j)
+                    ? "bg-green-700 text-white border-green-700"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {j}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setzeLetzteJahre(3)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                istAktivLetzteJahre(3)
+                  ? "bg-green-700 text-white border-green-700"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              Letzte 3 Jahre
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Kategorie</label>
           <select
@@ -286,6 +335,7 @@ export default function KategorieVerlaufPage() {
           />
         </div>
         {loading && <span className="text-xs text-gray-400">Lädt…</span>}
+        </div>
       </div>
 
       {error && (
