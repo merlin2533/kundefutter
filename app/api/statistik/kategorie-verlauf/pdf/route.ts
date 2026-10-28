@@ -15,13 +15,14 @@ export async function GET(req: NextRequest) {
     const lieferantIdParam = searchParams.get("lieferantId");
     const lieferantIdNum = lieferantIdParam ? parseInt(lieferantIdParam, 10) : null;
     const lieferantId = lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null;
-    const { kunden, jahre, kategorie, unterkategorien, von, bis, artikelUebersicht, gesamtProEinheit, lieferantUebersicht } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorien, von, bis, artikelUebersicht, gesamtProEinheit, lieferantUebersicht, artikelSuche } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
       lieferantId,
+      artikelSuche: searchParams.get("artikel"),
     });
 
     const lieferantFilterName = lieferantId
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}`;
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}${artikelSuche ? ` · Artikel: "${artikelSuche}"` : ""}`;
     doc.text(
       `Kategorie: ${kategorieLabel}   ·   Zeitraum: ${formatDatum(von)}–${formatDatum(bis)}   ·   Erstellt: ${heute}`,
       14,

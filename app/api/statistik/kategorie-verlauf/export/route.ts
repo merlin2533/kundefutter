@@ -13,20 +13,21 @@ export async function GET(req: NextRequest) {
     const lieferantIdParam = searchParams.get("lieferantId");
     const lieferantIdNum = lieferantIdParam ? parseInt(lieferantIdParam, 10) : null;
     const lieferantId = lieferantIdNum !== null && !isNaN(lieferantIdNum) ? lieferantIdNum : null;
-    const { kunden, jahre, kategorie, unterkategorien, artikelUebersicht, gesamtProEinheit, lieferantUebersicht } = await ladeKategorieVerlauf({
+    const { kunden, jahre, kategorie, unterkategorien, artikelUebersicht, gesamtProEinheit, lieferantUebersicht, artikelSuche } = await ladeKategorieVerlauf({
       kategorie: searchParams.get("kategorie"),
       unterkategorien: searchParams.getAll("unterkategorie"),
       von: searchParams.get("von"),
       bis: searchParams.get("bis"),
       kundeSuche: searchParams.get("kundeSuche"),
       lieferantId,
+      artikelSuche: searchParams.get("artikel"),
     });
 
     const lieferantFilterName = lieferantId
       ? (await prisma.lieferant.findUnique({ where: { id: lieferantId }, select: { name: true } }))?.name ?? null
       : null;
 
-    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}`;
+    const kategorieLabel = `${kategorie}${unterkategorien.length > 0 ? ` / ${unterkategorien.join(", ")}` : ""}${lieferantFilterName ? ` · Lieferant: ${lieferantFilterName}` : ""}${artikelSuche ? ` · Artikel: "${artikelSuche}"` : ""}`;
 
     const wb = XLSX.utils.book_new();
 
