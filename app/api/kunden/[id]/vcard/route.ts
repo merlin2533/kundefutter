@@ -54,10 +54,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const vcard = lines.join("\r\n") + "\r\n";
     const safeName = (kunde.firma ?? kunde.name).replace(/[^a-zA-Z0-9äöüÄÖÜ\-]/g, "_").slice(0, 40);
 
+    // "inline" statt "attachment": Mit "attachment" behandeln mobile Browser die Datei als
+    // generischen Download (landet im Download-Ordner bzw. wird nur als Rohtext angezeigt) —
+    // iOS/Android öffnen dann NICHT automatisch "Zu Kontakten hinzufügen", der Kontakt landet
+    // nie im Adressbuch. "inline" lässt den Browser den vCard-MIME-Type direkt an die
+    // Kontakte-App des Betriebssystems weiterreichen.
     return new NextResponse(vcard, {
       headers: {
         "Content-Type": "text/vcard; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${safeName}.vcf"`,
+        "Content-Disposition": `inline; filename="${safeName}.vcf"`,
       },
     });
   } catch (err) {
