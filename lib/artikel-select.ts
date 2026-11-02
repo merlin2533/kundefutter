@@ -85,6 +85,7 @@ export const lieferungSafeSelect = {
   status: true,
   stornoBegründung: true,
   notiz: true,
+  lieferscheinNr: true,
   rechnungNr: true,
   rechnungDatum: true,
   rechnungStorniert: true,

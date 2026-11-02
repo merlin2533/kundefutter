@@ -59,13 +59,22 @@ export async function GET(req: NextRequest) {
   }
   if (search) {
     // Suche auf eine sinnvolle Länge begrenzen (verhindert pathologische LIKE-Queries)
-    const cleanSearch = search.slice(0, 80);
-    where.kunde = {
-      OR: [
-        { name: { contains: cleanSearch } },
-        { firma: { contains: cleanSearch } },
-      ],
-    };
+    const cleanSearch = search.slice(0, 80).trim();
+    const searchOr: Record<string, unknown>[] = [
+      { kunde: { name: { contains: cleanSearch } } },
+      { kunde: { firma: { contains: cleanSearch } } },
+      { lieferscheinNr: { contains: cleanSearch } },
+      { rechnungNr: { contains: cleanSearch } },
+    ];
+    // Lieferschein-Nr. fällt ohne manuelle Eingabe auf die Lieferungs-ID zurück (siehe
+    // lieferscheinNr-Feldkommentar im Schema) — eine rein numerische Suche trifft deshalb
+    // zusätzlich direkt die ID, sonst wären die meisten (unbenannten) Lieferscheine per
+    // Nummer gar nicht auffindbar.
+    const idNum = parseInt(cleanSearch, 10);
+    if (!isNaN(idNum) && String(idNum) === cleanSearch) {
+      searchOr.push({ id: idNum });
+    }
+    where.OR = searchOr;
   }
   if (von || bis) {
     const datum: Record<string, Date> = {};
