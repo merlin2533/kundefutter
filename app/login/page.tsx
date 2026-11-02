@@ -8,8 +8,6 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
 
-  const [benutzername, setBenutzername] = useState("");
-  const [passwort, setPasswort] = useState("");
   const [passwortSichtbar, setPasswortSichtbar] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -30,8 +28,16 @@ function LoginForm() {
       });
   }, []);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Werte bewusst aus dem DOM (FormData) statt aus React-State lesen: iOS Safari setzt
+    // autogefüllte Felder (Passwort-Autofill/Keychain-Vorschlag) teils direkt im DOM, ohne
+    // ein "input"-Event auszulösen, auf das React hört — der State blieb dadurch leer, der
+    // Button disabled, bis man manuell ins Feld tippte. Unkontrollierte Felder umgehen das.
+    const formData = new FormData(e.currentTarget);
+    const benutzername = String(formData.get("benutzername") ?? "").trim();
+    const passwort = String(formData.get("passwort") ?? "");
+    if (!benutzername || !passwort) return;
     setFehler(null);
     setSaving(true);
     try {
@@ -80,10 +86,9 @@ function LoginForm() {
             </label>
             <input
               type="text"
+              name="benutzername"
               autoComplete="username"
               autoFocus
-              value={benutzername}
-              onChange={(e) => setBenutzername(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
               required
             />
@@ -95,9 +100,8 @@ function LoginForm() {
             <div className="relative">
               <input
                 type={passwortSichtbar ? "text" : "password"}
+                name="passwort"
                 autoComplete="current-password"
-                value={passwort}
-                onChange={(e) => setPasswort(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-2 pr-12 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
                 required
               />
@@ -121,7 +125,7 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={saving || !benutzername || !passwort}
+            disabled={saving}
             className="w-full bg-green-700 hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2 rounded transition"
           >
             {saving ? "Anmelden …" : "Anmelden"}
