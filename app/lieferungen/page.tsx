@@ -17,6 +17,7 @@ interface Lieferung {
   kunde: { id: number; name: string; firma?: string };
   status: string;
   notiz?: string;
+  lieferscheinNr?: string | null;
   rechnungNr?: string | null;
   rechnungVersendetAm?: string | null;
   lieferscheinVersendetAm?: string | null;
@@ -398,10 +399,10 @@ export default function LieferungenPage() {
             </div>
             <input
               type="text"
-              placeholder="Kunde suchen…"
+              placeholder="Kunde, Lieferschein- oder Rechnungsnr. suchen…"
               value={kundeSearch}
               onChange={(e) => setKundeSearch(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-green-700"
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-green-700"
             />
             <select
               value={versandFilter}
@@ -460,6 +461,9 @@ export default function LieferungenPage() {
                       <tr key={l.id} className="border-b last:border-0 hover:bg-green-50 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap">
                           {formatDatum(l.datum)}
+                          <div className="text-xs text-gray-400">
+                            Nr. {l.lieferscheinNr?.trim() || l.id}
+                          </div>
                           {l.createdAt && l.createdAt.slice(0, 10) !== l.datum.slice(0, 10) && (
                             <div className="text-xs text-gray-400">Erstellt: {formatDatum(l.createdAt)}</div>
                           )}
