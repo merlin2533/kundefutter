@@ -518,6 +518,17 @@ export default function LieferscheinPage() {
             <span className="sm:hidden">Rechnung</span>
           </button>
         )}
+        {lieferung.status === "geplant" && (
+          <button
+            onClick={() => router.push(`/lieferungen/${id}/auftragsbestaetigung`)}
+            className="px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5"
+            title="Auftragsbestätigung erstellen (noch nicht geliefert)"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span className="hidden sm:inline">Auftragsbestätigung</span>
+            <span className="sm:hidden">Bestätigung</span>
+          </button>
+        )}
         {lieferung.lieferscheinVersendetAm && (
           <span
             className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-2 py-1 ml-1"
