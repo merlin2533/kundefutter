@@ -50,7 +50,20 @@ export async function GET(_req: NextRequest, { params }: Params) {
             // lieferanten zusätzlich zum sonst identischen artikelWithInhaltSelect: nötig, um
             // auf der Detailseite eine seit Erfassung aktualisierte EK-Pflege zu erkennen
             // (ermittlePreisAktualisierungen(), analog zur bereits bestehenden VK-Erkennung).
-            artikel: { select: { ...artikelWithInhaltSelect.select, lieferanten: { select: { einkaufspreis: true, bevorzugt: true, updatedAt: true } } } },
+            // preisHistorie (letzter Eintrag): Artikel.updatedAt wird von JEDER Änderung am
+            // Artikel berührt (auch einem reinen EK-/Lieferanten-Edit über PUT /api/artikel/[id],
+            // das immer ein abschließendes tx.artikel.update() auslöst) — als Signal für "hat sich
+            // der Verkaufspreis geändert" ist das zu grob und erzeugt Fehlalarme. Die
+            // ArtikelPreisHistorie wird dagegen ausschließlich bei einer echten Standardpreis-
+            // Änderung angelegt, deren geaendertAm ist deshalb die alleinige Quelle der Wahrheit
+            // für diesen Vergleich.
+            artikel: {
+              select: {
+                ...artikelWithInhaltSelect.select,
+                lieferanten: { select: { einkaufspreis: true, bevorzugt: true, updatedAt: true } },
+                preisHistorie: { orderBy: { geaendertAm: "desc" as const }, take: 1, select: { geaendertAm: true } },
+              },
+            },
           },
         },
         teilzahlungen: { orderBy: { datum: "asc" as const } },
