@@ -37,10 +37,12 @@ export async function GET(req: NextRequest) {
     type LagerRow    = { unterMindest: number; lagerwert: number | null };
     type VorjahrRow  = { umsatz: number | null };
     type VorjahrMonatRow = { monat: string; umsatz: number };
+    type AusgabenMonatRow = { monat: string; summe: number | null };
 
     const [
       umsatzNachMonatRaw, topArtikelRaw, topKundenRaw, umsatzNachKategorieRaw, saisonRaw,
       kpiRaw, lieferStatusRaw, offenePostenRaw, ausgabenRaw, lagerRaw, vorjahrRaw, vorjahrNachMonatRaw,
+      ausgabenNachMonatRaw,
     ] =
       await Promise.all([
         // Umsatz nach Monat (YYYY-MM) inkl. Marge pro Monat
@@ -186,6 +188,22 @@ export async function GET(req: NextRequest) {
           ORDER BY monat`,
           vonVorjahrIso, bisVorjahrIso
         ),
+        // Ausgaben je Monat (Brutto = Netto inkl. MwSt, analog zur Kategorie-Aufschlüsselung oben)
+        // — Basis für den Monatsvergleich (Umsatz/Wareneinsatz/DB/Ausgaben/Ergebnis nebeneinander)
+        prisma.$queryRawUnsafe<AusgabenMonatRow[]>(
+          `SELECT
+            strftime('%Y-%m', a.datum) as monat,
+            CAST(SUM(
+              a.betragNetto * (1 + a.mwstSatz / 100.0)
+              + COALESCE(a.betragNetto2, 0) * (1 + COALESCE(a.mwstSatz2, 0) / 100.0)
+              + COALESCE(a.betragNetto3, 0) * (1 + COALESCE(a.mwstSatz3, 0) / 100.0)
+            ) AS REAL) as summe
+          FROM Ausgabe a
+          WHERE a.datum >= ? AND a.datum < ?
+          GROUP BY monat
+          ORDER BY monat`,
+          vonIso, bisIso
+        ),
       ]);
 
     // Fill missing months 1–12 with 0 for saisonaleVerteilung
@@ -217,6 +235,10 @@ export async function GET(req: NextRequest) {
         // Monat auf aktuelles Jahr umrechnen (Vorjahr YYYY-MM → aktuelles Jahr YYYY-MM)
         monat: r.monat.replace(/^\d{4}/, vonDate.getFullYear().toString()),
         umsatz: r2(r.umsatz),
+      })),
+      ausgabenNachMonat: ausgabenNachMonatRaw.map((r) => ({
+        monat: r.monat,
+        summe: r2(r.summe),
       })),
       topArtikel: topArtikelRaw.map((r) => ({
         artikelId: r.artikelId,

@@ -39,6 +39,7 @@ interface KategorieUmsatz {
 interface StatistikData {
   umsatzNachMonat: UmsatzMonat[];
   vorjahrNachMonat: { monat: string; umsatz: number }[];
+  ausgabenNachMonat: { monat: string; summe: number }[];
   topArtikel: TopArtikel[];
   topKunden: TopKunde[];
   umsatzNachKategorie: KategorieUmsatz[];
@@ -362,6 +363,213 @@ function MargeTrendChart({ data }: { data: UmsatzMonat[] }) {
   );
 }
 
+// ─── Monatsvergleich (Tabelle) ────────────────────────────────────────────────
+
+function monatsLabel(monat: string) {
+  const [jahr, m] = monat.split("-");
+  const idx = Number(m) - 1;
+  return `${MONATS_KUERZEL[idx] ?? m} ${jahr.slice(2)}`;
+}
+
+interface MonatsKennzahl {
+  monat: string;
+  umsatz: number;
+  wareneinsatz: number;
+  deckungsbeitrag: number;
+  dbMargeProzent: number;
+  ausgaben: number;
+  ergebnis: number;
+  anzahl: number;
+  proLieferung: number;
+  vorjahrUmsatz: number | null;
+  veraenderungProzent: number | null;
+}
+
+function MonatsvergleichTabelle({
+  umsatzNachMonat, vorjahrNachMonat, ausgabenNachMonat,
+}: {
+  umsatzNachMonat: UmsatzMonat[];
+  vorjahrNachMonat: { monat: string; umsatz: number }[];
+  ausgabenNachMonat: { monat: string; summe: number }[];
+}) {
+  if (umsatzNachMonat.length === 0) {
+    return <p className="text-sm text-gray-400">Keine Daten im gewählten Zeitraum</p>;
+  }
+
+  const vorjahrMap = new Map(vorjahrNachMonat.map((v) => [v.monat, v.umsatz]));
+  const ausgabenMap = new Map(ausgabenNachMonat.map((a) => [a.monat, a.summe]));
+
+  const zeilen: MonatsKennzahl[] = umsatzNachMonat.map((m) => {
+    const marge = m.marge ?? 0;
+    const wareneinsatz = Math.round((m.umsatz - marge) * 100) / 100;
+    const ausgaben = ausgabenMap.get(m.monat) ?? 0;
+    const ergebnis = Math.round((marge - ausgaben) * 100) / 100;
+    const vorjahrUmsatz = vorjahrMap.has(m.monat) ? vorjahrMap.get(m.monat)! : null;
+    const veraenderungProzent =
+      vorjahrUmsatz !== null && vorjahrUmsatz > 0
+        ? Math.round(((m.umsatz - vorjahrUmsatz) / vorjahrUmsatz) * 1000) / 10
+        : null;
+    return {
+      monat: m.monat,
+      umsatz: m.umsatz,
+      wareneinsatz,
+      deckungsbeitrag: marge,
+      dbMargeProzent: m.margeProzent ?? 0,
+      ausgaben,
+      ergebnis,
+      anzahl: m.anzahl,
+      proLieferung: m.anzahl > 0 ? Math.round((m.umsatz / m.anzahl) * 100) / 100 : 0,
+      vorjahrUmsatz,
+      veraenderungProzent,
+    };
+  });
+
+  const hatVorjahr = zeilen.some((z) => z.vorjahrUmsatz !== null);
+
+  const gesamtUmsatz = zeilen.reduce((s, z) => s + z.umsatz, 0);
+  const gesamtWareneinsatz = zeilen.reduce((s, z) => s + z.wareneinsatz, 0);
+  const gesamtDb = zeilen.reduce((s, z) => s + z.deckungsbeitrag, 0);
+  const gesamtAusgaben = zeilen.reduce((s, z) => s + z.ausgaben, 0);
+  const gesamtAnzahl = zeilen.reduce((s, z) => s + z.anzahl, 0);
+  const gesamtVorjahrUmsatz = hatVorjahr
+    ? zeilen.reduce((s, z) => s + (z.vorjahrUmsatz ?? 0), 0)
+    : null;
+  const gesamtErgebnis = Math.round((gesamtDb - gesamtAusgaben) * 100) / 100;
+  const gesamtDbMarge = gesamtUmsatz > 0 ? Math.round((gesamtDb / gesamtUmsatz) * 1000) / 10 : 0;
+  const gesamtProLieferung = gesamtAnzahl > 0 ? Math.round((gesamtUmsatz / gesamtAnzahl) * 100) / 100 : 0;
+  const gesamtVeraenderung =
+    gesamtVorjahrUmsatz !== null && gesamtVorjahrUmsatz > 0
+      ? Math.round(((gesamtUmsatz - gesamtVorjahrUmsatz) / gesamtVorjahrUmsatz) * 1000) / 10
+      : null;
+
+  const eur0 = (n: number) => formatEuro(n, 0);
+  const prozent = (n: number | null) =>
+    n === null ? "–" : `${n >= 0 ? "+" : ""}${n.toLocaleString("de-DE")} %`;
+  const prozentFarbe = (n: number | null) =>
+    n === null ? "text-gray-400" : n >= 0 ? "text-green-700" : "text-red-600";
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left pb-2 pr-3 font-medium text-gray-600 sticky left-0 bg-white whitespace-nowrap">
+                Kennzahl
+              </th>
+              {zeilen.map((z) => (
+                <th key={z.monat} className="text-right pb-2 px-3 font-medium text-gray-600 whitespace-nowrap">
+                  {monatsLabel(z.monat)}
+                </th>
+              ))}
+              <th className="text-right pb-2 pl-3 font-semibold text-gray-800 whitespace-nowrap border-l border-gray-200">
+                Gesamt
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            <tr>
+              <td className="py-2 pr-3 font-medium text-gray-700 sticky left-0 bg-white whitespace-nowrap">Umsatz</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono tabular-nums whitespace-nowrap">{eur0(z.umsatz)}</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap border-l border-gray-200">{eur0(gesamtUmsatz)}</td>
+            </tr>
+            {hatVorjahr && (
+              <>
+                <tr>
+                  <td className="py-2 pr-3 text-gray-500 sticky left-0 bg-white whitespace-nowrap">davon Vorjahr</td>
+                  {zeilen.map((z) => (
+                    <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">
+                      {z.vorjahrUmsatz === null ? "–" : eur0(z.vorjahrUmsatz)}
+                    </td>
+                  ))}
+                  <td className="py-2 pl-3 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap border-l border-gray-200">
+                    {gesamtVorjahrUmsatz === null ? "–" : eur0(gesamtVorjahrUmsatz)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-3 text-gray-500 sticky left-0 bg-white whitespace-nowrap">Veränderung ggü. Vorjahr</td>
+                  {zeilen.map((z) => (
+                    <td key={z.monat} className={`py-2 px-3 text-right font-mono tabular-nums whitespace-nowrap ${prozentFarbe(z.veraenderungProzent)}`}>
+                      {prozent(z.veraenderungProzent)}
+                    </td>
+                  ))}
+                  <td className={`py-2 pl-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap border-l border-gray-200 ${prozentFarbe(gesamtVeraenderung)}`}>
+                    {prozent(gesamtVeraenderung)}
+                  </td>
+                </tr>
+              </>
+            )}
+            <tr>
+              <td className="py-2 pr-3 text-gray-700 sticky left-0 bg-white whitespace-nowrap">Wareneinsatz</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-600 tabular-nums whitespace-nowrap">{eur0(z.wareneinsatz)}</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono font-semibold text-gray-700 tabular-nums whitespace-nowrap border-l border-gray-200">{eur0(gesamtWareneinsatz)}</td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 font-medium text-gray-700 sticky left-0 bg-white whitespace-nowrap">Deckungsbeitrag</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className={`py-2 px-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap ${z.deckungsbeitrag >= 0 ? "text-green-700" : "text-red-600"}`}>
+                  {eur0(z.deckungsbeitrag)}
+                </td>
+              ))}
+              <td className={`py-2 pl-3 text-right font-mono font-bold tabular-nums whitespace-nowrap border-l border-gray-200 ${gesamtDb >= 0 ? "text-green-700" : "text-red-600"}`}>
+                {eur0(gesamtDb)}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 text-gray-500 sticky left-0 bg-white whitespace-nowrap">DB-Marge</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">{z.dbMargeProzent.toLocaleString("de-DE")} %</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono text-gray-600 tabular-nums whitespace-nowrap border-l border-gray-200">{gesamtDbMarge.toLocaleString("de-DE")} %</td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 text-gray-700 sticky left-0 bg-white whitespace-nowrap">Ausgaben</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-600 tabular-nums whitespace-nowrap">{eur0(z.ausgaben)}</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono font-semibold text-gray-700 tabular-nums whitespace-nowrap border-l border-gray-200">{eur0(gesamtAusgaben)}</td>
+            </tr>
+            <tr className="border-t border-gray-200">
+              <td className="py-2 pr-3 font-semibold text-gray-900 sticky left-0 bg-white whitespace-nowrap">Ergebnis</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className={`py-2 px-3 text-right font-mono font-bold tabular-nums whitespace-nowrap ${z.ergebnis >= 0 ? "text-green-700" : "text-red-600"}`}>
+                  {eur0(z.ergebnis)}
+                </td>
+              ))}
+              <td className={`py-2 pl-3 text-right font-mono font-bold tabular-nums whitespace-nowrap border-l border-gray-200 ${gesamtErgebnis >= 0 ? "text-green-700" : "text-red-600"}`}>
+                {eur0(gesamtErgebnis)}
+              </td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 text-gray-500 sticky left-0 bg-white whitespace-nowrap">Lieferungen</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">{z.anzahl}</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono text-gray-600 tabular-nums whitespace-nowrap border-l border-gray-200">{gesamtAnzahl}</td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-3 text-gray-500 sticky left-0 bg-white whitespace-nowrap">Ø pro Lieferung</td>
+              {zeilen.map((z) => (
+                <td key={z.monat} className="py-2 px-3 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">{eur0(z.proLieferung)}</td>
+              ))}
+              <td className="py-2 pl-3 text-right font-mono text-gray-600 tabular-nums whitespace-nowrap border-l border-gray-200">{eur0(gesamtProLieferung)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-gray-400 mt-3">
+        Ergebnis = Deckungsbeitrag (Umsatz − Wareneinsatz) abzüglich der im Ausgabenbuch erfassten
+        Ausgaben. Berücksichtigt keine noch nicht erfassten Eingangsrechnungen oder Personalkosten
+        außerhalb des Ausgabenbuchs.
+      </p>
+    </div>
+  );
+}
+
 // ─── Kategorie Balken ─────────────────────────────────────────────────────────
 
 function KategorieProzentBalken({ data }: { data: KategorieUmsatz[] }) {
@@ -515,6 +723,19 @@ export default function StatistikPage() {
                 <MargeTrendChart data={data.umsatzNachMonat} />
               </div>
             )}
+          </div>
+
+          {/* Monatsvergleich: Umsatz/Wareneinsatz/Deckungsbeitrag/Ausgaben/Ergebnis je Monat nebeneinander */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-base font-semibold text-gray-800 mb-1">Monatsvergleich</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Die Kennzahlen des gewählten Zeitraums je Monat nebeneinander
+            </p>
+            <MonatsvergleichTabelle
+              umsatzNachMonat={data.umsatzNachMonat}
+              vorjahrNachMonat={data.vorjahrNachMonat ?? []}
+              ausgabenNachMonat={data.ausgabenNachMonat ?? []}
+            />
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6">
