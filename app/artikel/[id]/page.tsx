@@ -409,6 +409,18 @@ function ArtikelDetailContent() {
     return true;
   }
 
+  async function updateMengenstaffel(staffelId: number, eintrag: { vonMenge: number; preis: number; kundeId: number | null }): Promise<boolean> {
+    const res = await fetch(`/api/mengenrabatte?id=${staffelId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(eintrag),
+    });
+    if (!res.ok) return false;
+    const neu = await res.json();
+    setMengenstaffeln((prev) => prev.map((e) => (e.id === staffelId ? neu : e)));
+    return true;
+  }
+
   async function deleteMengenstaffel(staffelId: number): Promise<boolean> {
     const res = await fetch(`/api/mengenrabatte?id=${staffelId}`, { method: "DELETE" });
     if (!res.ok) return false;
@@ -1963,6 +1975,7 @@ function ArtikelDetailContent() {
               einheit={artikel.einheit}
               kunden={mengenstaffelnKunden}
               onSave={saveMengenstaffel}
+              onUpdate={updateMengenstaffel}
               onDelete={deleteMengenstaffel}
             />
           )}

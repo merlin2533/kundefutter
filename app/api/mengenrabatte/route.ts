@@ -93,6 +93,58 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PATCH /api/mengenrabatte?id= — bestehenden Staffelpreis bearbeiten (vonMenge/preis/kundeId),
+// ohne ihn löschen und neu anlegen zu müssen. Setzt dabei immer auf den absoluten Preis (analog
+// POST) — eine Legacy-Prozent-Staffel wird beim Bearbeiten auf das neue Format umgestellt.
+export async function PATCH(req: NextRequest) {
+  const __me = await getCurrentUser();
+  const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);
+  if (__deny) return __deny;
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id fehlt" }, { status: 400 });
+  }
+  let body;
+  try {
+    body = await req.json();
+  } catch (err) {
+    Sentry.captureException(err);
+    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
+  }
+
+  const { kundeId, vonMenge, preis } = body;
+
+  if (vonMenge === undefined || vonMenge === null || !Number.isFinite(Number(vonMenge)) || Number(vonMenge) <= 0) {
+    return NextResponse.json({ error: "vonMenge ist erforderlich" }, { status: 400 });
+  }
+  if (preis === undefined || preis === null || preis === "" || !Number.isFinite(Number(preis)) || Number(preis) < 0) {
+    return NextResponse.json({ error: "preis ist erforderlich" }, { status: 400 });
+  }
+
+  try {
+    const rabatt = await prisma.mengenrabatt.update({
+      where: { id: Number(id) },
+      data: {
+        vonMenge: Number(vonMenge),
+        preis: Number(preis),
+        rabattProzent: 0,
+        kundeId: kundeId ? Number(kundeId) : null,
+      },
+      include: {
+        artikel: { select: { id: true, name: true, artikelnummer: true, kategorie: true } },
+        kunde: { select: { id: true, name: true, firma: true } },
+      },
+    });
+    return NextResponse.json(rabatt);
+  } catch (err) {
+    Sentry.captureException(err);
+    const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : undefined;
+    if (code === "P2025") return NextResponse.json({ error: "Mengenrabatt nicht gefunden" }, { status: 404 });
+    return NextResponse.json({ error: "Fehler beim Speichern" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   const __me = await getCurrentUser();
   const __deny = requirePermission(__me, P.ARTIKEL_BEARBEITEN);

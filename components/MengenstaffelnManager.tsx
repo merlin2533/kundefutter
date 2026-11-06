@@ -24,16 +24,19 @@ interface Props {
   einheit: string;
   kunden: KundeOption[];
   onSave: (eintrag: { vonMenge: number; preis: number; kundeId: number | null }) => Promise<boolean>;
+  onUpdate: (id: number, eintrag: { vonMenge: number; preis: number; kundeId: number | null }) => Promise<boolean>;
   onDelete: (id: number) => Promise<boolean>;
 }
 
 // Mengenstaffeln (Mengenrabatt) direkt am Artikel verwalten — absoluter Verkaufspreis ab einer
 // Menge, optional auf einen bestimmten Kunden eingeschränkt (leer = gilt für alle Kunden). Wird
 // automatisch im Auftragsformular gezogen, sobald die entsprechende Menge erreicht ist
-// (lib/utils.ts bestMengenstaffel()). Kein Bearbeiten-Endpunkt vorhanden — nur Anlegen/Löschen,
-// wie auch die globale Übersicht unter /mengenrabatte.
-export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSave, onDelete }: Props) {
+// (lib/utils.ts bestMengenstaffel()). Bearbeiten über PATCH /api/mengenrabatte?id= (analog
+// EinkaufspreisVerlaufManager), ohne die Zeile löschen und neu anlegen zu müssen — die globale
+// Übersicht unter /mengenrabatte hat weiterhin nur Anlegen/Löschen.
+export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSave, onUpdate, onDelete }: Props) {
   const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
   const [vonMenge, setVonMenge] = useState("");
   const [preis, setPreis] = useState("");
   const [kundeId, setKundeId] = useState("");
@@ -45,6 +48,16 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
     setVonMenge("");
     setPreis("");
     setKundeId("");
+    setEditId(null);
+    setError("");
+    setShowForm(true);
+  }
+
+  function startEdit(e: MengenstaffelEintrag) {
+    setVonMenge(String(e.vonMenge));
+    setPreis(String(e.preis));
+    setKundeId(e.kunde ? String(e.kunde.id) : "");
+    setEditId(e.id);
     setError("");
     setShowForm(true);
   }
@@ -63,10 +76,15 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
     }
     setSaving(true);
     setError("");
-    const ok = await onSave({ vonMenge: menge, preis: preisWert, kundeId: kundeId ? Number(kundeId) : null });
+    const eintrag = { vonMenge: menge, preis: preisWert, kundeId: kundeId ? Number(kundeId) : null };
+    const ok = editId !== null ? await onUpdate(editId, eintrag) : await onSave(eintrag);
     setSaving(false);
-    if (ok) setShowForm(false);
-    else setError("Fehler beim Speichern.");
+    if (ok) {
+      setShowForm(false);
+      setEditId(null);
+    } else {
+      setError("Fehler beim Speichern.");
+    }
   }
 
   async function handleDelete(id: number, label: string) {
@@ -115,6 +133,9 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
                     {!e.aktiv && <span className="ml-1.5 text-[10px] text-gray-400">(inaktiv)</span>}
                   </td>
                   <td className="py-1.5 text-right whitespace-nowrap">
+                    <button type="button" onClick={() => startEdit(e)} className="text-gray-400 hover:text-green-700 px-1" title="Bearbeiten">
+                      ✎
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(e.id, `ab ${e.vonMenge} ${einheit} · ${formatEuro(e.preis)}`)}
@@ -134,6 +155,9 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
 
       {showForm && (
         <form onSubmit={handleSave} className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+          <p className="text-[11px] font-medium text-gray-500">
+            {editId !== null ? "Staffelpreis bearbeiten" : "Neuer Staffelpreis"}
+          </p>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -177,7 +201,7 @@ export default function MengenstaffelnManager({ eintraege, einheit, kunden, onSa
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={() => { setShowForm(false); setEditId(null); }}
               className="px-2.5 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100"
             >
               Abbrechen
