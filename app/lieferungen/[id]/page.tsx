@@ -31,6 +31,9 @@ interface Position {
     standardpreis?: number;
     updatedAt?: string;
     lieferanten?: { einkaufspreis: number; bevorzugt: boolean; updatedAt: string }[];
+    // Letzte ECHTE Standardpreis-Änderung (ArtikelPreisHistorie) — NICHT artikel.updatedAt
+    // verwenden, das wird von jeder Artikel-Änderung berührt (siehe ermittlePreisAktualisierungen()).
+    preisHistorie?: { geaendertAm: string }[];
   };
 }
 
@@ -137,15 +140,32 @@ function ermittlePreisAktualisierungen(lieferung: Lieferung): PreisAktualisierun
   const updates: PreisAktualisierung[] = [];
   for (const pos of lieferung.positionen) {
     const sp = sonderMap.get(pos.artikel.id);
-    if (sp && new Date(sp.updatedAt).getTime() > erstellt && sp.preis !== pos.verkaufspreis) {
-      updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: sp.preis, quelle: "Sonderpreis" });
-    } else if (
-      pos.artikel.updatedAt &&
-      pos.artikel.standardpreis !== undefined &&
-      new Date(pos.artikel.updatedAt).getTime() > erstellt &&
-      pos.artikel.standardpreis !== pos.verkaufspreis
-    ) {
-      updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: pos.artikel.standardpreis, quelle: "Artikel" });
+    if (sp) {
+      // Hat der Kunde einen Sonderpreis für diesen Artikel, ist AUSSCHLIESSLICH dieser die
+      // Preisquelle dieser Position — der generische Artikel-Standardpreis ist dann
+      // irrelevant und wird (anders als früher) nicht mehr als Fallback geprüft. Sonst würde
+      // ein unveränderter, zur Position passender Sonderpreis (dritte Bedingung unten false)
+      // fälschlich in den Artikel-Zweig durchfallen und dessen oft ganz anderen — oder gar nie
+      // gepflegten (0 €) — Standardpreis als "neuen Preis" vorschlagen.
+      if (new Date(sp.updatedAt).getTime() > erstellt && sp.preis !== pos.verkaufspreis) {
+        updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: sp.preis, quelle: "Sonderpreis" });
+      }
+    } else {
+      // Kein Sonderpreis für diesen Kunden → die Position wurde vom generischen
+      // Artikel-Standardpreis abgeleitet. Vergleichsbasis ist deshalb NICHT artikel.updatedAt
+      // (wird von jeder Artikel-Änderung berührt, z.B. einem reinen EK-/Lieferanten-Edit — siehe
+      // PUT /api/artikel/[id], das immer ein abschließendes tx.artikel.update() auslöst),
+      // sondern der letzte ArtikelPreisHistorie-Eintrag, der ausschließlich bei einer echten
+      // Standardpreis-Änderung entsteht.
+      const letztePreisAenderung = pos.artikel.preisHistorie?.[0]?.geaendertAm;
+      if (
+        letztePreisAenderung &&
+        pos.artikel.standardpreis !== undefined &&
+        new Date(letztePreisAenderung).getTime() > erstellt &&
+        pos.artikel.standardpreis !== pos.verkaufspreis
+      ) {
+        updates.push({ posId: pos.id, artikelName: pos.artikel.name, feld: "verkaufspreis", alterPreis: pos.verkaufspreis, neuerPreis: pos.artikel.standardpreis, quelle: "Artikel" });
+      }
     }
 
     const lieferanten = pos.artikel.lieferanten ?? [];
