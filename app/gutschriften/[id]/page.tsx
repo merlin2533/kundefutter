@@ -81,9 +81,9 @@ export default function GutschriftDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  async function handleStatusChange(newStatus: string) {
+  async function handleStatusChange(newStatus: string, confirmText: string) {
     if (!gutschrift) return;
-    if (!await bestaetige("Gutschrift stornieren?")) return;
+    if (!await bestaetige(confirmText)) return;
     setSaving(true);
     setError("");
     try {
@@ -176,6 +176,8 @@ export default function GutschriftDetailPage() {
       ? `Diese Gutschrift wurde bereits in ${
           gutschrift.verbuchtBeiLieferung.rechnungNr ?? `Rechnung #${gutschrift.verbuchtBeiLieferung.id}`
         } verrechnet — die dortige Ausgleichsposition wird entfernt und der Rechnungsbetrag ändert sich.`
+      : gutschrift.status === "ERSTATTET"
+      ? "Die Gutschrift gilt dann nicht mehr als per Überweisung zurückgezahlt und wird wieder automatisch in die nächste Rechnung dieses Kunden eingerechnet, sofern nicht erneut anders markiert."
       : "";
     if (!await bestaetige(["Gutschrift wieder als offen markieren?", hinweis].filter(Boolean).join("\n\n"))) return;
     setSaving(true);
@@ -306,7 +308,20 @@ export default function GutschriftDetailPage() {
                 Als verbucht markieren
               </button>
               <button
-                onClick={() => handleStatusChange("STORNIERT")}
+                onClick={() =>
+                  handleStatusChange(
+                    "ERSTATTET",
+                    "Gutschrift als „per Überweisung erstattet“ markieren? Sie wird dadurch NICHT mehr automatisch in die nächste Rechnung dieses Kunden eingerechnet."
+                  )
+                }
+                disabled={saving}
+                title="Für bereits per Überweisung an den Kunden zurückgezahlte Beträge — im Unterschied zu „Als verbucht markieren“ (Verrechnung gegen eine Rechnung)"
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                Als erstattet markieren
+              </button>
+              <button
+                onClick={() => handleStatusChange("STORNIERT", "Gutschrift stornieren?")}
                 disabled={saving}
                 className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
@@ -314,11 +329,11 @@ export default function GutschriftDetailPage() {
               </button>
             </>
           )}
-          {gutschrift.status === "VERBUCHT" && (
+          {(gutschrift.status === "VERBUCHT" || gutschrift.status === "ERSTATTET") && (
             <button
               onClick={handleReopen}
               disabled={saving}
-              title="Setzt den Status zurück auf Offen — z.B. wenn versehentlich manuell als verbucht markiert"
+              title="Setzt den Status zurück auf Offen — z.B. wenn versehentlich manuell als verbucht oder erstattet markiert"
               className="px-3 py-1.5 border border-amber-300 text-amber-700 text-sm rounded-lg hover:bg-amber-50 disabled:opacity-50 transition-colors"
             >
               Wieder öffnen
