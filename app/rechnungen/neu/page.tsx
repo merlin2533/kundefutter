@@ -95,7 +95,7 @@ export default function NeueRechnungPage() {
       setAusgewaehlt([]);
       return;
     }
-    fetch(`/api/lieferungen?kundeId=${kundeId}&status=geliefert&ohneRechnung=true`)
+    fetch(`/api/lieferungen?kundeId=${kundeId}&status=geliefert&ohneRechnung=true&limit=5000`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
         const list = Array.isArray(data) ? data : [];

@@ -65,7 +65,7 @@ function NeueSammelrechnungForm() {
     // explizit als "geliefert" — eine noch "geplante" Lieferung wird beim Erstellen der
     // Sammelrechnung serverseitig automatisch mitgezogen (wie bei der Einzelrechnung), siehe
     // POST /api/sammelrechnungen. Nur stornierte Lieferungen scheiden aus.
-    fetch(`/api/lieferungen?kundeId=${kundeId}`)
+    fetch(`/api/lieferungen?kundeId=${kundeId}&limit=5000`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: Lieferung[]) => {
         const list = Array.isArray(data) ? data : [];
