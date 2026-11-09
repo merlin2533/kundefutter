@@ -82,8 +82,15 @@ export function erzeugeGiroCodePayload(input: GiroCodeInput): string | null {
     verwendung,
   ];
 
-  // EPC-QR darf 331 Byte (UTF-8) nicht überschreiten
-  const payload = zeilen.join("\n");
+  // EPC069-12 schreibt bei Character Set "1" (UTF-8, Feld 3 oben) vor, dass der Payload mit
+  // der UTF-8 Byte Order Mark (BOM, Bytes EF BB BF) beginnen MUSS — unmittelbar vor "BCD".
+  // Ohne diese BOM lehnen mehrere Banking-Apps (u.a. etliche Sparkassen-/Volksbank-Apps) den
+  // Code beim Scannen komplett als "nicht erkannt" ab, selbst wenn er nur ASCII-Zeichen
+  // enthält — genau das vom Kunden gemeldete Symptom. `qrcode` kodiert den übergebenen
+  // JS-String unverändert als UTF-8-Bytes, ein vorangestelltes "﻿" erzeugt dadurch exakt
+  // die drei geforderten BOM-Bytes.
+  const payload = "﻿" + zeilen.join("\n");
+  // EPC-QR darf 331 Byte (UTF-8, inkl. BOM) nicht überschreiten
   if (Buffer.byteLength(payload, "utf8") > 331) return null;
   return payload;
 }

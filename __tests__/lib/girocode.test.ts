@@ -14,10 +14,17 @@ describe("erzeugeGiroCodePayload", () => {
     verwendungszweck: "Rechnung RE-2026-001",
   };
 
+  it("beginnt mit der laut EPC069-12 bei Character Set UTF-8 vorgeschriebenen Byte Order Mark (sonst lehnen etliche Banking-Apps den Code als 'nicht erkannt' ab)", () => {
+    const payload = erzeugeGiroCodePayload(basisInput);
+    expect(payload).not.toBeNull();
+    expect(payload!.charCodeAt(0)).toBe(0xfeff);
+    expect(Buffer.from(payload!, "utf8").subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
+  });
+
   it("erzeugt eine BCD/EPC-Payload mit den 11 vorgeschriebenen Feldern in der richtigen Reihenfolge", () => {
     const payload = erzeugeGiroCodePayload(basisInput);
     expect(payload).not.toBeNull();
-    const zeilen = payload!.split("\n");
+    const zeilen = payload!.replace(/^﻿/, "").split("\n");
     expect(zeilen).toEqual([
       "BCD",
       "002",
