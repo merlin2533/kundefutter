@@ -134,7 +134,7 @@ function NeueGutschriftForm() {
       if (!preselectedLieferungId) setLieferungId("");
       return;
     }
-    fetch(`/api/lieferungen?kundeId=${kundeId}`)
+    fetch(`/api/lieferungen?kundeId=${kundeId}&limit=5000`)
       .then((r) => r.json())
       .then((d) => setLieferungen(Array.isArray(d) ? d : []))
       .catch((err) => {
