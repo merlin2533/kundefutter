@@ -213,6 +213,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     return NextResponse.json(artikel);
   } catch (err) {
+    // Doppelte Artikelnummer ist ein Bedienfehler, kein Serverfehler: 409 mit klarer Meldung,
+    // bewusst ohne Sentry-Issue (der Nutzer korrigiert die Nummer selbst).
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { code?: string }).code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Diese Artikelnummer ist bereits vergeben. Bitte eine andere Nummer wählen." },
+        { status: 409 }
+      );
+    }
     Sentry.captureException(err);
     const message = err instanceof Error ? err.message : String(err);
     if (message === "Nicht gefunden") {
