@@ -61,14 +61,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
     }
 
-    // Sonderfall: eine manuell (oder automatisch) auf VERBUCHT gesetzte Gutschrift wieder
-    // öffnen — einziger Weg zurück außer dem vollständigen Löschen. Bewusst VOR dem
-    // allgemeinen "nur OFFEN bearbeitbar"-Guard geprüft, da dieser sonst genau diese Aktion
-    // blockieren würde.
+    // Sonderfall: eine manuell (oder automatisch) auf VERBUCHT bzw. ERSTATTET gesetzte
+    // Gutschrift wieder öffnen — einziger Weg zurück außer dem vollständigen Löschen. Bewusst
+    // VOR dem allgemeinen "nur OFFEN bearbeitbar"-Guard geprüft, da dieser sonst genau diese
+    // Aktion blockieren würde.
     if (body.aktion === "wieder_oeffnen") {
-      if (existing.status !== "VERBUCHT") {
+      if (existing.status !== "VERBUCHT" && existing.status !== "ERSTATTET") {
         return NextResponse.json(
-          { error: "Nur verbuchte Gutschriften können wieder geöffnet werden" },
+          { error: "Nur verbuchte oder erstattete Gutschriften können wieder geöffnet werden" },
           { status: 400 }
         );
       }

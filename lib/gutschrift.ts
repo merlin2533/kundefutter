@@ -161,19 +161,22 @@ export async function verbucheGutschriftGegenLieferung(
 }
 
 /**
- * Öffnet eine VERBUCHTE Gutschrift wieder (Status zurück auf OFFEN) — Gegenstück zum manuellen
- * "Als verbucht markieren"-Button auf /gutschriften/[id], der versehentlich geklickt werden kann
- * und bisher keinen Weg zurück bot außer dem vollständigen Löschen der Gutschrift. Wurde sie dabei
- * bereits automatisch als Ausgleichsposition in eine Rechnung eingerechnet
- * (verbuchtBeiLieferungId gesetzt, z.B. durch injiziereOffeneGutschriften()), wird diese Position
- * entfernt, damit die Gutschrift nicht doppelt wirksam wird — identische Logik wie beim Löschen
- * einer verbuchten Gutschrift in loescheGutschriftMitNebenwirkungen(), nur ohne den Datensatz
- * selbst zu löschen. Gibt false zurück, wenn keine Gutschrift mit dieser ID existiert oder sie
- * nicht VERBUCHT ist (kein Fehler — Aufrufer meldet das gezielt als 400).
+ * Öffnet eine VERBUCHTE **oder** ERSTATTETE Gutschrift wieder (Status zurück auf OFFEN) —
+ * Gegenstück zum manuellen "Als verbucht markieren"- bzw. "Als erstattet markieren"-Button auf
+ * /gutschriften/[id], die beide versehentlich geklickt werden können und sonst keinen Weg zurück
+ * böten außer dem vollständigen Löschen der Gutschrift. War sie VERBUCHT und dabei bereits
+ * automatisch als Ausgleichsposition in eine Rechnung eingerechnet (verbuchtBeiLieferungId
+ * gesetzt, z.B. durch injiziereOffeneGutschriften()), wird diese Position entfernt, damit die
+ * Gutschrift nicht doppelt wirksam wird — identische Logik wie beim Löschen einer verbuchten
+ * Gutschrift in loescheGutschriftMitNebenwirkungen(), nur ohne den Datensatz selbst zu löschen.
+ * ERSTATTET setzt nie eine verbuchtBeiLieferungId (siehe erstelleDoppelzahlungsGutschrift()), der
+ * Reset ist dort also ein reiner Statuswechsel ohne Nebenwirkung. Gibt false zurück, wenn keine
+ * Gutschrift mit dieser ID existiert oder sie weder VERBUCHT noch ERSTATTET ist (kein Fehler —
+ * Aufrufer meldet das gezielt als 400).
  */
 export async function oeffneGutschriftErneut(tx: Tx, gutschriftId: number): Promise<boolean> {
   const existing = await tx.gutschrift.findUnique({ where: { id: gutschriftId } });
-  if (!existing || existing.status !== "VERBUCHT") return false;
+  if (!existing || (existing.status !== "VERBUCHT" && existing.status !== "ERSTATTET")) return false;
 
   if (existing.verbuchtBeiLieferungId) {
     await tx.lieferposition.deleteMany({
