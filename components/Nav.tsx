@@ -27,7 +27,7 @@ interface NavGroup {
 const MODULE_HREFS: Record<string, string[]> = {
   "modul.kampagnen": ["/kampagnen"],
   "modul.kontrakte": ["/kontrakte"],
-  "modul.fruehbezug": ["/vorbestellungen", "/einstellungen/fruehbezug", "/statistik/vorbestellungen"],
+  "modul.fruehbezug": ["/vorbestellungen", "/einstellungen/fruehbezug", "/statistik/vorbestellungen", "/einkaufsabgleich"],
   "modul.sortenversuche": ["/sortenversuche"],
   "modul.bodenproben": [
     "/bodenproben", "/bodenanalyse", "/duengebedarf", "/duev", "/duev/bilanz",
@@ -136,6 +136,7 @@ const groups: NavGroup[] = [
       { href: "/bestellliste", label: "Bestellliste", section: "Einkauf" },
       { href: "/bestellungen", label: "Lieferantenbestellungen", section: "Einkauf" },
       { href: "/einkaufszettel", label: "Einkaufszettel", section: "Einkauf" },
+      { href: "/einkaufsabgleich", label: "Einkaufsabgleich", section: "Einkauf" },
     ],
   },
   {
@@ -249,6 +250,7 @@ const NAV_PERMISSION: Record<string, string> = {
   "/bestellliste": P.BESTELLUNGEN,
   "/bestellungen": P.BESTELLUNGEN,
   "/einkaufszettel": P.BESTELLUNGEN,
+  "/einkaufsabgleich": P.BESTELLUNGEN,
   // Finanzen
   "/rechnungen": P.RECHNUNGEN,
   "/sammelrechnungen": P.SAMMELRECHNUNGEN,
@@ -334,6 +336,7 @@ const PAGE_TITLE_MAP: Record<string, string> = {
   "/sortenversuche": "Sortenversuche",
   "/vorbestellungen": "Vorbestellungen",
   "/einkaufszettel": "Einkaufszettel",
+  "/einkaufsabgleich": "Einkaufsabgleich",
   "/einstellungen/fruehbezug": "Frühbezugs-Staffeln",
   "/rationsberechnung": "Rationsberechnung",
   "/einstellungen/futterwerte": "Futterwerte",
