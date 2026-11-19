@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 
-interface VorbestellungZeile {
-  vorbestellungId: number;
-  nummer: string;
+interface KundenPosition {
+  quelle: "vorbestellung" | "lieferung" | "angebot";
+  belegId: number;
+  belegNummer: string;
+  belegTyp: string;
   kunde: { id: number; name: string; firma: string | null } | null;
   menge: number;
   einheit: string;
@@ -28,14 +30,20 @@ interface ArtikelZeile {
   artikelName: string;
   artikelnummer: string;
   einheit: string;
-  vorbestelltMenge: number;
+  kundenbedarfMenge: number;
   bestelltMenge: number;
   restMenge: number;
-  vorbestellungen: VorbestellungZeile[];
+  kundenPositionen: KundenPosition[];
   bestellungen: BestellungZeile[];
 }
 
 type Filter = "offen" | "gedeckt" | "alle";
+
+const BELEG_FARBE: Record<string, string> = {
+  vorbestellung: "bg-purple-100 text-purple-800",
+  lieferung: "bg-blue-100 text-blue-800",
+  angebot: "bg-teal-100 text-teal-800",
+};
 
 function menge(n: number): string {
   return n.toLocaleString("de-DE", { maximumFractionDigits: 2 });
@@ -104,8 +112,8 @@ export default function EinkaufsabgleichPage() {
   }
 
   function zeileStatus(z: ArtikelZeile): { label: string; color: string } {
-    if (z.vorbestelltMenge <= EPSILON && z.bestelltMenge > 0) {
-      return { label: "Ohne Vorbestellung bestellt", color: "bg-gray-100 text-gray-700" };
+    if (z.kundenbedarfMenge <= EPSILON && z.bestelltMenge > 0) {
+      return { label: "Ohne Kundenbedarf bestellt", color: "bg-gray-100 text-gray-700" };
     }
     if (z.restMenge > EPSILON) return { label: "Offen", color: "bg-yellow-100 text-yellow-800" };
     return { label: "Gedeckt", color: "bg-green-100 text-green-800" };
@@ -125,8 +133,9 @@ export default function EinkaufsabgleichPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Einkaufsabgleich</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Vorbestellte Menge der Kunden (Frühbezug) je Artikel gegen die Menge, die dafür bereits bei
-            Lieferanten bestellt wurde (laufende Bestellungen — ohne bereits abgeschlossene oder stornierte).
+            Kundenbedarf je Artikel (Vorbestellungen, als Auftrag erfasste Lieferungen &amp; angenommene
+            Angebote) gegen die Menge, die dafür bereits bei Lieferanten bestellt wurde (laufende
+            Bestellungen — ohne bereits abgeschlossene oder stornierte).
           </p>
           {!loading && (
             <p className="text-sm mt-1">
@@ -166,10 +175,10 @@ export default function EinkaufsabgleichPage() {
           <p className="text-4xl mb-3">📋</p>
           <p className="text-sm">
             {filter === "offen"
-              ? "Kein Artikel mit offenem Rest — alle Vorbestellungen sind bereits gedeckt."
+              ? "Kein Artikel mit offenem Rest — aller Kundenbedarf ist bereits gedeckt."
               : filter === "gedeckt"
                 ? "Noch kein Artikel vollständig gedeckt."
-                : "Keine offenen Vorbestellungen und keine laufenden Lieferantenbestellungen."}
+                : "Kein offener Kundenbedarf und keine laufenden Lieferantenbestellungen."}
           </p>
         </div>
       ) : (
@@ -190,7 +199,7 @@ export default function EinkaufsabgleichPage() {
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
                       <span className="font-medium text-gray-700">
-                        Vorbestellt {menge(z.vorbestelltMenge)} {z.einheit}
+                        Kundenbedarf {menge(z.kundenbedarfMenge)} {z.einheit}
                       </span>
                       <span className="text-blue-700">
                         Bestellt {menge(z.bestelltMenge)} {z.einheit}
@@ -199,7 +208,7 @@ export default function EinkaufsabgleichPage() {
                         Rest {menge(z.restMenge)} {z.einheit}
                       </span>
                       <button onClick={() => toggle(z.artikelId)} className="text-gray-400 hover:text-gray-700">
-                        {z.vorbestellungen.length} Vorbest. · {z.bestellungen.length} Bestell. {isOpen ? "▲" : "▼"}
+                        {z.kundenPositionen.length} Auftr./Vorbest. · {z.bestellungen.length} Bestell. {isOpen ? "▲" : "▼"}
                       </button>
                     </div>
                   </div>
@@ -208,16 +217,29 @@ export default function EinkaufsabgleichPage() {
                 {isOpen && (
                   <div className="mt-3 ml-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 mb-1">Vorbestellungen (Kunden)</p>
-                      {z.vorbestellungen.length === 0 ? (
-                        <p className="text-xs text-gray-400">Keine offene Vorbestellung.</p>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Kundenbedarf (Vorbestellung/Auftrag/Angebot)</p>
+                      {z.kundenPositionen.length === 0 ? (
+                        <p className="text-xs text-gray-400">Kein offener Kundenbedarf.</p>
                       ) : (
                         <div className="space-y-1">
-                          {z.vorbestellungen.map((p) => (
-                            <div key={p.vorbestellungId + ":" + p.nummer} className="flex items-center gap-2 text-xs flex-wrap">
-                              <Link href={`/vorbestellungen/${p.vorbestellungId}`} className="font-mono text-purple-700 hover:underline">
-                                {p.nummer}
-                              </Link>
+                          {z.kundenPositionen.map((p, i) => (
+                            <div key={`${p.quelle}:${p.belegId}:${i}`} className="flex items-center gap-2 text-xs flex-wrap">
+                              <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${BELEG_FARBE[p.quelle]}`}>
+                                {p.belegTyp}
+                              </span>
+                              {p.quelle === "lieferung" ? (
+                                <Link href={`/lieferungen/${p.belegId}`} className="font-mono text-blue-700 hover:underline">
+                                  {p.belegNummer}
+                                </Link>
+                              ) : p.quelle === "vorbestellung" ? (
+                                <Link href={`/vorbestellungen/${p.belegId}`} className="font-mono text-purple-700 hover:underline">
+                                  {p.belegNummer}
+                                </Link>
+                              ) : (
+                                <Link href={`/angebote/${p.belegId}`} className="font-mono text-teal-700 hover:underline">
+                                  {p.belegNummer}
+                                </Link>
+                              )}
                               {p.kunde && (
                                 <Link href={`/kunden/${p.kunde.id}`} className="text-gray-600 hover:text-green-700">
                                   {p.kunde.firma || p.kunde.name}

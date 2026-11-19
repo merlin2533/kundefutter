@@ -5,17 +5,24 @@ import { getModulConfig, requireModul } from "@/lib/modul-config";
 
 export const dynamic = "force-dynamic";
 
-// Nur Vorbestellungen, die noch echten, unabgewickelten Kundenbedarf darstellen — analog
-// GET /api/einkaufszettel (UMGEWANDELT/STORNIERT tragen keinen offenen Bedarf mehr).
+// Kundenbedarf zählt aus denselben drei Quellen wie der Einkaufszettel (GET /api/einkaufszettel,
+// Ansicht "Alle"): offene Vorbestellungen, geplante Lieferungen (als normaler Auftrag erfasster,
+// noch nicht ausgelieferter Bedarf) und angenommene Angebote. Dieser Abgleich deckte zunächst NUR
+// Vorbestellungen ab — ein Kunde meldete daraufhin, dass als gewöhnlicher Auftrag (Lieferung
+// status "geplant") erfasster Bedarf fälschlich nicht gegen die Lieferantenbestellung gerechnet
+// wurde, weil die meisten Aufträge in der Praxis so erfasst werden, nicht als Vorbestellung.
 const VORBESTELLUNG_OFFEN_STATUS = ["OFFEN", "BESTAETIGT"];
+const ANGEBOT_ANGENOMMEN_STATUS = "ANGENOMMEN";
 // Nur noch laufende Lieferantenbestellungen zählen als "schon bestellt" — eine bereits
 // ABGESCHLOSSENE (komplett abgewickelte) Bestellung fällt bewusst aus dieser Ansicht heraus,
 // genau wie eine STORNIERTE.
 const BESTELLUNG_AKTIV_STATUS = ["OFFEN", "BESTAETIGT", "TEILGELIEFERT"];
 
-interface VorbestellungZeile {
-  vorbestellungId: number;
-  nummer: string;
+interface KundenPosition {
+  quelle: "vorbestellung" | "lieferung" | "angebot";
+  belegId: number;
+  belegNummer: string;
+  belegTyp: string;
   kunde: { id: number; name: string; firma: string | null } | null;
   menge: number;
   einheit: string;
@@ -38,27 +45,43 @@ interface ArtikelZeile {
   artikelName: string;
   artikelnummer: string;
   einheit: string;
-  vorbestelltMenge: number;
+  kundenbedarfMenge: number;
   bestelltMenge: number;
-  vorbestellungen: VorbestellungZeile[];
+  kundenPositionen: KundenPosition[];
   bestellungen: BestellungZeile[];
 }
 
 // GET /api/einkaufsabgleich
-// Stellt je Artikel die noch offene Kunden-Vorbestellmenge (Frühbezug) der Menge gegenüber,
-// die für diesen Artikel bereits bei Lieferanten bestellt wurde (laufende Bestellung,
-// siehe BESTELLUNG_AKTIV_STATUS) — die Brücke, die der bestehende Einkaufszettel bewusst NICHT
-// schlägt: dessen "bestellt"-Markierung ist nur ein manuelles EinkaufStatus-Häkchen ("schon
-// besorgt"), ohne Bezug zu einer tatsächlich ausgelösten Bestellung.
+// Stellt je Artikel den gesamten offenen Kundenbedarf (Vorbestellung + Auftrag + Angebot, siehe
+// oben) der Menge gegenüber, die für diesen Artikel bereits bei Lieferanten bestellt wurde
+// (laufende Bestellung, siehe BESTELLUNG_AKTIV_STATUS) — die Brücke, die der bestehende
+// Einkaufszettel bewusst NICHT schlägt: dessen "bestellt"-Markierung ist nur ein manuelles
+// EinkaufStatus-Häkchen ("schon besorgt"), ohne Bezug zu einer tatsächlich ausgelösten Bestellung.
 export async function GET() {
   const modul = await getModulConfig();
   const denyModul = requireModul(modul, "fruehbezug");
   if (denyModul) return denyModul;
 
   try {
-    const [vorbestellungen, bestellungen] = await Promise.all([
+    const [vorbestellungen, lieferungen, angebote, bestellungen] = await Promise.all([
       prisma.vorbestellung.findMany({
         where: { status: { in: VORBESTELLUNG_OFFEN_STATUS } },
+        include: {
+          kunde: { select: { id: true, name: true, firma: true } },
+          positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        },
+        take: 5000,
+      }),
+      prisma.lieferung.findMany({
+        where: { status: "geplant" },
+        include: {
+          kunde: { select: { id: true, name: true, firma: true } },
+          positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        },
+        take: 5000,
+      }),
+      prisma.angebot.findMany({
+        where: { status: ANGEBOT_ANGENOMMEN_STATUS },
         include: {
           kunde: { select: { id: true, name: true, firma: true } },
           positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
@@ -84,9 +107,9 @@ export async function GET() {
           artikelName: artikel.name,
           artikelnummer: artikel.artikelnummer,
           einheit: artikel.einheit,
-          vorbestelltMenge: 0,
+          kundenbedarfMenge: 0,
           bestelltMenge: 0,
-          vorbestellungen: [],
+          kundenPositionen: [],
           bestellungen: [],
         };
         zeilenMap.set(artikel.id, z);
@@ -97,14 +120,48 @@ export async function GET() {
     for (const vb of vorbestellungen) {
       for (const p of vb.positionen) {
         const z = zeileFuer(p.artikel);
-        z.vorbestelltMenge += p.menge;
-        z.vorbestellungen.push({
-          vorbestellungId: vb.id,
-          nummer: vb.nummer,
+        z.kundenbedarfMenge += p.menge;
+        z.kundenPositionen.push({
+          quelle: "vorbestellung",
+          belegId: vb.id,
+          belegNummer: vb.nummer,
+          belegTyp: "Vorbestellung",
           kunde: vb.kunde,
           menge: p.menge,
           einheit: p.einheit,
           status: vb.status,
+        });
+      }
+    }
+    for (const lf of lieferungen) {
+      for (const p of lf.positionen) {
+        const z = zeileFuer(p.artikel);
+        z.kundenbedarfMenge += p.menge;
+        z.kundenPositionen.push({
+          quelle: "lieferung",
+          belegId: lf.id,
+          belegNummer: lf.lieferscheinNr ?? String(lf.id),
+          belegTyp: "Auftrag",
+          kunde: lf.kunde,
+          menge: p.menge,
+          einheit: p.artikel.einheit ?? "kg",
+          status: lf.status,
+        });
+      }
+    }
+    for (const an of angebote) {
+      for (const p of an.positionen) {
+        const z = zeileFuer(p.artikel);
+        z.kundenbedarfMenge += p.menge;
+        z.kundenPositionen.push({
+          quelle: "angebot",
+          belegId: an.id,
+          belegNummer: an.nummer,
+          belegTyp: "Angebot",
+          kunde: an.kunde,
+          menge: p.menge,
+          einheit: p.einheit,
+          status: an.status,
         });
       }
     }
@@ -126,7 +183,7 @@ export async function GET() {
     }
 
     const ergebnis = Array.from(zeilenMap.values())
-      .map((z) => ({ ...z, restMenge: z.vorbestelltMenge - z.bestelltMenge }))
+      .map((z) => ({ ...z, restMenge: z.kundenbedarfMenge - z.bestelltMenge }))
       .sort((a, b) => a.artikelName.localeCompare(b.artikelName, "de"));
 
     return NextResponse.json(ergebnis);
