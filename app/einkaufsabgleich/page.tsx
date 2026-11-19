@@ -129,6 +129,7 @@ export default function EinkaufsabgleichPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <style>{`@media print { .print-hidden { display: none !important; } @page { margin: 1.5cm; size: A4; } }`}</style>
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Einkaufsabgleich</h1>
@@ -149,18 +150,34 @@ export default function EinkaufsabgleichPage() {
             </p>
           )}
         </div>
-        <div className="flex gap-1 print-hidden">
-          {(["offen", "gedeckt", "alle"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                filter === f ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-              }`}
+        <div className="flex flex-col items-end gap-2 print-hidden">
+          <div className="flex gap-1">
+            {(["offen", "gedeckt", "alle"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                  filter === f ? "bg-green-700 text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                }`}
+              >
+                {f === "offen" ? "Offen" : f === "gedeckt" ? "Gedeckt" : "Alle"}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <a
+              href={`/api/einkaufsabgleich/export?filter=${filter}`}
+              className="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
             >
-              {f === "offen" ? "Offen" : f === "gedeckt" ? "Gedeckt" : "Alle"}
+              ⤓ Excel-Export
+            </a>
+            <button
+              onClick={() => window.print()}
+              className="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+            >
+              Drucken
             </button>
-          ))}
+          </div>
         </div>
       </div>
 
