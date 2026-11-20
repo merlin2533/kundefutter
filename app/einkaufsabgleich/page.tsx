@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 
@@ -30,6 +30,7 @@ interface ArtikelZeile {
   artikelName: string;
   artikelnummer: string;
   einheit: string;
+  gruppe: string;
   kundenbedarfMenge: number;
   bestelltMenge: number;
   restMenge: number;
@@ -51,20 +52,36 @@ function menge(n: number): string {
 
 const EPSILON = 0.01;
 
-function loadFilter(): Filter {
+interface Filters {
+  status: Filter;
+  gruppe: string;
+  suche: string;
+}
+
+function loadFilters(): Filters {
   try {
-    const f = sessionStorage.getItem("einkaufsabgleich-filter");
-    if (f === "offen" || f === "gedeckt" || f === "alle") return f;
+    const raw = sessionStorage.getItem("einkaufsabgleich-filters");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const status: Filter = parsed.status === "offen" || parsed.status === "gedeckt" || parsed.status === "alle" ? parsed.status : "offen";
+      return {
+        status,
+        gruppe: typeof parsed.gruppe === "string" ? parsed.gruppe : "",
+        suche: typeof parsed.suche === "string" ? parsed.suche : "",
+      };
+    }
   } catch (err) {
     Sentry.captureException(err);
   }
-  return "offen";
+  return { status: "offen", gruppe: "", suche: "" };
 }
 
 export default function EinkaufsabgleichPage() {
   const [zeilen, setZeilen] = useState<ArtikelZeile[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("offen");
+  const [gruppe, setGruppe] = useState("");
+  const [suche, setSuche] = useState("");
   const [filterLoaded, setFilterLoaded] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [error, setError] = useState("");
@@ -85,7 +102,10 @@ export default function EinkaufsabgleichPage() {
   }
 
   useEffect(() => {
-    setFilter(loadFilter());
+    const f = loadFilters();
+    setFilter(f.status);
+    setGruppe(f.gruppe);
+    setSuche(f.suche);
     setFilterLoaded(true);
   }, []);
 
@@ -96,11 +116,11 @@ export default function EinkaufsabgleichPage() {
   useEffect(() => {
     if (!filterLoaded) return;
     try {
-      sessionStorage.setItem("einkaufsabgleich-filter", filter);
+      sessionStorage.setItem("einkaufsabgleich-filters", JSON.stringify({ status: filter, gruppe, suche }));
     } catch (err) {
       Sentry.captureException(err);
     }
-  }, [filterLoaded, filter]);
+  }, [filterLoaded, filter, gruppe, suche]);
 
   function toggle(artikelId: number) {
     setExpanded((prev) => {
@@ -119,13 +139,30 @@ export default function EinkaufsabgleichPage() {
     return { label: "Gedeckt", color: "bg-green-100 text-green-800" };
   }
 
+  const gruppenOptionen = useMemo(
+    () => Array.from(new Set(zeilen.map((z) => z.gruppe))).sort((a, b) => a.localeCompare(b, "de")),
+    [zeilen]
+  );
+
+  const sucheNorm = suche.trim().toLowerCase();
+  // Bewusst nach Gruppe sortiert (siehe lib/einkaufsabgleich.ts) geladen — die sichtbaren Zeilen
+  // bleiben dadurch ohne weiteres Zutun nach Artikelgruppe gruppiert.
   const sichtbareZeilen = zeilen.filter((z) => {
-    if (filter === "offen") return z.restMenge > EPSILON;
-    if (filter === "gedeckt") return z.restMenge <= EPSILON;
+    if (filter === "offen" && z.restMenge <= EPSILON) return false;
+    if (filter === "gedeckt" && z.restMenge > EPSILON) return false;
+    if (gruppe && z.gruppe !== gruppe) return false;
+    if (sucheNorm && !z.artikelName.toLowerCase().includes(sucheNorm) && !z.artikelnummer.toLowerCase().includes(sucheNorm)) return false;
     return true;
   });
 
   const offeneAnzahl = zeilen.filter((z) => z.restMenge > EPSILON).length;
+
+  function exportUrl(): string {
+    const params = new URLSearchParams({ filter });
+    if (gruppe) params.set("gruppe", gruppe);
+    if (suche.trim()) params.set("q", suche.trim());
+    return `/api/einkaufsabgleich/export?${params.toString()}`;
+  }
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -165,10 +202,7 @@ export default function EinkaufsabgleichPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <a
-              href={`/api/einkaufsabgleich/export?filter=${filter}`}
-              className="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
-            >
+            <a href={exportUrl()} className="text-sm px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">
               ⤓ Excel-Export
             </a>
             <button
@@ -181,6 +215,39 @@ export default function EinkaufsabgleichPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-3 mb-4 print-hidden">
+        <input
+          type="text"
+          value={suche}
+          onChange={(e) => setSuche(e.target.value)}
+          placeholder="Artikel oder Artikelnummer suchen…"
+          className="w-full sm:w-72 px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
+        />
+        <select
+          value={gruppe}
+          onChange={(e) => setGruppe(e.target.value)}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white"
+        >
+          <option value="">Alle Artikelgruppen</option>
+          {gruppenOptionen.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+        {(gruppe || suche) && (
+          <button
+            onClick={() => {
+              setGruppe("");
+              setSuche("");
+            }}
+            className="text-sm px-3 py-1.5 text-gray-500 hover:text-gray-700"
+          >
+            Filter zurücksetzen
+          </button>
+        )}
+      </div>
+
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
       )}
@@ -191,20 +258,29 @@ export default function EinkaufsabgleichPage() {
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">📋</p>
           <p className="text-sm">
-            {filter === "offen"
-              ? "Kein Artikel mit offenem Rest — aller Kundenbedarf ist bereits gedeckt."
-              : filter === "gedeckt"
-                ? "Noch kein Artikel vollständig gedeckt."
-                : "Kein offener Kundenbedarf und keine laufenden Lieferantenbestellungen."}
+            {gruppe || suche
+              ? "Kein Artikel passt zur gewählten Artikelgruppe/Suche."
+              : filter === "offen"
+                ? "Kein Artikel mit offenem Rest — aller Kundenbedarf ist bereits gedeckt."
+                : filter === "gedeckt"
+                  ? "Noch kein Artikel vollständig gedeckt."
+                  : "Kein offener Kundenbedarf und keine laufenden Lieferantenbestellungen."}
           </p>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
-          {sichtbareZeilen.map((z) => {
+          {sichtbareZeilen.map((z, i) => {
             const isOpen = expanded.has(z.artikelId);
             const st = zeileStatus(z);
+            const zeigeGruppenkopf = i === 0 || sichtbareZeilen[i - 1].gruppe !== z.gruppe;
             return (
-              <div key={z.artikelId} className="px-5 py-3">
+              <Fragment key={z.artikelId}>
+                {zeigeGruppenkopf && (
+                  <div className="px-5 py-1.5 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {z.gruppe}
+                  </div>
+                )}
+                <div className="px-5 py-3">
                 <div className="flex gap-3 items-start">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -295,7 +371,8 @@ export default function EinkaufsabgleichPage() {
                     </div>
                   </div>
                 )}
-              </div>
+                </div>
+              </Fragment>
             );
           })}
         </div>
