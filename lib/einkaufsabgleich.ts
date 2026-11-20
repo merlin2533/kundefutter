@@ -40,11 +40,24 @@ export interface ArtikelZeile {
   artikelName: string;
   artikelnummer: string;
   einheit: string;
+  // Gruppierungs-Label für Filter/Sortierung: Unterkategorie, wenn gesetzt (z.B. "Mais" bei
+  // Saatgut), sonst die Kategorie selbst (z.B. "Analysen" für Dienstleistungen ohne
+  // Unterkategorie) — genau die Ebene, die ein Nutzer mit "Artikelgruppe" meint.
+  gruppe: string;
   kundenbedarfMenge: number;
   bestelltMenge: number;
   restMenge: number;
   kundenPositionen: KundenPosition[];
   bestellungen: BestellungZeile[];
+}
+
+function kategorieAnzeige(kategorie: string): string {
+  return kategorie === "Duenger" ? "Dünger" : kategorie;
+}
+
+function gruppeFuer(artikel: { kategorie: string; unterkategorie: string | null }): string {
+  const uk = artikel.unterkategorie?.trim();
+  return uk ? uk : kategorieAnzeige(artikel.kategorie);
 }
 
 // Stellt je Artikel den gesamten offenen Kundenbedarf (Vorbestellung + Auftrag + Angebot, siehe
@@ -60,7 +73,9 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
       where: { status: { in: VORBESTELLUNG_OFFEN_STATUS } },
       include: {
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        positionen: {
+          include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, kategorie: true, unterkategorie: true } } },
+        },
       },
       take: 5000,
     }),
@@ -68,7 +83,9 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
       where: { status: "geplant" },
       include: {
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        positionen: {
+          include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, kategorie: true, unterkategorie: true } } },
+        },
       },
       take: 5000,
     }),
@@ -76,7 +93,9 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
       where: { status: ANGEBOT_ANGENOMMEN_STATUS },
       include: {
         kunde: { select: { id: true, name: true, firma: true } },
-        positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        positionen: {
+          include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, kategorie: true, unterkategorie: true } } },
+        },
       },
       take: 5000,
     }),
@@ -84,14 +103,23 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
       where: { status: { in: BESTELLUNG_AKTIV_STATUS } },
       include: {
         lieferant: { select: { id: true, name: true } },
-        positionen: { include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true } } } },
+        positionen: {
+          include: { artikel: { select: { id: true, name: true, artikelnummer: true, einheit: true, kategorie: true, unterkategorie: true } } },
+        },
       },
       take: 5000,
     }),
   ]);
 
   const zeilenMap = new Map<number, Omit<ArtikelZeile, "restMenge">>();
-  function zeileFuer(artikel: { id: number; name: string; artikelnummer: string; einheit: string }) {
+  function zeileFuer(artikel: {
+    id: number;
+    name: string;
+    artikelnummer: string;
+    einheit: string;
+    kategorie: string;
+    unterkategorie: string | null;
+  }) {
     let z = zeilenMap.get(artikel.id);
     if (!z) {
       z = {
@@ -99,6 +127,7 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
         artikelName: artikel.name,
         artikelnummer: artikel.artikelnummer,
         einheit: artikel.einheit,
+        gruppe: gruppeFuer(artikel),
         kundenbedarfMenge: 0,
         bestelltMenge: 0,
         kundenPositionen: [],
@@ -176,5 +205,5 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
 
   return Array.from(zeilenMap.values())
     .map((z) => ({ ...z, restMenge: z.kundenbedarfMenge - z.bestelltMenge }))
-    .sort((a, b) => a.artikelName.localeCompare(b.artikelName, "de"));
+    .sort((a, b) => a.gruppe.localeCompare(b.gruppe, "de") || a.artikelName.localeCompare(b.artikelName, "de"));
 }
