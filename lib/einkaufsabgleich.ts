@@ -12,6 +12,12 @@ const ANGEBOT_ANGENOMMEN_STATUS = "ANGENOMMEN";
 // ABGESCHLOSSENE (komplett abgewickelte) Bestellung fällt bewusst aus dieser Ansicht heraus,
 // genau wie eine STORNIERTE.
 const BESTELLUNG_AKTIV_STATUS = ["OFFEN", "BESTAETIGT", "TEILGELIEFERT"];
+// Reine Dienstleistungen (Beratung) werden nie bei einem Vorlieferanten "bestellt" — ein Kunde
+// bemängelte, dass sie trotzdem mit vollem Kundenbedarf und dauerhaft "Offen" in der Liste
+// auftauchten, obwohl dafür nie eine Lieferantenbestellung entstehen wird. Komplett aus der
+// Aggregation ausgeschlossen statt nur ausgeblendet, damit sie auch nicht in "X Artikel mit
+// offenem Rest" mitzählen.
+const AUSGESCHLOSSENE_KATEGORIEN = ["Beratung"];
 
 export interface KundenPosition {
   quelle: "vorbestellung" | "lieferung" | "angebot";
@@ -58,6 +64,10 @@ function kategorieAnzeige(kategorie: string): string {
 function gruppeFuer(artikel: { kategorie: string; unterkategorie: string | null }): string {
   const uk = artikel.unterkategorie?.trim();
   return uk ? uk : kategorieAnzeige(artikel.kategorie);
+}
+
+function istAusgeschlossen(artikel: { kategorie: string }): boolean {
+  return AUSGESCHLOSSENE_KATEGORIEN.includes(artikel.kategorie);
 }
 
 // Stellt je Artikel den gesamten offenen Kundenbedarf (Vorbestellung + Auftrag + Angebot, siehe
@@ -140,6 +150,7 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
 
   for (const vb of vorbestellungen) {
     for (const p of vb.positionen) {
+      if (istAusgeschlossen(p.artikel)) continue;
       const z = zeileFuer(p.artikel);
       z.kundenbedarfMenge += p.menge;
       z.kundenPositionen.push({
@@ -156,6 +167,7 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
   }
   for (const lf of lieferungen) {
     for (const p of lf.positionen) {
+      if (istAusgeschlossen(p.artikel)) continue;
       const z = zeileFuer(p.artikel);
       z.kundenbedarfMenge += p.menge;
       z.kundenPositionen.push({
@@ -172,6 +184,7 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
   }
   for (const an of angebote) {
     for (const p of an.positionen) {
+      if (istAusgeschlossen(p.artikel)) continue;
       const z = zeileFuer(p.artikel);
       z.kundenbedarfMenge += p.menge;
       z.kundenPositionen.push({
@@ -188,6 +201,7 @@ export async function ladeEinkaufsabgleich(): Promise<ArtikelZeile[]> {
   }
   for (const be of bestellungen) {
     for (const p of be.positionen) {
+      if (istAusgeschlossen(p.artikel)) continue;
       const z = zeileFuer(p.artikel);
       z.bestelltMenge += p.menge;
       z.bestellungen.push({
